@@ -1,0 +1,10 @@
+{
+  "mae": 7.7875167075001634,
+  "rmse": 10.399309779336276,
+  "mape": 12.683055831969476,
+  "accuracy": 87.31694416803052,
+  "test_samples": 74,
+  "trained_at": "2025-10-13T21:54:18.767237",
+  "product_id": "cmgp7699q000rre6ymg7wsci9",
+  "model_type": "prophet"
+}

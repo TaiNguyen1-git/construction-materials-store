@@ -1,0 +1,364 @@
+// Define LoyaltyTier locally since it might not be available in Prisma client immediately
+type LoyaltyTier = 'BRONZE' | 'SILVER' | 'GOLD' | 'PLATINUM' | 'DIAMOND'
+
+interface CustomerData {
+  id: string
+  userId: string
+  customerType: string
+  totalPurchases: number
+  loyaltyPoints: number
+  creditLimit: number
+  currentBalance: number
+  preferredPayment: string | null
+  createdAt: Date
+  updatedAt: Date
+  // Loyalty Program Fields
+  loyaltyTier?: LoyaltyTier
+  loyaltyPointsToNextTier?: number
+  totalPointsEarned?: number
+  totalPointsRedeemed?: number
+  lastPurchaseDate?: Date
+  purchaseFrequency?: number
+  preferredCategories?: string[]
+  birthday?: Date
+  anniversaryDate?: Date
+  referralCode?: string
+  referredBy?: string
+  totalReferrals?: number
+}
+
+import { prisma } from '@/lib/prisma'
+
+export class LoyaltyService {
+  // Calculate points earned from a purchase
+  static calculatePoints(amount: number, tier: LoyaltyTier = 'BRONZE'): number {
+    const basePoints = Math.floor(amount / 1000) // 1 point per 1000 VND spent
+    
+    // Tier multipliers
+    const multipliers = {
+      'BRONZE': 1,
+      'SILVER': 1.2,
+      'GOLD': 1.5,
+      'PLATINUM': 2,
+      'DIAMOND': 2.5
+    }
+    
+    return Math.floor(basePoints * multipliers[tier])
+  }
+
+  // Get points needed to reach next tier
+  static getPointsToNextTier(currentTier: LoyaltyTier, totalPoints: number): number {
+    const tierRequirements = {
+      'BRONZE': 0,
+      'SILVER': 1000,
+      'GOLD': 2500,
+      'PLATINUM': 5000,
+      'DIAMOND': 10000
+    }
+    
+    const nextTier = this.getNextTier(currentTier)
+    if (!nextTier) return 0 // Already at highest tier
+    
+    const requiredPoints = tierRequirements[nextTier]
+    return Math.max(0, requiredPoints - totalPoints)
+  }
+
+  // Get next tier
+  static getNextTier(currentTier: LoyaltyTier): LoyaltyTier | null {
+    const tierOrder: LoyaltyTier[] = ['BRONZE', 'SILVER', 'GOLD', 'PLATINUM', 'DIAMOND']
+    const currentIndex = tierOrder.indexOf(currentTier)
+    
+    if (currentIndex < tierOrder.length - 1) {
+      return tierOrder[currentIndex + 1]
+    }
+    
+    return null // Already at highest tier
+  }
+
+  // Update customer loyalty status after a purchase
+  static async updateCustomerLoyalty(customerId: string, purchaseAmount: number) {
+    try {
+      const customer: any = await (prisma as any).customer.findUnique({
+        where: { id: customerId }
+      })
+
+      if (!customer) {
+        throw new Error('Customer not found')
+      }
+
+      // Calculate points for this purchase
+      const pointsEarned = this.calculatePoints(purchaseAmount, customer.loyaltyTier || 'BRONZE')
+      
+      // Update customer loyalty data
+      const updatedCustomer: any = await (prisma as any).customer.update({
+        where: { id: customerId },
+        data: {
+          totalPurchases: {
+            increment: purchaseAmount
+          },
+          loyaltyPoints: {
+            increment: pointsEarned
+          },
+          totalPointsEarned: {
+            increment: pointsEarned
+          },
+          lastPurchaseDate: new Date()
+          // Note: We'll update the tier separately since we need to calculate it
+        }
+      })
+
+      // Determine new tier based on total points
+      const newTier = this.determineTier((customer.totalPointsEarned || 0) + pointsEarned)
+      
+      // Update tier
+      const finalCustomer: any = await (prisma as any).customer.update({
+        where: { id: customerId },
+        data: {
+          loyaltyTier: newTier
+        }
+      })
+
+      // Update points to next tier
+      const pointsToNextTier = this.getPointsToNextTier(
+        finalCustomer.loyaltyTier,
+        (finalCustomer.totalPointsEarned || 0) + pointsEarned
+      )
+
+      await (prisma as any).customer.update({
+        where: { id: customerId },
+        data: {
+          loyaltyPointsToNextTier: pointsToNextTier
+        }
+      })
+
+      return {
+        pointsEarned,
+        newTier: finalCustomer.loyaltyTier,
+        pointsToNextTier
+      }
+    } catch (error) {
+      console.error('Error updating customer loyalty:', error)
+      throw error
+    }
+  }
+
+  // Determine loyalty tier based on total points
+  static determineTier(totalPoints: number): LoyaltyTier {
+    if (totalPoints >= 10000) return 'DIAMOND'
+    if (totalPoints >= 5000) return 'PLATINUM'
+    if (totalPoints >= 2500) return 'GOLD'
+    if (totalPoints >= 1000) return 'SILVER'
+    return 'BRONZE'
+  }
+
+  // Redeem loyalty points
+  static async redeemPoints(customerId: string, pointsToRedeem: number) {
+    try {
+      const customer: any = await (prisma as any).customer.findUnique({
+        where: { id: customerId }
+      })
+
+      if (!customer) {
+        throw new Error('Customer not found')
+      }
+
+      if ((customer.loyaltyPoints || 0) < pointsToRedeem) {
+        throw new Error('Insufficient loyalty points')
+      }
+
+      // Update customer points
+      const updatedCustomer: any = await (prisma as any).customer.update({
+        where: { id: customerId },
+        data: {
+          loyaltyPoints: {
+            decrement: pointsToRedeem
+          },
+          totalPointsRedeemed: {
+            increment: pointsToRedeem
+          }
+        }
+      })
+
+      return {
+        pointsRedeemed: pointsToRedeem,
+        remainingPoints: updatedCustomer.loyaltyPoints
+      }
+    } catch (error) {
+      console.error('Error redeeming loyalty points:', error)
+      throw error
+    }
+  }
+
+  // Get customer loyalty dashboard data
+  static async getCustomerLoyaltyData(customerId: string) {
+    try {
+      const customer: any = await (prisma as any).customer.findUnique({
+        where: { id: customerId },
+        include: {
+          user: {
+            select: {
+              name: true,
+              email: true
+            }
+          }
+        }
+      })
+
+      if (!customer) {
+        throw new Error('Customer not found')
+      }
+
+      return {
+        name: customer.user.name,
+        email: customer.user.email,
+        currentTier: customer.loyaltyTier || 'BRONZE',
+        currentPoints: customer.loyaltyPoints || 0,
+        totalPointsEarned: customer.totalPointsEarned || 0,
+        totalPointsRedeemed: customer.totalPointsRedeemed || 0,
+        pointsToNextTier: customer.loyaltyPointsToNextTier || 0,
+        lastPurchaseDate: customer.lastPurchaseDate,
+        totalPurchases: customer.totalPurchases,
+        nextTier: this.getNextTier(customer.loyaltyTier || 'BRONZE'),
+        tierBenefits: this.getTierBenefits(customer.loyaltyTier || 'BRONZE')
+      }
+    } catch (error) {
+      console.error('Error getting customer loyalty data:', error)
+      throw error
+    }
+  }
+
+  // Get tier benefits
+  static getTierBenefits(tier: LoyaltyTier) {
+    const benefits = {
+      'BRONZE': {
+        discount: '2%',
+        birthdayGift: 'None',
+        freeShipping: 'Over 500,000 VND',
+        prioritySupport: 'Standard'
+      },
+      'SILVER': {
+        discount: '5%',
+        birthdayGift: '100,000 VND voucher',
+        freeShipping: 'Over 300,000 VND',
+        prioritySupport: 'Priority'
+      },
+      'GOLD': {
+        discount: '10%',
+        birthdayGift: '200,000 VND voucher',
+        freeShipping: 'Over 200,000 VND',
+        prioritySupport: 'VIP'
+      },
+      'PLATINUM': {
+        discount: '15%',
+        birthdayGift: '500,000 VND voucher',
+        freeShipping: 'Free shipping',
+        prioritySupport: 'VIP Plus'
+      },
+      'DIAMOND': {
+        discount: '20%',
+        birthdayGift: '1,000,000 VND voucher',
+        freeShipping: 'Free shipping + gift wrapping',
+        prioritySupport: 'Diamond Support'
+      }
+    }
+
+    return benefits[tier]
+  }
+
+  // Generate referral code for customer
+  static async generateReferralCode(customerId: string) {
+    try {
+      const customer: any = await (prisma as any).customer.findUnique({
+        where: { id: customerId },
+        include: {
+          user: {
+            select: {
+              name: true
+            }
+          }
+        }
+      })
+
+      if (!customer) {
+        throw new Error('Customer not found')
+      }
+
+      // If customer already has a referral code, return it
+      if (customer.referralCode) {
+        return customer.referralCode
+      }
+
+      // Generate unique referral code
+      const baseCode = (customer.user.name.substring(0, 3).toUpperCase() + 
+                      Math.random().toString(36).substring(2, 8).toUpperCase())
+      
+      // Ensure uniqueness
+      let referralCode = baseCode
+      let counter = 1
+      
+      while (await (prisma as any).customer.findFirst({ where: { referralCode } })) {
+        referralCode = baseCode + counter
+        counter++
+      }
+
+      // Update customer with referral code
+      await (prisma as any).customer.update({
+        where: { id: customerId },
+        data: { referralCode }
+      })
+
+      return referralCode
+    } catch (error) {
+      console.error('Error generating referral code:', error)
+      throw error
+    }
+  }
+
+  // Process referral when a new customer signs up
+  static async processReferral(referralCode: string, newCustomerId: string) {
+    try {
+      // Find the customer who provided the referral code
+      const referringCustomer: any = await (prisma as any).customer.findFirst({
+        where: { referralCode }
+      })
+
+      if (!referringCustomer) {
+        // Invalid referral code, do nothing
+        return null
+      }
+
+      // Update the referring customer
+      await (prisma as any).customer.update({
+        where: { id: referringCustomer.id },
+        data: {
+          totalReferrals: {
+            increment: 1
+          },
+          // Award referral points (e.g., 100 points for successful referral)
+          loyaltyPoints: {
+            increment: 100
+          },
+          totalPointsEarned: {
+            increment: 100
+          }
+        }
+      })
+
+      // Update the new customer with referredBy
+      await (prisma as any).customer.update({
+        where: { id: newCustomerId },
+        data: {
+          referredBy: referringCustomer.id
+        }
+      })
+
+      return {
+        referringCustomerId: referringCustomer.id,
+        pointsAwarded: 100
+      }
+    } catch (error) {
+      console.error('Error processing referral:', error)
+      throw error
+    }
+  }
+}
