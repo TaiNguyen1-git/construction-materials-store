@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { createSuccessResponse, createErrorResponse, createPaginatedResponse } from '@/lib/api-types'
 import { z } from 'zod'
-import { NotificationService } from '@/lib/notification-service'
+import { sendNotification } from '@/lib/notification-service'
 import { notificationWebSocketServer } from '@/lib/websocket-server'
 import { logger, logAPI } from '@/lib/logger'
 
@@ -174,15 +174,6 @@ export async function POST(request: NextRequest) {
     const { quantity, movementType, reason, referenceType, referenceId, notes } = validation.data
     const { productId } = body
 
-    if (!productId) {
-      return NextResponse.json(
-        createErrorResponse('Product ID is required', 'MISSING_PRODUCT_ID'),
-        { status: 400 }
-      )
-    }
-
-    const userId = request.headers.get('x-user-id')
-
     // Check if inventory item exists
     const inventoryItem = await prisma.inventoryItem.findUnique({
       where: { productId }
@@ -276,11 +267,14 @@ export async function POST(request: NextRequest) {
       if (['OUT', 'DAMAGE', 'ADJUSTMENT'].includes(movementType) && 
           (newQuantity <= 0 || newQuantity <= inventoryItem.minStockLevel)) {
         try {
-          await NotificationService.createStockAlert(
+          await sendNotification({
+            type: 'LOW_STOCK',
+            priority: newQuantity <= 0 ? 'HIGH' : 'MEDIUM',
+            title: 'Low Stock Alert',
+            message: `Product ${productId} is running low on stock (${newQuantity} remaining)`,
             productId,
-            newQuantity,
-            inventoryItem.minStockLevel
-          )
+            data: { currentStock: newQuantity, minStockLevel: inventoryItem.minStockLevel }
+          })
         } catch (notificationError) {
           console.error('Failed to create stock alert notification:', notificationError)
         }

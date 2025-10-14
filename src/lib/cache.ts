@@ -1,85 +1,46 @@
-import { createClient, RedisClientType } from 'redis'
 import { logger, logCache } from './logger'
 
-// Check if Redis should be enabled
-const REDIS_ENABLED = process.env.REDIS_URL && process.env.REDIS_URL !== 'redis://localhost:6379' ? true : false
+// In-memory cache for development/production without Redis
+const memoryCache = new Map<string, { value: any; expires?: number }>()
 
-let redisClient: RedisClientType | null = null
-let isConnected = false
-let connectionAttempted = false
-
-// Create and connect to Redis only if enabled
-const connectRedis = async () => {
-  if (connectionAttempted) return
-  connectionAttempted = true
-
-  if (!REDIS_ENABLED) {
-    logger.info('Redis is disabled - running without cache', { type: 'cache' })
-    return
+// Clean expired entries periodically
+setInterval(() => {
+  const now = Date.now()
+  for (const [key, entry] of memoryCache.entries()) {
+    if (entry.expires && entry.expires < now) {
+      memoryCache.delete(key)
+    }
   }
+}, 60000) // Clean every minute
 
-  try {
-    redisClient = createClient({
-      url: process.env.REDIS_URL || 'redis://localhost:6379',
-      socket: {
-        reconnectStrategy: false // Don't retry connections
-      }
-    })
-
-    // Handle Redis errors silently
-    redisClient.on('error', (err) => {
-      if (!isConnected) {
-        logger.warn('Redis unavailable - running without cache', { type: 'cache' })
-      }
-    })
-
-    await redisClient.connect()
-    isConnected = true
-    logger.info('Connected to Redis', { type: 'cache' })
-  } catch (error: any) {
-    logger.warn('Redis unavailable - running without cache', { type: 'cache' })
-    isConnected = false
-    redisClient = null
-  }
-}
-
-// Cache service
+// Cache service using in-memory storage
 export class CacheService {
   static async get(key: string): Promise<any> {
     try {
-      if (!connectionAttempted) await connectRedis()
-      if (!isConnected || !redisClient) {
-        return null // Skip cache if Redis unavailable
-      }
-      
-      const value = await redisClient.get(key)
-      
-      if (value) {
-        logCache.hit(key)
-        return JSON.parse(value)
-      } else {
+      const entry = memoryCache.get(key)
+      if (!entry) {
         logCache.miss(key)
         return null
       }
+      
+      // Check if expired
+      if (entry.expires && entry.expires < Date.now()) {
+        memoryCache.delete(key)
+        logCache.miss(key)
+        return null
+      }
+      
+      logCache.hit(key)
+      return entry.value
     } catch (error: any) {
-      // Silently skip cache on error
       return null
     }
   }
 
   static async set(key: string, value: any, ttlSeconds?: number): Promise<void> {
     try {
-      if (!connectionAttempted) await connectRedis()
-      if (!isConnected || !redisClient) {
-        return // Skip cache if Redis unavailable
-      }
-      
-      const stringValue = JSON.stringify(value)
-      if (ttlSeconds) {
-        await redisClient.setEx(key, ttlSeconds, stringValue)
-      } else {
-        await redisClient.set(key, stringValue)
-      }
+      const expires = ttlSeconds ? Date.now() + (ttlSeconds * 1000) : undefined
+      memoryCache.set(key, { value, expires })
       logCache.set(key, ttlSeconds)
     } catch (error: any) {
       // Silently skip cache on error
@@ -88,12 +49,7 @@ export class CacheService {
 
   static async del(key: string): Promise<void> {
     try {
-      if (!connectionAttempted) await connectRedis()
-      if (!isConnected || !redisClient) {
-        return // Skip cache if Redis unavailable
-      }
-      
-      await redisClient.del(key)
+      memoryCache.delete(key)
       logCache.invalidate(key)
     } catch (error: any) {
       // Silently skip cache on error
@@ -102,13 +58,8 @@ export class CacheService {
 
   static async flush(): Promise<void> {
     try {
-      if (!connectionAttempted) await connectRedis()
-      if (!isConnected || !redisClient) {
-        return // Skip cache if Redis unavailable
-      }
-      
-      await redisClient.flushAll()
-      logger.info('Cache flushed', { type: 'cache' })
+      memoryCache.clear()
+      logger.info('Memory cache flushed', { type: 'cache' })
     } catch (error: any) {
       // Silently skip cache on error
     }

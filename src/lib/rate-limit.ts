@@ -1,31 +1,15 @@
-import { createClient, RedisClientType } from 'redis'
+// In-memory rate limiting store
+const memoryStore = new Map<string, { count: number; resetTime: number }>()
 
-let redisClient: RedisClientType | null = null
-let isConnected = false
-
-const getRedisClient = async () => {
-  if (!redisClient) {
-    redisClient = createClient({
-      url: process.env.REDIS_URL || 'redis://localhost:6379',
-    })
-
-    redisClient.on('error', (err) => {
-      console.error('Redis Rate Limit Error:', err)
-    })
-  }
-
-  if (!isConnected) {
-    try {
-      await redisClient.connect()
-      isConnected = true
-    } catch (error) {
-      console.error('Failed to connect to Redis for rate limiting:', error)
-      throw error
+// Clean expired entries periodically
+setInterval(() => {
+  const now = Math.floor(Date.now() / 1000)
+  for (const [key, value] of memoryStore.entries()) {
+    if (value.resetTime < now) {
+      memoryStore.delete(key)
     }
   }
-
-  return redisClient
-}
+}, 60000) // Clean every minute
 
 export interface RateLimitOptions {
   identifier: string  // IP address or user ID
@@ -43,57 +27,44 @@ export interface RateLimitResult {
 export async function rateLimit(options: RateLimitOptions): Promise<RateLimitResult> {
   const { identifier, limit, window } = options
   const key = `rate_limit:${identifier}`
-
+  const now = Math.floor(Date.now() / 1000)
+  
   try {
-    const client = await getRedisClient()
-    const now = Math.floor(Date.now() / 1000)
-    const windowStart = now - window
-
-    // Use Redis sorted set to track requests
-    const multi = client.multi()
+    const existing = memoryStore.get(key)
     
-    // Remove old requests outside the window
-    multi.zRemRangeByScore(key, 0, windowStart)
-    
-    // Count requests in current window
-    multi.zCard(key)
-    
-    // Add current request
-    multi.zAdd(key, { score: now, value: `${now}:${Math.random()}` })
-    
-    // Set expiration
-    multi.expire(key, window)
-    
-    const results = await multi.exec()
-    
-    // Get count of requests in window (before adding current request)
-    const count = results?.[1] as number || 0
-    
-    const remaining = Math.max(0, limit - count - 1)
-    const reset = now + window
-
-    if (count >= limit) {
+    if (!existing || existing.resetTime < now) {
+      memoryStore.set(key, { count: 1, resetTime: now + window })
       return {
-        success: false,
-        remaining: 0,
-        reset,
+        success: true,
+        remaining: limit - 1,
+        reset: now + window,
         limit,
       }
     }
-
+    
+    if (existing.count >= limit) {
+      return {
+        success: false,
+        remaining: 0,
+        reset: existing.resetTime,
+        limit,
+      }
+    }
+    
+    existing.count++
     return {
       success: true,
-      remaining,
-      reset,
+      remaining: limit - existing.count,
+      reset: existing.resetTime,
       limit,
     }
   } catch (error) {
     console.error('Rate limit error:', error)
-    // Fail open - allow request if Redis is down
+    // Fail open - allow request on error
     return {
       success: true,
       remaining: limit - 1,
-      reset: Math.floor(Date.now() / 1000) + window,
+      reset: now + window,
       limit,
     }
   }

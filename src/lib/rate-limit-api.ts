@@ -1,34 +1,5 @@
 // API Route Rate Limiting (Node.js Runtime Compatible)
-// This version can be used directly in API routes instead of middleware
-
-import { createClient, RedisClientType } from 'redis'
-
-let redisClient: RedisClientType | null = null
-let isConnected = false
-
-const getRedisClient = async () => {
-  if (!redisClient) {
-    redisClient = createClient({
-      url: process.env.REDIS_URL || 'redis://localhost:6379',
-    })
-
-    redisClient.on('error', (err) => {
-      console.error('Redis Rate Limit Error:', err)
-    })
-  }
-
-  if (!isConnected) {
-    try {
-      await redisClient.connect()
-      isConnected = true
-    } catch (error) {
-      console.error('Failed to connect to Redis for rate limiting:', error)
-      throw error
-    }
-  }
-
-  return redisClient
-}
+// This version uses in-memory storage for rate limiting
 
 export interface RateLimitOptions {
   identifier: string  // IP address or user ID
@@ -82,57 +53,8 @@ async function rateLimitMemory(options: RateLimitOptions): Promise<RateLimitResu
 }
 
 export async function rateLimitAPI(options: RateLimitOptions): Promise<RateLimitResult> {
-  const { identifier, limit, window } = options
-  const key = `rate_limit:${identifier}`
-
-  try {
-    const client = await getRedisClient()
-    const now = Math.floor(Date.now() / 1000)
-    const windowStart = now - window
-
-    // Use Redis sorted set to track requests
-    const multi = client.multi()
-    
-    // Remove old requests outside the window
-    multi.zRemRangeByScore(key, 0, windowStart)
-    
-    // Count requests in current window
-    multi.zCard(key)
-    
-    // Add current request
-    multi.zAdd(key, { score: now, value: `${now}:${Math.random()}` })
-    
-    // Set expiration
-    multi.expire(key, window)
-    
-    const results = await multi.exec()
-    
-    // Get count of requests in window (before adding current request)
-    const count = results?.[1] as number || 0
-    
-    const remaining = Math.max(0, limit - count - 1)
-    const reset = now + window
-
-    if (count >= limit) {
-      return {
-        success: false,
-        remaining: 0,
-        reset,
-        limit,
-      }
-    }
-
-    return {
-      success: true,
-      remaining,
-      reset,
-      limit,
-    }
-  } catch (error) {
-    console.error('Rate limit error, falling back to memory:', error)
-    // Fallback to in-memory rate limiting
-    return rateLimitMemory(options)
-  }
+  // Use in-memory rate limiting directly
+  return rateLimitMemory(options)
 }
 
 // Preset rate limit configurations
