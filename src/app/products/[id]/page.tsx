@@ -1,16 +1,14 @@
 'use client'
 
 import { useState, useEffect, use } from 'react'
-import Head from 'next/head'
 import Link from 'next/link'
 import Image from 'next/image'
-import { Package, ShoppingCart, ArrowLeft, Truck, Shield, RotateCcw, Plus, Minus, Check } from 'lucide-react'
+import { Package, ShoppingCart, ArrowLeft, Truck, Shield, RotateCcw, Plus, Minus, Check, Heart, Scale } from 'lucide-react'
 import Header from '@/components/Header'
 import WishlistButton from '@/components/WishlistButton'
 import ComparisonButton from '@/components/ComparisonButton'
 import ComparisonBar from '@/components/ComparisonBar'
-import ReviewList from '@/components/ReviewList'
-import ReviewForm from '@/components/ReviewForm'
+import ReviewsSection from '@/components/ReviewsSection'
 import { useCartStore } from '@/stores/cartStore'
 import toast, { Toaster } from 'react-hot-toast'
 
@@ -37,7 +35,6 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
   const { addItem } = useCartStore()
   
   const [product, setProduct] = useState<Product | null>(null)
-  const [relatedProducts, setRelatedProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedImageIndex, setSelectedImageIndex] = useState(0)
   const [quantity, setQuantity] = useState(1)
@@ -54,31 +51,19 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
       const response = await fetch(`/api/products/${resolvedParams.id}`)
       if (response.ok) {
         const result = await response.json()
-        const productData = result.data || result
-        setProduct(productData)
-        
-        if (productData.category?.id) {
-          fetchRelatedProducts(productData.category.id)
+        if (result.success && result.data) {
+          setProduct(result.data)
+        } else {
+          toast.error('Không thể tải sản phẩm')
         }
+      } else {
+        toast.error('Sản phẩm không tồn tại')
       }
     } catch (error) {
       console.error('Failed to fetch product:', error)
       toast.error('Không thể tải sản phẩm')
     } finally {
       setLoading(false)
-    }
-  }
-
-  const fetchRelatedProducts = async (categoryId: string) => {
-    try {
-      const response = await fetch(`/api/products?categoryId=${categoryId}&limit=4`)
-      if (response.ok) {
-        const data = await response.json()
-        const related = (data.data?.items || data.data || []).filter((p: Product) => p.id !== resolvedParams.id)
-        setRelatedProducts(related.slice(0, 4))
-      }
-    } catch (error) {
-      console.error('Failed to fetch related products:', error)
     }
   }
 
@@ -105,7 +90,8 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
       price: product.price,
       sku: product.sku,
       unit: product.unit || 'pcs',
-      image: product.images?.[0]
+      image: product.images?.[0],
+      maxStock: product.inventoryItem?.availableQuantity
     }, quantity)
     
     toast.success(`Đã thêm ${quantity} ${product.name} vào giỏ hàng!`)
@@ -152,40 +138,8 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
 
   const inStock = (product.inventoryItem?.availableQuantity || 0) > 0
 
-  // Generate structured data for SEO
-  const structuredData = {
-    "@context": "https://schema.org",
-    "@type": "Product",
-    "name": product.name,
-    "description": product.description || "",
-    "sku": product.sku,
-    "image": product.images && product.images.length > 0 ? product.images : [],
-    "offers": {
-      "@type": "Offer",
-      "url": `https://smartbuild.vn/products/${product.id}`,
-      "priceCurrency": "VND",
-      "price": product.price,
-      "availability": inStock ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
-      "seller": {
-        "@type": "Organization",
-        "name": "SmartBuild Materials Store"
-      }
-    },
-    "brand": {
-      "@type": "Brand",
-      "name": "SmartBuild"
-    },
-    "category": product.category?.name || "Construction Materials"
-  }
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
-      {/* SEO: Structured Data */}
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
-      />
-      
       <Toaster position="top-right" />
       <Header />
 
@@ -195,10 +149,6 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
           <Link href="/" className="hover:text-primary-600">Trang chủ</Link>
           <span>/</span>
           <Link href="/products" className="hover:text-primary-600">Sản phẩm</Link>
-          <span>/</span>
-          <Link href={`/categories/${product.category?.id}`} className="hover:text-primary-600">
-            {product.category?.name}
-          </Link>
           <span>/</span>
           <span className="text-gray-900 font-semibold truncate">{product.name}</span>
         </div>
@@ -256,8 +206,8 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                 {product.name}
               </h1>
               <div className="flex gap-2">
-                <ComparisonButton product={product} size="lg" showText={false} />
-                <WishlistButton product={product} size="lg" showText={false} />
+                <ComparisonButton product={product} size="lg" />
+                <WishlistButton product={product} size="lg" />
               </div>
             </div>
 
@@ -357,66 +307,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
         </div>
 
         {/* Reviews Section */}
-        <div className="mb-16">
-          <h2 className="text-3xl font-black text-gray-900 mb-8">⭐ Đánh Giá Sản Phẩm</h2>
-          
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Review Form */}
-            <div className="lg:col-span-1">
-              <ReviewForm
-                productId={product.id}
-                customerId={undefined} // TODO: Get from auth context
-                onSuccess={() => {
-                  // Refresh reviews
-                }}
-              />
-            </div>
-
-            {/* Review List */}
-            <div className="lg:col-span-2">
-              <ReviewList productId={product.id} />
-            </div>
-          </div>
-        </div>
-
-        {/* Related Products */}
-        {relatedProducts.length > 0 && (
-          <div>
-            <h2 className="text-3xl font-black text-gray-900 mb-8">🔥 Sản Phẩm Liên Quan</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {relatedProducts.map((relatedProduct) => (
-                <Link
-                  key={relatedProduct.id}
-                  href={`/products/${relatedProduct.id}`}
-                  className="bg-white rounded-2xl shadow-lg border border-gray-100 hover:shadow-xl transition-all overflow-hidden group"
-                >
-                  <div className="relative aspect-square bg-gradient-to-br from-gray-100 to-gray-200">
-                    {relatedProduct.images?.[0] ? (
-                      <Image
-                        src={relatedProduct.images[0]}
-                        alt={relatedProduct.name}
-                        fill
-                        className="object-cover group-hover:scale-110 transition-transform duration-300"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <Package className="h-12 w-12 text-gray-400" />
-                      </div>
-                    )}
-                  </div>
-                  <div className="p-4">
-                    <h3 className="font-bold text-gray-900 mb-2 line-clamp-2">
-                      {relatedProduct.name}
-                    </h3>
-                    <p className="text-xl font-black text-primary-600">
-                      {relatedProduct.price?.toLocaleString()}đ
-                    </p>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </div>
-        )}
+        <ReviewsSection productId={resolvedParams.id} productName={product.name} />
       </div>
 
       {/* Comparison Bar */}

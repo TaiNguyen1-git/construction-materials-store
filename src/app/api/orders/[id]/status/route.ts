@@ -1,50 +1,100 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import jwt from 'jsonwebtoken'
+import { createSuccessResponse, createErrorResponse } from '@/lib/api-types'
+import { z } from 'zod'
+import { logger } from '@/lib/logger'
 
-// Mock token verification for development
-const verifyToken = async (request: NextRequest) => {
-  const token = request.headers.get('authorization')?.replace('Bearer ', '') ||
-    request.cookies.get('access_token')?.value
-    
-  if (!token) return null
-  
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret') as any
-    return decoded
-  } catch {
-    return null
-  }
-}
+const updateStatusSchema = z.object({
+  status: z.enum([
+    'PENDING_CONFIRMATION',
+    'CONFIRMED_AWAITING_DEPOSIT', 
+    'DEPOSIT_PAID',
+    'PENDING', 
+    'CONFIRMED', 
+    'PROCESSING', 
+    'SHIPPED', 
+    'DELIVERED',
+    'COMPLETED', 
+    'CANCELLED',
+    'RETURNED'
+  ]),
+  trackingNumber: z.string().optional(),
+  note: z.string().optional()
+})
 
 // PUT /api/orders/[id]/status - Update order status
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = await params
   try {
-    const user = await verifyToken(request)
-    if (!user || !['MANAGER', 'EMPLOYEE'].includes(user.role)) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
+    const { id: orderId } = await params
+    
+    // Parse request body
     const body = await request.json()
-    const { status, trackingNumber, note } = body
-
-    if (!status) {
-      return NextResponse.json({ error: 'Status is required' }, { status: 400 })
+    
+    // Validate input
+    const validation = updateStatusSchema.safeParse(body)
+    if (!validation.success) {
+      return NextResponse.json(
+        createErrorResponse('Invalid input', 'VALIDATION_ERROR', validation.error.issues),
+        { status: 400 }
+      )
     }
 
-    const validStatuses = ['PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPED', 'COMPLETED', 'CANCELLED']
-    if (!validStatuses.includes(status)) {
-      return NextResponse.json({ error: 'Invalid status' }, { status: 400 })
-    }
+    const { status, trackingNumber, note } = validation.data
 
     // Check if order exists
     const existingOrder = await prisma.order.findUnique({
-      where: { id },
+      where: { id: orderId },
       include: {
+        customer: {
+          include: {
+            user: true
+          }
+        }
+      }
+    })
+
+    if (!existingOrder) {
+      return NextResponse.json(
+        createErrorResponse('Order not found', 'NOT_FOUND'),
+        { status: 404 }
+      )
+    }
+
+    // Update order status
+    const updateData: any = {
+      status,
+      updatedAt: new Date()
+    }
+
+    if (trackingNumber) {
+      updateData.trackingNumber = trackingNumber
+    }
+
+    if (note) {
+      updateData.notes = note
+    }
+
+    // Update payment status based on order status
+    if (status === 'DEPOSIT_PAID') {
+      updateData.paymentStatus = 'PARTIAL'
+    } else if (status === 'DELIVERED' || status === 'COMPLETED') {
+      updateData.paymentStatus = 'PAID'
+    } else if (status === 'CANCELLED' || status === 'RETURNED') {
+      updateData.paymentStatus = 'FAILED'
+    }
+
+    const updatedOrder = await prisma.order.update({
+      where: { id: orderId },
+      data: updateData,
+      include: {
+        customer: {
+          include: {
+            user: true
+          }
+        },
         orderItems: {
           include: {
             product: true
@@ -53,79 +103,33 @@ export async function PUT(
       }
     })
 
-    if (!existingOrder) {
-      return NextResponse.json({ error: 'Order not found' }, { status: 404 })
-    }
-
-    // Handle status change logic
-    const updateData: any = {
-      status,
-      updatedAt: new Date()
-    }
-
-    if (trackingNumber) updateData.trackingNumber = trackingNumber
-    if (note) updateData.note = note
-
-    // Special handling for status changes that affect inventory
-    if (status === 'CANCELLED' && existingOrder.status !== 'CANCELLED') {
-      // Return items to stock
-      await prisma.$transaction(async (tx: any) => {
-        for (const item of existingOrder.orderItems) {
-          await tx.product.update({
-            where: { id: item.productId },
-            data: {
-              stock: {
-                increment: item.quantity
-              }
-            }
-          })
-
-          // Create inventory movement record
-          await tx.inventoryMovement.create({
-            data: {
-              productId: item.productId,
-              type: 'IN',
-              quantity: item.quantity,
-              reason: `Order ${existingOrder.orderNumber} cancelled`,
-              reference: id
-            }
-          })
-        }
-
-        // Update order status
-        await tx.order.update({
-          where: { id },
-          data: updateData
-        })
-      })
-    } else {
-      // Update order status without inventory changes
-      await prisma.order.update({
-        where: { id },
-        data: updateData
-      })
-    }
-
-    // Fetch updated order
-    const updatedOrder = await prisma.order.findUnique({
-      where: { id },
-      include: {
-        customer: {
-          select: { id: true, user: { select: { name: true, email: true } } }
-        },
-        orderItems: {
-          include: {
-            product: {
-              select: { id: true, name: true, sku: true, price: true }
-            }
-          }
-        }
-      }
+    logger.info('Order status updated', {
+      orderId,
+      oldStatus: existingOrder.status,
+      newStatus: status,
+      trackingNumber
     })
 
-    return NextResponse.json(updatedOrder)
-  } catch (error) {
-    console.error('Error updating order status:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    // TODO: Send notification to customer
+    // if (updatedOrder.customer?.user?.email) {
+    //   await sendOrderStatusUpdateEmail(updatedOrder.customer.user.email, updatedOrder)
+    // }
+
+    return NextResponse.json(
+      createSuccessResponse(updatedOrder, 'Order status updated successfully'),
+      { status: 200 }
+    )
+
+  } catch (error: any) {
+    logger.error('Update order status error', { 
+      error: error.message, 
+      stack: error.stack,
+      orderId: params.id
+    })
+    
+    return NextResponse.json(
+      createErrorResponse('Internal server error', 'INTERNAL_ERROR'),
+      { status: 500 }
+    )
   }
 }

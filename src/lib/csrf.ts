@@ -1,5 +1,4 @@
 // Use Web Crypto API for edge runtime compatibility
-const CSRF_SECRET = process.env.CSRF_SECRET || 'default-csrf-secret-change-in-production'
 const CSRF_TOKEN_LENGTH = 32
 
 // Generate CSRF token using Web Crypto API
@@ -8,9 +7,10 @@ export function generateCsrfToken(): string {
   if (typeof window === 'undefined') {
     // Dynamic import to avoid bundling issues
     try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const crypto = require('crypto')
       return crypto.randomBytes(CSRF_TOKEN_LENGTH).toString('hex')
-    } catch (e) {
+    } catch {
       // Fallback for edge runtime
       return Array.from({ length: CSRF_TOKEN_LENGTH * 2 }, () => 
         Math.floor(Math.random() * 16).toString(16)

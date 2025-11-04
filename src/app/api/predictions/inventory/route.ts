@@ -232,29 +232,70 @@ export async function GET(request: NextRequest) {
 
     let predictions: any[] = []
 
-    // Helper function to get prediction using selected method
-    async function getPrediction(prodId: string, tf: typeof timeframe, includeSeas: boolean) {
-      let prediction: any = null
-      let usedMethod = method
-
-      // AUTO: Try Prophet first, fallback to Statistical
-      if (method === 'AUTO' || method === 'PROPHET_ML') {
-        prediction = await predictWithProphetML(prodId, tf)
-        if (prediction) {
-          usedMethod = 'PROPHET_ML'
-        } else if (method === 'PROPHET_ML') {
-          throw new Error('Prophet model not available for this product')
+    // First, try to get existing predictions from DB
+    const existingPredictions = await prisma.inventoryPrediction.findMany({
+      where: {
+        ...(productId && { productId }),
+        timeframe,
+        predictionDate: {
+          gte: new Date(Date.now() - 24 * 60 * 60 * 1000) // Last 24 hours
         }
+      },
+      include: {
+        product: {
+          include: {
+            category: true,
+            inventoryItem: true
+          }
+        }
+      },
+      orderBy: {
+        predictionDate: 'desc'
       }
+    })
 
-      // Fallback to Statistical or if explicitly requested
-      if (!prediction && (method === 'AUTO' || method === 'STATISTICAL')) {
-        prediction = await predictInventoryDemand(prodId, tf, includeSeas)
-        usedMethod = 'STATISTICAL'
+    if (existingPredictions.length > 0) {
+      // Return existing predictions
+      predictions = existingPredictions.map(pred => ({
+        productId: pred.product.id,
+        productName: pred.product.name,
+        category: pred.product.category.name,
+        currentStock: pred.product.inventoryItem?.availableQuantity || 0,
+        minStockLevel: pred.product.inventoryItem?.minStockLevel || 0,
+        predictedDemand: pred.predictedDemand,
+        confidence: pred.confidence,
+        factors: pred.factors,
+        recommendedOrder: pred.recommendedOrder,
+        method: pred.method || 'STATISTICAL'
+      }))
+      
+      // Filter by min confidence
+      predictions = predictions.filter(p => p.confidence >= minConfidence)
+    } else {
+      // Generate new predictions if none exist
+      // Helper function to get prediction using selected method
+      async function getPrediction(prodId: string, tf: typeof timeframe, includeSeas: boolean) {
+        let prediction: any = null
+        let usedMethod = method
+
+        // AUTO: Try Prophet first, fallback to Statistical
+        if (method === 'AUTO' || method === 'PROPHET_ML') {
+          prediction = await predictWithProphetML(prodId, tf)
+          if (prediction) {
+            usedMethod = 'PROPHET_ML'
+          } else if (method === 'PROPHET_ML') {
+            throw new Error('Prophet model not available for this product')
+          }
+        }
+
+        // Fallback to Statistical or if explicitly requested
+        if (!prediction && (method === 'AUTO' || method === 'STATISTICAL')) {
+          prediction = await predictInventoryDemand(prodId, tf, includeSeas)
+          usedMethod = 'STATISTICAL'
+        }
+
+        return { ...prediction, method: usedMethod }
       }
-
-      return { ...prediction, method: usedMethod }
-    }
 
     if (productId) {
       // Single product prediction
@@ -316,42 +357,12 @@ export async function GET(request: NextRequest) {
         .filter(p => p !== null && p.confidence >= minConfidence)
         .sort((a, b) => (b?.confidence || 0) - (a?.confidence || 0))
     }
+    } // Close else block
 
     // Note: includeOutOfStock filtering would be implemented here if needed
 
-    // Store predictions in database for future reference
-    const targetDate = new Date()
-    switch (timeframe) {
-      case 'WEEK':
-        targetDate.setDate(targetDate.getDate() + 7)
-        break
-      case 'MONTH':
-        targetDate.setMonth(targetDate.getMonth() + 1)
-        break
-      case 'QUARTER':
-        targetDate.setMonth(targetDate.getMonth() + 3)
-        break
-    }
-
-    for (const prediction of predictions) {
-      try {
-        await prisma.inventoryPrediction.create({
-          data: {
-            productId: prediction.productId,
-            predictionDate: new Date(),
-            targetDate,
-            predictedDemand: prediction.predictedDemand,
-            confidence: prediction.confidence,
-            timeframe,
-            method: prediction.method || 'LINEAR_REGRESSION',
-            factors: prediction.factors,
-            recommendedOrder: prediction.recommendedOrder
-          }
-        })
-      } catch (error) {
-        console.error('Error storing prediction:', error instanceof Error ? error.message : String(error))
-      }
-    }
+    // Don't store predictions again if we just loaded them from DB
+    // Only store if we generated new ones (existingPredictions was empty)
 
     // Count methods used
     const methodCounts = predictions.reduce((acc, p) => {

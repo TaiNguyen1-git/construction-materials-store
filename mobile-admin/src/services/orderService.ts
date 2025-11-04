@@ -11,12 +11,16 @@ class OrderService {
   }): Promise<ApiResponse<PaginatedResponse<Order>>> {
     try {
       return await apiService.get(API_ENDPOINTS.ORDERS, params);
-    } catch (error: any) {
+    } catch (error) {
+      const errorMessage = error && typeof error === 'object' && 'response' in error
+        ? (error as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message
+        : 'Không thể tải danh sách đơn hàng';
+      
       return {
         success: false,
         error: {
           code: 'FETCH_ORDERS_FAILED',
-          message: error.response?.data?.error?.message || 'Không thể tải danh sách đơn hàng',
+          message: errorMessage || 'Không thể tải danh sách đơn hàng',
         },
       };
     }
@@ -25,12 +29,16 @@ class OrderService {
   async getOrderById(id: string): Promise<ApiResponse<Order>> {
     try {
       return await apiService.get(API_ENDPOINTS.ORDER_BY_ID(id));
-    } catch (error: any) {
+    } catch (error) {
+      const errorMessage = error && typeof error === 'object' && 'response' in error
+        ? (error as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message
+        : 'Không thể tải thông tin đơn hàng';
+      
       return {
         success: false,
         error: {
           code: 'FETCH_ORDER_FAILED',
-          message: error.response?.data?.error?.message || 'Không thể tải thông tin đơn hàng',
+          message: errorMessage || 'Không thể tải thông tin đơn hàng',
         },
       };
     }
@@ -46,16 +54,21 @@ class OrderService {
         status,
         trackingNumber,
       });
-    } catch (error: any) {
+    } catch (error) {
+      const errorMessage = error && typeof error === 'object' && 'response' in error
+        ? (error as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message
+        : 'Không thể cập nhật trạng thái đơn hàng';
+      
       return {
         success: false,
         error: {
           code: 'UPDATE_ORDER_STATUS_FAILED',
-          message: error.response?.data?.error?.message || 'Không thể cập nhật trạng thái đơn hàng',
+          message: errorMessage || 'Không thể cập nhật trạng thái đơn hàng',
         },
       };
     }
   }
 }
 
-export default new OrderService();
+const orderServiceInstance = new OrderService();
+export default orderServiceInstance;

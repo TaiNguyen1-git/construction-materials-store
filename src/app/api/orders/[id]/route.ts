@@ -1,28 +1,42 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { createSuccessResponse, createErrorResponse } from '@/lib/api-types'
+import { logger } from '@/lib/logger'
 
-// GET /api/orders/[id] - Get order by ID
+// GET /api/orders/[id] - Get single order
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const orderId = params.id
+    const { id: orderId } = await params
 
     const order = await prisma.order.findUnique({
       where: { id: orderId },
       include: {
         customer: {
-          select: {
-            id: true,
-            user: { select: { name: true, email: true, phone: true } }
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                phone: true
+              }
+            }
           }
         },
         orderItems: {
           include: {
             product: {
-              select: { id: true, name: true, sku: true, price: true, images: true }
+              select: {
+                id: true,
+                name: true,
+                sku: true,
+                price: true,
+                images: true,
+                unit: true
+              }
             }
           }
         }
@@ -40,8 +54,14 @@ export async function GET(
       createSuccessResponse(order, 'Order retrieved successfully'),
       { status: 200 }
     )
-  } catch (error) {
-    console.error('Get order error:', error)
+
+  } catch (error: any) {
+    logger.error('Get order error', { 
+      error: error.message, 
+      stack: error.stack,
+      orderId: params.id
+    })
+    
     return NextResponse.json(
       createErrorResponse('Internal server error', 'INTERNAL_ERROR'),
       { status: 500 }
@@ -49,42 +69,59 @@ export async function GET(
   }
 }
 
-// PUT /api/orders/[id] - Update order (for admin/employee)
-export async function PUT(
+// DELETE /api/orders/[id] - Delete order (admin only)
+export async function DELETE(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
     const orderId = params.id
-    const body = await request.json()
-
-    const { status, paymentStatus, notes } = body
-
-    const updateData: any = {}
-    if (status) updateData.status = status
-    if (paymentStatus) updateData.paymentStatus = paymentStatus
-    if (notes) updateData.notes = notes
-
-    const order = await prisma.order.update({
+    
+    // Check if order exists
+    const existingOrder = await prisma.order.findUnique({
       where: { id: orderId },
-      data: updateData,
       include: {
-        orderItems: {
-          include: {
-            product: {
-              select: { id: true, name: true, sku: true, price: true }
-            }
-          }
-        }
+        orderItems: true
       }
     })
 
+    if (!existingOrder) {
+      return NextResponse.json(
+        createErrorResponse('Order not found', 'NOT_FOUND'),
+        { status: 404 }
+      )
+    }
+
+    // Delete order and related items in transaction
+    await prisma.$transaction(async (tx) => {
+      // Delete order items first
+      await tx.orderItem.deleteMany({
+        where: { orderId }
+      })
+
+      // Delete the order
+      await tx.order.delete({
+        where: { id: orderId }
+      })
+    })
+
+    logger.info('Order deleted', {
+      orderId,
+      orderNumber: existingOrder.orderNumber
+    })
+
     return NextResponse.json(
-      createSuccessResponse(order, 'Order updated successfully'),
+      createSuccessResponse(null, 'Order deleted successfully'),
       { status: 200 }
     )
-  } catch (error) {
-    console.error('Update order error:', error)
+
+  } catch (error: any) {
+    logger.error('Delete order error', { 
+      error: error.message, 
+      stack: error.stack,
+      orderId: params.id
+    })
+    
     return NextResponse.json(
       createErrorResponse('Internal server error', 'INTERNAL_ERROR'),
       { status: 500 }

@@ -19,6 +19,8 @@ import {
   User
 } from 'lucide-react'
 import { toast } from 'react-hot-toast'
+import ConfirmDialog from '@/components/ConfirmDialog'
+import FormModal from '@/components/FormModal'
 
 interface Project {
   id: string
@@ -51,6 +53,20 @@ export default function AdminProjectsPage() {
     search: '',
     status: '',
     priority: ''
+  })
+  const [showModal, setShowModal] = useState(false)
+  const [editingProject, setEditingProject] = useState<Project | null>(null)
+  const [deletingProject, setDeletingProject] = useState<Project | null>(null)
+  const [formLoading, setFormLoading] = useState(false)
+  
+  const [form, setForm] = useState({
+    name: '',
+    description: '',
+    status: 'PLANNING',
+    startDate: new Date().toISOString().split('T')[0],
+    endDate: '',
+    budget: 0,
+    priority: 'MEDIUM'
   })
 
   useEffect(() => {
@@ -121,6 +137,93 @@ export default function AdminProjectsPage() {
     return 'bg-gray-300'
   }
 
+  const openModal = (project?: Project) => {
+    if (project) {
+      setEditingProject(project)
+      setForm({
+        name: project.name,
+        description: project.description || '',
+        status: project.status,
+        startDate: project.startDate.split('T')[0],
+        endDate: project.endDate ? project.endDate.split('T')[0] : '',
+        budget: project.budget,
+        priority: project.priority
+      })
+    } else {
+      setEditingProject(null)
+      setForm({
+        name: '',
+        description: '',
+        status: 'PLANNING',
+        startDate: new Date().toISOString().split('T')[0],
+        endDate: '',
+        budget: 0,
+        priority: 'MEDIUM'
+      })
+    }
+    setShowModal(true)
+  }
+
+  const closeModal = () => {
+    setShowModal(false)
+    setEditingProject(null)
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setFormLoading(true)
+
+    try {
+      const url = editingProject ? `/api/projects/${editingProject.id}` : '/api/projects'
+      const method = editingProject ? 'PUT' : 'POST'
+
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form)
+      })
+
+      if (response.ok) {
+        toast.success(editingProject ? 'Cập nhật dự án thành công' : 'Thêm dự án thành công')
+        closeModal()
+        fetchProjects()
+      } else {
+        const error = await response.json()
+        toast.error(error.error || 'Có lỗi xảy ra')
+      }
+    } catch (error) {
+      console.error('Error saving project:', error)
+      toast.error('Không thể lưu dự án')
+    } finally {
+      setFormLoading(false)
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!deletingProject) return
+
+    setFormLoading(true)
+    try {
+      const response = await fetch(`/api/projects/${deletingProject.id}`, {
+        method: 'DELETE'
+      })
+
+      if (response.ok) {
+        toast.success('Xóa dự án thành công')
+        setDeletingProject(null)
+        fetchProjects()
+      } else {
+        const error = await response.json()
+        toast.error(error.error || 'Không thể xóa dự án')
+      }
+    } catch (error) {
+      console.error('Error deleting project:', error)
+      toast.error('Không thể xóa dự án')
+    } finally {
+      setFormLoading(false)
+    }
+  }
+
   const filteredProjects = projects.filter(project => {
     if (filters.status && project.status !== filters.status) return false
     if (filters.priority && project.priority !== filters.priority) return false
@@ -148,7 +251,10 @@ export default function AdminProjectsPage() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-gray-900">Quản Lý Dự Án</h1>
-        <button className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 flex items-center">
+        <button 
+          onClick={() => openModal()}
+          className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 flex items-center"
+        >
           <Plus className="h-4 w-4 mr-2" />
           Dự Án Mới
         </button>
@@ -315,8 +421,17 @@ export default function AdminProjectsPage() {
                       >
                         <Eye className="h-4 w-4" />
                       </Link>
-                      <button className="text-green-600 hover:text-green-900 mr-3">
+                      <button 
+                        onClick={() => openModal(project)}
+                        className="text-green-600 hover:text-green-900 mr-3"
+                      >
                         <Edit className="h-4 w-4" />
+                      </button>
+                      <button 
+                        onClick={() => setDeletingProject(project)}
+                        className="text-red-600 hover:text-red-900"
+                      >
+                        Xóa
                       </button>
                     </td>
                   </tr>
@@ -326,6 +441,131 @@ export default function AdminProjectsPage() {
           </div>
         </div>
       )}
+
+      {/* Project Form Modal */}
+      <FormModal
+        isOpen={showModal}
+        onClose={closeModal}
+        title={editingProject ? 'Sửa Dự Án' : 'Thêm Dự Án Mới'}
+        size="lg"
+      >
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Tên Dự Án *</label>
+            <input
+              type="text"
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 bg-white"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Mô Tả</label>
+            <textarea
+              value={form.description}
+              onChange={(e) => setForm({ ...form, description: e.target.value })}
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 bg-white"
+              rows={3}
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Ngân Sách *</label>
+              <input
+                type="number"
+                value={form.budget}
+                onChange={(e) => setForm({ ...form, budget: parseFloat(e.target.value) || 0 })}
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 bg-white"
+                required
+                min="0"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Độ Ưu Tiên</label>
+              <select
+                value={form.priority}
+                onChange={(e) => setForm({ ...form, priority: e.target.value })}
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 bg-white"
+              >
+                <option value="LOW">Thấp</option>
+                <option value="MEDIUM">Trung Bình</option>
+                <option value="HIGH">Cao</option>
+                <option value="URGENT">Khẩn Cấp</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Ngày Bắt Đầu *</label>
+              <input
+                type="date"
+                value={form.startDate}
+                onChange={(e) => setForm({ ...form, startDate: e.target.value })}
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 bg-white"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Ngày Kết Thúc</label>
+              <input
+                type="date"
+                value={form.endDate}
+                onChange={(e) => setForm({ ...form, endDate: e.target.value })}
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 bg-white"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Trạng Thái</label>
+            <select
+              value={form.status}
+              onChange={(e) => setForm({ ...form, status: e.target.value })}
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 bg-white"
+            >
+              <option value="PLANNING">Lên Kế Hoạch</option>
+              <option value="IN_PROGRESS">Đang Thực Hiện</option>
+              <option value="ON_HOLD">Tạm Dừng</option>
+              <option value="COMPLETED">Hoàn Thành</option>
+              <option value="CANCELLED">Đã Hủy</option>
+            </select>
+          </div>
+
+          <div className="flex justify-end space-x-3 pt-4 border-t">
+            <button
+              type="button"
+              onClick={closeModal}
+              disabled={formLoading}
+              className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            >
+              Hủy
+            </button>
+            <button
+              type="submit"
+              disabled={formLoading}
+              className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+            >
+              {formLoading ? 'Đang lưu...' : (editingProject ? 'Cập Nhật' : 'Thêm Mới')}
+            </button>
+          </div>
+        </form>
+      </FormModal>
+
+      {/* Delete Confirmation */}
+      <ConfirmDialog
+        isOpen={!!deletingProject}
+        onClose={() => setDeletingProject(null)}
+        onConfirm={handleDelete}
+        title="Xóa Dự Án"
+        message={`Bạn có chắc muốn xóa dự án "${deletingProject?.name}"? Hành động này không thể hoàn tác.`}
+        confirmText="Xóa"
+        type="danger"
+        loading={formLoading}
+      />
     </div>
   )
 }

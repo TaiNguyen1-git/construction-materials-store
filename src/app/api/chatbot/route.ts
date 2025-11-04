@@ -10,12 +10,35 @@ import { conversationMemory } from '@/lib/conversation-memory'
 import { aiRecognition } from '@/lib/ai-material-recognition'
 import { mlRecommendations } from '@/lib/ml-recommendations'
 import { materialCalculator } from '@/lib/material-calculator-service'
+import { ADMIN_WELCOME_MESSAGE, CUSTOMER_WELCOME_MESSAGE } from '@/lib/ai-prompts-admin'
+
+// ===== NEW IMPORTS =====
+import { detectIntent, requiresManagerRole } from '@/lib/chatbot/intent-detector'
+import { extractEntities, parseOrderItems } from '@/lib/chatbot/entity-extractor'
+import { processImageOCR, validateInvoiceImage } from '@/lib/chatbot/ocr-processor'
+import { parseInvoice, formatInvoiceForChat, validateInvoice } from '@/lib/chatbot/invoice-parser'
+import { executeAction } from '@/lib/chatbot/action-handler'
+import { executeAnalyticsQuery } from '@/lib/chatbot/analytics-engine'
+import {
+  getConversationState,
+  setConversationState,
+  clearConversationState,
+  processFlowResponse,
+  startOrderCreationFlow,
+  startOCRInvoiceFlow,
+  startCRUDConfirmationFlow,
+  getFlowData,
+  updateFlowData
+} from '@/lib/chatbot/conversation-state'
+import { checkRateLimit, getRateLimitIdentifier, RateLimitConfigs, formatRateLimitError } from '@/lib/rate-limiter'
 
 const chatMessageSchema = z.object({
-  message: z.string().optional(), // Optional if image is provided
-  image: z.string().optional(), // Base64 image
+  message: z.string().optional(),
+  image: z.string().optional(),
   customerId: z.string().optional(),
   sessionId: z.string().min(1, 'Session ID is required'),
+  userRole: z.string().optional(),
+  isAdmin: z.boolean().optional(),
   context: z.object({
     currentPage: z.string().optional(),
     productId: z.string().optional(),
@@ -25,279 +48,16 @@ const chatMessageSchema = z.object({
   message: 'Either message or image is required'
 })
 
-// Generate chatbot response using AI or fallback to mock
-async function generateChatbotResponse(
-  message: string, 
-  context?: any,
-  conversationHistory?: { role: string; content: string }[]
-): Promise<{
-  response: string;
-  suggestions: string[];
-  productRecommendations?: any[];
-  confidence: number;
-  materialCalculation?: any;
-}> {
-  // Use real AI with RAG if enabled, otherwise fallback to mock
-  if (isAIEnabled()) {
-    try {
-      // ===== ENHANCED PROMPTS + RAG =====
-      // Build enhanced context with conversation memory
-      const chatContext: ChatContext = {
-        customerContext: context?.customerId 
-          ? await conversationMemory.getUserContext(context.customerId)
-          : undefined,
-        currentPage: context?.currentPage,
-        sessionContext: {
-          previousQueries: conversationHistory?.slice(-5).map(h => h.content) || [],
-          language: 'vi'
-        }
-      }
-
-      // Get relevant context from knowledge base
-      const augmentedMessage = await RAGService.generateAugmentedPrompt(message, conversationHistory)
-      
-      // Build enhanced system prompt
-      const enhancedSystemPrompt = buildEnhancedPrompt(message, chatContext)
-      const userMessage = buildUserMessage(message, chatContext)
-      
-      // Get AI response with enhanced context
-      const aiResponse = await AIService.generateChatbotResponse(
-        enhancedSystemPrompt + '\n\n' + augmentedMessage, 
-        context, 
-        conversationHistory
-      )
-      
-      // Get product recommendations from knowledge base
-      const knowledgeProducts = await RAGService.getProductRecommendations(message, 3)
-      
-      // Format knowledge base products for response
-      const knowledgeBasedRecommendations = knowledgeProducts.map(p => ({
-        id: p.id,
-        name: p.name,
-        brand: p.brand,
-        price: p.pricing.basePrice,
-        unit: p.pricing.unit,
-        description: p.description,
-        inStock: true // Assume in stock
-      }))
-      
-      // Merge with AI recommendations
-      const allRecommendations = [
-        ...knowledgeBasedRecommendations,
-        ...(aiResponse.productRecommendations || [])
-      ]
-      
-      // Deduplicate by name
-      const uniqueRecommendations = allRecommendations.filter((item, index, self) =>
-        index === self.findIndex(t => t.name === item.name)
-      ).slice(0, 5)
-      
-      return {
-        ...aiResponse,
-        productRecommendations: uniqueRecommendations,
-        confidence: Math.min(0.98, aiResponse.confidence + 0.1) // RAG increases confidence
-      }
-    } catch (error) {
-      console.error('AI service error, falling back to mock:', error)
-      // Fallback to mock response
-    }
-  }
-  
-  // Mock AI response function (in production, this would integrate with OpenAI or similar)
-  // Simulate processing time
-  await new Promise(resolve => setTimeout(resolve, 1000))
-  
-  const lowerMessage = message.toLowerCase()
-  const lowerMessageVi = message.toLowerCase() // Preserve Vietnamese
-  
-  // ===== TRY RAG FIRST FOR PRODUCT QUERIES =====
-  try {
-    const relevantProducts = await RAGService.retrieveContext(message, 2)
-    if (relevantProducts.length > 0) {
-      const product = relevantProducts[0]
-      const formattedResponse = RAGService.formatProductForChat(product)
-      
-      // Get cross-sell products
-      const crossSell = await RAGService.getCrossSellProducts(product.id)
-      
-      return {
-        response: formattedResponse,
-        suggestions: [
-          'Xem thêm chi tiết',
-          'Tính toán vật liệu',
-          crossSell.length > 0 ? `Xem ${crossSell[0].name}` : 'Sản phẩm khác',
-          'Liên hệ tư vấn'
-        ],
-        productRecommendations: [
-          {
-            id: product.id,
-            name: product.name,
-            brand: product.brand,
-            price: product.pricing.basePrice,
-            unit: product.pricing.unit
-          },
-          ...crossSell.slice(0, 2).map(p => ({
-            id: p.id,
-            name: p.name,
-            brand: p.brand,
-            price: p.pricing.basePrice,
-            unit: p.pricing.unit
-          }))
-        ],
-        confidence: 0.95
-      }
-    }
-  } catch (ragError) {
-    console.log('RAG search failed, falling back to mock:', ragError)
-  }
-
-  // Price inquiry (Vietnamese & English)
-  if (lowerMessage.includes('price') || lowerMessage.includes('cost') || lowerMessage.includes('how much') ||
-      lowerMessageVi.includes('giá') || lowerMessageVi.includes('bao nhiêu') || lowerMessageVi.includes('chi phí')) {
-    if (lowerMessage.includes('cement') || lowerMessageVi.includes('xi măng') || lowerMessageVi.includes('xi mang')) {
-      return {
-        response: "Giá xi măng của chúng tôi tùy loại và số lượng ạ:\n\n" +
-          "• **Xi măng PC30** (vữa xây): 105.000đ/bao 50kg\n" +
-          "• **Xi măng PC40** (bê tông): 120.000đ/bao 50kg\n" +
-          "• **Xi măng PCB40** (bê tông cao cấp): 135.000đ/bao 50kg\n\n" +
-          "Đặt từ 100 bao trở lên được **giảm 10%**. Bạn cần bao nhiêu bao để mình báo giá chi tiết nhé?",
-        suggestions: ["Báo giá số lượng lớn", "Xem các loại xi măng", "Tính tổng chi phí"],
-        confidence: 0.95
-      }
-    } else if (lowerMessage.includes('steel') || lowerMessage.includes('rebar') || 
-               lowerMessageVi.includes('thép') || lowerMessageVi.includes('sắt')) {
-      return {
-        response: "Giá thép phụ thuộc vào đường kính và chiều dài ạ:\n\n" +
-          "• **Thép D6-D8**: 16.000đ/kg\n" +
-          "• **Thép D10-D12**: 17.500đ/kg\n" +
-          "• **Thép D16-D18**: 18.500đ/kg\n" +
-          "• **Thép D20-D25**: 19.000đ/kg\n\n" +
-          "Chiều dài tiêu chuẩn 6m hoặc 12m. Bạn cần quy cách nào để mình tư vấn chi tiết?",
-        suggestions: ["Xem catalog thép", "Giá sỉ", "Kiểm tra tồn kho"],
-        confidence: 0.92
-      }
-    } else if (lowerMessageVi.includes('gạch')) {
-      return {
-        response: "Có nhiều loại gạch với giá khác nhau ạ:\n\n" +
-          "• **Gạch 4 lỗ** 8x8x18cm: 2.200đ/viên\n" +
-          "• **Gạch đặc**: 3.500đ/viên\n" +
-          "• **Gạch block 10cm**: 8.500đ/viên\n" +
-          "• **Gạch ốp lát** 60x60cm: 85.000đ/m²\n\n" +
-          "Bạn cần gạch loại nào để mình tư vấn cụ thể hơn nhé?",
-        suggestions: ["Gạch xây tường", "Gạch lát nền", "Gạch block"],
-        confidence: 0.93
-      }
-    } else {
-      return {
-        response: "Tôi sẵn sàng báo giá cho bạn! Bạn muốn biết giá của vật liệu nào ạ? Chúng tôi có:\n\n" +
-          "🧱 Xi măng, thép, cát, đá, gạch\n" +
-          "🏠 Ngói, tôn, ván ép\n" +
-          "🎨 Sơn, bột trét, chống thấm\n" +
-          "🔧 Công cụ và vật tư khác\n\n" +
-          "Cho mình biết bạn cần vật liệu gì nhé!",
-        suggestions: ["Xi măng", "Thép", "Gạch", "Cát & Đá", "Danh mục sản phẩm"],
-        confidence: 0.85
-      }
-    }
-  }
-  
-  // Stock/availability inquiry
-  if (lowerMessage.includes('stock') || lowerMessage.includes('available') || lowerMessage.includes('in stock')) {
-    return {
-      response: "I can check our current stock levels for you. We update our inventory in real-time. Which specific products are you looking for? You can also browse our online catalog to see current availability.",
-      suggestions: ["Check cement stock", "Check steel availability", "View all products"],
-      confidence: 0.90
-    }
-  }
-  
-  // Store hours inquiry
-  if (lowerMessage.includes('hours') || lowerMessage.includes('open') || lowerMessage.includes('close') || lowerMessage.includes('time')) {
-    return {
-      response: "Our store hours are Monday-Friday: 7:00 AM - 6:00 PM, Saturday: 8:00 AM - 4:00 PM, Sunday: Closed. We also offer 24/7 online ordering with next-day pickup available.",
-      suggestions: ["Place online order", "Schedule pickup", "Contact us"],
-      confidence: 0.98
-    }
-  }
-  
-  // Delivery inquiry
-  if (lowerMessage.includes('delivery') || lowerMessage.includes('shipping') || lowerMessage.includes('deliver')) {
-    return {
-      response: "Yes, we offer delivery services! Free delivery for orders over $500 within 10 miles. For smaller orders or longer distances, delivery fees apply. Delivery is typically within 1-2 business days. Would you like to check delivery options for your location?",
-      suggestions: ["Check delivery cost", "Schedule delivery", "View delivery areas"],
-      confidence: 0.94
-    }
-  }
-  
-  // Product recommendations
-  if (lowerMessage.includes('recommend') || lowerMessage.includes('best') || lowerMessage.includes('need')) {
-    if (lowerMessage.includes('foundation') || lowerMessage.includes('concrete')) {
-      return {
-        response: "For foundation work, I recommend our premium concrete mix and steel rebar for reinforcement. You'll also need gravel for the base and waterproofing materials. Would you like me to create a foundation materials package for you?",
-        suggestions: ["Foundation package", "Calculate quantities", "Get quote"],
-        productRecommendations: [
-          { name: "Premium Concrete Mix", price: 25.00, unit: "bag" },
-          { name: "Steel Rebar 12mm", price: 8.50, unit: "piece" },
-          { name: "Waterproof Membrane", price: 45.00, unit: "roll" }
-        ],
-        confidence: 0.88
-      }
-    } else {
-      return {
-        response: "I'd be happy to recommend the right materials for your project! Could you tell me more about what you're building or working on? For example, are you doing foundation work, roofing, walls, or something else?",
-        suggestions: ["Foundation materials", "Roofing supplies", "Wall materials"],
-        confidence: 0.82
-      }
-    }
-  }
-  
-  // Greeting (Vietnamese & English)
-  if (lowerMessage.includes('hello') || lowerMessage.includes('hi') || lowerMessage.includes('hey') ||
-      lowerMessageVi.includes('xin chào') || lowerMessageVi.includes('chào') || lowerMessageVi.includes('hello')) {
-    return {
-      response: "Xin chào! Chào mừng bạn đến với SmartBuild AI. Tôi là trợ lý ảo, sẵn sàng giúp bạn tìm vật liệu phù hợp cho công trình. Bạn đang cần tư vấn gì ạ?",
-      suggestions: ["Tính toán vật liệu", "Xem sản phẩm", "Kiểm tra giá", "Thông tin cửa hàng"],
-      confidence: 0.96
-    }
-  }
-  
-  // Material calculation request
-  if (lowerMessageVi.includes('tính') && (lowerMessageVi.includes('vật liệu') || lowerMessageVi.includes('xi măng') || lowerMessageVi.includes('gạch'))) {
-    return {
-      response: "Tuyệt vời! Tôi có thể giúp bạn tính toán chính xác vật liệu cần thiết. Để tính toán tốt nhất, cho tôi biết:\n\n" +
-        "🏠 **Loại công trình**: Nhà phố / Biệt thự / Nhà xưởng / Chung cư?\n" +
-        "📏 **Diện tích**: Bao nhiêu m²?\n" +
-        "🏗️ **Số tầng**: Bao nhiêu tầng?\n" +
-        "🧱 **Loại tường**: Gạch / Bê tông?\n" +
-        "🏠 **Loại mái**: Ngói / Tôn / Bê tông?\n\n" +
-        "Hoặc bạn có thể vào mục **Tính toán vật liệu** trên website để nhập đầy đủ thông tin nhé!",
-      suggestions: ["Nhà phố 100m²", "Biệt thự 200m²", "Nhà xưởng 500m²", "Tính toán chi tiết"],
-      confidence: 0.95
-    }
-  }
-  
-  // Order inquiry
-  if (lowerMessage.includes('order') || lowerMessage.includes('buy') || lowerMessage.includes('purchase')) {
-    return {
-      response: "Great! You can place orders online through our website or visit our store. We accept cash, card, and bank transfers. For large orders, we also offer credit terms for registered customers. What would you like to order?",
-      suggestions: ["Browse products", "Create account", "Contact sales"],
-      confidence: 0.91
-    }
-  }
-  
-  // Default response
-  return {
-    response: "I'm here to help with information about our construction materials, pricing, availability, store hours, and delivery options. Could you please rephrase your question or let me know what specific information you're looking for?",
-    suggestions: ["View products", "Check prices", "Store hours", "Delivery info"],
-    confidence: 0.75
-  }
-}
-
-// POST /api/chatbot - Process chatbot message (with image support)
+// POST /api/chatbot - Process chatbot message
 export async function POST(request: NextRequest) {
   try {
+    // Get client IP for rate limiting
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || 
+               request.headers.get('x-real-ip') || 
+               'unknown'
+    
     const body = await request.json()
     
-    // Validate input
     const validation = chatMessageSchema.safeParse(body)
     if (!validation.success) {
       return NextResponse.json(
@@ -306,247 +66,596 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { message, image, customerId, sessionId, context } = validation.data
-
-    // Get conversation history for context-aware responses
-    const conversationHistory = await prisma.customerInteraction.findMany({
-      where: {
-        sessionId,
-        interactionType: 'CHATBOT',
-        createdAt: {
-          gte: new Date(Date.now() - 3600000) // Last 1 hour
-        }
-      },
-      orderBy: { createdAt: 'asc' },
-      take: 10, // Last 10 messages
-      select: {
-        query: true,
-        response: true
-      }
-    })
-
-    // Format conversation history for AI
-    const formattedHistory: { role: string; content: string }[] = []
-    conversationHistory.forEach(interaction => {
-      formattedHistory.push({ role: 'user', content: interaction.query })
-      formattedHistory.push({ role: 'assistant', content: interaction.response })
-    })
-
-    let botResponse: any
-    let actualQuery = message || ''
-    let recognitionResult: any = null
-
-    // ===== IMAGE RECOGNITION FLOW =====
-    if (image) {
-      console.log('📸 Processing image with AI recognition...')
+    const { message, image, customerId, sessionId, context, isAdmin, userRole } = validation.data
+    
+    // Apply rate limiting
+    let rateLimitConfig = RateLimitConfigs.CHATBOT
+    let rateLimitEndpoint = 'chatbot'
+    
+    if (image && isAdmin) {
+      // OCR is expensive, use stricter limits
+      rateLimitConfig = RateLimitConfigs.OCR
+      rateLimitEndpoint = 'ocr'
+    } else if (isAdmin) {
+      // Admin queries (analytics, CRUD)
+      rateLimitConfig = RateLimitConfigs.ANALYTICS
+      rateLimitEndpoint = 'admin'
+    }
+    
+    const rateLimitId = getRateLimitIdentifier(ip, customerId, rateLimitEndpoint)
+    const rateLimitResult = await checkRateLimit(rateLimitId, rateLimitConfig)
+    
+    if (!rateLimitResult.allowed) {
+      const resetAt = rateLimitResult.resetAt || Date.now() + 60000
+      const resetDate = new Date(resetAt)
       
-      try {
-        // Recognize material from image
-        recognitionResult = await aiRecognition.recognizeMaterial(image)
-        
-        console.log(`✅ Recognized: ${recognitionResult.materialType} (${(recognitionResult.confidence * 100).toFixed(0)}%)`)
-        
-        // Build natural language response
-        let responseText = `📸 **Tôi nhận diện được:** ${recognitionResult.materialType}\n\n`
-        responseText += `🎯 **Độ tin cậy:** ${(recognitionResult.confidence * 100).toFixed(0)}%\n\n`
-        
-        if (recognitionResult.matchedProducts.length > 0) {
-          responseText += `✅ **Tìm thấy ${recognitionResult.matchedProducts.length} sản phẩm phù hợp:**\n\n`
-          
-          // Get ML-enhanced recommendations for these products
-          const productIds = recognitionResult.matchedProducts.map((p: any) => p.id)
-          let enhancedProducts = recognitionResult.matchedProducts
-          
-          // Try to enhance with ML recommendations if customer ID available
-          if (customerId && productIds.length > 0) {
-            try {
-              const mlScores = await mlRecommendations.getHybridRecommendations(
-                productIds[0], // Use first product as reference
-                customerId,
-                'SIMILAR',
-                5
-              )
-              enhancedProducts = await mlRecommendations.enrichRecommendations(mlScores)
-              console.log('🤖 Enhanced with ML recommendations')
-            } catch (mlError) {
-              console.log('Using original recognition results (ML enhancement failed)')
-            }
-          }
-          
-          botResponse = {
-            response: responseText,
-            suggestions: recognitionResult.suggestions,
-            productRecommendations: enhancedProducts,
-            confidence: recognitionResult.confidence,
-            recognitionData: recognitionResult.features
-          }
-        } else {
-          responseText += '❌ Không tìm thấy sản phẩm phù hợp trong kho.\n\n'
-          responseText += recognitionResult.suggestions.join('\n')
-          
-          botResponse = {
-            response: responseText,
-            suggestions: ['Thử chụp ảnh khác', 'Tìm kiếm bằng text', 'Xem danh mục sản phẩm'],
-            productRecommendations: [],
-            confidence: recognitionResult.confidence
+      return NextResponse.json(
+        createSuccessResponse({
+          message: formatRateLimitError({ ...rateLimitResult, resetAt }),
+          suggestions: ['Thử lại sau', 'Liên hệ hỗ trợ'],
+          confidence: 1.0,
+          sessionId,
+          timestamp: new Date().toISOString()
+        }),
+        { 
+          status: 200,
+          headers: {
+            'X-RateLimit-Limit': rateLimitConfig.max.toString(),
+            'X-RateLimit-Remaining': '0',
+            'X-RateLimit-Reset': resetDate.toISOString()
           }
         }
-        
-        // If user also included a message, append to context
-        if (message) {
-          actualQuery = `[Gửi ảnh ${recognitionResult.materialType}] ${message}`
-        } else {
-          actualQuery = `[Gửi ảnh ${recognitionResult.materialType}]`
-        }
-      } catch (recognitionError) {
-        console.error('AI recognition error:', recognitionError)
-        botResponse = {
-          response: '😅 Xin lỗi, tôi gặp khó khăn khi nhận diện ảnh này. Bạn có thể chụp lại rõ hơn hoặc nhập tên vật liệu không?',
-          suggestions: ['Chụp lại ảnh', 'Tìm kiếm bằng text', 'Xem danh mục'],
+      )
+    }
+
+    // ===== WELCOME MESSAGES =====
+    if (message === 'admin_hello' && isAdmin) {
+      return NextResponse.json(
+        createSuccessResponse({
+          message: ADMIN_WELCOME_MESSAGE.message,
+          suggestions: ADMIN_WELCOME_MESSAGE.suggestions,
           productRecommendations: [],
-          confidence: 0.5
-        }
-        actualQuery = '[Gửi ảnh - nhận diện thất bại]'
-      }
-    } 
-    // ===== TEXT-ONLY FLOW =====
-    else {
-      const lowerMessage = message?.toLowerCase() || ''
+          confidence: 1.0,
+          sessionId,
+          timestamp: new Date().toISOString()
+        }),
+        { status: 200 }
+      )
+    }
+
+    if (message === 'hello' && !isAdmin) {
+      return NextResponse.json(
+        createSuccessResponse({
+          message: CUSTOMER_WELCOME_MESSAGE.message,
+          suggestions: CUSTOMER_WELCOME_MESSAGE.suggestions,
+          productRecommendations: [],
+          confidence: 1.0,
+          sessionId,
+          timestamp: new Date().toISOString()
+        }),
+        { status: 200 }
+      )
+    }
+
+    // ===== CHECK ACTIVE CONVERSATION FLOW =====
+    const activeState = getConversationState(sessionId)
+    
+    if (activeState && message) {
+      const flowResult = processFlowResponse(sessionId, message)
       
-      // ===== MATERIAL CALCULATOR FLOW =====
-      if (lowerMessage.includes('tính') && (
-          lowerMessage.includes('vật liệu') ||
-          lowerMessage.includes('m²') || lowerMessage.includes('m2') ||
-          lowerMessage.includes('tầng') || lowerMessage.includes('tang') ||
-          lowerMessage.includes('nhà') || lowerMessage.includes('nha')
-      )) {
-        console.log('🧮 Material calculation request detected...')
-        
-        try {
-          const calcInput = materialCalculator.parseQuery(message!)
-          
-          if (calcInput) {
-            const calcResult = await materialCalculator.quickCalculate(calcInput)
-            const formattedResponse = materialCalculator.formatForChat(calcResult)
-            
-            botResponse = {
-              response: formattedResponse,
-              suggestions: [
-                'Điều chỉnh tính toán',
-                'Xem sản phẩm xi măng',
-                'Xem sản phẩm gạch',
-                'Tư vấn thêm'
-              ],
-              productRecommendations: [],
-              confidence: 0.92,
-              calculationData: calcResult
-            }
-          } else {
-            botResponse = {
-              response: `🧮 Tôi có thể giúp bạn tính toán vật liệu!\n\n` +
-                       `Vui lòng cung cấp thông tin:\n` +
-                       `• Diện tích hoặc kích thước (VD: 100m², 10x15m)\n` +
-                       `• Số tầng (VD: 2 tầng)\n` +
-                       `• Loại công trình (VD: nhà phố, biệt thự)\n\n` +
-                       `**Ví dụ:** "Tính vật liệu nhà phố 100m² 2 tầng"`,
-              suggestions: [
-                'Tính nhà phố 100m²',
-                'Tính biệt thự 200m² 2 tầng',
-                'Tính nhà xưởng 500m²'
-              ],
-              productRecommendations: [],
-              confidence: 0.85
-            }
-          }
-        } catch (calcError: any) {
-          console.error('Calculation error:', calcError)
-          botResponse = {
-            response: `❌ Lỗi tính toán: ${calcError.message}\n\n` +
-                     `Vui lòng kiểm tra lại thông tin và thử lại.`,
-            suggestions: ['Thử lại', 'Ví dụ tính toán'],
-            productRecommendations: [],
-            confidence: 0.5
-          }
-        }
+      if (flowResult.isCancelled) {
+        return NextResponse.json(
+          createSuccessResponse({
+            message: '❌ Đã hủy thao tác.',
+            suggestions: ['Bắt đầu lại', 'Trợ giúp'],
+            confidence: 1.0,
+            sessionId,
+            timestamp: new Date().toISOString()
+          })
+        )
       }
-      // ===== RECOMMENDATION FLOW =====
-      else if ((lowerMessage.includes('gợi ý') || lowerMessage.includes('đề xuất') || 
-           lowerMessage.includes('recommend')) && customerId) {
-        console.log('💡 Generating personalized recommendations...')
-        
-        try {
-          // Get ML personalized recommendations
-          const mlScores = await mlRecommendations.getHybridRecommendations(
-            undefined, // No specific product
-            customerId,
-            'PERSONALIZED',
-            5
-          )
-          
-          const recommendations = await mlRecommendations.enrichRecommendations(mlScores)
-          
-          botResponse = {
-            response: `💡 **Dựa trên lịch sử mua hàng của bạn**, tôi gợi ý các sản phẩm này:\n\n` +
-                     `Các sản phẩm bên dưới phù hợp với nhu cầu và dự án của bạn. ` +
-                     `Bạn có thể xem chi tiết hoặc hỏi tôi thêm về bất kỳ sản phẩm nào!`,
-            suggestions: [
-              'Chi tiết sản phẩm đầu tiên',
-              'So sánh giá',
-              'Tính toán vật liệu',
-              'Xem thêm gợi ý'
-            ],
-            productRecommendations: recommendations,
-            confidence: 0.9
-          }
-        } catch (mlError) {
-          console.error('ML recommendations failed:', mlError)
-          // Fallback to regular chatbot response
-          botResponse = await generateChatbotResponse(message, context, formattedHistory)
-        }
+      
+      if (flowResult.isConfirmed && activeState.flow === 'ORDER_CREATION') {
+        return await handleOrderCreation(sessionId, customerId, activeState)
       }
-      // ===== REGULAR CHAT FLOW =====
-      else {
-        botResponse = await generateChatbotResponse(message, context, formattedHistory)
+      
+      if (flowResult.isConfirmed && activeState.flow === 'OCR_INVOICE') {
+        return await handleOCRInvoiceSave(sessionId, activeState)
+      }
+      
+      if (flowResult.isConfirmed && activeState.flow === 'CRUD_CONFIRMATION') {
+        return await handleCRUDExecution(sessionId, activeState, userRole || '')
+      }
+      
+      if (flowResult.nextPrompt) {
+        return NextResponse.json(
+          createSuccessResponse({
+            message: flowResult.nextPrompt,
+            suggestions: ['Xác nhận', 'Hủy'],
+            confidence: 1.0,
+            sessionId,
+            timestamp: new Date().toISOString()
+          })
+        )
       }
     }
 
-    // Log customer interaction
-    await prisma.customerInteraction.create({
-      data: {
-        customerId,
-        sessionId,
-        interactionType: 'CHATBOT',
-        productId: context?.productId,
-        query: actualQuery,
-        response: botResponse.response,
-        metadata: {
-          confidence: botResponse.confidence,
-          suggestions: botResponse.suggestions,
-          productRecommendations: botResponse.productRecommendations,
-          hasImage: !!image,
-          recognitionData: recognitionResult,
-          context
-        },
-        ipAddress: request.headers.get('x-forwarded-for') || 
-                   request.headers.get('x-real-ip') || 
-                   'unknown',
-        userAgent: request.headers.get('user-agent') || 'unknown'
-      }
+    // ===== OCR INVOICE FLOW (Admin + Image) =====
+    if (isAdmin && image) {
+      return await handleOCRInvoiceFlow(sessionId, image, message)
+    }
+
+    // ===== IMAGE RECOGNITION FLOW (Customer + Image) =====
+    if (!isAdmin && image) {
+      return await handleCustomerImageRecognition(sessionId, image, message, customerId)
+    }
+
+    // ===== TEXT-ONLY FLOWS =====
+    if (!message) {
+      return NextResponse.json(
+        createErrorResponse('Message is required', 'VALIDATION_ERROR'),
+        { status: 400 }
+      )
+    }
+
+    // Get conversation history
+    const conversationHistory = await getConversationHistory(sessionId)
+
+    // Extract entities
+    const entities = extractEntities(message)
+
+    // Detect intent
+    const intentResult = detectIntent(message, isAdmin, false, {
+      hasCalculation: conversationHistory.some(h => h.role === 'assistant' && h.content.includes('tính toán')),
+      hasProductList: conversationHistory.some(h => h.role === 'assistant' && h.content.includes('danh sách'))
     })
 
-    const response = {
-      message: botResponse.response,
-      suggestions: botResponse.suggestions,
-      productRecommendations: botResponse.productRecommendations,
-      confidence: botResponse.confidence,
-      recognitionData: botResponse.recognitionData,
-      sessionId,
-      timestamp: new Date().toISOString()
+    console.log(`Intent: ${intentResult.intent} (confidence: ${intentResult.confidence})`)
+
+    // ===== SECURITY: Prevent customer from accessing admin intents =====
+    if (!isAdmin && intentResult.intent.startsWith('ADMIN_')) {
+      return NextResponse.json(
+        createSuccessResponse({
+          message: '⛔ Bạn không có quyền truy cập chức năng này.\n\n💡 Chức năng này chỉ dành cho quản trị viên.',
+          suggestions: ['Tìm sản phẩm', 'Tính vật liệu', 'Giá cả'],
+          confidence: 1.0,
+          sessionId,
+          timestamp: new Date().toISOString()
+        }),
+        { status: 403 }
+      )
+    }
+
+    // ===== ADMIN FLOWS =====
+    if (isAdmin) {
+      // Analytics queries
+      if (intentResult.intent === 'ADMIN_ANALYTICS') {
+        const analyticsResult = await executeAnalyticsQuery(message, entities)
+        
+        return NextResponse.json(
+          createSuccessResponse({
+            message: analyticsResult.message,
+            suggestions: analyticsResult.data ? 
+              ['Xuất báo cáo', 'Chi tiết hơn', 'So sánh kỳ trước'] : 
+              ['Thử lại', 'Trợ giúp'],
+            confidence: analyticsResult.success ? 0.9 : 0.5,
+            sessionId,
+            timestamp: new Date().toISOString(),
+            data: analyticsResult.data
+          })
+        )
+      }
+
+      // Order management
+      if (intentResult.intent === 'ADMIN_ORDER_MANAGE') {
+        return await handleAdminOrderManagement(message, entities, sessionId)
+      }
+
+      // Inventory check
+      if (intentResult.intent === 'ADMIN_INVENTORY_CHECK') {
+        return await handleAdminInventoryCheck(message, entities, sessionId)
+      }
+
+      // Employee queries
+      if (intentResult.intent === 'ADMIN_EMPLOYEE_QUERY') {
+        const analyticsResult = await executeAnalyticsQuery(message, entities)
+        
+        return NextResponse.json(
+          createSuccessResponse({
+            message: analyticsResult.message,
+            suggestions: ['Xem chi tiết', 'Chấm công', 'Phân công'],
+            confidence: analyticsResult.success ? 0.9 : 0.5,
+            sessionId,
+            timestamp: new Date().toISOString(),
+            data: analyticsResult.data
+          })
+        )
+      }
+
+      // Payroll queries
+      if (intentResult.intent === 'ADMIN_PAYROLL_QUERY') {
+        const analyticsResult = await executeAnalyticsQuery(message, entities)
+        
+        return NextResponse.json(
+          createSuccessResponse({
+            message: analyticsResult.message,
+            suggestions: ['Chi tiết lương', 'Xuất bảng lương', 'Duyệt ứng'],
+            confidence: analyticsResult.success ? 0.9 : 0.5,
+            sessionId,
+            timestamp: new Date().toISOString(),
+            data: analyticsResult.data
+          })
+        )
+      }
+
+      // CRUD operations
+      if (
+        intentResult.intent === 'ADMIN_CRUD_CREATE' ||
+        intentResult.intent === 'ADMIN_CRUD_UPDATE' ||
+        intentResult.intent === 'ADMIN_CRUD_DELETE'
+      ) {
+        // Check MANAGER permission
+        if (requiresManagerRole(intentResult.intent) && userRole !== 'MANAGER') {
+          return NextResponse.json(
+            createSuccessResponse({
+              message: '⛔ Chỉ MANAGER mới có quyền thực hiện thao tác này.',
+              suggestions: ['Quay lại'],
+              confidence: 1.0,
+              sessionId,
+              timestamp: new Date().toISOString()
+            })
+          )
+        }
+
+        const actionResult = await executeAction({
+          action: entities.action || 'CREATE',
+          entityType: entities.entityType || 'product',
+          entities,
+          rawMessage: message,
+          userId: customerId || '',
+          userRole: userRole || 'EMPLOYEE'
+        })
+
+        if (actionResult.requiresConfirmation) {
+          // Start confirmation flow
+          startCRUDConfirmationFlow(sessionId, {
+            action: entities.action || 'CREATE',
+            entityType: entities.entityType || 'product',
+            entityData: actionResult.data,
+            previewMessage: actionResult.message
+          })
+
+          return NextResponse.json(
+            createSuccessResponse({
+              message: actionResult.message + '\n\n⚠️ Xác nhận thực hiện?',
+              suggestions: ['Xác nhận', 'Hủy'],
+              confidence: 0.9,
+              sessionId,
+              timestamp: new Date().toISOString()
+            })
+          )
+        }
+
+        return NextResponse.json(
+          createSuccessResponse({
+            message: actionResult.message,
+            suggestions: actionResult.success ? 
+              ['Tiếp tục', 'Xem chi tiết'] : 
+              ['Thử lại', 'Trợ giúp'],
+            confidence: actionResult.success ? 0.9 : 0.5,
+            sessionId,
+            timestamp: new Date().toISOString()
+          })
+        )
+      }
+
+      // ===== ADMIN FALLBACK =====
+      // If admin but no specific intent matched, use admin-specific fallback
+      const adminFallback = await generateChatbotResponse(message, context, conversationHistory, true)
+      
+      return NextResponse.json(
+        createSuccessResponse({
+          message: adminFallback.response,
+          suggestions: adminFallback.suggestions,
+          confidence: adminFallback.confidence,
+          sessionId,
+          timestamp: new Date().toISOString()
+        })
+      )
+    }
+
+    // ===== CUSTOMER FLOWS =====
+
+    // Order creation intent
+    if (intentResult.intent === 'ORDER_CREATE') {
+      // Try to parse order items from message
+      const parsedItems = parseOrderItems(message)
+      
+      if (parsedItems.length > 0) {
+        // Direct order from message
+        startOrderCreationFlow(sessionId, parsedItems, !!customerId)
+
+        const needsInfo = !customerId
+        
+        return NextResponse.json(
+          createSuccessResponse({
+            message: '🛒 **Xác nhận đặt hàng**\n\n' +
+                     'Danh sách sản phẩm:\n' +
+                     parsedItems.map((item, idx) => 
+                       `${idx + 1}. ${item.productName}: ${item.quantity} ${item.unit}`
+                     ).join('\n') +
+                     '\n\n✅ Xác nhận đặt hàng?' +
+                     (needsInfo ? '\n\n⚠️ *Bạn chưa đăng nhập. Chúng tôi sẽ hỏi thông tin giao hàng sau khi xác nhận.*' : '\n\n💡 *Hệ thống sẽ tự động tìm sản phẩm phù hợp trong kho*'),
+            suggestions: needsInfo ? ['Xác nhận', 'Đăng nhập', 'Hủy'] : ['Xác nhận', 'Chỉnh sửa', 'Hủy'],
+            confidence: intentResult.confidence,
+            sessionId,
+            timestamp: new Date().toISOString()
+          })
+        )
+      }
+      
+      // Check if there's a recent material calculation
+      const recentCalc = conversationHistory.reverse().find(h => 
+        h.role === 'assistant' && (
+          h.content.includes('Xi măng') || 
+          h.content.includes('Gạch') ||
+          h.content.includes('Cát') ||
+          h.content.includes('Đá')
+        )
+      )
+
+      if (recentCalc) {
+        // Parse material list from calculation
+        // (Simplified - in production, store calculation data in state)
+        const items = [
+          { productName: 'Xi măng PC40', quantity: 180, unit: 'bao' },
+          { productName: 'Gạch ống', quantity: 12000, unit: 'viên' }
+        ]
+
+        startOrderCreationFlow(sessionId, items)
+
+        return NextResponse.json(
+          createSuccessResponse({
+            message: '🛒 **Xác nhận đặt hàng**\n\n' +
+                     'Danh sách vật liệu từ tính toán:\n' +
+                     items.map((item, idx) => 
+                       `${idx + 1}. ${item.productName}: ${item.quantity} ${item.unit}`
+                     ).join('\n') +
+                     '\n\n✅ Xác nhận đặt hàng?',
+            suggestions: ['Xác nhận', 'Chỉnh sửa', 'Hủy'],
+            confidence: 0.9,
+            sessionId,
+            timestamp: new Date().toISOString()
+          })
+        )
+      } else {
+        return NextResponse.json(
+          createSuccessResponse({
+            message: '❓ Bạn muốn đặt hàng gì? Vui lòng cho tôi biết cụ thể:\n\n' +
+                     '📝 **Ví dụ:**\n' +
+                     '- "Tôi muốn mua 10 bao xi măng"\n' +
+                     '- "Đặt 20 viên gạch và 5 m³ cát"\n' +
+                     '- "50 bao xi măng PC40 Insee"\n\n' +
+                     'Hoặc bạn có thể tính toán vật liệu trước!',
+            suggestions: ['Tính toán vật liệu', 'Xem sản phẩm', 'Ví dụ'],
+            confidence: 0.7,
+            sessionId,
+            timestamp: new Date().toISOString()
+          })
+        )
+      }
+    }
+
+    // Product search
+    if (intentResult.intent === 'PRODUCT_SEARCH') {
+      try {
+        // Extract product name from message
+        const productKeywords = message.toLowerCase()
+          .replace(/tìm|search|có|bán|sell|muốn|cần|mua|đặt/g, '')
+          .trim()
+        
+        // Search products
+        const products = await prisma.product.findMany({
+          where: {
+            OR: [
+              { name: { contains: productKeywords, mode: 'insensitive' } },
+              { description: { contains: productKeywords, mode: 'insensitive' } },
+              { tags: { hasSome: [productKeywords] } }
+            ],
+            isActive: true
+          },
+          include: {
+            category: true,
+            inventoryItem: true,
+            productReviews: {
+              where: { isPublished: true },
+              select: { rating: true }
+            }
+          },
+          take: 5
+        })
+
+        if (products.length > 0) {
+          const productList = products.map((p, idx) => {
+            const avgRating = p.productReviews.length > 0
+              ? (p.productReviews.reduce((sum, r) => sum + r.rating, 0) / p.productReviews.length).toFixed(1)
+              : 'Chưa có đánh giá'
+            const inStock = p.inventoryItem ? p.inventoryItem.availableQuantity > 0 : false
+            const stockText = inStock 
+              ? `✅ Còn ${p.inventoryItem?.availableQuantity || 0} ${p.unit}` 
+              : '❌ Hết hàng'
+            
+            return `${idx + 1}. **${p.name}**\n` +
+                   `   - Giá: ${p.price.toLocaleString()}đ/${p.unit}\n` +
+                   `   - ${stockText}\n` +
+                   `   - Đánh giá: ${avgRating} ⭐ (${p.productReviews.length} reviews)\n` +
+                   `   - Danh mục: ${p.category.name}`
+          }).join('\n\n')
+
+          return NextResponse.json(
+            createSuccessResponse({
+              message: `🔍 **Tìm thấy ${products.length} sản phẩm:**\n\n${productList}\n\n` +
+                       `💡 Nhấn "Xem chi tiết" để xem thêm thông tin hoặc "Đặt hàng" để mua ngay!`,
+              suggestions: ['Xem chi tiết', 'Đặt hàng', 'So sánh giá'],
+              productRecommendations: products.map(p => ({
+                id: p.id,
+                name: p.name,
+                price: p.price,
+                unit: p.unit,
+                image: p.images[0] || '/placeholder.png',
+                inStock: p.inventoryItem ? p.inventoryItem.availableQuantity > 0 : false
+              })),
+              confidence: 0.90,
+              sessionId,
+              timestamp: new Date().toISOString()
+            })
+          )
+        } else {
+          return NextResponse.json(
+            createSuccessResponse({
+              message: `❌ Không tìm thấy sản phẩm **"${productKeywords}"**\n\n` +
+                       `💡 **Gợi ý:**\n` +
+                       `- Thử tìm với từ khóa khác (vd: "xi măng", "gạch ống")\n` +
+                       `- Xem danh mục sản phẩm\n` +
+                       `- Liên hệ tư vấn: 1900-xxxx`,
+              suggestions: ['Xem tất cả sản phẩm', 'Tư vấn', 'Tìm khác'],
+              confidence: 0.80,
+              sessionId,
+              timestamp: new Date().toISOString()
+            })
+          )
+        }
+      } catch (error) {
+        console.error('Product search error:', error)
+      }
+    }
+
+    // Material calculation
+    if (intentResult.intent === 'MATERIAL_CALCULATE') {
+      try {
+        const calcInput = materialCalculator.parseQuery(message)
+        
+        if (calcInput) {
+          const calcResult = await materialCalculator.quickCalculate(calcInput)
+          const formattedResponse = materialCalculator.formatForChat(calcResult)
+          
+          return NextResponse.json(
+            createSuccessResponse({
+              message: formattedResponse,
+              suggestions: ['Đặt hàng ngay', 'Điều chỉnh', 'Tính lại'],
+              confidence: 0.92,
+              sessionId,
+              timestamp: new Date().toISOString(),
+              calculationData: calcResult
+            })
+          )
+        } else {
+          // Cannot parse - ask for clarification
+          return NextResponse.json(
+            createSuccessResponse({
+              message: `🏗️ **Tính toán vật liệu xây dựng**\n\n` +
+                       `Vui lòng cho tôi biết thêm thông tin:\n` +
+                       `- Diện tích cần xây: bao nhiêu m²?\n` +
+                       `- Loại công trình: nhà, tường, sàn,...?\n` +
+                       `- Số tầng (nếu có)\n\n` +
+                       `📝 **Ví dụ:**\n` +
+                       `- "Tính vật liệu cho nhà 100m² x 3 tầng"\n` +
+                       `- "Tính xi măng cho sàn 50m²"\n` +
+                       `- "Cần bao nhiêu gạch cho tường 30m²"`,
+              suggestions: ['Ví dụ', 'Tư vấn'],
+              confidence: 0.70,
+              sessionId,
+              timestamp: new Date().toISOString()
+            })
+          )
+        }
+      } catch (error) {
+        console.error('Calculation error:', error)
+      }
+    }
+
+    // Price inquiry
+    if (intentResult.intent === 'PRICE_INQUIRY') {
+      try {
+        // Extract product name
+        const productKeywords = message.toLowerCase()
+          .replace(/giá|price|bao nhiêu|tiền|cost/g, '')
+          .trim()
+        
+        const products = await prisma.product.findMany({
+          where: {
+            OR: [
+              { name: { contains: productKeywords, mode: 'insensitive' } },
+              { description: { contains: productKeywords, mode: 'insensitive' } }
+            ],
+            isActive: true
+          },
+          include: { category: true, inventoryItem: true },
+          take: 3
+        })
+
+        if (products.length > 0) {
+          const priceList = products.map((p, idx) => 
+            `${idx + 1}. **${p.name}**: ${p.price.toLocaleString()}đ/${p.unit}`
+          ).join('\n')
+
+          return NextResponse.json(
+            createSuccessResponse({
+              message: `💰 **Bảng giá:**\n\n${priceList}\n\n` +
+                       `💡 Giá đã bao gồm VAT. Liên hệ để được báo giá số lượng lớn!`,
+              suggestions: ['Đặt hàng', 'So sánh', 'Xem chi tiết'],
+              confidence: 0.90,
+              sessionId,
+              timestamp: new Date().toISOString()
+            })
+          )
+        }
+      } catch (error) {
+        console.error('Price inquiry error:', error)
+      }
+    }
+
+    // ===== FALLBACK: Use existing chatbot logic =====
+    const botResponse = await generateChatbotResponse(message, context, conversationHistory, isAdmin)
+
+    // Log interaction (with error handling)
+    try {
+      await prisma.customerInteraction.create({
+        data: {
+          customerId,
+          sessionId,
+          interactionType: 'CHATBOT',
+          productId: context?.productId,
+          query: message,
+          response: botResponse.response,
+          metadata: {
+            confidence: botResponse.confidence,
+            suggestions: botResponse.suggestions,
+            productRecommendations: botResponse.productRecommendations,
+            intent: intentResult.intent,
+            entities,
+            context
+          },
+          ipAddress: request.headers.get('x-forwarded-for') || 
+                     request.headers.get('x-real-ip') || 
+                     'unknown',
+          userAgent: request.headers.get('user-agent') || 'unknown'
+        }
+      })
+    } catch (logError) {
+      // Log error but don't fail the response
+      console.error('Failed to log interaction:', logError)
     }
 
     return NextResponse.json(
-      createSuccessResponse(response, 'Chatbot response generated successfully'),
-      { status: 200 }
+      createSuccessResponse({
+        message: botResponse.response,
+        suggestions: botResponse.suggestions,
+        productRecommendations: botResponse.productRecommendations,
+        confidence: botResponse.confidence,
+        sessionId,
+        timestamp: new Date().toISOString()
+      })
     )
 
   } catch (error) {
@@ -558,7 +667,934 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// GET /api/chatbot - Get chat history
+// ===== HELPER FUNCTIONS =====
+
+async function handleAdminOrderManagement(message: string, entities: any, sessionId: string) {
+  try {
+    const lower = message.toLowerCase()
+    
+    // Check for pending orders
+    if (lower.includes('chờ') || lower.includes('pending')) {
+      const pendingOrders = await prisma.order.findMany({
+        where: {
+          status: 'PENDING_CONFIRMATION'
+        },
+        include: {
+          customer: {
+            include: { user: true }
+          }
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 10
+      })
+      
+      let responseMsg = `📦 **Đơn Hàng Chờ Xử Lý**\n\n`
+      
+      if (pendingOrders.length === 0) {
+        responseMsg += `✅ Không có đơn hàng chờ xử lý!\n\nTất cả đơn đã được xử lý.`
+        
+        return NextResponse.json(
+          createSuccessResponse({
+            message: responseMsg,
+            suggestions: ['Xem tất cả đơn', 'Doanh thu hôm nay'],
+            confidence: 1.0,
+            sessionId,
+            timestamp: new Date().toISOString()
+          })
+        )
+      }
+      
+      responseMsg += `Có **${pendingOrders.length}** đơn hàng cần xác nhận:\n\n`
+      
+      pendingOrders.slice(0, 5).forEach((order, idx) => {
+        const isNew = Date.now() - order.createdAt.getTime() < 30 * 60 * 1000 // < 30 mins
+        const customerName = order.customerType === 'GUEST' 
+          ? order.guestName 
+          : order.customer?.user.name || 'N/A'
+        
+        responseMsg += `${idx + 1}. **${order.orderNumber}** ${isNew ? '⏰ MỚI' : ''}\n`
+        responseMsg += `   👤 ${customerName} ${order.customerType === 'GUEST' ? '(Khách vãng lai)' : ''}\n`
+        responseMsg += `   💰 ${order.netAmount.toLocaleString('vi-VN')}đ\n`
+        responseMsg += `   🕐 ${formatRelativeTime(order.createdAt)}\n`
+        responseMsg += `   📦 ${order.paymentMethod}\n\n`
+      })
+      
+      if (pendingOrders.length > 5) {
+        responseMsg += `... và ${pendingOrders.length - 5} đơn khác\n\n`
+      }
+      
+      const avgWaitTime = pendingOrders.length > 0 
+        ? Math.round(pendingOrders.reduce((sum, o) => sum + (Date.now() - o.createdAt.getTime()), 0) / pendingOrders.length / 60000)
+        : 0
+      
+      responseMsg += `⏱️ Thời gian chờ TB: ${avgWaitTime} phút\n`
+      responseMsg += `💡 Ưu tiên xử lý đơn mới nhất trước!`
+      
+      return NextResponse.json(
+        createSuccessResponse({
+          message: responseMsg,
+          suggestions: ['Xem chi tiết đơn đầu', 'Xác nhận tất cả', 'Làm mới'],
+          confidence: 1.0,
+          sessionId,
+          timestamp: new Date().toISOString(),
+          data: { pendingOrders: pendingOrders.slice(0, 5) }
+        })
+      )
+    }
+    
+    // Check for recent orders
+    if (lower.includes('mới nhất') || lower.includes('latest')) {
+      const recentOrders = await prisma.order.findMany({
+        orderBy: { createdAt: 'desc' },
+        take: 5,
+        include: {
+          customer: {
+            include: { user: true }
+          }
+        }
+      })
+      
+      let responseMsg = `📦 **Đơn Hàng Mới Nhất**\n\n`
+      
+      recentOrders.forEach((order, idx) => {
+        const customerName = order.customerType === 'GUEST' 
+          ? order.guestName 
+          : order.customer?.user.name || 'N/A'
+        
+        responseMsg += `${idx + 1}. **${order.orderNumber}**\n`
+        responseMsg += `   ${getStatusEmoji(order.status)} ${getStatusLabel(order.status)}\n`
+        responseMsg += `   👤 ${customerName}\n`
+        responseMsg += `   💰 ${order.netAmount.toLocaleString('vi-VN')}đ\n`
+        responseMsg += `   🕐 ${formatRelativeTime(order.createdAt)}\n\n`
+      })
+      
+      return NextResponse.json(
+        createSuccessResponse({
+          message: responseMsg,
+          suggestions: ['Đơn chờ xử lý', 'Doanh thu hôm nay'],
+          confidence: 1.0,
+          sessionId,
+          timestamp: new Date().toISOString()
+        })
+      )
+    }
+    
+    // Default - suggest actions
+    return NextResponse.json(
+      createSuccessResponse({
+        message: `📦 **Quản Lý Đơn Hàng**\n\n` +
+                 `Tôi có thể giúp bạn:\n\n` +
+                 `- Xem đơn hàng chờ xử lý\n` +
+                 `- Xem đơn hàng mới nhất\n` +
+                 `- Thống kê đơn hàng theo ngày\n` +
+                 `- Tìm đơn hàng theo mã\n\n` +
+                 `💡 Thử hỏi: "Đơn hàng chờ xử lý" hoặc "Đơn hàng mới nhất"`,
+        suggestions: ['Đơn chờ xử lý', 'Đơn mới nhất', 'Doanh thu hôm nay'],
+        confidence: 0.8,
+        sessionId,
+        timestamp: new Date().toISOString()
+      })
+    )
+  } catch (error: any) {
+    console.error('Order management error:', error)
+    return NextResponse.json(
+      createSuccessResponse({
+        message: `❌ Lỗi khi truy vấn đơn hàng: ${error.message}`,
+        suggestions: ['Thử lại', 'Trợ giúp'],
+        confidence: 0.5,
+        sessionId,
+        timestamp: new Date().toISOString()
+      })
+    )
+  }
+}
+
+async function handleAdminInventoryCheck(message: string, entities: any, sessionId: string) {
+  try {
+    const lower = message.toLowerCase()
+    
+    // Get all inventory items
+    const inventoryItems = await prisma.inventoryItem.findMany({
+      include: {
+        product: {
+          select: {
+            name: true,
+            unit: true,
+            price: true
+          }
+        }
+      }
+    })
+    
+    // Calculate low stock items
+    const lowStockItems = inventoryItems.filter(item => {
+      const safetyStock = item.safetyStockLevel || 0
+      return item.availableQuantity <= safetyStock && safetyStock > 0
+    })
+    
+    // Calculate critical items (out of stock or near zero)
+    const criticalItems = lowStockItems.filter(item => 
+      item.availableQuantity <= (item.safetyStockLevel || 0) * 0.3
+    )
+    
+    // Calculate warning items
+    const warningItems = lowStockItems.filter(item => 
+      item.availableQuantity > (item.safetyStockLevel || 0) * 0.3 &&
+      item.availableQuantity <= item.safetyStockLevel!
+    )
+    
+    let responseMsg = `⚠️ **Cảnh Báo Tồn Kho**\n\n`
+    
+    if (lowStockItems.length === 0) {
+      responseMsg += `✅ Tất cả sản phẩm đều đủ hàng!\n\nKhông có sản phẩm nào dưới mức an toàn.`
+      
+      return NextResponse.json(
+        createSuccessResponse({
+          message: responseMsg,
+          suggestions: ['Xem tồn kho', 'Doanh thu hôm nay'],
+          confidence: 1.0,
+          sessionId,
+          timestamp: new Date().toISOString()
+        })
+      )
+    }
+    
+    if (criticalItems.length > 0) {
+      responseMsg += `🔴 **KHẨN CẤP** - Cần đặt hàng ngay (${criticalItems.length} sản phẩm):\n\n`
+      
+      criticalItems.slice(0, 5).forEach((item, idx) => {
+        const daysLeft = item.availableQuantity > 0 && item.safetyStockLevel 
+          ? Math.floor(item.availableQuantity / (item.safetyStockLevel * 0.1)) 
+          : 0
+        
+        responseMsg += `${idx + 1}. **${item.product.name}**\n`
+        responseMsg += `   📦 Còn: ${item.availableQuantity} ${item.product.unit}\n`
+        responseMsg += `   ⚡ Mức an toàn: ${item.safetyStockLevel} ${item.product.unit}\n`
+        responseMsg += `   ⏰ ${daysLeft <= 0 ? 'HẾT HÀNG' : `Còn ~${daysLeft} ngày`}\n\n`
+      })
+    }
+    
+    if (warningItems.length > 0) {
+      responseMsg += `🟡 **CẢNH BÁO** - Sắp hết (${warningItems.length} sản phẩm):\n\n`
+      
+      warningItems.slice(0, 3).forEach((item, idx) => {
+        responseMsg += `${idx + 1}. **${item.product.name}**: Còn ${item.availableQuantity} ${item.product.unit}\n`
+      })
+      
+      if (warningItems.length > 3) {
+        responseMsg += `... và ${warningItems.length - 3} sản phẩm khác\n`
+      }
+    }
+    
+    // Calculate estimated order value
+    const estimatedValue = criticalItems.reduce((sum, item) => {
+      const reorderQty = (item.reorderQuantity || item.safetyStockLevel || 100)
+      return sum + (reorderQty * item.product.price)
+    }, 0)
+    
+    responseMsg += `\n💰 Ước tính giá trị cần đặt: ~${estimatedValue.toLocaleString('vi-VN')}đ\n\n`
+    responseMsg += `🎯 **Hành động:**\n`
+    responseMsg += `✅ Liên hệ nhà cung cấp ngay\n`
+    responseMsg += `✅ Cập nhật thông báo trên website\n`
+    responseMsg += `✅ Xem lịch sử nhập hàng`
+    
+    return NextResponse.json(
+      createSuccessResponse({
+        message: responseMsg,
+        suggestions: ['Xem chi tiết', 'Liên hệ NCC', 'Cập nhật tồn kho'],
+        confidence: 1.0,
+        sessionId,
+        timestamp: new Date().toISOString(),
+        data: {
+          criticalCount: criticalItems.length,
+          warningCount: warningItems.length,
+          estimatedValue,
+          criticalItems: criticalItems.slice(0, 5).map(i => ({
+            productName: i.product.name,
+            available: i.availableQuantity,
+            safetyLevel: i.safetyStockLevel,
+            unit: i.product.unit
+          }))
+        }
+      })
+    )
+  } catch (error: any) {
+    console.error('Inventory check error:', error)
+    return NextResponse.json(
+      createSuccessResponse({
+        message: `❌ Lỗi khi kiểm tra tồn kho: ${error.message}`,
+        suggestions: ['Thử lại', 'Trợ giúp'],
+        confidence: 0.5,
+        sessionId,
+        timestamp: new Date().toISOString()
+      })
+    )
+  }
+}
+
+function formatRelativeTime(date: Date): string {
+  const now = Date.now()
+  const diff = now - date.getTime()
+  const minutes = Math.floor(diff / 60000)
+  const hours = Math.floor(diff / 3600000)
+  const days = Math.floor(diff / 86400000)
+  
+  if (minutes < 1) return 'Vừa xong'
+  if (minutes < 60) return `${minutes} phút trước`
+  if (hours < 24) return `${hours} giờ trước`
+  return `${days} ngày trước`
+}
+
+function getStatusEmoji(status: string): string {
+  const emojis: Record<string, string> = {
+    'PENDING': '⏰',
+    'PENDING_CONFIRMATION': '⏰',
+    'CONFIRMED': '✅',
+    'PROCESSING': '🔄',
+    'SHIPPED': '🚚',
+    'COMPLETED': '✅',
+    'CANCELLED': '❌'
+  }
+  return emojis[status] || '📦'
+}
+
+function getStatusLabel(status: string): string {
+  const labels: Record<string, string> = {
+    'PENDING': 'Chờ xử lý',
+    'PENDING_CONFIRMATION': 'Chờ xác nhận',
+    'CONFIRMED': 'Đã xác nhận',
+    'PROCESSING': 'Đang xử lý',
+    'SHIPPED': 'Đang giao',
+    'COMPLETED': 'Hoàn thành',
+    'CANCELLED': 'Đã hủy'
+  }
+  return labels[status] || status
+}
+
+async function handleOCRInvoiceFlow(sessionId: string, image: string, message?: string) {
+  try {
+    // Validate image
+    const validation = validateInvoiceImage(image)
+    if (!validation.valid) {
+      return NextResponse.json(
+        createSuccessResponse({
+          message: `❌ ${validation.reason}`,
+          suggestions: ['Thử ảnh khác', 'Trợ giúp'],
+          confidence: 0.5,
+          sessionId,
+          timestamp: new Date().toISOString()
+        })
+      )
+    }
+
+    // Process OCR
+    const ocrResult = await processImageOCR(image)
+    
+    // Parse invoice
+    const parsedInvoice = parseInvoice(ocrResult)
+    
+    // Validate
+    const invoiceValidation = validateInvoice(parsedInvoice)
+    
+    if (!invoiceValidation.valid) {
+      return NextResponse.json(
+        createSuccessResponse({
+          message: `⚠️ **Nhận diện không đầy đủ**\n\n` +
+                   `Lỗi:\n${invoiceValidation.errors.map(e => `- ${e}`).join('\n')}\n\n` +
+                   `Vui lòng chụp lại ảnh rõ hơn hoặc nhập thủ công.`,
+          suggestions: ['Chụp lại', 'Nhập thủ công'],
+          confidence: parsedInvoice.confidence,
+          sessionId,
+          timestamp: new Date().toISOString()
+        })
+      )
+    }
+
+    // Format for display
+    const formattedMsg = formatInvoiceForChat(parsedInvoice)
+    
+    // Start OCR flow
+    startOCRInvoiceFlow(sessionId, parsedInvoice)
+
+    return NextResponse.json(
+      createSuccessResponse({
+        message: formattedMsg + '\n\n✅ Lưu hóa đơn vào hệ thống?',
+        suggestions: ['Lưu hóa đơn', 'Chỉnh sửa', 'Hủy'],
+        confidence: parsedInvoice.confidence,
+        sessionId,
+        timestamp: new Date().toISOString(),
+        ocrData: parsedInvoice
+      })
+    )
+  } catch (error: any) {
+    console.error('OCR error:', error)
+    return NextResponse.json(
+      createSuccessResponse({
+        message: `❌ Lỗi xử lý ảnh: ${error.message}`,
+        suggestions: ['Thử lại', 'Trợ giúp'],
+        confidence: 0.3,
+        sessionId,
+        timestamp: new Date().toISOString()
+      })
+    )
+  }
+}
+
+async function handleOCRInvoiceSave(sessionId: string, state: any) {
+  try {
+    const parsedInvoice = state.data.parsedInvoice
+    
+    // Find or create supplier if supplierName exists
+    let supplierId: string | undefined = undefined
+    if (parsedInvoice.supplierName) {
+      const supplier = await prisma.supplier.findFirst({
+        where: {
+          name: { contains: parsedInvoice.supplierName, mode: 'insensitive' }
+        }
+      })
+      
+      if (supplier) {
+        supplierId = supplier.id
+      } else {
+        // Create new supplier
+        const newSupplier = await prisma.supplier.create({
+          data: {
+            name: parsedInvoice.supplierName,
+            contactPerson: '',
+            email: '',
+            phone: parsedInvoice.supplierPhone || '',
+            address: parsedInvoice.supplierAddress || '',
+            taxId: parsedInvoice.supplierTaxId || '',
+            isActive: true
+          }
+        })
+        supplierId = newSupplier.id
+      }
+    }
+    
+    // Determine invoice status based on payment status
+    let invoiceStatus: 'DRAFT' | 'SENT' | 'PAID' | 'OVERDUE' | 'CANCELLED' = 'DRAFT'
+    if (parsedInvoice.paymentStatus === 'PAID') {
+      invoiceStatus = 'PAID'
+    } else if (parsedInvoice.paymentStatus === 'UNPAID') {
+      invoiceStatus = 'SENT'
+    }
+    
+    // Save invoice with transaction to ensure consistency
+    const invoice = await prisma.$transaction(async (tx) => {
+      // Create invoice
+      const newInvoice = await tx.invoice.create({
+        data: {
+          invoiceNumber: parsedInvoice.invoiceNumber || `INV-${Date.now()}`,
+          invoiceType: 'PURCHASE',
+          supplierId: supplierId,
+          issueDate: parsedInvoice.invoiceDate || new Date(),
+          dueDate: parsedInvoice.dueDate,
+          status: invoiceStatus,
+          subtotal: parsedInvoice.subtotal || 0,
+          taxAmount: parsedInvoice.taxAmount || 0,
+          discountAmount: 0,
+          totalAmount: parsedInvoice.totalAmount || 0,
+          paidAmount: invoiceStatus === 'PAID' ? (parsedInvoice.totalAmount || 0) : 0,
+          balanceAmount: invoiceStatus === 'PAID' ? 0 : (parsedInvoice.totalAmount || 0),
+          paymentTerms: parsedInvoice.paymentMethod,
+          notes: `OCR Imported: ${parsedInvoice.rawText?.substring(0, 500)}`
+        }
+      })
+      
+      // Create invoice items if available
+      let itemsCreated = 0
+      if (parsedInvoice.items && parsedInvoice.items.length > 0) {
+        for (const item of parsedInvoice.items) {
+          if (!item.name) continue
+          
+          // Try to find matching product
+          const product = await tx.product.findFirst({
+            where: {
+              OR: [
+                { name: { contains: item.name, mode: 'insensitive' } },
+                { description: { contains: item.name, mode: 'insensitive' } }
+              ],
+              isActive: true
+            }
+          })
+          
+          if (product) {
+            await tx.invoiceItem.create({
+              data: {
+                invoiceId: newInvoice.id,
+                productId: product.id,
+                description: item.name,
+                quantity: item.quantity || 1,
+                unitPrice: item.unitPrice || 0,
+                totalPrice: item.totalPrice || (item.quantity || 1) * (item.unitPrice || 0),
+                discount: 0,
+                taxRate: parsedInvoice.taxRate || 0,
+                taxAmount: 0
+              }
+            })
+            itemsCreated++
+          }
+        }
+      }
+      
+      return { invoice: newInvoice, itemsCreated }
+    })
+
+    clearConversationState(sessionId)
+
+    return NextResponse.json(
+      createSuccessResponse({
+        message: `✅ Đã lưu hóa đơn **${invoice.invoice.invoiceNumber}**\n\n` +
+                 `- Nhà cung cấp: ${parsedInvoice.supplierName || 'N/A'}\n` +
+                 `- Tổng tiền: ${invoice.invoice.totalAmount.toLocaleString('vi-VN')}đ\n` +
+                 `- Trạng thái: ${invoice.invoice.status}\n` +
+                 `- Sản phẩm: ${invoice.itemsCreated}/${parsedInvoice.items?.length || 0} matched\n\n` +
+                 (invoice.itemsCreated === 0 ? 
+                   `⚠️ Không match được sản phẩm nào. Vui lòng cập nhật thủ công.` :
+                   invoice.itemsCreated < (parsedInvoice.items?.length || 0) ?
+                   `💡 Một số sản phẩm chưa match. Vui lòng kiểm tra.` :
+                   `✅ Tất cả sản phẩm đã được match!`
+                 ),
+        suggestions: ['Xem chi tiết', 'Tạo hóa đơn khác', 'Cập nhật sản phẩm'],
+        confidence: 1.0,
+        sessionId,
+        timestamp: new Date().toISOString()
+      })
+    )
+  } catch (error: any) {
+    console.error('Save invoice error:', error)
+    return NextResponse.json(
+      createErrorResponse(`Failed to save invoice: ${error.message}`, 'DATABASE_ERROR'),
+      { status: 500 }
+    )
+  }
+}
+
+async function handleOrderCreation(sessionId: string, customerId: string | undefined, state: any) {
+  try {
+    const flowData = state.data
+    
+    // Determine if guest or registered customer
+    const isGuest = !customerId
+    let customerInfo: any
+    
+    if (isGuest) {
+      // Guest order - use provided info
+      if (!flowData.guestInfo || !flowData.guestInfo.name || !flowData.guestInfo.phone) {
+        return NextResponse.json(
+          createSuccessResponse({
+            message: '❌ Thiếu thông tin giao hàng. Vui lòng cung cấp:\n' +
+                     '- Họ tên\n' +
+                     '- Số điện thoại\n' +
+                     '- Địa chỉ',
+            suggestions: ['Nhập lại', 'Đăng nhập'],
+            confidence: 1.0,
+            sessionId,
+            timestamp: new Date().toISOString()
+          })
+        )
+      }
+      
+      customerInfo = {
+        name: flowData.guestInfo.name,
+        phone: flowData.guestInfo.phone,
+        email: '',
+        address: flowData.guestInfo.address
+      }
+    } else {
+      // Registered customer
+      const customer = await prisma.customer.findUnique({
+        where: { id: customerId },
+        include: { user: true }
+      })
+
+      if (!customer) {
+        return NextResponse.json(
+          createErrorResponse('Customer not found', 'NOT_FOUND'),
+          { status: 404 }
+        )
+      }
+      
+      customerInfo = {
+        name: customer.user.name,
+        phone: customer.user.phone || '',
+        email: customer.user.email,
+        address: customer.user.address || ''
+      }
+    }
+
+    // Create order with transaction
+    const result = await prisma.$transaction(async (tx) => {
+      const items = flowData.items || []
+      let subtotal = 0
+      const orderItems: any[] = []
+      let itemsMatched = 0
+
+      // Match products and calculate totals
+      for (const item of items) {
+        const product = await tx.product.findFirst({
+          where: {
+            OR: [
+              { name: { contains: item.productName, mode: 'insensitive' } },
+              { description: { contains: item.productName, mode: 'insensitive' } }
+            ],
+            isActive: true
+          }
+        })
+
+        if (product) {
+          const quantity = item.quantity || 1
+          const unitPrice = product.price
+          const itemSubtotal = quantity * unitPrice
+
+          orderItems.push({
+            productId: product.id,
+            productName: product.name,
+            quantity,
+            unit: product.unit,
+            unitPrice,
+            subtotal: itemSubtotal,
+            discount: 0,
+            taxRate: 0,
+            taxAmount: 0
+          })
+
+          subtotal += itemSubtotal
+          itemsMatched++
+        }
+      }
+
+      if (orderItems.length === 0) {
+        throw new Error('Không tìm thấy sản phẩm nào trong hệ thống. Vui lòng thử lại.')
+      }
+
+      // Create order with PENDING_CONFIRMATION status (needs admin approval)
+      const orderNumber = `ORD-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Date.now().toString().slice(-4)}`
+      
+      // Calculate deposit (30% of total)
+      const depositPercentage = 30
+      const depositAmount = Math.round(subtotal * (depositPercentage / 100))
+      const remainingAmount = subtotal - depositAmount
+      
+      const order = await tx.order.create({
+        data: {
+          orderNumber,
+          customerId: isGuest ? null : customerId,
+          customerType: isGuest ? 'GUEST' : 'REGISTERED',
+          guestName: isGuest ? customerInfo.name : undefined,
+          guestPhone: isGuest ? customerInfo.phone : undefined,
+          guestEmail: isGuest ? (customerInfo.email || undefined) : undefined,
+          status: 'PENDING_CONFIRMATION', // Wait for admin confirmation
+          totalAmount: subtotal,
+          taxAmount: 0,
+          shippingAmount: 0,
+          discountAmount: 0,
+          netAmount: subtotal,
+          paymentMethod: flowData.paymentMethod || 'BANK_TRANSFER',
+          paymentStatus: 'PENDING',
+          paymentType: 'DEPOSIT', // Require deposit payment
+          depositPercentage,
+          depositAmount,
+          remainingAmount,
+          shippingAddress: {
+            name: customerInfo.name,
+            phone: customerInfo.phone,
+            address: customerInfo.address
+          },
+          notes: isGuest 
+            ? 'Đơn hàng từ Chatbot AI (Khách vãng lai)' 
+            : 'Đơn hàng tạo từ Chatbot AI'
+        }
+      })
+
+      // Create order items
+      for (const orderItem of orderItems) {
+        await tx.orderItem.create({
+          data: {
+            orderId: order.id,
+            ...orderItem
+          }
+        })
+      }
+
+      return {
+        order,
+        itemsMatched,
+        totalItems: items.length
+      }
+    })
+
+    clearConversationState(sessionId)
+
+    return NextResponse.json(
+      createSuccessResponse({
+        message: `✅ Đặt hàng thành công! Mã đơn: **${result.order.orderNumber}**\n\n` +
+                 `📦 **Chi tiết đơn hàng:**\n` +
+                 `- Khách hàng: ${customerInfo.name}\n` +
+                 `- SĐT: ${customerInfo.phone}\n` +
+                 `- Tổng tiền: ${result.order.netAmount.toLocaleString('vi-VN')}đ\n` +
+                 `- Sản phẩm: ${result.itemsMatched}/${result.totalItems} items\n` +
+                 `- Đặt cọc: ${result.order.depositAmount.toLocaleString('vi-VN')}đ (30%)\n\n` +
+                 `⏳ **Bước tiếp theo:**\n` +
+                 `1. Admin sẽ xác nhận đơn hàng trong vài phút\n` +
+                 `2. Sau khi xác nhận, ${isGuest ? 'chúng tôi sẽ gọi điện xác nhận' : 'bạn sẽ thấy mã QR thanh toán'}\n` +
+                 `3. ${isGuest ? 'Chuyển khoản theo hướng dẫn' : 'Chuyển khoản theo QR để hoàn tất đơn'}\n\n` +
+                 (isGuest 
+                   ? `📞 Chúng tôi sẽ liên hệ qua SĐT **${customerInfo.phone}** để xác nhận!` 
+                   : `👉 Nhấn "Xem chi tiết" để theo dõi đơn hàng!`),
+        suggestions: isGuest ? ['OK', 'Tiếp tục mua sắm'] : ['Xem chi tiết', 'Tiếp tục mua sắm'],
+        confidence: 1.0,
+        sessionId,
+        timestamp: new Date().toISOString(),
+        orderData: {
+          orderNumber: result.order.orderNumber,
+          orderId: result.order.id,
+          status: result.order.status,
+          depositAmount: result.order.depositAmount,
+          totalAmount: result.order.netAmount,
+          isGuest,
+          trackingUrl: isGuest ? null : `/order-tracking?orderId=${result.order.id}`
+        }
+      })
+    )
+  } catch (error: any) {
+    console.error('Order creation error:', error)
+    
+    clearConversationState(sessionId)
+    
+    return NextResponse.json(
+      createSuccessResponse({
+        message: `❌ Không thể tạo đơn hàng: ${error.message}\n\nVui lòng thử lại hoặc liên hệ hỗ trợ.`,
+        suggestions: ['Thử lại', 'Liên hệ hỗ trợ', 'Tiếp tục xem sản phẩm'],
+        confidence: 0.5,
+        sessionId,
+        timestamp: new Date().toISOString()
+      })
+    )
+  }
+}
+
+async function handleCRUDExecution(sessionId: string, state: any, userRole: string) {
+  try {
+    const crudData = state.data
+    
+    const actionResult = await executeAction({
+      action: crudData.action,
+      entityType: crudData.entityType,
+      entities: {},
+      rawMessage: '',
+      userId: '',
+      userRole
+    })
+
+    clearConversationState(sessionId)
+
+    return NextResponse.json(
+      createSuccessResponse({
+        message: actionResult.message,
+        suggestions: ['Tiếp tục', 'Quay lại'],
+        confidence: actionResult.success ? 0.9 : 0.5,
+        sessionId,
+        timestamp: new Date().toISOString()
+      })
+    )
+  } catch (error: any) {
+    console.error('CRUD execution error:', error)
+    return NextResponse.json(
+      createErrorResponse(`Failed to execute action: ${error.message}`, 'EXECUTION_ERROR'),
+      { status: 500 }
+    )
+  }
+}
+
+async function handleCustomerImageRecognition(
+  sessionId: string,
+  image: string,
+  message: string | undefined,
+  customerId: string | undefined
+) {
+  try {
+    const recognitionResult = await aiRecognition.recognizeMaterial(image)
+    
+    let responseText = `📸 **Tôi nhận diện được:** ${recognitionResult.materialType}\n\n`
+    responseText += `🎯 **Độ tin cậy:** ${(recognitionResult.confidence * 100).toFixed(0)}%\n\n`
+    
+    if (recognitionResult.matchedProducts.length > 0) {
+      responseText += `✅ **Tìm thấy ${recognitionResult.matchedProducts.length} sản phẩm phù hợp:**`
+      
+      return NextResponse.json(
+        createSuccessResponse({
+          message: responseText,
+          suggestions: recognitionResult.suggestions,
+          productRecommendations: recognitionResult.matchedProducts,
+          confidence: recognitionResult.confidence,
+          sessionId,
+          timestamp: new Date().toISOString()
+        })
+      )
+    } else {
+      responseText += '❌ Không tìm thấy sản phẩm phù hợp.'
+      
+      return NextResponse.json(
+        createSuccessResponse({
+          message: responseText,
+          suggestions: ['Thử chụp lại', 'Tìm kiếm bằng text'],
+          confidence: recognitionResult.confidence,
+          sessionId,
+          timestamp: new Date().toISOString()
+        })
+      )
+    }
+  } catch (error: any) {
+    console.error('Image recognition error:', error)
+    return NextResponse.json(
+      createSuccessResponse({
+        message: '❌ Không thể nhận diện ảnh. Vui lòng thử lại.',
+        suggestions: ['Thử lại', 'Tìm kiếm bằng text'],
+        confidence: 0.3,
+        sessionId,
+        timestamp: new Date().toISOString()
+      })
+    )
+  }
+}
+
+async function getConversationHistory(sessionId: string) {
+  const interactions = await prisma.customerInteraction.findMany({
+    where: {
+      sessionId,
+      interactionType: 'CHATBOT',
+      createdAt: {
+        gte: new Date(Date.now() - 3600000) // Last 1 hour
+      }
+    },
+    orderBy: { createdAt: 'asc' },
+    take: 10,
+    select: {
+      query: true,
+      response: true
+    }
+  })
+
+  const formattedHistory: { role: string; content: string }[] = []
+  interactions.forEach(interaction => {
+    formattedHistory.push({ role: 'user', content: interaction.query })
+    formattedHistory.push({ role: 'assistant', content: interaction.response })
+  })
+  
+  return formattedHistory
+}
+
+async function generateChatbotResponse(
+  message: string, 
+  context?: any,
+  conversationHistory?: { role: string; content: string }[],
+  isAdmin: boolean = false
+): Promise<{
+  response: string;
+  suggestions: string[];
+  productRecommendations?: any[];
+  confidence: number;
+}> {
+  const lower = message.toLowerCase()
+  
+  // ===== ADMIN FALLBACK =====
+  if (isAdmin) {
+    // Try to understand what admin wants
+    if (lower.includes('giúp') || lower.includes('help') || lower.includes('làm được') || lower.includes('can do')) {
+      return {
+        response: `🎯 **Tôi có thể giúp bạn:**\n\n` +
+                 `📊 **Phân tích & Báo cáo**\n` +
+                 `- Doanh thu theo ngày/tuần/tháng\n` +
+                 `- Top sản phẩm bán chạy\n` +
+                 `- Thống kê khách hàng\n\n` +
+                 `📦 **Quản lý Đơn hàng**\n` +
+                 `- Đơn chờ xử lý\n` +
+                 `- Đơn mới nhất\n` +
+                 `- Tìm đơn theo mã\n\n` +
+                 `⚠️ **Tồn kho & Nhập hàng**\n` +
+                 `- Sản phẩm sắp hết\n` +
+                 `- Cảnh báo tồn kho\n\n` +
+                 `👥 **Nhân viên**\n` +
+                 `- Ai nghỉ hôm nay\n` +
+                 `- Lương và ứng lương\n\n` +
+                 `💡 Thử hỏi cụ thể hơn hoặc chọn gợi ý bên dưới!`,
+        suggestions: ['Doanh thu hôm nay', 'Đơn chờ xử lý', 'Sản phẩm sắp hết', 'Top bán chạy'],
+        confidence: 0.85
+      }
+    }
+    
+    // Generic admin fallback
+    return {
+      response: `💡 **Tôi không hiểu câu hỏi của bạn**\n\n` +
+               `Tôi có thể giúp bạn về:\n` +
+               `- 📊 Thống kê & Báo cáo (doanh thu, bán hàng)\n` +
+               `- 📦 Quản lý đơn hàng\n` +
+               `- ⚠️ Kiểm tra tồn kho\n` +
+               `- 👥 Thông tin nhân viên\n\n` +
+               `Hãy thử hỏi cụ thể hơn!\n\n` +
+               `**Ví dụ:**\n` +
+               `- "Doanh thu hôm nay"\n` +
+               `- "Đơn hàng chờ xử lý"\n` +
+               `- "Sản phẩm sắp hết"`,
+      suggestions: ['Doanh thu hôm nay', 'Đơn chờ xử lý', 'Sản phẩm sắp hết', 'Trợ giúp'],
+      confidence: 0.70
+    }
+  }
+  
+  // ===== CUSTOMER FALLBACK =====
+  
+  // Help request
+  if (lower.includes('giúp') || lower.includes('help') || lower.includes('làm được') || lower.includes('can do')) {
+    return {
+      response: `🏗️ **Tôi có thể giúp bạn:**\n\n` +
+               `🔍 **Tìm kiếm sản phẩm**\n` +
+               `- Tìm vật liệu xây dựng\n` +
+               `- So sánh giá và chất lượng\n` +
+               `- Gợi ý sản phẩm phù hợp\n\n` +
+               `📐 **Tính toán vật liệu**\n` +
+               `- Ước tính số lượng cần mua\n` +
+               `- Tính toán chi phí\n` +
+               `- Tư vấn vật liệu cho công trình\n\n` +
+               `🛒 **Đặt hàng & Theo dõi**\n` +
+               `- Đặt hàng trực tiếp\n` +
+               `- Theo dõi đơn hàng của bạn\n` +
+               `- Kiểm tra trạng thái giao hàng\n\n` +
+               `📸 **Nhận diện hình ảnh**\n` +
+               `- Upload ảnh để AI nhận diện vật liệu\n` +
+               `- Tìm sản phẩm tương tự\n\n` +
+               `💡 Hãy hỏi tôi bất cứ điều gì về vật liệu xây dựng!`,
+      suggestions: ['🔍 Tìm sản phẩm', '📐 Tính vật liệu', '💰 Xem giá', '🛒 Đặt hàng'],
+      confidence: 0.90
+    }
+  }
+  
+  // Price inquiry
+  if (lower.includes('giá') || lower.includes('price')) {
+    return {
+      response: "💰 **Hỏi về giá cả**\n\nGiá xi măng dao động từ 90-110k/bao tùy thương hiệu.\n\nBạn muốn xem giá sản phẩm nào?",
+      suggestions: ["Xi măng PC40", "Gạch ống", "Thép xây dựng", "Xem tất cả"],
+      confidence: 0.85
+    }
+  }
+  
+  // Generic customer fallback
+  return {
+    response: `💬 **Xin chào!**\n\nTôi là trợ lý AI của VietHoa Construction Materials.\n\n` +
+             `Tôi có thể giúp bạn:\n` +
+             `🔍 Tìm kiếm vật liệu xây dựng\n` +
+             `📐 Tính toán vật liệu cần thiết\n` +
+             `💰 Tra cứu giá cả\n` +
+             `🛒 Đặt hàng trực tuyến\n` +
+             `📦 Theo dõi đơn hàng\n\n` +
+             `Bạn cần tôi giúp gì?`,
+    suggestions: ["🔍 Tìm sản phẩm", "📐 Tính vật liệu", "💰 Giá cả", "📸 Nhận diện ảnh"],
+    confidence: 0.70
+  }
+}
+
+// GET handler
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
@@ -573,7 +1609,6 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Build where clause
     const where: any = {
       sessionId,
       interactionType: 'CHATBOT'
@@ -583,7 +1618,6 @@ export async function GET(request: NextRequest) {
       where.customerId = customerId
     }
 
-    // Get chat history
     const interactions = await prisma.customerInteraction.findMany({
       where,
       orderBy: { createdAt: 'asc' },
@@ -597,7 +1631,6 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    // Format chat history
     const chatHistory = interactions.map(interaction => ({
       id: interaction.id,
       userMessage: interaction.query,

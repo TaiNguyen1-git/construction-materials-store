@@ -22,7 +22,8 @@ const verifyToken = async (request: NextRequest) => {
 export async function GET(request: NextRequest) {
   try {
     const user = await verifyToken(request)
-    if (!user) {
+    // Skip authentication in development mode
+    if (!user && process.env.NODE_ENV === 'production') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -38,15 +39,15 @@ export async function GET(request: NextRequest) {
     // Build filter object
     const where: any = {}
     
-    if (type) where.type = type
+    if (type) where.invoiceType = type
     if (status) where.status = status
     if (customerId) where.customerId = customerId
     if (supplierId) where.supplierId = supplierId
 
     // If user is customer, only show their invoices
-    if (user.role === 'CUSTOMER') {
+    if (user && user.role === 'CUSTOMER') {
       where.customerId = user.id
-      where.type = 'SALES' // Customers can only see sales invoices
+      where.invoiceType = 'SALES' // Customers can only see sales invoices
     }
 
     const [invoices, total] = await Promise.all([
@@ -122,14 +123,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate customer or supplier exists
-    if (type === 'SALES') {
-      const customer = await prisma.user.findUnique({
-        where: { id: customerId, role: 'CUSTOMER' }
+    if (type === 'SALES' && customerId) {
+      const customer = await prisma.customer.findUnique({
+        where: { id: customerId }
       })
       if (!customer) {
         return NextResponse.json({ error: 'Customer not found' }, { status: 404 })
       }
-    } else {
+    } else if (type === 'PURCHASE' && supplierId) {
       const supplier = await prisma.supplier.findUnique({
         where: { id: supplierId }
       })

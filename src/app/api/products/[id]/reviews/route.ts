@@ -14,10 +14,10 @@ const createReviewSchema = z.object({
 // GET /api/products/[id]/reviews - Get product reviews
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const productId = params.id
+    const { id: productId } = await params
     const { searchParams } = new URL(request.url)
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '10')
@@ -25,7 +25,11 @@ export async function GET(
     const skip = (page - 1) * limit
 
     // Build where clause
-    const where: any = {
+    const where: {
+      productId: string
+      isPublished: boolean
+      rating?: number
+    } = {
       productId,
       isPublished: true
     }
@@ -84,10 +88,10 @@ export async function GET(
 // POST /api/products/[id]/reviews - Create review
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const productId = params.id
+    const { id: productId } = await params
     const body = await request.json()
 
     // Validate input

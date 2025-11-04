@@ -2,6 +2,9 @@
 
 import { useState, useEffect } from 'react'
 import { toast } from 'react-hot-toast'
+import ConfirmDialog from '@/components/ConfirmDialog'
+import FormModal from '@/components/FormModal'
+import Pagination from '@/components/Pagination'
 
 interface Customer {
   id: string
@@ -17,7 +20,21 @@ interface Customer {
 export default function CustomersPage() {
   const [customers, setCustomers] = useState<Customer[]>([])
   const [loading, setLoading] = useState(true)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize] = useState(20)
   const [filters, setFilters] = useState({ status: '', search: '' })
+  const [showModal, setShowModal] = useState(false)
+  const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null)
+  const [deletingCustomer, setDeletingCustomer] = useState<Customer | null>(null)
+  const [formLoading, setFormLoading] = useState(false)
+  
+  const [form, setForm] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    address: '',
+    status: 'ACTIVE' as 'ACTIVE' | 'INACTIVE'
+  })
 
   useEffect(() => {
     fetchCustomers()
@@ -33,7 +50,11 @@ export default function CustomersPage() {
       const response = await fetch(`/api/customers?${params}`)
       if (response.ok) {
         const data = await response.json()
-        setCustomers(data.data || [])
+        // Handle nested data structure
+        const customersData = data.data?.data || data.data || []
+        const customersArray = Array.isArray(customersData) ? customersData : []
+        console.log('Fetched customers:', customersArray.length)
+        setCustomers(customersArray)
       } else {
         toast.error('Không thể tải danh sách khách hàng')
       }
@@ -70,6 +91,89 @@ export default function CustomersPage() {
     return status === 'ACTIVE' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
   }
 
+  const openModal = (customer?: Customer) => {
+    if (customer) {
+      setEditingCustomer(customer)
+      setForm({
+        name: customer.name,
+        email: customer.email,
+        phone: customer.phone || '',
+        address: customer.address || '',
+        status: customer.status
+      })
+    } else {
+      setEditingCustomer(null)
+      setForm({
+        name: '',
+        email: '',
+        phone: '',
+        address: '',
+        status: 'ACTIVE'
+      })
+    }
+    setShowModal(true)
+  }
+
+  const closeModal = () => {
+    setShowModal(false)
+    setEditingCustomer(null)
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setFormLoading(true)
+
+    try {
+      const url = editingCustomer ? `/api/customers/${editingCustomer.id}` : '/api/customers'
+      const method = editingCustomer ? 'PUT' : 'POST'
+
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form)
+      })
+
+      if (response.ok) {
+        toast.success(editingCustomer ? 'Cập nhật khách hàng thành công' : 'Thêm khách hàng thành công')
+        closeModal()
+        fetchCustomers()
+      } else {
+        const error = await response.json()
+        toast.error(error.error || 'Có lỗi xảy ra')
+      }
+    } catch (error) {
+      console.error('Error saving customer:', error)
+      toast.error('Không thể lưu khách hàng')
+    } finally {
+      setFormLoading(false)
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!deletingCustomer) return
+
+    setFormLoading(true)
+    try {
+      const response = await fetch(`/api/customers/${deletingCustomer.id}`, {
+        method: 'DELETE'
+      })
+
+      if (response.ok) {
+        toast.success('Xóa khách hàng thành công')
+        setDeletingCustomer(null)
+        fetchCustomers()
+      } else {
+        const error = await response.json()
+        toast.error(error.error || 'Không thể xóa khách hàng')
+      }
+    } catch (error) {
+      console.error('Error deleting customer:', error)
+      toast.error('Không thể xóa khách hàng')
+    } finally {
+      setFormLoading(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -78,11 +182,30 @@ export default function CustomersPage() {
     )
   }
 
+  // Client-side pagination
+  const filteredCustomers = customers.filter(c => {
+    const matchesStatus = !filters.status || c.status === filters.status
+    const matchesSearch = !filters.search || 
+      c.name.toLowerCase().includes(filters.search.toLowerCase()) ||
+      c.email.toLowerCase().includes(filters.search.toLowerCase())
+    return matchesStatus && matchesSearch
+  })
+
+  const totalCustomers = filteredCustomers.length
+  const totalPages = Math.ceil(totalCustomers / pageSize)
+  const paginatedCustomers = filteredCustomers.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
+  )
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-gray-900">Quản Lý Khách Hàng</h1>
-        <button className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">
+        <button 
+          onClick={() => openModal()}
+          className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
+        >
           Thêm Khách Hàng
         </button>
       </div>
@@ -138,7 +261,7 @@ export default function CustomersPage() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {customers.map((customer) => (
+              {paginatedCustomers.map((customer) => (
                 <tr key={customer.id}>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div>
@@ -165,22 +288,19 @@ export default function CustomersPage() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <div className="flex space-x-2">
-                      <button className="text-blue-600 hover:text-blue-900">Chỉnh Sửa</button>
-                      {customer.status === 'ACTIVE' ? (
-                        <button
-                          onClick={() => updateCustomerStatus(customer.id, 'INACTIVE')}
-                          className="text-red-600 hover:text-red-900"
-                        >
-                          Vô Hiệu Hóa
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => updateCustomerStatus(customer.id, 'ACTIVE')}
-                          className="text-green-600 hover:text-green-900"
-                        >
-                          Kích Hoạt
-                        </button>
-                      )}
+                      <button 
+                        onClick={() => openModal(customer)}
+                        className="text-blue-600 hover:text-blue-900"
+                      >
+                        Sửa
+                      </button>
+                      <button 
+                        onClick={() => setDeletingCustomer(customer)}
+                        className="text-red-600 hover:text-red-900"
+                      >
+                        Xóa
+                      </button>
+
                     </div>
                   </td>
                 </tr>
@@ -188,7 +308,112 @@ export default function CustomersPage() {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={totalCustomers}
+            itemsPerPage={pageSize}
+            onPageChange={setCurrentPage}
+            loading={loading}
+          />
+        )}
       </div>
+
+      {/* Customer Form Modal */}
+      <FormModal
+        isOpen={showModal}
+        onClose={closeModal}
+        title={editingCustomer ? 'Sửa Khách Hàng' : 'Thêm Khách Hàng Mới'}
+      >
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Tên Khách Hàng *</label>
+            <input
+              type="text"
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 bg-white"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
+            <input
+              type="email"
+              value={form.email}
+              onChange={(e) => setForm({ ...form, email: e.target.value })}
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 bg-white"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Số Điện Thoại</label>
+            <input
+              type="tel"
+              value={form.phone}
+              onChange={(e) => setForm({ ...form, phone: e.target.value })}
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 bg-white"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Địa Chỉ</label>
+            <textarea
+              value={form.address}
+              onChange={(e) => setForm({ ...form, address: e.target.value })}
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 bg-white"
+              rows={3}
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Trạng Thái</label>
+            <select
+              value={form.status}
+              onChange={(e) => setForm({ ...form, status: e.target.value as 'ACTIVE' | 'INACTIVE' })}
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 bg-white"
+            >
+              <option value="ACTIVE">Hoạt Động</option>
+              <option value="INACTIVE">Ngừng Hoạt Động</option>
+            </select>
+          </div>
+
+          <div className="flex justify-end space-x-3 pt-4 border-t">
+            <button
+              type="button"
+              onClick={closeModal}
+              disabled={formLoading}
+              className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            >
+              Hủy
+            </button>
+            <button
+              type="submit"
+              disabled={formLoading}
+              className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+            >
+              {formLoading ? 'Đang lưu...' : (editingCustomer ? 'Cập Nhật' : 'Thêm Mới')}
+            </button>
+          </div>
+        </form>
+      </FormModal>
+
+      {/* Delete Confirmation */}
+      <ConfirmDialog
+        isOpen={!!deletingCustomer}
+        onClose={() => setDeletingCustomer(null)}
+        onConfirm={handleDelete}
+        title="Xóa Khách Hàng"
+        message={`Bạn có chắc muốn xóa khách hàng "${deletingCustomer?.name}"? Hành động này không thể hoàn tác.`}
+        confirmText="Xóa"
+        type="danger"
+        loading={formLoading}
+      />
     </div>
   )
 }

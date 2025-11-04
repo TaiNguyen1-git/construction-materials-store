@@ -91,16 +91,16 @@
   --foreground: var(--color-neutral-900);
 }
 
-/* Dark mode support */
-@media (prefers-color-scheme: dark) {
+/* Dark mode support - Disabled for now */
+/* @media (prefers-color-scheme: dark) {
   :root {
     --background: var(--color-neutral-900);
     --foreground: var(--color-neutral-50);
   }
-}
+} */
 
 body {
-  background: var(--background);
+  background: #ffffff;
   color: var(--foreground);
   font-family: var(--font-sans);
 }

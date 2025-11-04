@@ -5,10 +5,10 @@ import { createSuccessResponse, createErrorResponse } from '@/lib/api-types'
 // PUT /api/reviews/[id]/helpful - Mark review as helpful
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const reviewId = params.id
+    const { id: reviewId } = await params
 
     // Increment helpful count
     const review = await prisma.productReview.update({

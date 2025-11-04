@@ -4,7 +4,7 @@ import { Inter } from 'next/font/google'
 import { Toaster } from 'react-hot-toast'
 import Chatbot from '@/components/Chatbot'
 import { AuthProvider } from '@/contexts/auth-context'
-import { ErrorBoundary } from '@/components/ErrorBoundary'
+// import { ErrorBoundary } from '@/components/ErrorBoundary' // Temporarily disabled
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -12,7 +12,6 @@ export const metadata: Metadata = {
   title: 'SmartBuild Materials Store',
   description: 'Construction Materials E-commerce Platform - Buy quality construction materials online',
   manifest: '/manifest.json',
-  themeColor: '#667eea',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
@@ -34,6 +33,14 @@ export const metadata: Metadata = {
   },
 }
 
+export function generateViewport() {
+  return {
+    themeColor: '#667eea',
+  }
+}
+
+export const runtime = 'nodejs'
+
 export default function RootLayout({
   children,
 }: {
@@ -42,24 +49,22 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        <ErrorBoundary>
-          <AuthProvider>
-            <div id="root">
-              {children}
-            </div>
-            <Chatbot />
-            <Toaster 
-              position="top-right"
-              toastOptions={{
-                duration: 4000,
-                style: {
-                  background: '#363636',
-                  color: '#fff',
-                },
-              }}
-            />
-          </AuthProvider>
-        </ErrorBoundary>
+        <AuthProvider>
+          <div id="root">
+            {children}
+          </div>
+          <Chatbot />
+          <Toaster 
+            position="top-right"
+            toastOptions={{
+              duration: 4000,
+              style: {
+                background: '#363636',
+                color: '#fff',
+              },
+            }}
+          />
+        </AuthProvider>
       </body>
     </html>
   )

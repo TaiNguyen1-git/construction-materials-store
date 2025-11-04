@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useCartStore } from '@/stores/cartStore'
+import { useAuth } from '@/contexts/auth-context'
 import Header from '@/components/Header'
 import { 
   CreditCard, 
@@ -17,12 +18,19 @@ import {
   Loader2
 } from 'lucide-react'
 import Link from 'next/link'
+import dynamic from 'next/dynamic'
 
-type PaymentMethod = 'COD' | 'VNPAY' | 'MOMO' | 'BANK_TRANSFER'
+// Dynamically import QRPayment to avoid SSR issues
+const QRPayment = dynamic(() => import('@/components/QRPayment'), { ssr: false })
+
+type PaymentMethod = 'COD' | 'BANK_TRANSFER'
+type PaymentType = 'FULL' | 'DEPOSIT'
+type DepositPercentage = 30 | 40 | 50
 
 export default function CheckoutPage() {
   const router = useRouter()
   const { items, getTotalPrice, clearCart } = useCartStore()
+  const { user, isAuthenticated } = useAuth()
   const [isProcessing, setIsProcessing] = useState(false)
   
   // Form state
@@ -37,12 +45,35 @@ export default function CheckoutPage() {
     notes: '',
   })
 
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('COD')
+  // Auto-fill form when user is logged in
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      setFormData(prev => ({
+        ...prev,
+        fullName: user.name || prev.fullName,
+        email: user.email || prev.email,
+        phone: user.phone || prev.phone,
+        address: user.address || prev.address,
+      }))
+    }
+  }, [isAuthenticated, user])
+
+  const [paymentMethod] = useState<PaymentMethod>('BANK_TRANSFER') // Auto set to bank transfer
+  const [paymentType, setPaymentType] = useState<PaymentType>('FULL')
+  const depositPercentage = 50 // Fixed at 50%
   const [errors, setErrors] = useState<Record<string, string>>({})
 
   const shippingFee = items.length > 0 ? 50000 : 0
   const totalPrice = getTotalPrice()
   const finalTotal = totalPrice + shippingFee
+  
+  // Calculate deposit amounts
+  const depositAmount = paymentType === 'DEPOSIT' 
+    ? Math.round(finalTotal * (depositPercentage / 100)) 
+    : finalTotal
+  const remainingAmount = paymentType === 'DEPOSIT' 
+    ? finalTotal - depositAmount 
+    : 0
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {}
@@ -78,9 +109,9 @@ export default function CheckoutPage() {
     setIsProcessing(true)
 
     try {
-      // Create order
+      // Create order - handle both guest and logged-in users
       const orderData = {
-        customerType: 'GUEST',
+        customerType: isAuthenticated && user ? 'REGISTERED' : 'GUEST',
         guestName: formData.fullName,
         guestEmail: formData.email,
         guestPhone: formData.phone,
@@ -98,34 +129,40 @@ export default function CheckoutPage() {
         },
         notes: formData.notes,
         paymentMethod: paymentMethod,
+        paymentType: paymentType,
+        depositPercentage: paymentType === 'DEPOSIT' ? depositPercentage : null,
+        depositAmount: paymentType === 'DEPOSIT' ? depositAmount : null,
+        remainingAmount: paymentType === 'DEPOSIT' ? remainingAmount : null,
         totalAmount: totalPrice,
         shippingAmount: shippingFee,
         netAmount: finalTotal,
       }
 
+      // Prepare headers - include auth token if user is logged in
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      }
+      
+      // Add auth token for logged-in users
+      if (isAuthenticated && typeof window !== 'undefined') {
+        const token = sessionStorage.getItem('access_token')
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`
+        }
+      }
+
       const response = await fetch('/api/orders', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify(orderData),
       })
 
       const result = await response.json()
 
       if (response.ok && result.success) {
-        // Handle payment redirect
-        if (paymentMethod === 'VNPAY') {
-          // Redirect to VNPay
-          window.location.href = `/api/payment/vnpay?orderId=${result.data.id}`
-        } else if (paymentMethod === 'MOMO') {
-          // Redirect to MoMo
-          window.location.href = `/api/payment/momo?orderId=${result.data.id}`
-        } else {
-          // COD or Bank Transfer - go to confirmation
-          clearCart()
-          router.push(`/order-confirmation?orderId=${result.data.id}`)
-        }
+        // Redirect to order tracking page
+        clearCart()
+        router.push(`/order-tracking?orderId=${result.data.id}`)
       } else {
         throw new Error(result.error?.message || 'Đặt hàng thất bại')
       }
@@ -196,10 +233,27 @@ export default function CheckoutPage() {
             <div className="lg:col-span-2 space-y-6">
               {/* Customer Information */}
               <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
-                <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-2">
-                  <User className="h-6 w-6 text-primary-600" />
-                  Thông Tin Khách Hàng
-                </h2>
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+                    <User className="h-6 w-6 text-primary-600" />
+                    Thông Tin Khách Hàng
+                  </h2>
+                  {isAuthenticated && user && (
+                    <div className="flex items-center gap-2 bg-green-100 text-green-800 px-4 py-2 rounded-lg">
+                      <CheckCircle className="h-4 w-4" />
+                      <span className="text-sm font-semibold">Đã đăng nhập</span>
+                    </div>
+                  )}
+                </div>
+                
+                {isAuthenticated && user && (
+                  <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <p className="text-sm text-blue-900">
+                      ℹ️ Thông tin đã được tự động điền từ tài khoản của bạn. Bạn có thể chỉnh sửa nếu muốn giao hàng đến địa chỉ khác.
+                    </p>
+                  </div>
+                )}
+
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
@@ -211,7 +265,7 @@ export default function CheckoutPage() {
                       name="fullName"
                       value={formData.fullName}
                       onChange={handleInputChange}
-                      className={`w-full border-2 ${errors.fullName ? 'border-red-500' : 'border-gray-300'} rounded-lg px-4 py-3 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 transition-all outline-none`}
+                      className={`w-full border-2 ${errors.fullName ? 'border-red-500' : 'border-gray-300'} rounded-lg px-4 py-3 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 transition-all outline-none text-gray-900`}
                       placeholder="Nguyễn Văn A"
                     />
                     {errors.fullName && <p className="text-red-500 text-sm mt-1">{errors.fullName}</p>}
@@ -226,7 +280,7 @@ export default function CheckoutPage() {
                       name="email"
                       value={formData.email}
                       onChange={handleInputChange}
-                      className={`w-full border-2 ${errors.email ? 'border-red-500' : 'border-gray-300'} rounded-lg px-4 py-3 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 transition-all outline-none`}
+                      className={`w-full border-2 ${errors.email ? 'border-red-500' : 'border-gray-300'} rounded-lg px-4 py-3 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 transition-all outline-none text-gray-900`}
                       placeholder="email@example.com"
                     />
                     {errors.email && <p className="text-red-500 text-sm mt-1">{errors.email}</p>}
@@ -241,7 +295,7 @@ export default function CheckoutPage() {
                       name="phone"
                       value={formData.phone}
                       onChange={handleInputChange}
-                      className={`w-full border-2 ${errors.phone ? 'border-red-500' : 'border-gray-300'} rounded-lg px-4 py-3 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 transition-all outline-none`}
+                      className={`w-full border-2 ${errors.phone ? 'border-red-500' : 'border-gray-300'} rounded-lg px-4 py-3 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 transition-all outline-none text-gray-900`}
                       placeholder="0123456789"
                     />
                     {errors.phone && <p className="text-red-500 text-sm mt-1">{errors.phone}</p>}
@@ -266,7 +320,7 @@ export default function CheckoutPage() {
                       name="address"
                       value={formData.address}
                       onChange={handleInputChange}
-                      className={`w-full border-2 ${errors.address ? 'border-red-500' : 'border-gray-300'} rounded-lg px-4 py-3 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 transition-all outline-none`}
+                      className={`w-full border-2 ${errors.address ? 'border-red-500' : 'border-gray-300'} rounded-lg px-4 py-3 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 transition-all outline-none text-gray-900`}
                       placeholder="Số nhà, tên đường..."
                     />
                     {errors.address && <p className="text-red-500 text-sm mt-1">{errors.address}</p>}
@@ -282,7 +336,7 @@ export default function CheckoutPage() {
                         name="ward"
                         value={formData.ward}
                         onChange={handleInputChange}
-                        className="w-full border-2 border-gray-300 rounded-lg px-4 py-3 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 transition-all outline-none"
+                        className="w-full border-2 border-gray-300 rounded-lg px-4 py-3 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 transition-all outline-none text-gray-900"
                         placeholder="Phường 1"
                       />
                     </div>
@@ -296,7 +350,7 @@ export default function CheckoutPage() {
                         name="district"
                         value={formData.district}
                         onChange={handleInputChange}
-                        className="w-full border-2 border-gray-300 rounded-lg px-4 py-3 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 transition-all outline-none"
+                        className="w-full border-2 border-gray-300 rounded-lg px-4 py-3 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 transition-all outline-none text-gray-900"
                         placeholder="Quận 1"
                       />
                     </div>
@@ -310,7 +364,7 @@ export default function CheckoutPage() {
                         name="city"
                         value={formData.city}
                         onChange={handleInputChange}
-                        className={`w-full border-2 ${errors.city ? 'border-red-500' : 'border-gray-300'} rounded-lg px-4 py-3 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 transition-all outline-none`}
+                        className={`w-full border-2 ${errors.city ? 'border-red-500' : 'border-gray-300'} rounded-lg px-4 py-3 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 transition-all outline-none text-gray-900`}
                         placeholder="TP. Hồ Chí Minh"
                       />
                       {errors.city && <p className="text-red-500 text-sm mt-1">{errors.city}</p>}
@@ -326,106 +380,111 @@ export default function CheckoutPage() {
                       value={formData.notes}
                       onChange={handleInputChange}
                       rows={3}
-                      className="w-full border-2 border-gray-300 rounded-lg px-4 py-3 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 transition-all outline-none"
+                      className="w-full border-2 border-gray-300 rounded-lg px-4 py-3 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 transition-all outline-none text-gray-900"
                       placeholder="Ghi chú về đơn hàng (tùy chọn)..."
                     />
                   </div>
                 </div>
               </div>
 
-              {/* Payment Method */}
+              {/* Payment Type Selection */}
               <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
-                <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+                <h2 className="text-2xl font-bold text-gray-900 mb-4 flex items-center gap-2">
                   <CreditCard className="h-6 w-6 text-primary-600" />
-                  Phương Thức Thanh Toán
+                  Loại Thanh Toán
                 </h2>
-
-                <div className="space-y-3">
-                  {/* COD */}
-                  <label className={`flex items-center p-4 border-2 rounded-xl cursor-pointer transition-all ${paymentMethod === 'COD' ? 'border-primary-600 bg-primary-50' : 'border-gray-300 hover:border-primary-300'}`}>
+                
+                {/* Bank Transfer Notice */}
+                <div className="mb-6 p-4 bg-green-50 border-2 border-green-200 rounded-lg">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Building className="h-5 w-5 text-green-600" />
+                    <span className="font-bold text-green-900">Phương thức: Chuyển khoản ngân hàng</span>
+                  </div>
+                  <p className="text-sm text-green-800">
+                    Tất cả đơn hàng sẽ được thanh toán qua chuyển khoản ngân hàng. Bạn sẽ nhận mã QR thanh toán sau khi đặt hàng.
+                  </p>
+                </div>
+                
+                <div className="space-y-3 mb-6">
+                  {/* Full Payment */}
+                  <label className={`flex items-center p-4 border-2 rounded-xl cursor-pointer transition-all ${paymentType === 'FULL' ? 'border-primary-600 bg-primary-50' : 'border-gray-300 hover:border-primary-300'}`}>
                     <input
                       type="radio"
-                      name="paymentMethod"
-                      value="COD"
-                      checked={paymentMethod === 'COD'}
-                      onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
+                      name="paymentType"
+                      value="FULL"
+                      checked={paymentType === 'FULL'}
+                      onChange={(e) => setPaymentType(e.target.value as PaymentType)}
                       className="w-5 h-5 text-primary-600"
                     />
                     <div className="ml-4 flex-1">
                       <div className="flex items-center gap-2">
-                        <Truck className="h-5 w-5 text-gray-600" />
-                        <span className="font-semibold text-gray-900">Thanh toán khi nhận hàng (COD)</span>
+                        <span className="font-semibold text-gray-900">💰 Thanh toán đầy đủ</span>
                       </div>
                       <p className="text-sm text-gray-600 mt-1">
-                        Thanh toán bằng tiền mặt khi nhận hàng
+                        Thanh toán toàn bộ giá trị đơn hàng: <span className="font-bold text-primary-600">{finalTotal.toLocaleString()}đ</span>
                       </p>
                     </div>
                   </label>
 
-                  {/* VNPay */}
-                  <label className={`flex items-center p-4 border-2 rounded-xl cursor-pointer transition-all ${paymentMethod === 'VNPAY' ? 'border-primary-600 bg-primary-50' : 'border-gray-300 hover:border-primary-300'}`}>
+                  {/* Deposit Payment */}
+                  <label className={`flex items-center p-4 border-2 rounded-xl cursor-pointer transition-all ${paymentType === 'DEPOSIT' ? 'border-primary-600 bg-primary-50' : 'border-gray-300 hover:border-primary-300'}`}>
                     <input
                       type="radio"
-                      name="paymentMethod"
-                      value="VNPAY"
-                      checked={paymentMethod === 'VNPAY'}
-                      onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
+                      name="paymentType"
+                      value="DEPOSIT"
+                      checked={paymentType === 'DEPOSIT'}
+                      onChange={(e) => setPaymentType(e.target.value as PaymentType)}
                       className="w-5 h-5 text-primary-600"
                     />
                     <div className="ml-4 flex-1">
                       <div className="flex items-center gap-2">
-                        <CreditCard className="h-5 w-5 text-blue-600" />
-                        <span className="font-semibold text-gray-900">VNPay</span>
+                        <span className="font-semibold text-gray-900">🏦 Đặt cọc trước</span>
+                        <span className="bg-yellow-100 text-yellow-800 text-xs font-bold px-2 py-1 rounded">
+                          KHUYẾN NGHỊ ĐƠN LỚN
+                        </span>
                       </div>
                       <p className="text-sm text-gray-600 mt-1">
-                        Thanh toán qua cổng VNPay (ATM, Visa, MasterCard)
+                        Chỉ cần thanh toán trước một phần, phần còn lại khi nhận hàng
                       </p>
                     </div>
                   </label>
 
-                  {/* MoMo */}
-                  <label className={`flex items-center p-4 border-2 rounded-xl cursor-pointer transition-all ${paymentMethod === 'MOMO' ? 'border-primary-600 bg-primary-50' : 'border-gray-300 hover:border-primary-300'}`}>
-                    <input
-                      type="radio"
-                      name="paymentMethod"
-                      value="MOMO"
-                      checked={paymentMethod === 'MOMO'}
-                      onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
-                      className="w-5 h-5 text-primary-600"
-                    />
-                    <div className="ml-4 flex-1">
-                      <div className="flex items-center gap-2">
-                        <div className="w-5 h-5 bg-pink-500 rounded-full" />
-                        <span className="font-semibold text-gray-900">Ví MoMo</span>
+                  {/* Deposit Info - Fixed 50% */}
+                  {paymentType === 'DEPOSIT' && (
+                    <div className="ml-6 p-4 bg-blue-50 rounded-xl border-2 border-blue-200">
+                      <div className="text-center mb-4">
+                        <p className="text-sm font-semibold text-gray-900 mb-2">Tỷ lệ đặt cọc:</p>
+                        <div className="inline-flex items-center justify-center p-4 bg-primary-100 border-2 border-primary-600 rounded-lg">
+                          <span className="text-4xl font-black text-primary-600">50%</span>
+                        </div>
+                        <p className="text-xs text-gray-600 mt-2">
+                          {Math.round(finalTotal * 0.5).toLocaleString()}đ
+                        </p>
                       </div>
-                      <p className="text-sm text-gray-600 mt-1">
-                        Thanh toán qua ví điện tử MoMo
-                      </p>
-                    </div>
-                  </label>
-
-                  {/* Bank Transfer */}
-                  <label className={`flex items-center p-4 border-2 rounded-xl cursor-pointer transition-all ${paymentMethod === 'BANK_TRANSFER' ? 'border-primary-600 bg-primary-50' : 'border-gray-300 hover:border-primary-300'}`}>
-                    <input
-                      type="radio"
-                      name="paymentMethod"
-                      value="BANK_TRANSFER"
-                      checked={paymentMethod === 'BANK_TRANSFER'}
-                      onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
-                      className="w-5 h-5 text-primary-600"
-                    />
-                    <div className="ml-4 flex-1">
-                      <div className="flex items-center gap-2">
-                        <Building className="h-5 w-5 text-green-600" />
-                        <span className="font-semibold text-gray-900">Chuyển khoản ngân hàng</span>
+                      
+                      {/* Deposit Summary */}
+                      <div className="mt-4 p-3 bg-white rounded-lg border border-gray-200 space-y-2">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-600">Cần thanh toán trước:</span>
+                          <span className="font-bold text-green-600">{depositAmount.toLocaleString()}đ</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-600">Thanh toán khi nhận hàng:</span>
+                          <span className="font-bold text-blue-600">{remainingAmount.toLocaleString()}đ</span>
+                        </div>
                       </div>
-                      <p className="text-sm text-gray-600 mt-1">
-                        Chuyển khoản trực tiếp vào tài khoản ngân hàng
-                      </p>
+                      
+                      <div className="mt-3 p-3 bg-green-50 rounded-lg border border-green-200">
+                        <p className="text-xs text-green-900">
+                          <strong>💡 Lưu ý:</strong> Sau khi admin xác nhận đơn hàng, bạn có thể quay lại trang tra cứu đơn hàng để thanh toán tiền cọc qua QR code.
+                        </p>
+                      </div>
                     </div>
-                  </label>
+                  )}
                 </div>
               </div>
+
+
             </div>
 
             {/* Right Column - Order Summary */}

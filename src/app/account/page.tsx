@@ -1,6 +1,5 @@
 'use client'
 
-import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { 
   User, 
@@ -15,185 +14,206 @@ import {
   Calendar,
   FileText
 } from 'lucide-react'
-
-interface UserData {
-  name: string
-  email: string
-  phone: string
-  address: string
-  createdAt: string
-}
+import { useAuth } from '@/contexts/auth-context'
+import { useRouter } from 'next/navigation'
+import { useEffect } from 'react'
 
 export default function AccountPage() {
-  const [user, setUser] = useState<UserData | null>(null)
-  const [loading, setLoading] = useState(true)
+  const { user, isAuthenticated, isLoading } = useAuth()
+  const router = useRouter()
 
   useEffect(() => {
-    // In a real implementation, this would fetch user data from an API
-    // For now, we'll use mock data
-    setTimeout(() => {
-      setUser({
-        name: 'Nguyễn Văn A',
-        email: 'nguyenvana@example.com',
-        phone: '0123456789',
-        address: '123 Đường ABC, Quận XYZ, TP.HCM',
-        createdAt: '2023-01-15T00:00:00Z'
-      })
-      setLoading(false)
-    }, 500)
-  }, [])
+    if (!isLoading && !isAuthenticated) {
+      router.push('/login')
+    }
+  }, [isLoading, isAuthenticated, router])
 
-  if (loading) {
+  if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="flex items-center justify-center h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
       </div>
     )
   }
 
+  if (!user) {
+    return null
+  }
+
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Tài Khoản Của Tôi</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Quản lý thông tin tài khoản và cài đặt của bạn
-        </p>
-      </div>
-
-      {/* Profile Card */}
-      <div className="bg-white rounded-lg border p-6">
-        <div className="flex items-start">
-          <div className="flex-shrink-0">
-            <div className="bg-gray-200 border-2 border-dashed rounded-xl w-16 h-16" />
-          </div>
-          <div className="ml-4 flex-1">
-            <h2 className="text-xl font-bold text-gray-900">{user?.name}</h2>
-            <p className="text-gray-500">{user?.email}</p>
-            <div className="mt-2 flex flex-wrap gap-2">
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                <User className="h-3 w-3 mr-1" />
-                Khách hàng từ {user?.createdAt ? new Date(user.createdAt).getFullYear() : 'N/A'}
-              </span>
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                <Trophy className="h-3 w-3 mr-1" />
-                Thành Viên Đồng
-              </span>
-            </div>
-          </div>
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-blue-50 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
+        <div>
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-primary-600 to-secondary-600 bg-clip-text text-transparent">
+            Tài Khoản Của Tôi
+          </h1>
+          <p className="mt-2 text-gray-600">
+            Quản lý thông tin tài khoản và cài đặt của bạn
+          </p>
         </div>
-      </div>
 
-      {/* Account Menu */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        <Link href="/account/profile" className="bg-white rounded-lg border p-4 hover:bg-gray-50 transition-colors">
-          <div className="flex items-center">
-            <User className="h-6 w-6 text-blue-500" />
-            <h3 className="ml-3 text-lg font-medium text-gray-900">Thông Tin Cá Nhân</h3>
-          </div>
-          <p className="mt-2 text-sm text-gray-500">
-            Cập nhật thông tin cá nhân và liên hệ của bạn
-          </p>
-        </Link>
-
-        <Link href="/account/orders" className="bg-white rounded-lg border p-4 hover:bg-gray-50 transition-colors">
-          <div className="flex items-center">
-            <ShoppingBag className="h-6 w-6 text-green-500" />
-            <h3 className="ml-3 text-lg font-medium text-gray-900">Lịch Sử Đơn Hàng</h3>
-          </div>
-          <p className="mt-2 text-sm text-gray-500">
-            Xem các đơn hàng trước và theo dõi giao hàng hiện tại
-          </p>
-        </Link>
-
-        <Link href="/account/loyalty" className="bg-white rounded-lg border p-4 hover:bg-gray-50 transition-colors">
-          <div className="flex items-center">
-            <Trophy className="h-6 w-6 text-yellow-500" />
-            <h3 className="ml-3 text-lg font-medium text-gray-900">Chương Trình Thành Viên</h3>
-          </div>
-          <p className="mt-2 text-sm text-gray-500">
-            Tích điểm, đổi quà và theo dõi hạng thành viên
-          </p>
-        </Link>
-
-        <Link href="/account/wishlist" className="bg-white rounded-lg border p-4 hover:bg-gray-50 transition-colors">
-          <div className="flex items-center">
-            <Heart className="h-6 w-6 text-red-500" />
-            <h3 className="ml-3 text-lg font-medium text-gray-900">Danh Sách Yêu Thích</h3>
-          </div>
-          <p className="mt-2 text-sm text-gray-500">
-            Lưu các sản phẩm yêu thích để mua sau
-          </p>
-        </Link>
-
-        <Link href="/account/addresses" className="bg-white rounded-lg border p-4 hover:bg-gray-50 transition-colors">
-          <div className="flex items-center">
-            <MapPin className="h-6 w-6 text-purple-500" />
-            <h3 className="ml-3 text-lg font-medium text-gray-900">Địa Chỉ Đã Lưu</h3>
-          </div>
-          <p className="mt-2 text-sm text-gray-500">
-            Quản lý địa chỉ giao hàng và thanh toán
-          </p>
-        </Link>
-
-        <Link href="/account/payment-methods" className="bg-white rounded-lg border p-4 hover:bg-gray-50 transition-colors">
-          <div className="flex items-center">
-            <CreditCard className="h-6 w-6 text-indigo-500" />
-            <h3 className="ml-3 text-lg font-medium text-gray-900">Phương Thức Thanh Toán</h3>
-          </div>
-          <p className="mt-2 text-sm text-gray-500">
-            Thêm hoặc xóa phương thức thanh toán để thanh toán nhanh hơn
-          </p>
-        </Link>
-
-        <Link href="/account/projects" className="bg-white rounded-lg border p-4 hover:bg-gray-50 transition-colors">
-          <div className="flex items-center">
-            <FileText className="h-6 w-6 text-purple-500" />
-            <h3 className="ml-3 text-lg font-medium text-gray-900">Dự Án Của Tôi</h3>
-          </div>
-          <p className="mt-2 text-sm text-gray-500">
-            Xem và quản lý các dự án xây dựng của bạn
-          </p>
-        </Link>
-      </div>
-
-      {/* Quick Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white rounded-lg border p-4">
-          <div className="flex items-center">
-            <Package className="h-8 w-8 text-blue-500" />
-            <div className="ml-3">
-              <p className="text-sm font-medium text-gray-500">Tổng Đơn Hàng</p>
-              <p className="text-2xl font-bold text-gray-900">12</p>
+        {/* Profile Card */}
+        <div className="bg-gradient-to-br from-primary-600 to-secondary-600 rounded-2xl p-8 shadow-xl text-white">
+          <div className="flex items-start">
+            <div className="flex-shrink-0">
+              <div className="w-20 h-20 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center text-3xl font-bold border-4 border-white/30">
+                {user?.name?.charAt(0).toUpperCase()}
+              </div>
+            </div>
+            <div className="ml-6 flex-1">
+              <h2 className="text-2xl font-bold">{user?.name}</h2>
+              <p className="text-white/90 mt-1">{user?.email}</p>
+              {user?.phone && (
+                <p className="text-white/80 mt-0.5">📱 {user?.phone}</p>
+              )}
+              <div className="mt-4 flex flex-wrap gap-2">
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-white/20 backdrop-blur-sm border border-white/30">
+                  <User className="h-4 w-4 mr-1.5" />
+                  Khách hàng từ {user?.createdAt ? new Date(user.createdAt).getFullYear() : '2023'}
+                </span>
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-white/20 backdrop-blur-sm border border-white/30">
+                  <Trophy className="h-4 w-4 mr-1.5" />
+                  Thành Viên Đồng
+                </span>
+              </div>
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-lg border p-4">
-          <div className="flex items-center">
-            <Star className="h-8 w-8 text-yellow-500" />
-            <div className="ml-3">
-              <p className="text-sm font-medium text-gray-500">Điểm Thành Viên</p>
-              <p className="text-2xl font-bold text-gray-900">450</p>
+        {/* Account Menu */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <Link href="/account/profile" className="group bg-white rounded-xl shadow-md hover:shadow-xl transition-all duration-300 p-6 border border-gray-100 hover:border-blue-200 hover:scale-105">
+            <div className="flex items-center mb-3">
+              <div className="w-12 h-12 rounded-lg bg-blue-100 flex items-center justify-center group-hover:bg-blue-200 transition-colors">
+                <User className="h-6 w-6 text-blue-600" />
+              </div>
+              <h3 className="ml-3 text-lg font-semibold text-gray-900">Thông Tin Cá Nhân</h3>
             </div>
-          </div>
+            <p className="text-sm text-gray-600">
+              Cập nhật thông tin cá nhân và liên hệ của bạn
+            </p>
+          </Link>
+
+          <Link href="/account/orders" className="group bg-white rounded-xl shadow-md hover:shadow-xl transition-all duration-300 p-6 border border-gray-100 hover:border-green-200 hover:scale-105">
+            <div className="flex items-center mb-3">
+              <div className="w-12 h-12 rounded-lg bg-green-100 flex items-center justify-center group-hover:bg-green-200 transition-colors">
+                <ShoppingBag className="h-6 w-6 text-green-600" />
+              </div>
+              <h3 className="ml-3 text-lg font-semibold text-gray-900">Lịch Sử Đơn Hàng</h3>
+            </div>
+            <p className="text-sm text-gray-600">
+              Xem các đơn hàng trước và theo dõi giao hàng hiện tại
+            </p>
+          </Link>
+
+          <Link href="/account/loyalty" className="group bg-white rounded-xl shadow-md hover:shadow-xl transition-all duration-300 p-6 border border-gray-100 hover:border-yellow-200 hover:scale-105">
+            <div className="flex items-center mb-3">
+              <div className="w-12 h-12 rounded-lg bg-yellow-100 flex items-center justify-center group-hover:bg-yellow-200 transition-colors">
+                <Trophy className="h-6 w-6 text-yellow-600" />
+              </div>
+              <h3 className="ml-3 text-lg font-semibold text-gray-900">Chương Trình Thành Viên</h3>
+            </div>
+            <p className="text-sm text-gray-600">
+              Tích điểm, đổi quà và theo dõi hạng thành viên
+            </p>
+          </Link>
+
+          <Link href="/wishlist" className="group bg-white rounded-xl shadow-md hover:shadow-xl transition-all duration-300 p-6 border border-gray-100 hover:border-red-200 hover:scale-105">
+            <div className="flex items-center mb-3">
+              <div className="w-12 h-12 rounded-lg bg-red-100 flex items-center justify-center group-hover:bg-red-200 transition-colors">
+                <Heart className="h-6 w-6 text-red-600" />
+              </div>
+              <h3 className="ml-3 text-lg font-semibold text-gray-900">Danh Sách Yêu Thích</h3>
+            </div>
+            <p className="text-sm text-gray-600">
+              Lưu các sản phẩm yêu thích để mua sau
+            </p>
+          </Link>
+
+          <Link href="/account/addresses" className="group bg-white rounded-xl shadow-md hover:shadow-xl transition-all duration-300 p-6 border border-gray-100 hover:border-purple-200 hover:scale-105">
+            <div className="flex items-center mb-3">
+              <div className="w-12 h-12 rounded-lg bg-purple-100 flex items-center justify-center group-hover:bg-purple-200 transition-colors">
+                <MapPin className="h-6 w-6 text-purple-600" />
+              </div>
+              <h3 className="ml-3 text-lg font-semibold text-gray-900">Địa Chỉ Đã Lưu</h3>
+            </div>
+            <p className="text-sm text-gray-600">
+              Quản lý địa chỉ giao hàng và thanh toán
+            </p>
+          </Link>
+
+          <Link href="/account/payment-methods" className="group bg-white rounded-xl shadow-md hover:shadow-xl transition-all duration-300 p-6 border border-gray-100 hover:border-indigo-200 hover:scale-105">
+            <div className="flex items-center mb-3">
+              <div className="w-12 h-12 rounded-lg bg-indigo-100 flex items-center justify-center group-hover:bg-indigo-200 transition-colors">
+                <CreditCard className="h-6 w-6 text-indigo-600" />
+              </div>
+              <h3 className="ml-3 text-lg font-semibold text-gray-900">Phương Thức Thanh Toán</h3>
+            </div>
+            <p className="text-sm text-gray-600">
+              Thêm hoặc xóa phương thức thanh toán để thanh toán nhanh hơn
+            </p>
+          </Link>
+
+          <Link href="/account/projects" className="group bg-white rounded-xl shadow-md hover:shadow-xl transition-all duration-300 p-6 border border-gray-100 hover:border-pink-200 hover:scale-105">
+            <div className="flex items-center mb-3">
+              <div className="w-12 h-12 rounded-lg bg-pink-100 flex items-center justify-center group-hover:bg-pink-200 transition-colors">
+                <FileText className="h-6 w-6 text-pink-600" />
+              </div>
+              <h3 className="ml-3 text-lg font-semibold text-gray-900">Dự Án Của Tôi</h3>
+            </div>
+            <p className="text-sm text-gray-600">
+              Xem và quản lý các dự án xây dựng của bạn
+            </p>
+          </Link>
         </div>
 
-        <div className="bg-white rounded-lg border p-4">
-          <div className="flex items-center">
-            <Heart className="h-8 w-8 text-red-500" />
-            <div className="ml-3">
-              <p className="text-sm font-medium text-gray-500">Sản Phẩm Yêu Thích</p>
-              <p className="text-2xl font-bold text-gray-900">8</p>
+        {/* Quick Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-6 shadow-lg text-white">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-blue-100">Tổng Đơn Hàng</p>
+                <p className="text-3xl font-bold mt-1">12</p>
+              </div>
+              <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                <Package className="h-6 w-6" />
+              </div>
             </div>
           </div>
-        </div>
 
-        <div className="bg-white rounded-lg border p-4">
-          <div className="flex items-center">
-            <Calendar className="h-8 w-8 text-green-500" />
-            <div className="ml-3">
-              <p className="text-sm font-medium text-gray-500">Thành Viên Từ</p>
-              <p className="text-2xl font-bold text-gray-900">2023</p>
+          <div className="bg-gradient-to-br from-yellow-500 to-yellow-600 rounded-xl p-6 shadow-lg text-white">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-yellow-100">Điểm Thành Viên</p>
+                <p className="text-3xl font-bold mt-1">450</p>
+              </div>
+              <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                <Star className="h-6 w-6" />
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-gradient-to-br from-red-500 to-red-600 rounded-xl p-6 shadow-lg text-white">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-red-100">Sản Phẩm Yêu Thích</p>
+                <p className="text-3xl font-bold mt-1">8</p>
+              </div>
+              <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                <Heart className="h-6 w-6" />
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl p-6 shadow-lg text-white">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-green-100">Thành Viên Từ</p>
+                <p className="text-3xl font-bold mt-1">{user?.createdAt ? new Date(user.createdAt).getFullYear() : '2023'}</p>
+              </div>
+              <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                <Calendar className="h-6 w-6" />
+              </div>
             </div>
           </div>
         </div>

@@ -33,6 +33,13 @@ export class ConversationMemoryService {
       const customer = await prisma.customer.findUnique({
         where: { id: customerId },
         include: {
+          user: {
+            select: {
+              name: true,
+              email: true,
+              phone: true
+            }
+          },
           orders: {
             include: {
               orderItems: {
@@ -53,7 +60,7 @@ export class ConversationMemoryService {
         }
       })
 
-      if (!customer) return null
+      if (!customer || !customer.user) return null
 
       // Analyze order history to infer preferences
       const preferences = this.inferPreferences(customer.orders)
@@ -61,9 +68,9 @@ export class ConversationMemoryService {
 
       return {
         customerId: customer.id,
-        name: customer.name,
-        email: customer.email,
-        phone: customer.phone,
+        name: customer.user.name,
+        email: customer.user.email,
+        phone: customer.user.phone,
         type: this.inferCustomerType(customer.orders),
         preferences,
         summary,

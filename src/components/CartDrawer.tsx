@@ -27,12 +27,12 @@ export default function CartDrawer() {
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black bg-opacity-50 z-40 transition-opacity"
+        className="fixed inset-0 bg-black bg-opacity-50 z-[45] transition-opacity duration-300 animate-fade-in"
         onClick={closeCart}
       />
 
       {/* Drawer */}
-      <div className="fixed right-0 top-0 h-full w-full max-w-md bg-white shadow-2xl z-50 flex flex-col animate-slide-in">
+      <div className="fixed right-0 top-0 h-full w-full max-w-md bg-white shadow-2xl z-[60] flex flex-col animate-slide-in">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b">
           <div className="flex items-center gap-2">
@@ -74,88 +74,96 @@ export default function CartDrawer() {
             </div>
           ) : (
             <div className="space-y-4">
-              {items.map((item) => (
-                <div
-                  key={item.productId}
-                  className="flex gap-4 p-4 bg-gray-50 rounded-lg border border-gray-200 hover:border-primary-300 transition-colors"
-                >
-                  {/* Product Image */}
-                  <div className="relative w-20 h-20 bg-white rounded-lg overflow-hidden flex-shrink-0 border">
-                    {item.image ? (
-                      <Image
-                        src={item.image}
-                        alt={item.name}
-                        fill
-                        className="object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
-                        <ShoppingBag className="h-8 w-8 text-gray-400" />
+              {items.map((item) => {
+                // Validate item data
+                if (!item || !item.productId) {
+                  console.error('Invalid cart item:', item)
+                  return null
+                }
+
+                return (
+                  <div
+                    key={item.productId}
+                    className="flex gap-4 p-4 bg-gray-50 rounded-lg border border-gray-200 hover:border-primary-300 transition-colors"
+                  >
+                    {/* Product Image */}
+                    <div className="relative w-20 h-20 bg-white rounded-lg overflow-hidden flex-shrink-0 border">
+                      {item.image ? (
+                        <Image
+                          src={item.image}
+                          alt={item.name || 'Product'}
+                          fill
+                          className="object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
+                          <ShoppingBag className="h-8 w-8 text-gray-400" />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Product Info */}
+                    <div className="flex-1 min-w-0 flex flex-col">
+                      <h3 className="font-semibold text-gray-900 truncate mb-1">
+                        {item.name || 'Tên sản phẩm'}
+                      </h3>
+                      <p className="text-sm text-gray-500 mb-2">
+                        SKU: {item.sku || 'N/A'}
+                      </p>
+                      <div className="flex items-center gap-2 mb-3">
+                        <p className="text-lg font-bold text-primary-600">
+                          {(item.price || 0).toLocaleString()}đ
+                        </p>
+                        <p className="text-sm text-gray-500">
+                          /{item.unit || 'cái'}
+                        </p>
                       </div>
-                    )}
-                  </div>
 
-                  {/* Product Info */}
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-gray-900 truncate mb-1">
-                      {item.name}
-                    </h3>
-                    <p className="text-sm text-gray-500 mb-2">
-                      SKU: {item.sku}
-                    </p>
-                    <div className="flex items-center justify-between">
-                      <p className="text-lg font-bold text-primary-600">
-                        {item.price.toLocaleString()}đ
-                      </p>
-                      <p className="text-sm text-gray-500">
-                        /{item.unit}
+                      {/* Quantity Controls */}
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => updateQuantity(item.productId, item.quantity - 1)}
+                          className="p-1 hover:bg-white rounded border border-gray-300 transition-colors"
+                          aria-label="Giảm số lượng"
+                        >
+                          <Minus className="h-4 w-4" />
+                        </button>
+                        <input
+                          type="number"
+                          value={item.quantity}
+                          onChange={(e) => {
+                            const value = parseInt(e.target.value) || 0
+                            updateQuantity(item.productId, value)
+                          }}
+                          className="w-16 text-center border border-gray-300 rounded py-1 font-semibold"
+                          min="1"
+                        />
+                        <button
+                          onClick={() => updateQuantity(item.productId, item.quantity + 1)}
+                          className="p-1 hover:bg-white rounded border border-gray-300 transition-colors"
+                          aria-label="Tăng số lượng"
+                        >
+                          <Plus className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => removeItem(item.productId)}
+                          className="ml-auto p-2 hover:bg-red-50 text-red-600 rounded transition-colors"
+                          aria-label="Xóa sản phẩm"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+
+                      {/* Subtotal */}
+                      <p className="text-sm text-gray-600 mt-2">
+                        Tổng: <span className="font-semibold text-gray-900">
+                          {((item.price || 0) * (item.quantity || 0)).toLocaleString()}đ
+                        </span>
                       </p>
                     </div>
-
-                    {/* Quantity Controls */}
-                    <div className="flex items-center gap-2 mt-3">
-                      <button
-                        onClick={() => updateQuantity(item.productId, item.quantity - 1)}
-                        className="p-1 hover:bg-white rounded border border-gray-300 transition-colors"
-                        aria-label="Giảm số lượng"
-                      >
-                        <Minus className="h-4 w-4" />
-                      </button>
-                      <input
-                        type="number"
-                        value={item.quantity}
-                        onChange={(e) => {
-                          const value = parseInt(e.target.value) || 0
-                          updateQuantity(item.productId, value)
-                        }}
-                        className="w-16 text-center border border-gray-300 rounded py-1 font-semibold"
-                        min="1"
-                      />
-                      <button
-                        onClick={() => updateQuantity(item.productId, item.quantity + 1)}
-                        className="p-1 hover:bg-white rounded border border-gray-300 transition-colors"
-                        aria-label="Tăng số lượng"
-                      >
-                        <Plus className="h-4 w-4" />
-                      </button>
-                      <button
-                        onClick={() => removeItem(item.productId)}
-                        className="ml-auto p-2 hover:bg-red-50 text-red-600 rounded transition-colors"
-                        aria-label="Xóa sản phẩm"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-
-                    {/* Subtotal */}
-                    <p className="text-sm text-gray-600 mt-2">
-                      Tổng: <span className="font-semibold text-gray-900">
-                        {(item.price * item.quantity).toLocaleString()}đ
-                      </span>
-                    </p>
-                  </div>
                 </div>
-              ))}
+              )
+              })}
             </div>
           )}
         </div>
@@ -207,8 +215,19 @@ export default function CartDrawer() {
             transform: translateX(0);
           }
         }
+        @keyframes fade-in {
+          from {
+            opacity: 0;
+          }
+          to {
+            opacity: 1;
+          }
+        }
         .animate-slide-in {
           animation: slide-in 0.3s ease-out;
+        }
+        .animate-fade-in {
+          animation: fade-in 0.3s ease-out;
         }
       `}</style>
     </>

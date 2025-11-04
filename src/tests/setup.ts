@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom'
-import { expect, afterEach } from 'vitest'
+import { expect, afterEach, vi } from 'vitest'
 import { cleanup } from '@testing-library/react'
 
 // Cleanup after each test
@@ -22,8 +22,10 @@ vi.mock('next/navigation', () => ({
 
 // Mock Next.js Image
 vi.mock('next/image', () => ({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   default: (props: any) => {
-    // eslint-disable-next-line jsx-a11y/alt-text
-    return <img {...props} />
+    // eslint-disable-next-line jsx-a11y/alt-text, @typescript-eslint/no-explicit-any
+    const React = require('react')
+    return React.createElement('img', props)
   },
 }))

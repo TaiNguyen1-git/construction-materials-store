@@ -28,7 +28,8 @@ import {
   Box,
   Briefcase,
   Receipt,
-  LineChart
+  LineChart,
+  Star
 } from 'lucide-react'
 import NotificationBell from '@/components/NotificationBell'
 
@@ -44,9 +45,8 @@ const navigationGroups = [
     name: 'Quản Lý Sản Phẩm',
     icon: Box,
     items: [
-      { name: 'Sản Phẩm', href: '/admin/products', icon: Package },
+      { name: 'Sản Phẩm & Nhà Cung Cấp', href: '/admin/products', icon: Package },
       { name: 'Kho Hàng', href: '/admin/inventory', icon: Package },
-      { name: 'Nhà Cung Cấp', href: '/admin/suppliers', icon: Building },
     ]
   },
   {
@@ -55,17 +55,15 @@ const navigationGroups = [
     items: [
       { name: 'Đơn Hàng', href: '/admin/orders', icon: ShoppingCart },
       { name: 'Khách Hàng', href: '/admin/customers', icon: Users },
-      { name: 'Nhập Doanh Số Ngày', href: '/admin/daily-sales', icon: Receipt },
-      { name: 'Hóa Đơn', href: '/admin/invoices', icon: FileText },
+      { name: 'Quản Lý Bán Hàng', href: '/admin/sales-management', icon: Receipt },
+      { name: 'Đánh Giá Sản Phẩm', href: '/admin/reviews', icon: Star },
     ]
   },
   {
     name: 'Nhân Sự',
     icon: Briefcase,
     items: [
-      { name: 'Nhân Viên', href: '/admin/employees', icon: User },
-      { name: 'Ca Làm Việc', href: '/admin/work-shifts', icon: Calendar },
-      { name: 'Công Việc', href: '/admin/tasks', icon: ClipboardList },
+      { name: 'Quản Lý Nhân Sự', href: '/admin/hr-management', icon: Users },
       { name: 'Lương', href: '/admin/payroll', icon: CreditCard },
     ]
   },
@@ -77,13 +75,10 @@ const navigationGroups = [
     ]
   },
   {
-    name: 'Báo Cáo & Phân Tích',
+    name: 'Báo Cáo Tài Chính',
     icon: LineChart,
     items: [
-      { name: 'Phân Tích', href: '/admin/analytics', icon: PieChart },
-      { name: 'Dự Đoán', href: '/admin/predictions', icon: TrendingUp },
-      { name: 'Độ Chính Xác AI', href: '/admin/prediction-accuracy', icon: LineChart },
-      { name: 'Đề Xuất Mua Hàng', href: '/admin/purchase-recommendations', icon: Truck },
+      { name: 'Báo Cáo Tài Chính', href: '/admin/financial-reports', icon: LineChart },
     ]
   },
 ]
@@ -94,7 +89,7 @@ export default function AdminLayout({
   children: React.ReactNode
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [expandedGroups, setExpandedGroups] = useState<string[]>(['Tổng Quan', 'Quản Lý Sản Phẩm', 'Bán Hàng'])
+  const [expandedGroups, setExpandedGroups] = useState<string[]>(['Tổng Quan', 'Quản Lý Sản Phẩm', 'Bán Hàng', 'Nhân Sự'])
   const pathname = usePathname()
   
   const toggleGroup = (groupName: string) => {

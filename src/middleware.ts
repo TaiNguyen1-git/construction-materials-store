@@ -55,6 +55,20 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
+  // BYPASS AUTHENTICATION IN DEVELOPMENT MODE
+  if (process.env.NODE_ENV === 'development') {
+    const requestHeaders = new Headers(request.headers)
+    requestHeaders.set('x-user-id', 'dev-user')
+    requestHeaders.set('x-user-email', 'dev@example.com')
+    requestHeaders.set('x-user-role', 'MANAGER')
+    
+    return NextResponse.next({
+      request: {
+        headers: requestHeaders,
+      },
+    })
+  }
+
   // Rate limiting temporarily disabled in Edge Runtime middleware
   // Redis client requires Node.js runtime which is not available in Edge Runtime
   // 

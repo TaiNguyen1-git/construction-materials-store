@@ -12,7 +12,7 @@ const clockActionSchema = z.object({
 // POST /api/work-shifts/[id]/clock - Clock in/out for a shift
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const userRole = request.headers.get('x-user-role')
@@ -25,6 +25,7 @@ export async function POST(
       )
     }
 
+    const { id } = await params
     const body = await request.json()
     
     // Validate input
@@ -40,7 +41,7 @@ export async function POST(
 
     // Get the work shift
     const shift = await prisma.workShift.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         employee: {
           include: {
@@ -126,7 +127,7 @@ export async function POST(
 
     // Update work shift
     const updatedShift = await prisma.workShift.update({
-      where: { id: params.id },
+      where: { id },
       data: updateData,
       include: {
         employee: {
@@ -156,7 +157,7 @@ export async function POST(
 // GET /api/work-shifts/[id]/clock - Get current clock status
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const userRole = request.headers.get('x-user-role')
@@ -169,9 +170,11 @@ export async function GET(
       )
     }
 
+    const { id } = await params
+
     // Get the work shift
     const shift = await prisma.workShift.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         employee: {
           include: {

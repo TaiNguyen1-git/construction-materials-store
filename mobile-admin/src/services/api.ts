@@ -73,17 +73,17 @@ class ApiService {
   }
 
   // Generic request methods
-  async get<T>(url: string, params?: any): Promise<T> {
+  async get<T>(url: string, params?: Record<string, unknown>): Promise<T> {
     const response = await this.api.get(url, { params });
     return response.data;
   }
 
-  async post<T>(url: string, data?: any): Promise<T> {
+  async post<T>(url: string, data?: unknown): Promise<T> {
     const response = await this.api.post(url, data);
     return response.data;
   }
 
-  async put<T>(url: string, data?: any): Promise<T> {
+  async put<T>(url: string, data?: unknown): Promise<T> {
     const response = await this.api.put(url, data);
     return response.data;
   }
@@ -93,10 +93,11 @@ class ApiService {
     return response.data;
   }
 
-  async patch<T>(url: string, data?: any): Promise<T> {
+  async patch<T>(url: string, data?: unknown): Promise<T> {
     const response = await this.api.patch(url, data);
     return response.data;
   }
 }
 
-export default new ApiService();
+const apiServiceInstance = new ApiService();
+export default apiServiceInstance;

@@ -22,7 +22,8 @@ const verifyToken = async (request: NextRequest) => {
 export async function GET(request: NextRequest) {
   try {
     const user = await verifyToken(request)
-    if (!user || user.role !== 'MANAGER') {
+    // Skip authentication in development mode
+    if (process.env.NODE_ENV === 'production' && (!user || user.role !== 'MANAGER')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 

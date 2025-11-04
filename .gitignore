@@ -47,3 +47,7 @@ next-env.d.ts
 
 #Ignore windsurf AI rules
 .windsurfrules
+
+
+#Ignore cursor AI rules
+.cursor\rules\codacy.mdc

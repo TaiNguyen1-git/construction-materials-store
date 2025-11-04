@@ -18,15 +18,16 @@ const verifyToken = async (request: NextRequest) => {
 }
 
 // GET /api/projects/[id] - Get project by ID
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const user = await verifyToken(request)
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const { id } = await params
     const project = await (prisma as any).project.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         customer: {
           include: {
@@ -104,19 +105,20 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 }
 
 // PUT /api/projects/[id] - Update project
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const user = await verifyToken(request)
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const { id } = await params
     const body = await request.json()
     const { name, description, status, startDate, endDate, budget, priority, notes, progress } = body
 
     // Check if project exists
     const existingProject = await (prisma as any).project.findUnique({
-      where: { id: params.id }
+      where: { id }
     })
 
     if (!existingProject) {
@@ -136,7 +138,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
     // Update project
     const updatedProject = await (prisma as any).project.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         name,
         description,
@@ -170,16 +172,18 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 }
 
 // DELETE /api/projects/[id] - Delete project
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const user = await verifyToken(request)
     if (!user || user.role !== 'MANAGER') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const { id } = await params
+
     // Check if project exists
     const existingProject = await (prisma as any).project.findUnique({
-      where: { id: params.id }
+      where: { id }
     })
 
     if (!existingProject) {
@@ -188,7 +192,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
 
     // Delete project (cascade will delete related tasks and materials)
     await (prisma as any).project.delete({
-      where: { id: params.id }
+      where: { id }
     })
 
     return NextResponse.json({ message: 'Project deleted successfully' })

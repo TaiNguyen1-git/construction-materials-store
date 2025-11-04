@@ -39,11 +39,11 @@ const updateTaskSchema = z.object({
 // GET /api/employee-tasks - List tasks with pagination and filters
 export async function GET(request: NextRequest) {
   try {
-    // Check user role from middleware
+    // Check user role from middleware (skip in development)
     const userRole = request.headers.get('x-user-role')
     const userId = request.headers.get('x-user-id')
     
-    if (!['MANAGER', 'EMPLOYEE'].includes(userRole || '')) {
+    if (process.env.NODE_ENV === 'production' && !['MANAGER', 'EMPLOYEE'].includes(userRole || '')) {
       return NextResponse.json(
         createErrorResponse('Access denied', 'FORBIDDEN'),
         { status: 403 }

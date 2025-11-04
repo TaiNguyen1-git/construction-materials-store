@@ -12,7 +12,7 @@ export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [formData, setFormData] = useState({
-    name: '',
+    fullName: '',
     email: '',
     phone: '',
     password: '',
@@ -23,13 +23,16 @@ export default function RegisterPage() {
   const validateForm = () => {
     const newErrors: Record<string, string> = {}
 
-    if (!formData.name.trim()) newErrors.name = 'Vui lòng nhập họ tên'
+    if (!formData.fullName.trim()) newErrors.fullName = 'Vui lòng nhập họ tên'
     if (!formData.email.trim()) newErrors.email = 'Vui lòng nhập email'
     else if (!/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = 'Email không hợp lệ'
     if (!formData.phone.trim()) newErrors.phone = 'Vui lòng nhập số điện thoại'
-    else if (!/^[0-9]{10,11}$/.test(formData.phone.replace(/\s/g, ''))) newErrors.phone = 'Số điện thoại không hợp lệ'
+    else if (!/^(0|\+84)[0-9]{9,10}$/.test(formData.phone)) newErrors.phone = 'Số điện thoại không hợp lệ'
     if (!formData.password) newErrors.password = 'Vui lòng nhập mật khẩu'
-    else if (formData.password.length < 6) newErrors.password = 'Mật khẩu phải có ít nhất 6 ký tự'
+    else if (formData.password.length < 8) newErrors.password = 'Mật khẩu phải có ít nhất 8 ký tự'
+    else if (!/[A-Z]/.test(formData.password)) newErrors.password = 'Mật khẩu phải có ít nhất 1 chữ hoa'
+    else if (!/[a-z]/.test(formData.password)) newErrors.password = 'Mật khẩu phải có ít nhất 1 chữ thường'
+    else if (!/[0-9]/.test(formData.password)) newErrors.password = 'Mật khẩu phải có ít nhất 1 số'
     if (formData.password !== formData.confirmPassword) newErrors.confirmPassword = 'Mật khẩu xác nhận không khớp'
 
     setLocalErrors(newErrors)
@@ -43,7 +46,7 @@ export default function RegisterPage() {
     
     try {
       await register({
-        name: formData.name,
+        fullName: formData.fullName,
         email: formData.email,
         phone: formData.phone,
         password: formData.password
@@ -104,24 +107,24 @@ export default function RegisterPage() {
 
             <div className="space-y-4">
               <div>
-                <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
+                <label htmlFor="fullName" className="block text-sm font-medium text-gray-700 mb-2">
                   <User className="h-4 w-4 inline mr-1" />
                   Họ và tên *
                 </label>
                 <input
-                  id="name"
-                  name="name"
+                  id="fullName"
+                  name="fullName"
                   type="text"
                   autoComplete="name"
                   required
-                  value={formData.name}
+                  value={formData.fullName}
                   onChange={handleChange}
                   className={`appearance-none relative block w-full px-3 py-2 border placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 focus:z-10 sm:text-sm ${
-                    localErrors.name ? 'border-red-300' : 'border-gray-300'
+                    localErrors.fullName ? 'border-red-300' : 'border-gray-300'
                   }`}
                   placeholder="Nhập họ và tên của bạn"
                 />
-                {localErrors.name && <p className="text-red-500 text-xs mt-1">{localErrors.name}</p>}
+                {localErrors.fullName && <p className="text-red-500 text-xs mt-1">{localErrors.fullName}</p>}
               </div>
 
               <div>
@@ -183,7 +186,7 @@ export default function RegisterPage() {
                     className={`appearance-none relative block w-full px-3 py-2 pr-10 border placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 focus:z-10 sm:text-sm ${
                       localErrors.password ? 'border-red-300' : 'border-gray-300'
                     }`}
-                    placeholder="Tạo mật khẩu (ít nhất 6 ký tự)"
+                    placeholder="Tạo mật khẩu (8+ ký tự, có chữ hoa, thường, số)"
                   />
                   <button
                     type="button"

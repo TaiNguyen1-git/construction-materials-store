@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
@@ -15,17 +15,78 @@ import {
   ArrowRight,
   Package,
   Truck,
-  CreditCard
+  CreditCard,
+  Star,
+  Sparkles
 } from 'lucide-react'
+
+interface Recommendation {
+  id: string
+  name: string
+  price: number
+  unit: string
+  images: string[]
+  category: string
+  inStock: boolean
+  rating: number
+  reviewCount: number
+  reason: string
+  badge: string
+}
 
 export default function CartPage() {
   const router = useRouter()
-  const { items, updateQuantity, removeItem, clearCart, getTotalPrice } = useCartStore()
+  const { items, updateQuantity, removeItem, clearCart, getTotalPrice, addItem } = useCartStore()
   const [isProcessing, setIsProcessing] = useState(false)
+  const [recommendations, setRecommendations] = useState<Recommendation[]>([])
+  const [loadingRecommendations, setLoadingRecommendations] = useState(false)
 
   const shippingFee = items.length > 0 ? 50000 : 0 // 50k shipping fee
   const totalPrice = getTotalPrice()
   const finalTotal = totalPrice + shippingFee
+
+  // Fetch recommendations when cart items change
+  useEffect(() => {
+    if (items.length > 0) {
+      fetchRecommendations()
+    } else {
+      setRecommendations([])
+    }
+  }, [items.length])
+
+  const fetchRecommendations = async () => {
+    try {
+      setLoadingRecommendations(true)
+      const productIds = items.map(item => item.productId)
+      
+      const response = await fetch('/api/recommendations/cart', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ productIds, limit: 8 })
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        setRecommendations(data.data.recommendations || [])
+      }
+    } catch (error) {
+      console.error('Failed to fetch recommendations:', error)
+    } finally {
+      setLoadingRecommendations(false)
+    }
+  }
+
+  const handleAddToCart = (product: Recommendation) => {
+    addItem({
+      productId: product.id,
+      name: product.name,
+      price: product.price,
+      quantity: 1,
+      image: product.images[0] || '',
+      sku: product.id.slice(0, 8).toUpperCase(),
+      unit: product.unit
+    })
+  }
 
   const handleCheckout = async () => {
     if (items.length === 0) return
@@ -96,92 +157,214 @@ export default function CartPage() {
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Cart Items */}
-            <div className="lg:col-span-2 space-y-4">
-              {items.map((item) => (
-                <div
-                  key={item.productId}
-                  className="bg-white rounded-2xl shadow-lg p-6 hover:shadow-xl transition-shadow border border-gray-100"
-                >
-                  <div className="flex gap-6">
-                    {/* Product Image */}
-                    <div className="relative w-32 h-32 bg-gray-100 rounded-xl overflow-hidden flex-shrink-0 border-2 border-gray-200">
-                      {item.image ? (
-                        <Image
-                          src={item.image}
-                          alt={item.name}
-                          fill
-                          className="object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full bg-gradient-to-br from-blue-100 to-purple-200 flex items-center justify-center">
-                          <Package className="h-16 w-16 text-gray-400" />
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Product Info */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex justify-between items-start mb-3">
-                        <div>
-                          <h3 className="text-xl font-bold text-gray-900 mb-1">
-                            {item.name}
-                          </h3>
-                          <p className="text-sm text-gray-500">
-                            SKU: {item.sku} • Đơn vị: {item.unit}
-                          </p>
-                        </div>
-                        <button
-                          onClick={() => removeItem(item.productId)}
-                          className="p-2 hover:bg-red-50 text-red-600 rounded-lg transition-colors"
-                          aria-label="Xóa sản phẩm"
-                        >
-                          <Trash2 className="h-5 w-5" />
-                        </button>
+            <div className="lg:col-span-2 space-y-6">
+              {/* Products List */}
+              <div className="space-y-4">
+                {items.map((item) => (
+                  <div
+                    key={item.productId}
+                    className="bg-white rounded-2xl shadow-lg p-6 hover:shadow-xl transition-shadow border border-gray-100"
+                  >
+                    <div className="flex gap-6">
+                      {/* Product Image */}
+                      <div className="relative w-32 h-32 bg-gray-100 rounded-xl overflow-hidden flex-shrink-0 border-2 border-gray-200">
+                        {item.image ? (
+                          <Image
+                            src={item.image}
+                            alt={item.name}
+                            fill
+                            className="object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full bg-gradient-to-br from-blue-100 to-purple-200 flex items-center justify-center">
+                            <Package className="h-16 w-16 text-gray-400" />
+                          </div>
+                        )}
                       </div>
 
-                      <div className="flex items-center justify-between">
-                        {/* Quantity Controls */}
-                        <div className="flex items-center gap-3">
+                      {/* Product Info */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex justify-between items-start mb-3">
+                          <div>
+                            <h3 className="text-xl font-bold text-gray-900 mb-1">
+                              {item.name}
+                            </h3>
+                            <p className="text-sm text-gray-500">
+                              SKU: {item.sku} • Đơn vị: {item.unit}
+                            </p>
+                          </div>
                           <button
-                            onClick={() => updateQuantity(item.productId, item.quantity - 1)}
-                            className="w-10 h-10 flex items-center justify-center border-2 border-gray-300 rounded-lg hover:bg-gray-100 transition-colors"
-                            aria-label="Giảm số lượng"
+                            onClick={() => removeItem(item.productId)}
+                            className="p-2 hover:bg-red-50 text-red-600 rounded-lg transition-colors"
+                            aria-label="Xóa sản phẩm"
                           >
-                            <Minus className="h-4 w-4" />
-                          </button>
-                          <input
-                            type="number"
-                            value={item.quantity}
-                            onChange={(e) => {
-                              const value = parseInt(e.target.value) || 0
-                              updateQuantity(item.productId, value)
-                            }}
-                            className="w-20 text-center border-2 border-gray-300 rounded-lg py-2 font-bold text-lg"
-                            min="1"
-                          />
-                          <button
-                            onClick={() => updateQuantity(item.productId, item.quantity + 1)}
-                            className="w-10 h-10 flex items-center justify-center border-2 border-gray-300 rounded-lg hover:bg-gray-100 transition-colors"
-                            aria-label="Tăng số lượng"
-                          >
-                            <Plus className="h-4 w-4" />
+                            <Trash2 className="h-5 w-5" />
                           </button>
                         </div>
 
-                        {/* Price */}
-                        <div className="text-right">
-                          <p className="text-sm text-gray-500 mb-1">
-                            {item.price.toLocaleString()}đ x {item.quantity}
-                          </p>
-                          <p className="text-2xl font-black text-primary-600">
-                            {(item.price * item.quantity).toLocaleString()}đ
-                          </p>
+                        <div className="flex items-center justify-between">
+                          {/* Quantity Controls */}
+                          <div className="flex items-center gap-3">
+                            <button
+                              onClick={() => updateQuantity(item.productId, item.quantity - 1)}
+                              className="w-10 h-10 flex items-center justify-center border-2 border-gray-300 rounded-lg hover:bg-gray-100 transition-colors text-gray-700 hover:text-gray-900"
+                              aria-label="Giảm số lượng"
+                            >
+                              <Minus className="h-4 w-4" />
+                            </button>
+                            <input
+                              type="number"
+                              value={item.quantity}
+                              onChange={(e) => {
+                                const value = parseInt(e.target.value) || 0
+                                updateQuantity(item.productId, value)
+                              }}
+                              className="w-20 text-center border-2 border-gray-300 rounded-lg py-2 font-bold text-lg text-gray-900 focus:border-primary-500 focus:outline-none"
+                              min="1"
+                            />
+                            <button
+                              onClick={() => updateQuantity(item.productId, item.quantity + 1)}
+                              className="w-10 h-10 flex items-center justify-center border-2 border-gray-300 rounded-lg hover:bg-gray-100 transition-colors text-gray-700 hover:text-gray-900"
+                              aria-label="Tăng số lượng"
+                            >
+                              <Plus className="h-4 w-4" />
+                            </button>
+                          </div>
+
+                          {/* Price */}
+                          <div className="text-right">
+                            <p className="text-sm text-gray-500 mb-1">
+                              {item.price.toLocaleString()}đ x {item.quantity}
+                            </p>
+                            <p className="text-2xl font-black text-primary-600">
+                              {(item.price * item.quantity).toLocaleString()}đ
+                            </p>
+                          </div>
                         </div>
                       </div>
                     </div>
                   </div>
+                ))}
+              </div>
+
+              {/* Recommendations Section - Right after cart items */}
+              <div className="mt-8">
+                <div className="flex items-center gap-3 mb-6">
+                  <Sparkles className="h-7 w-7 text-primary-600" />
+                  <h2 className="text-3xl font-black text-gray-900">
+                    Có Thể Bạn Cũng Thích
+                  </h2>
                 </div>
-              ))}
+
+                {loadingRecommendations ? (
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    {[...Array(6)].map((_, i) => (
+                      <div key={i} className="bg-white rounded-xl shadow-md p-4 animate-pulse">
+                        <div className="aspect-square bg-gray-200 rounded-lg mb-3" />
+                        <div className="h-4 bg-gray-200 rounded mb-2" />
+                        <div className="h-4 bg-gray-200 rounded w-2/3" />
+                      </div>
+                    ))}
+                  </div>
+                ) : recommendations.length > 0 ? (
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    {recommendations.map((product) => (
+                      <div
+                        key={product.id}
+                        className="relative bg-white rounded-xl shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-100 group"
+                      >
+                        {/* Badge */}
+                        {product.badge && (
+                          <div className="absolute top-2 left-2 z-10 bg-gradient-to-r from-orange-500 to-red-500 text-white text-xs font-bold px-2 py-1 rounded-full shadow-lg">
+                            {product.badge}
+                          </div>
+                        )}
+
+                        {/* Product Image */}
+                        <Link href={`/products/${product.id}`} className="block relative">
+                          <div className="relative aspect-square bg-gray-100 overflow-hidden">
+                            {product.images && product.images.length > 0 ? (
+                              <Image
+                                src={product.images[0]}
+                                alt={product.name}
+                                fill
+                                className="object-cover group-hover:scale-110 transition-transform duration-300"
+                              />
+                            ) : (
+                              <div className="w-full h-full bg-gradient-to-br from-blue-100 to-purple-200 flex items-center justify-center">
+                                <Package className="h-16 w-16 text-gray-400" />
+                              </div>
+                            )}
+                          </div>
+                        </Link>
+
+                        {/* Product Info */}
+                        <div className="p-4">
+                          <Link href={`/products/${product.id}`}>
+                            <h3 className="font-bold text-gray-900 mb-2 line-clamp-2 hover:text-primary-600 transition-colors">
+                              {product.name}
+                            </h3>
+                          </Link>
+
+                          {/* Rating */}
+                          {product.reviewCount > 0 && (
+                            <div className="flex items-center gap-1 mb-2">
+                              <div className="flex items-center">
+                                {[...Array(5)].map((_, i) => (
+                                  <Star
+                                    key={i}
+                                    className={`h-3 w-3 ${
+                                      i < Math.floor(product.rating)
+                                        ? 'fill-yellow-400 text-yellow-400'
+                                        : 'text-gray-300'
+                                    }`}
+                                  />
+                                ))}
+                              </div>
+                              <span className="text-xs text-gray-600">
+                                ({product.reviewCount})
+                              </span>
+                            </div>
+                          )}
+
+                          {/* Price */}
+                          <div className="mb-3">
+                            <p className="text-xl font-black text-primary-600">
+                              {product.price.toLocaleString()}đ
+                            </p>
+                            <p className="text-xs text-gray-500">/{product.unit}</p>
+                          </div>
+
+                          {/* Reason */}
+                          <p className="text-xs text-gray-600 mb-3 line-clamp-1">
+                            {product.reason}
+                          </p>
+
+                          {/* Add to Cart Button */}
+                          <button
+                            onClick={() => handleAddToCart(product)}
+                            disabled={!product.inStock}
+                            className={`w-full py-2 rounded-lg font-semibold text-sm transition-all ${
+                              product.inStock
+                                ? 'bg-primary-600 text-white hover:bg-primary-700 hover:shadow-lg'
+                                : 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                            }`}
+                          >
+                            {product.inStock ? (
+                              <>
+                                <Plus className="h-4 w-4 inline mr-1" />
+                                Thêm vào giỏ
+                              </>
+                            ) : (
+                              'Hết hàng'
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
             </div>
 
             {/* Order Summary */}

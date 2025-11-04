@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { toast } from 'react-hot-toast'
+import ConfirmDialog from '@/components/ConfirmDialog'
 
 interface Employee {
   id: string
@@ -9,23 +10,23 @@ interface Employee {
   user: { name: string; email: string }
   department: string
   position: string
-  salary: number
+  baseSalary: number
 }
 
 interface Payroll {
   id: string
-  employee: Employee
-  year: number
-  month: number
+  employee?: Employee
+  employeeId: string
+  period: string // Format: YYYY-MM
   baseSalary: number
-  overtimeHours: number
-  overtimeRate: number
   bonuses: number
-  deductions: number
-  grossSalary: number
-  netSalary: number
-  status: 'PENDING' | 'APPROVED' | 'PAID'
-  note?: string
+  penalties: number
+  overtime: number
+  grossPay: number
+  netPay: number
+  isPaid: boolean
+  hoursWorked: number
+  overtimeHours: number
   createdAt: string
 }
 
@@ -34,6 +35,8 @@ export default function PayrollPage() {
   const [employees, setEmployees] = useState<Employee[]>([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
+  const [editingPayroll, setEditingPayroll] = useState<Payroll | null>(null)
+  const [deletingPayroll, setDeletingPayroll] = useState<Payroll | null>(null)
 
   const [form, setForm] = useState({
     employeeId: '',
@@ -62,12 +65,18 @@ export default function PayrollPage() {
 
       if (payrollRes.ok) {
         const data = await payrollRes.json()
-        setPayrolls(data.data || [])
+        const payrollData = data.data?.data || data.data || []
+        const payrollArray = Array.isArray(payrollData) ? payrollData : []
+        console.log('Fetched payrolls:', payrollArray.length)
+        setPayrolls(payrollArray)
       }
 
       if (employeesRes.ok) {
         const data = await employeesRes.json()
-        setEmployees(data.data || [])
+        const employeesData = data.data?.data || data.data || []
+        const employeesArray = Array.isArray(employeesData) ? employeesData : []
+        console.log('Fetched employees for payroll:', employeesArray.length)
+        setEmployees(employeesArray)
       }
     } catch (error) {
       console.error('Error fetching data:', error)
@@ -77,27 +86,75 @@ export default function PayrollPage() {
     }
   }
 
+  const openModal = (payroll?: Payroll) => {
+    if (payroll) {
+      setEditingPayroll(payroll)
+      const periodParts = payroll.period.split('-')
+      setForm({
+        employeeId: payroll.employeeId,
+        year: parseInt(periodParts[0]),
+        month: parseInt(periodParts[1]),
+        baseSalary: payroll.baseSalary,
+        overtimeHours: payroll.overtimeHours,
+        overtimeRate: 0,
+        bonuses: payroll.bonuses,
+        deductions: 0,
+        note: ''
+      })
+    } else {
+      setEditingPayroll(null)
+      resetForm()
+    }
+    setShowModal(true)
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
-      const response = await fetch('/api/payroll', {
-        method: 'POST',
+      const url = editingPayroll ? `/api/payroll/${editingPayroll.id}` : '/api/payroll'
+      const method = editingPayroll ? 'PUT' : 'POST'
+
+      const response = await fetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form)
       })
 
       if (response.ok) {
-        toast.success('Tạo bảng lương thành công')
+        toast.success(editingPayroll ? 'Cập nhật payroll thành công' : 'Tạo payroll thành công')
         setShowModal(false)
+        setEditingPayroll(null)
         resetForm()
         fetchData()
       } else {
         const error = await response.json()
-        toast.error(error.error || 'Không thể tạo bảng lương')
+        toast.error(error.error || 'Không thể lưu payroll')
       }
     } catch (error) {
-      console.error('Error creating payroll:', error)
-      toast.error('Không thể tạo bảng lương')
+      console.error('Error saving payroll:', error)
+      toast.error('Không thể lưu payroll')
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!deletingPayroll) return
+
+    try {
+      const response = await fetch(`/api/payroll/${deletingPayroll.id}`, {
+        method: 'DELETE'
+      })
+
+      if (response.ok) {
+        toast.success('Xóa payroll thành công')
+        setDeletingPayroll(null)
+        fetchData()
+      } else {
+        const error = await response.json()
+        toast.error(error.error || 'Không thể xóa payroll')
+      }
+    } catch (error) {
+      console.error('Error deleting payroll:', error)
+      toast.error('Không thể xóa payroll')
     }
   }
 
@@ -158,10 +215,10 @@ export default function PayrollPage() {
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-gray-900">Payroll Management</h1>
         <button
-          onClick={() => setShowModal(true)}
+          onClick={() => openModal()}
           className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
         >
-          Create Payroll
+          Tạo Payroll
         </button>
       </div>
 
@@ -182,45 +239,51 @@ export default function PayrollPage() {
               {payrolls.map((payroll) => (
                 <tr key={payroll.id}>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">{payroll.employee.user.name}</div>
-                    <div className="text-sm text-gray-500">{payroll.employee.employeeCode}</div>
+                    <div className="text-sm font-medium text-gray-900">
+                      {payroll.employee?.user?.name || 'N/A'}
+                    </div>
+                    <div className="text-sm text-gray-500">
+                      {payroll.employee?.employeeCode || payroll.employeeId}
+                    </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {payroll.month}/{payroll.year}
+                    {payroll.period}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    ${payroll.baseSalary.toLocaleString()}
+                    {(payroll.baseSalary || 0).toLocaleString()}đ
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    ${payroll.netSalary.toLocaleString()}
+                    {(payroll.netPay || 0).toLocaleString()}đ
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                      payroll.status === 'PAID' ? 'bg-green-100 text-green-800' :
-                      payroll.status === 'APPROVED' ? 'bg-blue-100 text-blue-800' :
-                      'bg-yellow-100 text-yellow-800'
+                      payroll.isPaid ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
                     }`}>
-                      {payroll.status}
+                      {payroll.isPaid ? 'PAID' : 'PENDING'}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <div className="flex space-x-2">
-                      {payroll.status === 'PENDING' && (
-                        <button
-                          onClick={() => updateStatus(payroll.id, 'APPROVED')}
-                          className="text-blue-600 hover:text-blue-900"
-                        >
-                          Approve
-                        </button>
-                      )}
-                      {payroll.status === 'APPROVED' && (
+                      <button
+                        onClick={() => openModal(payroll)}
+                        className="text-blue-600 hover:text-blue-900"
+                      >
+                        Sửa
+                      </button>
+                      {!payroll.isPaid && (
                         <button
                           onClick={() => updateStatus(payroll.id, 'PAID')}
                           className="text-green-600 hover:text-green-900"
                         >
-                          Mark Paid
+                          Đánh dấu đã trả
                         </button>
                       )}
+                      <button
+                        onClick={() => setDeletingPayroll(payroll)}
+                        className="text-red-600 hover:text-red-900"
+                      >
+                        Xóa
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -363,6 +426,17 @@ export default function PayrollPage() {
           </div>
         </div>
       )}
+
+      {/* Delete Confirmation */}
+      <ConfirmDialog
+        isOpen={!!deletingPayroll}
+        onClose={() => setDeletingPayroll(null)}
+        onConfirm={handleDelete}
+        title="Xóa Payroll"
+        message={`Bạn có chắc muốn xóa payroll tháng ${deletingPayroll?.period}? Hành động này không thể hoàn tác.`}
+        confirmText="Xóa"
+        type="danger"
+      />
     </div>
   )
 }

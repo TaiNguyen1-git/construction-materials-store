@@ -18,16 +18,18 @@ const verifyToken = async (request: NextRequest) => {
 }
 
 // GET /api/projects/[id]/tasks - Get all tasks for a project
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const user = await verifyToken(request)
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const { id } = await params
+
     // Check if project exists
     const project = await (prisma as any).project.findUnique({
-      where: { id: params.id }
+      where: { id }
     })
 
     if (!project) {
@@ -50,7 +52,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     const assigneeId = searchParams.get('assigneeId')
     
     // Build filter object
-    const where: any = { projectId: params.id }
+    const where: any = { projectId: id }
     
     if (status) {
       where.status = status
@@ -86,16 +88,18 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 }
 
 // POST /api/projects/[id]/tasks - Create task for a project
-export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const user = await verifyToken(request)
     if (!user || (user.role !== 'MANAGER' && user.role !== 'EMPLOYEE')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const { id } = await params
+
     // Check if project exists
     const project = await (prisma as any).project.findUnique({
-      where: { id: params.id }
+      where: { id }
     })
 
     if (!project) {
@@ -124,7 +128,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     // Create task
     const task = await (prisma as any).projectTask.create({
       data: {
-        projectId: params.id,
+        projectId: id,
         name,
         description: description || '',
         status: status || 'PENDING',

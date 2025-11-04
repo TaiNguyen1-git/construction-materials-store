@@ -19,12 +19,16 @@ class AuthService {
       }
 
       return response;
-    } catch (error: any) {
+    } catch (error) {
+      const errorMessage = error && typeof error === 'object' && 'response' in error
+        ? (error as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message
+        : 'Đăng nhập thất bại';
+      
       return {
         success: false,
         error: {
           code: 'LOGIN_FAILED',
-          message: error.response?.data?.error?.message || 'Đăng nhập thất bại',
+          message: errorMessage || 'Đăng nhập thất bại',
         },
       };
     }
@@ -60,4 +64,5 @@ class AuthService {
   }
 }
 
-export default new AuthService();
+const authServiceInstance = new AuthService();
+export default authServiceInstance;

@@ -349,7 +349,7 @@ model Order {
   guestEmail      String?
   guestPhone      String?
   guestName       String?
-  status          OrderStatus @default(PENDING)
+  status          OrderStatus @default(PENDING_CONFIRMATION)
   totalAmount     Float
   taxAmount       Float       @default(0)
   shippingAmount  Float       @default(0)
@@ -357,6 +357,16 @@ model Order {
   netAmount       Float
   paymentMethod   String?
   paymentStatus   PaymentStatus @default(PENDING)
+  
+  // Deposit Payment Fields
+  paymentType     OrderPaymentType @default(FULL)
+  depositPercentage Int?         // 30, 40, 50
+  depositAmount   Float?
+  remainingAmount Float?
+  depositPaidAt   DateTime?
+  depositProof    String?       // URL to payment proof image
+  qrExpiresAt     DateTime?     // QR code expiration time
+  
   shippingAddress Json?
   billingAddress  Json?
   notes           String?
@@ -364,6 +374,8 @@ model Order {
   actualDelivery   DateTime?
   cancelledAt     DateTime?
   cancelReason    String?
+  confirmedBy     String?       // Admin who confirmed the order
+  confirmedAt     DateTime?
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
 
@@ -380,6 +392,8 @@ model Order {
   @@index([createdAt])
   @@index([customerType])
   @@index([paymentStatus])
+  @@index([paymentType])
+  @@index([qrExpiresAt])
 }
 
 model OrderItem {
@@ -763,18 +777,26 @@ enum MovementType {
 }
 
 enum OrderStatus {
-  PENDING
-  CONFIRMED
-  PROCESSING
-  SHIPPED
-  DELIVERED
-  CANCELLED
-  RETURNED
+  PENDING_CONFIRMATION      // Chờ admin xác nhận đơn
+  CONFIRMED_AWAITING_DEPOSIT // Admin đã xác nhận, chờ khách cọc
+  DEPOSIT_PAID             // Đã cọc, đang xử lý
+  PENDING                  // Chờ xử lý (cho đơn thanh toán đầy đủ)
+  CONFIRMED                // Đã xác nhận
+  PROCESSING               // Đang chuẩn bị hàng
+  SHIPPED                  // Đang giao hàng
+  DELIVERED                // Đã giao hàng
+  CANCELLED                // Đã hủy
+  RETURNED                 // Đã trả hàng
 }
 
 enum OrderCustomerType {
   REGISTERED
   GUEST
+}
+
+enum OrderPaymentType {
+  FULL      // Thanh toán đầy đủ
+  DEPOSIT   // Đặt cọc trước
 }
 
 enum PaymentStatus {

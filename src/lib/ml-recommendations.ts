@@ -70,7 +70,7 @@ export class MLRecommendationsService {
           orderItems: {
             some: { productId }
           },
-          status: 'COMPLETED'
+          status: 'DELIVERED'
         },
         include: {
           orderItems: {
@@ -102,7 +102,7 @@ export class MLRecommendationsService {
         const ordersWithOther = await prisma.order.count({
           where: {
             orderItems: { some: { productId: otherId } },
-            status: 'COMPLETED'
+            status: 'DELIVERED'
           }
         })
 
@@ -140,7 +140,7 @@ export class MLRecommendationsService {
       const userOrders = await prisma.order.findMany({
         where: {
           customerId,
-          status: 'COMPLETED'
+          status: 'DELIVERED'
         },
         include: {
           orderItems: {
@@ -175,7 +175,7 @@ export class MLRecommendationsService {
         const theirOrders = await prisma.order.findMany({
           where: {
             customerId: similarUser.userId,
-            status: 'COMPLETED'
+            status: 'DELIVERED'
           },
           include: {
             orderItems: {
@@ -249,7 +249,7 @@ export class MLRecommendationsService {
       const similarOrders = await prisma.order.findMany({
         where: {
           customerId: { not: customerId },
-          status: 'COMPLETED',
+          status: 'DELIVERED',
           orderItems: {
             some: {
               productId: { in: userProducts }
@@ -309,12 +309,12 @@ export class MLRecommendationsService {
           isActive: true
         },
         include: {
-          _count: {
-            select: { orderItems: true }
+          orderItems: {
+            select: { id: true }
           }
         },
         orderBy: [
-          { _count: { orderItems: 'desc' } }
+          { createdAt: 'desc' }
         ],
         take: limit
       })
@@ -343,7 +343,7 @@ export class MLRecommendationsService {
       const orders = await prisma.order.findMany({
         where: {
           customerId,
-          status: 'COMPLETED'
+          status: 'DELIVERED'
         },
         include: {
           orderItems: {
@@ -371,12 +371,12 @@ export class MLRecommendationsService {
           isActive: true
         },
         include: {
-          _count: {
-            select: { orderItems: true }
+          orderItems: {
+            select: { id: true }
           }
         },
         orderBy: [
-          { _count: { orderItems: 'desc' } }
+          { createdAt: 'desc' }
         ],
         take: limit
       })

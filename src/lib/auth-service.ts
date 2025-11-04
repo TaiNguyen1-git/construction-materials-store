@@ -17,7 +17,7 @@ export interface LoginCredentials {
 
 // Define the structure for registration data
 export interface RegisterData {
-  name: string
+  fullName: string
   email: string
   phone: string
   password: string

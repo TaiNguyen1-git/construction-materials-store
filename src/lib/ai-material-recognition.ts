@@ -264,12 +264,11 @@ export class AIRecognitionService {
         include: {
           category: true,
           inventoryItem: true,
-          _count: {
-            select: { orderItems: true }
+          orderItems: {
+            select: { id: true }
           }
         },
         orderBy: [
-          { _count: { orderItems: 'desc' } }, // Popular items first
           { price: 'asc' }
         ],
         take: 10
@@ -280,8 +279,9 @@ export class AIRecognitionService {
         let score = 0.5 // Base score
 
         // Boost popular products
-        if (product._count.orderItems > 10) score += 0.2
-        if (product._count.orderItems > 50) score += 0.1
+        const orderItemCount = product.orderItems?.length || 0
+        if (orderItemCount > 10) score += 0.2
+        if (orderItemCount > 50) score += 0.1
 
         // Boost if in stock
         if (product.inventoryItem && product.inventoryItem.availableQuantity > 0) {

@@ -18,16 +18,18 @@ const verifyToken = async (request: NextRequest) => {
 }
 
 // GET /api/projects/[id]/tasks/[taskId] - Get task by ID
-export async function GET(request: NextRequest, { params }: { params: { id: string, taskId: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string, taskId: string }> }) {
   try {
     const user = await verifyToken(request)
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const { id, taskId } = await params
+
     // Check if project exists
     const project = await (prisma as any).project.findUnique({
-      where: { id: params.id }
+      where: { id }
     })
 
     if (!project) {
@@ -47,8 +49,8 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 
     const task = await (prisma as any).projectTask.findUnique({
       where: { 
-        id: params.taskId,
-        projectId: params.id
+        id: taskId,
+        projectId: id
       },
       include: {
         assignee: {
@@ -86,16 +88,18 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 }
 
 // PUT /api/projects/[id]/tasks/[taskId] - Update task
-export async function PUT(request: NextRequest, { params }: { params: { id: string, taskId: string } }) {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string, taskId: string }> }) {
   try {
     const user = await verifyToken(request)
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const { id, taskId } = await params
+
     // Check if project exists
     const project = await (prisma as any).project.findUnique({
-      where: { id: params.id }
+      where: { id }
     })
 
     if (!project) {
@@ -119,8 +123,8 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     // Check if task exists
     const existingTask = await (prisma as any).projectTask.findUnique({
       where: { 
-        id: params.taskId,
-        projectId: params.id
+        id: taskId,
+        projectId: id
       }
     })
 
@@ -142,8 +146,8 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     // Update task
     const updatedTask = await (prisma as any).projectTask.update({
       where: { 
-        id: params.taskId,
-        projectId: params.id
+        id: taskId,
+        projectId: id
       },
       data: {
         name,
@@ -180,16 +184,18 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 }
 
 // DELETE /api/projects/[id]/tasks/[taskId] - Delete task
-export async function DELETE(request: NextRequest, { params }: { params: { id: string, taskId: string } }) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string, taskId: string }> }) {
   try {
     const user = await verifyToken(request)
     if (!user || (user.role !== 'MANAGER' && user.role !== 'EMPLOYEE')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const { id, taskId } = await params
+
     // Check if project exists
     const project = await (prisma as any).project.findUnique({
-      where: { id: params.id }
+      where: { id }
     })
 
     if (!project) {
@@ -199,8 +205,8 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
     // Check if task exists
     const existingTask = await (prisma as any).projectTask.findUnique({
       where: { 
-        id: params.taskId,
-        projectId: params.id
+        id: taskId,
+        projectId: id
       }
     })
 
@@ -211,8 +217,8 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
     // Delete task (cascade will delete related materials)
     await (prisma as any).projectTask.delete({
       where: { 
-        id: params.taskId,
-        projectId: params.id
+        id: taskId,
+        projectId: id
       }
     })
 

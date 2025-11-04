@@ -27,13 +27,9 @@ export async function checkLowStock(): Promise<Notification[]> {
   const notifications: Notification[] = []
 
   // Lấy products sắp hết hàng
-  const lowStockProducts = await prisma.inventoryItem.findMany({
-    where: {
-      OR: [
-        { availableQuantity: { lte: prisma.inventoryItem.fields.minStockLevel } },
-        { availableQuantity: { lte: prisma.inventoryItem.fields.reorderPoint } }
-      ]
-    },
+  // Note: We need to check against actual minStockLevel and reorderPoint values
+  // Since we can't use field references in where clause, we'll fetch and filter
+  const allInventoryItems = await prisma.inventoryItem.findMany({
     include: {
       product: {
         select: {
@@ -44,6 +40,12 @@ export async function checkLowStock(): Promise<Notification[]> {
       }
     }
   })
+
+  // Filter items where availableQuantity <= minStockLevel or <= reorderPoint
+  const lowStockProducts = allInventoryItems.filter(item => 
+    item.availableQuantity <= item.minStockLevel || 
+    item.availableQuantity <= item.reorderPoint
+  )
 
   for (const item of lowStockProducts) {
     const percentage = (item.availableQuantity / item.minStockLevel) * 100

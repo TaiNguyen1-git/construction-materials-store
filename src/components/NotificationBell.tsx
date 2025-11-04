@@ -20,36 +20,27 @@ export default function NotificationBell() {
   const [isOpen, setIsOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
 
-  // In a real implementation, we would connect to WebSocket
-  // For now, we'll poll for notifications
+  // Fetch notifications from API
   useEffect(() => {
     const fetchNotifications = async () => {
       try {
-        // In a real implementation, we would get the user ID from auth context
-        // For now, we'll use a mock implementation
-        const mockNotifications: Notification[] = [
-          {
-            id: '1',
-            title: 'Low Stock Alert',
-            message: 'Cement (SKU: CEM-001) is running low. Current stock: 5 units.',
-            type: 'STOCK_ALERT',
-            priority: 'HIGH',
-            read: false,
-            createdAt: new Date().toISOString()
-          },
-          {
-            id: '2',
-            title: 'New Order',
-            message: 'Order #ORD-2023-0012 has been placed.',
-            type: 'ORDER_UPDATE',
-            priority: 'MEDIUM',
-            read: false,
-            createdAt: new Date(Date.now() - 3600000).toISOString() // 1 hour ago
+        const response = await fetch('/api/notifications')
+        if (response.ok) {
+          const result = await response.json()
+          if (result.success && result.data) {
+            const notifs = result.data.notifications.map((n: any) => ({
+              id: n.id,
+              title: n.title,
+              message: n.message,
+              type: n.type,
+              priority: n.priority,
+              read: n.isRead || false,
+              createdAt: n.createdAt
+            }))
+            setNotifications(notifs)
+            setUnreadCount(result.data.unreadCount || notifs.filter((n: any) => !n.read).length)
           }
-        ]
-        
-        setNotifications(mockNotifications)
-        setUnreadCount(mockNotifications.filter(n => !n.read).length)
+        }
       } catch (error) {
         console.error('Failed to fetch notifications:', error)
       }
@@ -57,7 +48,7 @@ export default function NotificationBell() {
 
     fetchNotifications()
     
-    // Poll for notifications every 30 seconds
+    // Poll for notifications every 30 seconds for real-time updates
     const interval = setInterval(fetchNotifications, 30000)
     
     return () => clearInterval(interval)
@@ -65,14 +56,27 @@ export default function NotificationBell() {
 
   const markAsRead = async (id: string) => {
     try {
-      // In a real implementation, we would call the API
-      // await NotificationService.markAsRead(id)
+      // Skip API call for realtime notifications (they aren't persisted)
+      if (id.startsWith('realtime-')) {
+        setNotifications(notifications.map(n => 
+          n.id === id ? { ...n, read: true } : n
+        ))
+        setUnreadCount(Math.max(0, unreadCount - 1))
+        return
+      }
+
+      const response = await fetch('/api/notifications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notificationId: id })
+      })
       
-      setNotifications(notifications.map(n => 
-        n.id === id ? { ...n, read: true } : n
-      ))
-      
-      setUnreadCount(unreadCount - 1)
+      if (response.ok) {
+        setNotifications(notifications.map(n => 
+          n.id === id ? { ...n, read: true } : n
+        ))
+        setUnreadCount(Math.max(0, unreadCount - 1))
+      }
     } catch (error) {
       console.error('Failed to mark notification as read:', error)
     }
@@ -80,8 +84,18 @@ export default function NotificationBell() {
 
   const markAllAsRead = async () => {
     try {
-      // In a real implementation, we would call the API
-      // await NotificationService.markAllAsRead(userId)
+      // Mark all persisted notifications as read via API
+      const persistedNotifications = notifications.filter(n => !n.id.startsWith('realtime-'))
+      
+      await Promise.all(
+        persistedNotifications.map(n => 
+          fetch('/api/notifications', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ notificationId: n.id })
+          })
+        )
+      )
       
       setNotifications(notifications.map(n => ({ ...n, read: true })))
       setUnreadCount(0)
@@ -92,15 +106,23 @@ export default function NotificationBell() {
 
   const deleteNotification = async (id: string) => {
     try {
-      // In a real implementation, we would call the API
-      // await NotificationService.deleteNotification(id)
-      
       const notification = notifications.find(n => n.id === id)
       if (notification && !notification.read) {
-        setUnreadCount(unreadCount - 1)
+        setUnreadCount(Math.max(0, unreadCount - 1))
       }
       
+      // Remove from local state immediately for better UX
       setNotifications(notifications.filter(n => n.id !== id))
+      
+      // Skip API call for realtime notifications
+      if (id.startsWith('realtime-')) {
+        return
+      }
+
+      // Delete from database
+      await fetch(`/api/notifications/${id}`, {
+        method: 'DELETE'
+      })
     } catch (error) {
       console.error('Failed to delete notification:', error)
     }

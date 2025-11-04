@@ -39,7 +39,7 @@ async function validatePredictions() {
 
     if (predictions.length === 0) {
       console.log('✅ No predictions to validate!')
-      console.log('   All predictions are either already validated or target date hasn\\'t arrived yet.\n')
+      console.log('   All predictions are either already validated or target date has not arrived yet.\n')
       return
     }
 

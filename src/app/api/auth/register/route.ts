@@ -58,9 +58,7 @@ export async function POST(request: NextRequest) {
 
       const customer = await tx.customer.create({
         data: {
-          userId: user.id,
-          address: '',
-          phone: phone || ''
+          userId: user.id
         }
       })
 

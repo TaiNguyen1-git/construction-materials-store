@@ -4,60 +4,58 @@ const prisma = new PrismaClient()
 
 async function checkData() {
   try {
-    console.log('📊 Checking database data...\n')
+    console.log('🔍 Checking database data...\n')
 
-    // Check categories
-    const categories = await prisma.category.findMany({
-      include: {
-        _count: {
-          select: { products: true }
-        }
-      }
-    })
-    console.log(`✅ Categories: ${categories.length}`)
-    categories.forEach(cat => {
-      console.log(`   - ${cat.name} (${cat._count.products} products)`)
-    })
+    const [products, suppliers, employees, customers, orders, invoices] = await Promise.all([
+      prisma.product.count(),
+      prisma.supplier.count(),
+      prisma.employee.count(),
+      prisma.customer.count(),
+      prisma.order.count(),
+      prisma.invoice.count()
+    ])
 
-    // Check products
-    const products = await prisma.product.findMany({
+    console.log('📊 Database Summary:')
+    console.log(`   - Products: ${products}`)
+    console.log(`   - Suppliers: ${suppliers}`)
+    console.log(`   - Employees: ${employees}`)
+    console.log(`   - Customers: ${customers}`)
+    console.log(`   - Orders: ${orders}`)
+    console.log(`   - Invoices: ${invoices}`)
+    console.log('')
+
+    // Get sample data
+    console.log('📦 Sample Products:')
+    const sampleProducts = await prisma.product.findMany({
+      take: 5,
       include: {
         category: true,
         inventoryItem: true
       }
     })
-    console.log(`\n✅ Products: ${products.length}`)
-    products.forEach(prod => {
-      console.log(`   - ${prod.name} (${prod.sku}) - ${prod.price.toLocaleString()}đ`)
-      console.log(`     Category: ${prod.category.name}`)
-      console.log(`     Stock: ${prod.inventoryItem?.availableQuantity || 0}`)
+    sampleProducts.forEach(p => {
+      console.log(`   - ${p.name} (${p.sku}) - Price: ${p.price}, Stock: ${p.inventoryItem?.quantity || 0}`)
     })
+    console.log('')
 
-    // Check suppliers
-    const suppliers = await prisma.supplier.count()
-    console.log(`\n✅ Suppliers: ${suppliers}`)
-
-    // Check users
-    const users = await prisma.user.findMany({
-      select: {
-        email: true,
-        role: true,
-        name: true
-      }
+    console.log('🏢 Sample Suppliers:')
+    const sampleSuppliers = await prisma.supplier.findMany({ take: 3 })
+    sampleSuppliers.forEach(s => {
+      console.log(`   - ${s.name} - Email: ${s.email}, Phone: ${s.phone}`)
     })
-    console.log(`\n✅ Users: ${users.length}`)
-    users.forEach(user => {
-      console.log(`   - ${user.email} (${user.role}) - ${user.name}`)
+    console.log('')
+
+    console.log('👥 Sample Employees:')
+    const sampleEmployees = await prisma.employee.findMany({
+      take: 5,
+      include: { user: true }
     })
-
-    // Check orders
-    const orders = await prisma.order.count()
-    console.log(`\n✅ Orders: ${orders}`)
-
-    console.log('\n🎉 Database check complete!')
+    sampleEmployees.forEach(e => {
+      console.log(`   - ${e.user.name} (${e.employeeCode}) - ${e.department} - Salary: ${e.baseSalary}`)
+    })
 
   } catch (error) {
-    console.error('❌ Error checking data:', error)
+    console.error('❌ Error:', error)
   } finally {
     await prisma.$disconnect()
   }

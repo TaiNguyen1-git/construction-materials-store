@@ -1,15 +1,16 @@
 'use client'
 
+import Link from 'next/link'
 import { ShoppingCart } from 'lucide-react'
 import { useCartStore } from '@/stores/cartStore'
 
 export default function CartIcon() {
-  const { getTotalItems, toggleCart } = useCartStore()
+  const { getTotalItems } = useCartStore()
   const totalItems = getTotalItems()
 
   return (
-    <button
-      onClick={toggleCart}
+    <Link
+      href="/cart"
       className="relative p-2 hover:bg-gray-100 rounded-lg transition-colors"
       aria-label="Giỏ hàng"
     >
@@ -19,6 +20,6 @@ export default function CartIcon() {
           {totalItems > 99 ? '99+' : totalItems}
         </span>
       )}
-    </button>
+    </Link>
   )
 }

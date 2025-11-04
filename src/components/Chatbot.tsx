@@ -1,8 +1,12 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { MessageCircle, X, Send, Bot, ShoppingCart, AlertCircle, RefreshCw, Camera, Image as ImageIcon } from 'lucide-react'
+import { MessageCircle, X, Send, Bot, ShoppingCart, AlertCircle, RefreshCw, Camera, Image as ImageIcon, BarChart3, Package, Users, TrendingUp } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { useAuth } from '@/contexts/auth-context'
+import ChatOrderSummary from './ChatOrderSummary'
+import ChatConfirmDialog from './ChatConfirmDialog'
+import ChatOCRPreview from './ChatOCRPreview'
 
 interface ChatMessage {
   id: string
@@ -12,6 +16,11 @@ interface ChatMessage {
   productRecommendations?: any[]
   confidence: number
   timestamp: string
+  // New fields for enhanced features
+  ocrData?: any
+  calculationData?: any
+  orderData?: any
+  requiresConfirmation?: boolean
 }
 
 interface ChatbotProps {
@@ -19,6 +28,7 @@ interface ChatbotProps {
 }
 
 export default function Chatbot({ customerId }: ChatbotProps) {
+  const { user, isAuthenticated } = useAuth()
   const [isOpen, setIsOpen] = useState(false)
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [currentMessage, setCurrentMessage] = useState('')
@@ -29,6 +39,17 @@ export default function Chatbot({ customerId }: ChatbotProps) {
   const [sessionId] = useState(() => `chat_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  
+  // New state for enhanced features
+  const [showOrderSummary, setShowOrderSummary] = useState(false)
+  const [showOCRPreview, setShowOCRPreview] = useState(false)
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false)
+  const [confirmDialogData, setConfirmDialogData] = useState<any>(null)
+  const [pendingOrderData, setPendingOrderData] = useState<any>(null)
+  const [pendingOCRData, setPendingOCRData] = useState<any>(null)
+  
+  // Check if user is admin/manager
+  const isAdmin = isAuthenticated && user && (user.role === 'MANAGER' || user.role === 'EMPLOYEE')
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -40,10 +61,11 @@ export default function Chatbot({ customerId }: ChatbotProps) {
 
   useEffect(() => {
     if (isOpen && messages.length === 0) {
-      // Send welcome message
-      sendMessage('hello')
+      // Send welcome message with role context
+      const welcomeMsg = isAdmin ? 'admin_hello' : 'hello'
+      sendMessage(welcomeMsg)
     }
-  }, [isOpen])
+  }, [isOpen, isAdmin])
 
   const sendMessage = async (message: string, useCurrentMessage = false) => {
     const messageToSend = useCurrentMessage ? currentMessage : message
@@ -66,6 +88,8 @@ export default function Chatbot({ customerId }: ChatbotProps) {
           image: imageToSend || undefined,
           customerId,
           sessionId,
+          userRole: user?.role || 'CUSTOMER',
+          isAdmin: isAdmin,
           context: {
             currentPage: window.location.pathname,
           }
@@ -81,11 +105,25 @@ export default function Chatbot({ customerId }: ChatbotProps) {
           suggestions: data.data.suggestions || [],
           productRecommendations: data.data.productRecommendations || [],
           confidence: data.data.confidence || 0,
-          timestamp: data.data.timestamp
+          timestamp: data.data.timestamp,
+          ocrData: data.data.ocrData,
+          calculationData: data.data.calculationData,
+          orderData: data.data.orderData
         }
 
         setMessages(prev => [...prev, newMessage])
-        setErrorRetryCount(0) // Reset retry count on success
+        setErrorRetryCount(0)
+        
+        // Handle special responses
+        if (data.data.ocrData) {
+          setPendingOCRData(data.data.ocrData)
+          setShowOCRPreview(true)
+        }
+        
+        if (data.data.orderData) {
+          setPendingOrderData(data.data.orderData)
+          setShowOrderSummary(true)
+        }
       } else {
         // Error fallback
         setIsError(true)
@@ -128,7 +166,14 @@ export default function Chatbot({ customerId }: ChatbotProps) {
     }
   }
 
-  const handleSuggestionClick = (suggestion: string) => {
+  const handleSuggestionClick = (suggestion: string, message?: ChatMessage) => {
+    // Handle "Xem chi tiết" for orders
+    if (suggestion === 'Xem chi tiết' && message?.orderData?.trackingUrl) {
+      window.location.href = message.orderData.trackingUrl
+      return
+    }
+    
+    // Default: send as message
     sendMessage(suggestion)
   }
 
@@ -193,17 +238,24 @@ export default function Chatbot({ customerId }: ChatbotProps) {
   return (
     <div className="fixed bottom-6 right-6 w-96 bg-white rounded-lg shadow-2xl border z-50 flex flex-col max-h-[600px]">
       {/* Header */}
-      <div className="bg-primary-600 text-white p-4 rounded-t-lg flex justify-between items-center">
+      <div className={`${isAdmin ? 'bg-gradient-to-r from-indigo-600 to-purple-600' : 'bg-primary-600'} text-white p-4 rounded-t-lg flex justify-between items-center`}>
         <div className="flex items-center gap-2">
-          <Bot className="w-5 h-5" />
+          {isAdmin ? <BarChart3 className="w-5 h-5" /> : <Bot className="w-5 h-5" />}
           <div>
-            <div className="font-semibold">Hỗ trợ khách hàng</div>
-            <div className="text-xs opacity-90">Trợ lý ảo Construction Materials</div>
+            <div className="font-semibold">
+              {isAdmin ? '🎯 Admin Assistant' : '🛠️ Hỗ trợ khách hàng'}
+            </div>
+            <div className="text-xs opacity-90">
+              {isAdmin 
+                ? 'Trợ lý quản trị hệ thống' 
+                : 'Trợ lý ảo Construction Materials'
+              }
+            </div>
           </div>
         </div>
         <button
           onClick={() => setIsOpen(false)}
-          className="text-white hover:bg-primary-700 p-1 rounded"
+          className={`text-white ${isAdmin ? 'hover:bg-purple-700' : 'hover:bg-primary-700'} p-1 rounded`}
         >
           <X className="w-5 h-5" />
         </button>
@@ -221,9 +273,9 @@ export default function Chatbot({ customerId }: ChatbotProps) {
         {messages.map((message) => (
           <div key={message.id} className="space-y-3">
             {/* User Message */}
-            {message.userMessage !== 'hello' && (
+            {message.userMessage !== 'hello' && message.userMessage !== 'admin_hello' && (
               <div className="flex justify-end">
-                <div className="bg-primary-600 text-white p-3 rounded-lg max-w-xs">
+                <div className={`${isAdmin ? 'bg-gradient-to-r from-indigo-600 to-purple-600' : 'bg-primary-600'} text-white p-3 rounded-lg max-w-xs`}>
                   <div className="text-sm">{message.userMessage}</div>
                   <div className="text-xs opacity-75 mt-1">{formatTime(message.timestamp)}</div>
                 </div>
@@ -268,7 +320,7 @@ export default function Chatbot({ customerId }: ChatbotProps) {
                 {message.suggestions.map((suggestion, index) => (
                   <button
                     key={index}
-                    onClick={() => handleSuggestionClick(suggestion)}
+                    onClick={() => handleSuggestionClick(suggestion, message)}
                     disabled={isLoading}
                     className="text-xs bg-blue-100 text-blue-900 font-semibold px-3 py-1.5 rounded-full hover:bg-blue-200 disabled:opacity-50 border border-blue-300"
                   >
@@ -318,6 +370,86 @@ export default function Chatbot({ customerId }: ChatbotProps) {
                 </div>
               </div>
             </div>
+          </div>
+        )}
+        
+        {/* OCR Preview */}
+        {showOCRPreview && pendingOCRData && (
+          <div className="mt-4">
+            <ChatOCRPreview
+              invoiceNumber={pendingOCRData.invoiceNumber}
+              invoiceDate={pendingOCRData.invoiceDate ? new Date(pendingOCRData.invoiceDate) : undefined}
+              supplierName={pendingOCRData.supplierName}
+              items={pendingOCRData.items || []}
+              totalAmount={pendingOCRData.totalAmount}
+              confidence={pendingOCRData.confidence}
+              onConfirm={() => {
+                sendMessage('Xác nhận lưu')
+                setShowOCRPreview(false)
+              }}
+              onEdit={() => {
+                setShowOCRPreview(false)
+                toast.info('Chức năng chỉnh sửa đang được phát triển')
+              }}
+              onCancel={() => {
+                sendMessage('Hủy')
+                setShowOCRPreview(false)
+                setPendingOCRData(null)
+              }}
+            />
+          </div>
+        )}
+        
+        {/* Order Summary */}
+        {showOrderSummary && pendingOrderData && (
+          <div className="mt-4">
+            <ChatOrderSummary
+              items={pendingOrderData.items || []}
+              customerInfo={pendingOrderData.customerInfo}
+              paymentMethod={pendingOrderData.paymentMethod}
+              deliveryMethod={pendingOrderData.deliveryMethod}
+              totalAmount={pendingOrderData.totalAmount}
+              onConfirm={() => {
+                sendMessage('Xác nhận đặt hàng')
+                setShowOrderSummary(false)
+              }}
+              onEdit={() => {
+                setShowOrderSummary(false)
+                toast.info('Chức năng chỉnh sửa đang được phát triển')
+              }}
+              onCancel={() => {
+                sendMessage('Hủy đơn hàng')
+                setShowOrderSummary(false)
+                setPendingOrderData(null)
+              }}
+            />
+          </div>
+        )}
+        
+        {/* Confirm Dialog */}
+        {showConfirmDialog && confirmDialogData && (
+          <div className="mt-4">
+            <ChatConfirmDialog
+              type={confirmDialogData.type || 'info'}
+              title={confirmDialogData.title}
+              message={confirmDialogData.message}
+              confirmText={confirmDialogData.confirmText}
+              cancelText={confirmDialogData.cancelText}
+              onConfirm={() => {
+                if (confirmDialogData.onConfirm) {
+                  confirmDialogData.onConfirm()
+                }
+                setShowConfirmDialog(false)
+                setConfirmDialogData(null)
+              }}
+              onCancel={() => {
+                if (confirmDialogData.onCancel) {
+                  confirmDialogData.onCancel()
+                }
+                setShowConfirmDialog(false)
+                setConfirmDialogData(null)
+              }}
+            />
           </div>
         )}
       </div>

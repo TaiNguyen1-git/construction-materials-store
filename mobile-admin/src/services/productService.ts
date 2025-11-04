@@ -12,12 +12,16 @@ class ProductService {
   }): Promise<ApiResponse<PaginatedResponse<Product>>> {
     try {
       return await apiService.get(API_ENDPOINTS.PRODUCTS, params);
-    } catch (error: any) {
+    } catch (error) {
+      const errorMessage = error && typeof error === 'object' && 'response' in error
+        ? (error as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message
+        : 'Không thể tải danh sách sản phẩm';
+      
       return {
         success: false,
         error: {
           code: 'FETCH_PRODUCTS_FAILED',
-          message: error.response?.data?.error?.message || 'Không thể tải danh sách sản phẩm',
+          message: errorMessage || 'Không thể tải danh sách sản phẩm',
         },
       };
     }
@@ -26,12 +30,16 @@ class ProductService {
   async getProductById(id: string): Promise<ApiResponse<Product>> {
     try {
       return await apiService.get(API_ENDPOINTS.PRODUCT_BY_ID(id));
-    } catch (error: any) {
+    } catch (error) {
+      const errorMessage = error && typeof error === 'object' && 'response' in error
+        ? (error as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message
+        : 'Không thể tải thông tin sản phẩm';
+      
       return {
         success: false,
         error: {
           code: 'FETCH_PRODUCT_FAILED',
-          message: error.response?.data?.error?.message || 'Không thể tải thông tin sản phẩm',
+          message: errorMessage || 'Không thể tải thông tin sản phẩm',
         },
       };
     }
@@ -40,12 +48,16 @@ class ProductService {
   async createProduct(data: Partial<Product>): Promise<ApiResponse<Product>> {
     try {
       return await apiService.post(API_ENDPOINTS.PRODUCTS, data);
-    } catch (error: any) {
+    } catch (error) {
+      const errorMessage = error && typeof error === 'object' && 'response' in error
+        ? (error as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message
+        : 'Không thể tạo sản phẩm';
+      
       return {
         success: false,
         error: {
           code: 'CREATE_PRODUCT_FAILED',
-          message: error.response?.data?.error?.message || 'Không thể tạo sản phẩm',
+          message: errorMessage || 'Không thể tạo sản phẩm',
         },
       };
     }
@@ -54,12 +66,16 @@ class ProductService {
   async updateProduct(id: string, data: Partial<Product>): Promise<ApiResponse<Product>> {
     try {
       return await apiService.put(API_ENDPOINTS.PRODUCT_BY_ID(id), data);
-    } catch (error: any) {
+    } catch (error) {
+      const errorMessage = error && typeof error === 'object' && 'response' in error
+        ? (error as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message
+        : 'Không thể cập nhật sản phẩm';
+      
       return {
         success: false,
         error: {
           code: 'UPDATE_PRODUCT_FAILED',
-          message: error.response?.data?.error?.message || 'Không thể cập nhật sản phẩm',
+          message: errorMessage || 'Không thể cập nhật sản phẩm',
         },
       };
     }
@@ -68,16 +84,21 @@ class ProductService {
   async deleteProduct(id: string): Promise<ApiResponse<void>> {
     try {
       return await apiService.delete(API_ENDPOINTS.PRODUCT_BY_ID(id));
-    } catch (error: any) {
+    } catch (error) {
+      const errorMessage = error && typeof error === 'object' && 'response' in error
+        ? (error as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message
+        : 'Không thể xóa sản phẩm';
+      
       return {
         success: false,
         error: {
           code: 'DELETE_PRODUCT_FAILED',
-          message: error.response?.data?.error?.message || 'Không thể xóa sản phẩm',
+          message: errorMessage || 'Không thể xóa sản phẩm',
         },
       };
     }
   }
 }
 
-export default new ProductService();
+const productServiceInstance = new ProductService();
+export default productServiceInstance;

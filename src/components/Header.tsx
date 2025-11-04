@@ -1,13 +1,16 @@
 'use client'
 
 import Link from 'next/link'
-import { Package, Heart } from 'lucide-react'
+import { Package, Heart, User, LogOut, ChevronDown } from 'lucide-react'
 import CartIcon from './CartIcon'
-import CartDrawer from './CartDrawer'
 import { useWishlistStore } from '@/stores/wishlistStore'
+import { useAuth } from '@/contexts/auth-context'
+import { useState } from 'react'
 
 export default function Header() {
   const { getTotalItems } = useWishlistStore()
+  const { user, isAuthenticated, logout } = useAuth()
+  const [showUserMenu, setShowUserMenu] = useState(false)
   return (
     <header className="bg-white/90 backdrop-blur-md shadow-lg border-b border-primary-100 sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -61,18 +64,56 @@ export default function Header() {
             {/* Cart Icon */}
             <CartIcon />
             
-            <Link href="/login" className="hidden md:block text-gray-600 hover:text-primary-600 font-semibold transition-all duration-300 whitespace-nowrap text-sm lg:text-base">
-              🔐 Đăng nhập
-            </Link>
-            <Link href="/register" className="gradient-primary text-white px-4 lg:px-6 py-2 rounded-full hover:from-primary-700 hover:to-secondary-700 font-semibold transition-all duration-300 hover:scale-105 shadow-lg whitespace-nowrap text-sm lg:text-base">
-              ✨ Đăng ký
-            </Link>
+            {/* User Menu or Login/Register */}
+            {isAuthenticated && user ? (
+              <div className="relative">
+                <button
+                  onClick={() => setShowUserMenu(!showUserMenu)}
+                  className="flex items-center space-x-2 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors"
+                >
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-r from-primary-600 to-secondary-600 flex items-center justify-center text-white font-semibold">
+                    {user.name?.charAt(0).toUpperCase()}
+                  </div>
+                  <span className="hidden lg:block text-sm font-semibold text-gray-700">{user.name}</span>
+                  <ChevronDown className="h-4 w-4 text-gray-500" />
+                </button>
+                
+                {showUserMenu && (
+                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl border border-gray-200 py-2 z-50">
+                    <Link
+                      href="/account"
+                      className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                      onClick={() => setShowUserMenu(false)}
+                    >
+                      <User className="h-4 w-4 mr-2" />
+                      Tài khoản của tôi
+                    </Link>
+                    <button
+                      onClick={() => {
+                        logout()
+                        setShowUserMenu(false)
+                      }}
+                      className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                    >
+                      <LogOut className="h-4 w-4 mr-2" />
+                      Đăng xuất
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <>
+                <Link href="/login" className="hidden md:block text-gray-600 hover:text-primary-600 font-semibold transition-all duration-300 whitespace-nowrap text-sm lg:text-base">
+                  🔐 Đăng nhập
+                </Link>
+                <Link href="/register" className="gradient-primary text-white px-4 lg:px-6 py-2 rounded-full hover:from-primary-700 hover:to-secondary-700 font-semibold transition-all duration-300 hover:scale-105 shadow-lg whitespace-nowrap text-sm lg:text-base">
+                  ✨ Đăng ký
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </div>
-      
-      {/* Cart Drawer */}
-      <CartDrawer />
     </header>
   )
 }

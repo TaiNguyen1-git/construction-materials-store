@@ -1,4 +1,3 @@
-import apiService from './api';
 import { API_BASE_URL } from '../constants/config';
 
 export interface OCRResult {
@@ -41,7 +40,7 @@ class OCRService {
         uri: imageUri,
         name: `photo.${fileType}`,
         type: `image/${fileType}`,
-      } as any);
+      } as unknown as Blob);
 
       const endpoint = type === 'invoice' ? '/api/ocr/invoice' : '/api/ocr/scan';
       
@@ -55,13 +54,15 @@ class OCRService {
 
       const data = await response.json();
       return data;
-    } catch (error: any) {
+    } catch (error) {
       console.error('OCR processing error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Không thể xử lý hình ảnh';
+      
       return {
         success: false,
         error: {
           code: 'OCR_FAILED',
-          message: error.message || 'Không thể xử lý hình ảnh',
+          message: errorMessage,
         },
       };
     }
@@ -76,4 +77,5 @@ class OCRService {
   }
 }
 
-export default new OCRService();
+const ocrServiceInstance = new OCRService();
+export default ocrServiceInstance;

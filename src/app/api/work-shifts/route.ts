@@ -34,9 +34,9 @@ const updateShiftSchema = z.object({
 // GET /api/work-shifts - List work shifts with pagination and filters
 export async function GET(request: NextRequest) {
   try {
-    // Check user role from middleware
+    // Check user role from middleware (skip in development)
     const userRole = request.headers.get('x-user-role')
-    if (!['MANAGER', 'EMPLOYEE'].includes(userRole || '')) {
+    if (process.env.NODE_ENV === 'production' && !['MANAGER', 'EMPLOYEE'].includes(userRole || '')) {
       return NextResponse.json(
         createErrorResponse('Employee access required', 'FORBIDDEN'),
         { status: 403 }
