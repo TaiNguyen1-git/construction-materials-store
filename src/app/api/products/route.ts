@@ -79,10 +79,12 @@ export async function GET(request: NextRequest) {
     const where: any = {}
     
     if (searchQuery) {
+      // MongoDB doesn't support 'mode: insensitive', use regex instead
+      const searchRegex = { $regex: searchQuery, $options: 'i' }
       where.OR = [
-        { name: { contains: searchQuery, mode: 'insensitive' } },
-        { description: { contains: searchQuery, mode: 'insensitive' } },
-        { sku: { contains: searchQuery, mode: 'insensitive' } },
+        { name: searchRegex },
+        { description: searchRegex },
+        { sku: searchRegex },
         { tags: { hasSome: [searchQuery] } },
       ]
     }
@@ -131,12 +133,6 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // DEBUG LOGS
-    console.log('🔍 API Query Debug:')
-    console.log('Where clause:', JSON.stringify(where, null, 2))
-    console.log('OrderBy:', JSON.stringify(orderBy, null, 2))
-    console.log('Skip:', skip, 'Limit:', limit)
-    
     // Get products with pagination
     const [products, total] = await Promise.all([
       prisma.product.findMany({
@@ -155,8 +151,6 @@ export async function GET(request: NextRequest) {
       }),
       prisma.product.count({ where })
     ])
-    
-    console.log('✅ Query results: products =', products.length, 'total =', total)
 
     const response = createPaginatedResponse(products, total, page, limit)
     
@@ -175,10 +169,29 @@ export async function GET(request: NextRequest) {
   } catch (error: any) {
     const duration = Date.now() - startTime
     logAPI.error('GET', '/api/products', error, { duration })
-    logger.error('Get products error', { error: error.message, stack: error.stack })
+    logger.error('Get products error', { 
+      error: error.message, 
+      stack: error.stack,
+      name: error.name,
+      code: error.code,
+      cause: error.cause
+    })
+    
+    // Log database connection errors specifically
+    if (error.code === 'P1001' || error.message?.includes('connection')) {
+      console.error('❌ Database connection error:', error.message)
+    }
     
     return NextResponse.json(
-      createErrorResponse('Internal server error', 'INTERNAL_ERROR'),
+      createErrorResponse(
+        error.message || 'Internal server error', 
+        'INTERNAL_ERROR',
+        process.env.NODE_ENV === 'development' ? { 
+          message: error.message, 
+          code: error.code,
+          stack: error.stack 
+        } : undefined
+      ),
       { status: 500 }
     )
   }
