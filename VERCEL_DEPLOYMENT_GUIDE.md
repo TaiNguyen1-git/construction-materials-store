@@ -33,15 +33,28 @@
 - ✅ Đã remove `--turbopack` flag khỏi build command
 - ✅ Đã remove `output: 'standalone'` khỏi next.config.ts
 
-### 3. MongoDB Atlas Connection
+### 3. MongoDB Atlas Connection (QUAN TRỌNG!)
 
-**Kiểm tra:**
-1. MongoDB Atlas > **Network Access** > **IP Access List**
-2. Thêm `0.0.0.0/0` (cho phép từ mọi nơi) hoặc:
-   - Thêm Vercel IPs: https://vercel.com/docs/security/network/firewall#ip-addresses
-3. Kiểm tra database name trong connection string:
-   - Hiện tại: `construction_store`
-   - Đảm bảo database này tồn tại trong MongoDB Atlas
+**Đây là vấn đề thường gặp nhất!**
+
+**Vercel sử dụng dynamic IPs**, nên không thể whitelist theo "Current IP".
+
+**Cách fix:**
+1. Vào **MongoDB Atlas** > **Network Access** > **IP Access List**
+2. **XÓA** tất cả IP addresses hiện tại (nếu có)
+3. Click **"Add IP Address"**
+4. Chọn **"Allow Access from Anywhere"** hoặc nhập: `0.0.0.0/0`
+5. Click **"Confirm"**
+6. Đợi 1-2 phút để MongoDB Atlas update whitelist
+
+**Lưu ý:**
+- `0.0.0.0/0` cho phép truy cập từ **mọi IP address** (bao gồm Vercel)
+- Đây là cách **an toàn** vì MongoDB Atlas đã có authentication (username/password)
+- Nếu muốn bảo mật hơn, có thể thêm Vercel IPs cụ thể (nhưng phức tạp hơn)
+
+**Kiểm tra database name:**
+- Connection string hiện tại: `construction_store`
+- Đảm bảo database này tồn tại trong MongoDB Atlas
 
 ### 4. Kiểm tra Logs trên Vercel
 
