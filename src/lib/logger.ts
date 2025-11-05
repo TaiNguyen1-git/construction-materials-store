@@ -1,6 +1,7 @@
 import winston from 'winston'
 
 const isDevelopment = process.env.NODE_ENV === 'development'
+const isVercel = !!process.env.VERCEL // Vercel sets this environment variable
 
 // Define log format
 const logFormat = winston.format.combine(
@@ -25,41 +26,46 @@ const consoleFormat = winston.format.combine(
 )
 
 // Create logger instance
-export const logger = winston.createLogger({
+// On Vercel (serverless), filesystem is read-only, so we only use console transport
+const logger = winston.createLogger({
   level: process.env.LOG_LEVEL || (isDevelopment ? 'debug' : 'info'),
   format: logFormat,
   defaultMeta: { service: 'smartbuild-api' },
-  transports: [
-    // Write errors to error.log
+  transports: [],
+})
+
+// Only use file transports in development (not on Vercel)
+if (isDevelopment && !isVercel) {
+  logger.add(
     new winston.transports.File({
       filename: 'logs/error.log',
       level: 'error',
       maxsize: 5242880, // 5MB
       maxFiles: 5,
-    }),
-    // Write all logs to combined.log
+    })
+  )
+  logger.add(
     new winston.transports.File({
       filename: 'logs/combined.log',
       maxsize: 5242880, // 5MB
       maxFiles: 5,
-    }),
-  ],
-  exceptionHandlers: [
-    new winston.transports.File({ filename: 'logs/exceptions.log' }),
-  ],
-  rejectionHandlers: [
-    new winston.transports.File({ filename: 'logs/rejections.log' }),
-  ],
-})
-
-// Add console transport in development
-if (isDevelopment) {
-  logger.add(
-    new winston.transports.Console({
-      format: consoleFormat,
     })
   )
+  
+  logger.exceptions.handle(
+    new winston.transports.File({ filename: 'logs/exceptions.log' })
+  )
+  logger.rejections.handle(
+    new winston.transports.File({ filename: 'logs/rejections.log' })
+  )
 }
+
+// Always add console transport (works on both development and production/Vercel)
+logger.add(
+  new winston.transports.Console({
+    format: isDevelopment ? consoleFormat : logFormat,
+  })
+)
 
 // Helper functions for structured logging
 export const logAPI = {
