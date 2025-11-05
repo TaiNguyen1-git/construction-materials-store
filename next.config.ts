@@ -13,10 +13,9 @@ const nextConfig: NextConfig = {
       bodySizeLimit: '2mb',
     },
   },
-  output: 'standalone',
-  turbopack: {
-    root: __dirname,
-  },
+  // Remove 'standalone' output for Vercel deployment
+  // Vercel handles the output automatically
+  // output: 'standalone',
   images: {
     remotePatterns: [
       {

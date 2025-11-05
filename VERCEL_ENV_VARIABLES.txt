@@ -1,0 +1,33 @@
+# ============================================
+# VERCEL ENVIRONMENT VARIABLES
+# ============================================
+# Copy các biến dưới đây vào Vercel Dashboard
+# Settings > Environment Variables
+# 
+# QUAN TRỌNG: BỎ DẤU NGOẶC KÉP khi paste vào Vercel!
+# ============================================
+
+DATABASE_URL=mongodb+srv://admin:Johnson2%404@smartbuildai.tdstbgu.mongodb.net/construction_store?retryWrites=true&w=majority
+
+JWT_SECRET=3cd925b8e44cf5dbdb6cd5e65fe88cdc0a945ac1024c3ebe47426b086573
+
+JWT_REFRESH_SECRET=e2dc4a1aa1015fda0adab5fcbd14bc5d3222c8c92587fbdae030dd349
+
+NODE_ENV=production
+
+GEMINI_API_KEY=AIzaSyC7Fu9Wlfr4dPLmX-pQ50FFCQPnBq7ishw
+
+GEMINI_MODEL=models/gemini-2.5-flash
+
+GEMINI_TEMPERATURE=0.7
+
+TESSERACT_LANGUAGES=eng,vie
+
+# ============================================
+# HƯỚNG DẪN:
+# ============================================
+# 1. Vào Vercel Dashboard > Project > Settings > Environment Variables
+# 2. Thêm từng biến một (KHÔNG có dấu ngoặc kép)
+# 3. Chọn Environment: Production, Preview, Development (chọn tất cả)
+# 4. Sau khi thêm xong, Redeploy project
+# ============================================
