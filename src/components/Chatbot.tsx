@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import { usePathname } from 'next/navigation'
 import { MessageCircle, X, Send, Bot, ShoppingCart, AlertCircle, RefreshCw, Camera, Image as ImageIcon, BarChart3, Package, Users, TrendingUp } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useAuth } from '@/contexts/auth-context'
@@ -20,6 +21,7 @@ interface ChatMessage {
   ocrData?: any
   calculationData?: any
   orderData?: any
+  data?: any // Report/analytics data
   requiresConfirmation?: boolean
 }
 
@@ -29,6 +31,7 @@ interface ChatbotProps {
 
 export default function Chatbot({ customerId }: ChatbotProps) {
   const { user, isAuthenticated } = useAuth()
+  const pathname = usePathname()
   const [isOpen, setIsOpen] = useState(false)
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [currentMessage, setCurrentMessage] = useState('')
@@ -49,7 +52,10 @@ export default function Chatbot({ customerId }: ChatbotProps) {
   const [pendingOCRData, setPendingOCRData] = useState<any>(null)
   
   // Check if user is admin/manager
-  const isAdmin = isAuthenticated && user && (user.role === 'MANAGER' || user.role === 'EMPLOYEE')
+  // Check both user role AND pathname to handle reload cases
+  const isAdminRoute = pathname?.startsWith('/admin')
+  const isAdminByRole = isAuthenticated && user && (user.role === 'MANAGER' || user.role === 'EMPLOYEE')
+  const isAdmin = isAdminRoute || isAdminByRole
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -62,10 +68,14 @@ export default function Chatbot({ customerId }: ChatbotProps) {
   useEffect(() => {
     if (isOpen && messages.length === 0) {
       // Send welcome message with role context
-      const welcomeMsg = isAdmin ? 'admin_hello' : 'hello'
-      sendMessage(welcomeMsg)
+      // Wait a bit for auth state to initialize on reload
+      const timer = setTimeout(() => {
+        const welcomeMsg = isAdmin ? 'admin_hello' : 'hello'
+        sendMessage(welcomeMsg)
+      }, 100)
+      return () => clearTimeout(timer)
     }
-  }, [isOpen, isAdmin])
+  }, [isOpen, isAdmin, messages.length])
 
   const sendMessage = async (message: string, useCurrentMessage = false) => {
     const messageToSend = useCurrentMessage ? currentMessage : message
@@ -108,7 +118,8 @@ export default function Chatbot({ customerId }: ChatbotProps) {
           timestamp: data.data.timestamp,
           ocrData: data.data.ocrData,
           calculationData: data.data.calculationData,
-          orderData: data.data.orderData
+          orderData: data.data.orderData,
+          data: data.data.data // Store analytics/report data for export
         }
 
         setMessages(prev => [...prev, newMessage])
@@ -166,15 +177,209 @@ export default function Chatbot({ customerId }: ChatbotProps) {
     }
   }
 
-  const handleSuggestionClick = (suggestion: string, message?: ChatMessage) => {
-    // Handle "Xem chi tiết" for orders
-    if (suggestion === 'Xem chi tiết' && message?.orderData?.trackingUrl) {
-      window.location.href = message.orderData.trackingUrl
+  const handleSuggestionClick = async (suggestion: string, message?: ChatMessage) => {
+    // Handle "Xem chi tiết" or "Xem đơn hàng" for orders
+    if ((suggestion === 'Xem chi tiết' || suggestion === 'Xem đơn hàng') && message?.orderData) {
+      if (message.orderData.trackingUrl) {
+        window.location.href = message.orderData.trackingUrl
+      } else if (message.orderData.orderNumber) {
+        window.location.href = `/order-tracking?orderNumber=${message.orderData.orderNumber}`
+      }
+      return
+    }
+    
+    // Handle "Lưu mã đơn" - show order number
+    if (suggestion === 'Lưu mã đơn' && message?.orderData?.orderNumber) {
+      const orderNumber = message.orderData.orderNumber
+      // Copy to clipboard
+      if (navigator.clipboard) {
+        await navigator.clipboard.writeText(orderNumber)
+        toast.success(`Đã sao chép mã đơn: ${orderNumber}`)
+      } else {
+        toast.success(`Mã đơn hàng: ${orderNumber}`)
+      }
+      return
+    }
+    
+    // Handle "Xem tất cả đơn" - show all orders
+    if (suggestion === 'Xem tất cả đơn' || suggestion.toLowerCase().includes('tất cả đơn')) {
+      sendMessage('Tất cả đơn hàng')
+      return
+    }
+    
+    // Handle "Chi tiết hơn" - show detailed report
+    if (suggestion === 'Chi tiết hơn' || suggestion.toLowerCase().includes('chi tiết')) {
+      if (message?.data) {
+        showDetailedReport(message.data, message)
+        return
+      }
+      // If no data, try to get from last analytics message
+      const lastAnalyticsMessage = messages.findLast(m => m.data && m.data.dateRange)
+      if (lastAnalyticsMessage?.data) {
+        showDetailedReport(lastAnalyticsMessage.data, lastAnalyticsMessage)
+        return
+      }
+      // Fallback: send as message to get data
+      toast.info('Đang tải dữ liệu báo cáo...')
+      sendMessage(suggestion)
+      return
+    }
+    
+    // Handle "Xuất báo cáo" - export report as file
+    if (suggestion === 'Xuất báo cáo' || suggestion.toLowerCase().includes('xuất báo cáo')) {
+      if (message?.data) {
+        await exportReport(message.data)
+        return
+      }
+      // If no data, try to get from last analytics message
+      const lastAnalyticsMessage = messages.findLast(m => m.data && m.data.dateRange)
+      if (lastAnalyticsMessage?.data) {
+        await exportReport(lastAnalyticsMessage.data)
+        return
+      }
+      // Fallback: send as message to get data
+      toast.info('Đang tải dữ liệu báo cáo...')
+      sendMessage(suggestion)
       return
     }
     
     // Default: send as message
     sendMessage(suggestion)
+  }
+
+  const showDetailedReport = async (reportData: any, sourceMessage: ChatMessage) => {
+    try {
+      if (!reportData.dateRange) {
+        toast.error('Không có dữ liệu chi tiết')
+        return
+      }
+
+      // Ensure from and to are Date objects
+      const from = reportData.dateRange.from instanceof Date 
+        ? reportData.dateRange.from 
+        : new Date(reportData.dateRange.from)
+      const to = reportData.dateRange.to instanceof Date 
+        ? reportData.dateRange.to 
+        : new Date(reportData.dateRange.to)
+
+      // Fetch detailed orders data
+      const params = new URLSearchParams({
+        startDate: from.toISOString(),
+        endDate: to.toISOString()
+      })
+
+      toast.loading('Đang tải chi tiết...', { id: 'detailed-report' })
+      
+      const response = await fetch(`/api/reports/analytics/detailed?${params}`)
+      
+      if (response.ok) {
+        const result = await response.json()
+        const detailedData = result.data || result
+        
+        // Format detailed message
+        let detailedMessage = `📊 **Báo Cáo Chi Tiết**\n\n`
+        detailedMessage += `📅 **Thời gian:** ${from.toLocaleDateString('vi-VN')} - ${to.toLocaleDateString('vi-VN')}\n\n`
+        
+        if (detailedData.orders && detailedData.orders.length > 0) {
+          detailedMessage += `📦 **Danh Sách Đơn Hàng (${detailedData.orders.length} đơn):**\n\n`
+          
+          detailedData.orders.slice(0, 10).forEach((order: any, idx: number) => {
+            const customerName = order.customerType === 'GUEST' 
+              ? order.guestName 
+              : order.customer?.user?.name || 'N/A'
+            
+            const statusLabel = getStatusLabel(order.status)
+            detailedMessage += `${idx + 1}. **${order.orderNumber}**\n`
+            detailedMessage += `   👤 ${customerName}\n`
+            detailedMessage += `   💰 ${order.netAmount.toLocaleString('vi-VN')}đ\n`
+            detailedMessage += `   📦 ${statusLabel} | ${order.paymentMethod || 'N/A'}\n`
+            detailedMessage += `   📅 ${new Date(order.createdAt).toLocaleDateString('vi-VN')}\n\n`
+          })
+          
+          if (detailedData.orders.length > 10) {
+            detailedMessage += `... và ${detailedData.orders.length - 10} đơn hàng khác\n\n`
+          }
+        }
+
+        if (detailedData.topProducts && detailedData.topProducts.length > 0) {
+          detailedMessage += `🏆 **Top Sản Phẩm Bán Chạy:**\n\n`
+          detailedData.topProducts.slice(0, 5).forEach((product: any, idx: number) => {
+            detailedMessage += `${idx + 1}. **${product.name}**\n`
+            detailedMessage += `   📦 ${product.quantity} ${product.unit}\n`
+            detailedMessage += `   💰 ${product.revenue.toLocaleString('vi-VN')}đ\n\n`
+          })
+        }
+
+        detailedMessage += `\n💡 Nhấn "Xuất báo cáo" để tải file Excel chi tiết!`
+
+        // Add detailed message to chat
+        const detailedChatMessage: ChatMessage = {
+          id: Date.now().toString(),
+          userMessage: 'Chi tiết hơn',
+          botMessage: detailedMessage,
+          suggestions: ['Xuất báo cáo', 'So sánh kỳ trước', 'Trở lại'],
+          confidence: 1.0,
+          timestamp: new Date().toISOString(),
+          data: reportData
+        }
+
+        setMessages(prev => [...prev, detailedChatMessage])
+        toast.success('Đã tải chi tiết báo cáo!', { id: 'detailed-report' })
+      } else {
+        const errorData = await response.json()
+        toast.error(errorData.error || 'Không thể tải chi tiết', { id: 'detailed-report' })
+      }
+    } catch (error) {
+      console.error('Error loading detailed report:', error)
+      toast.error('Lỗi khi tải chi tiết. Vui lòng thử lại.', { id: 'detailed-report' })
+    }
+  }
+
+  const exportReport = async (reportData: any) => {
+    try {
+      if (!reportData.dateRange) {
+        toast.error('Không có dữ liệu báo cáo để xuất')
+        return
+      }
+
+      // Ensure from and to are Date objects
+      const from = reportData.dateRange.from instanceof Date 
+        ? reportData.dateRange.from 
+        : new Date(reportData.dateRange.from)
+      const to = reportData.dateRange.to instanceof Date 
+        ? reportData.dateRange.to 
+        : new Date(reportData.dateRange.to)
+
+      const params = new URLSearchParams({
+        startDate: from.toISOString(),
+        endDate: to.toISOString(),
+        format: 'excel'
+      })
+
+      toast.loading('Đang xuất báo cáo...', { id: 'export-report' })
+      
+      const response = await fetch(`/api/reports/analytics/export?${params}`)
+      
+      if (response.ok) {
+        const blob = await response.blob()
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        const dateStr = `${from.toISOString().split('T')[0]}_${to.toISOString().split('T')[0]}`
+        a.download = `bao-cao-doanh-thu-${dateStr}.xlsx`
+        document.body.appendChild(a)
+        a.click()
+        window.URL.revokeObjectURL(url)
+        document.body.removeChild(a)
+        toast.success('Đã xuất báo cáo thành công!', { id: 'export-report' })
+      } else {
+        const errorData = await response.json()
+        toast.error(errorData.error || 'Không thể xuất báo cáo', { id: 'export-report' })
+      }
+    } catch (error) {
+      console.error('Error exporting report:', error)
+      toast.error('Lỗi khi xuất báo cáo. Vui lòng thử lại.', { id: 'export-report' })
+    }
   }
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -284,12 +489,45 @@ export default function Chatbot({ customerId }: ChatbotProps) {
 
             {/* Bot Message */}
             <div className="flex justify-start">
-              <div className="bg-gray-100 p-3 rounded-lg max-w-xs border border-gray-200">
+              <div className="bg-gray-100 p-4 rounded-lg max-w-2xl border border-gray-200">
                 <div className="flex items-start gap-2">
                   <Bot className="w-4 h-4 text-primary-600 mt-0.5 flex-shrink-0" />
                   <div className="flex-1">
-                    <div className="text-sm text-gray-950 font-semibold leading-relaxed">{message.botMessage}</div>
-                    <div className="text-xs text-gray-700 font-medium mt-1">{formatTime(message.timestamp)}</div>
+                    <div 
+                      className="text-sm text-gray-950 font-medium leading-relaxed whitespace-pre-wrap"
+                      style={{ 
+                        fontFamily: 'system-ui, -apple-system, sans-serif',
+                        lineHeight: '1.6'
+                      }}
+                    >
+                      {message.botMessage.split('\n').map((line, idx) => {
+                        // Style separator lines
+                        if (line.trim().startsWith('━━')) {
+                          return (
+                            <div key={idx} className="text-gray-300 my-2 font-mono text-xs">
+                              {line}
+                            </div>
+                          )
+                        }
+                        // Style bold text
+                        const parts = line.split(/(\*\*.*?\*\*)/g)
+                        return (
+                          <div key={idx} className={idx > 0 && !line.trim().startsWith('━━') ? 'mt-1' : ''}>
+                            {parts.map((part, pIdx) => {
+                              if (part.startsWith('**') && part.endsWith('**')) {
+                                return (
+                                  <span key={pIdx} className="font-bold text-gray-900">
+                                    {part.replace(/\*\*/g, '')}
+                                  </span>
+                                )
+                              }
+                              return <span key={pIdx}>{part}</span>
+                            })}
+                          </div>
+                        )
+                      })}
+                    </div>
+                    <div className="text-xs text-gray-700 font-medium mt-2">{formatTime(message.timestamp)}</div>
                   </div>
                 </div>
               </div>

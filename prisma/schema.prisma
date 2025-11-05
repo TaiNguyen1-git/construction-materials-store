@@ -6,13 +6,13 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "mongodb"
   url      = env("DATABASE_URL")
 }
 
 // User Management
 model User {
-  id        String   @id @default(cuid())
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
   email     String   @unique
   name      String
   password  String
@@ -29,12 +29,11 @@ model User {
   notifications Notification[]
 
   @@map("users")
-  @@index([email])
   @@index([role])
 }
 
 model Employee {
-  id           String   @id @default(cuid())
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
   userId       String   @unique
   employeeCode String   @unique
   department   String
@@ -46,7 +45,7 @@ model Employee {
   updatedAt    DateTime @updatedAt
 
   // Relationships
-  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user           User             @relation(fields: [userId], references: [id])
   workShifts     WorkShift[]
   salaryAdvances SalaryAdvance[]
   payrollRecords PayrollRecord[]
@@ -54,14 +53,12 @@ model Employee {
   assignedProjectTasks ProjectTask[] @relation("ProjectTaskAssignee")
 
   @@map("employees")
-  @@index([userId])
-  @@index([employeeCode])
   @@index([department])
   @@index([isActive])
 }
 
 model Customer {
-  id              String       @id @default(cuid())
+  id              String       @id @default(auto()) @map("_id") @db.ObjectId
   userId          String       @unique
   customerType    CustomerType @default(REGULAR)
   totalPurchases  Float        @default(0)
@@ -88,16 +85,15 @@ model Customer {
   updatedAt       DateTime     @updatedAt
 
   // Relationships
-  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id])
   orders  Order[]
   invoices Invoice[]
   projects Project[]
   referrals Customer[] @relation("CustomerReferral")
-  referredByCustomer Customer? @relation("CustomerReferral", fields: [referredBy], references: [id])
+  referredByCustomer Customer? @relation("CustomerReferral", fields: [referredBy], references: [id], onDelete: NoAction, onUpdate: NoAction)
   materialCalculations MaterialCalculation[]
 
   @@map("customers")
-  @@index([userId])
   @@index([customerType])
   @@index([loyaltyTier])
   @@index([totalPointsEarned])
@@ -114,7 +110,7 @@ enum LoyaltyTier {
 
 // Work Shift and Attendance
 model WorkShift {
-  id         String      @id @default(cuid())
+  id         String      @id @default(auto()) @map("_id") @db.ObjectId
   employeeId String
   date       DateTime
   startTime  String
@@ -130,7 +126,7 @@ model WorkShift {
   updatedAt  DateTime    @updatedAt
 
   // Relationships
-  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employee Employee @relation(fields: [employeeId], references: [id])
 
   @@map("work_shifts")
   @@index([employeeId])
@@ -140,7 +136,7 @@ model WorkShift {
 }
 
 model EmployeeTask {
-  id          String     @id @default(cuid())
+  id          String     @id @default(auto()) @map("_id") @db.ObjectId
   employeeId  String
   title       String
   description String?
@@ -155,7 +151,7 @@ model EmployeeTask {
   updatedAt   DateTime   @updatedAt
 
   // Relationships
-  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employee Employee @relation(fields: [employeeId], references: [id])
 
   @@map("employee_tasks")
   @@index([employeeId])
@@ -167,7 +163,7 @@ model EmployeeTask {
 
 // Payroll Management
 model SalaryAdvance {
-  id          String        @id @default(cuid())
+  id          String        @id @default(auto()) @map("_id") @db.ObjectId
   employeeId  String
   amount      Float
   reason      String
@@ -181,7 +177,7 @@ model SalaryAdvance {
   updatedAt   DateTime      @updatedAt
 
   // Relationships
-  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employee Employee @relation(fields: [employeeId], references: [id])
 
   @@map("salary_advances")
   @@index([employeeId])
@@ -190,7 +186,7 @@ model SalaryAdvance {
 }
 
 model PayrollRecord {
-  id            String   @id @default(cuid())
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
   employeeId    String
   period        String   // YYYY-MM format
   baseSalary    Float
@@ -211,7 +207,7 @@ model PayrollRecord {
   updatedAt     DateTime @updatedAt
 
   // Relationships
-  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employee Employee @relation(fields: [employeeId], references: [id])
 
   @@unique([employeeId, period])
   @@map("payroll_records")
@@ -223,7 +219,7 @@ model PayrollRecord {
 
 // Product and Inventory Management
 model Category {
-  id          String    @id @default(cuid())
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
   name        String    @unique
   description String?
   parentId    String?
@@ -233,7 +229,7 @@ model Category {
   updatedAt   DateTime  @updatedAt
 
   // Relationships
-  parent   Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  parent   Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   children Category[] @relation("CategoryHierarchy")
   products Product[]
 
@@ -244,7 +240,7 @@ model Category {
 }
 
 model Product {
-  id          String  @id @default(cuid())
+  id          String  @id @default(auto()) @map("_id") @db.ObjectId
   name        String
   description String?
   categoryId  String
@@ -277,7 +273,6 @@ model Product {
   @@map("products")
   @@index([categoryId])
   @@index([name])
-  @@index([sku])
   @@index([isActive])
   @@index([isFeatured])
   @@index([price])
@@ -287,7 +282,7 @@ model Product {
 }
 
 model InventoryItem {
-  id               String    @id @default(cuid())
+  id               String    @id @default(auto()) @map("_id") @db.ObjectId
   productId        String    @unique
   quantity         Float     @default(0)
   reservedQuantity Float     @default(0)
@@ -303,18 +298,17 @@ model InventoryItem {
   updatedAt        DateTime  @updatedAt
 
   // Relationships
-  product   Product             @relation(fields: [productId], references: [id], onDelete: Cascade)
+  product   Product             @relation(fields: [productId], references: [id])
   movements InventoryMovement[]
 
   @@map("inventory_items")
-  @@index([productId])
   @@index([availableQuantity])
   @@index([minStockLevel])
   @@index([reorderPoint])
 }
 
 model InventoryMovement {
-  id            String       @id @default(cuid())
+  id            String       @id @default(auto()) @map("_id") @db.ObjectId
   productId     String
   inventoryId   String
   movementType  MovementType
@@ -342,7 +336,7 @@ model InventoryMovement {
 
 // Order Management
 model Order {
-  id              String      @id @default(cuid())
+  id              String      @id @default(auto()) @map("_id") @db.ObjectId
   orderNumber     String      @unique
   customerId      String?
   customerType    OrderCustomerType @default(REGISTERED)
@@ -386,7 +380,6 @@ model Order {
   orderTracking OrderTracking[]
 
   @@map("orders")
-  @@index([orderNumber])
   @@index([customerId])
   @@index([status])
   @@index([createdAt])
@@ -397,7 +390,7 @@ model Order {
 }
 
 model OrderItem {
-  id          String  @id @default(cuid())
+  id          String  @id @default(auto()) @map("_id") @db.ObjectId
   orderId     String
   productId   String
   quantity    Float
@@ -408,7 +401,7 @@ model OrderItem {
   createdAt   DateTime @default(now())
 
   // Relationships
-  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  order   Order   @relation(fields: [orderId], references: [id])
   product Product @relation(fields: [productId], references: [id])
 
   @@map("order_items")
@@ -418,7 +411,7 @@ model OrderItem {
 }
 
 model OrderTracking {
-  id          String   @id @default(cuid())
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
   orderId     String
   status      OrderStatus
   description String
@@ -427,7 +420,7 @@ model OrderTracking {
   createdBy   String?
 
   // Relationships
-  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  order Order @relation(fields: [orderId], references: [id])
 
   @@map("order_tracking")
   @@index([orderId])
@@ -437,7 +430,7 @@ model OrderTracking {
 
 // Invoice Management
 model Invoice {
-  id            String        @id @default(cuid())
+  id            String        @id @default(auto()) @map("_id") @db.ObjectId
   invoiceNumber String        @unique
   invoiceType   InvoiceType
   orderId       String?
@@ -465,7 +458,6 @@ model Invoice {
   payments     Payment[]
 
   @@map("invoices")
-  @@index([invoiceNumber])
   @@index([customerId])
   @@index([supplierId])
   @@index([status])
@@ -474,7 +466,7 @@ model Invoice {
 }
 
 model InvoiceItem {
-  id          String  @id @default(cuid())
+  id          String  @id @default(auto()) @map("_id") @db.ObjectId
   invoiceId   String
   productId   String
   description String?
@@ -486,7 +478,7 @@ model InvoiceItem {
   taxAmount   Float   @default(0)
 
   // Relationships
-  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  invoice Invoice @relation(fields: [invoiceId], references: [id])
   product Product @relation(fields: [productId], references: [id])
 
   @@map("invoice_items")
@@ -496,7 +488,7 @@ model InvoiceItem {
 
 // Supplier Management
 model Supplier {
-  id            String   @id @default(cuid())
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
   name          String
   contactPerson String?
   email         String?
@@ -524,7 +516,7 @@ model Supplier {
 }
 
 model PurchaseOrder {
-  id              String              @id @default(cuid())
+  id              String              @id @default(auto()) @map("_id") @db.ObjectId
   orderNumber     String              @unique
   supplierId      String
   status          PurchaseOrderStatus @default(DRAFT)
@@ -548,14 +540,13 @@ model PurchaseOrder {
   purchaseItems PurchaseItem[]
 
   @@map("purchase_orders")
-  @@index([orderNumber])
   @@index([supplierId])
   @@index([status])
   @@index([orderDate])
 }
 
 model PurchaseItem {
-  id              String  @id @default(cuid())
+  id              String  @id @default(auto()) @map("_id") @db.ObjectId
   purchaseOrderId String
   productId       String
   quantity        Float
@@ -566,7 +557,7 @@ model PurchaseItem {
   notes           String?
 
   // Relationships
-  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id])
   product       Product       @relation(fields: [productId], references: [id])
 
   @@map("purchase_items")
@@ -576,7 +567,7 @@ model PurchaseItem {
 
 // Payment Management
 model Payment {
-  id            String        @id @default(cuid())
+  id            String        @id @default(auto()) @map("_id") @db.ObjectId
   paymentNumber String        @unique
   invoiceId     String?
   orderId       String?
@@ -597,7 +588,6 @@ model Payment {
   invoice Invoice? @relation(fields: [invoiceId], references: [id])
 
   @@map("payments")
-  @@index([paymentNumber])
   @@index([invoiceId])
   @@index([orderId])
   @@index([status])
@@ -606,7 +596,7 @@ model Payment {
 
 // Product Reviews and Ratings
 model ProductReview {
-  id         String   @id @default(cuid())
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
   productId  String
   customerId String
   orderId    String?
@@ -633,7 +623,7 @@ model ProductReview {
 
 // AI and Automation
 model OCRProcessing {
-  id           String    @id @default(cuid())
+  id           String    @id @default(auto()) @map("_id") @db.ObjectId
   fileName     String
   filePath     String
   extractedText String?
@@ -654,7 +644,7 @@ model OCRProcessing {
 }
 
 model CustomerInteraction {
-  id             String            @id @default(cuid())
+  id             String            @id @default(auto()) @map("_id") @db.ObjectId
   customerId     String?
   sessionId      String
   interactionType InteractionType
@@ -677,7 +667,7 @@ model CustomerInteraction {
 }
 
 model InventoryPrediction {
-  id              String   @id @default(cuid())
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
   productId       String
   predictionDate  DateTime @default(now())
   targetDate      DateTime @default(now()) // Date we're predicting for
@@ -863,7 +853,7 @@ enum InteractionType {
 
 // Notifications Model
 model Notification {
-  id          String     @id @default(cuid())
+  id          String     @id @default(auto()) @map("_id") @db.ObjectId
   userId      String?
   title       String
   message     String
@@ -877,7 +867,7 @@ model Notification {
   updatedAt   DateTime   @updatedAt
 
   // Relationships
-  user        User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user        User?      @relation(fields: [userId], references: [id])
 
   @@map("notifications")
   @@index([userId])
@@ -893,13 +883,14 @@ enum NotificationType {
   ERROR
   SUCCESS
   STOCK_ALERT
+  ORDER_NEW
   ORDER_UPDATE
   PAYMENT_UPDATE
 }
 
 // Project Management
 model Project {
-  id              String     @id @default(cuid())
+  id              String     @id @default(auto()) @map("_id") @db.ObjectId
   name            String
   description     String?
   customerId      String
@@ -927,7 +918,7 @@ model Project {
 }
 
 model ProjectTask {
-  id          String     @id @default(cuid())
+  id          String     @id @default(auto()) @map("_id") @db.ObjectId
   projectId   String
   name        String
   description String?
@@ -945,7 +936,7 @@ model ProjectTask {
   updatedAt   DateTime   @updatedAt
 
   // Relationships
-  project     Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project     Project    @relation(fields: [projectId], references: [id])
   assignee    Employee?  @relation("ProjectTaskAssignee", fields: [assigneeId], references: [id])
   taskMaterials ProjectTaskMaterial[]
 
@@ -957,7 +948,7 @@ model ProjectTask {
 }
 
 model ProjectMaterial {
-  id          String   @id @default(cuid())
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
   projectId   String
   productId   String
   quantity    Float
@@ -969,7 +960,7 @@ model ProjectMaterial {
   notes       String?
 
   // Relationships
-  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project     Project  @relation(fields: [projectId], references: [id])
   product     Product  @relation(fields: [productId], references: [id])
 
   @@map("project_materials")
@@ -979,7 +970,7 @@ model ProjectMaterial {
 }
 
 model ProjectTaskMaterial {
-  id          String   @id @default(cuid())
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
   taskId      String
   productId   String
   quantity    Float
@@ -991,7 +982,7 @@ model ProjectTaskMaterial {
   notes       String?
 
   // Relationships
-  task        ProjectTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  task        ProjectTask @relation(fields: [taskId], references: [id])
   product     Product     @relation(fields: [productId], references: [id])
 
   @@map("project_task_materials")
@@ -1017,7 +1008,7 @@ enum MaterialStatus {
 
 // Material Calculator
 model MaterialCalculation {
-  id              String   @id @default(cuid())
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
   customerId      String?
   projectType     String
   projectData     Json     // Store all project inputs
@@ -1028,7 +1019,7 @@ model MaterialCalculation {
   updatedAt       DateTime @updatedAt
 
   // Relationships
-  customer Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  customer Customer? @relation(fields: [customerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@map("material_calculations")
   @@index([customerId])
@@ -1038,7 +1029,7 @@ model MaterialCalculation {
 
 // Inventory History (for tracking all changes)
 model InventoryHistory {
-  id              String   @id @default(cuid())
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
   productId       String
   changeType      String   // SALE, PURCHASE, ADJUSTMENT, RETURN
   quantityChange  Float    // Can be negative

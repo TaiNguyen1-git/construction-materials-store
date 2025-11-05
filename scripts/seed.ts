@@ -272,7 +272,8 @@ async function seedDatabase() {
       where: { userId: customerUser.id },
       update: {},
       create: {
-        userId: customerUser.id
+        userId: customerUser.id,
+        referralCode: `REF${Date.now()}-${Math.random().toString(36).substring(7)}`
       }
     })
     console.log('✅ Sample customer created:', customerUser.email)
@@ -298,7 +299,8 @@ async function seedDatabase() {
         const cust = await prisma.customer.create({
           data: {
             userId: custUser.id,
-            loyaltyTier: ['BRONZE', 'SILVER', 'GOLD'][i % 3] as any
+            loyaltyTier: ['BRONZE', 'SILVER', 'GOLD'][i % 3] as any,
+            referralCode: `REF${Date.now()}-${i}-${Math.random().toString(36).substring(7)}`
           }
         })
         additionalCustomers.push(cust)

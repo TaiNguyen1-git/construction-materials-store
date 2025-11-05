@@ -110,10 +110,23 @@ export async function PUT(
       trackingNumber
     })
 
-    // TODO: Send notification to customer
-    // if (updatedOrder.customer?.user?.email) {
-    //   await sendOrderStatusUpdateEmail(updatedOrder.customer.user.email, updatedOrder)
-    // }
+    // Send notification to customer
+    try {
+      const { createOrderStatusNotificationForCustomer } = await import('@/lib/notification-service')
+      await createOrderStatusNotificationForCustomer({
+        id: updatedOrder.id,
+        orderNumber: updatedOrder.orderNumber,
+        status: updatedOrder.status,
+        customer: updatedOrder.customer ? {
+          userId: updatedOrder.customer.userId
+        } : null
+      })
+    } catch (notifError: any) {
+      logger.error('Error creating order status notification for customer', { 
+        error: notifError.message, 
+        orderId 
+      })
+    }
 
     return NextResponse.json(
       createSuccessResponse(updatedOrder, 'Order status updated successfully'),

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { 
   Package, 
   Users, 
@@ -32,6 +32,7 @@ import {
   Star
 } from 'lucide-react'
 import NotificationBell from '@/components/NotificationBell'
+import { useAuth } from '@/contexts/auth-context'
 
 // Nhóm navigation theo category
 const navigationGroups = [
@@ -91,6 +92,8 @@ export default function AdminLayout({
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [expandedGroups, setExpandedGroups] = useState<string[]>(['Tổng Quan', 'Quản Lý Sản Phẩm', 'Bán Hàng', 'Nhân Sự'])
   const pathname = usePathname()
+  const router = useRouter()
+  const { logout } = useAuth()
   
   const toggleGroup = (groupName: string) => {
     setExpandedGroups(prev => 
@@ -98,6 +101,13 @@ export default function AdminLayout({
         ? prev.filter(name => name !== groupName)
         : [...prev, groupName]
     )
+  }
+
+  const handleLogout = () => {
+    if (confirm('Bạn có chắc chắn muốn đăng xuất?')) {
+      logout()
+      router.push('/login')
+    }
   }
 
   return (
@@ -259,7 +269,10 @@ export default function AdminLayout({
                     <User className="h-5 w-5 mr-1" />
                     Quản Trị
                   </button>
-                  <button className="flex items-center text-sm text-gray-700 hover:text-gray-900">
+                  <button 
+                    onClick={handleLogout}
+                    className="flex items-center text-sm text-gray-700 hover:text-gray-900 transition-colors"
+                  >
                     <LogOut className="h-5 w-5 mr-1" />
                     Đăng Xuất
                   </button>

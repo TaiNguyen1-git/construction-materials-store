@@ -31,6 +31,11 @@ export async function executeAnalyticsQuery(
   const lower = query.toLowerCase()
   
   try {
+    // Report queries (Báo cáo) - general report including revenue
+    if (lower.includes('báo cáo') || lower.includes('report')) {
+      return await getRevenueAnalytics(query, entities)
+    }
+    
     // Revenue queries
     if (lower.includes('doanh thu') || lower.includes('revenue')) {
       return await getRevenueAnalytics(query, entities)
@@ -76,6 +81,7 @@ export async function executeAnalyticsQuery(
       success: false,
       message: '❓ Không hiểu query. Vui lòng thử:\n\n' +
                '- "Doanh thu hôm nay"\n' +
+               '- "Báo cáo tuần này"\n' +
                '- "Bán bao nhiêu bao xi măng hôm nay"\n' +
                '- "Ai nghỉ hôm nay"\n' +
                '- "Tổng ứng lương tháng này"\n' +
@@ -118,6 +124,36 @@ async function getRevenueAnalytics(query: string, entities: ExtractedEntities): 
   const orderCount = orders.length
   const avgOrderValue = orderCount > 0 ? totalRevenue / orderCount : 0
   
+  // If no orders, return friendly message
+  if (orderCount === 0) {
+    const timeFrameLabel = getTimeFrameLabel(entities.timeFrame)
+    const lower = query.toLowerCase()
+    const isReport = lower.includes('báo cáo') || lower.includes('report')
+    const title = isReport ? `Báo Cáo ${timeFrameLabel}` : `Doanh Thu ${timeFrameLabel}`
+    
+    let message = `📊 **${title}**\n\n`
+    message += `❌ Không có dữ liệu bán hàng ${timeFrameLabel.toLowerCase()}.\n\n`
+    message += `📅 Thời gian: ${dateRange.from.toLocaleDateString('vi-VN')} - ${dateRange.to.toLocaleDateString('vi-VN')}\n\n`
+    message += `💡 **Gợi ý:**\n`
+    message += `- Kiểm tra lại khoảng thời gian\n`
+    message += `- Xem báo cáo tháng này hoặc năm nay\n`
+    message += `- Kiểm tra đơn hàng đang chờ xử lý`
+    
+    return {
+      success: true,
+      message,
+      data: {
+        totalRevenue: 0,
+        orderCount: 0,
+        avgOrderValue: 0,
+        revenueChange: 0,
+        statusCounts: {},
+        dateRange,
+        hasData: false
+      }
+    }
+  }
+  
   // Count by status
   const statusCounts: Record<string, number> = {}
   orders.forEach(order => {
@@ -142,10 +178,14 @@ async function getRevenueAnalytics(query: string, entities: ExtractedEntities): 
     ? ((totalRevenue - previousRevenue) / previousRevenue) * 100 
     : 0
   
-  let message = `📊 **Doanh Thu ${getTimeFrameLabel(entities.timeFrame)}**\n\n`
+  const lower = query.toLowerCase()
+  const isReport = lower.includes('báo cáo') || lower.includes('report')
+  const title = isReport ? `Báo Cáo ${getTimeFrameLabel(entities.timeFrame)}` : `Doanh Thu ${getTimeFrameLabel(entities.timeFrame)}`
+  
+  let message = `📊 **${title}**\n\n`
   message += `💰 Tổng doanh thu: **${totalRevenue.toLocaleString('vi-VN')}đ**\n`
   
-  if (revenueChange !== 0) {
+  if (revenueChange !== 0 && previousRevenue > 0) {
     const arrow = revenueChange > 0 ? '📈' : '📉'
     message += `${arrow} So với kỳ trước: ${revenueChange > 0 ? '+' : ''}${revenueChange.toFixed(1)}%\n`
   }
@@ -168,7 +208,8 @@ async function getRevenueAnalytics(query: string, entities: ExtractedEntities): 
       avgOrderValue,
       revenueChange,
       statusCounts,
-      dateRange
+      dateRange,
+      hasData: true
     }
   }
 }

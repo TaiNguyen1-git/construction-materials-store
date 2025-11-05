@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { Package, Heart, User, LogOut, ChevronDown } from 'lucide-react'
 import CartIcon from './CartIcon'
+import NotificationBell from './NotificationBell'
 import { useWishlistStore } from '@/stores/wishlistStore'
 import { useAuth } from '@/contexts/auth-context'
 import { useState } from 'react'
@@ -63,6 +64,9 @@ export default function Header() {
             
             {/* Cart Icon */}
             <CartIcon />
+            
+            {/* Notification Bell - Only show when authenticated */}
+            {isAuthenticated && <NotificationBell />}
             
             {/* User Menu or Login/Register */}
             {isAuthenticated && user ? (

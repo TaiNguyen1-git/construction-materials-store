@@ -53,7 +53,8 @@ export async function GET(request: NextRequest) {
 
   // Check database connection
   try {
-    await prisma.$queryRaw`SELECT 1`
+    // Simple query to test MongoDB connection
+    await prisma.user.count()
     health.checks.database.status = 'ok'
   } catch (error: any) {
     health.checks.database.status = 'error'

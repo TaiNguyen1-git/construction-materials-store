@@ -232,12 +232,23 @@ export async function POST(request: NextRequest) {
       if (intentResult.intent === 'ADMIN_ANALYTICS') {
         const analyticsResult = await executeAnalyticsQuery(message, entities)
         
+        // Determine suggestions based on whether there's data
+        let suggestions: string[] = []
+        if (analyticsResult.success && analyticsResult.data?.hasData === false) {
+          // No data - suggest alternatives
+          suggestions = ['Báo cáo tháng này', 'Báo cáo năm nay', 'Doanh thu hôm nay', 'Trợ giúp']
+        } else if (analyticsResult.success && analyticsResult.data) {
+          // Has data - show report actions
+          suggestions = ['Xuất báo cáo', 'Chi tiết hơn', 'So sánh kỳ trước']
+        } else {
+          // Error or unknown query
+          suggestions = ['Thử lại', 'Trợ giúp']
+        }
+        
         return NextResponse.json(
           createSuccessResponse({
             message: analyticsResult.message,
-            suggestions: analyticsResult.data ? 
-              ['Xuất báo cáo', 'Chi tiết hơn', 'So sánh kỳ trước'] : 
-              ['Thử lại', 'Trợ giúp'],
+            suggestions,
             confidence: analyticsResult.success ? 0.9 : 0.5,
             sessionId,
             timestamp: new Date().toISOString(),
@@ -712,12 +723,14 @@ async function handleAdminOrderManagement(message: string, entities: any, sessio
           ? order.guestName 
           : order.customer?.user.name || 'N/A'
         
+        responseMsg += `\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`
         responseMsg += `${idx + 1}. **${order.orderNumber}** ${isNew ? '⏰ MỚI' : ''}\n`
-        responseMsg += `   👤 ${customerName} ${order.customerType === 'GUEST' ? '(Khách vãng lai)' : ''}\n`
-        responseMsg += `   💰 ${order.netAmount.toLocaleString('vi-VN')}đ\n`
-        responseMsg += `   🕐 ${formatRelativeTime(order.createdAt)}\n`
-        responseMsg += `   📦 ${order.paymentMethod}\n\n`
+        responseMsg += `\n👤 Khách hàng: ${customerName} ${order.customerType === 'GUEST' ? '(Khách vãng lai)' : ''}\n`
+        responseMsg += `💰 Tổng tiền: **${order.netAmount.toLocaleString('vi-VN')}đ**\n`
+        responseMsg += `🕐 Thời gian: ${formatRelativeTime(order.createdAt)}\n`
+        responseMsg += `📦 Thanh toán: ${order.paymentMethod}\n`
       })
+      responseMsg += `\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`
       
       if (pendingOrders.length > 5) {
         responseMsg += `... và ${pendingOrders.length - 5} đơn khác\n\n`
@@ -742,11 +755,12 @@ async function handleAdminOrderManagement(message: string, entities: any, sessio
       )
     }
     
-    // Check for recent orders
-    if (lower.includes('mới nhất') || lower.includes('latest')) {
+    // Check for recent orders or all orders
+    if (lower.includes('mới nhất') || lower.includes('latest') || lower.includes('tất cả đơn')) {
+      const limit = lower.includes('tất cả đơn') ? 20 : 5
       const recentOrders = await prisma.order.findMany({
         orderBy: { createdAt: 'desc' },
-        take: 5,
+        take: limit,
         include: {
           customer: {
             include: { user: true }
@@ -754,27 +768,50 @@ async function handleAdminOrderManagement(message: string, entities: any, sessio
         }
       })
       
-      let responseMsg = `📦 **Đơn Hàng Mới Nhất**\n\n`
+      let responseMsg = lower.includes('tất cả đơn') 
+        ? `📦 **Tất Cả Đơn Hàng** (${recentOrders.length} đơn gần nhất)\n\n`
+        : `📦 **Đơn Hàng Mới Nhất**\n\n`
+      
+      if (recentOrders.length === 0) {
+        responseMsg += `❌ Không có đơn hàng nào.\n\n`
+        
+        return NextResponse.json(
+          createSuccessResponse({
+            message: responseMsg,
+            suggestions: ['Đơn chờ xử lý', 'Doanh thu hôm nay'],
+            confidence: 1.0,
+            sessionId,
+            timestamp: new Date().toISOString()
+          })
+        )
+      }
       
       recentOrders.forEach((order, idx) => {
         const customerName = order.customerType === 'GUEST' 
           ? order.guestName 
           : order.customer?.user.name || 'N/A'
         
+        responseMsg += `\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`
         responseMsg += `${idx + 1}. **${order.orderNumber}**\n`
-        responseMsg += `   ${getStatusEmoji(order.status)} ${getStatusLabel(order.status)}\n`
-        responseMsg += `   👤 ${customerName}\n`
-        responseMsg += `   💰 ${order.netAmount.toLocaleString('vi-VN')}đ\n`
-        responseMsg += `   🕐 ${formatRelativeTime(order.createdAt)}\n\n`
+        responseMsg += `\n${getStatusEmoji(order.status)} **${getStatusLabel(order.status)}**\n`
+        responseMsg += `👤 Khách hàng: ${customerName}\n`
+        responseMsg += `💰 Tổng tiền: **${order.netAmount.toLocaleString('vi-VN')}đ**\n`
+        responseMsg += `🕐 Thời gian: ${formatRelativeTime(order.createdAt)}\n`
       })
+      responseMsg += `\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`
+      
+      if (lower.includes('tất cả đơn') && recentOrders.length === 20) {
+        responseMsg += `💡 Đang hiển thị 20 đơn hàng gần nhất. Vào trang quản lý để xem thêm.\n\n`
+      }
       
       return NextResponse.json(
         createSuccessResponse({
           message: responseMsg,
-          suggestions: ['Đơn chờ xử lý', 'Doanh thu hôm nay'],
+          suggestions: ['Đơn chờ xử lý', 'Doanh thu hôm nay', 'Chi tiết hơn'],
           confidence: 1.0,
           sessionId,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
+          data: { orders: recentOrders }
         })
       )
     }
@@ -1327,6 +1364,53 @@ async function handleOrderCreation(sessionId: string, customerId: string | undef
 
     clearConversationState(sessionId)
 
+    // Create notification for admin about new order
+    try {
+      const { createOrderNotification } = await import('@/lib/notification-service')
+      const orderWithCustomer = await prisma.order.findUnique({
+        where: { id: result.order.id },
+        include: {
+          customer: {
+            include: {
+              user: {
+                select: {
+                  name: true,
+                  email: true,
+                  id: true
+                }
+              }
+            }
+          }
+        }
+      })
+      if (orderWithCustomer) {
+        await createOrderNotification({
+          id: orderWithCustomer.id,
+          orderNumber: orderWithCustomer.orderNumber,
+          netAmount: orderWithCustomer.netAmount,
+          customerType: orderWithCustomer.customerType,
+          guestName: orderWithCustomer.guestName,
+          guestPhone: orderWithCustomer.guestPhone,
+          customer: orderWithCustomer.customer
+        })
+
+        // Create notification for customer about successful order (if registered)
+        if (orderWithCustomer.customer?.userId) {
+          const { createOrderStatusNotificationForCustomer } = await import('@/lib/notification-service')
+          await createOrderStatusNotificationForCustomer({
+            id: orderWithCustomer.id,
+            orderNumber: orderWithCustomer.orderNumber,
+            status: orderWithCustomer.status,
+            customer: {
+              userId: orderWithCustomer.customer.userId
+            }
+          })
+        }
+      }
+    } catch (notifError: any) {
+      console.error('Error creating order notification:', notifError)
+    }
+
     return NextResponse.json(
       createSuccessResponse({
         message: `✅ Đặt hàng thành công! Mã đơn: **${result.order.orderNumber}**\n\n` +
@@ -1341,9 +1425,13 @@ async function handleOrderCreation(sessionId: string, customerId: string | undef
                  `2. Sau khi xác nhận, ${isGuest ? 'chúng tôi sẽ gọi điện xác nhận' : 'bạn sẽ thấy mã QR thanh toán'}\n` +
                  `3. ${isGuest ? 'Chuyển khoản theo hướng dẫn' : 'Chuyển khoản theo QR để hoàn tất đơn'}\n\n` +
                  (isGuest 
-                   ? `📞 Chúng tôi sẽ liên hệ qua SĐT **${customerInfo.phone}** để xác nhận!` 
+                   ? `📞 Chúng tôi sẽ liên hệ qua SĐT **${customerInfo.phone}** để xác nhận!\n\n` +
+                     `📋 **Lưu mã đơn hàng:** ${result.order.orderNumber}\n` +
+                     `💡 Bạn có thể theo dõi đơn hàng tại: /order-tracking?orderNumber=${result.order.orderNumber}`
                    : `👉 Nhấn "Xem chi tiết" để theo dõi đơn hàng!`),
-        suggestions: isGuest ? ['OK', 'Tiếp tục mua sắm'] : ['Xem chi tiết', 'Tiếp tục mua sắm'],
+        suggestions: isGuest 
+          ? ['Xem đơn hàng', 'Lưu mã đơn', 'Tiếp tục mua sắm'] 
+          : ['Xem chi tiết', 'Tiếp tục mua sắm'],
         confidence: 1.0,
         sessionId,
         timestamp: new Date().toISOString(),
@@ -1354,7 +1442,7 @@ async function handleOrderCreation(sessionId: string, customerId: string | undef
           depositAmount: result.order.depositAmount,
           totalAmount: result.order.netAmount,
           isGuest,
-          trackingUrl: isGuest ? null : `/order-tracking?orderId=${result.order.id}`
+          trackingUrl: `/order-tracking?orderNumber=${encodeURIComponent(result.order.orderNumber)}`
         }
       })
     )

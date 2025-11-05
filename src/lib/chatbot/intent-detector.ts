@@ -197,8 +197,10 @@ export function detectIntent(
       lower.includes('xác nhận đơn') ||
       lower.includes('duyệt đơn') ||
       lower.includes('confirm order') ||
-      (lower.includes('đơn hàng') && (lower.includes('xác nhận') || lower.includes('duyệt') || lower.includes('từ chối') || lower.includes('chờ') || lower.includes('mới nhất') || lower.includes('recent'))) ||
-      (lower.includes('đơn') && (lower.includes('chờ') || lower.includes('duyệt') || lower.includes('xác nhận') || lower.includes('xử lý')))
+      lower.includes('tất cả đơn') ||
+      lower.includes('all orders') ||
+      (lower.includes('đơn hàng') && (lower.includes('xác nhận') || lower.includes('duyệt') || lower.includes('từ chối') || lower.includes('chờ') || lower.includes('mới nhất') || lower.includes('recent') || lower.includes('tất cả') || lower.includes('all'))) ||
+      (lower.includes('đơn') && (lower.includes('chờ') || lower.includes('duyệt') || lower.includes('xác nhận') || lower.includes('xử lý') || lower.includes('tất cả')))
     ) {
       return {
         intent: 'ADMIN_ORDER_MANAGE',

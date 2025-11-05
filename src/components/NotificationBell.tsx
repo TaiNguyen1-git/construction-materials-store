@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { Bell, X, CheckCircle, AlertTriangle, Info } from 'lucide-react'
-import { NotificationService } from '@/lib/notification-service'
+import { getAuthHeaders } from '@/lib/api-client'
 
 interface Notification {
   id: string
@@ -20,43 +20,151 @@ export default function NotificationBell() {
   const [isOpen, setIsOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
 
-  // Fetch notifications from API
+  // Real-time notifications using Server-Sent Events (SSE)
   useEffect(() => {
-    const fetchNotifications = async () => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null
+    if (!token && process.env.NODE_ENV === 'production') return
+
+    let abortController: AbortController | null = null
+    let reader: ReadableStreamDefaultReader<Uint8Array> | null = null
+    let fallbackInterval: NodeJS.Timeout | null = null
+
+    const setupSSE = async () => {
       try {
-        const response = await fetch('/api/notifications')
-        if (response.ok) {
-          const result = await response.json()
-          if (result.success && result.data) {
-            const notifs = result.data.notifications.map((n: any) => ({
-              id: n.id,
-              title: n.title,
-              message: n.message,
-              type: n.type,
-              priority: n.priority,
-              read: n.isRead || false,
-              createdAt: n.createdAt
-            }))
-            setNotifications(notifs)
-            setUnreadCount(result.data.unreadCount || notifs.filter((n: any) => !n.read).length)
+        const headers = getAuthHeaders()
+        abortController = new AbortController()
+
+        const response = await fetch('/api/notifications/stream', {
+          headers: {
+            ...headers,
+            'Accept': 'text/event-stream'
+          },
+          signal: abortController.signal
+        })
+
+        if (!response.ok || !response.body) {
+          throw new Error('SSE connection failed')
+        }
+
+        reader = response.body.getReader()
+        const decoder = new TextDecoder()
+
+        const readStream = async () => {
+          try {
+            while (true) {
+              const { done, value } = await reader!.read()
+              
+              if (done) {
+                setTimeout(() => {
+                  if (!abortController?.signal.aborted) {
+                    setupSSE()
+                  }
+                }, 2000)
+                break
+              }
+
+              const chunk = decoder.decode(value, { stream: true })
+              const lines = chunk.split('\n')
+
+              for (const line of lines) {
+                if (line.startsWith('data: ')) {
+                  try {
+                    const data = JSON.parse(line.slice(6))
+                    
+                    if (data.type === 'notifications' && data.data) {
+                      const notifs = data.data.notifications.map((n: any) => ({
+                        id: n.id,
+                        title: n.title,
+                        message: n.message,
+                        type: n.type,
+                        priority: n.priority,
+                        read: n.isRead ?? n.read ?? false,
+                        createdAt: n.createdAt
+                      }))
+                      setNotifications(notifs)
+                      setUnreadCount(data.data.unreadCount || notifs.filter((n: any) => !n.read).length)
+                    }
+                  } catch (e) {
+                    // Ignore parse errors
+                  }
+                }
+              }
+            }
+          } catch (error: any) {
+            if (error.name !== 'AbortError') {
+              setupFallbackPolling()
+            }
           }
         }
-      } catch (error) {
-        console.error('Failed to fetch notifications:', error)
+
+        readStream()
+      } catch (error: any) {
+        if (error.name !== 'AbortError') {
+          setupFallbackPolling()
+        }
       }
     }
 
-    fetchNotifications()
-    
-    // Poll for notifications every 30 seconds for real-time updates
-    const interval = setInterval(fetchNotifications, 30000)
-    
-    return () => clearInterval(interval)
+    const setupFallbackPolling = () => {
+      const fetchNotifications = async () => {
+        try {
+          setIsLoading(true)
+          const headers = getAuthHeaders()
+          
+          const response = await fetch('/api/notifications', {
+            headers: {
+              ...headers,
+              'Content-Type': 'application/json'
+            }
+          })
+          
+          if (response.ok) {
+            const result = await response.json()
+            
+            if (result.success && result.data) {
+              const notifs = result.data.notifications.map((n: any) => ({
+                id: n.id,
+                title: n.title,
+                message: n.message,
+                type: n.type,
+                priority: n.priority,
+                read: n.isRead !== undefined ? n.isRead : (n.read !== undefined ? n.read : false),
+                createdAt: n.createdAt
+              }))
+              
+              setNotifications(notifs)
+              setUnreadCount(result.data.unreadCount || notifs.filter((n: any) => !n.read).length)
+            }
+          }
+        } catch (error) {
+          // Silent fail
+        } finally {
+          setIsLoading(false)
+        }
+      }
+
+      fetchNotifications()
+      fallbackInterval = setInterval(fetchNotifications, 10000)
+    }
+
+    setupFallbackPolling()
+    setupSSE()
+
+    return () => {
+      if (abortController) {
+        abortController.abort()
+      }
+      if (reader) {
+        reader.cancel()
+      }
+      if (fallbackInterval) {
+        clearInterval(fallbackInterval)
+      }
+    }
   }, [])
 
   const markAsRead = async (id: string) => {
     try {
-      // Skip API call for realtime notifications (they aren't persisted)
       if (id.startsWith('realtime-')) {
         setNotifications(notifications.map(n => 
           n.id === id ? { ...n, read: true } : n
@@ -65,9 +173,13 @@ export default function NotificationBell() {
         return
       }
 
+      const headers = getAuthHeaders()
       const response = await fetch('/api/notifications', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          ...headers,
+          'Content-Type': 'application/json'
+        },
         body: JSON.stringify({ notificationId: id })
       })
       
@@ -78,29 +190,36 @@ export default function NotificationBell() {
         setUnreadCount(Math.max(0, unreadCount - 1))
       }
     } catch (error) {
-      console.error('Failed to mark notification as read:', error)
+      // Silent fail
     }
   }
 
   const markAllAsRead = async () => {
     try {
-      // Mark all persisted notifications as read via API
       const persistedNotifications = notifications.filter(n => !n.id.startsWith('realtime-'))
       
-      await Promise.all(
+      const headers = getAuthHeaders()
+      const results = await Promise.all(
         persistedNotifications.map(n => 
           fetch('/api/notifications', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+              ...headers,
+              'Content-Type': 'application/json'
+            },
             body: JSON.stringify({ notificationId: n.id })
           })
         )
       )
-      
-      setNotifications(notifications.map(n => ({ ...n, read: true })))
-      setUnreadCount(0)
+
+      // Only update state if all requests succeeded
+      const allSucceeded = results.every(r => r.ok)
+      if (allSucceeded) {
+        setNotifications(notifications.map(n => ({ ...n, read: true })))
+        setUnreadCount(0)
+      }
     } catch (error) {
-      console.error('Failed to mark all notifications as read:', error)
+      // Silent fail
     }
   }
 
@@ -111,28 +230,30 @@ export default function NotificationBell() {
         setUnreadCount(Math.max(0, unreadCount - 1))
       }
       
-      // Remove from local state immediately for better UX
       setNotifications(notifications.filter(n => n.id !== id))
       
-      // Skip API call for realtime notifications
       if (id.startsWith('realtime-')) {
         return
       }
 
-      // Delete from database
+      const headers = getAuthHeaders()
       await fetch(`/api/notifications/${id}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers
       })
     } catch (error) {
-      console.error('Failed to delete notification:', error)
+      // Silent fail
     }
   }
 
   const getNotificationIcon = (type: string) => {
     switch (type) {
       case 'STOCK_ALERT':
+      case 'LOW_STOCK':
+      case 'REORDER_NEEDED':
         return <AlertTriangle className="w-5 h-5 text-red-500" />
       case 'ORDER_UPDATE':
+      case 'ORDER_NEW':
         return <CheckCircle className="w-5 h-5 text-green-500" />
       case 'PAYMENT_UPDATE':
         return <CheckCircle className="w-5 h-5 text-blue-500" />
@@ -170,22 +291,26 @@ export default function NotificationBell() {
         <div className="absolute right-0 mt-2 w-80 bg-white rounded-md shadow-lg z-50 border border-gray-200">
           <div className="p-4 border-b border-gray-200">
             <div className="flex justify-between items-center">
-              <h3 className="text-lg font-medium text-gray-900">Notifications</h3>
+              <h3 className="text-lg font-medium text-gray-900">Thông Báo</h3>
               {unreadCount > 0 && (
                 <button
                   onClick={markAllAsRead}
                   className="text-sm text-blue-600 hover:text-blue-800"
                 >
-                  Mark all as read
+                  Đánh dấu tất cả đã đọc
                 </button>
               )}
             </div>
           </div>
 
           <div className="max-h-96 overflow-y-auto">
-            {notifications.length === 0 ? (
+            {isLoading ? (
               <div className="p-4 text-center text-gray-500">
-                No notifications
+                Đang tải thông báo...
+              </div>
+            ) : notifications.length === 0 ? (
+              <div className="p-4 text-center text-gray-500">
+                Không có thông báo
               </div>
             ) : (
               notifications.map((notification) => (
@@ -206,7 +331,7 @@ export default function NotificationBell() {
                           {notification.message}
                         </p>
                         <p className="text-xs text-gray-400 mt-1">
-                          {new Date(notification.createdAt).toLocaleString()}
+                          {new Date(notification.createdAt).toLocaleString('vi-VN')}
                         </p>
                       </div>
                     </div>
@@ -215,7 +340,7 @@ export default function NotificationBell() {
                         <button
                           onClick={() => markAsRead(notification.id)}
                           className="text-gray-400 hover:text-gray-600"
-                          title="Mark as read"
+                          title="Đánh dấu đã đọc"
                         >
                           <CheckCircle className="w-4 h-4" />
                         </button>
@@ -223,7 +348,7 @@ export default function NotificationBell() {
                       <button
                         onClick={() => deleteNotification(notification.id)}
                         className="text-gray-400 hover:text-red-600"
-                        title="Delete"
+                        title="Xóa"
                       >
                         <X className="w-4 h-4" />
                       </button>
@@ -236,7 +361,7 @@ export default function NotificationBell() {
 
           <div className="p-4 border-t border-gray-200 text-center">
             <button className="text-sm text-blue-600 hover:text-blue-800">
-              View all notifications
+              Xem tất cả thông báo
             </button>
           </div>
         </div>

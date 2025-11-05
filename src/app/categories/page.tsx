@@ -8,10 +8,15 @@ import Header from '@/components/Header'
 interface Category {
   id: string
   name: string
-  description: string
-  productCount: number
+  description?: string
+  productCount?: number
+  _count?: {
+    products: number
+  }
   image?: string
   subcategories?: Category[]
+  children?: Category[]
+  isActive?: boolean
 }
 
 export default function CategoriesPage() {
@@ -28,10 +33,27 @@ export default function CategoriesPage() {
       const response = await fetch('/api/categories')
       if (response.ok) {
         const data = await response.json()
-        setCategories(data.data || [])
+        const categoriesData = data.data || []
+        
+        // Map API response to match frontend interface
+        const mappedCategories = categoriesData
+          .filter((cat: Category) => cat.isActive !== false) // Only show active categories
+          .map((cat: Category) => ({
+            id: cat.id,
+            name: cat.name,
+            description: cat.description || '',
+            productCount: cat._count?.products || 0,
+            children: cat.children || [],
+            isActive: cat.isActive
+          }))
+        
+        setCategories(mappedCategories)
+      } else {
+        setCategories([])
       }
     } catch (error) {
       console.error('Failed to fetch categories:', error)
+      setCategories([])
     } finally {
       setLoading(false)
     }
@@ -74,10 +96,11 @@ export default function CategoriesPage() {
         {loading ? (
           <div className={`grid gap-6 ${viewMode === 'grid' ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3' : 'grid-cols-1'}`}>
             {[...Array(6)].map((_, i) => (
-              <div key={i} className="bg-white rounded-lg shadow-sm p-6 animate-pulse">
-                <div className="bg-gray-200 h-32 rounded-lg mb-4"></div>
-                <div className="bg-gray-200 h-4 rounded mb-2"></div>
-                <div className="bg-gray-200 h-3 rounded w-3/4"></div>
+              <div key={i} className="bg-white rounded-xl shadow-lg p-6 animate-pulse border border-gray-100">
+                <div className="bg-gradient-to-br from-blue-100 to-blue-200 h-40 rounded-xl mb-4"></div>
+                <div className="bg-gray-200 h-5 rounded mb-2"></div>
+                <div className="bg-gray-200 h-4 rounded w-3/4 mb-4"></div>
+                <div className="bg-gray-200 h-4 rounded w-1/3"></div>
               </div>
             ))}
           </div>
@@ -87,36 +110,59 @@ export default function CategoriesPage() {
               <Link
                 key={category.id}
                 href={`/products?category=${category.id}`}
-                className="group bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow overflow-hidden"
+                className="group bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-100 hover:border-primary-300 hover:scale-105"
               >
-                <div className="aspect-w-16 aspect-h-9 bg-gray-200">
+                <div className="relative bg-gradient-to-br from-primary-100 via-primary-200 to-secondary-200 h-40 flex items-center justify-center overflow-hidden">
                   {category.image ? (
                     <img
                       src={category.image}
                       alt={category.name}
-                      className="w-full h-32 object-cover group-hover:scale-105 transition-transform duration-200"
+                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
                     />
                   ) : (
-                    <div className="w-full h-32 bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center">
-                      <Package className="h-12 w-12 text-blue-600" />
+                    <div className="w-full h-full flex items-center justify-center">
+                      <Package className="h-16 w-16 text-primary-600 group-hover:scale-110 transition-transform duration-300" />
+                    </div>
+                  )}
+                  {category.productCount !== undefined && category.productCount > 0 && (
+                    <div className="absolute top-3 right-3 bg-primary-600 text-white px-3 py-1 rounded-full text-xs font-bold">
+                      {category.productCount} sản phẩm
                     </div>
                   )}
                 </div>
                 <div className="p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2 group-hover:text-blue-600 transition-colors">
+                  <h3 className="text-xl font-bold text-gray-900 mb-2 group-hover:text-primary-600 transition-colors">
                     {category.name}
                   </h3>
-                  <p className="text-gray-600 text-sm mb-4">
+                  <p className="text-gray-600 text-sm mb-4 line-clamp-2">
                     {category.description || 'Khám phá các sản phẩm trong danh mục này'}
                   </p>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-500">
-                      {category.productCount || 0} sản phẩm
+                  <div className="flex items-center justify-between pt-4 border-t border-gray-100">
+                    <span className="text-sm font-semibold text-gray-600">
+                      {category.productCount !== undefined ? `${category.productCount} sản phẩm` : 'Xem sản phẩm'}
                     </span>
-                    <span className="text-blue-600 text-sm font-medium">
-                      Xem tất cả →
+                    <span className="text-primary-600 text-sm font-bold group-hover:text-primary-700 transition-colors flex items-center gap-1">
+                      Xem tất cả
+                      <svg className="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
                     </span>
                   </div>
+                  {category.children && category.children.length > 0 && (
+                    <div className="mt-3 pt-3 border-t border-gray-100">
+                      <p className="text-xs text-gray-500 mb-2">Danh mục con:</p>
+                      <div className="flex flex-wrap gap-2">
+                        {category.children.slice(0, 3).map((child: Category) => (
+                          <span key={child.id} className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded">
+                            {child.name}
+                          </span>
+                        ))}
+                        {category.children.length > 3 && (
+                          <span className="text-xs text-gray-500">+{category.children.length - 3} khác</span>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </Link>
             ))}

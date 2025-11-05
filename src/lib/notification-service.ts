@@ -11,12 +11,14 @@
 import { prisma } from './prisma'
 
 export interface Notification {
-  type: 'LOW_STOCK' | 'REORDER_NEEDED' | 'PREDICTION_ALERT' | 'MONTHLY_REMINDER'
+  type: 'LOW_STOCK' | 'REORDER_NEEDED' | 'PREDICTION_ALERT' | 'MONTHLY_REMINDER' | 'ORDER_NEW' | 'ORDER_UPDATE'
   priority: 'HIGH' | 'MEDIUM' | 'LOW'
   title: string
   message: string
   productId?: string
   productName?: string
+  orderId?: string
+  orderNumber?: string
   data?: any
 }
 
@@ -240,28 +242,57 @@ export async function getAllNotifications(): Promise<Notification[]> {
 }
 
 /**
- * Save notification to database
+ * Save notification to database for a specific user
  */
-export async function saveNotification(notification: Notification) {
-  // Save to database
-  const userId = await prisma.user.findFirst({
+export async function saveNotificationForUser(notification: Notification, userId: string) {
+  await prisma.notification.create({
+    data: {
+      userId,
+      type: notification.type as any,
+      title: notification.title,
+      message: notification.message,
+      priority: notification.priority as any,
+      read: false,
+      referenceId: notification.orderId || notification.productId,
+      referenceType: notification.orderId ? 'ORDER' : notification.productId ? 'PRODUCT' : null,
+      metadata: notification.data || {}
+    }
+  })
+}
+
+/**
+ * Save notification to database for all managers
+ */
+export async function saveNotificationForAllManagers(notification: Notification) {
+  // Get all managers
+  const managers = await prisma.user.findMany({
     where: { role: 'MANAGER' },
     select: { id: true }
   })
 
-  if (!userId) return
+  if (managers.length === 0) return
 
-  await prisma.notification.create({
-    data: {
-      userId: userId.id,
-      type: notification.type,
+  // Create notifications for all managers
+  await prisma.notification.createMany({
+    data: managers.map(manager => ({
+      userId: manager.id,
+      type: notification.type as any,
       title: notification.title,
       message: notification.message,
-      priority: notification.priority,
-      isRead: false,
-      data: notification.data || {}
-    }
+      priority: notification.priority as any,
+      read: false,
+      referenceId: notification.orderId || notification.productId,
+      referenceType: notification.orderId ? 'ORDER' : notification.productId ? 'PRODUCT' : null,
+      metadata: notification.data || {}
+    }))
   })
+}
+
+/**
+ * Save notification to database (for backward compatibility)
+ */
+export async function saveNotification(notification: Notification) {
+  await saveNotificationForAllManagers(notification)
 }
 
 /**
@@ -276,4 +307,82 @@ export async function sendNotification(notification: Notification) {
   // TODO: Send SMS (if critical)
 
   console.log(`📬 Notification sent: ${notification.title}`)
+}
+
+/**
+ * Create notification for new order
+ */
+export async function createOrderNotification(order: {
+  id: string
+  orderNumber: string
+  netAmount: number
+  customerType: string
+  guestName?: string | null
+  guestPhone?: string | null
+  customer?: { user?: { name?: string | null; email?: string | null } | null } | null
+}) {
+  const customerName = order.customerType === 'GUEST' 
+    ? order.guestName || 'Khách vãng lai'
+    : order.customer?.user?.name || 'Khách hàng'
+
+  const notification: Notification = {
+    type: 'ORDER_NEW',
+    priority: 'HIGH',
+    title: `🛒 Đơn hàng mới: ${order.orderNumber}`,
+    message: `Khách hàng ${customerName} vừa đặt hàng với tổng tiền ${order.netAmount.toLocaleString('vi-VN')}đ`,
+    orderId: order.id,
+    orderNumber: order.orderNumber,
+    data: {
+      orderId: order.id,
+      orderNumber: order.orderNumber,
+      netAmount: order.netAmount,
+      customerName,
+      customerType: order.customerType
+    }
+  }
+
+  await saveNotificationForAllManagers(notification)
+  console.log(`📬 Order notification created: ${order.orderNumber}`)
+}
+
+/**
+ * Create notification for order status update (for customer)
+ */
+export async function createOrderStatusNotificationForCustomer(order: {
+  id: string
+  orderNumber: string
+  status: string
+  customer?: { userId?: string | null } | null
+}) {
+  if (!order.customer?.userId) return
+
+  const statusMessages: Record<string, string> = {
+    'PENDING_CONFIRMATION': 'đang chờ xác nhận',
+    'CONFIRMED': 'đã được xác nhận',
+    'PREPARING': 'đang chuẩn bị',
+    'SHIPPED': 'đã gửi hàng',
+    'DELIVERED': 'đã giao hàng',
+    'COMPLETED': 'đã hoàn thành',
+    'CANCELLED': 'đã hủy',
+    'RETURNED': 'đã trả hàng'
+  }
+
+  const statusMessage = statusMessages[order.status] || order.status
+
+  const notification: Notification = {
+    type: 'ORDER_UPDATE',
+    priority: 'MEDIUM',
+    title: `📦 Cập nhật đơn hàng: ${order.orderNumber}`,
+    message: `Đơn hàng của bạn ${statusMessage}`,
+    orderId: order.id,
+    orderNumber: order.orderNumber,
+    data: {
+      orderId: order.id,
+      orderNumber: order.orderNumber,
+      status: order.status
+    }
+  }
+
+  await saveNotificationForUser(notification, order.customer.userId)
+  console.log(`📬 Order status notification created for customer: ${order.orderNumber}`)
 }

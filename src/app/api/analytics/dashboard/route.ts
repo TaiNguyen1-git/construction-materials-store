@@ -41,50 +41,83 @@ export async function GET(request: NextRequest) {
       })
     ])
 
-    // 2. Revenue Trend (last 30 days)
-    const revenueTrend = await prisma.$queryRaw<Array<{ date: Date; revenue: number }>>`
-      SELECT 
-        DATE("createdAt") as date,
-        SUM("totalAmount") as revenue
-      FROM "orders"
-      WHERE "createdAt" >= ${startDate}
-        AND "status" IN ('DELIVERED', 'SHIPPED')
-      GROUP BY DATE("createdAt")
-      ORDER BY date ASC
-    `
+    // 2. Revenue Trend (last 30 days) - Using Prisma aggregation
+    const orders = await prisma.order.findMany({
+      where: {
+        createdAt: { gte: startDate },
+        status: { in: ['DELIVERED', 'SHIPPED'] }
+      },
+      select: {
+        createdAt: true,
+        totalAmount: true
+      }
+    })
 
-    // 3. Sales by Category
-    const salesByCategory = await prisma.$queryRaw<Array<{ category: string; total: number; count: number }>>`
-      SELECT 
-        c.name as category,
-        SUM(oi."totalPrice") as total,
-        SUM(oi.quantity) as count
-      FROM "order_items" oi
-      JOIN "products" p ON oi."productId" = p.id
-      JOIN "categories" c ON p."categoryId" = c.id
-      JOIN "orders" o ON oi."orderId" = o.id
-      WHERE o."createdAt" >= ${startDate}
-        AND o.status IN ('DELIVERED', 'SHIPPED')
-      GROUP BY c.name
-      ORDER BY total DESC
-      LIMIT 10
-    `
+    // Group by date and sum revenue
+    const revenueByDate = new Map<string, number>()
+    orders.forEach(order => {
+      const dateKey = order.createdAt.toISOString().split('T')[0]
+      revenueByDate.set(dateKey, (revenueByDate.get(dateKey) || 0) + order.totalAmount)
+    })
 
-    // 4. Top Products
-    const topProducts = await prisma.$queryRaw<Array<{ name: string; quantity: number; revenue: number }>>`
-      SELECT 
-        p.name,
-        SUM(oi.quantity) as quantity,
-        SUM(oi."totalPrice") as revenue
-      FROM "order_items" oi
-      JOIN "products" p ON oi."productId" = p.id
-      JOIN "orders" o ON oi."orderId" = o.id
-      WHERE o."createdAt" >= ${startDate}
-        AND o.status IN ('DELIVERED', 'SHIPPED')
-      GROUP BY p.id, p.name
-      ORDER BY revenue DESC
-      LIMIT 10
-    `
+    const revenueTrend = Array.from(revenueByDate.entries())
+      .map(([date, revenue]) => ({
+        date: new Date(date),
+        revenue
+      }))
+      .sort((a, b) => a.date.getTime() - b.date.getTime())
+
+    // 3. Sales by Category - Using Prisma queries
+    const orderItems = await prisma.orderItem.findMany({
+      where: {
+        order: {
+          createdAt: { gte: startDate },
+          status: { in: ['DELIVERED', 'SHIPPED'] }
+        }
+      },
+      include: {
+        product: {
+          include: {
+            category: {
+              select: {
+                name: true
+              }
+            }
+          }
+        }
+      }
+    })
+
+    const salesByCategoryMap = new Map<string, { total: number; count: number }>()
+    orderItems.forEach(item => {
+      const categoryName = item.product.category.name
+      const existing = salesByCategoryMap.get(categoryName) || { total: 0, count: 0 }
+      salesByCategoryMap.set(categoryName, {
+        total: existing.total + item.totalPrice,
+        count: existing.count + item.quantity
+      })
+    })
+
+    const salesByCategory = Array.from(salesByCategoryMap.entries())
+      .map(([category, data]) => ({ category, ...data }))
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 10)
+
+    // 4. Top Products - Using Prisma queries
+    const productSalesMap = new Map<string, { name: string; quantity: number; revenue: number }>()
+    orderItems.forEach(item => {
+      const productId = item.productId
+      const existing = productSalesMap.get(productId) || { name: item.product.name, quantity: 0, revenue: 0 }
+      productSalesMap.set(productId, {
+        name: existing.name,
+        quantity: existing.quantity + item.quantity,
+        revenue: existing.revenue + item.totalPrice
+      })
+    })
+
+    const topProducts = Array.from(productSalesMap.values())
+      .sort((a, b) => b.revenue - a.revenue)
+      .slice(0, 10)
 
     // 5. Inventory Status
     const inventoryStatus = await prisma.inventoryItem.findMany({
@@ -135,20 +168,39 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    // 8. Employee Performance (by tasks completed)
-    const employeePerformance = await prisma.$queryRaw<Array<{ name: string; completed: number; total: number }>>`
-      SELECT 
-        u.name,
-        COUNT(CASE WHEN et.status = 'COMPLETED' THEN 1 END) as completed,
-        COUNT(*) as total
-      FROM "employees" e
-      JOIN "users" u ON e."userId" = u.id
-      LEFT JOIN "employee_tasks" et ON e.id = et."employeeId"
-      WHERE et."createdAt" >= ${startDate}
-      GROUP BY e.id, u.name
-      ORDER BY completed DESC
-      LIMIT 10
-    `
+    // 8. Employee Performance (by tasks completed) - Using Prisma queries
+    const tasks = await prisma.employeeTask.findMany({
+      where: {
+        createdAt: { gte: startDate }
+      },
+      include: {
+        employee: {
+          include: {
+            user: {
+              select: {
+                name: true
+              }
+            }
+          }
+        }
+      }
+    })
+
+    const employeePerfMap = new Map<string, { name: string; completed: number; total: number }>()
+    tasks.forEach(task => {
+      const employeeId = task.employeeId
+      const userName = task.employee.user.name
+      const existing = employeePerfMap.get(employeeId) || { name: userName, completed: 0, total: 0 }
+      employeePerfMap.set(employeeId, {
+        name: existing.name,
+        completed: existing.completed + (task.status === 'COMPLETED' ? 1 : 0),
+        total: existing.total + 1
+      })
+    })
+
+    const employeePerformance = Array.from(employeePerfMap.values())
+      .sort((a, b) => b.completed - a.completed)
+      .slice(0, 10)
 
     return NextResponse.json({
       success: true,

@@ -359,6 +359,45 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Create notification for admin about new order
+    try {
+      const { createOrderNotification } = await import('@/lib/notification-service')
+      await createOrderNotification({
+        id: order.id,
+        orderNumber: order.orderNumber,
+        netAmount: order.netAmount,
+        customerType: order.customerType,
+        guestName: order.guestName,
+        guestPhone: order.guestPhone,
+        customer: order.customer
+      })
+    } catch (notifError: any) {
+      logger.error('Error creating order notification', { 
+        error: notifError.message, 
+        orderId: order.id 
+      })
+    }
+
+    // Create notification for customer about successful order
+    if (userId && order.customer) {
+      try {
+        const { createOrderStatusNotificationForCustomer } = await import('@/lib/notification-service')
+        await createOrderStatusNotificationForCustomer({
+          id: order.id,
+          orderNumber: order.orderNumber,
+          status: order.status,
+          customer: {
+            userId: userId
+          }
+        })
+      } catch (notifError: any) {
+        logger.error('Error creating customer order notification', { 
+          error: notifError.message, 
+          orderId: order.id 
+        })
+      }
+    }
+
     const duration = Date.now() - startTime
     logger.info('Order created', { 
       orderId: order.id, 

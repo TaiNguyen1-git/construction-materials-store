@@ -22,12 +22,22 @@ async function main() {
   await prisma.order.deleteMany({})
   await prisma.invoiceItem.deleteMany({})
   await prisma.invoice.deleteMany({})
+  await prisma.payment.deleteMany({})
+  await prisma.purchaseItem.deleteMany({})
+  await prisma.purchaseOrder.deleteMany({})
+  await prisma.inventoryMovement.deleteMany({})
+  await prisma.inventoryHistory.deleteMany({})
   await prisma.inventoryItem.deleteMany({})
+  await prisma.productReview.deleteMany({})
   await prisma.product.deleteMany({})
+  await prisma.payrollRecord.deleteMany({})
+  await prisma.salaryAdvance.deleteMany({})
+  await prisma.employeeTask.deleteMany({})
+  await prisma.workShift.deleteMany({})
+  await prisma.employee.deleteMany({})
+  await prisma.customer.deleteMany({})
   await prisma.supplier.deleteMany({})
   await prisma.category.deleteMany({})
-  await prisma.customer.deleteMany({})
-  await prisma.employee.deleteMany({})
   await prisma.user.deleteMany({})
   console.log('✅ Cleared existing data')
 
@@ -411,7 +421,8 @@ async function main() {
         loyaltyPoints: Math.floor(Math.random() * 5000),
         creditLimit: 50000000,
         currentBalance: 0,
-        loyaltyTier: i <= 3 ? 'GOLD' : (i <= 10 ? 'SILVER' : 'BRONZE')
+        loyaltyTier: i <= 3 ? 'GOLD' : (i <= 10 ? 'SILVER' : 'BRONZE'),
+        referralCode: `REF${Date.now()}-${i}-${Math.random().toString(36).substring(7)}`
       }
     })
     

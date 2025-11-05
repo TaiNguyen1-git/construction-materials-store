@@ -18,6 +18,7 @@ const protectedRoutes = [
   '/api/ocr',
   '/api/predictions',
   '/api/recommendations',
+  '/api/notifications',
 ]
 
 const adminOnlyRoutes = [

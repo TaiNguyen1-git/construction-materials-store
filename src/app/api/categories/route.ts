@@ -25,16 +25,29 @@ export async function GET(request: NextRequest) {
       )
     }
 
+    const searchParams = request.nextUrl.searchParams
+    const includeInactive = searchParams.get('includeInactive') === 'true'
+    
     const categories = await prisma.category.findMany({
+      where: {
+        isActive: includeInactive ? undefined : true,
+        // Only show top-level categories (no parent) for main listing
+        parentId: searchParams.get('parentId') || null
+      },
       include: {
         parent: {
           select: { id: true, name: true }
         },
         children: {
+          where: { isActive: true },
           select: { id: true, name: true, isActive: true }
         },
         _count: {
-          select: { products: true }
+          select: { 
+            products: {
+              where: { isActive: true }
+            }
+          }
         }
       },
       orderBy: [
