@@ -103,10 +103,27 @@ export async function GET(request: NextRequest) {
       prisma.workShift.count({ where })
     ])
 
-    const response = createPaginatedResponse(workShifts, total, page, limit)
-    
+    // Transform dates to ISO strings for JSON serialization
+    const transformedShifts = workShifts.map(shift => ({
+      ...shift,
+      date: shift.date ? new Date(shift.date).toISOString() : null,
+      clockIn: shift.clockIn ? new Date(shift.clockIn).toISOString() : null,
+      clockOut: shift.clockOut ? new Date(shift.clockOut).toISOString() : null,
+      createdAt: shift.createdAt ? new Date(shift.createdAt).toISOString() : null,
+      updatedAt: shift.updatedAt ? new Date(shift.updatedAt).toISOString() : null,
+    }))
+
+    // Return in format expected by frontend
     return NextResponse.json(
-      createSuccessResponse(response, 'Work shifts retrieved successfully'),
+      createSuccessResponse({
+        data: transformedShifts,
+        pagination: {
+          total,
+          page,
+          limit,
+          pages: Math.ceil(total / limit)
+        }
+      }, 'Work shifts retrieved successfully'),
       { status: 200 }
     )
 

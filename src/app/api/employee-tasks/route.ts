@@ -122,10 +122,26 @@ export async function GET(request: NextRequest) {
       prisma.employeeTask.count({ where })
     ])
 
-    const response = createPaginatedResponse(tasks, total, page, limit)
-    
+    // Transform dates to ISO strings for JSON serialization
+    const transformedTasks = tasks.map(task => ({
+      ...task,
+      dueDate: task.dueDate ? new Date(task.dueDate).toISOString() : null,
+      completedAt: task.completedAt ? new Date(task.completedAt).toISOString() : null,
+      createdAt: task.createdAt ? new Date(task.createdAt).toISOString() : null,
+      updatedAt: task.updatedAt ? new Date(task.updatedAt).toISOString() : null,
+    }))
+
+    // Return in format expected by frontend
     return NextResponse.json(
-      createSuccessResponse(response, 'Tasks retrieved successfully'),
+      createSuccessResponse({
+        data: transformedTasks,
+        pagination: {
+          total,
+          page,
+          limit,
+          pages: Math.ceil(total / limit)
+        }
+      }, 'Tasks retrieved successfully'),
       { status: 200 }
     )
 

@@ -49,10 +49,15 @@ export async function GET(request: NextRequest) {
     }
 
     if (search) {
+      // MongoDB doesn't support mode: 'insensitive' directly, use case variations
+      const searchLower = search.toLowerCase()
       where.OR = [
-        { title: { contains: search, mode: 'insensitive' } },
-        { review: { contains: search, mode: 'insensitive' } },
-        { product: { name: { contains: search, mode: 'insensitive' } } }
+        { title: { contains: search } },
+        { title: { contains: searchLower } },
+        { review: { contains: search } },
+        { review: { contains: searchLower } },
+        { product: { name: { contains: search } } },
+        { product: { name: { contains: searchLower } } }
       ]
     }
 

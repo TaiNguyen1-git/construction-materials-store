@@ -135,4 +135,5 @@ export const logCache = {
   },
 }
 
+export { logger }
 export default logger

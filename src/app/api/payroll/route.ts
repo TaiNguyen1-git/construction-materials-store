@@ -60,14 +60,19 @@ export async function GET(request: NextRequest) {
       prisma.payrollRecord.count({ where })
     ])
 
+    // Return in format expected by frontend
     return NextResponse.json({
-      data: payrolls,
-      pagination: {
-        total,
-        page,
-        limit,
-        pages: Math.ceil(total / limit)
-      }
+      success: true,
+      data: {
+        data: payrolls,
+        pagination: {
+          total,
+          page,
+          limit,
+          pages: Math.ceil(total / limit)
+        }
+      },
+      message: 'Payroll records retrieved successfully'
     })
   } catch (error) {
     console.error('Error fetching payroll records:', error)

@@ -78,15 +78,80 @@ export async function GET(request: NextRequest) {
     // Build where clause
     const where: any = {}
     
+    // Handle search query - Use Prisma's contains directly for MongoDB
+    // MongoDB with Prisma supports contains which is case-sensitive by default
+    // We'll search with multiple variations to catch different cases
     if (searchQuery) {
-      // MongoDB doesn't support 'mode: insensitive', use regex instead
-      const searchRegex = { $regex: searchQuery, $options: 'i' }
-      where.OR = [
-        { name: searchRegex },
-        { description: searchRegex },
-        { sku: searchRegex },
-        { tags: { hasSome: [searchQuery] } },
-      ]
+      const normalizedQuery = searchQuery.trim()
+      
+      logger.info('Searching products', { searchQuery: normalizedQuery })
+      
+      // Create comprehensive search variations for case-insensitive matching
+      // Since MongoDB with Prisma is case-sensitive, we need to try all variations
+      const lowerQuery = normalizedQuery.toLowerCase()
+      const upperQuery = normalizedQuery.toUpperCase()
+      
+      // Vietnamese text normalization: "xi măng" -> "Xi măng", "XI MĂNG", etc.
+      // Split by words and capitalize first letter of each word
+      const words = normalizedQuery.split(/\s+/)
+      const capitalizedQuery = words
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+        .join(' ')
+      
+      // Also try with only first word capitalized
+      const firstWordCapitalized = words.length > 0
+        ? words[0].charAt(0).toUpperCase() + words[0].slice(1).toLowerCase() + 
+          (words.length > 1 ? ' ' + words.slice(1).join(' ').toLowerCase() : '')
+        : normalizedQuery
+      
+      // Collect all unique variations
+      const searchVariations = [
+        normalizedQuery,          // Original: "xi măng"
+        lowerQuery,               // Lowercase: "xi măng"
+        upperQuery,               // Uppercase: "XI MĂNG"
+        capitalizedQuery,         // Capitalized: "Xi Măng"
+        firstWordCapitalized,     // First word capitalized: "Xi măng"
+      ].filter(Boolean)
+      
+      // Remove duplicates (case-insensitive)
+      const uniqueVariations = Array.from(
+        new Map(searchVariations.map(v => [v.toLowerCase(), v])).values()
+      )
+      
+      logger.info('Search variations', { 
+        original: normalizedQuery,
+        variations: uniqueVariations,
+        variationCount: uniqueVariations.length
+      })
+      
+      // Build comprehensive OR condition with all variations
+      const orConditions: any[] = []
+      
+      // For each variation, search in name, description, and SKU
+      for (const variation of uniqueVariations) {
+        orConditions.push(
+          { name: { contains: variation } },
+          { description: { contains: variation } },
+          { sku: { contains: variation } }
+        )
+      }
+      
+      // Also search in tags array
+      orConditions.push({ tags: { hasSome: uniqueVariations } })
+      
+      where.OR = orConditions
+      
+      // Also ensure we only get active products
+      where.isActive = { not: false }
+      
+      logger.info('Built where clause for search', { 
+        orCount: where.OR.length,
+        isActive: where.isActive,
+        sampleConditions: where.OR.slice(0, 3)
+      })
+    } else {
+      // No search query - only show active products by default
+      where.isActive = { not: false }
     }
 
     if (category) {
@@ -108,7 +173,7 @@ export async function GET(request: NextRequest) {
     if (featured === true || featured === false) {
       where.isFeatured = featured
     }
-    
+
     // Handle simplified sort parameter
     let orderBy: any = { [sortBy]: sortOrder }
     if (sort) {

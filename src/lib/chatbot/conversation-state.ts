@@ -302,28 +302,9 @@ export async function processFlowResponse(
     return { shouldContinue: false }
   }
   
-  const lower = userMessage.toLowerCase()
+  const lower = userMessage.toLowerCase().trim()
   
-  // Check for cancellation
-  if (lower.includes('hủy') || lower.includes('cancel') || lower.includes('không')) {
-    await clearConversationState(sessionId)
-    return {
-      shouldContinue: false,
-      isCancelled: true
-    }
-  }
-  
-  // Check for confirmation
-  if (lower.includes('xác nhận') || lower.includes('confirm') || 
-      lower.includes('đồng ý') || lower.includes('ok') || 
-      lower.includes('có') || lower.includes('yes')) {
-    return {
-      shouldContinue: true,
-      isConfirmed: true
-    }
-  }
-  
-  // Flow-specific processing
+  // Flow-specific processing first (more specific matching)
   switch (state.flow) {
     case 'ORDER_CREATION':
       return await processOrderCreationResponse(sessionId, userMessage, state)
@@ -335,6 +316,23 @@ export async function processFlowResponse(
       return await processCRUDConfirmationResponse(sessionId, userMessage, state)
     
     default:
+      // Generic confirmation/cancellation for other flows
+      if (lower.includes('hủy') || lower.includes('cancel') || lower === 'hủy') {
+        await clearConversationState(sessionId)
+        return {
+          shouldContinue: true,
+          isCancelled: true
+        }
+      }
+      
+      if (lower.includes('xác nhận') || lower.includes('confirm') || 
+          lower === 'xác nhận' || lower === 'ok' || lower === 'đồng ý') {
+        return {
+          shouldContinue: true,
+          isConfirmed: true
+        }
+      }
+      
       return { shouldContinue: false }
   }
 }
@@ -351,31 +349,91 @@ async function processOrderCreationResponse(
   
   switch (currentStep) {
     case 'confirm_items':
-      // Check if has customerId (logged in) or needs guest info
-      if (state.data.needsGuestInfo) {
-        // Move to collect guest info
-        await setOrderCreationStep(sessionId, 'guest_info')
-        await advanceStep(sessionId)
+      // Check if user is confirming or cancelling
+      const lowerMessage = userMessage.toLowerCase().trim()
+      
+      // Check for cancellation first
+      if (lowerMessage.includes('hủy') || lowerMessage.includes('cancel') || 
+          lowerMessage === 'hủy' || lowerMessage === 'cancel') {
+        clearConversationState(sessionId)
         return {
           shouldContinue: true,
-          nextPrompt: '📝 **Thông tin giao hàng**\n\n' +
-                     'Vui lòng cung cấp:\n' +
-                     '- Họ tên\n' +
-                     '- Số điện thoại\n' +
-                     '- Địa chỉ nhận hàng\n\n' +
-                     '💡 *Ví dụ: Nguyễn Văn A, 0901234567, 123 Nguyễn Huệ, Q1, HCM*'
+          isCancelled: true
         }
-      } else {
-        // User logged in - create order immediately
+      }
+      
+      // Check for confirmation - must match exactly or contain key phrases
+      // Be more lenient to catch variations
+      const isConfirming = lowerMessage === 'xác nhận' || 
+                          lowerMessage === 'confirm' || 
+                          lowerMessage === 'ok' || 
+                          lowerMessage === 'okay' ||
+                          lowerMessage === 'đồng ý' ||
+                          lowerMessage === 'có' ||
+                          lowerMessage === 'yes' ||
+                          lowerMessage.includes('xác nhận') ||
+                          lowerMessage.includes('confirm') ||
+                          (lowerMessage.includes('đặt hàng') && !lowerMessage.includes('muốn') && !lowerMessage.includes('tôi'))
+      
+      if (isConfirming) {
+        // User confirmed - check if has customerId (logged in) or needs guest info
+        if (state.data.needsGuestInfo) {
+          // Move to collect guest info
+          await setOrderCreationStep(sessionId, 'guest_info')
+          await advanceStep(sessionId)
+          return {
+            shouldContinue: true,
+            nextPrompt: '📝 **Thông tin giao hàng**\n\n' +
+                       'Vui lòng cung cấp:\n' +
+                       '- Họ tên\n' +
+                       '- Số điện thoại\n' +
+                       '- Địa chỉ nhận hàng\n\n' +
+                       '💡 *Ví dụ: Nguyễn Văn A, 0901234567, 123 Nguyễn Huệ, Q1, HCM*'
+          }
+        } else {
+          // User logged in - create order immediately
+          return {
+            shouldContinue: true,
+            isConfirmed: true
+          }
+        }
+      }
+      
+      // If message contains numbers only or product selection keywords, might be selecting product
+      // Allow main route to handle product selection
+      if (lowerMessage.match(/^\d+$/) || 
+          lowerMessage.includes('chọn') || 
+          lowerMessage.includes('số') ||
+          (lowerMessage.length > 2 && !isConfirming)) {
+        // Let main route handle product selection
         return {
-          shouldContinue: true,
-          isConfirmed: true
+          shouldContinue: false
         }
+      }
+      
+      // For any other message in confirm_items step, stay in flow
+      // Don't let it fall through to intent detection
+      return {
+        shouldContinue: true,
+        nextPrompt: '💡 Bạn có muốn xác nhận đặt hàng không? Hoặc bạn có thể hủy bỏ.\n\n' +
+                   'Vui lòng chọn:\n' +
+                   '- "Xác nhận" để tiếp tục\n' +
+                   '- "Hủy" để hủy đơn hàng'
       }
     
     case 'guest_info':
       // Parse guest info from message
+      // Input format: "Tên, SĐT, Địa chỉ" (plain text, no brackets or quotes)
       const guestInfo = parseGuestInfo(userMessage)
+      
+      // Debug: log parsed info
+      console.log('=== GUEST INFO PARSING ===')
+      console.log('Original message:', userMessage)
+      console.log('Parsed guest info:', JSON.stringify(guestInfo, null, 2))
+      console.log('Has name:', !!guestInfo.name, guestInfo.name)
+      console.log('Has phone:', !!guestInfo.phone, guestInfo.phone)
+      console.log('Has address:', !!guestInfo.address, guestInfo.address)
+      console.log('=========================')
       
       if (!guestInfo.name || !guestInfo.phone || !guestInfo.address) {
         return {
@@ -384,12 +442,26 @@ async function processOrderCreationResponse(
                      '- Họ tên\n' +
                      '- Số điện thoại\n' +
                      '- Địa chỉ\n\n' +
+                     `💡 Thông tin đã nhận:\n` +
+                     `- Tên: ${guestInfo.name || '(chưa có)'}\n` +
+                     `- SĐT: ${guestInfo.phone || '(chưa có)'}\n` +
+                     `- Địa chỉ: ${guestInfo.address || '(chưa có)'}\n\n` +
                      '💡 Ví dụ: Nguyễn Văn A, 0901234567, 123 Nguyễn Huệ, Q1, HCM'
         }
       }
       
-      // Save guest info
+      // Save guest info to flow data
+      console.log('=== SAVING GUEST INFO ===')
+      console.log('SessionId:', sessionId)
+      console.log('GuestInfo to save:', JSON.stringify(guestInfo, null, 2))
+      
       await updateFlowData(sessionId, { guestInfo })
+      
+      // Verify it was saved
+      const verifyData = await getFlowData(sessionId)
+      console.log('=== VERIFIED SAVED DATA ===')
+      console.log('Saved guestInfo:', JSON.stringify(verifyData?.guestInfo, null, 2))
+      console.log('===========================')
       
       // Ready to create order
       return {
@@ -476,38 +548,181 @@ async function processCRUDConfirmationResponse(
  * Expected format: "Tên, SĐT, Địa chỉ" or natural language
  */
 function parseGuestInfo(message: string): {
-  name: string
-  phone: string
-  address: string
+  name?: string
+  phone?: string
+  address?: string
 } {
-  // Try structured format first: "Name, Phone, Address"
-  const parts = message.split(',').map(p => p.trim())
+  // Clean input - remove any brackets or quotes
+  let cleaned = message.trim()
+    .replace(/^\[|\]$/g, '') // Remove brackets
+    .replace(/^["']|["']$/g, '') // Remove quotes
+    .trim()
   
-  if (parts.length >= 3) {
-    return {
-      name: parts[0],
-      phone: parts[1],
-      address: parts.slice(2).join(', ')
+  if (!cleaned) {
+    console.log('parseGuestInfo - Empty message')
+    return {}
+  }
+  
+  console.log('parseGuestInfo - Input:', cleaned)
+  
+  // Split by comma
+  const parts = cleaned.split(',').map(p => p.trim()).filter(p => p.length > 0)
+  console.log('parseGuestInfo - Parts after split:', parts)
+  console.log('parseGuestInfo - Number of parts:', parts.length)
+  
+  if (parts.length < 2) {
+    console.log('parseGuestInfo - Not enough parts')
+    return {}
+  }
+  
+  // Vietnamese phone pattern: starts with 0, followed by 9-10 digits
+  // Pattern: 0xxx or +84xxx (9-10 digits total after prefix)
+  // More flexible: match any part that starts with 0 and has 9-10 more digits
+  let phone = ''
+  let phoneIndex = -1
+  
+  // Find phone number - most reliable identifier
+  // Vietnamese phone: starts with 0, followed by 9 digits (10 digits total)
+  // Example: 0918180969 = 0 + 918180969 (9 digits) = 10 digits total
+  for (let i = 0; i < parts.length; i++) {
+    const part = parts[i].trim()
+    
+    // Extract only digits from the part
+    const digitsOnly = part.replace(/[^\d]/g, '')
+    
+    // Check if it looks like a Vietnamese phone number
+    // Must start with 0 and have exactly 9 or 10 more digits (10-11 digits total)
+    if (digitsOnly.length >= 10 && digitsOnly.length <= 11 && digitsOnly.startsWith('0')) {
+      phone = digitsOnly
+      phoneIndex = i
+      console.log('parseGuestInfo - Found phone (digits only):', phone, 'at index:', phoneIndex, 'from part:', part)
+      break
+    }
+    
+    // Also check for +84 format
+    if (part.includes('+84')) {
+      const plus84Match = part.match(/\+84[\s\-]?(\d{9,10})/)
+      if (plus84Match) {
+        phone = '0' + plus84Match[1]
+        phoneIndex = i
+        console.log('parseGuestInfo - Found phone (+84 format):', phone, 'at index:', phoneIndex)
+        break
+      }
     }
   }
   
-  // Try to extract phone number
-  const phoneMatch = message.match(/(?:0|\+84)\d{9,10}/)
-  const phone = phoneMatch ? phoneMatch[0] : ''
-  
-  // Try to extract name (usually at the beginning)
-  const nameMatch = message.match(/^([A-Za-zÀ-ỹ\s]+?)(?=,|\d|$)/)
-  const name = nameMatch ? nameMatch[1].trim() : ''
-  
-  // Everything else is address
-  let address = message
-  if (phone) {
-    address = address.replace(phone, '').trim()
+  // If still not found, try pattern matching with spaces/dashes
+  if (!phone) {
+    for (let i = 0; i < parts.length; i++) {
+      const part = parts[i]
+      // Match: 0 followed by 9-10 digits, with optional spaces/dashes
+      const phoneMatch = part.match(/(0[\d\s\-]{8,12})/)
+      if (phoneMatch) {
+        const candidate = phoneMatch[1].replace(/[\s\-]/g, '')
+        if (candidate.length >= 10 && candidate.length <= 11 && candidate.startsWith('0')) {
+          phone = candidate
+          phoneIndex = i
+          console.log('parseGuestInfo - Found phone (pattern match):', phone, 'at index:', phoneIndex)
+          break
+        }
+      }
+    }
   }
-  if (name) {
-    address = address.replace(name, '').trim()
-  }
-  address = address.replace(/^[,\s]+|[,\s]+$/g, '')
   
-  return { name, phone, address }
+  let name = ''
+  let address = ''
+  
+  // If we found phone, use it as anchor
+  if (phoneIndex >= 0) {
+    // Name is everything before phone
+    if (phoneIndex > 0) {
+      name = parts.slice(0, phoneIndex).join(' ').trim()
+      console.log('parseGuestInfo - Name (before phone):', name)
+    }
+    
+    // Address is everything after phone
+    if (phoneIndex < parts.length - 1) {
+      address = parts.slice(phoneIndex + 1).join(', ').trim()
+      console.log('parseGuestInfo - Address (after phone):', address)
+    }
+  } else {
+    // No phone found yet - try simple heuristic
+    // Format: "Name, Phone, Address..." or "Name, Address..."
+    
+    // First part is usually name
+    if (parts.length >= 1 && parts[0]) {
+      name = parts[0].trim()
+      console.log('parseGuestInfo - Name (first part, no phone found yet):', name)
+    }
+    
+    // Try to find phone in second part by extracting digits
+    if (parts.length >= 2 && parts[1]) {
+      const secondPartDigits = parts[1].replace(/[^\d]/g, '')
+      if (secondPartDigits.length >= 10 && secondPartDigits.length <= 11 && secondPartDigits.startsWith('0')) {
+        phone = secondPartDigits
+        phoneIndex = 1
+        console.log('parseGuestInfo - Phone (found in second part):', phone)
+        // Address is everything after phone
+        if (parts.length > 2) {
+          address = parts.slice(2).join(', ').trim()
+          console.log('parseGuestInfo - Address (after phone in second part):', address)
+        }
+      } else {
+        // Second part is not phone - assume it's start of address
+        address = parts.slice(1).join(', ').trim()
+        console.log('parseGuestInfo - Address (all after first, no phone):', address)
+      }
+    }
+  }
+  
+  // Final fallback: if we have 3+ parts and still missing info
+  // Assume format: parts[0] = name, parts[1] = phone, parts[2+] = address
+  if (parts.length >= 3) {
+    // Ensure we have name
+    if (!name && parts[0]) {
+      name = parts[0].trim()
+      console.log('parseGuestInfo - Name (fallback):', name)
+    }
+    
+    // Ensure we have phone - try parts[1] if not found yet
+    if (!phone && parts[1]) {
+      const part1Digits = parts[1].replace(/[^\d]/g, '')
+      if (part1Digits.length >= 10 && part1Digits.length <= 11 && part1Digits.startsWith('0')) {
+        phone = part1Digits
+        phoneIndex = 1
+        console.log('parseGuestInfo - Phone (fallback from parts[1]):', phone)
+      }
+    }
+    
+    // Ensure we have address
+    if (!address) {
+      if (phoneIndex >= 0 && phoneIndex < parts.length - 1) {
+        // Address is after phone
+        address = parts.slice(phoneIndex + 1).join(', ').trim()
+        console.log('parseGuestInfo - Address (fallback, after phone):', address)
+      } else if (parts.length >= 2) {
+        // Address is everything after name/phone
+        const addressStart = phone ? 2 : (name ? 1 : 1)
+        if (parts.length > addressStart) {
+          address = parts.slice(addressStart).join(', ').trim()
+          console.log('parseGuestInfo - Address (fallback, start from index', addressStart, '):', address)
+        }
+      }
+    }
+  }
+  
+  // Clean up
+  name = name.trim()
+  phone = phone.trim()
+  address = address.trim()
+  
+  const result = {
+    name: name || undefined,
+    phone: phone || undefined,
+    address: address || undefined
+  }
+  
+  console.log('parseGuestInfo - Final result:', JSON.stringify(result, null, 2))
+  
+  return result
 }

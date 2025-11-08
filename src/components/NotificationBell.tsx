@@ -28,38 +28,46 @@ export default function NotificationBell() {
     let abortController: AbortController | null = null
     let reader: ReadableStreamDefaultReader<Uint8Array> | null = null
     let fallbackInterval: NodeJS.Timeout | null = null
+    let isMounted = true
 
     const setupSSE = async () => {
+      if (!isMounted) return
+      
       try {
         const headers = getAuthHeaders()
-        abortController = new AbortController()
+        // Create new abort controller for each connection attempt
+        const currentAbortController = new AbortController()
+        abortController = currentAbortController
 
         const response = await fetch('/api/notifications/stream', {
           headers: {
             ...headers,
             'Accept': 'text/event-stream'
           },
-          signal: abortController.signal
+          signal: currentAbortController.signal
         })
 
         if (!response.ok || !response.body) {
           throw new Error('SSE connection failed')
         }
 
-        reader = response.body.getReader()
+        const currentReader = response.body.getReader()
+        reader = currentReader
         const decoder = new TextDecoder()
 
         const readStream = async () => {
           try {
-            while (true) {
-              const { done, value } = await reader!.read()
+            while (isMounted && !currentAbortController.signal.aborted) {
+              const { done, value } = await currentReader.read()
               
               if (done) {
-                setTimeout(() => {
-                  if (!abortController?.signal.aborted) {
-                    setupSSE()
-                  }
-                }, 2000)
+                if (isMounted && !currentAbortController.signal.aborted) {
+                  setTimeout(() => {
+                    if (isMounted) {
+                      setupSSE()
+                    }
+                  }, 2000)
+                }
                 break
               }
 
@@ -71,7 +79,7 @@ export default function NotificationBell() {
                   try {
                     const data = JSON.parse(line.slice(6))
                     
-                    if (data.type === 'notifications' && data.data) {
+                    if (data.type === 'notifications' && data.data && isMounted) {
                       const notifs = data.data.notifications.map((n: any) => ({
                         id: n.id,
                         title: n.title,
@@ -91,7 +99,7 @@ export default function NotificationBell() {
               }
             }
           } catch (error: any) {
-            if (error.name !== 'AbortError') {
+            if (error.name !== 'AbortError' && isMounted) {
               setupFallbackPolling()
             }
           }
@@ -99,7 +107,7 @@ export default function NotificationBell() {
 
         readStream()
       } catch (error: any) {
-        if (error.name !== 'AbortError') {
+        if (error.name !== 'AbortError' && isMounted) {
           setupFallbackPolling()
         }
       }
@@ -151,11 +159,18 @@ export default function NotificationBell() {
     setupSSE()
 
     return () => {
-      if (abortController) {
-        abortController.abort()
+      isMounted = false
+      if (abortController && !abortController.signal.aborted) {
+        try {
+          abortController.abort()
+        } catch (e) {
+          // Ignore abort errors
+        }
       }
       if (reader) {
-        reader.cancel()
+        reader.cancel().catch(() => {
+          // Ignore cancel errors
+        })
       }
       if (fallbackInterval) {
         clearInterval(fallbackInterval)

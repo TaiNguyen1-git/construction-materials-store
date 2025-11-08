@@ -29,10 +29,11 @@ interface Employee {
 interface WorkShift {
   id: string
   employee: { user: { name: string } }
-  shiftDate: string
+  date: string | Date
   startTime: string
   endTime: string
-  status: 'SCHEDULED' | 'COMPLETED' | 'CANCELLED'
+  status: 'SCHEDULED' | 'IN_PROGRESS' | 'COMPLETED' | 'ABSENT' | 'CANCELLED'
+  shiftType?: string
   notes?: string
 }
 
@@ -40,10 +41,10 @@ interface Task {
   id: string
   title: string
   description: string
-  assignedTo?: { user: { name: string } }
+  employee?: { user: { name: string } }
   status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED'
-  priority: 'LOW' | 'MEDIUM' | 'HIGH'
-  dueDate?: string
+  priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
+  dueDate?: string | Date
   createdAt: string
 }
 
@@ -154,10 +155,23 @@ export default function HRManagementPage() {
   const getShiftStatusBadge = (status: string) => {
     const colors = {
       'SCHEDULED': 'bg-blue-100 text-blue-800',
+      'IN_PROGRESS': 'bg-yellow-100 text-yellow-800',
       'COMPLETED': 'bg-green-100 text-green-800',
-      'CANCELLED': 'bg-red-100 text-red-800'
+      'ABSENT': 'bg-red-100 text-red-800',
+      'CANCELLED': 'bg-gray-100 text-gray-800'
     }
     return colors[status as keyof typeof colors] || 'bg-gray-100 text-gray-800'
+  }
+  
+  const getShiftStatusText = (status: string) => {
+    const texts: { [key: string]: string } = {
+      'SCHEDULED': 'Đã Lên Lịch',
+      'IN_PROGRESS': 'Đang Làm',
+      'COMPLETED': 'Hoàn Thành',
+      'ABSENT': 'Vắng Mặt',
+      'CANCELLED': 'Đã Hủy'
+    }
+    return texts[status] || status
   }
 
   // Tasks functions
@@ -192,14 +206,35 @@ export default function HRManagementPage() {
     }
     return colors[status as keyof typeof colors] || 'bg-gray-100 text-gray-800'
   }
-
+  
+  const getTaskStatusText = (status: string) => {
+    const texts: { [key: string]: string } = {
+      'PENDING': 'Chờ Xử Lý',
+      'IN_PROGRESS': 'Đang Thực Hiện',
+      'COMPLETED': 'Hoàn Thành',
+      'CANCELLED': 'Đã Hủy'
+    }
+    return texts[status] || status
+  }
+  
   const getPriorityBadge = (priority: string) => {
     const colors = {
       'LOW': 'bg-gray-100 text-gray-800',
       'MEDIUM': 'bg-orange-100 text-orange-800',
-      'HIGH': 'bg-red-100 text-red-800'
+      'HIGH': 'bg-red-100 text-red-800',
+      'URGENT': 'bg-red-200 text-red-900'
     }
     return colors[priority as keyof typeof colors] || 'bg-gray-100 text-gray-800'
+  }
+  
+  const getPriorityText = (priority: string) => {
+    const texts: { [key: string]: string } = {
+      'LOW': 'Thấp',
+      'MEDIUM': 'Trung Bình',
+      'HIGH': 'Cao',
+      'URGENT': 'Khẩn Cấp'
+    }
+    return texts[priority] || priority
   }
 
   // Delete handlers
@@ -290,7 +325,14 @@ export default function HRManagementPage() {
             <div>
               <div className="text-sm text-gray-600">Ca Làm Việc Hôm Nay</div>
               <div className="text-2xl font-bold text-gray-900">
-                {shifts.filter(s => new Date(s.shiftDate).toDateString() === new Date().toDateString()).length}
+                {shifts.filter(s => {
+                  try {
+                    const shiftDate = new Date(s.date)
+                    return !isNaN(shiftDate.getTime()) && shiftDate.toDateString() === new Date().toDateString()
+                  } catch {
+                    return false
+                  }
+                }).length}
               </div>
             </div>
             <Calendar className="w-8 h-8 text-green-600" />
@@ -424,7 +466,46 @@ export default function HRManagementPage() {
                           {shift.employee.user.name}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {new Date(shift.shiftDate).toLocaleDateString('vi-VN')}
+                          {(() => {
+                            try {
+                              if (!shift.date) return '-'
+                              
+                              // Handle different date formats
+                              let date: Date
+                              if (shift.date instanceof Date) {
+                                date = shift.date
+                              } else if (typeof shift.date === 'string') {
+                                // Try parsing as ISO string
+                                date = new Date(shift.date)
+                                // If invalid, try other formats
+                                if (isNaN(date.getTime())) {
+                                  // Try YYYY-MM-DD format
+                                  const parts = shift.date.split('-')
+                                  if (parts.length === 3) {
+                                    date = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]))
+                                  } else {
+                                    return 'Invalid Date'
+                                  }
+                                }
+                              } else {
+                                return '-'
+                              }
+                              
+                              if (isNaN(date.getTime())) {
+                                console.warn('Invalid date:', shift.date)
+                                return '-'
+                              }
+                              
+                              return date.toLocaleDateString('vi-VN', {
+                                year: 'numeric',
+                                month: '2-digit',
+                                day: '2-digit'
+                              })
+                            } catch (error) {
+                              console.error('Error parsing date:', shift.date, error)
+                              return '-'
+                            }
+                          })()}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                           {shift.startTime}
@@ -434,7 +515,7 @@ export default function HRManagementPage() {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getShiftStatusBadge(shift.status)}`}>
-                            {shift.status}
+                            {getShiftStatusText(shift.status)}
                           </span>
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-500">
@@ -493,20 +574,54 @@ export default function HRManagementPage() {
                           <div className="max-w-xs truncate">{task.description}</div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {task.assignedTo?.user.name || 'Chưa phân công'}
+                          {task.employee?.user.name || 'Chưa phân công'}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getPriorityBadge(task.priority)}`}>
-                            {task.priority}
+                            {getPriorityText(task.priority)}
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getTaskStatusBadge(task.status)}`}>
-                            {task.status}
+                            {getTaskStatusText(task.status)}
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {task.dueDate ? new Date(task.dueDate).toLocaleDateString('vi-VN') : '-'}
+                          {(() => {
+                            try {
+                              if (!task.dueDate) return '-'
+                              
+                              // Handle different date formats
+                              let date: Date
+                              if (task.dueDate instanceof Date) {
+                                date = task.dueDate
+                              } else if (typeof task.dueDate === 'string') {
+                                date = new Date(task.dueDate)
+                                if (isNaN(date.getTime())) {
+                                  const parts = task.dueDate.split('-')
+                                  if (parts.length === 3) {
+                                    date = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]))
+                                  } else {
+                                    return '-'
+                                  }
+                                }
+                              } else {
+                                return '-'
+                              }
+                              
+                              if (isNaN(date.getTime())) {
+                                return '-'
+                              }
+                              
+                              return date.toLocaleDateString('vi-VN', {
+                                year: 'numeric',
+                                month: '2-digit',
+                                day: '2-digit'
+                              })
+                            } catch {
+                              return '-'
+                            }
+                          })()}
                         </td>
                       </tr>
                     ))}

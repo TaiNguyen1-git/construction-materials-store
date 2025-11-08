@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { toast } from 'react-hot-toast'
 import ConfirmDialog from '@/components/ConfirmDialog'
+import { fetchWithAuth } from '@/lib/api-client'
 
 interface Employee {
   id: string
@@ -59,8 +60,8 @@ export default function PayrollPage() {
       setLoading(true)
       
       const [payrollRes, employeesRes] = await Promise.all([
-        fetch('/api/payroll'),
-        fetch('/api/employees')
+        fetchWithAuth('/api/payroll'),
+        fetchWithAuth('/api/employees')
       ])
 
       if (payrollRes.ok) {
@@ -114,7 +115,7 @@ export default function PayrollPage() {
       const url = editingPayroll ? `/api/payroll/${editingPayroll.id}` : '/api/payroll'
       const method = editingPayroll ? 'PUT' : 'POST'
 
-      const response = await fetch(url, {
+      const response = await fetchWithAuth(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form)
@@ -140,7 +141,8 @@ export default function PayrollPage() {
     if (!deletingPayroll) return
 
     try {
-      const response = await fetch(`/api/payroll/${deletingPayroll.id}`, {
+      console.log('Deleting payroll:', deletingPayroll.id)
+      const response = await fetchWithAuth(`/api/payroll/${deletingPayroll.id}`, {
         method: 'DELETE'
       })
 
@@ -150,7 +152,9 @@ export default function PayrollPage() {
         fetchData()
       } else {
         const error = await response.json()
-        toast.error(error.error || 'Không thể xóa payroll')
+        console.error('Delete error:', error)
+        const errorMessage = error.error || error.details || 'Không thể xóa payroll'
+        toast.error(errorMessage)
       }
     } catch (error) {
       console.error('Error deleting payroll:', error)
@@ -160,22 +164,25 @@ export default function PayrollPage() {
 
   const updateStatus = async (payrollId: string, status: string) => {
     try {
-      const response = await fetch(`/api/payroll/${payrollId}`, {
+      console.log('Updating payroll status:', { payrollId, status })
+      const response = await fetchWithAuth(`/api/payroll/${payrollId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status })
       })
 
       if (response.ok) {
-        toast.success(`Payroll ${status.toLowerCase()}`)
+        toast.success('Cập nhật trạng thái bảng lương thành công')
         fetchData()
       } else {
         const error = await response.json()
-        toast.error(error.error || 'Failed to update payroll')
+        console.error('Update status error:', error)
+        const errorMessage = error.error || error.details || 'Không thể cập nhật bảng lương'
+        toast.error(errorMessage)
       }
     } catch (error) {
       console.error('Error updating payroll:', error)
-      toast.error('Failed to update payroll')
+      toast.error('Không thể cập nhật bảng lương')
     }
   }
 
@@ -213,101 +220,124 @@ export default function PayrollPage() {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-900">Payroll Management</h1>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Quản Lý Lương</h1>
+          <p className="text-sm text-gray-500 mt-1">Quản lý bảng lương nhân viên</p>
+        </div>
         <button
           onClick={() => openModal()}
           className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
         >
-          Tạo Payroll
+          Tạo Bảng Lương
         </button>
       </div>
 
-      <div className="bg-white shadow overflow-hidden sm:rounded-md">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Employee</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Period</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Base Salary</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Net Salary</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {payrolls.map((payroll) => (
-                <tr key={payroll.id}>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">
-                      {payroll.employee?.user?.name || 'N/A'}
-                    </div>
-                    <div className="text-sm text-gray-500">
-                      {payroll.employee?.employeeCode || payroll.employeeId}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {payroll.period}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {(payroll.baseSalary || 0).toLocaleString()}đ
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    {(payroll.netPay || 0).toLocaleString()}đ
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                      payroll.isPaid ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-                    }`}>
-                      {payroll.isPaid ? 'PAID' : 'PENDING'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <div className="flex space-x-2">
-                      <button
-                        onClick={() => openModal(payroll)}
-                        className="text-blue-600 hover:text-blue-900"
-                      >
-                        Sửa
-                      </button>
-                      {!payroll.isPaid && (
-                        <button
-                          onClick={() => updateStatus(payroll.id, 'PAID')}
-                          className="text-green-600 hover:text-green-900"
-                        >
-                          Đánh dấu đã trả
-                        </button>
-                      )}
-                      <button
-                        onClick={() => setDeletingPayroll(payroll)}
-                        className="text-red-600 hover:text-red-900"
-                      >
-                        Xóa
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      {payrolls.length === 0 ? (
+        <div className="bg-white shadow rounded-md p-12 text-center">
+          <div className="text-gray-400 mb-4">
+            <svg className="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+          </div>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">Chưa có bảng lương nào</h3>
+          <p className="text-sm text-gray-500 mb-4">Bắt đầu bằng cách tạo bảng lương mới cho nhân viên</p>
+          <button
+            onClick={() => openModal()}
+            className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
+          >
+            Tạo Bảng Lương
+          </button>
         </div>
-      </div>
+      ) : (
+        <div className="bg-white shadow overflow-hidden sm:rounded-md">
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nhân Viên</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Kỳ Lương</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Lương Cơ Bản</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Lương Thực Lĩnh</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Trạng Thái</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Thao Tác</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {payrolls.map((payroll) => (
+                  <tr key={payroll.id}>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-900">
+                        {payroll.employee?.user?.name || 'N/A'}
+                      </div>
+                      <div className="text-sm text-gray-500">
+                        {payroll.employee?.employeeCode || payroll.employeeId}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {payroll.period}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {(payroll.baseSalary || 0).toLocaleString('vi-VN')}đ
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      {(payroll.netPay || 0).toLocaleString('vi-VN')}đ
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                        payroll.isPaid ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                      }`}>
+                        {payroll.isPaid ? 'Đã Trả' : 'Chờ Trả'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <div className="flex space-x-2">
+                        <button
+                          onClick={() => openModal(payroll)}
+                          className="text-blue-600 hover:text-blue-900"
+                        >
+                          Sửa
+                        </button>
+                        {!payroll.isPaid && (
+                          <button
+                            onClick={() => updateStatus(payroll.id, 'PAID')}
+                            className="text-green-600 hover:text-green-900"
+                          >
+                            Đánh dấu đã trả
+                          </button>
+                        )}
+                        <button
+                          onClick={() => setDeletingPayroll(payroll)}
+                          className="text-red-600 hover:text-red-900"
+                        >
+                          Xóa
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* Create Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-11/12 md:w-2/3 shadow-lg rounded-md bg-white">
-            <h3 className="text-lg font-bold text-gray-900 mb-4">Create Payroll Record</h3>
+          <div className="relative top-20 mx-auto p-5 border w-11/12 md:w-2/3 shadow-lg rounded-md bg-white max-h-[90vh] overflow-y-auto">
+            <h3 className="text-lg font-bold text-gray-900 mb-4">
+              {editingPayroll ? 'Chỉnh Sửa Bảng Lương' : 'Tạo Bảng Lương Mới'}
+            </h3>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700">Employee</label>
+                <label className="block text-sm font-medium text-gray-700">Nhân Viên</label>
                 <select
                   value={form.employeeId}
                   onChange={(e) => setForm({ ...form, employeeId: e.target.value })}
                   className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 bg-white"
                   required
                 >
-                  <option value="">Select Employee</option>
+                  <option value="">Chọn nhân viên</option>
                   {employees.map((employee) => (
                     <option key={employee.id} value={employee.id}>
                       {employee.user.name} - {employee.employeeCode}
@@ -317,7 +347,7 @@ export default function PayrollPage() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Year</label>
+                  <label className="block text-sm font-medium text-gray-700">Năm</label>
                   <input
                     type="number"
                     value={form.year}
@@ -327,24 +357,28 @@ export default function PayrollPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Month</label>
+                  <label className="block text-sm font-medium text-gray-700">Tháng</label>
                   <select
                     value={form.month}
                     onChange={(e) => setForm({ ...form, month: parseInt(e.target.value) })}
                     className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 bg-white"
                     required
                   >
-                    {Array.from({ length: 12 }, (_, i) => (
-                      <option key={i + 1} value={i + 1}>
-                        {new Date(0, i).toLocaleString('default', { month: 'long' })}
-                      </option>
-                    ))}
+                    {Array.from({ length: 12 }, (_, i) => {
+                      const monthNames = ['Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4', 'Tháng 5', 'Tháng 6', 
+                                         'Tháng 7', 'Tháng 8', 'Tháng 9', 'Tháng 10', 'Tháng 11', 'Tháng 12']
+                      return (
+                        <option key={i + 1} value={i + 1}>
+                          {monthNames[i]}
+                        </option>
+                      )
+                    })}
                   </select>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Base Salary</label>
+                  <label className="block text-sm font-medium text-gray-700">Lương Cơ Bản</label>
                   <input
                     type="number"
                     value={form.baseSalary}
@@ -354,7 +388,7 @@ export default function PayrollPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Overtime Hours</label>
+                  <label className="block text-sm font-medium text-gray-700">Giờ Làm Thêm</label>
                   <input
                     type="number"
                     value={form.overtimeHours}
@@ -365,7 +399,7 @@ export default function PayrollPage() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Overtime Rate</label>
+                  <label className="block text-sm font-medium text-gray-700">Tỷ Lệ Làm Thêm</label>
                   <input
                     type="number"
                     value={form.overtimeRate}
@@ -374,7 +408,7 @@ export default function PayrollPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Bonuses</label>
+                  <label className="block text-sm font-medium text-gray-700">Thưởng</label>
                   <input
                     type="number"
                     value={form.bonuses}
@@ -384,7 +418,7 @@ export default function PayrollPage() {
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">Deductions</label>
+                <label className="block text-sm font-medium text-gray-700">Khấu Trừ</label>
                 <input
                   type="number"
                   value={form.deductions}
@@ -393,7 +427,7 @@ export default function PayrollPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">Note</label>
+                <label className="block text-sm font-medium text-gray-700">Ghi Chú</label>
                 <textarea
                   value={form.note}
                   onChange={(e) => setForm({ ...form, note: e.target.value })}
@@ -403,8 +437,8 @@ export default function PayrollPage() {
               </div>
               <div className="bg-gray-50 p-4 rounded-md">
                 <div className="text-sm text-gray-600">
-                  <p>Gross Salary: ${calculateGross().toLocaleString()}</p>
-                  <p className="font-medium">Net Salary: ${calculateNet().toLocaleString()}</p>
+                  <p>Tổng Lương: {calculateGross().toLocaleString('vi-VN')}đ</p>
+                  <p className="font-medium">Lương Thực Lĩnh: {calculateNet().toLocaleString('vi-VN')}đ</p>
                 </div>
               </div>
               <div className="flex justify-end space-x-3">
@@ -413,13 +447,13 @@ export default function PayrollPage() {
                   onClick={() => setShowModal(false)}
                   className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
                 >
-                  Cancel
+                  Hủy
                 </button>
                 <button
                   type="submit"
                   className="px-4 py-2 bg-blue-600 border border-transparent rounded-md text-sm font-medium text-white hover:bg-blue-700"
                 >
-                  Create Payroll
+                  {editingPayroll ? 'Cập Nhật' : 'Tạo Bảng Lương'}
                 </button>
               </div>
             </form>
