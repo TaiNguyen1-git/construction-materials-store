@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { createSuccessResponse, createErrorResponse, createPaginatedResponse } from '@/lib/api-types'
+import { requireEmployee } from '@/lib/auth-middleware-api'
 import { z } from 'zod'
 
 const querySchema = z.object({
@@ -39,16 +40,10 @@ const updateTaskSchema = z.object({
 // GET /api/employee-tasks - List tasks with pagination and filters
 export async function GET(request: NextRequest) {
   try {
-    // Check user role from middleware (skip in development)
-    const userRole = request.headers.get('x-user-role')
+    const authError = requireEmployee(request)
+    if (authError) return authError
+
     const userId = request.headers.get('x-user-id')
-    
-    if (process.env.NODE_ENV === 'production' && !['MANAGER', 'EMPLOYEE'].includes(userRole || '')) {
-      return NextResponse.json(
-        createErrorResponse('Access denied', 'FORBIDDEN'),
-        { status: 403 }
-      )
-    }
 
     const { searchParams } = new URL(request.url)
     const params = Object.fromEntries(searchParams.entries())

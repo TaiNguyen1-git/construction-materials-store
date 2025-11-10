@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { createSuccessResponse, createErrorResponse, createPaginatedResponse } from '@/lib/api-types'
+import { requireEmployee } from '@/lib/auth-middleware-api'
 import { z } from 'zod'
 
 const querySchema = z.object({
@@ -34,14 +35,8 @@ const updateShiftSchema = z.object({
 // GET /api/work-shifts - List work shifts with pagination and filters
 export async function GET(request: NextRequest) {
   try {
-    // Check user role from middleware (skip in development)
-    const userRole = request.headers.get('x-user-role')
-    if (process.env.NODE_ENV === 'production' && !['MANAGER', 'EMPLOYEE'].includes(userRole || '')) {
-      return NextResponse.json(
-        createErrorResponse('Employee access required', 'FORBIDDEN'),
-        { status: 403 }
-      )
-    }
+    const authError = requireEmployee(request)
+    if (authError) return authError
 
     const { searchParams } = new URL(request.url)
     const params = Object.fromEntries(searchParams.entries())
