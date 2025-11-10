@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { AuthService } from '@/lib/auth'
 import { createSuccessResponse, createErrorResponse, createPaginatedResponse } from '@/lib/api-types'
+import { requireManager } from '@/lib/auth-middleware-api'
 import { z } from 'zod'
 
 const querySchema = z.object({
@@ -30,19 +31,13 @@ const createEmployeeSchema = z.object({
 // GET /api/employees - List employees with pagination and filters
 export async function GET(request: NextRequest) {
   try {
-    // Check user role from middleware (skip check in development)
-    const userRole = request.headers.get('x-user-role')
-    // In production, only MANAGER can access
-    // In development, allow all for testing
-    const isProduction = process.env.NODE_ENV === 'production'
-    if (isProduction && userRole && userRole !== 'MANAGER') {
-      return NextResponse.json(
-        createErrorResponse('Manager access required', 'FORBIDDEN'),
-        { status: 403 }
-      )
+    // Check authentication and role
+    const authError = requireManager(request)
+    if (authError) {
+      return authError
     }
     
-    console.log('🔍 Employees API - userRole:', userRole, 'isProduction:', isProduction)
+    console.log('🔍 Employees API - User authenticated and authorized')
 
     const { searchParams } = new URL(request.url)
     const params = Object.fromEntries(searchParams.entries())
