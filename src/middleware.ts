@@ -168,10 +168,11 @@ export async function middleware(request: NextRequest) {
       },
     })
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  } catch (error) {
+  } catch (error: any) {
+    console.error('[Middleware] Token verification failed:', error.message)
+    console.error('[Middleware] Error details:', error)
     return NextResponse.json(
-      { success: false, error: { code: 'INVALID_TOKEN', message: 'Invalid or expired token' } },
+      { success: false, error: { code: 'INVALID_TOKEN', message: 'Invalid or expired token', details: error.message } },
       { status: 401 }
     )
   }
