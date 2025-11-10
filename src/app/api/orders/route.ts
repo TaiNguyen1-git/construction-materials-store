@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { createSuccessResponse, createErrorResponse } from '@/lib/api-types'
+import { requireAuth } from '@/lib/auth-middleware-api'
 import { z } from 'zod'
 import { AuthService } from '@/lib/auth'
 import { LoyaltyService } from '@/lib/loyalty-service'
@@ -39,15 +40,18 @@ export async function GET(request: NextRequest) {
   const startTime = Date.now()
   
   try {
-    // In a real implementation, this would come from auth middleware
+    // Verify authentication
+    const authError = requireAuth(request)
+    if (authError) {
+      return authError
+    }
+    
+    // Get user info from token verification
     const userId = request.headers.get('x-user-id')
     const userRole = request.headers.get('x-user-role')
     
-    // Skip authentication in development mode
-    if (process.env.NODE_ENV === 'production' && !userId) {
-      logAPI.error('GET', '/api/orders', new Error('Authentication required'))
-      return NextResponse.json(
-        createErrorResponse('Authentication required', 'UNAUTHORIZED'),
+    // If auth check passed but headers missing, get from middleware or accept guest
+    if (!userId) {
         { status: 401 }
       )
     }

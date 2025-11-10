@@ -1,30 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import jwt from 'jsonwebtoken'
+import { requireManager } from '@/lib/auth-middleware-api'
 import { UserRole } from '@/lib/auth'
-
-// Mock token verification for development
-const verifyToken = async (request: NextRequest) => {
-  const token = request.headers.get('authorization')?.replace('Bearer ', '') ||
-    request.cookies.get('access_token')?.value
-    
-  if (!token) return null
-  
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret') as any
-    return decoded
-  } catch {
-    return null
-  }
-}
 
 // GET /api/payroll - Get all payroll records
 export async function GET(request: NextRequest) {
   try {
-    const user = await verifyToken(request)
-    // Skip authentication in development mode
-    if (process.env.NODE_ENV === 'production' && (!user || user.role !== 'MANAGER')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    // Verify authentication and manager role
+    const authError = requireManager(request)
+    if (authError) {
+      return authError
     }
 
     const { searchParams } = new URL(request.url)
