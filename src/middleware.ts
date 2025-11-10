@@ -149,55 +149,21 @@ export async function middleware(request: NextRequest) {
   }
   
   console.log('[Middleware] Token found:', token.substring(0, 20) + '...')
-
-  try {
-    // Verify token
-    const payload = AuthService.verifyAccessToken(token) as JWTPayload
-    
-    // Check role-based access
-    const isAdminOnlyRoute = adminOnlyRoutes.some(route => pathname.startsWith(route))
-    const isEmployeeRoute = employeeRoutes.some(route => pathname.startsWith(route))
-
-    if (isAdminOnlyRoute && payload.role !== 'MANAGER') {
-      return NextResponse.json(
-        { success: false, error: { code: 'FORBIDDEN', message: 'Manager access required' } },
-        { status: 403 }
-      )
-    }
-
-    if (isEmployeeRoute && !['MANAGER', 'EMPLOYEE'].includes(payload.role)) {
-      return NextResponse.json(
-        { success: false, error: { code: 'FORBIDDEN', message: 'Employee access required' } },
-        { status: 403 }
-      )
-    }
-
-    // Add user info to request headers for API routes
-    const requestHeaders = new Headers(request.headers)
-    requestHeaders.set('x-user-id', payload.userId)
-    requestHeaders.set('x-user-email', payload.email)
-    requestHeaders.set('x-user-role', payload.role)
-
-    return NextResponse.next({
-      request: {
-        headers: requestHeaders,
-      },
-    })
-
-  } catch (error: any) {
-    const errorMsg = error?.message || String(error)
-    console.error('[Middleware] Token verification FAILED')
-    console.error('[Middleware] Token:', token?.substring(0, 30) + '...')
-    console.error('[Middleware] Error:', errorMsg)
-    console.error('[Middleware] Full error:', error)
-    console.error('[Middleware] JWT_SECRET exists:', !!process.env.JWT_SECRET)
-    console.error('[Middleware] NODE_ENV:', process.env.NODE_ENV)
-    
-    return NextResponse.json(
-      { success: false, error: { code: 'INVALID_TOKEN', message: 'Invalid or expired token', details: errorMsg } },
-      { status: 401 }
-    )
-  }
+  
+  // Note: JWT verification moved to API routes because Edge Runtime doesn't support crypto module
+  // Token verification will happen in API route middleware/handlers
+  // Here we just extract and pass token to API routes
+  
+  const requestHeaders = new Headers(request.headers)
+  requestHeaders.set('x-token', token)
+  
+  console.log('[Middleware] Token passed to API routes for verification')
+  
+  return NextResponse.next({
+    request: {
+      headers: requestHeaders,
+    },
+  })
 }
 
 export const config = {
