@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { createSuccessResponse, createErrorResponse, createPaginatedResponse } from '@/lib/api-types'
-import { requireEmployee } from '@/lib/auth-middleware-api'
+import { requireEmployee, requireManager, verifyTokenFromRequest } from '@/lib/auth-middleware-api'
 import { z } from 'zod'
 
 const querySchema = z.object({
@@ -134,14 +134,9 @@ export async function GET(request: NextRequest) {
 // POST /api/work-shifts - Create new work shift
 export async function POST(request: NextRequest) {
   try {
-    // Check user role from middleware
-    const userRole = request.headers.get('x-user-role')
-    if (userRole !== 'MANAGER') {
-      return NextResponse.json(
-        createErrorResponse('Manager access required', 'FORBIDDEN'),
-        { status: 403 }
-      )
-    }
+    // Verify authentication and manager role
+    const authError = requireManager(request)
+    if (authError) return authError
 
     const body = await request.json()
     
