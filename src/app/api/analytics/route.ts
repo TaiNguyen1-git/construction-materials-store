@@ -1,28 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { AnalyticsService } from '@/lib/analytics-service'
-import jwt from 'jsonwebtoken'
-
-// Mock token verification for development
-const verifyToken = async (request: NextRequest) => {
-  const token = request.headers.get('authorization')?.replace('Bearer ', '') ||
-    request.cookies.get('access_token')?.value
-    
-  if (!token) return null
-  
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret') as any
-    return decoded
-  } catch {
-    return null
-  }
-}
+import { requireEmployee } from '@/lib/auth-middleware-api'
 
 // GET /api/analytics - Get analytics data
 export async function GET(request: NextRequest) {
   try {
-    const user = await verifyToken(request)
-    if (!user || (user.role !== 'MANAGER' && user.role !== 'EMPLOYEE')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const authError = requireEmployee(request)
+    if (authError) {
+      return authError
     }
 
     const { searchParams } = new URL(request.url)

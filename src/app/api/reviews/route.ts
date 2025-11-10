@@ -1,18 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { createSuccessResponse, createErrorResponse, createPaginatedResponse } from '@/lib/api-types'
+import { requireAuth } from '@/lib/auth-middleware-api'
 
 // GET /api/reviews - Get all reviews (for customer to see their own reviews)
 export async function GET(request: NextRequest) {
   try {
-    const userId = request.headers.get('x-user-id')
-    
-    if (!userId) {
-      return NextResponse.json(
-        createErrorResponse('Authentication required', 'UNAUTHORIZED'),
-        { status: 401 }
-      )
+    const authError = requireAuth(request)
+    if (authError) {
+      return authError
     }
+    
 
     const { searchParams } = new URL(request.url)
     const page = parseInt(searchParams.get('page') || '1')
