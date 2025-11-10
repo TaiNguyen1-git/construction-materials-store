@@ -3,10 +3,25 @@ import { AuthService, JWTPayload } from './auth'
 import { NextResponse } from 'next/server'
 
 /**
- * Get token from NextRequest object (set by middleware in x-token header)
+ * Get token from NextRequest object (set by middleware in x-token header or from Authorization)
  */
 export function getTokenFromRequest(request: NextRequest): string | null {
-  const token = request.headers.get('x-token')
+  // Try x-token header first (set by middleware)
+  let token = request.headers.get('x-token')
+  
+  if (!token) {
+    // Try x-auth-token header (from client)
+    token = request.headers.get('x-auth-token')
+  }
+  
+  if (!token) {
+    // Try Authorization header
+    const authHeader = request.headers.get('authorization')
+    if (authHeader?.startsWith('Bearer ')) {
+      token = authHeader.slice(7)
+    }
+  }
+  
   return token
 }
 

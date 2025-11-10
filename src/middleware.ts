@@ -122,17 +122,23 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
-  // Get token from Authorization header
+  // Try multiple header sources due to Edge Runtime issues
+  let token: string | null = null
+  
+  // Try Authorization header first
   const authHeader = request.headers.get('authorization')
+  if (authHeader?.startsWith('Bearer ')) {
+    token = authHeader.slice(7)
+  }
+  
+  // If not found, try custom header (for Vercel Edge Runtime compatibility)
+  if (!token) {
+    token = request.headers.get('x-auth-token')
+  }
+  
   console.log('[Middleware] Route:', pathname)
   console.log('[Middleware] All headers:', Array.from(request.headers.entries()))
-  console.log('[Middleware] Auth header (lowercase):', authHeader?.substring(0, 30) + '...' || 'NO HEADER')
-  
-  // Try different header name variations
-  const authHeader2 = request.headers.get('Authorization')
-  console.log('[Middleware] Auth header (uppercase):', authHeader2?.substring(0, 30) + '...' || 'NO HEADER')
-  
-  const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null
+  console.log('[Middleware] Token found via:', authHeader ? 'Authorization' : 'x-auth-token', '- value:', token?.substring(0, 20) + '...' || 'NO TOKEN')
 
   // For optional auth routes, allow guest access (no token)
   if (!token && isOptionalAuthRoute) {

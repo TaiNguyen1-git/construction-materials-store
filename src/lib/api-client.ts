@@ -16,6 +16,7 @@ export const getAuthHeaders = (): HeadersInit => {
   console.log('[API Client] Using token:', token.substring(0, 20) + '...')
   return {
     'Authorization': `Bearer ${token}`,
+    'x-auth-token': token,
   }
 }
 
