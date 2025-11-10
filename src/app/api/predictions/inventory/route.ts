@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { createSuccessResponse, createErrorResponse } from '@/lib/api-types'
+import { requireEmployee } from '@/lib/auth-middleware-api'
 import { z } from 'zod'
 import { mlPredictionService } from '@/lib/ml-prediction'
 
@@ -208,13 +209,10 @@ function calculateVariability(values: number[]): number {
 // GET /api/predictions/inventory - Get inventory predictions
 export async function GET(request: NextRequest) {
   try {
-    // Check user role from middleware
-    const userRole = request.headers.get('x-user-role')
-    if (!['MANAGER', 'EMPLOYEE'].includes(userRole || '')) {
-      return NextResponse.json(
-        createErrorResponse('Access denied', 'FORBIDDEN'),
-        { status: 403 }
-      )
+    // Verify employee or manager role
+    const authError = requireEmployee(request)
+    if (authError) {
+      return authError
     }
 
     const { searchParams } = new URL(request.url)

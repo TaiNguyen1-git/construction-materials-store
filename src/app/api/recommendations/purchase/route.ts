@@ -1,10 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { createSuccessResponse, createErrorResponse } from '@/lib/api-types'
+import { requireManager } from '@/lib/auth-middleware-api'
 
 // GET /api/recommendations/purchase - Get purchase recommendations based on low stock
 export async function GET(request: NextRequest) {
   try {
+    // Verify manager role
+    const authError = requireManager(request)
+    if (authError) {
+      return authError
+    }
+    
     // Get all products with inventory
     const products = await prisma.product.findMany({
       where: {

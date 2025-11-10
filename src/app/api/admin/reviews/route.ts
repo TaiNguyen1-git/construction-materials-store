@@ -1,17 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { createSuccessResponse, createErrorResponse, createPaginatedResponse } from '@/lib/api-types'
+import { requireManager } from '@/lib/auth-middleware-api'
 
 // GET /api/admin/reviews - Get all reviews for admin
 export async function GET(request: NextRequest) {
   try {
-    const userRole = request.headers.get('x-user-role')
-    
-    if (userRole !== 'MANAGER') {
-      return NextResponse.json(
-        createErrorResponse('Unauthorized', 'FORBIDDEN'),
-        { status: 403 }
-      )
+    // Verify manager role
+    const authError = requireManager(request)
+    if (authError) {
+      return authError
     }
 
     const { searchParams } = new URL(request.url)

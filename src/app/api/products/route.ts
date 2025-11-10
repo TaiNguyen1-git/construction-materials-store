@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { createSuccessResponse, createErrorResponse, createPaginatedResponse } from '@/lib/api-types'
+import { requireAuth } from '@/lib/auth-middleware-api'
 import { z } from 'zod'
 import { CacheService } from '@/lib/cache'
 import { logger, logAPI } from '@/lib/logger'
@@ -44,6 +45,12 @@ export async function GET(request: NextRequest) {
   const startTime = Date.now()
   
   try {
+    // Verify authentication
+    const authError = requireAuth(request)
+    if (authError) {
+      return authError
+    }
+    
     const { searchParams } = new URL(request.url)
     const params = Object.fromEntries(searchParams.entries())
     
