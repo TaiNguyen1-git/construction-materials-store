@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { createSuccessResponse, createErrorResponse } from '@/lib/api-types'
-import { requireAuth } from '@/lib/auth-middleware-api'
 import { z } from 'zod'
 import { AuthService } from '@/lib/auth'
 import { LoyaltyService } from '@/lib/loyalty-service'
@@ -40,12 +39,6 @@ export async function GET(request: NextRequest) {
   const startTime = Date.now()
   
   try {
-    // Verify authentication
-    const authError = requireAuth(request)
-    if (authError) {
-      return authError
-    }
-    
     // Get user info from token verification
     const userId = request.headers.get('x-user-id')
     const userRole = request.headers.get('x-user-role')
