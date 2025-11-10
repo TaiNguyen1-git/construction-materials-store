@@ -19,6 +19,12 @@ const protectedRoutes = [
   '/api/predictions',
   '/api/recommendations',
   '/api/notifications',
+  '/api/customers',
+  '/api/products',
+  '/api/analytics',
+  '/api/suppliers',
+  '/api/reviews',
+  '/api/categories',
 ]
 
 // Public routes that don't require authentication
