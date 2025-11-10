@@ -257,11 +257,20 @@ class AuthenticationService {
 
   // Private methods for storage handling
   private setTokensInStorage(accessToken: string, refreshToken: string | null): void {
+    console.log('[AuthService] setTokensInStorage called')
+    console.log('[AuthService] typeof window:', typeof window)
+    
     if (typeof window !== 'undefined') {
+      console.log('[AuthService] Saving token to sessionStorage')
       sessionStorage.setItem('access_token', accessToken)
+      console.log('[AuthService] Token saved:', accessToken.substring(0, 30) + '...')
+      console.log('[AuthService] Verify - token in storage:', sessionStorage.getItem('access_token')?.substring(0, 30) + '...')
+      
       if (refreshToken) {
         sessionStorage.setItem('refresh_token', refreshToken)
       }
+    } else {
+      console.error('[AuthService] Window is undefined - cannot save token')
     }
   }
 
