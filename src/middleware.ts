@@ -128,19 +128,25 @@ export async function middleware(request: NextRequest) {
   const authHeader = request.headers.get('authorization')
   if (authHeader?.startsWith('Bearer ')) {
     token = authHeader.slice(7)
+    console.log('[Middleware] Token extracted from Authorization header, length:', token.length)
   }
   
   // If not found, try custom header (for Vercel Edge Runtime compatibility)
   if (!token) {
     token = request.headers.get('x-auth-token')
+    if (token) {
+      console.log('[Middleware] Token extracted from x-auth-token header, length:', token.length)
+    }
   }
 
   // For optional auth routes, allow guest access (no token)
   if (!token && isOptionalAuthRoute) {
+    console.log('[Middleware] Optional auth route, no token required:', pathname)
     return NextResponse.next()
   }
 
   if (!token) {
+    console.log('[Middleware] Protected route but no token found:', pathname)
     return NextResponse.json(
       { success: false, error: { code: 'UNAUTHORIZED', message: 'Access token required' } },
       { status: 401 }
@@ -151,6 +157,7 @@ export async function middleware(request: NextRequest) {
   // Token verification will happen in API route middleware/handlers
   // Here we just extract and pass token to API routes
   
+  console.log('[Middleware] Setting x-token header for route:', pathname)
   const requestHeaders = new Headers(request.headers)
   requestHeaders.set('x-token', token)
   

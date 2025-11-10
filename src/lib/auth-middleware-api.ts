@@ -8,21 +8,34 @@ import { NextResponse } from 'next/server'
 export function getTokenFromRequest(request: NextRequest): string | null {
   // Try x-token header first (set by middleware)
   let token = request.headers.get('x-token')
-  
-  if (!token) {
-    // Try x-auth-token header (from client)
-    token = request.headers.get('x-auth-token')
+  if (token) {
+    console.log('[getTokenFromRequest] Found token in x-token header, length:', token.length)
+    return token
   }
   
-  if (!token) {
-    // Try Authorization header
-    const authHeader = request.headers.get('authorization')
-    if (authHeader?.startsWith('Bearer ')) {
-      token = authHeader.slice(7)
-    }
+  // Try x-auth-token header (from client)
+  token = request.headers.get('x-auth-token')
+  if (token) {
+    console.log('[getTokenFromRequest] Found token in x-auth-token header, length:', token.length)
+    return token
   }
   
-  return token
+  // Try Authorization header
+  const authHeader = request.headers.get('authorization')
+  if (authHeader?.startsWith('Bearer ')) {
+    token = authHeader.slice(7)
+    console.log('[getTokenFromRequest] Found token in Authorization header, length:', token.length)
+    return token
+  }
+  
+  console.log('[getTokenFromRequest] No token found in any header')
+  console.log('[getTokenFromRequest] Available headers:', {
+    'x-token': request.headers.get('x-token') ? 'present' : 'missing',
+    'x-auth-token': request.headers.get('x-auth-token') ? 'present' : 'missing',
+    'authorization': request.headers.get('authorization') ? 'present' : 'missing',
+  })
+  
+  return null
 }
 
 /**
@@ -33,12 +46,16 @@ export function verifyTokenFromRequest(request: NextRequest): JWTPayload | null 
     const token = getTokenFromRequest(request)
     
     if (!token) {
+      console.log('[verifyTokenFromRequest] No token found')
       return null
     }
     
+    console.log('[verifyTokenFromRequest] Verifying token...')
     const payload = AuthService.verifyAccessToken(token) as JWTPayload
+    console.log('[verifyTokenFromRequest] Token verified successfully, userId:', payload.userId)
     return payload
   } catch (error: any) {
+    console.error('[verifyTokenFromRequest] Token verification failed:', error.message)
     return null
   }
 }
