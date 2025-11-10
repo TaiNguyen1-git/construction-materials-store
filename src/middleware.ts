@@ -103,7 +103,11 @@ export async function middleware(request: NextRequest) {
   const token = extractToken(request)
 
   if (!token) {
-    console.log('[Middleware] Protected route requires auth:', pathname)
+    console.log('[Middleware] Protected route requires auth:', pathname, 'headers:', {
+      'authorization': request.headers.get('authorization') ? 'present' : 'missing',
+      'x-auth-token': request.headers.get('x-auth-token') ? 'present' : 'missing',
+      'x-token': request.headers.get('x-token') ? 'present' : 'missing',
+    })
     return NextResponse.json(
       { success: false, error: { code: 'UNAUTHORIZED', message: 'Access token required' } },
       { status: 401 }
