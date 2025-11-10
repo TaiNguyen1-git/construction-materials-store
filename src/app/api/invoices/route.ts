@@ -1,18 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { requireAuth, verifyTokenFromRequest } from '@/lib/auth-middleware-api'
+import { verifyTokenFromRequest } from '@/lib/auth-middleware-api'
 import { UserRole } from '@/lib/auth'
 
-// GET /api/invoices - Get all invoices
+// GET /api/invoices - Get invoices (optional auth - guests and users can access)
 export async function GET(request: NextRequest) {
   try {
-    // Verify authentication
-    const authError = requireAuth(request)
-    if (authError) {
-      return authError
-    }
-
-    // Get user from verified token
+    // Get user from verified token (optional - guests allowed)
     const user = verifyTokenFromRequest(request)
 
     const { searchParams } = new URL(request.url)

@@ -1,17 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { createSuccessResponse, createErrorResponse } from '@/lib/api-types'
-import { requireAuth } from '@/lib/auth-middleware-api'
 
-// GET /api/customers - Get all customers
+// GET /api/customers - Get all customers (PUBLIC - no auth required)
 export async function GET(request: NextRequest) {
   try {
-    // Verify authentication
-    const authError = requireAuth(request)
-    if (authError) {
-      return authError
-    }
-    
     const { searchParams } = new URL(request.url)
     const search = searchParams.get('search')
     const status = searchParams.get('status')

@@ -1,38 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { createSuccessResponse, createErrorResponse, createPaginatedResponse } from '@/lib/api-types'
-import { requireAuth } from '@/lib/auth-middleware-api'
 
-// GET /api/reviews - Get all reviews (for customer to see their own reviews)
+// GET /api/reviews - Get all reviews (PUBLIC - no auth required for browsing)
 export async function GET(request: NextRequest) {
   try {
-    const authError = requireAuth(request)
-    if (authError) {
-      return authError
-    }
-    
-
     const { searchParams } = new URL(request.url)
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '10')
     const skip = (page - 1) * limit
 
-    // Get customer from userId
-    const customer = await prisma.customer.findFirst({
-      where: { userId }
-    })
-
-    if (!customer) {
-      return NextResponse.json(
-        createErrorResponse('Customer not found', 'NOT_FOUND'),
-        { status: 404 }
-      )
-    }
-
-    // Get reviews with pagination
+    // Get reviews with pagination (public access - all reviews)
     const [reviews, total] = await Promise.all([
       prisma.productReview.findMany({
-        where: { customerId: customer.id },
+        where: {},
         include: {
           product: {
             select: { 
@@ -47,7 +28,7 @@ export async function GET(request: NextRequest) {
         skip,
         take: limit,
       }),
-      prisma.productReview.count({ where: { customerId: customer.id } })
+      prisma.productReview.count()
     ])
 
     const response = createPaginatedResponse(reviews, total, page, limit)
