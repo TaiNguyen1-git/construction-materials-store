@@ -63,6 +63,9 @@ const employeeRoutes = [
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
   const ip = request.ip || request.headers.get('x-forwarded-for') || 'anonymous'
+  
+  // Force redeploy marker
+  console.log('[Middleware] Request received for:', pathname)
 
   // Skip middleware for public routes and static files
   if (
