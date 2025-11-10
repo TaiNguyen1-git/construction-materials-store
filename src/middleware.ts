@@ -4,39 +4,39 @@ import { AuthService, JWTPayload } from '@/lib/auth'
 // Redis client requires Node.js runtime. Consider using Vercel KV or Upstash Redis
 // import { rateLimitMiddleware } from '@/lib/rate-limit'
 
-// Define protected routes
+// Define protected routes (requires authentication)
 const protectedRoutes = [
   '/api/admin',
   '/api/employee',
   '/api/inventory',
-  '/api/orders',
-  '/api/invoices',
   '/api/payroll',
   '/api/employee-tasks',
   '/api/work-shifts',
   '/api/attendance',
   '/api/ocr',
-  '/api/predictions',
-  '/api/recommendations',
+  '/api/predictions/accuracy',
+  '/api/recommendations/purchase',
   '/api/notifications',
-  '/api/customers',
-  '/api/products',
   '/api/analytics',
   '/api/suppliers',
-  '/api/reviews',
-  '/api/categories',
+  '/api/admin/reviews',
 ]
 
 // Public routes that don't require authentication
 const publicRoutes = [
-  '/api/recommendations/cart', // Recommendations for cart (guest can access)
-  '/api/recommendations/review-based', // Review-based recommendations (guest can access)
+  '/api/products',
+  '/api/categories',
+  '/api/recommendations',
+  '/api/recommendations/cart',
+  '/api/recommendations/review-based',
+  '/api/customers',
+  '/api/reviews',
 ]
 
 // Routes where authentication is optional (guest can access, but authenticated users get full access)
 const optionalAuthRoutes = [
-  '/api/orders', // Guest creates order, Admin views all orders
-  '/api/invoices', // Guest views invoice, Admin views all invoices
+  '/api/orders',
+  '/api/invoices',
 ]
 
 const adminOnlyRoutes = [
