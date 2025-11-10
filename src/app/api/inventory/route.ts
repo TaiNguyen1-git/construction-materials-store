@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { createSuccessResponse, createErrorResponse, createPaginatedResponse } from '@/lib/api-types'
+import { requireAuth } from '@/lib/auth-middleware-api'
 import { z } from 'zod'
 import { sendNotification } from '@/lib/notification-service'
 import { notificationWebSocketServer } from '@/lib/websocket-server'
@@ -38,7 +39,12 @@ export async function GET(request: NextRequest) {
   const startTime = Date.now()
   
   try {
-    // Check user role from middleware (skip in development)
+    // Verify authentication
+    const authError = requireAuth(request)
+    if (authError) {
+      return authError
+    }
+    
     const userRole = request.headers.get('x-user-role')
     const userId = request.headers.get('x-user-id')
     
