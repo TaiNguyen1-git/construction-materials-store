@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { createSuccessResponse, createErrorResponse } from '@/lib/api-types'
-import { requireEmployee } from '@/lib/auth-middleware-api'
+import { requireEmployee, requireManager } from '@/lib/auth-middleware-api'
 import { z } from 'zod'
 import { mlPredictionService } from '@/lib/ml-prediction'
 
@@ -404,14 +404,9 @@ export async function GET(request: NextRequest) {
 // POST /api/predictions/inventory - Trigger prediction update
 export async function POST(request: NextRequest) {
   try {
-    // Check user role from middleware
-    const userRole = request.headers.get('x-user-role')
-    if (userRole !== 'MANAGER') {
-      return NextResponse.json(
-        createErrorResponse('Manager access required', 'FORBIDDEN'),
-        { status: 403 }
-      )
-    }
+    // Verify authentication and manager role
+    const authError = requireManager(request)
+    if (authError) return authError
 
     const body = await request.json()
     const { productIds, timeframe = 'MONTH', includeSeasonality = true } = body
