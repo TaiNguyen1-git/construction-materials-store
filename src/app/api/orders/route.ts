@@ -39,15 +39,9 @@ export async function GET(request: NextRequest) {
   const startTime = Date.now()
   
   try {
-    // Get user info from token verification
+    // Get user info from headers (optional for guest orders)
     const userId = request.headers.get('x-user-id')
     const userRole = request.headers.get('x-user-role')
-    
-    // If auth check passed but headers missing, get from middleware or accept guest
-    if (!userId) {
-        { status: 401 }
-      )
-    }
 
     const { searchParams } = new URL(request.url)
     const page = parseInt(searchParams.get('page') || '1')
