@@ -48,7 +48,21 @@ export class AuthService {
   }
 
   static verifyAccessToken(token: string): JWTPayload {
-    return jwt.verify(token, AUTH_CONFIG.JWT_SECRET) as JWTPayload
+    console.log('[AuthService] verifyAccessToken called')
+    console.log('[AuthService] JWT_SECRET in use:', AUTH_CONFIG.JWT_SECRET ? AUTH_CONFIG.JWT_SECRET.substring(0, 20) + '...' : 'NOT SET')
+    console.log('[AuthService] process.env.JWT_SECRET:', process.env.JWT_SECRET ? process.env.JWT_SECRET.substring(0, 20) + '...' : 'NOT SET')
+    console.log('[AuthService] TOKEN:', token.substring(0, 50) + '...')
+    
+    try {
+      const decoded = jwt.verify(token, AUTH_CONFIG.JWT_SECRET) as JWTPayload
+      console.log('[AuthService] Token verified successfully:', decoded)
+      return decoded
+    } catch (error: any) {
+      console.error('[AuthService] Token verification error:', error.message)
+      console.error('[AuthService] Token algorithm:', token.split('.')[0])
+      console.error('[AuthService] Trying to verify with JWT_SECRET:', AUTH_CONFIG.JWT_SECRET.substring(0, 20) + '...')
+      throw error
+    }
   }
 
   static verifyRefreshToken(token: string): JWTPayload {
