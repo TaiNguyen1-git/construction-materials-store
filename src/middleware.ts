@@ -116,7 +116,12 @@ export async function middleware(request: NextRequest) {
   // Get token from Authorization header
   const authHeader = request.headers.get('authorization')
   console.log('[Middleware] Route:', pathname)
-  console.log('[Middleware] Auth header:', authHeader?.substring(0, 30) + '...' || 'NO HEADER')
+  console.log('[Middleware] All headers:', Array.from(request.headers.entries()))
+  console.log('[Middleware] Auth header (lowercase):', authHeader?.substring(0, 30) + '...' || 'NO HEADER')
+  
+  // Try different header name variations
+  const authHeader2 = request.headers.get('Authorization')
+  console.log('[Middleware] Auth header (uppercase):', authHeader2?.substring(0, 30) + '...' || 'NO HEADER')
   
   const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null
 
