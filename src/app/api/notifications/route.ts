@@ -1,30 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { createSuccessResponse, createErrorResponse } from '@/lib/api-types'
+import { requireAuth } from '@/lib/auth-middleware-api'
 import { getAllNotifications } from '@/lib/notification-service'
 
 // GET /api/notifications - Get all notifications
 export async function GET(request: NextRequest) {
   try {
+    const authError = requireAuth(request)
+    if (authError) {
+      return authError
+    }
+    
     let userId = request.headers.get('x-user-id')
-    
-    // In development mode, if userId is 'dev-user', find the first admin
-    if (process.env.NODE_ENV === 'development' && userId === 'dev-user') {
-      const admin = await prisma.user.findFirst({
-        where: { role: 'MANAGER' },
-        select: { id: true }
-      })
-      if (admin) {
-        userId = admin.id
-      }
-    }
-    
-    if (!userId) {
-      return NextResponse.json(
-        createErrorResponse('Unauthorized', 'UNAUTHORIZED'),
-        { status: 401 }
-      )
-    }
 
     // Get from database
     const dbNotifications = await prisma.notification.findMany({
