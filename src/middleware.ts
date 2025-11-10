@@ -64,8 +64,7 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
   const ip = request.ip || request.headers.get('x-forwarded-for') || 'anonymous'
   
-  // Force redeploy marker
-  console.log('[Middleware] Request received for:', pathname)
+
 
   // Skip middleware for public routes and static files
   if (
@@ -135,26 +134,18 @@ export async function middleware(request: NextRequest) {
   if (!token) {
     token = request.headers.get('x-auth-token')
   }
-  
-  console.log('[Middleware] Route:', pathname)
-  console.log('[Middleware] All headers:', Array.from(request.headers.entries()))
-  console.log('[Middleware] Token found via:', authHeader ? 'Authorization' : 'x-auth-token', '- value:', token?.substring(0, 20) + '...' || 'NO TOKEN')
 
   // For optional auth routes, allow guest access (no token)
   if (!token && isOptionalAuthRoute) {
-    console.log('[Middleware] Optional auth route, allowing guest access:', pathname)
     return NextResponse.next()
   }
 
   if (!token) {
-    console.log('[Middleware] NO TOKEN - returning 401')
     return NextResponse.json(
       { success: false, error: { code: 'UNAUTHORIZED', message: 'Access token required' } },
       { status: 401 }
     )
   }
-  
-  console.log('[Middleware] Token found:', token.substring(0, 20) + '...')
   
   // Note: JWT verification moved to API routes because Edge Runtime doesn't support crypto module
   // Token verification will happen in API route middleware/handlers
@@ -162,8 +153,6 @@ export async function middleware(request: NextRequest) {
   
   const requestHeaders = new Headers(request.headers)
   requestHeaders.set('x-token', token)
-  
-  console.log('[Middleware] Token passed to API routes for verification')
   
   return NextResponse.next({
     request: {

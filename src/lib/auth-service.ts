@@ -73,8 +73,6 @@ class AuthenticationService {
   // Login user
   async login(credentials: LoginCredentials): Promise<AuthResponse> {
     try {
-      console.log('[AuthService] login() called with email:', credentials.email)
-      
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: {
@@ -83,29 +81,20 @@ class AuthenticationService {
         body: JSON.stringify(credentials),
       })
 
-      console.log('[AuthService] API response status:', response.status)
-      
       if (!response.ok) {
         const error = await response.json()
         throw new Error(error.error || 'Login failed')
       }
 
       const data = await response.json()
-      console.log('[AuthService] Got response data, token:', data.token?.substring(0, 30) + '...')
       
       // Store tokens and user data
       this.accessToken = data.token
       this.user = data.user
       
-      console.log('[AuthService] Login successful, storing token:', data.token?.substring(0, 20) + '...')
-      
-      // Store in secure storage (HttpOnly cookies would be better in production)
-      console.log('[AuthService] About to call setTokensInStorage...')
+      // Store in secure storage
       this.setTokensInStorage(data.token, null)
       this.setUserInStorage(data.user)
-      
-      console.log('[AuthService] Token stored in sessionStorage')
-      console.log('[AuthService] Verification - token from storage:', sessionStorage.getItem('access_token')?.substring(0, 20) + '...')
       
       return {
         user: data.user,
@@ -115,7 +104,6 @@ class AuthenticationService {
         }
       }
     } catch (error) {
-      console.error('[AuthService] Login error:', error)
       throw error
     }
   }
@@ -264,20 +252,11 @@ class AuthenticationService {
 
   // Private methods for storage handling
   private setTokensInStorage(accessToken: string, refreshToken: string | null): void {
-    console.log('[AuthService] setTokensInStorage called')
-    console.log('[AuthService] typeof window:', typeof window)
-    
     if (typeof window !== 'undefined') {
-      console.log('[AuthService] Saving token to sessionStorage')
       sessionStorage.setItem('access_token', accessToken)
-      console.log('[AuthService] Token saved:', accessToken.substring(0, 30) + '...')
-      console.log('[AuthService] Verify - token in storage:', sessionStorage.getItem('access_token')?.substring(0, 30) + '...')
-      
       if (refreshToken) {
         sessionStorage.setItem('refresh_token', refreshToken)
       }
-    } else {
-      console.error('[AuthService] Window is undefined - cannot save token')
     }
   }
 

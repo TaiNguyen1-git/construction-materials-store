@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
       return authError
     }
     
-    console.log('🔍 Employees API - User authenticated and authorized')
+
 
     const { searchParams } = new URL(request.url)
     const params = Object.fromEntries(searchParams.entries())

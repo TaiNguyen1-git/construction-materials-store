@@ -33,17 +33,12 @@ export function verifyTokenFromRequest(request: NextRequest): JWTPayload | null 
     const token = getTokenFromRequest(request)
     
     if (!token) {
-      console.log('[API Auth] No token found in x-token header')
       return null
     }
     
-    console.log('[API Auth] Verifying token:', token.substring(0, 20) + '...')
     const payload = AuthService.verifyAccessToken(token) as JWTPayload
-    console.log('[API Auth] Token verified successfully for user:', payload.userId)
-    
     return payload
   } catch (error: any) {
-    console.error('[API Auth] Token verification failed:', error.message)
     return null
   }
 }

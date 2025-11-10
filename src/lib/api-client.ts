@@ -9,11 +9,9 @@ export const getAuthHeaders = (): HeadersInit => {
   }
   
   if (!token) {
-    console.warn('[API Client] No access token found in storage')
     return {}
   }
   
-  console.log('[API Client] Using token:', token.substring(0, 20) + '...')
   return {
     'Authorization': `Bearer ${token}`,
     'x-auth-token': token,
