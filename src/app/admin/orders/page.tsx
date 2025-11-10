@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { toast } from 'react-hot-toast'
+import { fetchWithAuth } from '@/lib/api-client'
 import ConfirmDialog from '@/components/ConfirmDialog'
 import FormModal from '@/components/FormModal'
 import Pagination from '@/components/Pagination'
@@ -104,7 +105,7 @@ export default function OrdersPage() {
       params.append('page', filters.page.toString())
       params.append('limit', '20')
 
-      const response = await fetch(`/api/orders?${params}`)
+      const response = await fetchWithAuth(`/api/orders?${params}`)
       if (response.ok) {
         const data = await response.json()
         // Handle both nested and flat response structures
@@ -149,7 +150,7 @@ export default function OrdersPage() {
 
   const fetchCustomers = async () => {
     try {
-      const response = await fetch('/api/customers')
+      const response = await fetchWithAuth('/api/customers')
       if (response.ok) {
         const data = await response.json()
         // Handle nested data structure
@@ -165,9 +166,8 @@ export default function OrdersPage() {
 
   const updateOrderStatus = async (orderId: string, status: string, trackingNumber?: string) => {
     try {
-      const response = await fetch(`/api/orders/${orderId}/status`, {
+      const response = await fetchWithAuth(`/api/orders/${orderId}/status`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status, trackingNumber })
       })
 
@@ -246,9 +246,8 @@ export default function OrdersPage() {
   
   const confirmOrder = async (orderId: string, action: 'confirm' | 'reject', reason?: string) => {
     try {
-      const response = await fetch(`/api/orders/${orderId}/confirm`, {
+      const response = await fetchWithAuth(`/api/orders/${orderId}/confirm`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action, reason })
       })
       
@@ -270,9 +269,8 @@ export default function OrdersPage() {
   
   const confirmDeposit = async (orderId: string) => {
     try {
-      const response = await fetch(`/api/orders/${orderId}/deposit`, {
+      const response = await fetchWithAuth(`/api/orders/${orderId}/deposit`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({})
       })
       
@@ -296,7 +294,7 @@ export default function OrdersPage() {
     if (!deletingOrder) return
 
     try {
-      const response = await fetch(`/api/orders/${deletingOrder.id}`, {
+      const response = await fetchWithAuth(`/api/orders/${deletingOrder.id}`, {
         method: 'DELETE'
       })
 

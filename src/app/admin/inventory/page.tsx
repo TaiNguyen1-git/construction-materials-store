@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { toast } from 'react-hot-toast'
+import { fetchWithAuth } from '@/lib/api-client'
 import { 
   RefreshCw, AlertTriangle, CheckCircle, TrendingUp, Package, 
   DollarSign, Target, ShoppingCart, Calendar, ChevronDown, ChevronUp
@@ -105,10 +106,10 @@ export default function InventoryPage() {
       const params = new URLSearchParams({ timeframe: filters.timeframe })
       
       const [productsRes, movementsRes, predictionsRes, recommendationsRes] = await Promise.all([
-        fetch('/api/products'),
-        fetch('/api/inventory/movements'),
-        fetch(`/api/predictions/inventory?${params}`),
-        fetch(`/api/recommendations/purchase?${params}`)
+        fetchWithAuth('/api/products'),
+        fetchWithAuth('/api/inventory/movements'),
+        fetchWithAuth(`/api/predictions/inventory?${params}`),
+        fetchWithAuth(`/api/recommendations/purchase?${params}`)
       ])
 
       if (productsRes.ok) {
@@ -173,9 +174,8 @@ export default function InventoryPage() {
   const handleStockAdjustment = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
-      const response = await fetch('/api/inventory/movements', {
+      const response = await fetchWithAuth('/api/inventory/movements', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(adjustForm)
       })
 

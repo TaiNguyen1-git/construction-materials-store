@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { toast } from 'react-hot-toast'
+import { fetchWithAuth } from '@/lib/api-client'
 import { Package, Building, Plus, Search, ChevronDown, ChevronUp } from 'lucide-react'
 import ConfirmDialog from '@/components/ConfirmDialog'
 import FormModal from '@/components/FormModal'
@@ -104,7 +105,7 @@ export default function ProductsSuppliersPage() {
   const fetchProducts = async () => {
     try {
       setProductsLoading(true)
-      const response = await fetch('/api/products')
+      const response = await fetchWithAuth('/api/products')
       if (response.ok) {
         const data = await response.json()
         // Handle nested data structure from API
@@ -175,9 +176,8 @@ export default function ProductsSuppliersPage() {
       const url = editingProduct ? `/api/products/${editingProduct.id}` : '/api/products'
       const method = editingProduct ? 'PUT' : 'POST'
 
-      const response = await fetch(url, {
+      const response = await fetchWithAuth(url, {
         method,
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(productForm)
       })
 
@@ -202,7 +202,7 @@ export default function ProductsSuppliersPage() {
 
     setProductFormLoading(true)
     try {
-      const response = await fetch(`/api/products/${deletingProduct.id}`, {
+      const response = await fetchWithAuth(`/api/products/${deletingProduct.id}`, {
         method: 'DELETE'
       })
 
@@ -226,7 +226,7 @@ export default function ProductsSuppliersPage() {
   const fetchSuppliers = async () => {
     try {
       setSuppliersLoading(true)
-      const response = await fetch('/api/suppliers')
+      const response = await fetchWithAuth('/api/suppliers')
       if (response.ok) {
         const data = await response.json()
         // Ensure suppliers is always an array
@@ -297,9 +297,8 @@ export default function ProductsSuppliersPage() {
       const url = editingSupplier ? `/api/suppliers/${editingSupplier.id}` : '/api/suppliers'
       const method = editingSupplier ? 'PUT' : 'POST'
 
-      const response = await fetch(url, {
+      const response = await fetchWithAuth(url, {
         method,
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(supplierForm)
       })
 
@@ -324,7 +323,7 @@ export default function ProductsSuppliersPage() {
 
     setSupplierFormLoading(true)
     try {
-      const response = await fetch(`/api/suppliers/${deletingSupplier.id}`, {
+      const response = await fetchWithAuth(`/api/suppliers/${deletingSupplier.id}`, {
         method: 'DELETE'
       })
 

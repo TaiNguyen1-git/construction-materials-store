@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { fetchWithAuth } from '@/lib/api-client'
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, AreaChart, Area, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 
 interface DashboardStats {
@@ -44,7 +45,7 @@ export default function AdminDashboard() {
   const fetchDashboardData = async (showLoading = true) => {
     try {
       if (showLoading) setLoading(true)
-      const response = await fetch('/api/analytics/dashboard?days=30')
+      const response = await fetchWithAuth('/api/analytics/dashboard?days=30')
       if (response.ok) {
         const result = await response.json()
         setData(result.data)

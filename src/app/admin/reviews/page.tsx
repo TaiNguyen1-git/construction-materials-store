@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { fetchWithAuth } from '@/lib/api-client'
 import { Star, Search, Eye, EyeOff, CheckCircle, Trash2, BarChart3 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -50,11 +51,7 @@ export default function AdminReviewsPage() {
       if (filterPublished) params.append('isPublished', filterPublished)
       if (filterVerified) params.append('isVerified', filterVerified)
 
-      const response = await fetch(`/api/admin/reviews?${params.toString()}`, {
-        headers: {
-          'x-user-role': 'MANAGER'
-        }
-      })
+      const response = await fetchWithAuth(`/api/admin/reviews?${params.toString()}`)
       
       if (response.ok) {
         const data = await response.json()
@@ -95,12 +92,8 @@ export default function AdminReviewsPage() {
         )
       } else {
         // Bulk update
-        const response = await fetch('/api/admin/reviews', {
+        const response = await fetchWithAuth('/api/admin/reviews', {
           method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-user-role': 'MANAGER'
-          },
           body: JSON.stringify({
             reviewIds: selectedReviews,
             action

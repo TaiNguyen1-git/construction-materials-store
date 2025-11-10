@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { toast } from 'react-hot-toast'
+import { fetchWithAuth } from '@/lib/api-client'
 import ConfirmDialog from '@/components/ConfirmDialog'
 import FormModal from '@/components/FormModal'
 import Pagination from '@/components/Pagination'
@@ -47,7 +48,7 @@ export default function CustomersPage() {
       if (filters.status) params.append('status', filters.status)
       if (filters.search) params.append('search', filters.search)
 
-      const response = await fetch(`/api/customers?${params}`)
+      const response = await fetchWithAuth(`/api/customers?${params}`)
       if (response.ok) {
         const data = await response.json()
         // Handle nested data structure
@@ -68,9 +69,8 @@ export default function CustomersPage() {
 
   const updateCustomerStatus = async (customerId: string, status: string) => {
     try {
-      const response = await fetch(`/api/customers/${customerId}`, {
+      const response = await fetchWithAuth(`/api/customers/${customerId}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status })
       })
 
@@ -127,9 +127,8 @@ export default function CustomersPage() {
       const url = editingCustomer ? `/api/customers/${editingCustomer.id}` : '/api/customers'
       const method = editingCustomer ? 'PUT' : 'POST'
 
-      const response = await fetch(url, {
+      const response = await fetchWithAuth(url, {
         method,
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form)
       })
 
@@ -154,7 +153,7 @@ export default function CustomersPage() {
 
     setFormLoading(true)
     try {
-      const response = await fetch(`/api/customers/${deletingCustomer.id}`, {
+      const response = await fetchWithAuth(`/api/customers/${deletingCustomer.id}`, {
         method: 'DELETE'
       })
 

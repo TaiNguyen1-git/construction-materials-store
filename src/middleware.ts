@@ -21,6 +21,18 @@ const protectedRoutes = [
   '/api/notifications',
 ]
 
+// Public routes that don't require authentication
+const publicRoutes = [
+  '/api/recommendations/cart', // Recommendations for cart (guest can access)
+  '/api/recommendations/review-based', // Review-based recommendations (guest can access)
+]
+
+// Routes where authentication is optional (guest can access, but authenticated users get full access)
+const optionalAuthRoutes = [
+  '/api/orders', // Guest creates order, Admin views all orders
+  '/api/invoices', // Guest views invoice, Admin views all invoices
+]
+
 const adminOnlyRoutes = [
   '/api/admin/employees',
   '/api/admin/users',
@@ -81,23 +93,46 @@ export async function middleware(request: NextRequest) {
   //
   // For now, rate limiting is disabled in middleware but can be added to individual API routes
 
+  // Check if route is in public exceptions (no auth needed)
+  const isPublicException = publicRoutes.some(route => pathname.startsWith(route))
+  if (isPublicException) {
+    console.log('[Middleware] Public route exception:', pathname)
+    return NextResponse.next()
+  }
+
+  // Check if route has optional authentication
+  const isOptionalAuthRoute = optionalAuthRoutes.some(route => pathname.startsWith(route))
+  
   // Check if route needs protection
   const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route))
   
-  if (!isProtectedRoute) {
+  if (!isProtectedRoute && !isOptionalAuthRoute) {
+    console.log('[Middleware] Route not protected:', pathname)
     return NextResponse.next()
   }
 
   // Get token from Authorization header
   const authHeader = request.headers.get('authorization')
+  console.log('[Middleware] Route:', pathname)
+  console.log('[Middleware] Auth header:', authHeader?.substring(0, 30) + '...' || 'NO HEADER')
+  
   const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null
 
+  // For optional auth routes, allow guest access (no token)
+  if (!token && isOptionalAuthRoute) {
+    console.log('[Middleware] Optional auth route, allowing guest access:', pathname)
+    return NextResponse.next()
+  }
+
   if (!token) {
+    console.log('[Middleware] NO TOKEN - returning 401')
     return NextResponse.json(
       { success: false, error: { code: 'UNAUTHORIZED', message: 'Access token required' } },
       { status: 401 }
     )
   }
+  
+  console.log('[Middleware] Token found:', token.substring(0, 20) + '...')
 
   try {
     // Verify token

@@ -92,9 +92,14 @@ class AuthenticationService {
       this.accessToken = data.token
       this.user = data.user
       
+      console.log('[AuthService] Login successful, storing token:', data.token?.substring(0, 20) + '...')
+      
       // Store in secure storage (HttpOnly cookies would be better in production)
       this.setTokensInStorage(data.token, null)
       this.setUserInStorage(data.user)
+      
+      console.log('[AuthService] Token stored in sessionStorage')
+      console.log('[AuthService] Verification - token from storage:', sessionStorage.getItem('access_token')?.substring(0, 20) + '...')
       
       return {
         user: data.user,

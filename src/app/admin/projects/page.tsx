@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { fetchWithAuth } from '@/lib/api-client'
 import { 
   Plus, 
   Search, 
@@ -82,7 +83,7 @@ export default function AdminProjectsPage() {
       if (filters.status) params.append('status', filters.status)
       if (filters.priority) params.append('priority', filters.priority)
 
-      const response = await fetch(`/api/projects?${params.toString()}`)
+      const response = await fetchWithAuth(`/api/projects?${params.toString()}`)
       
       if (response.ok) {
         const data = await response.json()
@@ -177,9 +178,8 @@ export default function AdminProjectsPage() {
       const url = editingProject ? `/api/projects/${editingProject.id}` : '/api/projects'
       const method = editingProject ? 'PUT' : 'POST'
 
-      const response = await fetch(url, {
+      const response = await fetchWithAuth(url, {
         method,
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form)
       })
 
@@ -204,7 +204,7 @@ export default function AdminProjectsPage() {
 
     setFormLoading(true)
     try {
-      const response = await fetch(`/api/projects/${deletingProject.id}`, {
+      const response = await fetchWithAuth(`/api/projects/${deletingProject.id}`, {
         method: 'DELETE'
       })
 

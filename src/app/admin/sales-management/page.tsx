@@ -112,7 +112,7 @@ export default function SalesManagementPage() {
   // Daily Sales functions
   const fetchProducts = async () => {
     try {
-      const res = await fetch('/api/products')
+      const res = await fetchWithAuth('/api/products')
       const data = await res.json()
       if (data.success) {
         setProducts(data.data.map((p: any) => ({

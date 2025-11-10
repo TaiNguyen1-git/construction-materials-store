@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { fetchWithAuth } from '@/lib/api-client'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -34,7 +35,7 @@ export default function MLTrainingPage() {
   const loadModels = async () => {
     try {
       setLoading(true)
-      const response = await fetch('/api/ml/train')
+      const response = await fetchWithAuth('/api/ml/train')
       const data = await response.json()
       
       if (data.success) {
@@ -57,9 +58,8 @@ export default function MLTrainingPage() {
         ? { productIds: [productId] }
         : { trainAll: true }
 
-      const response = await fetch('/api/ml/train', {
+      const response = await fetchWithAuth('/api/ml/train', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body)
       })
 

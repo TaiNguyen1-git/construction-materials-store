@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { fetchWithAuth } from '@/lib/api-client'
 import { DollarSign, TrendingUp, TrendingDown, FileText, Download, Calendar } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 
@@ -47,8 +48,8 @@ export default function FinancialReportsPage() {
       })
 
       const [summaryRes, invoicesRes] = await Promise.all([
-        fetch(`/api/reports/financial?${params}`),
-        fetch(`/api/invoices?${params}&limit=10`)
+        fetchWithAuth(`/api/reports/financial?${params}`),
+        fetchWithAuth(`/api/invoices?${params}&limit=10`)
       ])
 
       if (summaryRes.ok) {
@@ -84,7 +85,7 @@ export default function FinancialReportsPage() {
         format
       })
 
-      const response = await fetch(`/api/reports/financial/export?${params}`)
+      const response = await fetchWithAuth(`/api/reports/financial/export?${params}`)
       if (response.ok) {
         const blob = await response.blob()
         const url = window.URL.createObjectURL(blob)

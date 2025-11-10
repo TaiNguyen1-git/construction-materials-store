@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { fetchWithAuth } from '@/lib/api-client'
 import { 
   Calendar, 
   DollarSign, 
@@ -105,7 +106,7 @@ export default function AdminProjectDetailPage() {
   const fetchProject = async () => {
     try {
       setLoading(true)
-      const response = await fetch(`/api/projects/${projectId}`)
+      const response = await fetchWithAuth(`/api/projects/${projectId}`)
       
       if (response.ok) {
         const data = await response.json()
@@ -129,7 +130,7 @@ export default function AdminProjectDetailPage() {
     }
 
     try {
-      const response = await fetch(`/api/projects/${projectId}`, {
+      const response = await fetchWithAuth(`/api/projects/${projectId}`, {
         method: 'DELETE'
       })
 

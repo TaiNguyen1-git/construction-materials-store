@@ -93,7 +93,7 @@ export default function HRManagementPage() {
   const fetchEmployees = async () => {
     try {
       setEmployeesLoading(true)
-      const response = await fetch('/api/employees') // Use regular fetch instead of fetchWithAuth
+      const response = await fetchWithAuth('/api/employees')
       if (response.ok) {
         const data = await response.json()
         // Handle nested data structure
@@ -104,7 +104,7 @@ export default function HRManagementPage() {
       } else if (response.status === 401 || response.status === 403) {
         console.warn('Authentication failed, fetching without auth')
         // Try without auth for development
-        const retryResponse = await fetch('/api/employees')
+        const retryResponse = await fetchWithAuth('/api/employees')
         if (retryResponse.ok) {
           const data = await retryResponse.json()
           const employeesData = data.data?.data || data.data || []
@@ -133,7 +133,7 @@ export default function HRManagementPage() {
   const fetchShifts = async () => {
     try {
       setShiftsLoading(true)
-      const response = await fetch('/api/work-shifts')
+      const response = await fetchWithAuth('/api/work-shifts')
       if (response.ok) {
         const data = await response.json()
         const shiftsData = data.data?.data || data.data || []
@@ -178,7 +178,7 @@ export default function HRManagementPage() {
   const fetchTasks = async () => {
     try {
       setTasksLoading(true)
-      const response = await fetch('/api/employee-tasks')
+      const response = await fetchWithAuth('/api/employee-tasks')
       if (response.ok) {
         const data = await response.json()
         const tasksData = data.data?.data || data.data || []
@@ -241,7 +241,7 @@ export default function HRManagementPage() {
   const handleDeleteEmployee = async () => {
     if (!deletingEmployee) return
     try {
-      const response = await fetch(`/api/employees/${deletingEmployee.id}`, {
+      const response = await fetchWithAuth(`/api/employees/${deletingEmployee.id}`, {
         method: 'DELETE'
       })
       if (response.ok) {
@@ -260,7 +260,7 @@ export default function HRManagementPage() {
   const handleDeleteShift = async () => {
     if (!deletingShift) return
     try {
-      const response = await fetch(`/api/work-shifts/${deletingShift.id}`, {
+      const response = await fetchWithAuth(`/api/work-shifts/${deletingShift.id}`, {
         method: 'DELETE'
       })
       if (response.ok) {
@@ -279,7 +279,7 @@ export default function HRManagementPage() {
   const handleDeleteTask = async () => {
     if (!deletingTask) return
     try {
-      const response = await fetch(`/api/employee-tasks/${deletingTask.id}`, {
+      const response = await fetchWithAuth(`/api/employee-tasks/${deletingTask.id}`, {
         method: 'DELETE'
       })
       if (response.ok) {
