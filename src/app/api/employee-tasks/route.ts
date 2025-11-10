@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { createSuccessResponse, createErrorResponse, createPaginatedResponse } from '@/lib/api-types'
-import { requireEmployee } from '@/lib/auth-middleware-api'
+import { requireEmployee, verifyTokenFromRequest } from '@/lib/auth-middleware-api'
 import { z } from 'zod'
 
 const querySchema = z.object({
@@ -43,7 +43,14 @@ export async function GET(request: NextRequest) {
     const authError = requireEmployee(request)
     if (authError) return authError
 
-    const userId = request.headers.get('x-user-id')
+    // Get user from verified token
+    const user = verifyTokenFromRequest(request)
+    if (!user) {
+      return NextResponse.json(
+        createErrorResponse('Failed to extract user from token', 'AUTH_ERROR'),
+        { status: 401 }
+      )
+    }
 
     const { searchParams } = new URL(request.url)
     const params = Object.fromEntries(searchParams.entries())
@@ -63,9 +70,9 @@ export async function GET(request: NextRequest) {
     const where: any = {}
     
     // If employee role, only show their own tasks unless they're viewing all
-    if (userRole === 'EMPLOYEE' && !employeeId) {
+    if (user.role === 'EMPLOYEE' && !employeeId) {
       const employee = await prisma.employee.findUnique({
-        where: { userId }
+        where: { userId: user.userId }
       })
       if (employee) {
         where.employeeId = employee.id
@@ -152,9 +159,12 @@ export async function GET(request: NextRequest) {
 // POST /api/employee-tasks - Create new task
 export async function POST(request: NextRequest) {
   try {
-    // Check user role from middleware
-    const userRole = request.headers.get('x-user-role')
-    if (userRole !== 'MANAGER') {
+    // Verify authentication and manager role
+    const authError = requireEmployee(request)
+    if (authError) return authError
+
+    const user = verifyTokenFromRequest(request)
+    if (!user || user.role !== 'MANAGER') {
       return NextResponse.json(
         createErrorResponse('Manager access required', 'FORBIDDEN'),
         { status: 403 }

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { requireAuth } from '@/lib/auth-middleware-api'
+import { requireAuth, verifyTokenFromRequest } from '@/lib/auth-middleware-api'
 import { UserRole } from '@/lib/auth'
 
 // GET /api/invoices - Get all invoices
@@ -11,6 +11,9 @@ export async function GET(request: NextRequest) {
     if (authError) {
       return authError
     }
+
+    // Get user from verified token
+    const user = verifyTokenFromRequest(request)
 
     const { searchParams } = new URL(request.url)
     const type = searchParams.get('type') // 'SALES' or 'PURCHASE'
