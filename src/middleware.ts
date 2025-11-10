@@ -68,8 +68,10 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
-  // BYPASS AUTHENTICATION IN DEVELOPMENT MODE
-  if (process.env.NODE_ENV === 'development') {
+  // BYPASS AUTHENTICATION IN LOCAL DEVELOPMENT MODE ONLY
+  // Production (Vercel) uses NODE_ENV='production' with JWT verification
+  if (process.env.NODE_ENV === 'development' && process.env.VERCEL !== '1') {
+    console.log('[Middleware] Development mode - bypassing auth')
     const requestHeaders = new Headers(request.headers)
     requestHeaders.set('x-user-id', 'dev-user')
     requestHeaders.set('x-user-email', 'dev@example.com')
@@ -169,10 +171,16 @@ export async function middleware(request: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error('[Middleware] Token verification failed:', error.message)
-    console.error('[Middleware] Error details:', error)
+    const errorMsg = error?.message || String(error)
+    console.error('[Middleware] Token verification FAILED')
+    console.error('[Middleware] Token:', token?.substring(0, 30) + '...')
+    console.error('[Middleware] Error:', errorMsg)
+    console.error('[Middleware] Full error:', error)
+    console.error('[Middleware] JWT_SECRET exists:', !!process.env.JWT_SECRET)
+    console.error('[Middleware] NODE_ENV:', process.env.NODE_ENV)
+    
     return NextResponse.json(
-      { success: false, error: { code: 'INVALID_TOKEN', message: 'Invalid or expired token', details: error.message } },
+      { success: false, error: { code: 'INVALID_TOKEN', message: 'Invalid or expired token', details: errorMsg } },
       { status: 401 }
     )
   }
