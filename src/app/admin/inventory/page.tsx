@@ -6,6 +6,8 @@ import { toast } from 'react-hot-toast'
 import { fetchWithAuth } from '@/lib/api-client'
 import { RefreshCw, AlertTriangle, CheckCircle, Package, ShoppingCart, ChevronDown, ChevronUp, Target } from 'lucide-react'
 import Pagination from '@/components/Pagination'
+import InventoryAnalytics from '@/components/admin/InventoryAnalytics'
+import InventoryManagement from '@/components/admin/InventoryManagement'
 
 interface Product {
   id: string
@@ -328,7 +330,7 @@ export default function InventoryPage() {
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{formatCurrency((product.stock || 0) * (product.price || 0))}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                              <button onClick={() => { setSelectedProduct(product); setAdjustForm({ ...adjustForm, productId: product.id }); setShowAdjustModal(true) }} className="text-blue-600 hover:text-blue-900">Adjust</button>
+                              <button onClick={() => { setSelectedProduct(product); setAdjustForm({ ...adjustForm, productId: product.id }); setShowAdjustModal(true) }} className="text-blue-600 hover:text-blue-900 font-semibold">Điều Chỉnh</button>
                             </td>
                           </tr>
                         )
@@ -344,15 +346,11 @@ export default function InventoryPage() {
       )}
 
       {activeTab === 'analytics' && (
-        <div className="space-y-6">
-          <p>Analytics & Prediction components will be added here.</p>
-        </div>
+        <InventoryAnalytics predictions={predictions} onRefresh={fetchData} />
       )}
 
       {activeTab === 'management' && (
-        <div className="space-y-6">
-          <p>Management components will be added here.</p>
-        </div>
+        <InventoryManagement recommendations={recommendations} movements={movements} />
       )}
     </div>
   )
