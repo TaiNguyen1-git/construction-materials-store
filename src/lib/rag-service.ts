@@ -213,8 +213,28 @@ export class RAGService {
 
   // Generate augmented prompt with retrieved context
   static async generateAugmentedPrompt(userQuery: string, conversationHistory?: any[]): Promise<string> {
+    // Expand short use-case queries to include product category
+    let expandedQuery = userQuery
+    const normalizedQuery = normalizeVietnamese(userQuery.toLowerCase())
+
+    // Check if query is a use-case without product mention
+    const useCasePatterns = [
+      { pattern: /^(xay nha|xay nha o)$/i, expansion: 'xi măng cho xây nhà ở' },
+      { pattern: /^(do mong|do be tong)$/i, expansion: 'xi măng cho đổ móng' },
+      { pattern: /^(trat tuong|xay to)$/i, expansion: 'xi măng cho trát tường' },
+      { pattern: /^(xay tuong|xay gach)$/i, expansion: 'xi măng cho xây tường' },
+    ]
+
+    for (const { pattern, expansion } of useCasePatterns) {
+      if (pattern.test(normalizedQuery)) {
+        expandedQuery = expansion
+        console.log(`Query expanded: "${userQuery}" → "${expandedQuery}"`)
+        break
+      }
+    }
+
     // Use getProductRecommendations to get both primary and related products
-    const relevantDocs = await this.getProductRecommendations(userQuery, 5)
+    const relevantDocs = await this.getProductRecommendations(expandedQuery, 5)
 
     if (relevantDocs.length === 0) {
       return userQuery
@@ -243,11 +263,13 @@ CÂU HỎI CỦA KHÁCH: ${userQuery}
 YÊU CẦU:
 1. Trả lời dựa trên thông tin sản phẩm được cung cấp ở trên.
 2. **QUAN TRỌNG**: Nếu có NHIỀU sản phẩm cùng loại (ví dụ: nhiều loại xi măng), hãy giới thiệu TẤT CẢ các lựa chọn kèm so sánh giá và ưu điểm để khách dễ chọn.
-3. Sau khi giới thiệu sản phẩm chính, nếu thấy có sản phẩm liên quan (ví dụ: khách hỏi xi măng, có cát/đá trong context), hãy gợi ý mua thêm để đủ bộ vật tư.
-4. Nếu không có thông tin trong context, hãy dùng kiến thức chung nhưng nói rõ là "theo kiến thức chung".
-5. Giọng điệu chuyên nghiệp, hữu ích.
+3. **QUAN TRỌNG**: Khi khách hỏi về mục đích sử dụng (ví dụ: "xây nhà ở", "đổ móng"), hãy ưu tiên GỢI Ý SẢN PHẨM NGAY, không hỏi thêm thông tin chi tiết (diện tích, số tầng...). Chỉ hỏi thêm nếu khách muốn tính toán số lượng cụ thể.
+4. Sau khi giới thiệu sản phẩm chính, nếu thấy có sản phẩm liên quan (ví dụ: khách hỏi xi măng, có cát/đá trong context), hãy gợi ý mua thêm để đủ bộ vật tư.
+5. Nếu không có thông tin trong context, hãy dùng kiến thức chung nhưng nói rõ là "theo kiến thức chung".
+6. Giọng điệu chuyên nghiệp, hữu ích.
 
 VÍ DỤ TRẢ LỜI TỐT:
+
 Khách: "Xi măng tốt"
 Trả lời: "Chào bạn! Hiện tại shop có 4 loại xi măng chất lượng:
 1. Xi măng INSEE PC40 - 135.000đ/bao - Cao cấp nhất, độ bền cao
@@ -257,6 +279,40 @@ Trả lời: "Chào bạn! Hiện tại shop có 4 loại xi măng chất lượ
 
 Bạn cần xi măng cho công trình gì ạ? (đổ móng/xây tường/trát tường)
 Ngoài ra, bạn cũng cần cát và đá để trộn bê tông không ạ?"
+
+Khách: "Xây nhà ở"
+Trả lời: "Chào bạn! Để xây nhà ở, bạn sẽ cần nhiều loại xi măng cho các công đoạn khác nhau:
+
+**Cho kết cấu chịu lực (móng, cột, dầm, sàn):**
+1. Xi măng INSEE PC40 - 135.000đ/bao - Cao cấp, độ bền cao nhất, phù hợp đổ bê tông
+2. Xi măng Hà Tiên PCB40 - 125.000đ/bao - Chất lượng tốt, giá hợp lý hơn
+
+**Cho xây tô, trát tường:**
+3. Xi măng INSEE PC30 - 120.000đ/bao - Chất lượng ổn định
+4. Xi măng Hà Tiên PC30 - 110.000đ/bao - Giá tốt nhất
+
+💡 Bạn muốn tính toán số lượng cần thiết không ạ? Cho mình biết diện tích nhà để tư vấn chi tiết hơn."
+
+Khách: "Đổ móng"
+Trả lời: "Chào bạn! Để đổ móng, bạn nên dùng xi măng PC40 hoặc PCB40 vì độ bền cao:
+
+1. **Xi măng INSEE PC40** - 135.000đ/bao
+   - Chất lượng cao cấp nhất
+   - Độ bền vượt trội, phù hợp móng chịu lực lớn
+   
+2. **Xi măng Hà Tiên PCB40** - 125.000đ/bao
+   - Chất lượng tốt, giá rẻ hơn INSEE 10.000đ
+   - Phù hợp cho móng nhà dân dụng
+
+💡 Ngoài xi măng, bạn cũng cần cát và đá để trộn bê tông. Bạn có cần tư vấn thêm không ạ?"
+
+Khách: "Trát tường"
+Trả lời: "Chào bạn! Để trát tường, bạn nên dùng xi măng PC30:
+
+1. **Xi măng Hà Tiên PC30** - 110.000đ/bao - Giá tốt nhất, chất lượng ổn
+2. **Xi măng INSEE PC30** - 120.000đ/bao - Chất lượng cao hơn một chút
+
+💡 Để trát tường, bạn cũng cần cát mịn. Bạn có muốn tư vấn thêm về cát không ạ?"
     `
   }
 

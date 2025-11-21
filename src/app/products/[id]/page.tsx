@@ -1,9 +1,10 @@
 'use client'
 
-import { useState, useEffect, use } from 'react'
+import { useState, useEffect } from 'react'
+// import { use } from 'next/navigation'  // removed invalid import
 import Link from 'next/link'
 import Image from 'next/image'
-import { Package, ShoppingCart, ArrowLeft, Truck, Shield, RotateCcw, Plus, Minus, Check, Heart, Scale } from 'lucide-react'
+import { Package, ShoppingCart, ArrowLeft, Truck, Shield, RotateCcw, Plus, Minus, Check, Heart, Scale, Sparkles, Star } from 'lucide-react'
 import Header from '@/components/Header'
 import WishlistButton from '@/components/WishlistButton'
 import ComparisonButton from '@/components/ComparisonButton'
@@ -30,14 +31,30 @@ interface Product {
   }
 }
 
-export default function ProductDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const resolvedParams = use(params)
-  const { addItem } = useCartStore()
-  
+interface Recommendation {
+  id: string
+  name: string
+  price: number
+  unit: string
+  images: string[]
+  category: string
+  inStock: boolean
+  rating: number
+  reviewCount: number
+  reason: string
+  badge: string
+}
+
+export default function ProductDetailPage({ params }: { params: { id: string } }) {
+  const resolvedParams = params;
+  const { addItem } = useCartStore();
+
   const [product, setProduct] = useState<Product | null>(null)
   const [loading, setLoading] = useState(true)
   const [selectedImageIndex, setSelectedImageIndex] = useState(0)
   const [quantity, setQuantity] = useState(1)
+  const [similarProducts, setSimilarProducts] = useState<Recommendation[]>([])
+  const [loadingSimilar, setLoadingSimilar] = useState(false)
 
   useEffect(() => {
     if (resolvedParams.id) {
@@ -53,6 +70,8 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
         const result = await response.json()
         if (result.success && result.data) {
           setProduct(result.data)
+          // Fetch similar products after product is loaded
+          fetchSimilarProducts(resolvedParams.id)
         } else {
           toast.error('Không thể tải sản phẩm')
         }
@@ -67,6 +86,26 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
     }
   }
 
+  const fetchSimilarProducts = async (productId: string) => {
+    try {
+      setLoadingSimilar(true)
+      const response = await fetch('/api/recommendations/similar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ productId, limit: 6 })
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        setSimilarProducts(data.data.recommendations || [])
+      }
+    } catch (error) {
+      console.error('Failed to fetch similar products:', error)
+    } finally {
+      setLoadingSimilar(false)
+    }
+  }
+
   const handleQuantityChange = (change: number) => {
     const newQuantity = quantity + change
     const maxQuantity = product?.inventoryItem?.availableQuantity || 0
@@ -77,7 +116,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
 
   const handleAddToCart = () => {
     if (!product) return
-    
+
     if (!product.inventoryItem?.availableQuantity || product.inventoryItem.availableQuantity <= 0) {
       toast.error('Sản phẩm đã hết hàng!')
       return
@@ -91,9 +130,10 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
       sku: product.sku,
       unit: product.unit || 'pcs',
       image: product.images?.[0],
-      maxStock: product.inventoryItem?.availableQuantity
-    }, quantity)
-    
+      maxStock: product.inventoryItem?.availableQuantity,
+      quantity,
+    })
+
     toast.success(`Đã thêm ${quantity} ${product.name} vào giỏ hàng!`)
   }
 
@@ -172,7 +212,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                 </div>
               )}
             </div>
-            
+
             {/* Thumbnails */}
             {product.images && product.images.length > 1 && (
               <div className="grid grid-cols-4 gap-4">
@@ -180,11 +220,10 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                   <button
                     key={index}
                     onClick={() => setSelectedImageIndex(index)}
-                    className={`relative aspect-square rounded-xl overflow-hidden border-2 transition-all ${
-                      selectedImageIndex === index
-                        ? 'border-primary-600 ring-2 ring-primary-200'
-                        : 'border-gray-200 hover:border-primary-400'
-                    }`}
+                    className={`relative aspect-square rounded-xl overflow-hidden border-2 transition-all ${selectedImageIndex === index
+                      ? 'border-primary-600 ring-2 ring-primary-200'
+                      : 'border-gray-200 hover:border-primary-400'
+                      }`}
                   >
                     <Image src={image} alt={`${product.name} ${index + 1}`} fill className="object-cover" />
                   </button>
@@ -225,11 +264,10 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
             </div>
 
             {/* Stock Status */}
-            <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl font-bold ${
-              inStock
-                ? 'bg-green-100 text-green-700'
-                : 'bg-red-100 text-red-700'
-            }`}>
+            <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl font-bold ${inStock
+              ? 'bg-green-100 text-green-700'
+              : 'bg-red-100 text-red-700'
+              }`}>
               {inStock ? (
                 <>
                   <Check className="h-5 w-5" />
@@ -305,6 +343,109 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
             </div>
           </div>
         </div>
+
+        {/* Similar Products Section */}
+        {similarProducts.length > 0 && (
+          <div className="mb-16">
+            <div className="flex items-center gap-3 mb-6">
+              <Sparkles className="h-7 w-7 text-primary-600" />
+              <h2 className="text-3xl font-black text-gray-900">
+                Sản Phẩm Tương Tự
+              </h2>
+            </div>
+
+            {loadingSimilar ? (
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                {[...Array(6)].map((_, i) => (
+                  <div key={i} className="bg-white rounded-xl shadow-md p-4 animate-pulse">
+                    <div className="aspect-square bg-gray-200 rounded-lg mb-3" />
+                    <div className="h-4 bg-gray-200 rounded mb-2" />
+                    <div className="h-4 bg-gray-200 rounded w-2/3" />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                {similarProducts.map((product) => (
+                  <div
+                    key={product.id}
+                    className="relative bg-white rounded-xl shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-100 group"
+                  >
+                    {/* Badge */}
+                    {product.badge && (
+                      <div className="absolute top-2 left-2 z-10 bg-gradient-to-r from-blue-500 to-purple-500 text-white text-xs font-bold px-2 py-1 rounded-full shadow-lg">
+                        {product.badge}
+                      </div>
+                    )}
+
+                    {/* Product Image */}
+                    <Link href={`/products/${product.id}`} className="block relative">
+                      <div className="relative aspect-square bg-gray-100 overflow-hidden">
+                        {product.images && product.images.length > 0 ? (
+                          <Image
+                            src={product.images[0]}
+                            alt={product.name}
+                            fill
+                            className="object-cover group-hover:scale-110 transition-transform duration-300"
+                          />
+                        ) : (
+                          <div className="w-full h-full bg-gradient-to-br from-blue-100 to-purple-200 flex items-center justify-center">
+                            <Package className="h-16 w-16 text-gray-400" />
+                          </div>
+                        )}
+                      </div>
+                    </Link>
+
+                    {/* Product Info */}
+                    <div className="p-4">
+                      <Link href={`/products/${product.id}`}>
+                        <h3 className="font-bold text-gray-900 mb-2 line-clamp-2 hover:text-primary-600 transition-colors">
+                          {product.name}
+                        </h3>
+                      </Link>
+
+                      {/* Rating */}
+                      {product.reviewCount > 0 && (
+                        <div className="flex items-center gap-1 mb-2">
+                          <div className="flex items-center">
+                            {[...Array(5)].map((_, i) => (
+                              <Star
+                                key={i}
+                                className={`h-3 w-3 ${i < Math.floor(product.rating)
+                                  ? 'fill-yellow-400 text-yellow-400'
+                                  : 'text-gray-300'
+                                  }`}
+                              />
+                            ))}
+                          </div>
+                          <span className="text-xs text-gray-600">
+                            ({product.reviewCount})
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Price */}
+                      <div className="mb-3">
+                        <p className="text-xl font-black text-primary-600">
+                          {product.price.toLocaleString()}đ
+                        </p>
+                        <p className="text-xs text-gray-500">/{product.unit}</p>
+                      </div>
+
+                      {/* View Button */}
+                      <Link
+                        href={`/products/${product.id}`}
+                        className="w-full py-2 rounded-lg font-semibold text-sm transition-all bg-primary-600 text-white hover:bg-primary-700 hover:shadow-lg flex items-center justify-center gap-2"
+                      >
+                        Xem Chi Tiết
+                      </Link>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Reviews Section */}
         <ReviewsSection productId={resolvedParams.id} productName={product.name} />

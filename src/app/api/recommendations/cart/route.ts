@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { createSuccessResponse, createErrorResponse } from '@/lib/api-types'
 import { z } from 'zod'
+import { KNOWLEDGE_BASE } from '@/lib/knowledge-base'
 
 const cartRecommendationSchema = z.object({
   productIds: z.array(z.string()).min(1, 'At least one product ID is required'),
@@ -16,7 +17,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     const validation = cartRecommendationSchema.safeParse(body)
-    
+
     if (!validation.success) {
       return NextResponse.json(
         createErrorResponse('Invalid request', 'VALIDATION_ERROR', validation.error.issues),
@@ -37,17 +38,14 @@ export async function POST(request: NextRequest) {
     // Strategy 1: Frequently bought together with cart items
     const frequentlyBoughtTogether = await getFrequentlyBoughtTogether(productIds, limit)
 
-    // Strategy 2: Similar products in same categories
-    const similarProducts = await getSimilarProducts(productIds, cartCategories, limit)
-
-    // Strategy 3: Top-rated products in cart categories
-    const topRated = await getTopRatedInCategories(cartCategories, limit)
+    // Strategy 2: Complementary products based on knowledge base
+    const complementaryProducts = await getComplementaryProducts(cartProducts, limit)
 
     // Combine and deduplicate recommendations
+    // Prioritize complementary products over frequently bought together
     const allRecommendations = [
-      ...frequentlyBoughtTogether,
-      ...similarProducts,
-      ...topRated
+      ...complementaryProducts,
+      ...frequentlyBoughtTogether
     ]
 
     // Remove duplicates and cart items
@@ -67,9 +65,8 @@ export async function POST(request: NextRequest) {
           recommendations: unique,
           count: unique.length,
           strategies: {
-            frequentlyBoughtTogether: frequentlyBoughtTogether.length,
-            similarProducts: similarProducts.length,
-            topRated: topRated.length
+            complementaryProducts: complementaryProducts.length,
+            frequentlyBoughtTogether: frequentlyBoughtTogether.length
           }
         },
         'Cart recommendations generated successfully'
@@ -163,18 +160,49 @@ async function getFrequentlyBoughtTogether(cartProductIds: string[], limit: numb
 }
 
 /**
- * Find similar products in the same categories
+ * Find complementary products based on knowledge base commonCombinations
  */
-async function getSimilarProducts(
-  cartProductIds: string[],
-  cartCategories: string[],
+async function getComplementaryProducts(
+  cartProducts: any[],
   limit: number
 ) {
+  // Extract all commonCombinations from cart products via knowledge base
+  const allCombinations: string[] = []
+
+  for (const cartProduct of cartProducts) {
+    // Try to find product in knowledge base by name matching
+    const kbProduct = KNOWLEDGE_BASE.find(kb =>
+      cartProduct.name.toLowerCase().includes(kb.name.toLowerCase()) ||
+      kb.name.toLowerCase().includes(cartProduct.name.toLowerCase())
+    )
+
+    if (kbProduct && kbProduct.commonCombinations) {
+      allCombinations.push(...kbProduct.commonCombinations)
+    }
+  }
+
+  if (allCombinations.length === 0) {
+    return []
+  }
+
+  // Remove duplicates
+  const uniqueCombinations = [...new Set(allCombinations)]
+
+  // Search for products matching these combinations
   const products = await prisma.product.findMany({
     where: {
-      categoryId: { in: cartCategories },
-      id: { notIn: cartProductIds },
-      isActive: true
+      AND: [
+        { isActive: true },
+        { id: { notIn: cartProducts.map(p => p.id) } },
+        {
+          OR: uniqueCombinations.map(combo => ({
+            OR: [
+              { name: { contains: combo, mode: 'insensitive' } },
+              { category: { name: { contains: combo, mode: 'insensitive' } } }
+            ]
+          }))
+        }
+      ]
     },
     include: {
       category: true,
@@ -182,21 +210,24 @@ async function getSimilarProducts(
       productReviews: {
         where: { isPublished: true },
         select: { rating: true }
-      },
-      orderItems: {
-        select: { id: true }
       }
     },
-    take: limit * 2 // Get more to sort in memory
+    take: limit * 2 // Get more to filter
   })
 
-  // Sort by order count in memory
+  // Sort by stock availability and rating
   const sorted = products
     .map(product => ({
       ...product,
-      orderCount: product.orderItems.length
+      avgRating: calculateAverageRating(product.productReviews),
+      inStock: product.inventoryItem ? product.inventoryItem.availableQuantity > 0 : false
     }))
-    .sort((a, b) => b.orderCount - a.orderCount)
+    .sort((a, b) => {
+      // Prioritize in-stock products
+      if (a.inStock !== b.inStock) return a.inStock ? -1 : 1
+      // Then by rating
+      return b.avgRating - a.avgRating
+    })
     .slice(0, limit)
 
   return sorted.map(product => ({
@@ -206,70 +237,13 @@ async function getSimilarProducts(
     unit: product.unit,
     images: product.images,
     category: product.category.name,
-    inStock: product.inventoryItem ? product.inventoryItem.availableQuantity > 0 : true,
-    availableQuantity: product.inventoryItem?.availableQuantity || 0,
-    rating: calculateAverageRating(product.productReviews),
-    reviewCount: product.productReviews.length,
-    reason: 'Sản phẩm tương tự',
-    badge: '✨ Gợi ý',
-    confidence: 0.8
-  }))
-}
-
-/**
- * Get top-rated products in cart categories
- */
-async function getTopRatedInCategories(cartCategories: string[], limit: number) {
-  const products = await prisma.product.findMany({
-    where: {
-      categoryId: { in: cartCategories },
-      isActive: true,
-      productReviews: {
-        some: {
-          isPublished: true
-        }
-      }
-    },
-    include: {
-      category: true,
-      inventoryItem: true,
-      productReviews: {
-        where: { isPublished: true },
-        select: { rating: true }
-      }
-    },
-    take: limit * 3 // Get more to filter and sort
-  })
-
-  // Calculate ratings and filter
-  const withRatings = products
-    .map(product => ({
-      ...product,
-      avgRating: calculateAverageRating(product.productReviews),
-      reviewCount: product.productReviews.length
-    }))
-    .filter(p => p.reviewCount >= 2 && p.avgRating >= 4) // Min 2 reviews, 4+ stars
-    .sort((a, b) => {
-      // Sort by rating first, then review count
-      if (b.avgRating !== a.avgRating) return b.avgRating - a.avgRating
-      return b.reviewCount - a.reviewCount
-    })
-    .slice(0, limit)
-
-  return withRatings.map(product => ({
-    id: product.id,
-    name: product.name,
-    price: product.price,
-    unit: product.unit,
-    images: product.images,
-    category: product.category.name,
-    inStock: product.inventoryItem ? product.inventoryItem.availableQuantity > 0 : true,
+    inStock: product.inStock,
     availableQuantity: product.inventoryItem?.availableQuantity || 0,
     rating: product.avgRating,
-    reviewCount: product.reviewCount,
-    reason: 'Đánh giá cao',
-    badge: '⭐ Top rated',
-    confidence: 0.9
+    reviewCount: product.productReviews.length,
+    reason: 'Sản phẩm bổ sung',
+    badge: '🔧 Cần thiết',
+    confidence: 0.95
   }))
 }
 
