@@ -149,7 +149,7 @@ export async function GET(request: NextRequest) {
           supplierId: supplier.id,
           supplierName: supplier.name,
           supplierContact: supplier.contactPerson,
-          reason,
+          reasons: [reason],
           monthlyDemand: Math.floor(predictedDemand || (minStock * 1.2)),
           daysUntilStockout,
           stockoutRisk: urgencyScore >= 0.7 ? 'HIGH' : urgencyScore >= 0.3 ? 'MEDIUM' : 'LOW',
