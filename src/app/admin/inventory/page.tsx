@@ -338,7 +338,13 @@ export default function InventoryPage() {
                     </tbody>
                   </table>
                 </div>
-                <Pagination total={totalStock} page={stockPage} pageSize={pageSize} onPageChange={setStockPage} />
+                <Pagination
+                  currentPage={stockPage}
+                  totalPages={Math.ceil(totalStock / pageSize)}
+                  totalItems={totalStock}
+                  itemsPerPage={pageSize}
+                  onPageChange={setStockPage}
+                />
               </div>
             )}
           </div>

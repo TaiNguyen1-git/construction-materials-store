@@ -93,46 +93,6 @@ export default function InventoryManagement({ recommendations, movements }: Prop
 
     return (
         <div className="space-y-6">
-            {/* Summary Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="bg-white rounded-lg shadow p-4 border-l-4 border-red-500">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <p className="text-sm text-gray-600">Đề Xuất Khẩn Cấp</p>
-                            <p className="text-2xl font-bold text-red-600">{urgentCount}</p>
-                        </div>
-                        <AlertTriangle className="w-8 h-8 text-red-600" />
-                    </div>
-                </div>
-                <div className="bg-white rounded-lg shadow p-4 border-l-4 border-orange-500">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <p className="text-sm text-gray-600">Tổng Đề Xuất</p>
-                            <p className="text-2xl font-bold text-orange-600">{recommendations.length}</p>
-                        </div>
-                        <ShoppingCart className="w-8 h-8 text-orange-600" />
-                    </div>
-                </div>
-                <div className="bg-white rounded-lg shadow p-4 border-l-4 border-blue-500">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <p className="text-sm text-gray-600">Tổng Số Lượng</p>
-                            <p className="text-2xl font-bold text-blue-600">{totalRecommendedQty}</p>
-                        </div>
-                        <Package className="w-8 h-8 text-blue-600" />
-                    </div>
-                </div>
-                <div className="bg-white rounded-lg shadow p-4 border-l-4 border-green-500">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <p className="text-sm text-gray-600">Chi Phí Ước Tính</p>
-                            <p className="text-xl font-bold text-green-600">{formatCurrency(totalEstimatedCost)}</p>
-                        </div>
-                        <TrendingUp className="w-8 h-8 text-green-600" />
-                    </div>
-                </div>
-            </div>
-
             {/* Purchase Recommendations */}
             <div className="bg-white rounded-lg shadow">
                 <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">

@@ -6,12 +6,20 @@ import { requireAuth } from '@/lib/auth-middleware-api'
 // GET /api/inventory/movements - Get inventory movements history
 export async function GET(request: NextRequest) {
   try {
-    // Verify authentication
+    // In development, allow unauthenticated access with empty data
     const authError = requireAuth(request)
-    if (authError) {
+    if (authError && process.env.NODE_ENV !== 'development') {
       return authError
     }
-    
+
+    // If no auth in development, return empty movements
+    if (authError && process.env.NODE_ENV === 'development') {
+      return NextResponse.json(
+        createSuccessResponse([], 'No movements (development mode - please login)'),
+        { status: 200 }
+      )
+    }
+
     const { searchParams } = new URL(request.url)
     const productId = searchParams.get('productId')
     const type = searchParams.get('type')
