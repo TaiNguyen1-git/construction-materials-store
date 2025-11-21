@@ -5,6 +5,16 @@ import KNOWLEDGE_BASE, { ProductKnowledge, searchByCategory, searchByBrand, sear
 
 const gemini = AI_CONFIG.GEMINI.API_KEY ? new GoogleGenerativeAI(AI_CONFIG.GEMINI.API_KEY) : null
 
+// Helper function to normalize Vietnamese text (remove diacritics)
+function normalizeVietnamese(text: string): string {
+  return text
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // Remove diacritics
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'D')
+    .toLowerCase()
+}
+
 // Vector store entry
 interface VectorEntry {
   id: string
@@ -46,22 +56,24 @@ class GeminiVectorStore {
   }
 
   private createSearchableText(doc: ProductKnowledge): string {
-    return `
+    const text = `
       ${doc.name} ${doc.brand || ''} ${doc.category}
       ${doc.description}
       ${doc.usage.join(' ')}
       ${doc.tips.join(' ')}
       ${Object.values(doc.specifications).join(' ')}
       ${doc.quality}
-    `.toLowerCase()
+    `
+    return normalizeVietnamese(text)
   }
 
   async search(query: string, topK: number = 5): Promise<ProductKnowledge[]> {
     if (!this.model || this.vectors.length === 0) return []
 
     try {
-      // Generate embedding for query
-      const result = await this.model.embedContent(query.toLowerCase())
+      // Generate embedding for query (normalized)
+      const normalizedQuery = normalizeVietnamese(query)
+      const result = await this.model.embedContent(normalizedQuery)
       const queryEmbedding = result.embedding.values
 
       // Calculate cosine similarity
@@ -176,13 +188,15 @@ export class RAGService {
     // Fallback to keyword search if vector search returns few results
     if (vectorResults.length < 2) {
       const keywordResults: ProductKnowledge[] = []
+      const normalizedQuery = normalizeVietnamese(query)
 
+      // Check both original and normalized query for better matching
       if (query.toLowerCase().includes('insee')) keywordResults.push(...searchByBrand('INSEE'))
-      if (query.toLowerCase().includes('hà tiên')) keywordResults.push(...searchByBrand('Hà Tiên'))
-      if (query.toLowerCase().includes('gạch')) keywordResults.push(...searchByCategory('Gạch'))
-      if (query.toLowerCase().includes('đá')) keywordResults.push(...searchByCategory('Đá'))
-      if (query.toLowerCase().includes('cát')) keywordResults.push(...searchByCategory('Cát'))
-      if (query.toLowerCase().includes('xi măng')) keywordResults.push(...searchByCategory('Xi măng'))
+      if (query.toLowerCase().includes('hà tiên') || normalizedQuery.includes('ha tien')) keywordResults.push(...searchByBrand('Hà Tiên'))
+      if (query.toLowerCase().includes('gạch') || normalizedQuery.includes('gach')) keywordResults.push(...searchByCategory('Gạch'))
+      if (query.toLowerCase().includes('đá') || normalizedQuery.includes('da')) keywordResults.push(...searchByCategory('Đá'))
+      if (query.toLowerCase().includes('cát') || normalizedQuery.includes('cat')) keywordResults.push(...searchByCategory('Cát'))
+      if (query.toLowerCase().includes('xi măng') || normalizedQuery.includes('xi mang')) keywordResults.push(...searchByCategory('Xi măng'))
 
       // Combine unique results
       const existingIds = new Set(vectorResults.map(r => r.id))
@@ -228,19 +242,30 @@ CÂU HỎI CỦA KHÁCH: ${userQuery}
 
 YÊU CẦU:
 1. Trả lời dựa trên thông tin sản phẩm được cung cấp ở trên.
-2. Nếu có sản phẩm phù hợp, hãy đề xuất cụ thể kèm giá.
-3. ĐẶC BIỆT: Nếu thấy có các sản phẩm liên quan (ví dụ: khách mua xi măng, trong context có cát, đá), hãy chủ động gợi ý mua thêm để đủ bộ vật tư.
+2. **QUAN TRỌNG**: Nếu có NHIỀU sản phẩm cùng loại (ví dụ: nhiều loại xi măng), hãy giới thiệu TẤT CẢ các lựa chọn kèm so sánh giá và ưu điểm để khách dễ chọn.
+3. Sau khi giới thiệu sản phẩm chính, nếu thấy có sản phẩm liên quan (ví dụ: khách hỏi xi măng, có cát/đá trong context), hãy gợi ý mua thêm để đủ bộ vật tư.
 4. Nếu không có thông tin trong context, hãy dùng kiến thức chung nhưng nói rõ là "theo kiến thức chung".
 5. Giọng điệu chuyên nghiệp, hữu ích.
+
+VÍ DỤ TRẢ LỜI TỐT:
+Khách: "Xi măng tốt"
+Trả lời: "Chào bạn! Hiện tại shop có 4 loại xi măng chất lượng:
+1. Xi măng INSEE PC40 - 135.000đ/bao - Cao cấp nhất, độ bền cao
+2. Xi măng Hà Tiên PCB40 - 125.000đ/bao - Chất lượng tốt, giá rẻ hơn INSEE
+3. Xi măng INSEE PC30 - 120.000đ/bao - Phù hợp xây tô
+4. Xi măng Hà Tiên PC30 - 110.000đ/bao - Giá tốt nhất
+
+Bạn cần xi măng cho công trình gì ạ? (đổ móng/xây tường/trát tường)
+Ngoài ra, bạn cũng cần cát và đá để trộn bê tông không ạ?"
     `
   }
 
   // Get product recommendations based on query with related items
-  static async getProductRecommendations(query: string, limit: number = 3): Promise<ProductKnowledge[]> {
+  static async getProductRecommendations(query: string, limit: number = 5): Promise<ProductKnowledge[]> {
     await initializeVectorStore()
 
-    // 1. Find primary products
-    const primaryProducts = await this.retrieveContext(query, 2)
+    // 1. Find primary products (increased from 2 to 4 to show more options)
+    const primaryProducts = await this.retrieveContext(query, 4)
     if (primaryProducts.length === 0) return []
 
     const recommendations: ProductKnowledge[] = [...primaryProducts]
