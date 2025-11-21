@@ -97,16 +97,25 @@ async function predictInventoryDemand(
   }
 
   // Get historical order data
+  // Get historical order data
+  // Fix: Use two-step query for MongoDB compatibility
+  const ordersInRange = await prisma.order.findMany({
+    where: {
+      createdAt: {
+        gte: startDate,
+        lte: endDate
+      },
+      status: { not: 'CANCELLED' }
+    },
+    select: { id: true, createdAt: true }
+  })
+
+  const orderIds = ordersInRange.map(o => o.id)
+
   const historicalOrders = await prisma.orderItem.findMany({
     where: {
       productId,
-      order: {
-        createdAt: {
-          gte: startDate,
-          lte: endDate
-        },
-        status: { not: 'CANCELLED' }
-      }
+      orderId: { in: orderIds }
     },
     include: {
       order: true
