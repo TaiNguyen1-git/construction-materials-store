@@ -53,12 +53,12 @@ const chatMessageSchema = z.object({
 export async function POST(request: NextRequest) {
   try {
     // Get client IP for rate limiting
-    const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || 
-               request.headers.get('x-real-ip') || 
-               'unknown'
-    
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0] ||
+      request.headers.get('x-real-ip') ||
+      'unknown'
+
     const body = await request.json()
-    
+
     const validation = chatMessageSchema.safeParse(body)
     if (!validation.success) {
       return NextResponse.json(
@@ -68,11 +68,11 @@ export async function POST(request: NextRequest) {
     }
 
     const { message, image, customerId, sessionId, context, isAdmin, userRole } = validation.data
-    
+
     // Apply rate limiting
     let rateLimitConfig = RateLimitConfigs.CHATBOT
     let rateLimitEndpoint = 'chatbot'
-    
+
     if (image && isAdmin) {
       // OCR is expensive, use stricter limits
       rateLimitConfig = {
@@ -88,14 +88,14 @@ export async function POST(request: NextRequest) {
       } as any
       rateLimitEndpoint = 'admin'
     }
-    
+
     const rateLimitId = getRateLimitIdentifier(ip, customerId, rateLimitEndpoint)
     const rateLimitResult = await checkRateLimit(rateLimitId, rateLimitConfig)
-    
+
     if (!rateLimitResult.allowed) {
       const resetAt = rateLimitResult.resetAt || Date.now() + 60000
       const resetDate = new Date(resetAt)
-      
+
       return NextResponse.json(
         createSuccessResponse({
           message: formatRateLimitError({ ...rateLimitResult, resetAt }),
@@ -104,7 +104,7 @@ export async function POST(request: NextRequest) {
           sessionId,
           timestamp: new Date().toISOString()
         }),
-        { 
+        {
           status: 200,
           headers: {
             'X-RateLimit-Limit': rateLimitConfig.max.toString(),
@@ -167,10 +167,10 @@ export async function POST(request: NextRequest) {
 
     // ===== CHECK ACTIVE CONVERSATION FLOW - MUST check BEFORE intent detection =====
     const currentState = await getConversationState(sessionId)
-    
+
     if (currentState && currentState.flow === 'ORDER_CREATION') {
       const flowResponse = await processFlowResponse(sessionId, message)
-      
+
       // Always handle flow response if shouldContinue
       if (flowResponse.shouldContinue) {
         // Handle next prompt first (e.g., asking for guest info)
@@ -185,13 +185,13 @@ export async function POST(request: NextRequest) {
             })
           )
         }
-        
+
         // Handle confirmed orders
         if (flowResponse.isConfirmed) {
           // Order confirmed - create it (this handles both logged-in and guest)
           return await handleOrderCreation(sessionId, customerId, currentState)
         }
-        
+
         // Handle cancelled orders
         if (flowResponse.isCancelled) {
           clearConversationState(sessionId)
@@ -205,19 +205,19 @@ export async function POST(request: NextRequest) {
             })
           )
         }
-        
+
         // If shouldContinue but no specific action, stay in flow (don't reset)
         // Show current order confirmation again
         return NextResponse.json(
           createSuccessResponse({
             message: '🛒 **Xác nhận đặt hàng**\n\n' +
-                     'Danh sách sản phẩm:\n' +
-                     (currentState.data.items || []).map((item: any, idx: number) => 
-                       `${idx + 1}. ${item.productName || item.name}: ${item.quantity || 1} ${item.unit || 'bao'}`
-                     ).join('\n') +
-                     '\n\n✅ Vui lòng xác nhận đặt hàng hoặc hủy bỏ.',
-            suggestions: currentState.data.needsGuestInfo 
-              ? ['Xác nhận', 'Đăng nhập', 'Hủy'] 
+              'Danh sách sản phẩm:\n' +
+              (currentState.data.items || []).map((item: any, idx: number) =>
+                `${idx + 1}. ${item.productName || item.name}: ${item.quantity || 1} ${item.unit || 'bao'}`
+              ).join('\n') +
+              '\n\n✅ Vui lòng xác nhận đặt hàng hoặc hủy bỏ.',
+            suggestions: currentState.data.needsGuestInfo
+              ? ['Xác nhận', 'Đăng nhập', 'Hủy']
               : ['Xác nhận', 'Hủy'],
             confidence: 1.0,
             sessionId,
@@ -225,21 +225,21 @@ export async function POST(request: NextRequest) {
           })
         )
       }
-      
+
       // Handle product selection in ORDER_CREATION flow (only if not handled above)
-      if (currentState.data.currentStep === 'confirm_items' && 
-          (message.toLowerCase().match(/^\d+$/) || (message.length > 3 && !message.toLowerCase().includes('xác nhận')))) {
+      if (currentState.data.currentStep === 'confirm_items' &&
+        (message.toLowerCase().match(/^\d+$/) || (message.length > 3 && !message.toLowerCase().includes('xác nhận')))) {
         const flowData = currentState.data
-        
+
         // Check if we have pending product clarifications
         if (flowData.pendingProductSelection) {
           // Parse user selection (number or product name)
           const selectedProducts: any[] = []
-          
+
           for (const pending of flowData.pendingProductSelection) {
             const userChoice = message.toLowerCase().trim()
             let selectedProduct = null
-            
+
             // Try to match by number (1, 2, 3...)
             const numberMatch = userChoice.match(/^(\d+)$/)
             if (numberMatch) {
@@ -249,15 +249,15 @@ export async function POST(request: NextRequest) {
               }
             } else {
               // Try to match by product name
-              selectedProduct = pending.products.find((p: any) => 
+              selectedProduct = pending.products.find((p: any) =>
                 p.name.toLowerCase().includes(userChoice) ||
                 userChoice.includes(p.name.toLowerCase())
               )
             }
-            
+
             if (selectedProduct) {
               // Update the item with selected product
-              const originalItem = flowData.items.find((item: any) => 
+              const originalItem = flowData.items.find((item: any) =>
                 item.productName === pending.item.productName
               )
               if (originalItem) {
@@ -273,12 +273,12 @@ export async function POST(request: NextRequest) {
               selectedProducts.push(pending.item)
             }
           }
-          
+
           // Update flow data with selected products
           await updateFlowData(sessionId, {
             items: flowData.items.map((item: any) => {
-              const selected = selectedProducts.find((s: any) => 
-                s.productName === item.productName || 
+              const selected = selectedProducts.find((s: any) =>
+                s.productName === item.productName ||
                 (s.selectedProduct && s.selectedProduct.name === item.productName)
               )
               return selected || item
@@ -286,18 +286,18 @@ export async function POST(request: NextRequest) {
             pendingProductSelection: null,
             currentStep: 'confirm_items'
           })
-          
+
           // Show confirmation with selected products
           const needsInfo = !customerId
           return NextResponse.json(
             createSuccessResponse({
               message: '🛒 **Xác nhận đặt hàng**\n\n' +
-                       'Danh sách sản phẩm:\n' +
-                       selectedProducts.map((item, idx) => 
-                         `${idx + 1}. ${item.selectedProduct?.name || item.productName}: ${item.quantity} ${item.unit}`
-                       ).join('\n') +
-                       '\n\n✅ Xác nhận đặt hàng?' +
-                       (needsInfo ? '\n\n⚠️ *Bạn chưa đăng nhập. Chúng tôi sẽ hỏi thông tin giao hàng sau khi xác nhận.*' : ''),
+                'Danh sách sản phẩm:\n' +
+                selectedProducts.map((item, idx) =>
+                  `${idx + 1}. ${item.selectedProduct?.name || item.productName}: ${item.quantity} ${item.unit}`
+                ).join('\n') +
+                '\n\n✅ Xác nhận đặt hàng?' +
+                (needsInfo ? '\n\n⚠️ *Bạn chưa đăng nhập. Chúng tôi sẽ hỏi thông tin giao hàng sau khi xác nhận.*' : ''),
               suggestions: needsInfo ? ['Xác nhận', 'Đăng nhập', 'Hủy'] : ['Xác nhận', 'Chỉnh sửa', 'Hủy'],
               confidence: 1.0,
               sessionId,
@@ -306,7 +306,7 @@ export async function POST(request: NextRequest) {
           )
         }
       }
-      
+
       // If we're in ORDER_CREATION flow and flow response says shouldContinue,
       // we've already handled it above, so don't continue to intent detection
       // Only allow fallthrough if shouldContinue is false (for product selection handling)
@@ -316,13 +316,13 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(
           createSuccessResponse({
             message: '🛒 **Xác nhận đặt hàng**\n\n' +
-                     'Danh sách sản phẩm:\n' +
-                     (currentState.data.items || []).map((item: any, idx: number) => 
-                       `${idx + 1}. ${item.productName || item.name}: ${item.quantity || 1} ${item.unit || 'bao'}`
-                     ).join('\n') +
-                     '\n\n✅ Vui lòng xác nhận đặt hàng hoặc hủy bỏ.',
-            suggestions: currentState.data.needsGuestInfo 
-              ? ['Xác nhận', 'Đăng nhập', 'Hủy'] 
+              'Danh sách sản phẩm:\n' +
+              (currentState.data.items || []).map((item: any, idx: number) =>
+                `${idx + 1}. ${item.productName || item.name}: ${item.quantity || 1} ${item.unit || 'bao'}`
+              ).join('\n') +
+              '\n\n✅ Vui lòng xác nhận đặt hàng hoặc hủy bỏ.',
+            suggestions: currentState.data.needsGuestInfo
+              ? ['Xác nhận', 'Đăng nhập', 'Hủy']
               : ['Xác nhận', 'Hủy'],
             confidence: 1.0,
             sessionId,
@@ -331,20 +331,20 @@ export async function POST(request: NextRequest) {
         )
       }
     }
-    
+
     // Handle other flows (OCR_INVOICE, CRUD_CONFIRMATION)
     if (currentState && currentState.flow !== 'ORDER_CREATION') {
       const flowResponse = await processFlowResponse(sessionId, message)
-      
+
       if (flowResponse.shouldContinue) {
         if (flowResponse.isConfirmed && currentState.flow === 'OCR_INVOICE') {
           return await handleOCRInvoiceSave(sessionId, currentState)
         }
-        
+
         if (flowResponse.isConfirmed && currentState.flow === 'CRUD_CONFIRMATION') {
           return await handleCRUDExecution(sessionId, currentState, userRole || '')
         }
-        
+
         if (flowResponse.isCancelled) {
           clearConversationState(sessionId)
           return NextResponse.json(
@@ -357,7 +357,7 @@ export async function POST(request: NextRequest) {
             })
           )
         }
-        
+
         if (flowResponse.nextPrompt) {
           return NextResponse.json(
             createSuccessResponse({
@@ -402,7 +402,7 @@ export async function POST(request: NextRequest) {
       // Analytics queries
       if (intentResult.intent === 'ADMIN_ANALYTICS') {
         const analyticsResult = await executeAnalyticsQuery(message, entities)
-        
+
         // Determine suggestions based on whether there's data
         let suggestions: string[] = []
         if (analyticsResult.success && analyticsResult.data?.hasData === false) {
@@ -415,7 +415,7 @@ export async function POST(request: NextRequest) {
           // Error or unknown query
           suggestions = ['Thử lại', 'Trợ giúp']
         }
-        
+
         return NextResponse.json(
           createSuccessResponse({
             message: analyticsResult.message,
@@ -441,7 +441,7 @@ export async function POST(request: NextRequest) {
       // Employee queries
       if (intentResult.intent === 'ADMIN_EMPLOYEE_QUERY') {
         const analyticsResult = await executeAnalyticsQuery(message, entities)
-        
+
         return NextResponse.json(
           createSuccessResponse({
             message: analyticsResult.message,
@@ -457,7 +457,7 @@ export async function POST(request: NextRequest) {
       // Payroll queries
       if (intentResult.intent === 'ADMIN_PAYROLL_QUERY') {
         const analyticsResult = await executeAnalyticsQuery(message, entities)
-        
+
         return NextResponse.json(
           createSuccessResponse({
             message: analyticsResult.message,
@@ -521,8 +521,8 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(
           createSuccessResponse({
             message: actionResult.message,
-            suggestions: actionResult.success ? 
-              ['Tiếp tục', 'Xem chi tiết'] : 
+            suggestions: actionResult.success ?
+              ['Tiếp tục', 'Xem chi tiết'] :
               ['Thử lại', 'Trợ giúp'],
             confidence: actionResult.success ? 0.9 : 0.5,
             sessionId,
@@ -534,7 +534,7 @@ export async function POST(request: NextRequest) {
       // ===== ADMIN FALLBACK =====
       // If admin but no specific intent matched, use admin-specific fallback
       const adminFallback = await generateChatbotResponse(message, context, conversationHistory, true)
-      
+
       return NextResponse.json(
         createSuccessResponse({
           message: adminFallback.response,
@@ -552,23 +552,23 @@ export async function POST(request: NextRequest) {
     if (intentResult.intent === 'ORDER_CREATE') {
       // Check if message is just "Đặt hàng" or "Đặt hàng" - try to get product from conversation history
       const lowerMessage = message.toLowerCase().trim()
-      if ((lowerMessage === 'đặt hàng' || lowerMessage === 'order' || lowerMessage.includes('đặt hàng')) && 
-          !lowerMessage.match(/\d+/)) {
+      if ((lowerMessage === 'đặt hàng' || lowerMessage === 'order' || lowerMessage.includes('đặt hàng')) &&
+        !lowerMessage.match(/\d+/)) {
         // User clicked "Đặt hàng" button - try to find product from recent conversation
         const recentProductMessages = conversationHistory
           .filter((h: any) => h.role === 'assistant')
           .reverse()
           .slice(0, 5) // Check last 5 assistant messages
-        
+
         // Try to get product from conversation state or recent product search
         let foundProduct: any = null
-        
+
         // Method 1: Check if there's a recent product search result stored in state
         const currentState = await getConversationState(sessionId)
         if (currentState && currentState.data?.lastSearchedProduct) {
           foundProduct = currentState.data.lastSearchedProduct
         }
-        
+
         // Method 2: Extract from conversation history - look for product names
         if (!foundProduct) {
           for (const msg of recentProductMessages) {
@@ -583,7 +583,7 @@ export async function POST(request: NextRequest) {
                 /(Tôn\s+[A-Z0-9\s]+)/i,
                 /(Thép\s+[A-Z0-9\s]+)/i,
               ]
-              
+
               for (const pattern of productPatterns) {
                 const match = msg.content.match(pattern)
                 if (match) {
@@ -606,7 +606,7 @@ export async function POST(request: NextRequest) {
                 }
               }
               if (foundProduct) break
-              
+
               // Also try to extract from numbered list format: "1. Xi măng INSEE PC40"
               const listMatch = msg.content.match(/\d+\.\s*(?:Xi măng|Gạch|Cát|Đá|Sơn|Tôn|Thép)\s+([A-Z0-9\s]+)/i)
               if (listMatch) {
@@ -629,7 +629,7 @@ export async function POST(request: NextRequest) {
             }
           }
         }
-        
+
         // Method 3: If still not found, get the first product from recent search results
         if (!foundProduct) {
           // Look for the most recent product search and get the first result
@@ -657,12 +657,12 @@ export async function POST(request: NextRequest) {
             }
           }
         }
-        
+
         // If product found, create order with default quantity (1)
         if (foundProduct) {
           const defaultQuantity = 1
           const defaultUnit = foundProduct.unit || 'bao'
-          
+
           // Start order creation flow with found product
           const orderItems = [{
             productName: foundProduct.name,
@@ -670,20 +670,20 @@ export async function POST(request: NextRequest) {
             unit: defaultUnit,
             productId: foundProduct.id
           }]
-          
+
           startOrderCreationFlow(sessionId, orderItems, !!customerId)
-          
+
           const needsInfo = !customerId
-          
+
           return NextResponse.json(
             createSuccessResponse({
               message: '🛒 **Xác nhận đặt hàng**\n\n' +
-                       `**Sản phẩm:** ${foundProduct.name}\n` +
-                       `**Số lượng:** ${defaultQuantity} ${defaultUnit}\n` +
-                       `**Giá:** ${foundProduct.price.toLocaleString('vi-VN')}đ/${defaultUnit}\n\n` +
-                       '💡 *Bạn có muốn thay đổi số lượng không?*\n\n' +
-                       '✅ Xác nhận đặt hàng?' +
-                       (needsInfo ? '\n\n⚠️ *Bạn chưa đăng nhập. Chúng tôi sẽ hỏi thông tin giao hàng sau khi xác nhận.*' : ''),
+                `**Sản phẩm:** ${foundProduct.name}\n` +
+                `**Số lượng:** ${defaultQuantity} ${defaultUnit}\n` +
+                `**Giá:** ${foundProduct.price.toLocaleString('vi-VN')}đ/${defaultUnit}\n\n` +
+                '💡 *Bạn có muốn thay đổi số lượng không?*\n\n' +
+                '✅ Xác nhận đặt hàng?' +
+                (needsInfo ? '\n\n⚠️ *Bạn chưa đăng nhập. Chúng tôi sẽ hỏi thông tin giao hàng sau khi xác nhận.*' : ''),
               suggestions: needsInfo ? ['Xác nhận', 'Đăng nhập', 'Chỉnh sửa số lượng', 'Hủy'] : ['Xác nhận', 'Chỉnh sửa số lượng', 'Hủy'],
               confidence: 0.9,
               sessionId,
@@ -692,14 +692,14 @@ export async function POST(request: NextRequest) {
           )
         }
       }
-      
+
       // Try to parse order items from message
       const parsedItems = parseOrderItems(message)
-      
+
       if (parsedItems.length > 0) {
         // Check if we need to clarify product variants
         const itemsToClarify: Array<{ item: any, products: any[] }> = []
-        
+
         for (const item of parsedItems) {
           // Search for products matching this item name
           const matchingProducts = await prisma.product.findMany({
@@ -719,7 +719,7 @@ export async function POST(request: NextRequest) {
             },
             take: 10
           })
-          
+
           // If multiple products found, need clarification
           if (matchingProducts.length > 1) {
             itemsToClarify.push({ item, products: matchingProducts })
@@ -728,17 +728,17 @@ export async function POST(request: NextRequest) {
             itemsToClarify.push({ item, products: [] })
           }
         }
-        
+
         // If we have items that need clarification, ask user to choose
         if (itemsToClarify.length > 0) {
           const clarificationMessages: string[] = []
-          
+
           for (const { item, products } of itemsToClarify) {
             if (products.length > 1) {
               // Multiple variants found - ask user to choose
               clarificationMessages.push(
                 `🔍 Tìm thấy **${products.length}** loại **${item.productName}**:\n\n` +
-                products.map((p, idx) => 
+                products.map((p, idx) =>
                   `${idx + 1}. ${p.name} - ${p.price.toLocaleString('vi-VN')}đ/${p.unit}`
                 ).join('\n') +
                 `\n\n💡 Bạn muốn chọn loại nào? (Ví dụ: "1" hoặc "${products[0].name}")`
@@ -751,16 +751,16 @@ export async function POST(request: NextRequest) {
               )
             }
           }
-          
+
           if (clarificationMessages.length > 0) {
             // Store items and pending selections for later use
             startOrderCreationFlow(sessionId, parsedItems, !!customerId)
-            
+
             // Store pending product selections in flow data
             await updateFlowData(sessionId, {
               pendingProductSelection: itemsToClarify.filter(({ products }) => products.length > 0)
             })
-            
+
             return NextResponse.json(
               createSuccessResponse({
                 message: clarificationMessages.join('\n\n'),
@@ -772,21 +772,21 @@ export async function POST(request: NextRequest) {
             )
           }
         }
-        
+
         // All items are clear - proceed with confirmation
         startOrderCreationFlow(sessionId, parsedItems, !!customerId)
 
         const needsInfo = !customerId
-        
+
         return NextResponse.json(
           createSuccessResponse({
             message: '🛒 **Xác nhận đặt hàng**\n\n' +
-                     'Danh sách sản phẩm:\n' +
-                     parsedItems.map((item, idx) => 
-                       `${idx + 1}. ${item.productName}: ${item.quantity} ${item.unit}`
-                     ).join('\n') +
-                     '\n\n✅ Xác nhận đặt hàng?' +
-                     (needsInfo ? '\n\n⚠️ *Bạn chưa đăng nhập. Chúng tôi sẽ hỏi thông tin giao hàng sau khi xác nhận.*' : '\n\n💡 *Hệ thống sẽ tự động tìm sản phẩm phù hợp trong kho*'),
+              'Danh sách sản phẩm:\n' +
+              parsedItems.map((item, idx) =>
+                `${idx + 1}. ${item.productName}: ${item.quantity} ${item.unit}`
+              ).join('\n') +
+              '\n\n✅ Xác nhận đặt hàng?' +
+              (needsInfo ? '\n\n⚠️ *Bạn chưa đăng nhập. Chúng tôi sẽ hỏi thông tin giao hàng sau khi xác nhận.*' : '\n\n💡 *Hệ thống sẽ tự động tìm sản phẩm phù hợp trong kho*'),
             suggestions: needsInfo ? ['Xác nhận', 'Đăng nhập', 'Hủy'] : ['Xác nhận', 'Chỉnh sửa', 'Hủy'],
             confidence: intentResult.confidence,
             sessionId,
@@ -794,11 +794,11 @@ export async function POST(request: NextRequest) {
           })
         )
       }
-      
+
       // Check if there's a recent material calculation
-      const recentCalc = conversationHistory.reverse().find(h => 
+      const recentCalc = conversationHistory.reverse().find(h =>
         h.role === 'assistant' && (
-          h.content.includes('Xi măng') || 
+          h.content.includes('Xi măng') ||
           h.content.includes('Gạch') ||
           h.content.includes('Cát') ||
           h.content.includes('Đá')
@@ -818,11 +818,11 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(
           createSuccessResponse({
             message: '🛒 **Xác nhận đặt hàng**\n\n' +
-                     'Danh sách vật liệu từ tính toán:\n' +
-                     items.map((item, idx) => 
-                       `${idx + 1}. ${item.productName}: ${item.quantity} ${item.unit}`
-                     ).join('\n') +
-                     '\n\n✅ Xác nhận đặt hàng?',
+              'Danh sách vật liệu từ tính toán:\n' +
+              items.map((item, idx) =>
+                `${idx + 1}. ${item.productName}: ${item.quantity} ${item.unit}`
+              ).join('\n') +
+              '\n\n✅ Xác nhận đặt hàng?',
             suggestions: ['Xác nhận', 'Chỉnh sửa', 'Hủy'],
             confidence: 0.9,
             sessionId,
@@ -833,11 +833,11 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(
           createSuccessResponse({
             message: '❓ Bạn muốn đặt hàng gì? Vui lòng cho tôi biết cụ thể:\n\n' +
-                     '📝 **Ví dụ:**\n' +
-                     '- "Tôi muốn mua 10 bao xi măng"\n' +
-                     '- "Đặt 20 viên gạch và 5 m³ cát"\n' +
-                     '- "50 bao xi măng PC40 Insee"\n\n' +
-                     'Hoặc bạn có thể tính toán vật liệu trước!',
+              '📝 **Ví dụ:**\n' +
+              '- "Tôi muốn mua 10 bao xi măng"\n' +
+              '- "Đặt 20 viên gạch và 5 m³ cát"\n' +
+              '- "50 bao xi măng PC40 Insee"\n\n' +
+              'Hoặc bạn có thể tính toán vật liệu trước!',
             suggestions: ['Tính toán vật liệu', 'Xem sản phẩm', 'Ví dụ'],
             confidence: 0.7,
             sessionId,
@@ -854,7 +854,7 @@ export async function POST(request: NextRequest) {
         const productKeywords = message.toLowerCase()
           .replace(/tìm|search|có|bán|sell|muốn|cần|mua|đặt/g, '')
           .trim()
-        
+
         // Search products
         const products = await prisma.product.findMany({
           where: {
@@ -882,25 +882,25 @@ export async function POST(request: NextRequest) {
               ? (p.productReviews.reduce((sum, r) => sum + r.rating, 0) / p.productReviews.length).toFixed(1)
               : 'Chưa có đánh giá'
             const inStock = p.inventoryItem ? p.inventoryItem.availableQuantity > 0 : false
-            const stockText = inStock 
-              ? `✅ Còn ${p.inventoryItem?.availableQuantity || 0} ${p.unit}` 
+            const stockText = inStock
+              ? `✅ Còn ${p.inventoryItem?.availableQuantity || 0} ${p.unit}`
               : '❌ Hết hàng'
-            
+
             return `${idx + 1}. **${p.name}**\n` +
-                   `   - Giá: ${p.price.toLocaleString()}đ/${p.unit}\n` +
-                   `   - ${stockText}\n` +
-                   `   - Đánh giá: ${avgRating} ⭐ (${p.productReviews.length} reviews)\n` +
-                   `   - Danh mục: ${p.category.name}`
+              `   - Giá: ${p.price.toLocaleString()}đ/${p.unit}\n` +
+              `   - ${stockText}\n` +
+              `   - Đánh giá: ${avgRating} ⭐ (${p.productReviews.length} reviews)\n` +
+              `   - Danh mục: ${p.category.name}`
           }).join('\n\n')
 
           // Store the first product in a temporary location for quick order
           // We'll use conversation history to store this instead of state
           // (State is only for active flows like ORDER_CREATION)
-          
+
           return NextResponse.json(
             createSuccessResponse({
               message: `🔍 **Tìm thấy ${products.length} sản phẩm:**\n\n${productList}\n\n` +
-                       `💡 Nhấn "Xem chi tiết" để xem thêm thông tin hoặc "Đặt hàng" để mua ngay!`,
+                `💡 Nhấn "Xem chi tiết" để xem thêm thông tin hoặc "Đặt hàng" để mua ngay!`,
               suggestions: ['Xem chi tiết', 'Đặt hàng', 'So sánh giá'],
               productRecommendations: products.map(p => ({
                 id: p.id,
@@ -919,10 +919,10 @@ export async function POST(request: NextRequest) {
           return NextResponse.json(
             createSuccessResponse({
               message: `❌ Không tìm thấy sản phẩm **"${productKeywords}"**\n\n` +
-                       `💡 **Gợi ý:**\n` +
-                       `- Thử tìm với từ khóa khác (vd: "xi măng", "gạch ống")\n` +
-                       `- Xem danh mục sản phẩm\n` +
-                       `- Liên hệ tư vấn: 1900-xxxx`,
+                `💡 **Gợi ý:**\n` +
+                `- Thử tìm với từ khóa khác (vd: "xi măng", "gạch ống")\n` +
+                `- Xem danh mục sản phẩm\n` +
+                `- Liên hệ tư vấn: 1900-xxxx`,
               suggestions: ['Xem tất cả sản phẩm', 'Tư vấn', 'Tìm khác'],
               confidence: 0.80,
               sessionId,
@@ -939,11 +939,11 @@ export async function POST(request: NextRequest) {
     if (intentResult.intent === 'MATERIAL_CALCULATE') {
       try {
         const calcInput = materialCalculator.parseQuery(message)
-        
+
         if (calcInput) {
           const calcResult = await materialCalculator.quickCalculate(calcInput)
           const formattedResponse = materialCalculator.formatForChat(calcResult)
-          
+
           return NextResponse.json(
             createSuccessResponse({
               message: formattedResponse,
@@ -959,14 +959,14 @@ export async function POST(request: NextRequest) {
           return NextResponse.json(
             createSuccessResponse({
               message: `🏗️ **Tính toán vật liệu xây dựng**\n\n` +
-                       `Vui lòng cho tôi biết thêm thông tin:\n` +
-                       `- Diện tích cần xây: bao nhiêu m²?\n` +
-                       `- Loại công trình: nhà, tường, sàn,...?\n` +
-                       `- Số tầng (nếu có)\n\n` +
-                       `📝 **Ví dụ:**\n` +
-                       `- "Tính vật liệu cho nhà 100m² x 3 tầng"\n` +
-                       `- "Tính xi măng cho sàn 50m²"\n` +
-                       `- "Cần bao nhiêu gạch cho tường 30m²"`,
+                `Vui lòng cho tôi biết thêm thông tin:\n` +
+                `- Diện tích cần xây: bao nhiêu m²?\n` +
+                `- Loại công trình: nhà, tường, sàn,...?\n` +
+                `- Số tầng (nếu có)\n\n` +
+                `📝 **Ví dụ:**\n` +
+                `- "Tính vật liệu cho nhà 100m² x 3 tầng"\n` +
+                `- "Tính xi măng cho sàn 50m²"\n` +
+                `- "Cần bao nhiêu gạch cho tường 30m²"`,
               suggestions: ['Ví dụ', 'Tư vấn'],
               confidence: 0.70,
               sessionId,
@@ -986,7 +986,7 @@ export async function POST(request: NextRequest) {
         const productKeywords = message.toLowerCase()
           .replace(/giá|price|bao nhiêu|tiền|cost/g, '')
           .trim()
-        
+
         const products = await prisma.product.findMany({
           where: {
             OR: [
@@ -1000,14 +1000,14 @@ export async function POST(request: NextRequest) {
         })
 
         if (products.length > 0) {
-          const priceList = products.map((p, idx) => 
+          const priceList = products.map((p, idx) =>
             `${idx + 1}. **${p.name}**: ${p.price.toLocaleString()}đ/${p.unit}`
           ).join('\n')
 
           return NextResponse.json(
             createSuccessResponse({
               message: `💰 **Bảng giá:**\n\n${priceList}\n\n` +
-                       `💡 Giá đã bao gồm VAT. Liên hệ để được báo giá số lượng lớn!`,
+                `💡 Giá đã bao gồm VAT. Liên hệ để được báo giá số lượng lớn!`,
               suggestions: ['Đặt hàng', 'So sánh', 'Xem chi tiết'],
               confidence: 0.90,
               sessionId,
@@ -1041,9 +1041,9 @@ export async function POST(request: NextRequest) {
             entities: entities as any, // Serialize entities as JSON
             context: context as any
           } as any,
-          ipAddress: request.headers.get('x-forwarded-for') || 
-                     request.headers.get('x-real-ip') || 
-                     'unknown',
+          ipAddress: request.headers.get('x-forwarded-for') ||
+            request.headers.get('x-real-ip') ||
+            'unknown',
           userAgent: request.headers.get('user-agent') || 'unknown'
         }
       })
@@ -1077,7 +1077,7 @@ export async function POST(request: NextRequest) {
 async function handleAdminOrderManagement(message: string, entities: any, sessionId: string) {
   try {
     const lower = message.toLowerCase()
-    
+
     // Check for pending orders
     if (lower.includes('chờ') || lower.includes('pending')) {
       const pendingOrders = await prisma.order.findMany({
@@ -1092,12 +1092,12 @@ async function handleAdminOrderManagement(message: string, entities: any, sessio
         orderBy: { createdAt: 'desc' },
         take: 10
       })
-      
+
       let responseMsg = `📦 **Đơn Hàng Chờ Xử Lý**\n\n`
-      
+
       if (pendingOrders.length === 0) {
         responseMsg += `✅ Không có đơn hàng chờ xử lý!\n\nTất cả đơn đã được xử lý.`
-        
+
         return NextResponse.json(
           createSuccessResponse({
             message: responseMsg,
@@ -1108,15 +1108,15 @@ async function handleAdminOrderManagement(message: string, entities: any, sessio
           })
         )
       }
-      
+
       responseMsg += `Có **${pendingOrders.length}** đơn hàng cần xác nhận:\n\n`
-      
+
       pendingOrders.slice(0, 5).forEach((order, idx) => {
         const isNew = Date.now() - order.createdAt.getTime() < 30 * 60 * 1000 // < 30 mins
-        const customerName = order.customerType === 'GUEST' 
-          ? order.guestName 
+        const customerName = order.customerType === 'GUEST'
+          ? order.guestName
           : order.customer?.user.name || 'N/A'
-        
+
         responseMsg += `\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`
         responseMsg += `${idx + 1}. **${order.orderNumber}** ${isNew ? '⏰ MỚI' : ''}\n`
         responseMsg += `\n👤 Khách hàng: ${customerName} ${order.customerType === 'GUEST' ? '(Khách vãng lai)' : ''}\n`
@@ -1125,18 +1125,18 @@ async function handleAdminOrderManagement(message: string, entities: any, sessio
         responseMsg += `📦 Thanh toán: ${order.paymentMethod}\n`
       })
       responseMsg += `\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`
-      
+
       if (pendingOrders.length > 5) {
         responseMsg += `... và ${pendingOrders.length - 5} đơn khác\n\n`
       }
-      
-      const avgWaitTime = pendingOrders.length > 0 
+
+      const avgWaitTime = pendingOrders.length > 0
         ? Math.round(pendingOrders.reduce((sum, o) => sum + (Date.now() - o.createdAt.getTime()), 0) / pendingOrders.length / 60000)
         : 0
-      
+
       responseMsg += `⏱️ Thời gian chờ TB: ${avgWaitTime} phút\n`
       responseMsg += `💡 Ưu tiên xử lý đơn mới nhất trước!`
-      
+
       return NextResponse.json(
         createSuccessResponse({
           message: responseMsg,
@@ -1148,7 +1148,7 @@ async function handleAdminOrderManagement(message: string, entities: any, sessio
         })
       )
     }
-    
+
     // Check for recent orders or all orders
     if (lower.includes('mới nhất') || lower.includes('latest') || lower.includes('tất cả đơn')) {
       const limit = lower.includes('tất cả đơn') ? 20 : 5
@@ -1161,14 +1161,14 @@ async function handleAdminOrderManagement(message: string, entities: any, sessio
           }
         }
       })
-      
-      let responseMsg = lower.includes('tất cả đơn') 
+
+      let responseMsg = lower.includes('tất cả đơn')
         ? `📦 **Tất Cả Đơn Hàng** (${recentOrders.length} đơn gần nhất)\n\n`
         : `📦 **Đơn Hàng Mới Nhất**\n\n`
-      
+
       if (recentOrders.length === 0) {
         responseMsg += `❌ Không có đơn hàng nào.\n\n`
-        
+
         return NextResponse.json(
           createSuccessResponse({
             message: responseMsg,
@@ -1179,12 +1179,12 @@ async function handleAdminOrderManagement(message: string, entities: any, sessio
           })
         )
       }
-      
+
       recentOrders.forEach((order, idx) => {
-        const customerName = order.customerType === 'GUEST' 
-          ? order.guestName 
+        const customerName = order.customerType === 'GUEST'
+          ? order.guestName
           : order.customer?.user.name || 'N/A'
-        
+
         responseMsg += `\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`
         responseMsg += `${idx + 1}. **${order.orderNumber}**\n`
         responseMsg += `\n${getStatusEmoji(order.status)} **${getStatusLabel(order.status)}**\n`
@@ -1193,11 +1193,11 @@ async function handleAdminOrderManagement(message: string, entities: any, sessio
         responseMsg += `🕐 Thời gian: ${formatRelativeTime(order.createdAt)}\n`
       })
       responseMsg += `\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`
-      
+
       if (lower.includes('tất cả đơn') && recentOrders.length === 20) {
         responseMsg += `💡 Đang hiển thị 20 đơn hàng gần nhất. Vào trang quản lý để xem thêm.\n\n`
       }
-      
+
       return NextResponse.json(
         createSuccessResponse({
           message: responseMsg,
@@ -1209,17 +1209,17 @@ async function handleAdminOrderManagement(message: string, entities: any, sessio
         })
       )
     }
-    
+
     // Default - suggest actions
     return NextResponse.json(
       createSuccessResponse({
         message: `📦 **Quản Lý Đơn Hàng**\n\n` +
-                 `Tôi có thể giúp bạn:\n\n` +
-                 `- Xem đơn hàng chờ xử lý\n` +
-                 `- Xem đơn hàng mới nhất\n` +
-                 `- Thống kê đơn hàng theo ngày\n` +
-                 `- Tìm đơn hàng theo mã\n\n` +
-                 `💡 Thử hỏi: "Đơn hàng chờ xử lý" hoặc "Đơn hàng mới nhất"`,
+          `Tôi có thể giúp bạn:\n\n` +
+          `- Xem đơn hàng chờ xử lý\n` +
+          `- Xem đơn hàng mới nhất\n` +
+          `- Thống kê đơn hàng theo ngày\n` +
+          `- Tìm đơn hàng theo mã\n\n` +
+          `💡 Thử hỏi: "Đơn hàng chờ xử lý" hoặc "Đơn hàng mới nhất"`,
         suggestions: ['Đơn chờ xử lý', 'Đơn mới nhất', 'Doanh thu hôm nay'],
         confidence: 0.8,
         sessionId,
@@ -1243,7 +1243,7 @@ async function handleAdminOrderManagement(message: string, entities: any, sessio
 async function handleAdminInventoryCheck(message: string, entities: any, sessionId: string) {
   try {
     const lower = message.toLowerCase()
-    
+
     // Get all inventory items
     const inventoryItems = await prisma.inventoryItem.findMany({
       include: {
@@ -1256,7 +1256,7 @@ async function handleAdminInventoryCheck(message: string, entities: any, session
         }
       }
     })
-    
+
     // Calculate low stock items
     // Note: safetyStockLevel and reorderQuantity may not be in schema
     // Using a default safety stock of 10% of current quantity or 10 units
@@ -1264,24 +1264,24 @@ async function handleAdminInventoryCheck(message: string, entities: any, session
       const safetyStock = Math.max(10, Math.floor(item.availableQuantity * 0.1))
       return item.availableQuantity <= safetyStock && safetyStock > 0
     })
-    
+
     // Calculate critical items (out of stock or near zero)
     const criticalItems = lowStockItems.filter(item => {
       const safetyStock = Math.max(10, Math.floor(item.availableQuantity * 0.1))
       return item.availableQuantity <= safetyStock * 0.3
     })
-    
+
     // Calculate warning items
     const warningItems = lowStockItems.filter(item => {
       const safetyStock = Math.max(10, Math.floor(item.availableQuantity * 0.1))
       return item.availableQuantity > safetyStock * 0.3 && item.availableQuantity <= safetyStock
     })
-    
+
     let responseMsg = `⚠️ **Cảnh Báo Tồn Kho**\n\n`
-    
+
     if (lowStockItems.length === 0) {
       responseMsg += `✅ Tất cả sản phẩm đều đủ hàng!\n\nKhông có sản phẩm nào dưới mức an toàn.`
-      
+
       return NextResponse.json(
         createSuccessResponse({
           message: responseMsg,
@@ -1292,48 +1292,48 @@ async function handleAdminInventoryCheck(message: string, entities: any, session
         })
       )
     }
-    
+
     if (criticalItems.length > 0) {
       responseMsg += `🔴 **KHẨN CẤP** - Cần đặt hàng ngay (${criticalItems.length} sản phẩm):\n\n`
-      
+
       criticalItems.slice(0, 5).forEach((item, idx) => {
         const safetyStock = Math.max(10, Math.floor(item.availableQuantity * 0.1))
         const daysLeft = item.availableQuantity > 0 && safetyStock > 0
-          ? Math.floor(item.availableQuantity / (safetyStock * 0.1)) 
+          ? Math.floor(item.availableQuantity / (safetyStock * 0.1))
           : 0
-        
+
         responseMsg += `${idx + 1}. **${item.product.name}**\n`
         responseMsg += `   📦 Còn: ${item.availableQuantity} ${item.product.unit}\n`
         responseMsg += `   ⚡ Mức an toàn: ${safetyStock} ${item.product.unit}\n`
         responseMsg += `   ⏰ ${daysLeft <= 0 ? 'HẾT HÀNG' : `Còn ~${daysLeft} ngày`}\n\n`
       })
     }
-    
+
     if (warningItems.length > 0) {
       responseMsg += `🟡 **CẢNH BÁO** - Sắp hết (${warningItems.length} sản phẩm):\n\n`
-      
+
       warningItems.slice(0, 3).forEach((item, idx) => {
         responseMsg += `${idx + 1}. **${item.product.name}**: Còn ${item.availableQuantity} ${item.product.unit}\n`
       })
-      
+
       if (warningItems.length > 3) {
         responseMsg += `... và ${warningItems.length - 3} sản phẩm khác\n`
       }
     }
-    
+
     // Calculate estimated order value
     const estimatedValue = criticalItems.reduce((sum, item) => {
       const safetyStock = Math.max(10, Math.floor(item.availableQuantity * 0.1))
       const reorderQty = Math.max(100, safetyStock * 2) // Default reorder quantity
       return sum + (reorderQty * item.product.price)
     }, 0)
-    
+
     responseMsg += `\n💰 Ước tính giá trị cần đặt: ~${estimatedValue.toLocaleString('vi-VN')}đ\n\n`
     responseMsg += `🎯 **Hành động:**\n`
     responseMsg += `✅ Liên hệ nhà cung cấp ngay\n`
     responseMsg += `✅ Cập nhật thông báo trên website\n`
     responseMsg += `✅ Xem lịch sử nhập hàng`
-    
+
     return NextResponse.json(
       createSuccessResponse({
         message: responseMsg,
@@ -1377,7 +1377,7 @@ function formatRelativeTime(date: Date): string {
   const minutes = Math.floor(diff / 60000)
   const hours = Math.floor(diff / 3600000)
   const days = Math.floor(diff / 86400000)
-  
+
   if (minutes < 1) return 'Vừa xong'
   if (minutes < 60) return `${minutes} phút trước`
   if (hours < 24) return `${hours} giờ trước`
@@ -1428,19 +1428,19 @@ async function handleOCRInvoiceFlow(sessionId: string, image: string, message?: 
 
     // Process OCR
     const ocrResult = await processImageOCR(image)
-    
+
     // Parse invoice
     const parsedInvoice = parseInvoice(ocrResult)
-    
+
     // Validate
     const invoiceValidation = validateInvoice(parsedInvoice)
-    
+
     if (!invoiceValidation.valid) {
       return NextResponse.json(
         createSuccessResponse({
           message: `⚠️ **Nhận diện không đầy đủ**\n\n` +
-                   `Lỗi:\n${invoiceValidation.errors.map(e => `- ${e}`).join('\n')}\n\n` +
-                   `Vui lòng chụp lại ảnh rõ hơn hoặc nhập thủ công.`,
+            `Lỗi:\n${invoiceValidation.errors.map(e => `- ${e}`).join('\n')}\n\n` +
+            `Vui lòng chụp lại ảnh rõ hơn hoặc nhập thủ công.`,
           suggestions: ['Chụp lại', 'Nhập thủ công'],
           confidence: parsedInvoice.confidence,
           sessionId,
@@ -1451,7 +1451,7 @@ async function handleOCRInvoiceFlow(sessionId: string, image: string, message?: 
 
     // Format for display
     const formattedMsg = formatInvoiceForChat(parsedInvoice)
-    
+
     // Start OCR flow
     startOCRInvoiceFlow(sessionId, parsedInvoice)
 
@@ -1482,7 +1482,7 @@ async function handleOCRInvoiceFlow(sessionId: string, image: string, message?: 
 async function handleOCRInvoiceSave(sessionId: string, state: any) {
   try {
     const parsedInvoice = state.data.parsedInvoice
-    
+
     // Find or create supplier if supplierName exists
     let supplierId: string | undefined = undefined
     if (parsedInvoice.supplierName) {
@@ -1491,7 +1491,7 @@ async function handleOCRInvoiceSave(sessionId: string, state: any) {
           name: { contains: parsedInvoice.supplierName, mode: 'insensitive' }
         }
       })
-      
+
       if (supplier) {
         supplierId = supplier.id
       } else {
@@ -1510,7 +1510,7 @@ async function handleOCRInvoiceSave(sessionId: string, state: any) {
         supplierId = newSupplier.id
       }
     }
-    
+
     // Determine invoice status based on payment status
     let invoiceStatus: 'DRAFT' | 'SENT' | 'PAID' | 'OVERDUE' | 'CANCELLED' = 'DRAFT'
     if (parsedInvoice.paymentStatus === 'PAID') {
@@ -1518,7 +1518,7 @@ async function handleOCRInvoiceSave(sessionId: string, state: any) {
     } else if (parsedInvoice.paymentStatus === 'UNPAID') {
       invoiceStatus = 'SENT'
     }
-    
+
     // Save invoice with transaction to ensure consistency
     const invoice = await prisma.$transaction(async (tx) => {
       // Create invoice
@@ -1540,13 +1540,13 @@ async function handleOCRInvoiceSave(sessionId: string, state: any) {
           notes: `OCR Imported: ${parsedInvoice.rawText?.substring(0, 500)}`
         }
       })
-      
+
       // Create invoice items if available
       let itemsCreated = 0
       if (parsedInvoice.items && parsedInvoice.items.length > 0) {
         for (const item of parsedInvoice.items) {
           if (!item.name) continue
-          
+
           // Try to find matching product
           const product = await tx.product.findFirst({
             where: {
@@ -1557,7 +1557,7 @@ async function handleOCRInvoiceSave(sessionId: string, state: any) {
               isActive: true
             }
           })
-          
+
           if (product) {
             await tx.invoiceItem.create({
               data: {
@@ -1576,7 +1576,7 @@ async function handleOCRInvoiceSave(sessionId: string, state: any) {
           }
         }
       }
-      
+
       return { invoice: newInvoice, itemsCreated }
     })
 
@@ -1585,16 +1585,16 @@ async function handleOCRInvoiceSave(sessionId: string, state: any) {
     return NextResponse.json(
       createSuccessResponse({
         message: `✅ Đã lưu hóa đơn **${invoice.invoice.invoiceNumber}**\n\n` +
-                 `- Nhà cung cấp: ${parsedInvoice.supplierName || 'N/A'}\n` +
-                 `- Tổng tiền: ${invoice.invoice.totalAmount.toLocaleString('vi-VN')}đ\n` +
-                 `- Trạng thái: ${invoice.invoice.status}\n` +
-                 `- Sản phẩm: ${invoice.itemsCreated}/${parsedInvoice.items?.length || 0} matched\n\n` +
-                 (invoice.itemsCreated === 0 ? 
-                   `⚠️ Không match được sản phẩm nào. Vui lòng cập nhật thủ công.` :
-                   invoice.itemsCreated < (parsedInvoice.items?.length || 0) ?
-                   `💡 Một số sản phẩm chưa match. Vui lòng kiểm tra.` :
-                   `✅ Tất cả sản phẩm đã được match!`
-                 ),
+          `- Nhà cung cấp: ${parsedInvoice.supplierName || 'N/A'}\n` +
+          `- Tổng tiền: ${invoice.invoice.totalAmount.toLocaleString('vi-VN')}đ\n` +
+          `- Trạng thái: ${invoice.invoice.status}\n` +
+          `- Sản phẩm: ${invoice.itemsCreated}/${parsedInvoice.items?.length || 0} matched\n\n` +
+          (invoice.itemsCreated === 0 ?
+            `⚠️ Không match được sản phẩm nào. Vui lòng cập nhật thủ công.` :
+            invoice.itemsCreated < (parsedInvoice.items?.length || 0) ?
+              `💡 Một số sản phẩm chưa match. Vui lòng kiểm tra.` :
+              `✅ Tất cả sản phẩm đã được match!`
+          ),
         suggestions: ['Xem chi tiết', 'Tạo hóa đơn khác', 'Cập nhật sản phẩm'],
         confidence: 1.0,
         sessionId,
@@ -1613,23 +1613,23 @@ async function handleOCRInvoiceSave(sessionId: string, state: any) {
 async function handleOrderCreation(sessionId: string, customerId: string | undefined, state: any) {
   try {
     const flowData = state.data
-    
+
     // Determine if guest or registered customer
     const isGuest = !customerId
     let customerInfo: any
-    
+
     if (isGuest) {
       // Guest order - use provided info
       console.log('Guest order - flowData.guestInfo:', JSON.stringify(flowData.guestInfo, null, 2))
-      
+
       if (!flowData.guestInfo) {
         return NextResponse.json(
           createSuccessResponse({
             message: '❌ Thiếu thông tin giao hàng. Vui lòng cung cấp:\n' +
-                     '- Họ tên\n' +
-                     '- Số điện thoại\n' +
-                     '- Địa chỉ\n\n' +
-                     '💡 Ví dụ: Nguyễn Văn A, 0901234567, 123 Nguyễn Huệ, Q1, HCM',
+              '- Họ tên\n' +
+              '- Số điện thoại\n' +
+              '- Địa chỉ\n\n' +
+              '💡 Ví dụ: Nguyễn Văn A, 0901234567, 123 Nguyễn Huệ, Q1, HCM',
             suggestions: ['Nhập lại', 'Đăng nhập'],
             confidence: 1.0,
             sessionId,
@@ -1637,7 +1637,7 @@ async function handleOrderCreation(sessionId: string, customerId: string | undef
           })
         )
       }
-      
+
       const guestInfo = flowData.guestInfo
       console.log('=== CHECKING GUEST INFO IN ORDER CREATION ===')
       console.log('flowData:', JSON.stringify(flowData, null, 2))
@@ -1646,19 +1646,19 @@ async function handleOrderCreation(sessionId: string, customerId: string | undef
       console.log('Has phone:', !!guestInfo?.phone, guestInfo?.phone)
       console.log('Has address:', !!guestInfo?.address, guestInfo?.address)
       console.log('=============================================')
-      
+
       if (!guestInfo || !guestInfo.name || !guestInfo.phone || !guestInfo.address) {
         return NextResponse.json(
           createSuccessResponse({
             message: '❌ Thiếu thông tin giao hàng. Vui lòng cung cấp:\n' +
-                     '- Họ tên\n' +
-                     '- Số điện thoại\n' +
-                     '- Địa chỉ\n\n' +
-                     `💡 Thông tin hiện tại:\n` +
-                     `- Tên: ${guestInfo?.name || '(chưa có)'}\n` +
-                     `- SĐT: ${guestInfo?.phone || '(chưa có)'}\n` +
-                     `- Địa chỉ: ${guestInfo?.address || '(chưa có)'}\n\n` +
-                     '💡 Ví dụ: Nguyễn Văn A, 0901234567, 123 Nguyễn Huệ, Q1, HCM',
+              '- Họ tên\n' +
+              '- Số điện thoại\n' +
+              '- Địa chỉ\n\n' +
+              `💡 Thông tin hiện tại:\n` +
+              `- Tên: ${guestInfo?.name || '(chưa có)'}\n` +
+              `- SĐT: ${guestInfo?.phone || '(chưa có)'}\n` +
+              `- Địa chỉ: ${guestInfo?.address || '(chưa có)'}\n\n` +
+              '💡 Ví dụ: Nguyễn Văn A, 0901234567, 123 Nguyễn Huệ, Q1, HCM',
             suggestions: ['Nhập lại', 'Đăng nhập'],
             confidence: 1.0,
             sessionId,
@@ -1666,7 +1666,7 @@ async function handleOrderCreation(sessionId: string, customerId: string | undef
           })
         )
       }
-      
+
       customerInfo = {
         name: flowData.guestInfo.name,
         phone: flowData.guestInfo.phone,
@@ -1686,7 +1686,7 @@ async function handleOrderCreation(sessionId: string, customerId: string | undef
           { status: 404 }
         )
       }
-      
+
       customerInfo = {
         name: customer.user.name,
         phone: customer.user.phone || '',
@@ -1741,12 +1741,12 @@ async function handleOrderCreation(sessionId: string, customerId: string | undef
 
       // Create order with PENDING_CONFIRMATION status (needs admin approval)
       const orderNumber = `ORD-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Date.now().toString().slice(-4)}`
-      
+
       // Calculate deposit (30% of total)
       const depositPercentage = 30
       const depositAmount = Math.round(subtotal * (depositPercentage / 100))
       const remainingAmount = subtotal - depositAmount
-      
+
       const order = await tx.order.create({
         data: {
           orderNumber,
@@ -1772,8 +1772,8 @@ async function handleOrderCreation(sessionId: string, customerId: string | undef
             phone: customerInfo.phone,
             address: customerInfo.address
           },
-          notes: isGuest 
-            ? 'Đơn hàng từ Chatbot AI (Khách vãng lai)' 
+          notes: isGuest
+            ? 'Đơn hàng từ Chatbot AI (Khách vãng lai)'
             : 'Đơn hàng tạo từ Chatbot AI'
         }
       })
@@ -1847,23 +1847,23 @@ async function handleOrderCreation(sessionId: string, customerId: string | undef
     return NextResponse.json(
       createSuccessResponse({
         message: `✅ Đặt hàng thành công! Mã đơn: **${result.order.orderNumber}**\n\n` +
-                 `📦 **Chi tiết đơn hàng:**\n` +
-                 `- Khách hàng: ${customerInfo.name}\n` +
-                 `- SĐT: ${customerInfo.phone}\n` +
-                 `- Tổng tiền: ${result.order.netAmount.toLocaleString('vi-VN')}đ\n` +
-                 `- Sản phẩm: ${result.itemsMatched}/${result.totalItems} items\n` +
-                 `- Đặt cọc: ${(result.order.depositAmount || 0).toLocaleString('vi-VN')}đ (30%)\n\n` +
-                 `⏳ **Bước tiếp theo:**\n` +
-                 `1. Admin sẽ xác nhận đơn hàng trong vài phút\n` +
-                 `2. Sau khi xác nhận, ${isGuest ? 'chúng tôi sẽ gọi điện xác nhận' : 'bạn sẽ thấy mã QR thanh toán'}\n` +
-                 `3. ${isGuest ? 'Chuyển khoản theo hướng dẫn' : 'Chuyển khoản theo QR để hoàn tất đơn'}\n\n` +
-                 (isGuest 
-                   ? `📞 Chúng tôi sẽ liên hệ qua SĐT **${customerInfo.phone}** để xác nhận!\n\n` +
-                     `📋 **Lưu mã đơn hàng:** ${result.order.orderNumber}\n` +
-                     `💡 Bạn có thể theo dõi đơn hàng tại: /order-tracking?orderNumber=${result.order.orderNumber}`
-                   : `👉 Nhấn "Xem chi tiết" để theo dõi đơn hàng!`),
-        suggestions: isGuest 
-          ? ['Xem đơn hàng', 'Lưu mã đơn', 'Tiếp tục mua sắm'] 
+          `📦 **Chi tiết đơn hàng:**\n` +
+          `- Khách hàng: ${customerInfo.name}\n` +
+          `- SĐT: ${customerInfo.phone}\n` +
+          `- Tổng tiền: ${result.order.netAmount.toLocaleString('vi-VN')}đ\n` +
+          `- Sản phẩm: ${result.itemsMatched}/${result.totalItems} items\n` +
+          `- Đặt cọc: ${(result.order.depositAmount || 0).toLocaleString('vi-VN')}đ (30%)\n\n` +
+          `⏳ **Bước tiếp theo:**\n` +
+          `1. Admin sẽ xác nhận đơn hàng trong vài phút\n` +
+          `2. Sau khi xác nhận, ${isGuest ? 'chúng tôi sẽ gọi điện xác nhận' : 'bạn sẽ thấy mã QR thanh toán'}\n` +
+          `3. ${isGuest ? 'Chuyển khoản theo hướng dẫn' : 'Chuyển khoản theo QR để hoàn tất đơn'}\n\n` +
+          (isGuest
+            ? `📞 Chúng tôi sẽ liên hệ qua SĐT **${customerInfo.phone}** để xác nhận!\n\n` +
+            `📋 **Lưu mã đơn hàng:** ${result.order.orderNumber}\n` +
+            `💡 Bạn có thể theo dõi đơn hàng tại: /order-tracking?orderNumber=${result.order.orderNumber}`
+            : `👉 Nhấn "Xem chi tiết" để theo dõi đơn hàng!`),
+        suggestions: isGuest
+          ? ['Xem đơn hàng', 'Lưu mã đơn', 'Tiếp tục mua sắm']
           : ['Xem chi tiết', 'Tiếp tục mua sắm'],
         confidence: 1.0,
         sessionId,
@@ -1881,9 +1881,9 @@ async function handleOrderCreation(sessionId: string, customerId: string | undef
     )
   } catch (error: any) {
     console.error('Order creation error:', error)
-    
+
     clearConversationState(sessionId)
-    
+
     return NextResponse.json(
       createSuccessResponse({
         message: `❌ Không thể tạo đơn hàng: ${error.message}\n\nVui lòng thử lại hoặc liên hệ hỗ trợ.`,
@@ -1899,7 +1899,7 @@ async function handleOrderCreation(sessionId: string, customerId: string | undef
 async function handleCRUDExecution(sessionId: string, state: any, userRole: string) {
   try {
     const crudData = state.data
-    
+
     const actionResult = await executeAction({
       action: crudData.action,
       entityType: crudData.entityType,
@@ -1937,13 +1937,13 @@ async function handleCustomerImageRecognition(
 ) {
   try {
     const recognitionResult = await aiRecognition.recognizeMaterial(image)
-    
+
     let responseText = `📸 **Tôi nhận diện được:** ${recognitionResult.materialType}\n\n`
     responseText += `🎯 **Độ tin cậy:** ${(recognitionResult.confidence * 100).toFixed(0)}%\n\n`
-    
+
     if (recognitionResult.matchedProducts.length > 0) {
       responseText += `✅ **Tìm thấy ${recognitionResult.matchedProducts.length} sản phẩm phù hợp:**`
-      
+
       return NextResponse.json(
         createSuccessResponse({
           message: responseText,
@@ -1956,7 +1956,7 @@ async function handleCustomerImageRecognition(
       )
     } else {
       responseText += '❌ Không tìm thấy sản phẩm phù hợp.'
-      
+
       return NextResponse.json(
         createSuccessResponse({
           message: responseText,
@@ -2007,12 +2007,12 @@ async function getConversationHistory(sessionId: string) {
       formattedHistory.push({ role: 'assistant', content: interaction.response })
     }
   })
-  
+
   return formattedHistory
 }
 
 async function generateChatbotResponse(
-  message: string, 
+  message: string,
   context?: any,
   conversationHistory?: { role: string; content: string }[],
   isAdmin: boolean = false
@@ -2022,6 +2022,16 @@ async function generateChatbotResponse(
   productRecommendations?: any[];
   confidence: number;
 }> {
+  // Try to use AI service first if enabled
+  if (isAIEnabled()) {
+    try {
+      return await AIService.generateChatbotResponse(message, context, conversationHistory)
+    } catch (error) {
+      console.error('AI Service failed, falling back to static response:', error)
+      // Fall through to static response
+    }
+  }
+
   // Use the extracted fallback response generator
   return generateChatbotFallbackResponse(message, isAdmin)
 }

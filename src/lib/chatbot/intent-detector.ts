@@ -369,7 +369,11 @@ export function detectIntent(
      // Specific materials
      /\b(xi măng|xi mang|cement|cát|cat|sand|gạch|gach|brick|sắt|sat|thép|thep|steel|đá|da|stone|sơn|son|paint|tôn|ton|ngói|ngoi|gỗ|go|wood|thạch cao|keo|vữa|vua|ống|ong|đinh|dinh|vít|vit)\b/i.test(message)) &&
     // Not a very generic/ambiguous question
-    message.trim().length > 3
+    message.trim().length > 3 &&
+    // EXCLUDE advice requests - let them fall through to GENERAL_INQUIRY
+    !lower.includes('tư vấn') &&
+    !lower.includes('khuyên') &&
+    !lower.includes('recommend')
   ) {
     return {
       intent: 'PRODUCT_SEARCH',
