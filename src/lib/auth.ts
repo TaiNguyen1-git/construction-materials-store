@@ -17,7 +17,7 @@ export interface JWTPayload extends JwtPayload {
 export const AUTH_CONFIG = {
   JWT_SECRET: process.env.JWT_SECRET || 'your-super-secret-jwt-key',
   JWT_REFRESH_SECRET: process.env.JWT_REFRESH_SECRET || 'your-super-secret-refresh-key',
-  ACCESS_TOKEN_EXPIRES_IN: '15m' as const,
+  ACCESS_TOKEN_EXPIRES_IN: '1d' as const,
   REFRESH_TOKEN_EXPIRES_IN: '7d' as const,
   BCRYPT_ROUNDS: 12 as const,
 } as const
