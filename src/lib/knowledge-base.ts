@@ -474,30 +474,131 @@ export const KNOWLEDGE_BASE: ProductKnowledge[] = [
       'Phù hợp cho xây tô hoàn thiện'
     ],
     alternatives: ['Cát xây dựng (cho bê tông)']
+  },
+
+  // ========================================
+  // TƯ VẤN XÂY DỰNG (KIẾN THỨC CHUNG)
+  // ========================================
+  {
+    id: 'guide_home_building',
+    category: 'Tư vấn',
+    name: 'Quy trình xây nhà cơ bản',
+    supplier: 'Kiến thức xây dựng',
+    description: 'Hướng dẫn quy trình xây nhà từ móng đến hoàn thiện và lựa chọn vật liệu phù hợp.',
+    specifications: {
+      type: 'Hướng dẫn',
+      scope: 'Nhà phố, Biệt thự',
+      steps: 'Móng -> Khung -> Xây tô -> Hoàn thiện'
+    },
+    pricing: {
+      basePrice: 0,
+      unit: 'lượt tư vấn'
+    },
+    usage: [
+      'Tư vấn xây nhà mới',
+      'Lập kế hoạch mua vật liệu',
+      'Dự toán chi phí'
+    ],
+    quality: 'Chuẩn xây dựng Việt Nam',
+    commonCombinations: [
+      'Xi măng',
+      'Thép',
+      'Gạch',
+      'Cát',
+      'Đá'
+    ],
+    tips: [
+      'Móng: Dùng Xi măng PC40/PCB40, Thép D10-D20, Đá 1x2, Cát vàng',
+      'Xây tường: Dùng Gạch ống/Gạch đinh, Xi măng PC30, Cát mịn',
+      'Hoàn thiện: Dùng Bột trét, Sơn nước, Gạch ốp lát',
+      'Nên mua vật liệu theo từng giai đoạn để tránh hao hụt và bảo quản tốt hơn'
+    ],
+    warnings: [
+      'Không dùng cát nhiễm mặn cho bê tông',
+      'Bảo dưỡng bê tông (tưới nước) ít nhất 7 ngày sau khi đổ',
+      'Chọn xi măng đúng mục đích (PC40 cho móng, PC30 cho xây tô)'
+    ]
+  },
+  // ========================================
+  // CHÍNH SÁCH & DỊCH VỤ
+  // ========================================
+  {
+    id: 'policy_payment',
+    category: 'Chính sách',
+    name: 'Chính sách thanh toán',
+    brand: 'Store Policy',
+    description: 'Các phương thức thanh toán được chấp nhận tại cửa hàng.',
+    specifications: {
+      methods: 'Tiền mặt, Chuyển khoản, COD',
+      banking: 'Vietcombank - 1234567890 - NGUYEN VAN A',
+      deposit: 'Cọc 30% cho đơn hàng lớn'
+    },
+    pricing: {
+      basePrice: 0,
+      unit: 'lần'
+    },
+    usage: [
+      'Thanh toán khi nhận hàng (COD)',
+      'Chuyển khoản ngân hàng',
+      'Thanh toán trực tiếp tại cửa hàng'
+    ],
+    quality: 'An toàn - Nhanh chóng',
+    commonCombinations: [],
+    tips: [
+      'Nội dung chuyển khoản: [Mã đơn hàng] - [Số điện thoại]',
+      'Giữ lại biên lai chuyển khoản để đối chiếu'
+    ]
+  },
+  {
+    id: 'service_consulting',
+    category: 'Dịch vụ',
+    name: 'Dịch vụ tư vấn xây dựng',
+    brand: 'Store Service',
+    description: 'Dịch vụ tư vấn kỹ thuật và lựa chọn vật liệu xây dựng miễn phí.',
+    specifications: {
+      scope: 'Tư vấn vật liệu, Dự toán chi phí, Hướng dẫn thi công',
+      cost: 'Miễn phí',
+      support: '24/7 qua Chatbot'
+    },
+    pricing: {
+      basePrice: 0,
+      unit: 'lần'
+    },
+    usage: [
+      'Tư vấn chọn xi măng, sắt thép phù hợp',
+      'Tính toán khối lượng vật tư',
+      'Giải đáp thắc mắc kỹ thuật'
+    ],
+    quality: 'Chuyên nghiệp - Tận tâm',
+    commonCombinations: ['Quy trình xây nhà cơ bản'],
+    tips: [
+      'Cung cấp diện tích và quy mô công trình để được tư vấn chính xác nhất',
+      'Liên hệ hotline nếu cần tư vấn trực tiếp tại công trình'
+    ]
   }
 ]
 
 // Helper functions to search knowledge base
 export function searchByCategory(category: string): ProductKnowledge[] {
-  return KNOWLEDGE_BASE.filter(item => 
+  return KNOWLEDGE_BASE.filter(item =>
     item.category.toLowerCase() === category.toLowerCase()
   )
 }
 
 export function searchByBrand(brand: string): ProductKnowledge[] {
-  return KNOWLEDGE_BASE.filter(item => 
+  return KNOWLEDGE_BASE.filter(item =>
     item.brand?.toLowerCase().includes(brand.toLowerCase())
   )
 }
 
 export function searchByName(name: string): ProductKnowledge[] {
-  return KNOWLEDGE_BASE.filter(item => 
+  return KNOWLEDGE_BASE.filter(item =>
     item.name.toLowerCase().includes(name.toLowerCase())
   )
 }
 
 export function searchByUsage(usage: string): ProductKnowledge[] {
-  return KNOWLEDGE_BASE.filter(item => 
+  return KNOWLEDGE_BASE.filter(item =>
     item.usage.some(u => u.toLowerCase().includes(usage.toLowerCase()))
   )
 }

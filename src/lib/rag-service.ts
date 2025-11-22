@@ -233,6 +233,79 @@ export class RAGService {
       }
     }
 
+    // Special handling for "Khuyến mãi" / "Giảm giá"
+    if (normalizedQuery.includes('khuyen mai') || normalizedQuery.includes('giam gia') || normalizedQuery.includes('uu dai')) {
+      const discountedProducts = await this.getDiscountedProducts()
+      if (discountedProducts.length > 0) {
+        const promoContext = discountedProducts.map((p: ProductKnowledge) =>
+          `**${p.name}**: Giá ${p.pricing.basePrice.toLocaleString('vi-VN')}đ - ${p.pricing.bulkDiscount?.map((d: { minQuantity: number, discountPercent: number }) => `Mua >${d.minQuantity} giảm ${d.discountPercent}%`).join(', ')}`
+        ).join('\n')
+
+        return `
+THÔNG TIN KHUYẾN MÃI (Sử dụng để trả lời):
+${promoContext}
+
+---
+CÂU HỎI: ${userQuery}
+YÊU CẦU: Giới thiệu các chương trình khuyến mãi đang có.
+`
+      }
+    }
+
+    // Special handling for "Tư vấn xây nhà"
+    if (normalizedQuery.includes('tu van') && (normalizedQuery.includes('xay nha') || normalizedQuery.includes('xay dung'))) {
+      // Retrieve the construction guide
+      const guide = await this.retrieveContext('Quy trình xây nhà cơ bản', 1)
+      if (guide.length > 0) {
+        // Also get some key materials
+        const materials = await this.retrieveContext('xi măng sắt thép', 3)
+        const contextDocs = [...guide, ...materials]
+
+        const contextText = contextDocs.map(doc => RAGService.formatProductForChat(doc)).join('\n---\n')
+
+        return `
+THÔNG TIN TƯ VẤN XÂY DỰNG:
+${contextText}
+
+---
+CÂU HỎI: ${userQuery}
+YÊU CẦU: Tư vấn quy trình xây nhà và gợi ý vật liệu cần thiết (xi măng, sắt thép) dựa trên thông tin trên.
+`
+      }
+    }
+
+    // Special handling for "Thanh toán"
+    if (normalizedQuery.includes('thanh toan') || normalizedQuery.includes('chuyen khoan') || normalizedQuery.includes('tien mat')) {
+      const policy = await this.retrieveContext('Chính sách thanh toán', 1)
+      if (policy.length > 0) {
+        const contextText = policy.map(doc => RAGService.formatProductForChat(doc)).join('\n---\n')
+        return `
+THÔNG TIN THANH TOÁN:
+${contextText}
+
+---
+CÂU HỎI: ${userQuery}
+YÊU CẦU: Hướng dẫn khách hàng về các phương thức thanh toán và thông tin chuyển khoản.
+`
+      }
+    }
+
+    // Special handling for general "Tư vấn" (not specifically home building)
+    if (normalizedQuery.includes('tu van') || normalizedQuery.includes('ho tro') || normalizedQuery.includes('ky thuat')) {
+      const service = await this.retrieveContext('Dịch vụ tư vấn xây dựng', 1)
+      if (service.length > 0) {
+        const contextText = service.map(doc => RAGService.formatProductForChat(doc)).join('\n---\n')
+        return `
+THÔNG TIN DỊCH VỤ TƯ VẤN:
+${contextText}
+
+---
+CÂU HỎI: ${userQuery}
+YÊU CẦU: Giới thiệu về dịch vụ tư vấn của cửa hàng.
+`
+      }
+    }
+
     // Use getProductRecommendations to get both primary and related products
     const relevantDocs = await this.getProductRecommendations(expandedQuery, 5)
 
@@ -330,7 +403,7 @@ Trả lời: "Chào bạn! Để trát tường, bạn nên dùng xi măng PC30:
     // 2. Find related products based on common combinations of the top result
     const topProduct = primaryProducts[0]
     if (topProduct.commonCombinations && topProduct.commonCombinations.length > 0) {
-      console.log(`Found common combinations for ${topProduct.name}:`, topProduct.commonCombinations)
+      console.log(`Found common combinations for ${topProduct.name}: `, topProduct.commonCombinations)
 
       for (const comboKeyword of topProduct.commonCombinations) {
         if (recommendations.length >= limit) break
@@ -366,11 +439,17 @@ Trả lời: "Chào bạn! Để trát tường, bạn nên dùng xi măng PC30:
 
   // Re-export other helper methods as needed or keep them if they don't depend on vector store internals
   static formatProductForChat(product: ProductKnowledge): string {
-    let message = `**${product.name}**\n`
-    if (product.brand) message += `Thương hiệu: ${product.brand}\n`
-    message += `Giá: ${product.pricing.basePrice.toLocaleString('vi-VN')}đ/${product.pricing.unit}\n\n`
-    message += `${product.description}\n`
+    let message = `** ${product.name}**\n`
+    if (product.brand) message += `Thương hiệu: ${product.brand} \n`
+    message += `Giá: ${product.pricing.basePrice.toLocaleString('vi-VN')} đ / ${product.pricing.unit} \n\n`
+    message += `${product.description} \n`
     return message
+  }
+
+  static async getDiscountedProducts(): Promise<ProductKnowledge[]> {
+    // Filter from static knowledge base
+    const staticDeals = KNOWLEDGE_BASE.filter(p => p.pricing.bulkDiscount && p.pricing.bulkDiscount.length > 0)
+    return staticDeals
   }
 }
 

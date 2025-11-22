@@ -1747,6 +1747,16 @@ async function handleOrderCreation(sessionId: string, customerId: string | undef
       const depositAmount = Math.round(subtotal * (depositPercentage / 100))
       const remainingAmount = subtotal - depositAmount
 
+      // Prepare billing address (VAT Info)
+      let billingAddress = undefined
+      if (flowData.vatInfo) {
+        billingAddress = {
+          taxId: flowData.vatInfo.taxId,
+          companyName: flowData.vatInfo.companyName,
+          companyAddress: flowData.vatInfo.companyAddress
+        }
+      }
+
       const order = await tx.order.create({
         data: {
           orderNumber,
@@ -1772,6 +1782,7 @@ async function handleOrderCreation(sessionId: string, customerId: string | undef
             phone: customerInfo.phone,
             address: customerInfo.address
           },
+          billingAddress: billingAddress ? billingAddress : undefined, // Save VAT info here
           notes: isGuest
             ? 'Đơn hàng từ Chatbot AI (Khách vãng lai)'
             : 'Đơn hàng tạo từ Chatbot AI'
@@ -1844,6 +1855,16 @@ async function handleOrderCreation(sessionId: string, customerId: string | undef
       console.error('Error creating order notification:', notifError)
     }
 
+    // Generate VietQR Link
+    // Format: https://img.vietqr.io/image/[BANK_ID]-[ACCOUNT_NO]-[TEMPLATE].png?amount=[AMOUNT]&addInfo=[CONTENT]
+    // Using a placeholder bank info (Vietcombank - 970436)
+    const bankId = '970436' // Vietcombank BIN
+    const accountNo = '1234567890' // Placeholder account
+    const template = 'compact2'
+    const amount = result.order.depositAmount || 0
+    const content = `COC ${result.order.orderNumber}`
+    const qrUrl = `https://img.vietqr.io/image/${bankId}-${accountNo}-${template}.png?amount=${amount}&addInfo=${encodeURIComponent(content)}`
+
     return NextResponse.json(
       createSuccessResponse({
         message: `✅ Đặt hàng thành công! Mã đơn: **${result.order.orderNumber}**\n\n` +
@@ -1852,11 +1873,14 @@ async function handleOrderCreation(sessionId: string, customerId: string | undef
           `- SĐT: ${customerInfo.phone}\n` +
           `- Tổng tiền: ${result.order.netAmount.toLocaleString('vi-VN')}đ\n` +
           `- Sản phẩm: ${result.itemsMatched}/${result.totalItems} items\n` +
-          `- Đặt cọc: ${(result.order.depositAmount || 0).toLocaleString('vi-VN')}đ (30%)\n\n` +
+          `- Đặt cọc: ${(result.order.depositAmount || 0).toLocaleString('vi-VN')}đ (30%)\n` +
+          (flowData.vatInfo ? `- Xuất hóa đơn VAT: ✅\n\n` : `\n`) +
+          `💳 **QUÉT MÃ ĐỂ THANH TOÁN CỌC:**\n` +
+          `![QR Code](${qrUrl})\n\n` +
           `⏳ **Bước tiếp theo:**\n` +
-          `1. Admin sẽ xác nhận đơn hàng trong vài phút\n` +
-          `2. Sau khi xác nhận, ${isGuest ? 'chúng tôi sẽ gọi điện xác nhận' : 'bạn sẽ thấy mã QR thanh toán'}\n` +
-          `3. ${isGuest ? 'Chuyển khoản theo hướng dẫn' : 'Chuyển khoản theo QR để hoàn tất đơn'}\n\n` +
+          `1. Quét mã QR trên để thanh toán cọc.\n` +
+          `2. Admin sẽ xác nhận đơn hàng và thanh toán của bạn.\n` +
+          `3. ${isGuest ? 'Chúng tôi sẽ gọi điện xác nhận giao hàng.' : 'Bạn có thể theo dõi trạng thái đơn hàng.'}\n\n` +
           (isGuest
             ? `📞 Chúng tôi sẽ liên hệ qua SĐT **${customerInfo.phone}** để xác nhận!\n\n` +
             `📋 **Lưu mã đơn hàng:** ${result.order.orderNumber}\n` +

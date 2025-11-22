@@ -6,7 +6,7 @@
 // In-memory conversation state storage
 const conversationCache = new Map<string, any>()
 
-export type ConversationFlow = 
+export type ConversationFlow =
   | 'ORDER_CREATION'      // Creating order from material list
   | 'OCR_INVOICE'         // OCR invoice processing
   | 'CRUD_CONFIRMATION'   // CRUD action confirmation
@@ -39,7 +39,7 @@ if (!cleanupInterval) {
       }
     }
   }, 5 * 60 * 1000)
-  
+
   // Cleanup on module unload (for HMR)
   if (typeof process !== 'undefined' && process.on) {
     process.on('exit', () => {
@@ -60,10 +60,10 @@ function getStateKey(sessionId: string): string {
  */
 export async function getConversationState(sessionId: string): Promise<ConversationState | null> {
   const key = getStateKey(sessionId)
-  
+
   // Use in-memory only
   const state = conversationCache.get(key)
-  
+
   if (state) {
     // Check expiration
     if (state.expiresAt && state.expiresAt.getTime() < Date.now()) {
@@ -72,7 +72,7 @@ export async function getConversationState(sessionId: string): Promise<Conversat
     }
     return state
   }
-  
+
   return null
 }
 
@@ -80,15 +80,15 @@ export async function getConversationState(sessionId: string): Promise<Conversat
  * Set conversation state
  */
 export async function setConversationState(
-  sessionId: string, 
-  flow: ConversationFlow, 
-  step: number, 
+  sessionId: string,
+  flow: ConversationFlow,
+  step: number,
   data: Record<string, any>,
   ttlMinutes: number = 30
 ): Promise<ConversationState> {
   const now = new Date()
   const expiresAt = new Date(now.getTime() + ttlMinutes * 60 * 1000)
-  
+
   const state: ConversationState = {
     sessionId,
     flow,
@@ -97,13 +97,13 @@ export async function setConversationState(
     createdAt: now,
     expiresAt
   }
-  
+
   const key = getStateKey(sessionId)
-  
+
   // Save to in-memory
   conversationCache.set(key, state)
   setTimeout(() => conversationCache.delete(key), ttlMinutes * 60 * 1000)
-  
+
   return state
 }
 
@@ -115,21 +115,21 @@ export async function updateConversationState(
   updates: Partial<ConversationState>
 ): Promise<ConversationState | null> {
   const current = await getConversationState(sessionId)
-  
+
   if (!current) {
     return null
   }
-  
+
   const updated: ConversationState = {
     ...current,
     ...updates,
     // Reset expiration on update
     expiresAt: new Date(Date.now() + 30 * 60 * 1000)
   }
-  
+
   const key = getStateKey(sessionId)
   conversationCache.set(key, updated)
-  
+
   return updated
 }
 
@@ -138,7 +138,7 @@ export async function updateConversationState(
  */
 export async function clearConversationState(sessionId: string): Promise<void> {
   const key = getStateKey(sessionId)
-  
+
   conversationCache.delete(key)
 }
 
@@ -163,11 +163,11 @@ export async function getCurrentFlow(sessionId: string): Promise<ConversationFlo
  */
 export async function advanceStep(sessionId: string): Promise<ConversationState | null> {
   const state = await getConversationState(sessionId)
-  
+
   if (!state) {
     return null
   }
-  
+
   return await updateConversationState(sessionId, {
     step: state.step + 1
   })
@@ -185,15 +185,15 @@ export async function getFlowData(sessionId: string): Promise<Record<string, any
  * Update flow data
  */
 export async function updateFlowData(
-  sessionId: string, 
+  sessionId: string,
   data: Record<string, any>
 ): Promise<ConversationState | null> {
   const state = await getConversationState(sessionId)
-  
+
   if (!state) {
     return null
   }
-  
+
   return await updateConversationState(sessionId, {
     data: {
       ...state.data,
@@ -297,24 +297,24 @@ export async function processFlowResponse(
   nextPrompt?: string
 }> {
   const state = await getConversationState(sessionId)
-  
+
   if (!state) {
     return { shouldContinue: false }
   }
-  
+
   const lower = userMessage.toLowerCase().trim()
-  
+
   // Flow-specific processing first (more specific matching)
   switch (state.flow) {
     case 'ORDER_CREATION':
       return await processOrderCreationResponse(sessionId, userMessage, state)
-    
+
     case 'OCR_INVOICE':
       return await processOCRInvoiceResponse(sessionId, userMessage, state)
-    
+
     case 'CRUD_CONFIRMATION':
       return await processCRUDConfirmationResponse(sessionId, userMessage, state)
-    
+
     default:
       // Generic confirmation/cancellation for other flows
       if (lower.includes('hủy') || lower.includes('cancel') || lower === 'hủy') {
@@ -324,15 +324,15 @@ export async function processFlowResponse(
           isCancelled: true
         }
       }
-      
-      if (lower.includes('xác nhận') || lower.includes('confirm') || 
-          lower === 'xác nhận' || lower === 'ok' || lower === 'đồng ý') {
+
+      if (lower.includes('xác nhận') || lower.includes('confirm') ||
+        lower === 'xác nhận' || lower === 'ok' || lower === 'đồng ý') {
         return {
           shouldContinue: true,
           isConfirmed: true
         }
       }
-      
+
       return { shouldContinue: false }
   }
 }
@@ -346,35 +346,35 @@ async function processOrderCreationResponse(
   state: ConversationState
 ): Promise<any> {
   const currentStep = state.data.currentStep
-  
+
   switch (currentStep) {
     case 'confirm_items':
       // Check if user is confirming or cancelling
       const lowerMessage = userMessage.toLowerCase().trim()
-      
+
       // Check for cancellation first
-      if (lowerMessage.includes('hủy') || lowerMessage.includes('cancel') || 
-          lowerMessage === 'hủy' || lowerMessage === 'cancel') {
+      if (lowerMessage.includes('hủy') || lowerMessage.includes('cancel') ||
+        lowerMessage === 'hủy' || lowerMessage === 'cancel') {
         clearConversationState(sessionId)
         return {
           shouldContinue: true,
           isCancelled: true
         }
       }
-      
+
       // Check for confirmation - must match exactly or contain key phrases
       // Be more lenient to catch variations
-      const isConfirming = lowerMessage === 'xác nhận' || 
-                          lowerMessage === 'confirm' || 
-                          lowerMessage === 'ok' || 
-                          lowerMessage === 'okay' ||
-                          lowerMessage === 'đồng ý' ||
-                          lowerMessage === 'có' ||
-                          lowerMessage === 'yes' ||
-                          lowerMessage.includes('xác nhận') ||
-                          lowerMessage.includes('confirm') ||
-                          (lowerMessage.includes('đặt hàng') && !lowerMessage.includes('muốn') && !lowerMessage.includes('tôi'))
-      
+      const isConfirming = lowerMessage === 'xác nhận' ||
+        lowerMessage === 'confirm' ||
+        lowerMessage === 'ok' ||
+        lowerMessage === 'okay' ||
+        lowerMessage === 'đồng ý' ||
+        lowerMessage === 'có' ||
+        lowerMessage === 'yes' ||
+        lowerMessage.includes('xác nhận') ||
+        lowerMessage.includes('confirm') ||
+        (lowerMessage.includes('đặt hàng') && !lowerMessage.includes('muốn') && !lowerMessage.includes('tôi'))
+
       if (isConfirming) {
         // User confirmed - check if has customerId (logged in) or needs guest info
         if (state.data.needsGuestInfo) {
@@ -384,11 +384,11 @@ async function processOrderCreationResponse(
           return {
             shouldContinue: true,
             nextPrompt: '📝 **Thông tin giao hàng**\n\n' +
-                       'Vui lòng cung cấp:\n' +
-                       '- Họ tên\n' +
-                       '- Số điện thoại\n' +
-                       '- Địa chỉ nhận hàng\n\n' +
-                       '💡 *Ví dụ: Nguyễn Văn A, 0901234567, 123 Nguyễn Huệ, Q1, HCM*'
+              'Vui lòng cung cấp:\n' +
+              '- Họ tên\n' +
+              '- Số điện thoại\n' +
+              '- Địa chỉ nhận hàng\n\n' +
+              '💡 *Ví dụ: Nguyễn Văn A, 0901234567, 123 Nguyễn Huệ, Q1, HCM*'
           }
         } else {
           // User logged in - create order immediately
@@ -398,34 +398,34 @@ async function processOrderCreationResponse(
           }
         }
       }
-      
+
       // If message contains numbers only or product selection keywords, might be selecting product
       // Allow main route to handle product selection
-      if (lowerMessage.match(/^\d+$/) || 
-          lowerMessage.includes('chọn') || 
-          lowerMessage.includes('số') ||
-          (lowerMessage.length > 2 && !isConfirming)) {
+      if (lowerMessage.match(/^\d+$/) ||
+        lowerMessage.includes('chọn') ||
+        lowerMessage.includes('số') ||
+        (lowerMessage.length > 2 && !isConfirming)) {
         // Let main route handle product selection
         return {
           shouldContinue: false
         }
       }
-      
+
       // For any other message in confirm_items step, stay in flow
       // Don't let it fall through to intent detection
       return {
         shouldContinue: true,
         nextPrompt: '💡 Bạn có muốn xác nhận đặt hàng không? Hoặc bạn có thể hủy bỏ.\n\n' +
-                   'Vui lòng chọn:\n' +
-                   '- "Xác nhận" để tiếp tục\n' +
-                   '- "Hủy" để hủy đơn hàng'
+          'Vui lòng chọn:\n' +
+          '- "Xác nhận" để tiếp tục\n' +
+          '- "Hủy" để hủy đơn hàng'
       }
-    
+
     case 'guest_info':
       // Parse guest info from message
       // Input format: "Tên, SĐT, Địa chỉ" (plain text, no brackets or quotes)
       const guestInfo = parseGuestInfo(userMessage)
-      
+
       // Debug: log parsed info
       console.log('=== GUEST INFO PARSING ===')
       console.log('Original message:', userMessage)
@@ -434,41 +434,44 @@ async function processOrderCreationResponse(
       console.log('Has phone:', !!guestInfo.phone, guestInfo.phone)
       console.log('Has address:', !!guestInfo.address, guestInfo.address)
       console.log('=========================')
-      
+
       if (!guestInfo.name || !guestInfo.phone || !guestInfo.address) {
         return {
           shouldContinue: true,
           nextPrompt: '❌ Thông tin chưa đầy đủ. Vui lòng cung cấp:\n' +
-                     '- Họ tên\n' +
-                     '- Số điện thoại\n' +
-                     '- Địa chỉ\n\n' +
-                     `💡 Thông tin đã nhận:\n` +
-                     `- Tên: ${guestInfo.name || '(chưa có)'}\n` +
-                     `- SĐT: ${guestInfo.phone || '(chưa có)'}\n` +
-                     `- Địa chỉ: ${guestInfo.address || '(chưa có)'}\n\n` +
-                     '💡 Ví dụ: Nguyễn Văn A, 0901234567, 123 Nguyễn Huệ, Q1, HCM'
+            '- Họ tên\n' +
+            '- Số điện thoại\n' +
+            '- Địa chỉ\n\n' +
+            `💡 Thông tin đã nhận:\n` +
+            `- Tên: ${guestInfo.name || '(chưa có)'}\n` +
+            `- SĐT: ${guestInfo.phone || '(chưa có)'}\n` +
+            `- Địa chỉ: ${guestInfo.address || '(chưa có)'}\n\n` +
+            '💡 Ví dụ: Nguyễn Văn A, 0901234567, 123 Nguyễn Huệ, Q1, HCM'
         }
       }
-      
+
       // Save guest info to flow data
       console.log('=== SAVING GUEST INFO ===')
       console.log('SessionId:', sessionId)
       console.log('GuestInfo to save:', JSON.stringify(guestInfo, null, 2))
-      
+
       await updateFlowData(sessionId, { guestInfo })
-      
+
       // Verify it was saved
       const verifyData = await getFlowData(sessionId)
       console.log('=== VERIFIED SAVED DATA ===')
       console.log('Saved guestInfo:', JSON.stringify(verifyData?.guestInfo, null, 2))
       console.log('===========================')
-      
-      // Ready to create order
+
+      // Proceed to payment method selection
+      await setOrderCreationStep(sessionId, 'payment_method')
+      await advanceStep(sessionId)
+
       return {
         shouldContinue: true,
-        isConfirmed: true
+        nextPrompt: 'Chọn phương thức thanh toán:\n1. Tiền mặt (COD)\n2. Chuyển khoản\n3. VNPay\n4. MoMo'
       }
-    
+
     case 'customer_info':
       // Extract customer info from message
       // (simplified - in production, use better parsing)
@@ -478,12 +481,12 @@ async function processOrderCreationResponse(
         shouldContinue: true,
         nextPrompt: 'Chọn phương thức thanh toán:\n1. Tiền mặt (COD)\n2. Chuyển khoản\n3. VNPay\n4. MoMo'
       }
-    
+
     case 'payment_method':
       // Extract payment method
       let paymentMethod = 'CASH'
       const lower = userMessage.toLowerCase()
-      
+
       if (lower.includes('chuyển khoản') || lower.includes('bank') || lower.includes('2')) {
         paymentMethod = 'BANK_TRANSFER'
       } else if (lower.includes('vnpay') || lower.includes('3')) {
@@ -491,23 +494,75 @@ async function processOrderCreationResponse(
       } else if (lower.includes('momo') || lower.includes('4')) {
         paymentMethod = 'MOMO'
       }
-      
+
       await updateFlowData(sessionId, { paymentMethod })
-      await setOrderCreationStep(sessionId, 'final_confirmation')
+      await setOrderCreationStep(sessionId, 'vat_question')
       await advanceStep(sessionId)
-      
+
       return {
         shouldContinue: true,
-        nextPrompt: `Xác nhận tạo đơn hàng với phương thức ${paymentMethod}?`
+        nextPrompt: 'Bạn có muốn xuất hóa đơn VAT không?\n\n' +
+          '1. Có (Cung cấp thông tin công ty)\n' +
+          '2. Không (Bỏ qua)'
       }
-    
+
+    case 'vat_question':
+      const vatAnswer = userMessage.toLowerCase()
+      if (vatAnswer.includes('có') || vatAnswer.includes('yes') || vatAnswer === '1') {
+        await setOrderCreationStep(sessionId, 'vat_info')
+        await advanceStep(sessionId)
+        return {
+          shouldContinue: true,
+          nextPrompt: '📝 **Thông tin xuất hóa đơn VAT**\n\n' +
+            'Vui lòng cung cấp theo định dạng:\n' +
+            '**Mã số thuế, Tên công ty, Địa chỉ công ty**\n\n' +
+            '💡 *Ví dụ: 0312345678, Công ty ABC, 123 Nguyễn Huệ, Q1, HCM*'
+        }
+      } else {
+        // Skip VAT info
+        await setOrderCreationStep(sessionId, 'final_confirmation')
+        await advanceStep(sessionId)
+        const currentPaymentMethod = state.data.paymentMethod || 'CASH'
+        return {
+          shouldContinue: true,
+          nextPrompt: `Xác nhận tạo đơn hàng với phương thức ${currentPaymentMethod}?`
+        }
+      }
+
+    case 'vat_info':
+      // Parse VAT info
+      const vatParts = userMessage.split(',').map(p => p.trim())
+      if (vatParts.length < 3) {
+        return {
+          shouldContinue: true,
+          nextPrompt: '❌ Thông tin chưa đầy đủ. Vui lòng cung cấp đủ 3 thông tin cách nhau bởi dấu phẩy:\n' +
+            '**Mã số thuế, Tên công ty, Địa chỉ công ty**'
+        }
+      }
+
+      const vatInfo = {
+        taxId: vatParts[0],
+        companyName: vatParts[1],
+        companyAddress: vatParts.slice(2).join(', ')
+      }
+
+      await updateFlowData(sessionId, { vatInfo })
+      await setOrderCreationStep(sessionId, 'final_confirmation')
+      await advanceStep(sessionId)
+
+      const finalPaymentMethod = state.data.paymentMethod || 'CASH'
+      return {
+        shouldContinue: true,
+        nextPrompt: `Xác nhận tạo đơn hàng với phương thức ${finalPaymentMethod} và xuất hóa đơn VAT?`
+      }
+
     case 'final_confirmation':
       // Order will be created in main chatbot route
       return {
         shouldContinue: true,
         isConfirmed: true
       }
-    
+
     default:
       return { shouldContinue: false }
   }
@@ -557,39 +612,39 @@ function parseGuestInfo(message: string): {
     .replace(/^\[|\]$/g, '') // Remove brackets
     .replace(/^["']|["']$/g, '') // Remove quotes
     .trim()
-  
+
   if (!cleaned) {
     console.log('parseGuestInfo - Empty message')
     return {}
   }
-  
+
   console.log('parseGuestInfo - Input:', cleaned)
-  
+
   // Split by comma
   const parts = cleaned.split(',').map(p => p.trim()).filter(p => p.length > 0)
   console.log('parseGuestInfo - Parts after split:', parts)
   console.log('parseGuestInfo - Number of parts:', parts.length)
-  
+
   if (parts.length < 2) {
     console.log('parseGuestInfo - Not enough parts')
     return {}
   }
-  
+
   // Vietnamese phone pattern: starts with 0, followed by 9-10 digits
   // Pattern: 0xxx or +84xxx (9-10 digits total after prefix)
   // More flexible: match any part that starts with 0 and has 9-10 more digits
   let phone = ''
   let phoneIndex = -1
-  
+
   // Find phone number - most reliable identifier
   // Vietnamese phone: starts with 0, followed by 9 digits (10 digits total)
   // Example: 0918180969 = 0 + 918180969 (9 digits) = 10 digits total
   for (let i = 0; i < parts.length; i++) {
     const part = parts[i].trim()
-    
+
     // Extract only digits from the part
     const digitsOnly = part.replace(/[^\d]/g, '')
-    
+
     // Check if it looks like a Vietnamese phone number
     // Must start with 0 and have exactly 9 or 10 more digits (10-11 digits total)
     if (digitsOnly.length >= 10 && digitsOnly.length <= 11 && digitsOnly.startsWith('0')) {
@@ -598,7 +653,7 @@ function parseGuestInfo(message: string): {
       console.log('parseGuestInfo - Found phone (digits only):', phone, 'at index:', phoneIndex, 'from part:', part)
       break
     }
-    
+
     // Also check for +84 format
     if (part.includes('+84')) {
       const plus84Match = part.match(/\+84[\s\-]?(\d{9,10})/)
@@ -610,7 +665,7 @@ function parseGuestInfo(message: string): {
       }
     }
   }
-  
+
   // If still not found, try pattern matching with spaces/dashes
   if (!phone) {
     for (let i = 0; i < parts.length; i++) {
@@ -628,10 +683,10 @@ function parseGuestInfo(message: string): {
       }
     }
   }
-  
+
   let name = ''
   let address = ''
-  
+
   // If we found phone, use it as anchor
   if (phoneIndex >= 0) {
     // Name is everything before phone
@@ -639,7 +694,7 @@ function parseGuestInfo(message: string): {
       name = parts.slice(0, phoneIndex).join(' ').trim()
       console.log('parseGuestInfo - Name (before phone):', name)
     }
-    
+
     // Address is everything after phone
     if (phoneIndex < parts.length - 1) {
       address = parts.slice(phoneIndex + 1).join(', ').trim()
@@ -648,13 +703,13 @@ function parseGuestInfo(message: string): {
   } else {
     // No phone found yet - try simple heuristic
     // Format: "Name, Phone, Address..." or "Name, Address..."
-    
+
     // First part is usually name
     if (parts.length >= 1 && parts[0]) {
       name = parts[0].trim()
       console.log('parseGuestInfo - Name (first part, no phone found yet):', name)
     }
-    
+
     // Try to find phone in second part by extracting digits
     if (parts.length >= 2 && parts[1]) {
       const secondPartDigits = parts[1].replace(/[^\d]/g, '')
@@ -674,7 +729,7 @@ function parseGuestInfo(message: string): {
       }
     }
   }
-  
+
   // Final fallback: if we have 3+ parts and still missing info
   // Assume format: parts[0] = name, parts[1] = phone, parts[2+] = address
   if (parts.length >= 3) {
@@ -683,7 +738,7 @@ function parseGuestInfo(message: string): {
       name = parts[0].trim()
       console.log('parseGuestInfo - Name (fallback):', name)
     }
-    
+
     // Ensure we have phone - try parts[1] if not found yet
     if (!phone && parts[1]) {
       const part1Digits = parts[1].replace(/[^\d]/g, '')
@@ -693,7 +748,7 @@ function parseGuestInfo(message: string): {
         console.log('parseGuestInfo - Phone (fallback from parts[1]):', phone)
       }
     }
-    
+
     // Ensure we have address
     if (!address) {
       if (phoneIndex >= 0 && phoneIndex < parts.length - 1) {
@@ -710,19 +765,19 @@ function parseGuestInfo(message: string): {
       }
     }
   }
-  
+
   // Clean up
   name = name.trim()
   phone = phone.trim()
   address = address.trim()
-  
+
   const result = {
     name: name || undefined,
     phone: phone || undefined,
     address: address || undefined
   }
-  
+
   console.log('parseGuestInfo - Final result:', JSON.stringify(result, null, 2))
-  
+
   return result
 }
