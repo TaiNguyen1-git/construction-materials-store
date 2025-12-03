@@ -15,11 +15,11 @@ const gemini = AI_CONFIG.GEMINI.API_KEY ? new GoogleGenerativeAI(AI_CONFIG.GEMIN
 let geminiModel: any = null;
 const getGeminiModel = async () => {
   if (geminiModel) return geminiModel;
-  
+
   if (!gemini) {
     throw new Error('Gemini client not initialized');
   }
-  
+
   // Try different model names in order of preference
   const modelNames = [
     'models/gemini-2.5-flash',
@@ -32,25 +32,25 @@ const getGeminiModel = async () => {
     'models/gemini-1.0-pro',
     'models/gemini-pro'
   ];
-  
+
   // First try the model specified in the configuration
   if (AI_CONFIG.GEMINI.MODEL) {
     try {
-      const model = gemini.getGenerativeModel({ 
+      const model = gemini.getGenerativeModel({
         model: AI_CONFIG.GEMINI.MODEL,
         generationConfig: {
           temperature: parseFloat(AI_CONFIG.GEMINI.TEMPERATURE.toString())
         }
       });
-      
+
       // Test the model with a simple prompt
       await Promise.race([
         model.generateContent("Test"),
-        new Promise((_, reject) => 
+        new Promise((_, reject) =>
           setTimeout(() => reject(new Error('Model test timeout')), 10000)
         )
       ]);
-      
+
       geminiModel = model;
       console.log(`✅ Using Gemini model: ${AI_CONFIG.GEMINI.MODEL}`);
       return model;
@@ -58,25 +58,25 @@ const getGeminiModel = async () => {
       console.log(`❌ Failed to initialize Gemini model ${AI_CONFIG.GEMINI.MODEL}:`, (error as Error).message);
     }
   }
-  
+
   // If the configured model fails, try the fallback models
   for (const modelName of modelNames) {
     try {
-      const model = gemini.getGenerativeModel({ 
+      const model = gemini.getGenerativeModel({
         model: modelName,
         generationConfig: {
           temperature: parseFloat(AI_CONFIG.GEMINI.TEMPERATURE.toString())
         }
       });
-      
+
       // Test the model with a simple prompt
       await Promise.race([
         model.generateContent("Test"),
-        new Promise((_, reject) => 
+        new Promise((_, reject) =>
           setTimeout(() => reject(new Error('Model test timeout')), 10000)
         )
       ]);
-      
+
       geminiModel = model;
       console.log(`✅ Using Gemini model: ${modelName}`);
       return model;
@@ -85,7 +85,7 @@ const getGeminiModel = async () => {
       continue;
     }
   }
-  
+
   throw new Error('No working Gemini model found');
 };
 
@@ -124,7 +124,7 @@ export class AIService {
   ): Promise<ChatbotResponse> {
     try {
       const service = getAIService()
-      
+
       if (service === 'gemini' && gemini) {
         return await this.generateChatbotResponseWithGemini(message, context, conversationHistory)
       } else if (service === 'openai' && openai) {
@@ -146,12 +146,16 @@ export class AIService {
   ): Promise<ChatbotResponse> {
     try {
       const model = await getGeminiModel();
-      
+
       // Prepare the conversation history for Gemini
       let chatHistory = [
         {
           role: "user",
           parts: [{ text: CHATBOT_SYSTEM_PROMPT }]
+        },
+        {
+          role: "model",
+          parts: [{ text: "Tôi đã hiểu. Tôi sẽ đóng vai trò là trợ lý ảo của cửa hàng vật liệu xây dựng và hỗ trợ khách hàng nhiệt tình, chuyên nghiệp." }]
         }
       ]
 
@@ -177,33 +181,61 @@ export class AIService {
       const chat = model.startChat({
         history: chatHistory,
         generationConfig: {
-          maxOutputTokens: 500,
+          maxOutputTokens: 1000,
         },
       })
 
-      // Send the current user message with timeout
-      const result = await Promise.race([
-        chat.sendMessage(message),
-        new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Chat message timeout')), 30000)
-        )
-      ]);
-      
-      const response = await (result as any).response
-      const aiResponse = response.text() || 'Xin lỗi, tôi không thể xử lý yêu cầu của bạn lúc này.'
+      // Retry logic
+      let retries = 2
+      let lastError = null
 
-      // Extract structured information from the response
-      const structuredResponse = await this.extractChatbotStructureWithGemini(aiResponse)
+      while (retries >= 0) {
+        try {
+          // Send the current user message with timeout (increased to 45s)
+          const result = await Promise.race([
+            chat.sendMessage(message),
+            new Promise((_, reject) =>
+              setTimeout(() => reject(new Error('Chat message timeout')), 45000)
+            )
+          ]);
 
-      return {
-        response: structuredResponse.response,
-        suggestions: structuredResponse.suggestions,
-        productRecommendations: structuredResponse.productRecommendations,
-        confidence: 0.95
+          const response = await (result as any).response
+          const aiResponse = response.text()
+
+          if (!aiResponse) {
+            throw new Error('Empty response from AI')
+          }
+
+          // Extract structured information from the response
+          const structuredResponse = await this.extractChatbotStructureWithGemini(aiResponse)
+
+          return {
+            response: structuredResponse.response,
+            suggestions: structuredResponse.suggestions,
+            productRecommendations: structuredResponse.productRecommendations,
+            confidence: 0.95
+          }
+        } catch (error) {
+          console.warn(`Gemini attempt failed (${retries} retries left):`, error)
+          lastError = error
+          retries--
+          if (retries >= 0) {
+            // Wait before retry (1s, then 2s)
+            await new Promise(resolve => setTimeout(resolve, (2 - retries) * 1000))
+          }
+        }
       }
+
+      throw lastError || new Error('Failed after retries')
+
     } catch (error) {
       console.error('Gemini chatbot error:', error)
-      throw new Error('Failed to generate chatbot response with Gemini')
+      // Return a friendly fallback instead of throwing generic error
+      return {
+        response: "Xin lỗi, hiện tại hệ thống đang quá tải. Bạn vui lòng thử lại sau giây lát hoặc liên hệ hotline để được hỗ trợ ngay nhé! 📞",
+        suggestions: ["Thử lại", "Liên hệ hotline"],
+        confidence: 0.1
+      }
     }
   }
 
@@ -271,7 +303,7 @@ export class AIService {
   private static async extractChatbotStructureWithGemini(response: string): Promise<ChatbotResponse> {
     try {
       const model = await getGeminiModel();
-      
+
       const prompt = `
       Extract structured information from the following chatbot response.
       Return a JSON object with these fields:
@@ -294,13 +326,13 @@ export class AIService {
 
       const result = await Promise.race([
         model.generateContent(prompt),
-        new Promise((_, reject) => 
+        new Promise((_, reject) =>
           setTimeout(() => reject(new Error('Structure extraction timeout')), 20000)
         )
       ]);
-      
+
       const structuredText = await (result as any).response.text()
-      
+
       // Try to parse the JSON response
       let structured: any = {}
       try {
@@ -319,7 +351,7 @@ export class AIService {
           }
         }
       }
-      
+
       return {
         response: structured.response || response,
         suggestions: structured.suggestions || [],
@@ -374,7 +406,7 @@ export class AIService {
       })
 
       const structured = JSON.parse(completion.choices[0].message.content || '{}')
-      
+
       return {
         response: structured.response || response,
         suggestions: structured.suggestions || [],
@@ -396,7 +428,7 @@ export class AIService {
   static async processOCRText(extractedText: string): Promise<OCRResponse> {
     try {
       const service = getAIService()
-      
+
       if (service === 'gemini' && gemini) {
         return await this.processOCRTextWithGemini(extractedText)
       } else if (service === 'openai' && openai) {
@@ -414,7 +446,7 @@ export class AIService {
   private static async processOCRTextWithGemini(extractedText: string): Promise<OCRResponse> {
     try {
       const model = await getGeminiModel();
-      
+
       const prompt = `
       ${OCR_SYSTEM_PROMPT}
       
@@ -427,14 +459,14 @@ export class AIService {
 
       const result = await Promise.race([
         model.generateContent([prompt]),
-        new Promise((_, reject) => 
+        new Promise((_, reject) =>
           setTimeout(() => reject(new Error('OCR processing timeout')), 30000)
         )
       ]);
-      
+
       const response = await (result as any).response
       const processedText = response.text()
-      
+
       // Try to parse the JSON response
       let processedData: any = {}
       try {
@@ -453,7 +485,7 @@ export class AIService {
           }
         }
       }
-      
+
       return {
         extractedText,
         processedData,
@@ -484,7 +516,7 @@ export class AIService {
       })
 
       const processedData = JSON.parse(completion.choices[0].message.content || '{}')
-      
+
       return {
         extractedText,
         processedData,
@@ -500,7 +532,7 @@ export class AIService {
   static async getProductRecommendations(query: string, context?: any): Promise<any[]> {
     try {
       const service = getAIService()
-      
+
       if (service === 'gemini' && gemini) {
         return await this.getProductRecommendationsWithGemini(query, context)
       } else if (service === 'openai' && openai) {
@@ -518,7 +550,7 @@ export class AIService {
   private static async getProductRecommendationsWithGemini(query: string, context?: any): Promise<any[]> {
     try {
       const model = await getGeminiModel();
-      
+
       const prompt = `
       You are a product recommendation engine for a construction materials store.
       Based on the user's query, suggest 3-5 relevant products.
@@ -542,14 +574,14 @@ export class AIService {
 
       const result = await Promise.race([
         model.generateContent([prompt]),
-        new Promise((_, reject) => 
+        new Promise((_, reject) =>
           setTimeout(() => reject(new Error('Product recommendations timeout')), 20000)
         )
       ]);
-      
+
       const response = await (result as any).response
       const recommendationsText = response.text()
-      
+
       // Try to parse the JSON response
       let recommendations: any[] = []
       try {
@@ -568,7 +600,7 @@ export class AIService {
           }
         }
       }
-      
+
       return Array.isArray(recommendations) ? recommendations : []
     } catch (error) {
       console.error('Gemini product recommendation error:', error)
@@ -626,7 +658,7 @@ export class AIService {
   static async analyzeSentiment(message: string): Promise<{ sentiment: string; confidence: number }> {
     try {
       const service = getAIService()
-      
+
       if (service === 'gemini' && gemini) {
         return await this.analyzeSentimentWithGemini(message)
       } else if (service === 'openai' && openai) {
@@ -644,7 +676,7 @@ export class AIService {
   private static async analyzeSentimentWithGemini(message: string): Promise<{ sentiment: string; confidence: number }> {
     try {
       const model = await getGeminiModel();
-      
+
       const prompt = `
       Analyze the sentiment of the following customer message.
       Return a JSON object with:
@@ -661,14 +693,14 @@ export class AIService {
 
       const result = await Promise.race([
         model.generateContent([prompt]),
-        new Promise((_, reject) => 
+        new Promise((_, reject) =>
           setTimeout(() => reject(new Error('Sentiment analysis timeout')), 15000)
         )
       ]);
-      
+
       const response = await (result as any).response
       const sentimentText = response.text()
-      
+
       // Try to parse the JSON response
       let sentiment: any = { sentiment: 'neutral', confidence: 0.5 }
       try {
@@ -687,7 +719,7 @@ export class AIService {
           }
         }
       }
-      
+
       return {
         sentiment: sentiment.sentiment || 'neutral',
         confidence: parseFloat(sentiment.confidence) || 0.5
@@ -730,6 +762,134 @@ export class AIService {
     } catch (error) {
       console.error('OpenAI sentiment analysis error:', error)
       return { sentiment: 'neutral', confidence: 0.5 }
+    }
+  }
+
+  // Extract material calculation parameters from user query
+  static async extractMaterialCalculationParams(query: string): Promise<any> {
+    try {
+      const service = getAIService()
+
+      if (service === 'gemini' && gemini) {
+        return await this.extractParamsWithGemini(query)
+      } else if (service === 'openai' && openai) {
+        return await this.extractParamsWithOpenAI(query)
+      } else {
+        throw new Error('No AI service available')
+      }
+    } catch (error) {
+      console.error('Parameter extraction error:', error)
+      return null
+    }
+  }
+
+  // Extract parameters using Gemini
+  private static async extractParamsWithGemini(query: string): Promise<any> {
+    try {
+      const model = await getGeminiModel();
+
+      const prompt = `
+      Extract construction material calculation parameters from the user's query.
+      
+      Return a JSON object with these fields (all optional):
+      - projectType: 'HOUSE' | 'VILLA' | 'WAREHOUSE' | 'CUSTOM'
+      - area: number (in m2)
+      - floors: number
+      - length: number (in m)
+      - width: number (in m)
+      - wallType: 'BRICK' | 'CONCRETE'
+      - soilType: 'WEAK' | 'NORMAL' | 'HARD'
+      - constructionStyle: 'MODERN' | 'CLASSIC' | 'OPEN'
+      
+      Rules:
+      - Map "đất yếu", "ruộng", "sình", "ao" -> soilType: 'WEAK'
+      - Map "đất cứng", "đồi", "đá" -> soilType: 'HARD'
+      - Map "hiện đại" -> constructionStyle: 'MODERN'
+      - Map "cổ điển", "tân cổ điển" -> constructionStyle: 'CLASSIC'
+      - Map "không gian mở", "nhiều kính", "kính" -> constructionStyle: 'OPEN'
+      - Map "nhà phố" -> projectType: 'HOUSE'
+      - Map "biệt thự" -> projectType: 'VILLA'
+      - Map "nhà xưởng" -> projectType: 'WAREHOUSE'
+      
+      User query: ${query}
+      
+      Return only the JSON object, nothing else.
+      `
+
+      const result = await Promise.race([
+        model.generateContent([prompt]),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Parameter extraction timeout')), 15000)
+        )
+      ]);
+
+      const response = await (result as any).response
+      const text = response.text()
+
+      // Try to parse the JSON response
+      let params: any = {}
+      try {
+        const cleanedText = text.replace(/```json\s*|\s*```/g, '').trim()
+        params = JSON.parse(cleanedText)
+      } catch (parseError) {
+        const jsonMatch = text.match(/\{[\s\S]*\}/)
+        if (jsonMatch) {
+          try {
+            params = JSON.parse(jsonMatch[0])
+          } catch (e) { }
+        }
+      }
+
+      return params
+    } catch (error) {
+      console.error('Gemini parameter extraction extraction error:', error)
+      return null
+    }
+  }
+
+  // Extract parameters using OpenAI
+  private static async extractParamsWithOpenAI(query: string): Promise<any> {
+    if (!openai) {
+      throw new Error('OpenAI client not initialized')
+    }
+
+    try {
+      const completion = await openai.chat.completions.create({
+        model: AI_CONFIG.OPENAI.MODEL,
+        messages: [
+          {
+            role: 'system',
+            content: `
+            Extract construction material calculation parameters from the user's query.
+            
+            Return a JSON object with these fields (all optional):
+            - projectType: 'HOUSE' | 'VILLA' | 'WAREHOUSE' | 'CUSTOM'
+            - area: number (in m2)
+            - floors: number
+            - length: number (in m)
+            - width: number (in m)
+            - wallType: 'BRICK' | 'CONCRETE'
+            - soilType: 'WEAK' | 'NORMAL' | 'HARD'
+            - constructionStyle: 'MODERN' | 'CLASSIC' | 'OPEN'
+            
+            Rules:
+            - Map "đất yếu", "ruộng", "sình", "ao" -> soilType: 'WEAK'
+            - Map "đất cứng", "đồi", "đá" -> soilType: 'HARD'
+            - Map "hiện đại" -> constructionStyle: 'MODERN'
+            - Map "cổ điển", "tân cổ điển" -> constructionStyle: 'CLASSIC'
+            - Map "không gian mở", "nhiều kính", "kính" -> constructionStyle: 'OPEN'
+            `
+          },
+          { role: 'user', content: query }
+        ],
+        temperature: 0.1,
+        response_format: { type: 'json_object' }
+      })
+
+      return JSON.parse(completion.choices[0].message.content || '{}')
+    } catch (error) {
+      console.error('OpenAI parameter extraction error:', error)
+      return null
     }
   }
 }

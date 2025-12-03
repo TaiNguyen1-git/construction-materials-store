@@ -938,7 +938,7 @@ export async function POST(request: NextRequest) {
     // Material calculation
     if (intentResult.intent === 'MATERIAL_CALCULATE') {
       try {
-        const calcInput = materialCalculator.parseQuery(message)
+        const calcInput = await materialCalculator.parseQueryWithAI(message)
 
         if (calcInput) {
           const calcResult = await materialCalculator.quickCalculate(calcInput)
@@ -1014,14 +1014,22 @@ export async function POST(request: NextRequest) {
               timestamp: new Date().toISOString()
             })
           )
+        } else {
+          // If not found in DB, try RAG via fallback
+          // Don't return error here, let it fall through to RAG
+          console.log('Product not found in DB for price inquiry, falling back to RAG')
         }
       } catch (error) {
         console.error('Price inquiry error:', error)
       }
     }
 
-    // ===== FALLBACK: Use existing chatbot logic =====
-    const botResponse = await generateChatbotResponse(message, context, conversationHistory, isAdmin)
+    // ===== FALLBACK: Use RAG + AI =====
+    // Use RAG to get context for the query
+    const augmentedPrompt = await RAGService.generateAugmentedPrompt(message)
+
+    // Call AI with augmented prompt
+    const botResponse = await AIService.generateChatbotResponse(augmentedPrompt, context, conversationHistory)
 
     // Log interaction (with error handling)
     try {

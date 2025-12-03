@@ -1,3 +1,5 @@
+import { AIService } from './ai-service'
+
 /**
  * Material Calculator Service for Chatbot Integration
  * Simplified calculator that can be called from chatbot
@@ -10,6 +12,8 @@ export interface QuickCalculationInput {
   length?: number
   width?: number
   wallType?: 'BRICK' | 'CONCRETE'
+  soilType?: 'WEAK' | 'NORMAL' | 'HARD'
+  constructionStyle?: 'MODERN' | 'CLASSIC' | 'OPEN'
   customQuery?: string // For AI parsing
 }
 
@@ -34,7 +38,16 @@ export class MaterialCalculatorService {
    * Simplified version that works with natural language
    */
   static async quickCalculate(input: QuickCalculationInput): Promise<QuickCalculationResult> {
-    const { projectType, area, floors = 1, length, width, wallType = 'BRICK' } = input
+    const {
+      projectType,
+      area,
+      floors = 1,
+      length,
+      width,
+      wallType = 'BRICK',
+      soilType = 'NORMAL',
+      constructionStyle = 'MODERN'
+    } = input
 
     // Calculate actual area if dimensions provided
     let totalArea = area || 0
@@ -50,7 +63,11 @@ export class MaterialCalculatorService {
     let totalCost = 0
 
     // ===== FOUNDATION CALCULATIONS =====
-    const foundationVolume = totalArea * 0.4 // 40cm depth average
+    let foundationMultiplier = 1.0
+    if (soilType === 'WEAK') foundationMultiplier = 1.2 // +20% for weak soil
+    if (soilType === 'HARD') foundationMultiplier = 0.9 // -10% for hard soil
+
+    const foundationVolume = totalArea * 0.4 * foundationMultiplier // 40cm depth average * multiplier
     const foundationConcrete = foundationVolume
 
     // Cement for foundation (8 bags per m³)
@@ -105,7 +122,11 @@ export class MaterialCalculatorService {
 
     if (wallType === 'BRICK') {
       // Brick walls (60 bricks per m²)
-      const bricksNeeded = Math.ceil(wallArea * 60)
+      let brickMultiplier = 1.0
+      if (constructionStyle === 'OPEN') brickMultiplier = 0.7 // -30% for open style (more glass)
+      if (constructionStyle === 'CLASSIC') brickMultiplier = 1.1 // +10% for classic (more partitions)
+
+      const bricksNeeded = Math.ceil(wallArea * 60 * brickMultiplier)
       materials.push({
         material: 'Gạch đỏ 6x10x20',
         quantity: bricksNeeded,
@@ -140,7 +161,7 @@ export class MaterialCalculatorService {
       // Concrete walls
       const concreteVolume = wallArea * 0.15 // 15cm thick
       const concreteCement = Math.ceil(concreteVolume * 9) // 9 bags per m³ for walls
-      
+
       materials.push({
         material: 'Xi măng PCB40 (Tường bê tông)',
         quantity: concreteCement,
@@ -187,11 +208,11 @@ export class MaterialCalculatorService {
 
     // ===== SUMMARY =====
     const projectDesc = projectType === 'HOUSE' ? 'Nhà phố' :
-                       projectType === 'VILLA' ? 'Biệt thự' :
-                       projectType === 'WAREHOUSE' ? 'Nhà xưởng' : 'Công trình'
+      projectType === 'VILLA' ? 'Biệt thự' :
+        projectType === 'WAREHOUSE' ? 'Nhà xưởng' : 'Công trình'
 
     const summary = `${projectDesc} ${totalArea}m² x ${floors} tầng\n` +
-                   `Tổng chi phí vật liệu dự kiến: ${this.formatCurrency(totalCost)}`
+      `Tổng chi phí vật liệu dự kiến: ${this.formatCurrency(totalCost)}`
 
     const tips = [
       `Mua thêm 5-10% vật liệu để dự phòng hư hỏng`,
@@ -202,6 +223,14 @@ export class MaterialCalculatorService {
 
     if (totalArea > 200) {
       tips.push(`Diện tích lớn - nên có kế hoạch vận chuyển và lưu trữ chi tiết`)
+    }
+
+    if (soilType === 'WEAK') {
+      tips.push(`Đất yếu: Đã tăng 20% vật liệu móng. Nên gia cố thêm cừ tràm hoặc cọc bê tông.`)
+    }
+
+    if (constructionStyle === 'OPEN') {
+      tips.push(`Phong cách mở: Đã giảm 30% gạch xây. Hãy cân nhắc chi phí kính cường lực.`)
     }
 
     return {
@@ -262,6 +291,34 @@ export class MaterialCalculatorService {
     }
 
     return input
+  }
+
+  /**
+   * Parse query using AI for better understanding
+   */
+  static async parseQueryWithAI(query: string): Promise<QuickCalculationInput | null> {
+    // First try basic regex parsing for speed
+    const basicParse = this.parseQuery(query)
+
+    // If basic parsing found area, we might just use it, but AI is better for soil/style
+    // So let's call AI to get the full picture
+    const aiParams = await AIService.extractMaterialCalculationParams(query)
+
+    if (!aiParams) return basicParse
+
+    // Merge AI params with basic params (AI takes precedence for complex fields)
+    const merged: QuickCalculationInput = {
+      ...basicParse,
+      ...aiParams,
+      customQuery: query
+    }
+
+    // Ensure we have at least area or dimensions
+    if (!merged.area && (!merged.length || !merged.width)) {
+      return null
+    }
+
+    return merged
   }
 
   /**
