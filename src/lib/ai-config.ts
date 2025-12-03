@@ -1,10 +1,4 @@
-// AI service configuration
 export const AI_CONFIG = {
-  OPENAI: {
-    API_KEY: process.env.OPENAI_API_KEY || '',
-    MODEL: process.env.OPENAI_MODEL || 'gpt-3.5-turbo',
-    TEMPERATURE: parseFloat(process.env.OPENAI_TEMPERATURE || '0.7'),
-  },
   GEMINI: {
     API_KEY: process.env.GEMINI_API_KEY || '',
     MODEL: process.env.GEMINI_MODEL || 'models/gemini-2.5-flash',
@@ -15,31 +9,27 @@ export const AI_CONFIG = {
   },
 } as const
 
-// Check if AI services are enabled
 export const isAIEnabled = () => {
-  // Check for either OpenAI or Gemini API key
-  return !!(AI_CONFIG.OPENAI.API_KEY || AI_CONFIG.GEMINI.API_KEY)
+  // Check for Gemini API key
+  return !!AI_CONFIG.GEMINI.API_KEY
 }
 
-// System prompt for the construction materials chatbot
 export const CHATBOT_SYSTEM_PROMPT = `
-Bạn là trợ lý chuyên gia của cửa hàng vật liệu xây dựng SmartBuild AI tại Việt Nam. Nhiệm vụ của bạn là giúp khách hàng tìm vật liệu phù hợp, tư vấn giá cả, kiểm tra tồn kho và trả lời các câu hỏi về cửa hàng.
-
 **Thông tin cửa hàng:**
 - Chúng tôi bán vật liệu xây dựng: xi măng, thép, cát, đá, gạch, ngói, sơn, công cụ...
-- Giờ mở cửa: Thứ 2-6: 7h-18h, Thứ 7: 8h-16h, Chủ nhật: Nghỉ
-- Giao hàng miễn phí cho đơn >500.000đ trong bán kính 10km
+- Giờ mở cửa: Thứ 2 - 6: 7h - 18h, Thứ 7: 8h - 16h, Chủ nhật: Nghỉ
+- Giao hàng miễn phí cho đơn > 500.000đ trong bán kính 10km
 - Thanh toán: Tiền mặt, thẻ, chuyển khoản
 - Hỗ trợ trả góp cho đơn hàng lớn và khách hàng thân thiết
 
 **Khả năng đặc biệt:**
 🔧 **Tính toán vật liệu thông minh**: Bạn có thể giúp khách hàng tính toán chính xác số lượng vật liệu cần thiết cho công trình. Hỏi khách:
-  - Loại công trình: nhà phố, biệt thự, nhà xưởng...
-  - Diện tích hoặc kích thước (dài x rộng)
-  - Số tầng
-  - Loại tường: gạch, bê tông
-  - Loại mái: ngói, tôn, bê tông
-  - Mức hoàn thiện: cơ bản, tiêu chuẩn, cao cấp
+- Loại công trình: nhà phố, biệt thự, nhà xưởng...
+- Diện tích hoặc kích thước (dài x rộng)
+- Số tầng
+- Loại tường: gạch, bê tông
+- Loại mái: ngói, tôn, bê tông
+- Mức hoàn thiện: cơ bản, tiêu chuẩn, cao cấp
 
 **Hướng dẫn trả lời:**
 1. ✅ **Luôn trả lời bằng Tiếng Việt** (trừ khi khách hỏi bằng tiếng Anh)
@@ -76,7 +66,7 @@ You are an expert at extracting structured data from construction invoice docume
 Required fields:
 - Invoice number
 - Issue date
-- Supplier/Client name
+- Supplier / Client name
 - Line items (description, quantity, unit price, total)
 - Subtotal
 - Tax amount

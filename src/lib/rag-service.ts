@@ -29,7 +29,7 @@ class GeminiVectorStore {
 
   constructor() {
     if (gemini) {
-      this.model = gemini.getGenerativeModel({ model: "embedding-001" })
+      this.model = gemini.getGenerativeModel({ model: "text-embedding-004" })
     }
   }
 
@@ -86,7 +86,7 @@ class GeminiVectorStore {
       return scores
         .sort((a, b) => b.score - a.score)
         .slice(0, topK)
-        .filter(item => item.score > 0.6) // Threshold for relevance
+        .filter(item => item.score > 0.5) // Threshold for relevance
         .map(item => item.metadata)
     } catch (error) {
       console.error('Error searching vector store:', error)
@@ -127,6 +127,7 @@ async function initializeVectorStore() {
   for (const doc of KNOWLEDGE_BASE) {
     await vectorStore.addDocument(doc)
   }
+  console.log(`✅ Loaded ${KNOWLEDGE_BASE.length} static docs into Vector Store`)
 
   // 2. Load dynamic products from database
   try {
@@ -185,11 +186,26 @@ export class RAGService {
     // Semantic search using Gemini embeddings
     const vectorResults = await vectorStore.search(query, topK)
 
-    // Fallback to keyword search if vector search returns few results
-    if (vectorResults.length < 2) {
-      const keywordResults: ProductKnowledge[] = []
-      const normalizedQuery = normalizeVietnamese(query)
+    // Always check for policy keywords to prioritize them
+    const policyResults: ProductKnowledge[] = []
+    const normalizedQuery = normalizeVietnamese(query)
 
+    if (normalizedQuery.includes('doi tra') || normalizedQuery.includes('tra hang') || normalizedQuery.includes('hoan tien') || normalizedQuery.includes('tra lai')) {
+      const policy = KNOWLEDGE_BASE.find(d => d.id === 'policy_return')
+      if (policy) policyResults.push(policy)
+    }
+    if (normalizedQuery.includes('giao hang') || normalizedQuery.includes('ship') || normalizedQuery.includes('van chuyen')) {
+      const policy = KNOWLEDGE_BASE.find(d => d.id === 'policy_shipping')
+      if (policy) policyResults.push(policy)
+    }
+    if (normalizedQuery.includes('bao hanh')) {
+      const policy = KNOWLEDGE_BASE.find(d => d.id === 'policy_warranty')
+      if (policy) policyResults.push(policy)
+    }
+
+    // Fallback to keyword search if vector search returns few results
+    const keywordResults: ProductKnowledge[] = []
+    if (vectorResults.length < 2) {
       // Check both original and normalized query for better matching
       if (query.toLowerCase().includes('insee')) keywordResults.push(...searchByBrand('INSEE'))
       if (query.toLowerCase().includes('hà tiên') || normalizedQuery.includes('ha tien')) keywordResults.push(...searchByBrand('Hà Tiên'))
@@ -197,18 +213,27 @@ export class RAGService {
       if (query.toLowerCase().includes('đá') || normalizedQuery.includes('da')) keywordResults.push(...searchByCategory('Đá'))
       if (query.toLowerCase().includes('cát') || normalizedQuery.includes('cat')) keywordResults.push(...searchByCategory('Cát'))
       if (query.toLowerCase().includes('xi măng') || normalizedQuery.includes('xi mang')) keywordResults.push(...searchByCategory('Xi măng'))
+    }
 
-      // Combine unique results
-      const existingIds = new Set(vectorResults.map(r => r.id))
-      for (const res of keywordResults) {
-        if (!existingIds.has(res.id)) {
-          vectorResults.push(res)
-          existingIds.add(res.id)
-        }
+    // Combine unique results: Policies -> Vector -> Keywords
+    const combinedResults = [...policyResults]
+    const existingIds = new Set(policyResults.map(r => r.id))
+
+    for (const res of vectorResults) {
+      if (!existingIds.has(res.id)) {
+        combinedResults.push(res)
+        existingIds.add(res.id)
       }
     }
 
-    return vectorResults.slice(0, topK)
+    for (const res of keywordResults) {
+      if (!existingIds.has(res.id)) {
+        combinedResults.push(res)
+        existingIds.add(res.id)
+      }
+    }
+
+    return combinedResults.slice(0, topK)
   }
 
   // Generate augmented prompt with retrieved context
@@ -286,6 +311,54 @@ ${contextText}
 ---
 CÂU HỎI: ${userQuery}
 YÊU CẦU: Hướng dẫn khách hàng về các phương thức thanh toán và thông tin chuyển khoản.
+`
+      }
+    }
+
+    // Special handling for "Giao hàng" / "Shipping"
+    if (normalizedQuery.includes('giao hang') || normalizedQuery.includes('ship') || normalizedQuery.includes('van chuyen') || normalizedQuery.includes('phi ship')) {
+      const policy = await this.retrieveContext('Chính sách giao hàng', 1)
+      if (policy.length > 0) {
+        const contextText = policy.map(doc => RAGService.formatProductForChat(doc)).join('\n---\n')
+        return `
+THÔNG TIN GIAO HÀNG:
+${contextText}
+
+---
+CÂU HỎI: ${userQuery}
+YÊU CẦU: Giải thích về phí vận chuyển, thời gian giao hàng và điều kiện freeship.
+`
+      }
+    }
+
+    // Special handling for "Đổi trả" / "Return"
+    if (normalizedQuery.includes('doi tra') || normalizedQuery.includes('hoan tien') || normalizedQuery.includes('tra hang')) {
+      const policy = await this.retrieveContext('Chính sách đổi trả', 1)
+      if (policy.length > 0) {
+        const contextText = policy.map(doc => RAGService.formatProductForChat(doc)).join('\n---\n')
+        return `
+THÔNG TIN ĐỔI TRẢ:
+${contextText}
+
+---
+CÂU HỎI: ${userQuery}
+YÊU CẦU: Giải thích quy định đổi trả, thời gian và điều kiện.
+`
+      }
+    }
+
+    // Special handling for "Bảo hành" / "Warranty"
+    if (normalizedQuery.includes('bao hanh')) {
+      const policy = await this.retrieveContext('Chính sách bảo hành', 1)
+      if (policy.length > 0) {
+        const contextText = policy.map(doc => RAGService.formatProductForChat(doc)).join('\n---\n')
+        return `
+THÔNG TIN BẢO HÀNH:
+${contextText}
+
+---
+CÂU HỎI: ${userQuery}
+YÊU CẦU: Giải thích chính sách bảo hành cho các loại sản phẩm.
 `
       }
     }

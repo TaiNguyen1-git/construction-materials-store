@@ -550,7 +550,140 @@ export async function POST(request: NextRequest) {
 
     // Order creation intent
     if (intentResult.intent === 'ORDER_CREATE') {
-      // Check if message is just "Đặt hàng" or "Đặt hàng" - try to get product from conversation history
+      // 1. Try to parse full order request using AI (Smart Order Drafting)
+      const aiOrderRequest = await AIService.parseOrderRequest(message)
+
+      if (aiOrderRequest && aiOrderRequest.items && aiOrderRequest.items.length > 0) {
+        console.log('AI Parsed Order:', aiOrderRequest)
+
+        // Validate and enrich items with DB data
+        const enrichedItems: any[] = []
+        const itemsToClarify: Array<{ item: any, products: any[] }> = []
+
+        for (const item of aiOrderRequest.items) {
+          // Search for products matching this item name
+          const matchingProducts = await prisma.product.findMany({
+            where: {
+              OR: [
+                { name: { contains: item.productName, mode: 'insensitive' } },
+                { description: { contains: item.productName, mode: 'insensitive' } }
+              ],
+              isActive: true
+            },
+            select: {
+              id: true,
+              name: true,
+              price: true,
+              unit: true,
+              sku: true
+            },
+            take: 5
+          })
+
+          if (matchingProducts.length === 1) {
+            // Exact match (or single best match)
+            enrichedItems.push({
+              productName: matchingProducts[0].name,
+              productId: matchingProducts[0].id,
+              quantity: item.quantity || 1,
+              unit: matchingProducts[0].unit,
+              selectedProduct: matchingProducts[0]
+            })
+          } else if (matchingProducts.length > 1) {
+            // Multiple matches - need clarification
+            itemsToClarify.push({ item, products: matchingProducts })
+          } else {
+            // No match found - keep original name but mark as invalid/custom
+            // Or we could try RAG search here if DB search fails
+            itemsToClarify.push({ item, products: [] })
+          }
+        }
+
+        // If we have items that need clarification, ask user to choose
+        if (itemsToClarify.length > 0) {
+          const clarificationMessages: string[] = []
+
+          for (const { item, products } of itemsToClarify) {
+            if (products.length > 1) {
+              clarificationMessages.push(
+                `🔍 Tìm thấy **${products.length}** loại **${item.productName}**:\n\n` +
+                products.map((p, idx) =>
+                  `${idx + 1}. ${p.name} - ${p.price.toLocaleString('vi-VN')}đ/${p.unit}`
+                ).join('\n') +
+                `\n\n💡 Bạn muốn chọn loại nào? (Ví dụ: "1" hoặc "${products[0].name}")`
+              )
+            } else {
+              clarificationMessages.push(
+                `❌ Không tìm thấy sản phẩm **${item.productName}** trong hệ thống.\n` +
+                `💡 Vui lòng chọn sản phẩm khác hoặc liên hệ hỗ trợ.`
+              )
+            }
+          }
+
+          // Start flow with what we have
+          const initialItems = [...enrichedItems, ...itemsToClarify.map(x => ({
+            productName: x.item.productName,
+            quantity: x.item.quantity || 1,
+            unit: x.item.unit || 'cái'
+          }))]
+
+          startOrderCreationFlow(sessionId, initialItems, !!customerId)
+
+          // Store pending selections
+          await updateFlowData(sessionId, {
+            pendingProductSelection: itemsToClarify.filter(({ products }) => products.length > 0),
+            // Store address if detected
+            deliveryAddress: aiOrderRequest.deliveryAddress,
+            customerName: aiOrderRequest.customerName,
+            phone: aiOrderRequest.phone
+          })
+
+          return NextResponse.json(
+            createSuccessResponse({
+              message: clarificationMessages.join('\n\n'),
+              suggestions: ['Chọn sản phẩm', 'Hủy'],
+              confidence: 0.9,
+              sessionId,
+              timestamp: new Date().toISOString()
+            })
+          )
+        }
+
+        // All items valid - proceed to confirmation
+        if (enrichedItems.length > 0) {
+          startOrderCreationFlow(sessionId, enrichedItems, !!customerId)
+
+          // Store address info if detected
+          if (aiOrderRequest.deliveryAddress || aiOrderRequest.customerName || aiOrderRequest.phone) {
+            await updateFlowData(sessionId, {
+              deliveryAddress: aiOrderRequest.deliveryAddress,
+              customerName: aiOrderRequest.customerName,
+              phone: aiOrderRequest.phone
+            })
+          }
+
+          const needsInfo = !customerId && !aiOrderRequest.deliveryAddress
+
+          return NextResponse.json(
+            createSuccessResponse({
+              message: '🛒 **Xác nhận đặt hàng**\n\n' +
+                'Danh sách sản phẩm:\n' +
+                enrichedItems.map((item, idx) =>
+                  `${idx + 1}. ${item.productName}: ${item.quantity} ${item.unit}`
+                ).join('\n') +
+                '\n\n✅ Xác nhận đặt hàng?' +
+                (aiOrderRequest.deliveryAddress ? `\n\n📍 Giao đến: ${aiOrderRequest.deliveryAddress}` : '') +
+                (needsInfo ? '\n\n⚠️ *Bạn chưa đăng nhập. Chúng tôi sẽ hỏi thông tin giao hàng sau khi xác nhận.*' : ''),
+              suggestions: needsInfo ? ['Xác nhận', 'Đăng nhập', 'Hủy'] : ['Xác nhận', 'Chỉnh sửa', 'Hủy'],
+              confidence: 0.95,
+              sessionId,
+              timestamp: new Date().toISOString()
+            })
+          )
+        }
+      }
+
+      // Fallback to old logic if AI parsing returns nothing (e.g. just "Đặt hàng")
       const lowerMessage = message.toLowerCase().trim()
       if ((lowerMessage === 'đặt hàng' || lowerMessage === 'order' || lowerMessage.includes('đặt hàng')) &&
         !lowerMessage.match(/\d+/)) {

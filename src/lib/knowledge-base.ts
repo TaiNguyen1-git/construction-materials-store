@@ -575,6 +575,57 @@ export const KNOWLEDGE_BASE: ProductKnowledge[] = [
       'Cung cấp diện tích và quy mô công trình để được tư vấn chính xác nhất',
       'Liên hệ hotline nếu cần tư vấn trực tiếp tại công trình'
     ]
+  },
+  {
+    id: 'policy_shipping',
+    category: 'Chính sách',
+    name: 'Chính sách giao hàng',
+    brand: 'Store Policy',
+    description: 'Thông tin về phí vận chuyển và thời gian giao hàng.',
+    specifications: {
+      freeShip: 'Đơn hàng > 5 triệu hoặc < 5km',
+      fee: '30k-50k nội thành, tính theo km ngoại thành',
+      time: 'Trong ngày (nội thành), 1-2 ngày (ngoại thành)'
+    },
+    pricing: { basePrice: 0, unit: 'lần' },
+    usage: ['Giao hàng tận nơi', 'Giao hàng hỏa tốc'],
+    quality: 'Nhanh chóng - Đảm bảo',
+    commonCombinations: [],
+    tips: ['Đặt hàng trước 10h sáng để được giao trong ngày', 'Kiểm tra hàng kỹ trước khi nhận']
+  },
+  {
+    id: 'policy_return',
+    category: 'Chính sách',
+    name: 'Chính sách đổi trả',
+    brand: 'Store Policy',
+    description: 'Quy định về việc đổi trả hàng hóa.',
+    specifications: {
+      window: '3 ngày kể từ khi nhận hàng',
+      condition: 'Hàng còn nguyên vẹn, chưa sử dụng, bao bì không rách',
+      refund: 'Hoàn tiền 100% hoặc đổi sản phẩm tương đương'
+    },
+    pricing: { basePrice: 0, unit: 'lần' },
+    usage: ['Đổi hàng lỗi', 'Trả hàng dư'],
+    quality: 'Linh hoạt',
+    commonCombinations: [],
+    tips: ['Giữ lại hóa đơn để được hỗ trợ đổi trả nhanh nhất', 'Hàng đặt riêng không được đổi trả']
+  },
+  {
+    id: 'policy_warranty',
+    category: 'Chính sách',
+    name: 'Chính sách bảo hành',
+    brand: 'Store Policy',
+    description: 'Thông tin bảo hành cho các sản phẩm.',
+    specifications: {
+      steel: 'Bảo hành rỉ sét theo tiêu chuẩn nhà sản xuất',
+      equipment: 'Bảo hành 6-12 tháng tùy loại',
+      cement: 'Bảo hành chất lượng (đông kết) trong hạn sử dụng'
+    },
+    pricing: { basePrice: 0, unit: 'lần' },
+    usage: ['Bảo hành sản phẩm lỗi', 'Hỗ trợ kỹ thuật'],
+    quality: 'Uy tín',
+    commonCombinations: [],
+    tips: ['Liên hệ hotline ngay khi phát hiện sản phẩm lỗi', 'Không bảo hành lỗi do bảo quản sai cách']
   }
 ]
 
