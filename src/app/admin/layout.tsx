@@ -3,14 +3,14 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { 
-  Package, 
-  Users, 
-  ShoppingCart, 
-  BarChart3, 
-  Settings, 
-  LogOut, 
-  Menu, 
+import {
+  Package,
+  Users,
+  ShoppingCart,
+  BarChart3,
+  Settings,
+  LogOut,
+  Menu,
   X,
   User,
   Building,
@@ -56,6 +56,7 @@ const navigationGroups = [
     items: [
       { name: 'Đơn Hàng', href: '/admin/orders', icon: ShoppingCart },
       { name: 'Khách Hàng', href: '/admin/customers', icon: Users },
+      // { name: 'Khách Hàng Thân Thiết', href: '/admin/loyalty', icon: Star },
       { name: 'Quản Lý Bán Hàng', href: '/admin/sales-management', icon: Receipt },
       { name: 'Đánh Giá Sản Phẩm', href: '/admin/reviews', icon: Star },
     ]
@@ -94,10 +95,10 @@ export default function AdminLayout({
   const pathname = usePathname()
   const router = useRouter()
   const { logout } = useAuth()
-  
+
   const toggleGroup = (groupName: string) => {
-    setExpandedGroups(prev => 
-      prev.includes(groupName) 
+    setExpandedGroups(prev =>
+      prev.includes(groupName)
         ? prev.filter(name => name !== groupName)
         : [...prev, groupName]
     )
@@ -152,7 +153,7 @@ export default function AdminLayout({
                         )}
                       </button>
                     )}
-                    
+
                     {/* Group Items */}
                     {expandedGroups.includes(group.name) && group.items.map((item) => {
                       const isActive = pathname === item.href
@@ -160,16 +161,14 @@ export default function AdminLayout({
                         <Link
                           key={item.name}
                           href={item.href}
-                          className={`${
-                            isActive
-                              ? 'bg-blue-50 text-blue-600'
-                              : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
-                          } group flex items-center px-3 py-2 text-sm font-medium rounded-md ${group.items.length > 1 ? 'ml-4' : ''}`}
+                          className={`${isActive
+                            ? 'bg-blue-50 text-blue-600'
+                            : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
+                            } group flex items-center px-3 py-2 text-sm font-medium rounded-md ${group.items.length > 1 ? 'ml-4' : ''}`}
                         >
                           <item.icon
-                            className={`${
-                              isActive ? 'text-blue-600' : 'text-gray-400 group-hover:text-gray-500'
-                            } mr-3 flex-shrink-0 h-5 w-5`}
+                            className={`${isActive ? 'text-blue-600' : 'text-gray-400 group-hover:text-gray-500'
+                              } mr-3 flex-shrink-0 h-5 w-5`}
                           />
                           {item.name}
                         </Link>
@@ -211,7 +210,7 @@ export default function AdminLayout({
                       )}
                     </button>
                   )}
-                  
+
                   {/* Group Items */}
                   {expandedGroups.includes(group.name) && group.items.map((item) => {
                     const isActive = pathname === item.href
@@ -219,16 +218,14 @@ export default function AdminLayout({
                       <Link
                         key={item.name}
                         href={item.href}
-                        className={`${
-                          isActive
-                            ? 'bg-blue-50 text-blue-600 border-l-4 border-blue-600'
-                            : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900 border-l-4 border-transparent'
-                        } group flex items-center px-3 py-2 text-sm font-medium rounded-r-md transition-all ${group.items.length > 1 ? 'ml-2' : ''}`}
+                        className={`${isActive
+                          ? 'bg-blue-50 text-blue-600 border-l-4 border-blue-600'
+                          : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900 border-l-4 border-transparent'
+                          } group flex items-center px-3 py-2 text-sm font-medium rounded-r-md transition-all ${group.items.length > 1 ? 'ml-2' : ''}`}
                       >
                         <item.icon
-                          className={`${
-                            isActive ? 'text-blue-600' : 'text-gray-400 group-hover:text-gray-500'
-                          } mr-3 flex-shrink-0 h-5 w-5`}
+                          className={`${isActive ? 'text-blue-600' : 'text-gray-400 group-hover:text-gray-500'
+                            } mr-3 flex-shrink-0 h-5 w-5`}
                         />
                         {item.name}
                       </Link>
@@ -269,7 +266,7 @@ export default function AdminLayout({
                     <User className="h-5 w-5 mr-1" />
                     Quản Trị
                   </button>
-                  <button 
+                  <button
                     onClick={handleLogout}
                     className="flex items-center text-sm text-gray-700 hover:text-gray-900 transition-colors"
                   >

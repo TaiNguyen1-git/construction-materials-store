@@ -8,7 +8,7 @@ import { getAllNotifications } from '@/lib/notification-service'
  */
 export async function GET(request: NextRequest) {
   let userId = request.headers.get('x-user-id')
-  
+
   // In development mode, if userId is 'dev-user', find the first admin
   if (process.env.NODE_ENV === 'development' && userId === 'dev-user') {
     const admin = await prisma.user.findFirst({
@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
       userId = admin.id
     }
   }
-  
+
   if (!userId) {
     return new Response('Unauthorized', { status: 401 })
   }
@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
   const stream = new ReadableStream({
     async start(controller) {
       const encoder = new TextEncoder()
-      
+
       // Helper function to send SSE data
       const send = (data: string) => {
         try {
@@ -39,8 +39,8 @@ export async function GET(request: NextRequest) {
       }
 
       // Send initial connection message
-      send(JSON.stringify({ 
-        type: 'connected', 
+      send(JSON.stringify({
+        type: 'connected',
         message: 'SSE connection established',
         timestamp: new Date().toISOString()
       }))
@@ -63,19 +63,19 @@ export async function GET(request: NextRequest) {
 
           // Combine notifications
           const all = [
-            ...realtimeNotifications.map(n => ({
-              id: `realtime-${Date.now()}-${Math.random()}`,
-              type: n.type,
-              title: n.title,
-              message: n.message,
-              priority: n.priority,
-              read: false,
-              isRead: false, // For frontend compatibility
-              createdAt: new Date().toISOString(),
-              data: n.data || {},
-              productId: n.productId,
-              productName: n.productName
-            })),
+            // ...realtimeNotifications.map(n => ({
+            //   id: `realtime-${Date.now()}-${Math.random()}`,
+            //   type: n.type,
+            //   title: n.title,
+            //   message: n.message,
+            //   priority: n.priority,
+            //   read: false,
+            //   isRead: false, // For frontend compatibility
+            //   createdAt: new Date().toISOString(),
+            //   data: n.data || {},
+            //   productId: n.productId,
+            //   productName: n.productName
+            // })),
             ...dbNotifications.map(n => ({
               id: n.id,
               type: n.type,
@@ -99,9 +99,9 @@ export async function GET(request: NextRequest) {
           }))
         } catch (error) {
           console.error('Error sending notifications via SSE:', error)
-          send(JSON.stringify({ 
-            type: 'error', 
-            message: 'Failed to fetch notifications' 
+          send(JSON.stringify({
+            type: 'error',
+            message: 'Failed to fetch notifications'
           }))
         }
       }
@@ -120,9 +120,9 @@ export async function GET(request: NextRequest) {
 
       // Keep connection alive with heartbeat every 30 seconds
       const heartbeat = setInterval(() => {
-        send(JSON.stringify({ 
-          type: 'ping', 
-          timestamp: Date.now() 
+        send(JSON.stringify({
+          type: 'ping',
+          timestamp: Date.now()
         }))
       }, 30000)
 

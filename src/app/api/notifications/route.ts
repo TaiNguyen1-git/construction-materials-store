@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
     if (authError) {
       return authError
     }
-    
+
     let userId = request.headers.get('x-user-id')
 
     // Get from database
@@ -27,23 +27,23 @@ export async function GET(request: NextRequest) {
     })
 
     // Get real-time notifications
-    const realtimeNotifications = await getAllNotifications()
+    // const realtimeNotifications = await getAllNotifications()
 
     // Combine
     const all = [
-      ...realtimeNotifications.map(n => ({
-        id: `realtime-${Date.now()}-${Math.random()}`,
-        type: n.type,
-        title: n.title,
-        message: n.message,
-        priority: n.priority,
-        read: false,
-        isRead: false,
-        createdAt: new Date(),
-        data: n.data || {},
-        productId: n.productId,
-        productName: n.productName
-      })),
+      // ...realtimeNotifications.map(n => ({
+      //   id: `realtime-${Date.now()}-${Math.random()}`,
+      //   type: n.type,
+      //   title: n.title,
+      //   message: n.message,
+      //   priority: n.priority,
+      //   read: false,
+      //   isRead: false,
+      //   createdAt: new Date(),
+      //   data: n.data || {},
+      //   productId: n.productId,
+      //   productName: n.productName
+      // })),
       ...dbNotifications.map(n => ({
         ...n,
         read: n.read,
@@ -73,7 +73,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     let userId = request.headers.get('x-user-id')
-    
+
     // In development mode, if userId is 'dev-user', find the first admin
     if (process.env.NODE_ENV === 'development' && userId === 'dev-user') {
       const admin = await prisma.user.findFirst({
@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
         userId = admin.id
       }
     }
-    
+
     if (!userId) {
       return NextResponse.json(
         createErrorResponse('Unauthorized', 'UNAUTHORIZED'),

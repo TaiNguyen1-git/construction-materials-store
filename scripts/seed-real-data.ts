@@ -8,11 +8,11 @@ const prisma = new PrismaClient()
 
 async function main() {
   console.log('🌱 Starting Real Data Seeding...')
-  console.log('=' .repeat(70))
+  console.log('='.repeat(70))
 
   // 1. Clear existing data (optional - comment out if you want to keep existing data)
   console.log('\n🗑️  Clearing existing data...')
-  
+
   // Delete in correct order to avoid foreign key constraints
   await prisma.projectTaskMaterial.deleteMany({})
   await prisma.projectMaterial.deleteMany({})
@@ -55,7 +55,7 @@ async function main() {
       isActive: true
     }
   })
-  
+
   const employee = await prisma.employee.create({
     data: {
       userId: adminUser.id,
@@ -117,24 +117,26 @@ async function main() {
   ])
   console.log(`✅ Created ${categories.length} categories`)
 
-  // 4. Create Suppliers
+  // 4. Create Suppliers (Real suppliers from Biên Hòa, Đồng Nai)
   console.log('\n🏢 Creating suppliers...')
   const suppliers = await Promise.all([
     prisma.supplier.create({
       data: {
-        name: 'INSEE Việt Nam',
-        email: 'sales@insee.vn',
-        phone: '028-3820-8888',
-        address: 'TP. Hồ Chí Minh',
+        name: 'Vật Liệu Xây Dựng Số 88',
+        email: 'vatlieu88@gmail.com',
+        phone: '0941 96 60 60',
+        address: '317 Nguyễn Phúc Chu, P.Trảng Dài, Tp.Biên Hòa, Đồng Nai',
+        contactPerson: 'Mr. Bình',
         isActive: true
       }
     }),
     prisma.supplier.create({
       data: {
-        name: 'Xi măng Hà Tiên',
+        name: 'Công Ty Xi Măng Hà Tiên',
         email: 'info@hatiencement.com',
-        phone: '0297-3888-888',
-        address: 'Kiên Giang',
+        phone: '0281-3888-888',
+        address: 'Kiên Giang, Việt Nam',
+        contactPerson: 'Phòng Kinh Doanh',
         isActive: true
       }
     }),
@@ -143,25 +145,58 @@ async function main() {
         name: 'Gạch Đồng Tâm',
         email: 'info@dongtam.vn',
         phone: '0251-3500-888',
-        address: 'Đồng Nai',
+        address: 'Đồng Nai, Việt Nam',
+        contactPerson: 'Phòng Bán Hàng',
         isActive: true
       }
     }),
     prisma.supplier.create({
       data: {
-        name: 'Đá Xây Dựng Phú Mỹ',
-        email: 'phumy@stone.vn',
-        phone: '0274-3850-123',
-        address: 'Bình Dương',
+        name: 'Vật Liệu Xây Dựng Thái Bình Dương',
+        email: 'thaibinhduong.vlxd@gmail.com',
+        phone: '0964 999 154',
+        address: '1423/271 KP Vườn Dừa, P. Phước Tân, TP. Biên Hòa, Đồng Nai',
+        contactPerson: 'Mr. Phát',
         isActive: true
       }
     }),
     prisma.supplier.create({
       data: {
-        name: 'Cát Xây Dựng Tân Phú',
-        email: 'tanphu@sand.vn',
+        name: 'Sắt Thép Biên Hòa (Công Ty Lộc Thiên)',
+        email: 'satthepbienhoa@gmail.com',
         phone: '0251-3820-456',
-        address: 'Đồng Nai',
+        address: '108a Xa lộ Hà Nội, Long Bình, Biên Hòa, Đồng Nai',
+        contactPerson: 'Mr. Thiên',
+        isActive: true
+      }
+    }),
+    prisma.supplier.create({
+      data: {
+        name: 'Thép Hòa Phát - Đại Lý Đồng Nai',
+        email: 'hoaphat.dongnai@gmail.com',
+        phone: '024-3555-6666',
+        address: 'Hà Nội, Việt Nam (Giao hàng Đồng Nai)',
+        contactPerson: 'Phòng Kinh Doanh',
+        isActive: true
+      }
+    }),
+    prisma.supplier.create({
+      data: {
+        name: 'Công Ty Xây Dựng và Vật Liệu Đồng Nai',
+        email: 'vlxddongnai@gmail.com',
+        phone: '0251-3899-886',
+        address: '138 KP.1, Đ.Nguyễn Ái Quốc, P.Trảng Dài, TP. Biên Hòa, Đồng Nai',
+        contactPerson: 'Phòng Kinh Doanh',
+        isActive: true
+      }
+    }),
+    prisma.supplier.create({
+      data: {
+        name: 'INSEE Việt Nam',
+        email: 'sales@insee.vn',
+        phone: '028-3820-8888',
+        address: 'TP. Hồ Chí Minh, Việt Nam',
+        contactPerson: 'Bộ phận Bán Hàng',
         isActive: true
       }
     })
@@ -170,12 +205,12 @@ async function main() {
 
   // 5. Create Products (Based on Knowledge Base)
   console.log('\n🛍️  Creating products...')
-  
+
   const cementCategory = categories[0]
   const brickCategory = categories[1]
   const stoneCategory = categories[2]
   const sandCategory = categories[3]
-  
+
   const inseeSupplier = suppliers[0]
   const hatienSupplier = suppliers[1]
   const dongtamSupplier = suppliers[2]
@@ -225,7 +260,7 @@ async function main() {
         }
       }
     }),
-    
+
     // Xi măng Hà Tiên
     await prisma.product.create({
       data: {
@@ -267,7 +302,7 @@ async function main() {
         }
       }
     }),
-    
+
     // Gạch
     await prisma.product.create({
       data: {
@@ -309,7 +344,7 @@ async function main() {
         }
       }
     }),
-    
+
     // Đá
     await prisma.product.create({
       data: {
@@ -351,7 +386,7 @@ async function main() {
         }
       }
     }),
-    
+
     // Cát
     await prisma.product.create({
       data: {
@@ -394,7 +429,7 @@ async function main() {
       }
     })
   ]
-  
+
   console.log(`✅ Created ${products.length} products`)
 
   // 6. Create Sample Customers
@@ -412,7 +447,7 @@ async function main() {
         isActive: true
       }
     })
-    
+
     await prisma.customer.create({
       data: {
         userId: user.id,
@@ -425,7 +460,7 @@ async function main() {
         referralCode: `REF${Date.now()}-${i}-${Math.random().toString(36).substring(7)}`
       }
     })
-    
+
     customerUsers.push(user)
   }
   console.log(`✅ Created ${customerUsers.length} customers`)
@@ -433,29 +468,29 @@ async function main() {
   // 7. Create Sample Orders (for analytics)
   console.log('\n📦 Creating sample orders...')
   const customers = await prisma.customer.findMany({ include: { user: true } })
-  
+
   let orderCount = 0
   const today = new Date()
-  
+
   // Create orders for last 6 months
   for (let monthsAgo = 5; monthsAgo >= 0; monthsAgo--) {
     const ordersThisMonth = Math.floor(Math.random() * 15) + 10 // 10-25 orders per month
-    
+
     for (let i = 0; i < ordersThisMonth; i++) {
       const customer = customers[Math.floor(Math.random() * customers.length)]
       const orderDate = new Date(today.getFullYear(), today.getMonth() - monthsAgo, Math.floor(Math.random() * 28) + 1)
-      
+
       // Random 2-5 products per order
       const numProducts = Math.floor(Math.random() * 4) + 2
       const orderProducts = []
       let totalAmount = 0
-      
+
       for (let j = 0; j < numProducts; j++) {
         const product = products[Math.floor(Math.random() * products.length)]
         const quantity = Math.floor(Math.random() * 20) + 1
         const price = product.price * quantity
         totalAmount += price
-        
+
         orderProducts.push({
           productId: product.id,
           quantity,
@@ -463,10 +498,10 @@ async function main() {
           totalPrice: price
         })
       }
-      
+
       const taxAmount = totalAmount * 0.1 // 10% VAT
       const netAmount = totalAmount + taxAmount
-      
+
       await prisma.order.create({
         data: {
           orderNumber: `ORD-${orderDate.getFullYear()}-${String(orderCount + 1).padStart(6, '0')}`,
@@ -491,7 +526,7 @@ async function main() {
           }
         }
       })
-      
+
       orderCount++
     }
   }
@@ -503,7 +538,7 @@ async function main() {
   for (let i = 0; i < 10; i++) {
     const supplier = suppliers[Math.floor(Math.random() * suppliers.length)]
     const orderDate = new Date(today.getFullYear(), today.getMonth() - Math.floor(Math.random() * 3), Math.floor(Math.random() * 28) + 1)
-    
+
     await prisma.invoice.create({
       data: {
         invoiceNumber: `PO-2024-${String(i + 1).padStart(4, '0')}`,
@@ -527,7 +562,7 @@ async function main() {
   console.log('\n🏗️  Creating projects...')
   const projectTypes = ['Xây nhà phố', 'Xây biệt thự', 'Sửa chữa nhà', 'Xây nhà xưởng', 'Xây chung cư']
   const projectStatuses = ['PLANNING', 'IN_PROGRESS', 'ON_HOLD', 'COMPLETED']
-  
+
   let projectCount = 0
   for (let i = 0; i < 15; i++) {
     const customer = customers[Math.floor(Math.random() * customers.length)]
@@ -535,12 +570,12 @@ async function main() {
     const status = i < 10 ? projectStatuses[Math.floor(Math.random() * 2) + 1] : projectStatuses[3] // Most are in progress or completed
     const startDate = new Date(today.getFullYear(), today.getMonth() - Math.floor(Math.random() * 4), Math.floor(Math.random() * 28) + 1)
     const endDate = new Date(startDate.getTime() + (Math.floor(Math.random() * 90) + 30) * 24 * 60 * 60 * 1000)
-    
+
     const estimatedBudget = Math.floor(Math.random() * 500000000) + 100000000 // 100M - 600M
     const actualSpent = status === 'COMPLETED' ? estimatedBudget * (0.9 + Math.random() * 0.2) : estimatedBudget * Math.random() * 0.7
-    
+
     const projectName = `${projectType} - ${customer.user.name}`
-    
+
     const project = await prisma.project.create({
       data: {
         name: projectName,
@@ -556,7 +591,7 @@ async function main() {
         notes: `Địa chỉ: ${customer.user.address || 'TP. Hồ Chí Minh'}`
       }
     })
-    
+
     // Create tasks for each project
     const taskNames = [
       'Khảo sát và thiết kế',
@@ -566,12 +601,12 @@ async function main() {
       'Làm mái',
       'Hoàn thiện'
     ]
-    
+
     for (let j = 0; j < taskNames.length; j++) {
       const taskStatus = j < 3 ? 'COMPLETED' : (j < 5 ? 'IN_PROGRESS' : 'PENDING')
       const taskStartDate = new Date(startDate.getTime() + j * 7 * 24 * 60 * 60 * 1000)
       const taskDueDate = new Date(taskStartDate.getTime() + 14 * 24 * 60 * 60 * 1000)
-      
+
       const task = await prisma.projectTask.create({
         data: {
           projectId: project.id,
@@ -587,11 +622,11 @@ async function main() {
           progress: taskStatus === 'COMPLETED' ? 100 : (taskStatus === 'IN_PROGRESS' ? Math.floor(Math.random() * 70) + 20 : 0)
         }
       })
-      
+
       // Add materials for tasks
       if (j >= 1 && j <= 4) { // Tasks that need materials
         const materialsForTask = []
-        
+
         if (j === 1) { // Làm móng
           materialsForTask.push(
             { productId: products[1].id, quantity: Math.floor(Math.random() * 50) + 20, status: 'DELIVERED' }, // Xi măng PC40
@@ -615,7 +650,7 @@ async function main() {
             { productId: products[3].id, quantity: Math.floor(Math.random() * 20) + 10, status: taskStatus === 'COMPLETED' ? 'DELIVERED' : 'REQUESTED' }
           )
         }
-        
+
         for (const material of materialsForTask) {
           const product = products.find(p => p.id === material.productId)
           if (product) {
@@ -633,12 +668,12 @@ async function main() {
         }
       }
     }
-    
+
     projectCount++
   }
   console.log(`✅ Created ${projectCount} projects with tasks and materials`)
 
-  console.log('\n' + '=' .repeat(70))
+  console.log('\n' + '='.repeat(70))
   console.log('✅ Database seeding completed successfully!')
   console.log('\n📊 Summary:')
   console.log(`   - Admin user: admin@smartbuild.vn / admin123`)
@@ -650,7 +685,7 @@ async function main() {
   console.log(`   - Purchase Orders: ${poCount}`)
   console.log(`   - Projects: ${projectCount} (with ${projectCount * 6} tasks)`)
   console.log('\n🚀 You can now login and see data in admin dashboard!')
-  console.log('=' .repeat(70))
+  console.log('='.repeat(70))
 }
 
 main()

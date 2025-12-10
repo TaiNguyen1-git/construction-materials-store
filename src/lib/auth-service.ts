@@ -1,4 +1,3 @@
-import { AuthService, JWTPayload } from '@/lib/auth'
 import { User } from '@prisma/client'
 
 // Define the structure for authentication state
@@ -41,7 +40,7 @@ class AuthenticationService {
   private refreshToken: string | null = null
   private user: User | null = null
 
-  private constructor() {}
+  private constructor() { }
 
   static getInstance(): AuthenticationService {
     if (!AuthenticationService.instance) {
@@ -87,15 +86,15 @@ class AuthenticationService {
       }
 
       const data = await response.json()
-      
+
       // Store tokens and user data
       this.accessToken = data.token
       this.user = data.user
-      
+
       // Store in secure storage
       this.setTokensInStorage(data.token, null)
       this.setUserInStorage(data.user)
-      
+
       return {
         user: data.user,
         tokens: {
@@ -125,15 +124,15 @@ class AuthenticationService {
       }
 
       const data = await response.json()
-      
+
       // Store tokens and user data
       this.accessToken = data.token
       this.user = data.user
-      
+
       // Store in secure storage
       this.setTokensInStorage(data.token, null)
       this.setUserInStorage(data.user)
-      
+
       return {
         user: data.user,
         tokens: {
@@ -166,14 +165,14 @@ class AuthenticationService {
       }
 
       const data = await response.json()
-      
+
       // Update tokens
       this.accessToken = data.data.accessToken
       this.refreshToken = data.data.refreshToken
-      
+
       // Store in secure storage
       this.setTokensInStorage(data.data.accessToken, data.data.refreshToken)
-      
+
       return data.data
     } catch (error) {
       // Clear tokens on refresh failure
@@ -187,7 +186,7 @@ class AuthenticationService {
     this.accessToken = null
     this.refreshToken = null
     this.user = null
-    
+
     // Clear storage
     this.clearStorage()
   }
@@ -197,43 +196,21 @@ class AuthenticationService {
     try {
       const accessToken = this.getTokenFromStorage()
       const userData = this.getUserFromStorage()
-      
+
       if (accessToken && userData) {
         this.accessToken = accessToken
         this.user = userData
-        
-        // Verify token is still valid
-        try {
-          AuthService.verifyAccessToken(accessToken)
-          return {
-            user: userData,
-            isAuthenticated: true,
-            isLoading: false,
-            error: null
-          }
-        } catch (error) {
-          // Token invalid, try to refresh
-          try {
-            await this.refreshTokenPair()
-            return {
-              user: this.user,
-              isAuthenticated: true,
-              isLoading: false,
-              error: null
-            }
-          } catch (refreshError) {
-            // Refresh failed, clear auth state
-            this.logout()
-            return {
-              user: null,
-              isAuthenticated: false,
-              isLoading: false,
-              error: null
-            }
-          }
+
+        // We trust the token from storage for initial load. 
+        // Real verification happens when we make API calls.
+        return {
+          user: userData,
+          isAuthenticated: true,
+          isLoading: false,
+          error: null
         }
       }
-      
+
       return {
         user: null,
         isAuthenticated: false,
@@ -253,29 +230,29 @@ class AuthenticationService {
   // Private methods for storage handling
   private setTokensInStorage(accessToken: string, refreshToken: string | null): void {
     if (typeof window !== 'undefined') {
-      sessionStorage.setItem('access_token', accessToken)
+      localStorage.setItem('access_token', accessToken)
       if (refreshToken) {
-        sessionStorage.setItem('refresh_token', refreshToken)
+        localStorage.setItem('refresh_token', refreshToken)
       }
     }
   }
 
   private setUserInStorage(user: User): void {
     if (typeof window !== 'undefined') {
-      sessionStorage.setItem('user', JSON.stringify(user))
+      localStorage.setItem('user', JSON.stringify(user))
     }
   }
 
   private getTokenFromStorage(): string | null {
     if (typeof window !== 'undefined') {
-      return sessionStorage.getItem('access_token')
+      return localStorage.getItem('access_token')
     }
     return null
   }
 
   private getUserFromStorage(): User | null {
     if (typeof window !== 'undefined') {
-      const userData = sessionStorage.getItem('user')
+      const userData = localStorage.getItem('user')
       return userData ? JSON.parse(userData) : null
     }
     return null
@@ -283,9 +260,9 @@ class AuthenticationService {
 
   private clearStorage(): void {
     if (typeof window !== 'undefined') {
-      sessionStorage.removeItem('access_token')
-      sessionStorage.removeItem('refresh_token')
-      sessionStorage.removeItem('user')
+      localStorage.removeItem('access_token')
+      localStorage.removeItem('refresh_token')
+      localStorage.removeItem('user')
     }
   }
 }

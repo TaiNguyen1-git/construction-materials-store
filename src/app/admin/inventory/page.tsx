@@ -4,7 +4,7 @@
 import { useState, useEffect } from 'react'
 import { toast } from 'react-hot-toast'
 import { fetchWithAuth } from '@/lib/api-client'
-import { RefreshCw, AlertTriangle, CheckCircle, Package, ShoppingCart, ChevronDown, ChevronUp, Target } from 'lucide-react'
+import { RefreshCw, AlertTriangle, CheckCircle, Package, ShoppingCart, ChevronDown, ChevronUp } from 'lucide-react'
 import Pagination from '@/components/Pagination'
 import InventoryAnalytics from '@/components/admin/InventoryAnalytics'
 import InventoryManagement from '@/components/admin/InventoryManagement'
@@ -149,7 +149,7 @@ export default function InventoryPage() {
     return { color: 'bg-green-100 text-green-800', text: 'Còn Hàng', icon: CheckCircle }
   }
 
-  const formatCurrency = (v: number | undefined | null) => (!v || isNaN(v) ? '0đ' : `${v.toLocaleString('vi-VN')}đ`)
+  const formatCurrency = (v: number | undefined | null) => (!v || isNaN(v) ? '0đ' : `${Math.round(v).toLocaleString('vi-VN')}đ`)
 
   const filteredProducts = products.filter(p => {
     if (filters.category && (p.category as any)?.name !== filters.category && p.category !== filters.category) return false
@@ -163,7 +163,6 @@ export default function InventoryPage() {
 
   const lowStockProducts = products.filter(p => p.stock <= p.minStock)
   const urgentRecommendations = recommendations.filter(r => r.priority === 'URGENT')
-  const avgPredictionConfidence = predictions.length ? predictions.reduce((s, p) => s + p.confidence, 0) / predictions.length : 0
 
   if (loading) {
     return (
@@ -205,7 +204,7 @@ export default function InventoryPage() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         <div className="bg-white p-4 rounded-lg shadow border-l-4 border-blue-500">
           <div className="flex items-center justify-between">
             <div>
@@ -231,15 +230,6 @@ export default function InventoryPage() {
               <div className="text-2xl font-bold text-orange-600">{urgentRecommendations.length}</div>
             </div>
             <ShoppingCart className="w-8 h-8 text-orange-600" />
-          </div>
-        </div>
-        <div className="bg-white p-4 rounded-lg shadow border-l-4 border-green-500">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-sm text-gray-600">Độ Chính Xác AI</div>
-              <div className="text-2xl font-bold text-green-600">{(avgPredictionConfidence * 100).toFixed(0)}%</div>
-            </div>
-            <Target className="w-8 h-8 text-green-600" />
           </div>
         </div>
       </div>

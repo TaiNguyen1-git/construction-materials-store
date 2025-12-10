@@ -25,9 +25,14 @@ export async function middleware(request: NextRequest) {
   // DEVELOPMENT MODE - bypass auth
   if (process.env.NODE_ENV === 'development' && process.env.VERCEL !== '1') {
     const requestHeaders = new Headers(request.headers)
-    requestHeaders.set('x-user-id', 'dev-user')
-    requestHeaders.set('x-user-email', 'dev@example.com')
-    requestHeaders.set('x-user-role', 'MANAGER')
+
+    // Only set defaults if not already present to allow testing with specific users
+    if (!requestHeaders.has('x-user-id')) {
+      requestHeaders.set('x-user-id', 'dev-user')
+      requestHeaders.set('x-user-email', 'dev@example.com')
+      requestHeaders.set('x-user-role', 'MANAGER')
+    }
+
     return NextResponse.next({
       request: { headers: requestHeaders },
     })
@@ -58,7 +63,7 @@ export async function middleware(request: NextRequest) {
 
   // ===== ROUTES WITH OPTIONAL AUTH =====
   const optionalAuthRoutes = ['/api/orders', '/api/invoices']
-  
+
   if (optionalAuthRoutes.some(route => pathname === route || pathname.startsWith(route + '/'))) {
     // Try to extract token but don't require it
     const token = extractToken(request)
