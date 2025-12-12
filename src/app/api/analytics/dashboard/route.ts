@@ -5,7 +5,7 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const days = parseInt(searchParams.get('days') || '30')
-    
+
     const startDate = new Date()
     startDate.setDate(startDate.getDate() - days)
     startDate.setHours(0, 0, 0, 0)
@@ -67,13 +67,19 @@ export async function GET(request: NextRequest) {
       }))
       .sort((a, b) => a.date.getTime() - b.date.getTime())
 
-    // 3. Sales by Category - Using Prisma queries
+    // 3. Sales by Category - Using Prisma queries  
+    // NOTE: Nested filter bug - must query orders first, then items by IDs
+    const ordersInRange = await prisma.order.findMany({
+      where: {
+        createdAt: { gte: startDate },
+        status: { in: ['DELIVERED', 'SHIPPED'] }
+      },
+      select: { id: true }
+    })
+
     const orderItems = await prisma.orderItem.findMany({
       where: {
-        order: {
-          createdAt: { gte: startDate },
-          status: { in: ['DELIVERED', 'SHIPPED'] }
-        }
+        orderId: { in: ordersInRange.map(o => o.id) }
       },
       include: {
         product: {
@@ -90,7 +96,7 @@ export async function GET(request: NextRequest) {
 
     const salesByCategoryMap = new Map<string, { total: number; count: number }>()
     orderItems.forEach(item => {
-      const categoryName = item.product.category.name
+      const categoryName = item.product.category?.name || 'Uncategorized'
       const existing = salesByCategoryMap.get(categoryName) || { total: 0, count: 0 }
       salesByCategoryMap.set(categoryName, {
         total: existing.total + item.totalPrice,
@@ -233,8 +239,8 @@ export async function GET(request: NextRequest) {
           available: i.availableQuantity,
           min: i.minStockLevel,
           max: i.maxStockLevel || 0,
-          status: i.availableQuantity <= i.minStockLevel ? 'Low' : 
-                  i.availableQuantity >= (i.maxStockLevel || Infinity) * 0.8 ? 'High' : 'Normal'
+          status: i.availableQuantity <= i.minStockLevel ? 'Low' :
+            i.availableQuantity >= (i.maxStockLevel || Infinity) * 0.8 ? 'High' : 'Normal'
         })),
         orderStatusDistribution: orderStatusDistribution.map(o => ({
           status: o.status,
@@ -243,7 +249,7 @@ export async function GET(request: NextRequest) {
         recentOrders: recentOrders.map(o => ({
           id: o.id,
           orderNumber: o.orderNumber,
-          customer: o.customerType === 'GUEST' 
+          customer: o.customerType === 'GUEST'
             ? (o.guestName || 'Guest Customer')
             : (o.customer?.user?.name || 'Unknown'),
           amount: o.totalAmount,

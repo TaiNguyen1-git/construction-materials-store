@@ -16,6 +16,7 @@
     "db:studio": "prisma studio",
     "db:seed": "tsx scripts/seed.ts",
     "db:seed:real": "tsx scripts/seed-real-data.ts",
+    "db:seed:dashboard": "tsx scripts/seed-realistic-dashboard-data.ts",
     "db:sample": "tsx scripts/add-sample-data.ts",
     "demo:ai": "tsx scripts/demo-ai-features.ts",
     "test:gemini": "tsx scripts/test-gemini.ts",

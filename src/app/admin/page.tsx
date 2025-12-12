@@ -30,15 +30,15 @@ const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'
 export default function AdminDashboard() {
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
-  
+
   useEffect(() => {
     fetchDashboardData(true)
-    
+
     // Auto-refresh every 30 seconds (without showing loading spinner)
     const interval = setInterval(() => {
       fetchDashboardData(false)
     }, 30000)
-    
+
     return () => clearInterval(interval)
   }, [])
 
@@ -195,15 +195,15 @@ export default function AdminDashboard() {
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="date" tick={{ fontSize: 12 }} />
               <YAxis tick={{ fontSize: 12 }} />
-              <Tooltip 
+              <Tooltip
                 formatter={(value: number) => formatCurrency(value)}
                 contentStyle={{ backgroundColor: '#fff', border: '1px solid #ccc' }}
               />
               <Legend />
-              <Line 
-                type="monotone" 
-                dataKey="revenue" 
-                stroke="#3b82f6" 
+              <Line
+                type="monotone"
+                dataKey="revenue"
+                stroke="#3b82f6"
                 strokeWidth={2}
                 name="Doanh thu"
                 dot={{ fill: '#3b82f6' }}
@@ -214,7 +214,7 @@ export default function AdminDashboard() {
 
         {/* Sales by Category Chart */}
         <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Doanh Thu Theo Danh Mục</h3>
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Doanh Thu Theo Danh Mục (30 ngày)</h3>
           <ResponsiveContainer width="100%" height={300}>
             <PieChart>
               <Pie
@@ -222,7 +222,10 @@ export default function AdminDashboard() {
                 cx="50%"
                 cy="50%"
                 labelLine={false}
-                label={({ category, percent }) => `${category} (${(percent * 100).toFixed(0)}%)`}
+                label={(props: any) => {
+                  const { category, percent } = props
+                  return `${category} (${((percent || 0) * 100).toFixed(1)}%)`
+                }}
                 outerRadius={80}
                 fill="#8884d8"
                 dataKey="total"
@@ -238,7 +241,7 @@ export default function AdminDashboard() {
 
         {/* Top Products Chart */}
         <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Top 10 Sản Phẩm Bán Chạy</h3>
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Top 10 Sản Phẩm Bán Chạy (30 ngày)</h3>
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={data?.topProducts || []} layout="vertical">
               <CartesianGrid strokeDasharray="3 3" />
@@ -253,7 +256,7 @@ export default function AdminDashboard() {
 
         {/* Inventory Status Chart */}
         <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Tình Trạng Tồn Kho</h3>
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Tình Trạng Tồn Kho (Hiện tại)</h3>
           <ResponsiveContainer width="100%" height={300}>
             <AreaChart data={data?.inventoryStatus.slice(0, 10) || []}>
               <CartesianGrid strokeDasharray="3 3" />
@@ -325,12 +328,11 @@ export default function AdminDashboard() {
                       {formatCurrency(order.amount)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                        order.status === 'DELIVERED' ? 'bg-green-100 text-green-800' :
+                      <span className={`px-2 py-1 text-xs font-semibold rounded-full ${order.status === 'DELIVERED' ? 'bg-green-100 text-green-800' :
                         order.status === 'SHIPPED' ? 'bg-blue-100 text-blue-800' :
-                        order.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-gray-100 text-gray-800'
-                      }`}>
+                          order.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
+                            'bg-gray-100 text-gray-800'
+                        }`}>
                         {order.status}
                       </span>
                     </td>
