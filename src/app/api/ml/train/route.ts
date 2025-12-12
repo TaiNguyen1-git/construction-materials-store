@@ -67,11 +67,15 @@ export async function POST(request: NextRequest) {
 
     // Train models sequentially to avoid overwhelming the system
     const results = []
+
+    // With Gemini, we don't need to "train" in the traditional sense,
+    // but we'll simulate the process for API compatibility
     for (const product of products) {
-      console.log(`\n📦 Training model for: ${product.name} (${product.id})`)
-      
+      console.log(`\n📦 Checking AI model availability for: ${product.name} (${product.id})`)
+
+      // Call the service (which is now just a check)
       const result = await mlPredictionService.trainModel(product.id)
-      
+
       results.push({
         productId: product.id,
         productName: product.name,
@@ -80,8 +84,8 @@ export async function POST(request: NextRequest) {
         error: result.error
       })
 
-      // Small delay between trainings
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      // Tiny delay to simulate processing
+      await new Promise(resolve => setTimeout(resolve, 50))
     }
 
     // Summary
@@ -132,7 +136,7 @@ export async function GET(request: NextRequest) {
     if (productId) {
       // Get model info for specific product
       const hasModel = await mlPredictionService.hasTrainedModel(productId)
-      
+
       if (!hasModel) {
         return NextResponse.json(
           createSuccessResponse({
@@ -163,12 +167,12 @@ export async function GET(request: NextRequest) {
       try {
         const files = await fs.readdir(modelsDir)
         const modelFiles = files.filter(f => f.startsWith('prophet_') && f.endsWith('.pkl'))
-        
+
         const models = []
         for (const file of modelFiles) {
           const productId = file.replace('prophet_', '').replace('.pkl', '')
           const metrics = await mlPredictionService.getModelMetrics(productId)
-          
+
           // Get product info
           const product = await prisma.product.findUnique({
             where: { id: productId },

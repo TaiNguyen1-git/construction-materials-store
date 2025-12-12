@@ -30,6 +30,7 @@
   },
   "dependencies": {
     "@edge-runtime/cookies": "^6.0.0",
+    "@google/genai": "^1.33.0",
     "@google/generative-ai": "^0.24.1",
     "@hookform/resolvers": "^3.3.4",
     "@prisma/client": "^5.11.0",

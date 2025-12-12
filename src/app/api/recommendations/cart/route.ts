@@ -41,9 +41,64 @@ export async function POST(request: NextRequest) {
     // Strategy 2: Complementary products based on knowledge base
     const complementaryProducts = await getComplementaryProducts(cartProducts, limit)
 
+    // Strategy 3: AI Smart Recommendations (Gemini)
+    // This is crucial when we don't have enough order history or strict KB matches
+    let aiRecommendations: any[] = []
+    if (frequentlyBoughtTogether.length < 2 && complementaryProducts.length < 2) {
+      console.log('📉 Not enough rule-based recommendations. Calling Gemini...')
+      try {
+        const { default: AIService } = await import('@/lib/ai-service')
+        const aiResults = await AIService.getSmartRecommendations({
+          cartItems: cartProducts.map(p => ({
+            name: p.name,
+            category: p.category.name,
+            price: p.price
+          }))
+        })
+
+        // Map AI results to DB products
+        for (const rec of aiResults) {
+          const dbProduct = await prisma.product.findFirst({
+            where: {
+              name: { contains: rec.name.split(' ')[0] }, // Fuzzy match
+              isActive: true,
+              id: { notIn: productIds }
+            },
+            include: {
+              category: true,
+              inventoryItem: true,
+              productReviews: {
+                where: { isPublished: true },
+                select: { rating: true }
+              }
+            }
+          })
+
+          if (dbProduct) {
+            aiRecommendations.push({
+              id: dbProduct.id,
+              name: dbProduct.name,
+              price: dbProduct.price,
+              unit: dbProduct.unit,
+              images: dbProduct.images,
+              category: dbProduct.category.name,
+              inStock: dbProduct.inventoryItem ? dbProduct.inventoryItem.availableQuantity > 0 : false,
+              rating: calculateAverageRating(dbProduct.productReviews),
+              reviewCount: dbProduct.productReviews.length,
+              reason: rec.reason || 'Sản phẩm tương tự',
+              badge: '✨ AI Gợi ý',
+              confidence: 0.9
+            })
+          }
+        }
+      } catch (error) {
+        console.error('Gemini cart recommendation error:', error)
+      }
+    }
+
     // Combine and deduplicate recommendations
-    // Prioritize complementary products over frequently bought together
     const allRecommendations = [
+      ...aiRecommendations,
       ...complementaryProducts,
       ...frequentlyBoughtTogether
     ]

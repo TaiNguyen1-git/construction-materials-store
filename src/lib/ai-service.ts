@@ -1,80 +1,77 @@
-import { GoogleGenerativeAI } from '@google/generative-ai'
+
+import { GoogleGenAI } from '@google/genai'
 import { AI_CONFIG, CHATBOT_SYSTEM_PROMPT, OCR_SYSTEM_PROMPT } from './ai-config'
 
 // Initialize Gemini client (if API key is provided)
-const gemini = AI_CONFIG.GEMINI.API_KEY ? new GoogleGenerativeAI(AI_CONFIG.GEMINI.API_KEY) : null
+const client = AI_CONFIG.GEMINI.API_KEY ? new GoogleGenAI({ apiKey: AI_CONFIG.GEMINI.API_KEY }) : null
 
-// Function to get a working Gemini model
-let geminiModel: any = null;
-export const getGeminiModel = async () => {
-  if (geminiModel) return geminiModel;
+// Function to find a working Gemini model name
+let workingModelName: string | null = null;
+export const getWorkingModelConfig = async () => {
+  if (workingModelName) return { client, modelName: workingModelName };
 
-  if (!gemini) {
+  if (!client) {
     throw new Error('Gemini client not initialized');
   }
 
   // Try different model names in order of preference
   const modelNames = [
-    'models/gemini-2.5-flash',
-    'gemini-1.5-flash-latest',
-    'gemini-1.5-flash',
-    'gemini-1.0-pro-latest',
-    'gemini-1.0-pro',
-    'gemini-pro',
-    'models/gemini-1.5-flash',
-    'models/gemini-1.0-pro',
-    'models/gemini-pro'
+    'gemini-2.5-flash',     // User requested (Newest)
+    'gemini-2.0-flash-exp', // Experimental
+    'gemini-1.5-flash',     // Standard
+    'gemini-1.5-flash-001', // Specific version
+    'gemini-1.5-flash-002', // Newer specific version
+    'gemini-1.5-flash-8b',  // Lightweight
+    'gemini-1.5-pro',
+    'gemini-1.5-pro-001',
+    'gemini-1.5-pro-002',
+    'gemini-1.0-pro'
   ];
 
   // First try the model specified in the configuration
   if (AI_CONFIG.GEMINI.MODEL) {
     try {
-      const model = gemini.getGenerativeModel({
+      // Test the model with a simple prompt
+      await client.models.generateContent({
         model: AI_CONFIG.GEMINI.MODEL,
-        generationConfig: {
+        contents: [{ role: 'user', parts: [{ text: 'Test' }] }],
+        config: {
           temperature: parseFloat(AI_CONFIG.GEMINI.TEMPERATURE.toString())
         }
       });
 
-      // Test the model with a simple prompt
-      await Promise.race([
-        model.generateContent("Test"),
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Model test timeout')), 10000)
-        )
-      ]);
-
-      geminiModel = model;
-      console.log(`✅ Using Gemini model: ${AI_CONFIG.GEMINI.MODEL}`);
-      return model;
-    } catch (error) {
-      console.log(`❌ Failed to initialize Gemini model ${AI_CONFIG.GEMINI.MODEL}:`, (error as Error).message);
+      workingModelName = AI_CONFIG.GEMINI.MODEL;
+      console.log(`✅ Using configured Gemini model: ${workingModelName}`);
+      return { client, modelName: workingModelName };
+    } catch (error: any) {
+      console.log(`⚠️ Configured model ${AI_CONFIG.GEMINI.MODEL} failed (Status ${error.status || 'unknown'}), trying fallbacks...`);
+      // If 429, we might accept it as "working" but rate limited, but better to find one that works now?
+      // Actually, if 2.5 returns 429, it exists. We should probably stick with it if it's the user preference, 
+      // but if we want reliability, maybe fallback.
+      // For now, if it throws, we try next.
     }
   }
 
   // If the configured model fails, try the fallback models
   for (const modelName of modelNames) {
     try {
-      const model = gemini.getGenerativeModel({
+      console.log(`Testing connection to ${modelName}...`);
+      await client.models.generateContent({
         model: modelName,
-        generationConfig: {
+        contents: [{ role: 'user', parts: [{ text: 'Test' }] }],
+        config: {
           temperature: parseFloat(AI_CONFIG.GEMINI.TEMPERATURE.toString())
         }
       });
 
-      // Test the model with a simple prompt
-      await Promise.race([
-        model.generateContent("Test"),
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Model test timeout')), 10000)
-        )
-      ]);
-
-      geminiModel = model;
+      workingModelName = modelName;
       console.log(`✅ Using Gemini model: ${modelName}`);
-      return model;
-    } catch (error) {
-      console.log(`❌ Failed to initialize Gemini model ${modelName}:`, (error as Error).message);
+      return { client, modelName };
+    } catch (error: any) {
+      console.log(`❌ Failed to initialize Gemini model ${modelName}:`, error.message || error.status);
+      // Special case: 429 means it exists but we are out of quota. 
+      // We might want to use it anyway if it is the best model? 
+      // No, for reliability we should keep searching for a 200 OK one.
       continue;
     }
   }
@@ -105,14 +102,11 @@ export class AIService {
     conversationHistory?: { role: string; content: string }[]
   ): Promise<ChatbotResponse> {
     try {
-      if (!gemini) {
-        throw new Error('Gemini client not initialized')
-      }
-
-      const model = await getGeminiModel();
+      const { client, modelName } = await getWorkingModelConfig();
+      if (!client) throw new Error('Client init failed');
 
       // Prepare the conversation history for Gemini
-      let chatHistory = [
+      let contents: any[] = [
         {
           role: "user",
           parts: [{ text: CHATBOT_SYSTEM_PROMPT }]
@@ -126,7 +120,7 @@ export class AIService {
       // Add conversation history if available
       if (conversationHistory && conversationHistory.length > 0) {
         for (const msg of conversationHistory) {
-          chatHistory.push({
+          contents.push({
             role: msg.role === 'user' ? 'user' : 'model',
             parts: [{ text: msg.content }]
           })
@@ -135,19 +129,17 @@ export class AIService {
 
       // Add context information if available
       if (context) {
-        chatHistory.push({
+        contents.push({
           role: "user",
           parts: [{ text: `Context information: ${JSON.stringify(context)}` }]
         })
       }
 
-      // Start chat with history
-      const chat = model.startChat({
-        history: chatHistory,
-        generationConfig: {
-          maxOutputTokens: 1000,
-        },
-      })
+      // Add current message
+      contents.push({
+        role: 'user',
+        parts: [{ text: message }]
+      });
 
       // Retry logic
       let retries = 2
@@ -155,16 +147,16 @@ export class AIService {
 
       while (retries >= 0) {
         try {
-          // Send the current user message with timeout (increased to 45s)
-          const result = await Promise.race([
-            chat.sendMessage(message),
-            new Promise((_, reject) =>
-              setTimeout(() => reject(new Error('Chat message timeout')), 45000)
-            )
-          ]);
+          const result = await client.models.generateContent({
+            model: modelName!,
+            contents: contents,
+            config: {
+              maxOutputTokens: 1000,
+              temperature: 0.7
+            }
+          });
 
-          const response = await (result as any).response
-          const aiResponse = response.text()
+          const aiResponse = (result as any).text;
 
           if (!aiResponse) {
             throw new Error('Empty response from AI')
@@ -206,7 +198,8 @@ export class AIService {
   // Extract structured information from chatbot response using Gemini
   private static async extractChatbotStructure(response: string): Promise<ChatbotResponse> {
     try {
-      const model = await getGeminiModel();
+      const { client, modelName } = await getWorkingModelConfig();
+      if (!client) throw new Error('Client init failed');
 
       const prompt = `
       Extract structured information from the following chatbot response.
@@ -228,14 +221,12 @@ export class AIService {
       Return only the JSON object, nothing else.
       `
 
-      const result = await Promise.race([
-        model.generateContent(prompt),
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Structure extraction timeout')), 20000)
-        )
-      ]);
+      const result = await client.models.generateContent({
+        model: modelName!,
+        contents: [{ role: 'user', parts: [{ text: prompt }] }]
+      });
 
-      const structuredText = await (result as any).response.text()
+      const structuredText = (result as any).text || '{}';
 
       // Try to parse the JSON response
       let structured: any = {}
@@ -276,10 +267,8 @@ export class AIService {
   // Process OCR text using Gemini
   static async processOCRText(extractedText: string): Promise<OCRResponse> {
     try {
-      if (!gemini) {
-        throw new Error('Gemini client not initialized')
-      }
-      const model = await getGeminiModel();
+      const { client, modelName } = await getWorkingModelConfig();
+      if (!client) throw new Error('Client init failed');
 
       const prompt = `
       ${OCR_SYSTEM_PROMPT}
@@ -291,15 +280,12 @@ export class AIService {
       Return only the JSON object, nothing else.
       `
 
-      const result = await Promise.race([
-        model.generateContent([prompt]),
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('OCR processing timeout')), 30000)
-        )
-      ]);
+      const result = await client.models.generateContent({
+        model: modelName!,
+        contents: [{ role: 'user', parts: [{ text: prompt }] }]
+      });
 
-      const response = await (result as any).response
-      const processedText = response.text()
+      const processedText = (result as any).text || '{}';
 
       // Try to parse the JSON response
       let processedData: any = {}
@@ -334,10 +320,8 @@ export class AIService {
   // Get product recommendations based on user query using Gemini
   static async getProductRecommendations(query: string, context?: any): Promise<any[]> {
     try {
-      if (!gemini) {
-        throw new Error('Gemini client not initialized')
-      }
-      const model = await getGeminiModel();
+      const { client, modelName } = await getWorkingModelConfig();
+      if (!client) throw new Error('Client init failed');
 
       const prompt = `
       You are a product recommendation engine for a construction materials store.
@@ -360,15 +344,12 @@ export class AIService {
       Return only the JSON array, nothing else.
       `
 
-      const result = await Promise.race([
-        model.generateContent([prompt]),
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Product recommendations timeout')), 20000)
-        )
-      ]);
+      const result = await client.models.generateContent({
+        model: modelName!,
+        contents: [{ role: 'user', parts: [{ text: prompt }] }]
+      });
 
-      const response = await (result as any).response
-      const recommendationsText = response.text()
+      const recommendationsText = (result as any).text || '[]';
 
       // Try to parse the JSON response
       let recommendations: any[] = []
@@ -399,10 +380,8 @@ export class AIService {
   // Analyze customer sentiment using Gemini
   static async analyzeSentiment(message: string): Promise<{ sentiment: string; confidence: number }> {
     try {
-      if (!gemini) {
-        throw new Error('Gemini client not initialized')
-      }
-      const model = await getGeminiModel();
+      const { client, modelName } = await getWorkingModelConfig();
+      if (!client) throw new Error('Client init failed');
 
       const prompt = `
       Analyze the sentiment of the following customer message.
@@ -418,15 +397,12 @@ export class AIService {
       Return only the JSON object, nothing else.
       `
 
-      const result = await Promise.race([
-        model.generateContent([prompt]),
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Sentiment analysis timeout')), 15000)
-        )
-      ]);
+      const result = await client.models.generateContent({
+        model: modelName!,
+        contents: [{ role: 'user', parts: [{ text: prompt }] }]
+      });
 
-      const response = await (result as any).response
-      const sentimentText = response.text()
+      const sentimentText = (result as any).text || '{}';
 
       // Try to parse the JSON response
       let sentiment: any = { sentiment: 'neutral', confidence: 0.5 }
@@ -460,10 +436,8 @@ export class AIService {
   // Extract order details from natural language request using Gemini
   static async parseOrderRequest(message: string): Promise<any> {
     try {
-      if (!gemini) {
-        throw new Error('Gemini client not initialized')
-      }
-      const model = await getGeminiModel();
+      const { client, modelName } = await getWorkingModelConfig();
+      if (!client) throw new Error('Client init failed');
 
       const prompt = `
       Extract order details from this natural Vietnamese text.
@@ -478,23 +452,23 @@ export class AIService {
       Rules:
       - If quantity is not specified but implied (e.g., "mua xi măng"), default to 1.
       - Map "xe" to unit "xe" (or "m3" if context implies volume).
-      - Map "thiên" to 1000 quantity.
-      - Map "chục" to 10 quantity.
+      - Map "thiên" to quantity 1000 and unit "viên" (for bricks/gạch).
+      - Map "chục" to quantity 10.
+      - For "gạch" (bricks), default unit is "thiên" (1000 bricks) if vague, otherwise "viên".
+      - For "cát" (sand) and "đá" (stone), default unit is "khối" (m3).
+      - For "xi măng" (cement), default unit is "bao".
       
       User message: "${message}"
       
       Return only the JSON object.
       `
 
-      const result = await Promise.race([
-        model.generateContent([prompt]),
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Order parsing timeout')), 15000)
-        )
-      ]);
+      const result = await client.models.generateContent({
+        model: modelName!,
+        contents: [{ role: 'user', parts: [{ text: prompt }] }]
+      });
 
-      const response = await (result as any).response
-      const text = response.text()
+      const text = (result as any).text || '{}';
 
       // Try to parse the JSON response
       let data: any = null
@@ -520,10 +494,8 @@ export class AIService {
   // Extract material calculation parameters from user query using Gemini
   static async extractMaterialCalculationParams(query: string): Promise<any> {
     try {
-      if (!gemini) {
-        throw new Error('Gemini client not initialized')
-      }
-      const model = await getGeminiModel();
+      const { client, modelName } = await getWorkingModelConfig();
+      if (!client) throw new Error('Client init failed');
 
       const prompt = `
       Extract construction material calculation parameters from the user's query.
@@ -553,15 +525,12 @@ export class AIService {
       Return only the JSON object, nothing else.
       `
 
-      const result = await Promise.race([
-        model.generateContent([prompt]),
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Parameter extraction timeout')), 15000)
-        )
-      ]);
+      const result = await client.models.generateContent({
+        model: modelName!,
+        contents: [{ role: 'user', parts: [{ text: prompt }] }]
+      });
 
-      const response = await (result as any).response
-      const text = response.text()
+      const text = (result as any).text || '{}';
 
       // Try to parse the JSON response
       let params: any = {}
@@ -581,6 +550,227 @@ export class AIService {
     } catch (error) {
       console.error('Gemini parameter extraction extraction error:', error)
       return null
+    }
+  }
+
+  // Forecast demand using Gemini
+  static async forecastDemand(historyData: any[]): Promise<any> {
+    try {
+      const { client, modelName } = await getWorkingModelConfig();
+      if (!client) throw new Error('Client init failed');
+
+      const prompt = `
+      You are an expert sales forecaster. Analyze the provided sales history data and forecast future demand.
+      
+      Data Provided: ${JSON.stringify(historyData)}
+
+      Task:
+      - Analyze trends, seasonality, and patterns.
+      - Predict demand for the next period (e.g., next month).
+      - Provide a confidence score and reasoning.
+
+      Return a JSON object with:
+      - predictedDemand: number
+      - confidence: number (0.0 to 1.0)
+      - reasoning: string (brief explanation of the forecast)
+      - trend: "increasing" | "decreasing" | "stable"
+
+      Return only the JSON object, nothing else.
+      `
+
+      const result = await client.models.generateContent({
+        model: modelName!,
+        contents: [{ role: 'user', parts: [{ text: prompt }] }]
+      });
+
+      const text = (result as any).text || '{}';
+
+      // Try to parse the JSON response
+      let forecast: any = {}
+      try {
+        const cleanedText = text.replace(/```json\s*|\s*```/g, '').trim()
+        forecast = JSON.parse(cleanedText)
+      } catch (parseError) {
+        // Simple fallback extraction if JSON parse fails
+        const jsonMatch = text.match(/\{[\s\S]*\}/)
+        if (jsonMatch) {
+          try {
+            forecast = JSON.parse(jsonMatch[0])
+          } catch (e) { }
+        }
+      }
+
+      return {
+        predictedDemand: forecast.predictedDemand || 0,
+        confidence: forecast.confidence || 0.5,
+        reasoning: forecast.reasoning || "Insufficient data pattern",
+        trend: forecast.trend || "stable"
+      }
+    } catch (error) {
+      console.error('Gemini forecasting error:', error)
+      return {
+        predictedDemand: 0,
+        confidence: 0,
+        reasoning: "Error generating forecast",
+        trend: "stable"
+      }
+    }
+  }
+
+  // Get smart recommendations using Gemini (Content + Collaborative Hybrid simulation)
+  static async getSmartRecommendations(
+    context: {
+      viewedProduct?: any,
+      userHistory?: any[],
+      cartItems?: any[]
+    }
+  ): Promise<any[]> {
+    try {
+      const { client, modelName } = await getWorkingModelConfig();
+      if (!client) throw new Error('Client init failed');
+
+      const prompt = `
+      You are an intelligent product recommendation engine for a construction materials store.
+      
+      Context:
+      ${context.viewedProduct ? `- User is viewing: ${JSON.stringify(context.viewedProduct)}` : ''}
+      ${context.userHistory ? `- User purchase history: ${JSON.stringify(context.userHistory.slice(0, 5))}` : ''}
+      ${context.cartItems ? `- Items in cart: ${JSON.stringify(context.cartItems)}` : ''}
+
+      Task:
+      - Recommend 5 products that are highly relevant to this context.
+      - If viewing a product, suggest complementary items (e.g., viewing bricks -> suggest cement, sand).
+      - If history exists, suggest items matching their project type/preference.
+      - DO NOT just recommend random popular items.
+      
+      Return a JSON array of objects:
+      [
+        {
+          "name": "Product Name",
+          "reason": "Why this is recommended (e.g., 'Necessary for bricklaying')",
+          "category": "Category Name"
+        }
+      ]
+
+      Return only the JSON array.
+      `
+
+      const result = await client.models.generateContent({
+        model: modelName!,
+        contents: [{ role: 'user', parts: [{ text: prompt }] }]
+      });
+
+      const text = (result as any).text || '[]';
+
+      let recommendations: any[] = []
+      try {
+        const cleanedText = text.replace(/```json\s*|\s*```/g, '').trim()
+        recommendations = JSON.parse(cleanedText)
+      } catch (parseError) {
+        const jsonArrayMatch = text.match(/\[[\s\S]*\]/)
+        if (jsonArrayMatch) {
+          try {
+            recommendations = JSON.parse(jsonArrayMatch[0])
+          } catch (e) { }
+        }
+      }
+
+      return Array.isArray(recommendations) ? recommendations : []
+    } catch (error) {
+      console.error('Gemini smart recommendation error:', error)
+      return []
+    }
+  }
+
+  // Optimize logistics/delivery planning
+  static async optimizeLogistics(
+    orders: any[],
+    vehicles: any[]
+  ): Promise<any> {
+    try {
+      const { client, modelName } = await getWorkingModelConfig();
+      if (!client) throw new Error('Client init failed');
+
+      const prompt = `
+      You are a Logistics Manager AI. Optimize the delivery plan for these orders using the available vehicles.
+      
+      Orders Pool: ${JSON.stringify(orders)}
+      Available Vehicles: ${JSON.stringify(vehicles)}
+      
+      Task:
+      - Group orders into trips to maximize vehicle capacity utilization.
+      - Minimize total number of trips.
+      - Consider weight constraints (e.g., a 2-ton truck cannot carry 3 tons).
+      
+      Return a JSON object with:
+      - trips: array of objects { vehicleId, orderIds: [], totalWeight, estimatedCost }
+      - efficiency: number (0-100)
+      - suggestions: string[] (optimization tips)
+      
+      Return only the JSON object.
+      `
+
+      const result = await client.models.generateContent({
+        model: modelName!,
+        contents: [{ role: 'user', parts: [{ text: prompt }] }]
+      });
+
+      const text = (result as any).text || '{}';
+
+      let plan: any = {}
+      try {
+        const cleanedText = text.replace(/```json\s*|\s*```/g, '').trim()
+        plan = JSON.parse(cleanedText)
+      } catch (e) {
+        // Fallback logic could be added here
+      }
+      return plan;
+    } catch (error) {
+      console.error('Gemini logistics error:', error);
+      return null;
+    }
+  }
+
+  // Analyze credit risk for debt management
+  static async analyzeCreditRisk(customerData: any): Promise<any> {
+    try {
+      const { client, modelName } = await getWorkingModelConfig();
+      if (!client) throw new Error('Client init failed');
+
+      const prompt = `
+      You are a Financial Risk Analyst. Evaluate the credit risk of this construction material customer.
+      
+      Customer History: ${JSON.stringify(customerData)}
+      
+      Task:
+      - Analyze payment punctuality (on-time vs late).
+      - Analyze debt accumulation trend.
+      
+      Return a JSON object with:
+      - riskScore: number (0 = Safe, 100 = High Risk)
+      - riskLevel: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL"
+      - suggestedCreditLimit: number (suggested max debt amount in VND)
+      - warning: string (brief reason for the score)
+      
+      Return only the JSON object.
+      `
+
+      const result = await client.models.generateContent({
+        model: modelName!,
+        contents: [{ role: 'user', parts: [{ text: prompt }] }]
+      });
+
+      const text = (result as any).text || '{}';
+
+      let analysis: any = {}
+      try {
+        const cleanedText = text.replace(/```json\s*|\s*```/g, '').trim()
+        analysis = JSON.parse(cleanedText)
+      } catch (e) { }
+      return analysis;
+    } catch (error) {
+      console.error('Gemini credit risk error:', error);
+      return null;
     }
   }
 }
