@@ -39,6 +39,7 @@ class AuthenticationService {
   private accessToken: string | null = null
   private refreshToken: string | null = null
   private user: User | null = null
+  private rememberMe: boolean = true // Default to true for backward compatibility
 
   private constructor() { }
 
@@ -69,9 +70,28 @@ class AuthenticationService {
     return !!this.accessToken && !!this.user
   }
 
+  // Set remember me preference
+  setRememberMe(remember: boolean): void {
+    this.rememberMe = remember
+  }
+
+  // Get the appropriate storage based on remember me setting
+  private getStorage(): Storage | null {
+    if (typeof window === 'undefined') return null
+    // Check if there's an existing preference stored
+    const storedPref = localStorage.getItem('remember_me')
+    if (storedPref !== null) {
+      this.rememberMe = storedPref === 'true'
+    }
+    return this.rememberMe ? localStorage : sessionStorage
+  }
+
   // Login user
-  async login(credentials: LoginCredentials): Promise<AuthResponse> {
+  async login(credentials: LoginCredentials, rememberMe: boolean = true): Promise<AuthResponse> {
     try {
+      // Set remember me preference before storing
+      this.rememberMe = rememberMe
+
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: {
@@ -91,7 +111,12 @@ class AuthenticationService {
       this.accessToken = data.token
       this.user = data.user
 
-      // Store in secure storage
+      // Store remember me preference in localStorage (always persist this)
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('remember_me', String(rememberMe))
+      }
+
+      // Store in appropriate storage based on remember me
       this.setTokensInStorage(data.token, null)
       this.setUserInStorage(data.user)
 
@@ -108,8 +133,11 @@ class AuthenticationService {
   }
 
   // Register user
-  async register(userData: RegisterData): Promise<AuthResponse> {
+  async register(userData: RegisterData, rememberMe: boolean = true): Promise<AuthResponse> {
     try {
+      // Set remember me preference before storing
+      this.rememberMe = rememberMe
+
       const response = await fetch('/api/auth/register', {
         method: 'POST',
         headers: {
@@ -129,7 +157,12 @@ class AuthenticationService {
       this.accessToken = data.token
       this.user = data.user
 
-      // Store in secure storage
+      // Store remember me preference in localStorage (always persist this)
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('remember_me', String(rememberMe))
+      }
+
+      // Store in appropriate storage based on remember me
       this.setTokensInStorage(data.token, null)
       this.setUserInStorage(data.user)
 
@@ -229,30 +262,34 @@ class AuthenticationService {
 
   // Private methods for storage handling
   private setTokensInStorage(accessToken: string, refreshToken: string | null): void {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('access_token', accessToken)
+    const storage = this.getStorage()
+    if (storage) {
+      storage.setItem('access_token', accessToken)
       if (refreshToken) {
-        localStorage.setItem('refresh_token', refreshToken)
+        storage.setItem('refresh_token', refreshToken)
       }
     }
   }
 
   private setUserInStorage(user: User): void {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('user', JSON.stringify(user))
+    const storage = this.getStorage()
+    if (storage) {
+      storage.setItem('user', JSON.stringify(user))
     }
   }
 
   private getTokenFromStorage(): string | null {
     if (typeof window !== 'undefined') {
-      return localStorage.getItem('access_token')
+      // Check localStorage first (remember me = true), then sessionStorage
+      return localStorage.getItem('access_token') || sessionStorage.getItem('access_token')
     }
     return null
   }
 
   private getUserFromStorage(): User | null {
     if (typeof window !== 'undefined') {
-      const userData = localStorage.getItem('user')
+      // Check localStorage first (remember me = true), then sessionStorage
+      const userData = localStorage.getItem('user') || sessionStorage.getItem('user')
       return userData ? JSON.parse(userData) : null
     }
     return null
@@ -260,9 +297,14 @@ class AuthenticationService {
 
   private clearStorage(): void {
     if (typeof window !== 'undefined') {
+      // Clear from both storages
       localStorage.removeItem('access_token')
       localStorage.removeItem('refresh_token')
       localStorage.removeItem('user')
+      localStorage.removeItem('remember_me')
+      sessionStorage.removeItem('access_token')
+      sessionStorage.removeItem('refresh_token')
+      sessionStorage.removeItem('user')
     }
   }
 }

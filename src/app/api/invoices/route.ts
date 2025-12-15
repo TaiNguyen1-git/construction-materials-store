@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
 
     // Build filter object
     const where: any = {}
-    
+
     if (type) where.invoiceType = type
     if (status) where.status = status
     if (customerId) where.customerId = customerId
@@ -78,7 +78,7 @@ export async function GET(request: NextRequest) {
 // POST /api/invoices - Create invoice
 export async function POST(request: NextRequest) {
   try {
-    const user = await verifyToken(request)
+    const user = verifyTokenFromRequest(request)
     if (!user || !['MANAGER', 'EMPLOYEE'].includes(user.role)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }

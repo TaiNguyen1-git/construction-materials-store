@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, use } from 'react'
 // import { use } from 'next/navigation'  // removed invalid import
 import Link from 'next/link'
 import Image from 'next/image'
@@ -45,9 +45,11 @@ interface Recommendation {
   badge: string
 }
 
-export default function ProductDetailPage({ params }: { params: { id: string } }) {
-  const resolvedParams = params;
+export default function ProductDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  // Unwrap params Promise using React.use() for Next.js 15 compatibility
+  const resolvedParams = use(params);
   const { addItem } = useCartStore();
+  const productId = resolvedParams.id;
 
   const [product, setProduct] = useState<Product | null>(null)
   const [loading, setLoading] = useState(true)
@@ -57,21 +59,21 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
   const [loadingSimilar, setLoadingSimilar] = useState(false)
 
   useEffect(() => {
-    if (resolvedParams.id) {
+    if (productId) {
       fetchProduct()
     }
-  }, [resolvedParams.id])
+  }, [productId])
 
   const fetchProduct = async () => {
     try {
       setLoading(true)
-      const response = await fetch(`/api/products/${resolvedParams.id}`)
+      const response = await fetch(`/api/products/${productId}`)
       if (response.ok) {
         const result = await response.json()
         if (result.success && result.data) {
           setProduct(result.data)
           // Fetch similar products after product is loaded
-          fetchSimilarProducts(resolvedParams.id)
+          fetchSimilarProducts(productId)
         } else {
           toast.error('Không thể tải sản phẩm')
         }
@@ -448,7 +450,7 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
         )}
 
         {/* Reviews Section */}
-        <ReviewsSection productId={resolvedParams.id} productName={product.name} />
+        <ReviewsSection productId={productId} productName={product.name} />
       </div>
 
       {/* Comparison Bar */}

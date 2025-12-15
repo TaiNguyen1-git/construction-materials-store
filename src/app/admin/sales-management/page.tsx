@@ -2,19 +2,31 @@
 
 import { useState, useEffect } from 'react'
 import { toast } from 'react-hot-toast'
-import { Save, Plus, Trash2, FileText, Receipt, Camera, X } from 'lucide-react'
+import { Save, Plus, Trash2, FileText, Receipt, Camera, X, Edit } from 'lucide-react'
 import { fetchWithAuth } from '@/lib/api-client'
 
 interface Invoice {
   id: string
   invoiceNumber: string
-  type: 'SALES' | 'PURCHASE'
-  customer?: { name: string; email: string }
-  supplier?: { name: string; email: string }
+  invoiceType: 'SALES' | 'PURCHASE'
+  type?: 'SALES' | 'PURCHASE'
+  customer?: { id: string; user: { name: string; email: string } }
+  supplier?: { id: string; name: string; email: string }
   totalAmount: number
-  status: 'PENDING' | 'SENT' | 'PAID' | 'OVERDUE' | 'CANCELLED'
+  status: 'DRAFT' | 'PENDING' | 'SENT' | 'PAID' | 'OVERDUE' | 'CANCELLED'
   dueDate: string
   createdAt: string
+}
+
+interface Customer {
+  id: string
+  user: { name: string; email: string }
+}
+
+interface Supplier {
+  id: string
+  name: string
+  email: string
 }
 
 interface Product {
@@ -22,6 +34,13 @@ interface Product {
   name: string
   price: number
   unit: string
+}
+
+interface InvoiceItem {
+  productId: string
+  productName: string
+  quantity: number
+  unitPrice: number
 }
 
 interface SaleEntry {
@@ -33,13 +52,30 @@ interface SaleEntry {
 
 export default function SalesManagementPage() {
   const [activeTab, setActiveTab] = useState<'invoices' | 'daily-sales'>('invoices')
-  
+
   // Invoices state
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [invoicesLoading, setInvoicesLoading] = useState(true)
   const [invoiceFilters, setInvoiceFilters] = useState({ type: '', status: '' })
   const [showOcrModal, setShowOcrModal] = useState(false)
-  
+  const [showInvoiceModal, setShowInvoiceModal] = useState(false)
+  const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null)
+
+  // Invoice form state
+  const [customers, setCustomers] = useState<Customer[]>([])
+  const [suppliers, setSuppliers] = useState<Supplier[]>([])
+  const [invoiceForm, setInvoiceForm] = useState({
+    type: 'SALES' as 'SALES' | 'PURCHASE',
+    customerId: '',
+    supplierId: '',
+    dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    note: '',
+    tax: 10
+  })
+  const [invoiceItems, setInvoiceItems] = useState<InvoiceItem[]>([
+    { productId: '', productName: '', quantity: 1, unitPrice: 0 }
+  ])
+
   // Daily Sales state
   const [products, setProducts] = useState<Product[]>([])
   const [entries, setEntries] = useState<SaleEntry[]>([{ productId: '', productName: '', quantity: 0, price: 0 }])
@@ -49,12 +85,36 @@ export default function SalesManagementPage() {
   useEffect(() => {
     if (activeTab === 'invoices') {
       fetchInvoices()
-    } else {
-      fetchProducts()
     }
+    fetchProducts()
+    fetchCustomers()
+    fetchSuppliers()
   }, [activeTab, invoiceFilters])
 
-  // Invoices functions
+  const fetchCustomers = async () => {
+    try {
+      const response = await fetchWithAuth('/api/customers')
+      if (response.ok) {
+        const data = await response.json()
+        setCustomers(data.data?.data || data.data || [])
+      }
+    } catch (error) {
+      console.error('Error fetching customers:', error)
+    }
+  }
+
+  const fetchSuppliers = async () => {
+    try {
+      const response = await fetchWithAuth('/api/suppliers')
+      if (response.ok) {
+        const data = await response.json()
+        setSuppliers(data.data?.data || data.data || [])
+      }
+    } catch (error) {
+      console.error('Error fetching suppliers:', error)
+    }
+  }
+
   const fetchInvoices = async () => {
     try {
       setInvoicesLoading(true)
@@ -67,8 +127,6 @@ export default function SalesManagementPage() {
         const data = await response.json()
         const invoicesData = Array.isArray(data.data) ? data.data : []
         setInvoices(invoicesData)
-      } else if (response.status === 401) {
-        toast.error('Đăng nhập để xem hóa đơn')
       }
     } catch (error) {
       console.error('Error fetching invoices:', error)
@@ -78,44 +136,14 @@ export default function SalesManagementPage() {
     }
   }
 
-  const updateInvoiceStatus = async (invoiceId: string, status: string) => {
-    try {
-      const response = await fetchWithAuth(`/api/invoices/${invoiceId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status })
-      })
-
-      if (response.ok) {
-        toast.success('Cập nhật trạng thái thành công')
-        fetchInvoices()
-      } else {
-        toast.error('Không thể cập nhật hóa đơn')
-      }
-    } catch (error) {
-      console.error('Error updating invoice:', error)
-      toast.error('Không thể cập nhật hóa đơn')
-    }
-  }
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'PENDING': return 'bg-yellow-100 text-yellow-800'
-      case 'SENT': return 'bg-blue-100 text-blue-800'
-      case 'PAID': return 'bg-green-100 text-green-800'
-      case 'OVERDUE': return 'bg-red-100 text-red-800'
-      case 'CANCELLED': return 'bg-gray-100 text-gray-800'
-      default: return 'bg-gray-100 text-gray-800'
-    }
-  }
-
-  // Daily Sales functions
   const fetchProducts = async () => {
     try {
       const res = await fetchWithAuth('/api/products')
       const data = await res.json()
-      if (data.success) {
-        setProducts(data.data.map((p: any) => ({
+      // Handle nested data structure
+      const productsArray = data.data?.data || data.data || data || []
+      if (Array.isArray(productsArray)) {
+        setProducts(productsArray.map((p: any) => ({
           id: p.id,
           name: p.name,
           price: p.price,
@@ -127,6 +155,158 @@ export default function SalesManagementPage() {
     }
   }
 
+  const openInvoiceModal = (invoice?: Invoice) => {
+    if (invoice) {
+      setEditingInvoice(invoice)
+      const type = invoice.invoiceType || invoice.type || 'SALES'
+      setInvoiceForm({
+        type: type,
+        customerId: invoice.customer?.id || '',
+        supplierId: invoice.supplier?.id || '',
+        dueDate: invoice.dueDate?.split('T')[0] || '',
+        note: '',
+        tax: 10
+      })
+    } else {
+      setEditingInvoice(null)
+      setInvoiceForm({
+        type: 'SALES',
+        customerId: customers[0]?.id || '',
+        supplierId: '',
+        dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        note: '',
+        tax: 10
+      })
+      setInvoiceItems([{ productId: '', productName: '', quantity: 1, unitPrice: 0 }])
+    }
+    setShowInvoiceModal(true)
+  }
+
+  const addInvoiceItem = () => {
+    setInvoiceItems([...invoiceItems, { productId: '', productName: '', quantity: 1, unitPrice: 0 }])
+  }
+
+  const removeInvoiceItem = (index: number) => {
+    if (invoiceItems.length > 1) {
+      setInvoiceItems(invoiceItems.filter((_, i) => i !== index))
+    }
+  }
+
+  const updateInvoiceItem = (index: number, field: keyof InvoiceItem, value: any) => {
+    const newItems = [...invoiceItems]
+    newItems[index] = { ...newItems[index], [field]: value }
+
+    if (field === 'productId') {
+      const product = products.find(p => p.id === value)
+      if (product) {
+        newItems[index].productName = product.name
+        newItems[index].unitPrice = product.price
+      }
+    }
+
+    setInvoiceItems(newItems)
+  }
+
+  const calculateInvoiceTotal = () => {
+    const subtotal = invoiceItems.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0)
+    const tax = subtotal * (invoiceForm.tax / 100)
+    return { subtotal, tax, total: subtotal + tax }
+  }
+
+  const handleInvoiceSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    const validItems = invoiceItems.filter(item => item.productId && item.quantity > 0 && item.unitPrice > 0)
+    if (validItems.length === 0) {
+      toast.error('Vui lòng nhập ít nhất 1 sản phẩm hợp lệ')
+      return
+    }
+
+    try {
+      const payload = {
+        type: invoiceForm.type,
+        customerId: invoiceForm.type === 'SALES' ? invoiceForm.customerId : undefined,
+        supplierId: invoiceForm.type === 'PURCHASE' ? invoiceForm.supplierId : undefined,
+        dueDate: invoiceForm.dueDate,
+        note: invoiceForm.note,
+        tax: invoiceForm.tax,
+        invoiceItems: validItems.map(item => ({
+          productId: item.productId,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice
+        }))
+      }
+
+      const response = await fetchWithAuth('/api/invoices', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+
+      if (response.ok) {
+        toast.success('Tạo hóa đơn thành công')
+        setShowInvoiceModal(false)
+        fetchInvoices()
+      } else {
+        const error = await response.json()
+        toast.error(error.error || 'Không thể tạo hóa đơn')
+      }
+    } catch (error) {
+      console.error('Error creating invoice:', error)
+      toast.error('Có lỗi xảy ra')
+    }
+  }
+
+  const updateInvoiceStatus = async (invoiceId: string, status: string) => {
+    console.log('Updating invoice:', invoiceId, 'to status:', status)
+    try {
+      const response = await fetchWithAuth(`/api/invoices/${invoiceId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status })
+      })
+
+      console.log('Response status:', response.status)
+      const data = await response.json()
+      console.log('Response data:', data)
+
+      if (response.ok) {
+        toast.success('Cập nhật trạng thái thành công')
+        fetchInvoices()
+      } else {
+        toast.error(data.error || 'Không thể cập nhật hóa đơn')
+      }
+    } catch (error) {
+      console.error('Error updating invoice:', error)
+      toast.error('Không thể cập nhật hóa đơn')
+    }
+  }
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'DRAFT': return 'bg-gray-100 text-gray-800'
+      case 'PENDING': return 'bg-yellow-100 text-yellow-800'
+      case 'SENT': return 'bg-blue-100 text-blue-800'
+      case 'PAID': return 'bg-green-100 text-green-800'
+      case 'OVERDUE': return 'bg-red-100 text-red-800'
+      case 'CANCELLED': return 'bg-gray-100 text-gray-800'
+      default: return 'bg-gray-100 text-gray-800'
+    }
+  }
+
+  const getStatusText = (status: string) => {
+    const texts: { [key: string]: string } = {
+      'DRAFT': 'Nháp',
+      'PENDING': 'Chờ xử lý',
+      'SENT': 'Đã gửi',
+      'PAID': 'Đã thanh toán',
+      'OVERDUE': 'Quá hạn',
+      'CANCELLED': 'Đã hủy'
+    }
+    return texts[status] || status
+  }
+
+  // Daily Sales functions
   const addEntry = () => {
     setEntries([...entries, { productId: '', productName: '', quantity: 0, price: 0 }])
   }
@@ -138,7 +318,7 @@ export default function SalesManagementPage() {
   const updateEntry = (index: number, field: keyof SaleEntry, value: any) => {
     const newEntries = [...entries]
     newEntries[index] = { ...newEntries[index], [field]: value }
-    
+
     if (field === 'productId') {
       const product = products.find(p => p.id === value)
       if (product) {
@@ -146,7 +326,7 @@ export default function SalesManagementPage() {
         newEntries[index].price = product.price
       }
     }
-    
+
     setEntries(newEntries)
   }
 
@@ -166,7 +346,7 @@ export default function SalesManagementPage() {
       })
 
       const data = await response.json()
-      
+
       if (data.success) {
         toast.success('Đã lưu doanh số ngày!')
         setEntries([{ productId: '', productName: '', quantity: 0, price: 0 }])
@@ -193,15 +373,26 @@ export default function SalesManagementPage() {
           <h1 className="text-2xl font-bold text-gray-900">Quản Lý Bán Hàng</h1>
           <p className="text-sm text-gray-500 mt-1">Hóa đơn và doanh số hàng ngày</p>
         </div>
-        {activeTab === 'invoices' && (
-          <button
-            onClick={() => setShowOcrModal(true)}
-            className="flex items-center px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700"
-          >
-            <Camera className="h-4 w-4 mr-2" />
-            Scan Hóa Đơn (OCR)
-          </button>
-        )}
+        <div className="flex gap-2">
+          {activeTab === 'invoices' && (
+            <>
+              <button
+                onClick={() => openInvoiceModal()}
+                className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Tạo Hóa Đơn
+              </button>
+              <button
+                onClick={() => setShowOcrModal(true)}
+                className="flex items-center px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700"
+              >
+                <Camera className="h-4 w-4 mr-2" />
+                Scan OCR
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Tabs */}
@@ -209,22 +400,20 @@ export default function SalesManagementPage() {
         <nav className="-mb-px flex space-x-8">
           <button
             onClick={() => setActiveTab('invoices')}
-            className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center ${
-              activeTab === 'invoices'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
+            className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center ${activeTab === 'invoices'
+              ? 'border-blue-500 text-blue-600'
+              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
           >
             <FileText className="h-4 w-4 mr-2" />
             Hóa Đơn
           </button>
           <button
             onClick={() => setActiveTab('daily-sales')}
-            className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center ${
-              activeTab === 'daily-sales'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
+            className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center ${activeTab === 'daily-sales'
+              ? 'border-blue-500 text-blue-600'
+              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
           >
             <Receipt className="h-4 w-4 mr-2" />
             Nhập Doanh Số Ngày
@@ -258,6 +447,7 @@ export default function SalesManagementPage() {
                   className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 bg-white"
                 >
                   <option value="">Tất cả</option>
+                  <option value="DRAFT">Nháp</option>
                   <option value="PENDING">Chờ xử lý</option>
                   <option value="SENT">Đã gửi</option>
                   <option value="PAID">Đã thanh toán</option>
@@ -297,61 +487,81 @@ export default function SalesManagementPage() {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {invoices.map((invoice) => (
-                      <tr key={invoice.id}>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900">{invoice.invoiceNumber}</div>
-                          <div className="text-sm text-gray-500">{new Date(invoice.createdAt).toLocaleDateString('vi-VN')}</div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                            invoice.type === 'SALES' ? 'bg-green-100 text-green-800' : 'bg-purple-100 text-purple-800'
-                          }`}>
-                            {invoice.type === 'SALES' ? 'Bán' : 'Mua'}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900">
-                            {invoice.customer?.name || invoice.supplier?.name}
-                          </div>
-                          <div className="text-sm text-gray-500">
-                            {invoice.customer?.email || invoice.supplier?.email}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                          {invoice.totalAmount.toLocaleString('vi-VN')}đ
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(invoice.status)}`}>
-                            {invoice.status}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {new Date(invoice.dueDate).toLocaleDateString('vi-VN')}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          <div className="flex space-x-2">
-                            <button className="text-blue-600 hover:text-blue-900">Xem</button>
-                            {invoice.status === 'PENDING' && (
-                              <button
-                                onClick={() => updateInvoiceStatus(invoice.id, 'SENT')}
-                                className="text-green-600 hover:text-green-900"
-                              >
-                                Gửi
-                              </button>
-                            )}
-                            {['PENDING', 'SENT'].includes(invoice.status) && (
-                              <button
-                                onClick={() => updateInvoiceStatus(invoice.id, 'PAID')}
-                                className="text-green-600 hover:text-green-900"
-                              >
-                                Đã thanh toán
-                              </button>
-                            )}
-                          </div>
+                    {invoices.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="px-6 py-8 text-center text-gray-500">
+                          Chưa có hóa đơn nào. Nhấn "Tạo Hóa Đơn" để bắt đầu.
                         </td>
                       </tr>
-                    ))}
+                    ) : (
+                      invoices.map((invoice) => (
+                        <tr key={invoice.id}>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm font-medium text-gray-900">{invoice.invoiceNumber}</div>
+                            <div className="text-sm text-gray-500">{new Date(invoice.createdAt).toLocaleDateString('vi-VN')}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${(invoice.invoiceType || invoice.type) === 'SALES' ? 'bg-green-100 text-green-800' : 'bg-purple-100 text-purple-800'
+                              }`}>
+                              {(invoice.invoiceType || invoice.type) === 'SALES' ? 'Bán' : 'Mua'}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm font-medium text-gray-900">
+                              {invoice.customer?.user?.name || invoice.supplier?.name || '-'}
+                            </div>
+                            <div className="text-sm text-gray-500">
+                              {invoice.customer?.user?.email || invoice.supplier?.email || ''}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            {invoice.totalAmount.toLocaleString('vi-VN')}đ
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(invoice.status)}`}>
+                              {getStatusText(invoice.status)}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString('vi-VN') : '-'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <div className="flex space-x-2">
+                              <button type="button" className="text-gray-600 hover:text-gray-900">
+                                Xem
+                              </button>
+                              {['DRAFT', 'PENDING'].includes(invoice.status) && (
+                                <button
+                                  type="button"
+                                  onClick={() => updateInvoiceStatus(invoice.id, 'SENT')}
+                                  className="text-blue-600 hover:text-blue-900"
+                                >
+                                  Gửi
+                                </button>
+                              )}
+                              {['PENDING', 'SENT', 'DRAFT', 'OVERDUE'].includes(invoice.status) && (
+                                <button
+                                  type="button"
+                                  onClick={() => updateInvoiceStatus(invoice.id, 'PAID')}
+                                  className="text-green-600 hover:text-green-900"
+                                >
+                                  Đã TT
+                                </button>
+                              )}
+                              {invoice.status !== 'CANCELLED' && invoice.status !== 'PAID' && (
+                                <button
+                                  type="button"
+                                  onClick={() => updateInvoiceStatus(invoice.id, 'CANCELLED')}
+                                  className="text-red-600 hover:text-red-900"
+                                >
+                                  Hủy
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -381,7 +591,7 @@ export default function SalesManagementPage() {
                   <select
                     value={entry.productId}
                     onChange={(e) => updateEntry(index, 'productId', e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
                   >
                     <option value="">-- Chọn sản phẩm --</option>
                     {products.map(p => (
@@ -398,8 +608,7 @@ export default function SalesManagementPage() {
                     type="number"
                     value={entry.quantity || ''}
                     onChange={(e) => updateEntry(index, 'quantity', parseFloat(e.target.value) || 0)}
-                    placeholder="0"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
                   />
                 </div>
 
@@ -409,8 +618,7 @@ export default function SalesManagementPage() {
                     type="number"
                     value={entry.price || ''}
                     onChange={(e) => updateEntry(index, 'price', parseFloat(e.target.value) || 0)}
-                    placeholder="0"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
                   />
                 </div>
 
@@ -425,7 +633,7 @@ export default function SalesManagementPage() {
                   <button
                     onClick={() => removeEntry(index)}
                     disabled={entries.length === 1}
-                    className="w-full p-2 text-red-500 hover:bg-red-50 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed"
+                    className="w-full p-2 text-red-500 hover:bg-red-50 rounded-lg disabled:opacity-30"
                   >
                     <Trash2 className="w-5 h-5 mx-auto" />
                   </button>
@@ -436,7 +644,7 @@ export default function SalesManagementPage() {
 
           <button
             onClick={addEntry}
-            className="mb-6 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg flex items-center gap-2 transition-colors"
+            className="mb-6 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg flex items-center gap-2"
           >
             <Plus className="w-5 h-5" />
             Thêm sản phẩm
@@ -452,7 +660,7 @@ export default function SalesManagementPage() {
           <button
             onClick={handleDailySalesSubmit}
             disabled={salesLoading}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg flex items-center justify-center gap-2"
           >
             <Save className="w-5 h-5" />
             {salesLoading ? 'Đang lưu...' : 'Lưu doanh số'}
@@ -460,18 +668,183 @@ export default function SalesManagementPage() {
         </div>
       )}
 
+      {/* Create Invoice Modal */}
+      {showInvoiceModal && (
+        <div className="fixed inset-0 bg-gray-100 bg-opacity-75 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold">Tạo Hóa Đơn Mới</h3>
+              <button onClick={() => setShowInvoiceModal(false)}><X className="h-5 w-5" /></button>
+            </div>
+
+            <form onSubmit={handleInvoiceSubmit} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Loại Hóa Đơn *</label>
+                  <select
+                    value={invoiceForm.type}
+                    onChange={(e) => setInvoiceForm({ ...invoiceForm, type: e.target.value as 'SALES' | 'PURCHASE' })}
+                    className="mt-1 w-full border rounded-lg px-3 py-2"
+                  >
+                    <option value="SALES">Bán Hàng</option>
+                    <option value="PURCHASE">Mua Hàng</option>
+                  </select>
+                </div>
+
+                {invoiceForm.type === 'SALES' ? (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Khách Hàng *</label>
+                    <select
+                      value={invoiceForm.customerId}
+                      onChange={(e) => setInvoiceForm({ ...invoiceForm, customerId: e.target.value })}
+                      className="mt-1 w-full border rounded-lg px-3 py-2"
+                      required
+                    >
+                      <option value="">Chọn khách hàng</option>
+                      {customers.map(c => (
+                        <option key={c.id} value={c.id}>{c.user?.name || c.id} ({c.user?.email || ''})</option>
+                      ))}
+                    </select>
+                  </div>
+                ) : (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Nhà Cung Cấp *</label>
+                    <select
+                      value={invoiceForm.supplierId}
+                      onChange={(e) => setInvoiceForm({ ...invoiceForm, supplierId: e.target.value })}
+                      className="mt-1 w-full border rounded-lg px-3 py-2"
+                      required
+                    >
+                      <option value="">Chọn nhà cung cấp</option>
+                      {suppliers.map(s => (
+                        <option key={s.id} value={s.id}>{s.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Hạn Thanh Toán</label>
+                  <input
+                    type="date"
+                    value={invoiceForm.dueDate}
+                    onChange={(e) => setInvoiceForm({ ...invoiceForm, dueDate: e.target.value })}
+                    className="mt-1 w-full border rounded-lg px-3 py-2"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Thuế VAT (%)</label>
+                  <input
+                    type="number"
+                    value={invoiceForm.tax}
+                    onChange={(e) => setInvoiceForm({ ...invoiceForm, tax: Number(e.target.value) })}
+                    className="mt-1 w-full border rounded-lg px-3 py-2"
+                    min={0}
+                    max={100}
+                  />
+                </div>
+              </div>
+
+              {/* Invoice Items */}
+              <div className="border-t pt-4">
+                <h4 className="font-medium mb-3">Sản Phẩm</h4>
+                <div className="space-y-3">
+                  {invoiceItems.map((item, index) => (
+                    <div key={index} className="grid grid-cols-12 gap-2 items-end">
+                      <div className="col-span-5">
+                        <select
+                          value={item.productId}
+                          onChange={(e) => updateInvoiceItem(index, 'productId', e.target.value)}
+                          className="w-full border rounded-lg px-3 py-2 text-sm"
+                          required
+                        >
+                          <option value="">Chọn sản phẩm</option>
+                          {products.map(p => (
+                            <option key={p.id} value={p.id}>{p.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="col-span-2">
+                        <input
+                          type="number"
+                          placeholder="SL"
+                          value={item.quantity || ''}
+                          onChange={(e) => updateInvoiceItem(index, 'quantity', Number(e.target.value))}
+                          className="w-full border rounded-lg px-3 py-2 text-sm"
+                          min={1}
+                          required
+                        />
+                      </div>
+                      <div className="col-span-3">
+                        <input
+                          type="number"
+                          placeholder="Đơn giá"
+                          value={item.unitPrice || ''}
+                          onChange={(e) => updateInvoiceItem(index, 'unitPrice', Number(e.target.value))}
+                          className="w-full border rounded-lg px-3 py-2 text-sm"
+                          min={0}
+                          required
+                        />
+                      </div>
+                      <div className="col-span-2 flex items-center gap-2">
+                        <span className="text-sm font-medium text-blue-600">
+                          {(item.quantity * item.unitPrice).toLocaleString('vi-VN')}đ
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => removeInvoiceItem(index)}
+                          className="text-red-500 hover:text-red-700"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={addInvoiceItem}
+                  className="mt-3 px-3 py-1 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg flex items-center gap-1"
+                >
+                  <Plus className="h-4 w-4" /> Thêm sản phẩm
+                </button>
+              </div>
+
+              {/* Totals */}
+              <div className="border-t pt-4 space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span>Tạm tính:</span>
+                  <span>{calculateInvoiceTotal().subtotal.toLocaleString('vi-VN')}đ</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span>Thuế VAT ({invoiceForm.tax}%):</span>
+                  <span>{calculateInvoiceTotal().tax.toLocaleString('vi-VN')}đ</span>
+                </div>
+                <div className="flex justify-between font-bold text-lg">
+                  <span>Tổng cộng:</span>
+                  <span className="text-blue-600">{calculateInvoiceTotal().total.toLocaleString('vi-VN')}đ</span>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 mt-6">
+                <button type="button" onClick={() => setShowInvoiceModal(false)} className="px-4 py-2 border rounded-lg hover:bg-gray-50">Hủy</button>
+                <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Tạo Hóa Đơn</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* OCR Modal */}
       {showOcrModal && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-11/12 md:w-2/3 shadow-lg rounded-md bg-white">
+        <div className="fixed inset-0 bg-gray-100 bg-opacity-75 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-lg">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-bold text-gray-900">Scan Hóa Đơn với OCR</h3>
-              <button
-                onClick={() => setShowOcrModal(false)}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <X className="h-6 w-6" />
-              </button>
+              <button onClick={() => setShowOcrModal(false)}><X className="h-6 w-6" /></button>
             </div>
             <div className="text-center p-8 border-2 border-dashed border-gray-300 rounded-lg">
               <Camera className="h-16 w-16 mx-auto text-gray-400 mb-4" />

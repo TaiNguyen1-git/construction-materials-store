@@ -16,12 +16,13 @@ const updateTaskSchema = z.object({
 // GET /api/employee-tasks/[id] - Get specific task
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await context.params
     const userRole = request.headers.get('x-user-role')
     const userId = request.headers.get('x-user-id')
-    
+
     if (!['MANAGER', 'EMPLOYEE'].includes(userRole || '')) {
       return NextResponse.json(
         createErrorResponse('Access denied', 'FORBIDDEN'),
@@ -30,7 +31,7 @@ export async function GET(
     }
 
     const task = await prisma.employeeTask.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         employee: {
           include: {
@@ -79,12 +80,13 @@ export async function GET(
 // PUT /api/employee-tasks/[id] - Update task
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await context.params
     const userRole = request.headers.get('x-user-role')
     const userId = request.headers.get('x-user-id')
-    
+
     if (!['MANAGER', 'EMPLOYEE'].includes(userRole || '')) {
       return NextResponse.json(
         createErrorResponse('Access denied', 'FORBIDDEN'),
@@ -93,7 +95,7 @@ export async function PUT(
     }
 
     const body = await request.json()
-    
+
     // Validate input
     const validation = updateTaskSchema.safeParse(body)
     if (!validation.success) {
@@ -107,7 +109,7 @@ export async function PUT(
 
     // Check if task exists
     const existingTask = await prisma.employeeTask.findUnique({
-      where: { id: params.id }
+      where: { id }
     })
 
     if (!existingTask) {
@@ -128,7 +130,7 @@ export async function PUT(
           { status: 403 }
         )
       }
-      
+
       // Employees can only update status and actualHours
       const allowedFields = ['status', 'actualHours']
       const filteredData: any = {}
@@ -147,7 +149,7 @@ export async function PUT(
 
     // Update task
     const task = await prisma.employeeTask.update({
-      where: { id: params.id },
+      where: { id },
       data: updateData,
       include: {
         employee: {
@@ -177,9 +179,10 @@ export async function PUT(
 // DELETE /api/employee-tasks/[id] - Delete task
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await context.params
     // Only managers can delete tasks
     const userRole = request.headers.get('x-user-role')
     if (userRole !== 'MANAGER') {
@@ -191,7 +194,7 @@ export async function DELETE(
 
     // Check if task exists
     const task = await prisma.employeeTask.findUnique({
-      where: { id: params.id }
+      where: { id }
     })
 
     if (!task) {
@@ -203,7 +206,7 @@ export async function DELETE(
 
     // Delete task
     await prisma.employeeTask.delete({
-      where: { id: params.id }
+      where: { id }
     })
 
     return NextResponse.json(

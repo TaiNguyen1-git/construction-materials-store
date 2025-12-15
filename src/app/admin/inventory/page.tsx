@@ -348,6 +348,78 @@ export default function InventoryPage() {
       {activeTab === 'management' && (
         <InventoryManagement recommendations={recommendations} movements={movements} />
       )}
+
+      {/* Stock Adjustment Modal */}
+      {showAdjustModal && (
+        <div className="fixed inset-0 bg-gray-100 bg-opacity-75 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold">Điều Chỉnh Tồn Kho</h3>
+              <button onClick={() => setShowAdjustModal(false)} className="text-gray-500 hover:text-gray-700">✕</button>
+            </div>
+
+            <form onSubmit={handleStockAdjustment} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Sản Phẩm *</label>
+                <select
+                  value={adjustForm.productId}
+                  onChange={(e) => setAdjustForm({ ...adjustForm, productId: e.target.value })}
+                  className="mt-1 w-full border rounded-lg px-3 py-2"
+                  required
+                >
+                  <option value="">Chọn sản phẩm</option>
+                  {products.map(p => (
+                    <option key={p.id} value={p.id}>{p.name} (Tồn: {p.stock})</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Loại Điều Chỉnh *</label>
+                <select
+                  value={adjustForm.type}
+                  onChange={(e) => setAdjustForm({ ...adjustForm, type: e.target.value as 'IN' | 'OUT' | 'ADJUSTMENT' })}
+                  className="mt-1 w-full border rounded-lg px-3 py-2"
+                  required
+                >
+                  <option value="IN">Nhập Kho</option>
+                  <option value="OUT">Xuất Kho</option>
+                  <option value="ADJUSTMENT">Điều Chỉnh</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Số Lượng *</label>
+                <input
+                  type="number"
+                  value={adjustForm.quantity || ''}
+                  onChange={(e) => setAdjustForm({ ...adjustForm, quantity: Number(e.target.value) })}
+                  className="mt-1 w-full border rounded-lg px-3 py-2"
+                  min={1}
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Lý Do *</label>
+                <textarea
+                  value={adjustForm.reason}
+                  onChange={(e) => setAdjustForm({ ...adjustForm, reason: e.target.value })}
+                  className="mt-1 w-full border rounded-lg px-3 py-2"
+                  rows={3}
+                  placeholder="Nhập lý do điều chỉnh..."
+                  required
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 mt-6">
+                <button type="button" onClick={() => setShowAdjustModal(false)} className="px-4 py-2 border rounded-lg hover:bg-gray-50">Hủy</button>
+                <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Xác Nhận</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

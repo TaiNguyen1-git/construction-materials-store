@@ -14,6 +14,7 @@ export default function LoginPage() {
     email: '',
     password: ''
   })
+  const [rememberMe, setRememberMe] = useState(false)
   const [localErrors, setLocalErrors] = useState<Record<string, string>>({})
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -21,17 +22,18 @@ export default function LoginPage() {
     setLocalErrors({})
 
     try {
-      console.log('[LOGIN] Starting login process...')
+      console.log('[LOGIN] Starting login process... rememberMe:', rememberMe)
       await login({
         email: formData.email,
         password: formData.password
-      })
+      }, rememberMe)
 
       console.log('[LOGIN] Login successful, checking user data...')
 
-      // Get user data from localStorage (set by auth-service after login)
-      const userData = localStorage.getItem('user')
-      console.log('[LOGIN] Retrieved user data from localStorage:', userData)
+      // Get user data from storage (check both localStorage and sessionStorage)
+      // sessionStorage is used when rememberMe is false, localStorage when true
+      const userData = localStorage.getItem('user') || sessionStorage.getItem('user')
+      console.log('[LOGIN] Retrieved user data from storage:', userData)
 
       if (userData) {
         const user = JSON.parse(userData)
@@ -183,6 +185,8 @@ export default function LoginPage() {
                     id="remember-me"
                     name="remember-me"
                     type="checkbox"
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
                     className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded cursor-pointer"
                   />
                   <label htmlFor="remember-me" className="ml-2 block text-sm font-medium text-gray-700 cursor-pointer">

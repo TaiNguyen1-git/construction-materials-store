@@ -17,6 +17,7 @@ interface Product {
   category: { name: string }
   inventoryItem?: {
     quantity: number
+    availableQuantity?: number
     minStockLevel: number
   }
   isActive: boolean
@@ -52,7 +53,7 @@ export default function ProductsSuppliersPage() {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
   const [deletingProduct, setDeletingProduct] = useState<Product | null>(null)
   const [productFormLoading, setProductFormLoading] = useState(false)
-  
+
   // Product Form
   const [productForm, setProductForm] = useState({
     name: '',
@@ -61,7 +62,9 @@ export default function ProductsSuppliersPage() {
     unit: '',
     categoryId: '',
     minStockLevel: 0,
-    isActive: true
+    isActive: true,
+    images: [] as string[],
+    description: ''
   })
 
   // Suppliers state
@@ -74,7 +77,7 @@ export default function ProductsSuppliersPage() {
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null)
   const [deletingSupplier, setDeletingSupplier] = useState<Supplier | null>(null)
   const [supplierFormLoading, setSupplierFormLoading] = useState(false)
-  
+
   // Supplier Form
   const [supplierForm, setSupplierForm] = useState({
     name: '',
@@ -122,7 +125,7 @@ export default function ProductsSuppliersPage() {
     }
   }
 
-  const filteredProducts = products.filter(p => 
+  const filteredProducts = products.filter(p =>
     p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
     p.sku.toLowerCase().includes(productSearch.toLowerCase())
   )
@@ -144,9 +147,11 @@ export default function ProductsSuppliersPage() {
         sku: product.sku,
         price: product.price,
         unit: product.unit,
-        categoryId: product.category.name, // Simplified, should use ID
+        categoryId: product.category.name,
         minStockLevel: product.inventoryItem?.minStockLevel || 0,
-        isActive: product.isActive
+        isActive: product.isActive,
+        images: (product as any).images || [],
+        description: (product as any).description || ''
       })
     } else {
       setEditingProduct(null)
@@ -157,7 +162,9 @@ export default function ProductsSuppliersPage() {
         unit: '',
         categoryId: '',
         minStockLevel: 0,
-        isActive: true
+        isActive: true,
+        images: [],
+        description: ''
       })
     }
     setShowProductModal(true)
@@ -186,8 +193,11 @@ export default function ProductsSuppliersPage() {
         closeProductModal()
         fetchProducts()
       } else {
-        const error = await response.json()
-        toast.error(error.error || 'Có lỗi xảy ra')
+        const errorData = await response.json()
+        const errorMessage = typeof errorData.error === 'string'
+          ? errorData.error
+          : errorData.error?.message || errorData.message || 'Có lỗi xảy ra'
+        toast.error(errorMessage)
       }
     } catch (error) {
       console.error('Error saving product:', error)
@@ -207,12 +217,15 @@ export default function ProductsSuppliersPage() {
       })
 
       if (response.ok) {
-        toast.success('Xóa sản phẩm thành công')
+        toast.success('Đã ngừng bán sản phẩm')
         setDeletingProduct(null)
         fetchProducts()
       } else {
-        const error = await response.json()
-        toast.error(error.error || 'Không thể xóa sản phẩm')
+        const errorData = await response.json()
+        const errorMessage = typeof errorData.error === 'string'
+          ? errorData.error
+          : errorData.error?.message || errorData.message || 'Không thể xóa sản phẩm'
+        toast.error(errorMessage)
       }
     } catch (error) {
       console.error('Error deleting product:', error)
@@ -307,8 +320,11 @@ export default function ProductsSuppliersPage() {
         closeSupplierModal()
         fetchSuppliers()
       } else {
-        const error = await response.json()
-        toast.error(error.error || 'Có lỗi xảy ra')
+        const errorData = await response.json()
+        const errorMessage = typeof errorData.error === 'string'
+          ? errorData.error
+          : errorData.error?.message || errorData.message || 'Có lỗi xảy ra'
+        toast.error(errorMessage)
       }
     } catch (error) {
       console.error('Error saving supplier:', error)
@@ -332,8 +348,11 @@ export default function ProductsSuppliersPage() {
         setDeletingSupplier(null)
         fetchSuppliers()
       } else {
-        const error = await response.json()
-        toast.error(error.error || 'Không thể xóa nhà cung cấp')
+        const errorData = await response.json()
+        const errorMessage = typeof errorData.error === 'string'
+          ? errorData.error
+          : errorData.error?.message || errorData.message || 'Không thể xóa nhà cung cấp'
+        toast.error(errorMessage)
       }
     } catch (error) {
       console.error('Error deleting supplier:', error)
@@ -345,8 +364,9 @@ export default function ProductsSuppliersPage() {
 
   const getStockStatus = (product: Product) => {
     if (!product.inventoryItem) return { text: 'Chưa có', color: 'bg-gray-100 text-gray-800' }
-    const qty = product.inventoryItem.quantity
-    const min = product.inventoryItem.minStockLevel
+    // Use availableQuantity first, fallback to quantity
+    const qty = product.inventoryItem.availableQuantity ?? product.inventoryItem.quantity ?? 0
+    const min = product.inventoryItem.minStockLevel || 0
     if (qty <= 0) return { text: 'Hết hàng', color: 'bg-red-100 text-red-800' }
     if (qty <= min) return { text: 'Sắp hết', color: 'bg-yellow-100 text-yellow-800' }
     return { text: 'Còn hàng', color: 'bg-green-100 text-green-800' }
@@ -395,7 +415,7 @@ export default function ProductsSuppliersPage() {
             <div>
               <div className="text-sm text-gray-600">Sản Phẩm Sắp Hết</div>
               <div className="text-2xl font-bold text-red-600">
-                {products.filter(p => p.inventoryItem && p.inventoryItem.quantity <= p.inventoryItem.minStockLevel).length}
+                {products.filter(p => p.inventoryItem && (p.inventoryItem.availableQuantity ?? p.inventoryItem.quantity ?? 0) <= p.inventoryItem.minStockLevel).length}
               </div>
             </div>
             <Package className="w-8 h-8 text-red-600" />
@@ -407,7 +427,7 @@ export default function ProductsSuppliersPage() {
             <div>
               <div className="text-sm text-gray-600">Giá Trị Tồn Kho</div>
               <div className="text-xl font-bold text-purple-600">
-                {products.reduce((sum, p) => sum + (p.inventoryItem?.quantity || 0) * p.price, 0).toLocaleString('vi-VN')}đ
+                {products.reduce((sum, p) => sum + (p.inventoryItem?.availableQuantity ?? p.inventoryItem?.quantity ?? 0) * p.price, 0).toLocaleString('vi-VN')}đ
               </div>
             </div>
             <Package className="w-8 h-8 text-purple-600" />
@@ -428,7 +448,7 @@ export default function ProductsSuppliersPage() {
           </div>
           {expandedSections.products ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
         </button>
-        
+
         {expandedSections.products && (
           <div className="border-t p-4">
             {/* Search & Actions */}
@@ -443,13 +463,26 @@ export default function ProductsSuppliersPage() {
                   className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
-              <button 
-                onClick={() => openProductModal()}
-                className="ml-4 flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-              >
-                <Plus className="h-5 w-5 mr-2" />
-                Thêm sản phẩm
-              </button>
+              <div className="flex items-center gap-2 ml-4">
+                <button
+                  type="button"
+                  onClick={() => { setProductsLoading(true); fetchProducts() }}
+                  disabled={productsLoading}
+                  className="flex items-center px-3 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+                >
+                  <svg className={`h-4 w-4 mr-1 ${productsLoading ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  Làm mới
+                </button>
+                <button
+                  onClick={() => openProductModal()}
+                  className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                  <Plus className="h-5 w-5 mr-2" />
+                  Thêm sản phẩm
+                </button>
+              </div>
             </div>
 
             {productsLoading ? (
@@ -494,27 +527,26 @@ export default function ProductsSuppliersPage() {
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div className="text-sm font-medium text-gray-900">
-                                {product.inventoryItem?.quantity || 0}
+                                {product.inventoryItem?.availableQuantity ?? product.inventoryItem?.quantity ?? 0}
                               </div>
                               <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${stockStatus.color}`}>
                                 {stockStatus.text}
                               </span>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
-                              <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                                product.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                              }`}>
+                              <span className={`px-2 py-1 text-xs font-semibold rounded-full ${product.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                                }`}>
                                 {product.isActive ? 'Đang bán' : 'Ngừng bán'}
                               </span>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                              <button 
+                              <button
                                 onClick={() => openProductModal(product)}
                                 className="text-blue-600 hover:text-blue-900 mr-3"
                               >
                                 Sửa
                               </button>
-                              <button 
+                              <button
                                 onClick={() => setDeletingProduct(product)}
                                 className="text-red-600 hover:text-red-900"
                               >
@@ -558,7 +590,7 @@ export default function ProductsSuppliersPage() {
           </div>
           {expandedSections.suppliers ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
         </button>
-        
+
         {expandedSections.suppliers && (
           <div className="border-t p-4">
             {/* Search & Actions */}
@@ -573,7 +605,7 @@ export default function ProductsSuppliersPage() {
                   className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
                 />
               </div>
-              <button 
+              <button
                 onClick={() => openSupplierModal()}
                 className="ml-4 flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
               >
@@ -605,61 +637,60 @@ export default function ProductsSuppliersPage() {
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
                       {paginatedSuppliers.map((supplier) => (
-                      <tr key={supplier.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                          {supplier.name}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {supplier.contactPerson || '-'}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {supplier.email || '-'}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {supplier.phone || '-'}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          <div className="max-w-xs truncate">
-                            {supplier.address ? `${supplier.address}, ${supplier.city}` : '-'}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                          {supplier.creditLimit.toLocaleString('vi-VN')}đ
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          {supplier.rating ? (
-                            <div className="flex items-center">
-                              <span className="text-yellow-500">★</span>
-                              <span className="ml-1 text-sm font-medium text-gray-900">
-                                {supplier.rating.toFixed(1)}
-                              </span>
+                        <tr key={supplier.id} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            {supplier.name}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {supplier.contactPerson || '-'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {supplier.email || '-'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {supplier.phone || '-'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <div className="max-w-xs truncate">
+                              {supplier.address ? `${supplier.address}, ${supplier.city}` : '-'}
                             </div>
-                          ) : (
-                            <span className="text-sm text-gray-400">Chưa có</span>
-                          )}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                            supplier.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                          }`}>
-                            {supplier.isActive ? 'Hoạt động' : 'Ngừng'}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          <button 
-                            onClick={() => openSupplierModal(supplier)}
-                            className="text-blue-600 hover:text-blue-900 mr-3"
-                          >
-                            Sửa
-                          </button>
-                          <button 
-                            onClick={() => setDeletingSupplier(supplier)}
-                            className="text-red-600 hover:text-red-900"
-                          >
-                            Xóa
-                          </button>
-                        </td>
-                      </tr>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            {supplier.creditLimit.toLocaleString('vi-VN')}đ
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            {supplier.rating ? (
+                              <div className="flex items-center">
+                                <span className="text-yellow-500">★</span>
+                                <span className="ml-1 text-sm font-medium text-gray-900">
+                                  {supplier.rating.toFixed(1)}
+                                </span>
+                              </div>
+                            ) : (
+                              <span className="text-sm text-gray-400">Chưa có</span>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`px-2 py-1 text-xs font-semibold rounded-full ${supplier.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                              }`}>
+                              {supplier.isActive ? 'Hoạt động' : 'Ngừng'}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <button
+                              onClick={() => openSupplierModal(supplier)}
+                              className="text-blue-600 hover:text-blue-900 mr-3"
+                            >
+                              Sửa
+                            </button>
+                            <button
+                              onClick={() => setDeletingSupplier(supplier)}
+                              className="text-red-600 hover:text-red-900"
+                            >
+                              Xóa
+                            </button>
+                          </td>
+                        </tr>
                       ))}
                     </tbody>
                   </table>
@@ -772,6 +803,122 @@ export default function ProductsSuppliersPage() {
               />
               <span className="text-sm text-gray-700">Đang Bán</span>
             </label>
+          </div>
+
+          {/* Description */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Mô Tả</label>
+            <textarea
+              value={productForm.description}
+              onChange={(e) => setProductForm({ ...productForm, description: e.target.value })}
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 bg-white"
+              rows={3}
+              placeholder="Mô tả sản phẩm..."
+            />
+          </div>
+
+          {/* Image URLs and Upload */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Ảnh Sản Phẩm</label>
+
+            {/* File Upload */}
+            <div className="mb-3 p-3 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-400 transition-colors">
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={(e) => {
+                  const files = e.target.files
+                  if (files) {
+                    Array.from(files).forEach(file => {
+                      const reader = new FileReader()
+                      reader.onload = (event) => {
+                        const base64 = event.target?.result as string
+                        setProductForm(prev => ({ ...prev, images: [...prev.images, base64] }))
+                      }
+                      reader.readAsDataURL(file)
+                    })
+                  }
+                  e.target.value = '' // Reset input
+                }}
+                className="hidden"
+                id="image-upload"
+              />
+              <label htmlFor="image-upload" className="cursor-pointer flex flex-col items-center">
+                <svg className="w-8 h-8 text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                <span className="text-sm text-gray-600">Bấm để upload ảnh từ máy</span>
+                <span className="text-xs text-gray-400 mt-1">Hỗ trợ JPG, PNG, GIF</span>
+              </label>
+            </div>
+
+            {/* URL Input */}
+            <div className="space-y-2">
+              <p className="text-xs text-gray-500">Hoặc nhập URL ảnh:</p>
+              {productForm.images.map((img, idx) => (
+                <div key={idx} className="flex gap-2">
+                  <input
+                    type="text"
+                    value={img.startsWith('data:') ? '(Ảnh upload)' : img}
+                    onChange={(e) => {
+                      const newImages = [...productForm.images]
+                      newImages[idx] = e.target.value
+                      setProductForm({ ...productForm, images: newImages })
+                    }}
+                    disabled={img.startsWith('data:')}
+                    className="flex-1 border border-gray-300 rounded-md px-3 py-2 text-gray-900 bg-white disabled:bg-gray-100"
+                    placeholder="https://example.com/image.jpg"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const newImages = productForm.images.filter((_, i) => i !== idx)
+                      setProductForm({ ...productForm, images: newImages })
+                    }}
+                    className="px-3 py-2 text-red-600 hover:bg-red-50 rounded-md"
+                  >
+                    Xóa
+                  </button>
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={() => setProductForm({ ...productForm, images: [...productForm.images, ''] })}
+                className="text-sm text-blue-600 hover:text-blue-800"
+              >
+                + Thêm URL ảnh
+              </button>
+            </div>
+
+            {/* Preview */}
+            {productForm.images.length > 0 && productForm.images.filter(img => img).length > 0 && (
+              <div className="mt-3">
+                <p className="text-xs text-gray-500 mb-2">Xem trước ({productForm.images.filter(img => img).length} ảnh):</p>
+                <div className="flex flex-wrap gap-2">
+                  {productForm.images.filter(img => img).map((img, idx) => (
+                    <div key={idx} className="relative">
+                      <img
+                        src={img}
+                        alt={`Preview ${idx + 1}`}
+                        className="w-20 h-20 object-cover rounded border"
+                        onError={(e) => (e.target as HTMLImageElement).style.display = 'none'}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const newImages = productForm.images.filter((_, i) => i !== productForm.images.indexOf(img))
+                          setProductForm({ ...productForm, images: newImages })
+                        }}
+                        className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center hover:bg-red-600"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="flex justify-end space-x-3 pt-4 border-t">

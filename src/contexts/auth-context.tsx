@@ -10,7 +10,7 @@ interface AuthContextType {
   isAuthenticated: boolean
   isLoading: boolean
   error: string | null
-  login: (credentials: LoginCredentials) => Promise<void>
+  login: (credentials: LoginCredentials, rememberMe?: boolean) => Promise<void>
   register: (userData: RegisterData) => Promise<void>
   logout: () => void
   clearError: () => void
@@ -47,11 +47,72 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     initializeAuth()
   }, [])
 
+  // Listen for storage changes from other tabs (cross-tab sync)
+  useEffect(() => {
+    const handleStorageChange = (event: StorageEvent) => {
+      // Only handle changes to auth-related keys
+      if (event.key === 'user' || event.key === 'access_token') {
+        console.log('[Auth Context] Storage change detected from another tab:', event.key)
+
+        if (event.key === 'user') {
+          if (event.newValue) {
+            // User logged in from another tab
+            try {
+              const user = JSON.parse(event.newValue)
+              console.log('[Auth Context] User logged in from another tab:', user.email, 'role:', user.role)
+
+              setAuthState({
+                user,
+                isAuthenticated: true,
+                isLoading: false,
+                error: null
+              })
+
+              // Redirect based on role
+              if (user.role === 'MANAGER' || user.role === 'EMPLOYEE') {
+                console.log('[Auth Context] Redirecting to /admin after cross-tab login')
+                window.location.href = '/admin'
+              } else {
+                // For customers, refresh to update the UI
+                console.log('[Auth Context] Refreshing page after cross-tab customer login')
+                window.location.reload()
+              }
+            } catch (e) {
+              console.error('[Auth Context] Error parsing user data from storage:', e)
+            }
+          } else {
+            // User logged out from another tab
+            console.log('[Auth Context] User logged out from another tab, clearing state')
+            setAuthState({
+              user: null,
+              isAuthenticated: false,
+              isLoading: false,
+              error: null
+            })
+
+            // Redirect to home page
+            window.location.href = '/'
+          }
+        }
+      }
+    }
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('storage', handleStorageChange)
+    }
+
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('storage', handleStorageChange)
+      }
+    }
+  }, [])
+
   // Login function
-  const login = async (credentials: LoginCredentials) => {
+  const login = async (credentials: LoginCredentials, rememberMe: boolean = true) => {
     try {
       setAuthState(prev => ({ ...prev, isLoading: true, error: null }))
-      const response = await authService.login(credentials)
+      const response = await authService.login(credentials, rememberMe)
       setAuthState({
         user: response.user,
         isAuthenticated: true,
