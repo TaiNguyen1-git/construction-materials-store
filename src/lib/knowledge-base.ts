@@ -477,6 +477,179 @@ export const KNOWLEDGE_BASE: ProductKnowledge[] = [
   },
 
   // ========================================
+  // THÉP XÂY DỰNG
+  // ========================================
+  {
+    id: 'steel_d10',
+    category: 'Thép',
+    name: 'Thép D10 Pomina',
+    brand: 'Pomina',
+    supplier: 'Pomina Steel',
+    description: 'Thép cuộn D10 Pomina, dùng cho đổ móng, đà, cột, sàn. Thương hiệu thép số 1 Việt Nam.',
+    specifications: {
+      diameter: '10mm',
+      length: '11.7m/cây',
+      weight: '6.2kg/m',
+      standard: 'TCVN 1651-2:2008',
+      grade: 'CB300-V'
+    },
+    pricing: {
+      basePrice: 18500,
+      unit: 'kg',
+      bulkDiscount: [
+        { minQuantity: 500, discountPercent: 2 },
+        { minQuantity: 1000, discountPercent: 4 }
+      ]
+    },
+    usage: [
+      'Cốt thép cho móng đơn, móng băng',
+      'Cốt thép cho cột, dầm nhỏ',
+      'Thép đai cho cột, dầm',
+      'Công trình nhà ở dân dụng'
+    ],
+    quality: 'Cao - Thương hiệu uy tín hàng đầu',
+    commonCombinations: [
+      'Xi măng PC40',
+      'Xi măng PCB40',
+      'Đá 1x2',
+      'Cát xây dựng',
+      'Dây kẽm buộc',
+      'Phụ gia bê tông'
+    ],
+    tips: [
+      'Thép D10 thường làm thép chịu lực cho móng đơn, đà nhỏ',
+      'Cắt và uốn theo bản vẽ kết cấu',
+      'Bảo quản nơi khô ráo tránh rỉ sét',
+      'Mua dư 5-10% dự phòng hao hụt'
+    ],
+    warnings: [
+      'Không để thép tiếp xúc trực tiếp với đất',
+      'Kiểm tra rỉ sét trước khi thi công'
+    ],
+    alternatives: ['Thép D12', 'Thép D8']
+  },
+  {
+    id: 'steel_d12',
+    category: 'Thép',
+    name: 'Thép D12 Pomina',
+    brand: 'Pomina',
+    supplier: 'Pomina Steel',
+    description: 'Thép cuộn D12 Pomina, phổ biến cho móng, cột, dầm, sàn các công trình dân dụng.',
+    specifications: {
+      diameter: '12mm',
+      length: '11.7m/cây',
+      weight: '8.9kg/m',
+      standard: 'TCVN 1651-2:2008',
+      grade: 'CB300-V'
+    },
+    pricing: {
+      basePrice: 18200,
+      unit: 'kg',
+      bulkDiscount: [
+        { minQuantity: 500, discountPercent: 2 },
+        { minQuantity: 1000, discountPercent: 4 }
+      ]
+    },
+    usage: [
+      'Cốt thép cho móng, cột, dầm, sàn',
+      'Thép chịu lực chính cho nhà 2-3 tầng',
+      'Công trình nhà ở, biệt thự'
+    ],
+    quality: 'Cao - Loại thép phổ biến nhất cho xây dựng dân dụng',
+    commonCombinations: [
+      'Xi măng PC40',
+      'Cát xây dựng',
+      'Đá 1x2',
+      'Thép D10',
+      'Dây kẽm',
+      'Ván khuôn'
+    ],
+    tips: [
+      'D12 là thép phổ biến nhất cho nhà phố 2-4 tầng',
+      'Kết hợp với D10 làm thép đai',
+      'Độ chồng nối thép tối thiểu 40D (480mm)'
+    ],
+    alternatives: ['Thép D14', 'Thép D10']
+  },
+  {
+    id: 'steel_d16',
+    category: 'Thép',
+    name: 'Thép D16 Pomina',
+    brand: 'Pomina',
+    supplier: 'Pomina Steel',
+    description: 'Thép cuộn D16 Pomina, dùng cho móng băng, dầm lớn, cột chịu lực cao.',
+    specifications: {
+      diameter: '16mm',
+      length: '11.7m/cây',
+      weight: '15.8kg/m',
+      standard: 'TCVN 1651-2:2008',
+      grade: 'CB400-V'
+    },
+    pricing: {
+      basePrice: 18000,
+      unit: 'kg',
+      bulkDiscount: [
+        { minQuantity: 500, discountPercent: 2 },
+        { minQuantity: 1000, discountPercent: 4 }
+      ]
+    },
+    usage: [
+      'Móng băng, móng bè',
+      'Dầm chính chịu lực lớn',
+      'Cột chịu lực cao',
+      'Nhà 3-5 tầng'
+    ],
+    quality: 'Cao - Thép chịu lực lớn',
+    commonCombinations: [
+      'Xi măng PCB40',
+      'Đá 1x2',
+      'Cát xây dựng loại I',
+      'Thép D10 (thép đai)',
+      'Phụ gia giảm nước'
+    ],
+    tips: [
+      'Dùng cho kết cấu chịu lực lớn',
+      'Cần máy uốn để gia công',
+      'Độ chồng nối tối thiểu 40D (640mm)'
+    ],
+    alternatives: ['Thép D18', 'Thép D14']
+  },
+  {
+    id: 'steel_wire',
+    category: 'Thép',
+    name: 'Dây kẽm buộc thép',
+    supplier: 'Tùy nhà cung cấp',
+    description: 'Dây kẽm dùng để buộc cốt thép khi thi công bê tông cốt thép.',
+    specifications: {
+      diameter: '1-1.5mm',
+      weight: '1kg/cuộn',
+      type: 'Kẽm mạ'
+    },
+    pricing: {
+      basePrice: 35000,
+      unit: 'kg',
+      bulkDiscount: [
+        { minQuantity: 20, discountPercent: 5 }
+      ]
+    },
+    usage: [
+      'Buộc cốt thép móng, cột, dầm, sàn',
+      'Liên kết thép đai với thép chịu lực'
+    ],
+    quality: 'Tiêu chuẩn',
+    commonCombinations: [
+      'Thép D10',
+      'Thép D12',
+      'Thép D16'
+    ],
+    tips: [
+      'Tính: 1kg dây kẽm buộc được khoảng 50-60kg thép',
+      'Buộc chéo 2 vòng tại mỗi nút giao'
+    ],
+    alternatives: []
+  },
+
+  // ========================================
   // TƯ VẤN XÂY DỰNG (KIẾN THỨC CHUNG)
   // ========================================
   {
