@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { Package, Heart, User, LogOut, ChevronDown } from 'lucide-react'
+import { Package, Heart, User, LogOut, ChevronDown, Building2 } from 'lucide-react'
 import CartIcon from './CartIcon'
 import NotificationBell from './NotificationBell'
 import { useWishlistStore } from '@/stores/wishlistStore'
@@ -25,7 +25,7 @@ export default function Header() {
               SmartBuild 🏗️
             </span>
           </div>
-          
+
           {/* Navigation */}
           <nav className="hidden lg:flex items-center space-x-6 xl:space-x-8 flex-shrink-0">
             <Link href="/" className="text-gray-900 hover:text-primary-600 font-semibold relative group whitespace-nowrap text-sm xl:text-base">
@@ -48,8 +48,15 @@ export default function Header() {
               📞 Liên hệ
               <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-primary-600 to-secondary-600 group-hover:w-full transition-all duration-300"></span>
             </Link>
+            <Link
+              href="/contractor"
+              className="flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-amber-500 px-4 py-2 rounded-lg font-semibold transition-all text-sm xl:text-base border border-slate-700 hover:border-amber-500/50"
+            >
+              <Building2 className="w-4 h-4" />
+              Nhà thầu
+            </Link>
           </nav>
-          
+
           {/* Actions */}
           <div className="flex items-center space-x-2 lg:space-x-4 flex-shrink-0">
             {/* Wishlist Icon */}
@@ -61,13 +68,13 @@ export default function Header() {
                 </span>
               )}
             </Link>
-            
+
             {/* Cart Icon */}
             <CartIcon />
-            
+
             {/* Notification Bell - Only show when authenticated */}
             {isAuthenticated && <NotificationBell />}
-            
+
             {/* User Menu or Login/Register */}
             {isAuthenticated && user ? (
               <div className="relative">
@@ -81,7 +88,7 @@ export default function Header() {
                   <span className="hidden lg:block text-sm font-semibold text-gray-700">{user.name}</span>
                   <ChevronDown className="h-4 w-4 text-gray-500" />
                 </button>
-                
+
                 {showUserMenu && (
                   <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl border border-gray-200 py-2 z-50">
                     <Link
