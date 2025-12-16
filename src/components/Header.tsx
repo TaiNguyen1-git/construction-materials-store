@@ -27,30 +27,30 @@ export default function Header() {
           </div>
 
           {/* Navigation */}
-          <nav className="hidden lg:flex items-center space-x-6 xl:space-x-8 flex-shrink-0">
-            <Link href="/" className="text-gray-900 hover:text-primary-600 font-semibold relative group whitespace-nowrap text-sm xl:text-base">
+          <nav className="hidden lg:flex items-center space-x-3 xl:space-x-5 flex-shrink-0">
+            <Link href="/" className="text-gray-900 hover:text-primary-600 font-semibold relative group whitespace-nowrap text-sm">
               🏠 Trang chủ
               <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-primary-600 to-secondary-600 group-hover:w-full transition-all duration-300"></span>
             </Link>
-            <Link href="/products" className="text-gray-600 hover:text-primary-600 font-semibold relative group whitespace-nowrap text-sm xl:text-base">
+            <Link href="/products" className="text-gray-600 hover:text-primary-600 font-semibold relative group whitespace-nowrap text-sm">
               📦 Sản phẩm
               <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-primary-600 to-secondary-600 group-hover:w-full transition-all duration-300"></span>
             </Link>
-            <Link href="/categories" className="text-gray-600 hover:text-primary-600 font-semibold relative group whitespace-nowrap text-sm xl:text-base">
+            <Link href="/categories" className="text-gray-600 hover:text-primary-600 font-semibold relative group whitespace-nowrap text-sm">
               🏷️ Danh mục
               <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-primary-600 to-secondary-600 group-hover:w-full transition-all duration-300"></span>
             </Link>
-            <Link href="/about" className="text-gray-600 hover:text-primary-600 font-semibold relative group whitespace-nowrap text-sm xl:text-base">
-              ℹ️ Về chúng tôi
+            <Link href="/about" className="text-gray-600 hover:text-primary-600 font-semibold relative group whitespace-nowrap text-sm">
+              ℹ️ Giới thiệu
               <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-primary-600 to-secondary-600 group-hover:w-full transition-all duration-300"></span>
             </Link>
-            <Link href="/contact" className="text-gray-600 hover:text-primary-600 font-semibold relative group whitespace-nowrap text-sm xl:text-base">
+            <Link href="/contact" className="text-gray-600 hover:text-primary-600 font-semibold relative group whitespace-nowrap text-sm">
               📞 Liên hệ
               <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-primary-600 to-secondary-600 group-hover:w-full transition-all duration-300"></span>
             </Link>
             <Link
               href="/contractor"
-              className="flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-amber-500 px-4 py-2 rounded-lg font-semibold transition-all text-sm xl:text-base border border-slate-700 hover:border-amber-500/50"
+              className="flex items-center gap-1 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white px-3 py-1.5 rounded-lg font-semibold transition-all text-sm shadow-md hover:shadow-lg"
             >
               <Building2 className="w-4 h-4" />
               Nhà thầu
