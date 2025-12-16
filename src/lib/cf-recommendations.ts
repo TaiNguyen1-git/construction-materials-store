@@ -85,7 +85,7 @@ export class CollaborativeFilteringService {
             },
             select: {
                 id: true,
-                items: {
+                orderItems: {
                     select: {
                         productId: true
                     }
@@ -95,7 +95,7 @@ export class CollaborativeFilteringService {
 
         // Build co-purchase counts
         for (const order of orders) {
-            const productIds = order.items.map(item => item.productId)
+            const productIds = order.orderItems.map(item => item.productId)
 
             // Create pairs of co-purchased products
             for (let i = 0; i < productIds.length; i++) {
@@ -262,7 +262,7 @@ export class CollaborativeFilteringService {
         const customerOrders = await prisma.order.findMany({
             where: { customerId },
             select: {
-                items: {
+                orderItems: {
                     select: { productId: true, quantity: true }
                 }
             },
@@ -278,7 +278,7 @@ export class CollaborativeFilteringService {
         // Aggregate purchased products with weights
         const purchasedProducts = new Map<string, number>()
         for (const order of customerOrders) {
-            for (const item of order.items) {
+            for (const item of order.orderItems) {
                 const current = purchasedProducts.get(item.productId) || 0
                 purchasedProducts.set(item.productId, current + item.quantity)
             }

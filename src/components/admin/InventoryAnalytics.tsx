@@ -26,8 +26,7 @@ interface Props {
 }
 
 export default function InventoryAnalytics({ predictions, onRefresh }: Props) {
-    const [trainingStatus, setTrainingStatus] = useState<'idle' | 'training' | 'success' | 'error'>('idle')
-    const [trainingLog, setTrainingLog] = useState('')
+
 
     // Generate contextual reason from factors
     const generateReason = (pred: InventoryPrediction): string => {
@@ -124,35 +123,7 @@ export default function InventoryAnalytics({ predictions, onRefresh }: Props) {
 
     const COLORS = ['#3B82F6', '#8B5CF6', '#EC4899', '#F59E0B', '#10B981', '#EF4444']
 
-    const handleTrainModel = async () => {
-        try {
-            setTrainingStatus('training')
-            setTrainingLog('Đang khởi động quá trình đào tạo mô hình AI...')
 
-            const response = await fetchWithAuth('/api/predictions/inventory/train', {
-                method: 'POST',
-            })
-
-            const result = await response.json()
-
-            if (result.success) {
-                setTrainingStatus('success')
-                setTrainingLog('✅ Đào tạo mô hình hoàn tất!\n\n' + (result.data?.output || ''))
-                toast.success('Đã đào tạo mô hình AI thành công!')
-                setTimeout(() => {
-                    onRefresh()
-                }, 2000)
-            } else {
-                setTrainingStatus('error')
-                setTrainingLog('❌ Lỗi khi đào tạo:\n\n' + (result.error || 'Lỗi không xác định'))
-                toast.error('Đào tạo mô hình thất bại')
-            }
-        } catch (error: any) {
-            setTrainingStatus('error')
-            setTrainingLog('❌ Lỗi kết nối:\n\n' + error.message)
-            toast.error('Không thể kết nối đến server')
-        }
-    }
 
     const totalPredictedDemand = Math.round(predictions.reduce((sum, p) => sum + p.predictedDemand, 0))
     const totalRecommendedOrder = Math.round(predictions.reduce((sum, p) => sum + p.recommendedOrder, 0))
@@ -160,26 +131,26 @@ export default function InventoryAnalytics({ predictions, onRefresh }: Props) {
     return (
         <div className="space-y-6">
             {/* AI Model Status Card */}
-            <div className="bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg shadow-lg p-6 text-white">
+            <div className="bg-white rounded-lg shadow p-6 border-l-4 border-blue-500">
                 <div className="flex items-center space-x-3 mb-4">
-                    <Brain className="w-8 h-8" />
+                    <TrendingUp className="w-8 h-8 text-blue-600" />
                     <div>
-                        <h2 className="text-xl font-bold">Hệ Thống Dự Đoán AI</h2>
-                        <p className="text-sm text-purple-100">Sử dụng Prophet ML Algorithm</p>
+                        <h2 className="text-xl font-bold text-gray-900">Tổng Quan Dự Đoán</h2>
+                        <p className="text-sm text-gray-500">Thống kê nhu cầu nhập hàng sắp tới</p>
                     </div>
                 </div>
                 <div className="grid grid-cols-3 gap-4 mt-4">
-                    <div className="bg-white/20 rounded-lg p-3">
-                        <div className="text-2xl font-bold">{predictions.length}</div>
-                        <div className="text-xs text-purple-100">Sản phẩm dự đoán</div>
+                    <div className="bg-gray-50 rounded-lg p-3">
+                        <div className="text-2xl font-bold text-gray-900">{predictions.length}</div>
+                        <div className="text-xs text-gray-500">Sản phẩm dự đoán</div>
                     </div>
-                    <div className="bg-white/20 rounded-lg p-3">
-                        <div className="text-2xl font-bold">{totalPredictedDemand}</div>
-                        <div className="text-xs text-purple-100">Tổng nhu cầu dự kiến</div>
+                    <div className="bg-gray-50 rounded-lg p-3">
+                        <div className="text-2xl font-bold text-gray-900">{totalPredictedDemand}</div>
+                        <div className="text-xs text-gray-500">Tổng nhu cầu dự kiến</div>
                     </div>
-                    <div className="bg-white/20 rounded-lg p-3">
-                        <div className="text-2xl font-bold">{totalRecommendedOrder}</div>
-                        <div className="text-xs text-purple-100">Đề xuất đặt hàng</div>
+                    <div className="bg-gray-50 rounded-lg p-3">
+                        <div className="text-2xl font-bold text-gray-900">{totalRecommendedOrder}</div>
+                        <div className="text-xs text-gray-500">Đề xuất đặt hàng</div>
                     </div>
                 </div>
             </div>

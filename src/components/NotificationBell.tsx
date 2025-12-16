@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Bell, X, CheckCircle, AlertTriangle, Info } from 'lucide-react'
+import { Bell, X, CheckCircle, AlertTriangle, Info, RefreshCw } from 'lucide-react'
 import { getAuthHeaders } from '@/lib/api-client'
 
 interface Notification {
@@ -19,6 +19,45 @@ export default function NotificationBell() {
   const [unreadCount, setUnreadCount] = useState(0)
   const [isOpen, setIsOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [isRefreshing, setIsRefreshing] = useState(false)
+
+  // Manual refresh function
+  const refreshNotifications = async () => {
+    try {
+      setIsRefreshing(true)
+      const headers = getAuthHeaders()
+
+      const response = await fetch('/api/notifications', {
+        headers: {
+          ...headers,
+          'Content-Type': 'application/json'
+        }
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+
+        if (result.success && result.data) {
+          const notifs = result.data.notifications.map((n: any) => ({
+            id: n.id,
+            title: n.title,
+            message: n.message,
+            type: n.type,
+            priority: n.priority,
+            read: n.isRead !== undefined ? n.isRead : (n.read !== undefined ? n.read : false),
+            createdAt: n.createdAt
+          }))
+
+          setNotifications(notifs)
+          setUnreadCount(result.data.unreadCount || notifs.filter((n: any) => !n.read).length)
+        }
+      }
+    } catch (error) {
+      console.error('Error refreshing notifications:', error)
+    } finally {
+      setIsRefreshing(false)
+    }
+  }
 
   // Real-time notifications using Server-Sent Events (SSE)
   useEffect(() => {
@@ -32,7 +71,7 @@ export default function NotificationBell() {
 
     const setupSSE = async () => {
       if (!isMounted) return
-      
+
       try {
         const headers = getAuthHeaders()
         // Create new abort controller for each connection attempt
@@ -59,7 +98,7 @@ export default function NotificationBell() {
           try {
             while (isMounted && !currentAbortController.signal.aborted) {
               const { done, value } = await currentReader.read()
-              
+
               if (done) {
                 if (isMounted && !currentAbortController.signal.aborted) {
                   setTimeout(() => {
@@ -78,7 +117,7 @@ export default function NotificationBell() {
                 if (line.startsWith('data: ')) {
                   try {
                     const data = JSON.parse(line.slice(6))
-                    
+
                     if (data.type === 'notifications' && data.data && isMounted) {
                       const notifs = data.data.notifications.map((n: any) => ({
                         id: n.id,
@@ -118,17 +157,17 @@ export default function NotificationBell() {
         try {
           setIsLoading(true)
           const headers = getAuthHeaders()
-          
+
           const response = await fetch('/api/notifications', {
             headers: {
               ...headers,
               'Content-Type': 'application/json'
             }
           })
-          
+
           if (response.ok) {
             const result = await response.json()
-            
+
             if (result.success && result.data) {
               const notifs = result.data.notifications.map((n: any) => ({
                 id: n.id,
@@ -139,7 +178,7 @@ export default function NotificationBell() {
                 read: n.isRead !== undefined ? n.isRead : (n.read !== undefined ? n.read : false),
                 createdAt: n.createdAt
               }))
-              
+
               setNotifications(notifs)
               setUnreadCount(result.data.unreadCount || notifs.filter((n: any) => !n.read).length)
             }
@@ -181,7 +220,7 @@ export default function NotificationBell() {
   const markAsRead = async (id: string) => {
     try {
       if (id.startsWith('realtime-')) {
-        setNotifications(notifications.map(n => 
+        setNotifications(notifications.map(n =>
           n.id === id ? { ...n, read: true } : n
         ))
         setUnreadCount(Math.max(0, unreadCount - 1))
@@ -197,9 +236,9 @@ export default function NotificationBell() {
         },
         body: JSON.stringify({ notificationId: id })
       })
-      
+
       if (response.ok) {
-        setNotifications(notifications.map(n => 
+        setNotifications(notifications.map(n =>
           n.id === id ? { ...n, read: true } : n
         ))
         setUnreadCount(Math.max(0, unreadCount - 1))
@@ -212,10 +251,10 @@ export default function NotificationBell() {
   const markAllAsRead = async () => {
     try {
       const persistedNotifications = notifications.filter(n => !n.id.startsWith('realtime-'))
-      
+
       const headers = getAuthHeaders()
       const results = await Promise.all(
-        persistedNotifications.map(n => 
+        persistedNotifications.map(n =>
           fetch('/api/notifications', {
             method: 'POST',
             headers: {
@@ -244,9 +283,9 @@ export default function NotificationBell() {
       if (notification && !notification.read) {
         setUnreadCount(Math.max(0, unreadCount - 1))
       }
-      
+
       setNotifications(notifications.filter(n => n.id !== id))
-      
+
       if (id.startsWith('realtime-')) {
         return
       }
@@ -306,7 +345,17 @@ export default function NotificationBell() {
         <div className="absolute right-0 mt-2 w-80 bg-white rounded-md shadow-lg z-50 border border-gray-200">
           <div className="p-4 border-b border-gray-200">
             <div className="flex justify-between items-center">
-              <h3 className="text-lg font-medium text-gray-900">Thông Báo</h3>
+              <div className="flex items-center gap-2">
+                <h3 className="text-lg font-medium text-gray-900">Thông Báo</h3>
+                <button
+                  onClick={refreshNotifications}
+                  disabled={isRefreshing}
+                  className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors disabled:opacity-50"
+                  title="Làm mới"
+                >
+                  <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                </button>
+              </div>
               {unreadCount > 0 && (
                 <button
                   onClick={markAllAsRead}
@@ -331,9 +380,8 @@ export default function NotificationBell() {
               notifications.map((notification) => (
                 <div
                   key={notification.id}
-                  className={`p-4 border-b border-gray-100 ${getPriorityColor(notification.priority)} border-l-4 ${
-                    !notification.read ? 'bg-blue-50' : ''
-                  }`}
+                  className={`p-4 border-b border-gray-100 ${getPriorityColor(notification.priority)} border-l-4 ${!notification.read ? 'bg-blue-50' : ''
+                    }`}
                 >
                   <div className="flex justify-between">
                     <div className="flex items-start">

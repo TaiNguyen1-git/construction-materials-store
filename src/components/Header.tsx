@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { Package, Heart, User, LogOut, ChevronDown, Building2 } from 'lucide-react'
+import { Package, Heart, User, LogOut, ChevronDown, Building2, Home, Tag, Info, Phone, Search, LogIn, UserPlus } from 'lucide-react'
 import CartIcon from './CartIcon'
 import NotificationBell from './NotificationBell'
 import { useWishlistStore } from '@/stores/wishlistStore'
@@ -22,30 +22,35 @@ export default function Header() {
               <Package className="h-6 w-6 text-white" />
             </div>
             <span className="ml-3 text-xl lg:text-2xl font-black text-gradient-primary whitespace-nowrap">
-              SmartBuild 🏗️
+              SmartBuild
             </span>
           </div>
 
           {/* Navigation */}
           <nav className="hidden lg:flex items-center space-x-3 xl:space-x-5 flex-shrink-0">
-            <Link href="/" className="text-gray-900 hover:text-primary-600 font-semibold relative group whitespace-nowrap text-sm">
-              🏠 Trang chủ
+            <Link href="/" className="flex items-center gap-2 text-gray-900 hover:text-primary-600 font-semibold relative group whitespace-nowrap text-sm">
+              <Home className="w-4 h-4" />
+              Trang chủ
               <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-primary-600 to-secondary-600 group-hover:w-full transition-all duration-300"></span>
             </Link>
-            <Link href="/products" className="text-gray-600 hover:text-primary-600 font-semibold relative group whitespace-nowrap text-sm">
-              📦 Sản phẩm
+            <Link href="/products" className="flex items-center gap-2 text-gray-600 hover:text-primary-600 font-semibold relative group whitespace-nowrap text-sm">
+              <Package className="w-4 h-4" />
+              Sản phẩm
               <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-primary-600 to-secondary-600 group-hover:w-full transition-all duration-300"></span>
             </Link>
-            <Link href="/categories" className="text-gray-600 hover:text-primary-600 font-semibold relative group whitespace-nowrap text-sm">
-              🏷️ Danh mục
+            <Link href="/categories" className="flex items-center gap-2 text-gray-600 hover:text-primary-600 font-semibold relative group whitespace-nowrap text-sm">
+              <Tag className="w-4 h-4" />
+              Danh mục
               <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-primary-600 to-secondary-600 group-hover:w-full transition-all duration-300"></span>
             </Link>
-            <Link href="/about" className="text-gray-600 hover:text-primary-600 font-semibold relative group whitespace-nowrap text-sm">
-              ℹ️ Giới thiệu
+            <Link href="/about" className="flex items-center gap-2 text-gray-600 hover:text-primary-600 font-semibold relative group whitespace-nowrap text-sm">
+              <Info className="w-4 h-4" />
+              Giới thiệu
               <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-primary-600 to-secondary-600 group-hover:w-full transition-all duration-300"></span>
             </Link>
-            <Link href="/contact" className="text-gray-600 hover:text-primary-600 font-semibold relative group whitespace-nowrap text-sm">
-              📞 Liên hệ
+            <Link href="/contact" className="flex items-center gap-2 text-gray-600 hover:text-primary-600 font-semibold relative group whitespace-nowrap text-sm">
+              <Phone className="w-4 h-4" />
+              Liên hệ
               <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-primary-600 to-secondary-600 group-hover:w-full transition-all duration-300"></span>
             </Link>
             {/* HIDDEN FOR NOW - Contractor Portal (uncomment to enable)
@@ -116,11 +121,11 @@ export default function Header() {
               </div>
             ) : (
               <>
-                <Link href="/login" className="hidden md:block text-gray-600 hover:text-primary-600 font-semibold transition-all duration-300 whitespace-nowrap text-sm lg:text-base">
-                  🔐 Đăng nhập
+                <Link href="/login" className="hidden md:flex items-center gap-1 text-gray-600 hover:text-primary-600 font-semibold transition-all duration-300 whitespace-nowrap text-sm lg:text-base">
+                  <LogIn className="h-4 w-4" /> Đăng nhập
                 </Link>
-                <Link href="/register" className="gradient-primary text-white px-4 lg:px-6 py-2 rounded-full hover:from-primary-700 hover:to-secondary-700 font-semibold transition-all duration-300 hover:scale-105 shadow-lg whitespace-nowrap text-sm lg:text-base">
-                  ✨ Đăng ký
+                <Link href="/register" className="gradient-primary text-white px-4 lg:px-6 py-2 rounded-full hover:from-primary-700 hover:to-secondary-700 font-semibold transition-all duration-300 hover:scale-105 shadow-lg whitespace-nowrap text-sm lg:text-base flex items-center gap-1">
+                  <UserPlus className="h-4 w-4" /> Đăng ký
                 </Link>
               </>
             )}

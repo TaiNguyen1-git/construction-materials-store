@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { fetchWithAuth } from '@/lib/api-client'
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, AreaChart, Area, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
+import { Package, ShoppingCart, ClipboardList, FileText, AlertTriangle, Users, DollarSign, Clock, Star, RefreshCw } from 'lucide-react'
 
 interface DashboardStats {
   totalProducts: number
@@ -70,10 +71,10 @@ export default function AdminDashboard() {
   }
 
   const quickActions = [
-    { name: 'Thêm Sản Phẩm', href: '/admin/products', icon: '📦', color: 'bg-blue-500' },
-    { name: 'Xem Đơn Hàng', href: '/admin/orders', icon: '🛒', color: 'bg-green-500' },
-    { name: 'Quản Lý Kho', href: '/admin/inventory', icon: '📋', color: 'bg-orange-500' },
-    { name: 'Tạo Hóa Đơn', href: '/admin/invoices', icon: '🧾', color: 'bg-purple-500' },
+    { name: 'Thêm Sản Phẩm', href: '/admin/products', icon: Package, color: 'bg-blue-500' },
+    { name: 'Xem Đơn Hàng', href: '/admin/orders', icon: ShoppingCart, color: 'bg-green-500' },
+    { name: 'Quản Lý Kho', href: '/admin/inventory', icon: ClipboardList, color: 'bg-orange-500' },
+    { name: 'Tạo Hóa Đơn', href: '/admin/invoices', icon: FileText, color: 'bg-purple-500' },
   ]
 
   const stats = data?.kpis || {
@@ -89,7 +90,7 @@ export default function AdminDashboard() {
     {
       title: 'Tổng Sản Phẩm',
       value: formatNumber(stats.totalProducts),
-      icon: '📦',
+      icon: Package,
       color: 'bg-blue-100 text-blue-800',
       bgColor: 'bg-blue-500',
       trend: '+12%'
@@ -97,7 +98,7 @@ export default function AdminDashboard() {
     {
       title: 'Sản Phẩm Sắp Hết',
       value: formatNumber(stats.lowStockItems),
-      icon: '⚠️',
+      icon: AlertTriangle,
       color: 'bg-yellow-100 text-yellow-800',
       bgColor: 'bg-yellow-500',
       trend: stats.lowStockItems > 10 ? 'Cảnh báo' : 'OK'
@@ -105,7 +106,7 @@ export default function AdminDashboard() {
     {
       title: 'Tổng Đơn Hàng',
       value: formatNumber(stats.totalOrders),
-      icon: '🛒',
+      icon: ShoppingCart,
       color: 'bg-green-100 text-green-800',
       bgColor: 'bg-green-500',
       trend: '+8%'
@@ -113,7 +114,7 @@ export default function AdminDashboard() {
     {
       title: 'Tổng Khách Hàng',
       value: formatNumber(stats.totalCustomers),
-      icon: '👥',
+      icon: Users,
       color: 'bg-purple-100 text-purple-800',
       bgColor: 'bg-purple-500',
       trend: '+15%'
@@ -121,7 +122,7 @@ export default function AdminDashboard() {
     {
       title: 'Tổng Doanh Thu',
       value: formatCurrency(stats.totalRevenue),
-      icon: '💰',
+      icon: DollarSign,
       color: 'bg-green-100 text-green-800',
       bgColor: 'bg-green-600',
       trend: '+23%'
@@ -129,7 +130,7 @@ export default function AdminDashboard() {
     {
       title: 'Đơn Hàng Chờ',
       value: formatNumber(stats.pendingOrders),
-      icon: '🕐',
+      icon: Clock,
       color: 'bg-orange-100 text-orange-800',
       bgColor: 'bg-orange-500',
       trend: stats.pendingOrders > 20 ? 'Cao' : 'Bình thường'
@@ -156,7 +157,7 @@ export default function AdminDashboard() {
           onClick={() => fetchDashboardData(false)}
           className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
         >
-          <span>🔄</span>
+          <RefreshCw className="w-4 h-4" />
           <span>Làm mới</span>
         </button>
       </div>
@@ -168,7 +169,7 @@ export default function AdminDashboard() {
             <div className="flex items-center justify-between">
               <div className="flex items-center flex-1">
                 <div className={`flex-shrink-0 w-12 h-12 ${stat.bgColor} rounded-lg flex items-center justify-center`}>
-                  <span className="text-white text-xl">{stat.icon}</span>
+                  <stat.icon className="w-6 h-6 text-white" />
                 </div>
                 <div className="ml-4 flex-1">
                   <dt className="text-sm font-medium text-gray-500">{stat.title}</dt>
@@ -286,7 +287,7 @@ export default function AdminDashboard() {
               >
                 <div className="flex flex-col items-center text-center">
                   <div className={`w-12 h-12 ${action.color} rounded-lg flex items-center justify-center mb-3 group-hover:scale-110 transition-transform`}>
-                    <span className="text-white text-xl">{action.icon}</span>
+                    <action.icon className="w-6 h-6 text-white" />
                   </div>
                   <h3 className="text-sm font-medium text-gray-900 group-hover:text-primary-600">
                     {action.name}
@@ -350,7 +351,7 @@ export default function AdminDashboard() {
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-semibold text-gray-900">Cảnh Báo Hết Hàng</h3>
               <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center">
-                <span className="text-red-600 text-lg">⚠️</span>
+                <AlertTriangle className="w-5 h-5 text-red-600" />
               </div>
             </div>
             <p className="text-2xl font-bold text-gray-900">{stats.lowStockItems}</p>
@@ -365,7 +366,7 @@ export default function AdminDashboard() {
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-semibold text-gray-900">Đơn Chờ Xử Lý</h3>
               <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
-                <span className="text-orange-600 text-lg">🕐</span>
+                <Clock className="w-5 h-5 text-orange-600" />
               </div>
             </div>
             <p className="text-2xl font-bold text-gray-900">{stats.pendingOrders}</p>
@@ -380,7 +381,7 @@ export default function AdminDashboard() {
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-semibold text-gray-900">Nhân Viên Xuất Sắc</h3>
               <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
-                <span className="text-green-600 text-lg">⭐</span>
+                <Star className="w-5 h-5 text-green-600" />
               </div>
             </div>
             {data?.employeePerformance.slice(0, 3).map((emp, idx) => (

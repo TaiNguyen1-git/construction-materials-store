@@ -28,13 +28,31 @@ export async function GET(request: NextRequest) {
   const stream = new ReadableStream({
     async start(controller) {
       const encoder = new TextEncoder()
+      let isClosed = false
+      let interval: NodeJS.Timeout | null = null
+      let heartbeat: NodeJS.Timeout | null = null
 
       // Helper function to send SSE data
       const send = (data: string) => {
+        if (isClosed) return // Don't send if closed
         try {
           controller.enqueue(encoder.encode(`data: ${data}\n\n`))
         } catch (error) {
-          console.error('Error sending SSE data:', error)
+          // Controller is closed, mark as closed
+          isClosed = true
+          cleanup()
+        }
+      }
+
+      // Cleanup function
+      const cleanup = () => {
+        if (interval) {
+          clearInterval(interval)
+          interval = null
+        }
+        if (heartbeat) {
+          clearInterval(heartbeat)
+          heartbeat = null
         }
       }
 
@@ -47,6 +65,7 @@ export async function GET(request: NextRequest) {
 
       // Function to fetch and send notifications
       const sendNotifications = async () => {
+        if (isClosed) return
         try {
           // Get database notifications
           const dbNotifications = await prisma.notification.findMany({
@@ -63,19 +82,6 @@ export async function GET(request: NextRequest) {
 
           // Combine notifications
           const all = [
-            // ...realtimeNotifications.map(n => ({
-            //   id: `realtime-${Date.now()}-${Math.random()}`,
-            //   type: n.type,
-            //   title: n.title,
-            //   message: n.message,
-            //   priority: n.priority,
-            //   read: false,
-            //   isRead: false, // For frontend compatibility
-            //   createdAt: new Date().toISOString(),
-            //   data: n.data || {},
-            //   productId: n.productId,
-            //   productName: n.productName
-            // })),
             ...dbNotifications.map(n => ({
               id: n.id,
               type: n.type,
@@ -98,28 +104,34 @@ export async function GET(request: NextRequest) {
             }
           }))
         } catch (error) {
-          console.error('Error sending notifications via SSE:', error)
-          send(JSON.stringify({
-            type: 'error',
-            message: 'Failed to fetch notifications'
-          }))
+          if (!isClosed) {
+            console.error('Error sending notifications via SSE:', error)
+            send(JSON.stringify({
+              type: 'error',
+              message: 'Failed to fetch notifications'
+            }))
+          }
         }
       }
 
       // Send initial notifications
       await sendNotifications()
 
-      // Poll for new notifications every 5 seconds (faster than regular polling)
-      const interval = setInterval(async () => {
+      // Poll for new notifications every 60 seconds (reduced frequency to prevent constant refresh)
+      interval = setInterval(async () => {
+        if (isClosed) return
         try {
           await sendNotifications()
         } catch (error) {
-          console.error('Error in SSE polling:', error)
+          if (!isClosed) {
+            console.error('Error in SSE polling:', error)
+          }
         }
-      }, 5000)
+      }, 60000) // Changed from 5000 to 60000ms
 
       // Keep connection alive with heartbeat every 30 seconds
-      const heartbeat = setInterval(() => {
+      heartbeat = setInterval(() => {
+        if (isClosed) return
         send(JSON.stringify({
           type: 'ping',
           timestamp: Date.now()
@@ -128,12 +140,12 @@ export async function GET(request: NextRequest) {
 
       // Clean up on client disconnect
       request.signal.addEventListener('abort', () => {
-        clearInterval(interval)
-        clearInterval(heartbeat)
+        isClosed = true
+        cleanup()
         try {
           controller.close()
         } catch (error) {
-          // Ignore close errors
+          // Ignore close errors - already closed
         }
       })
     }
