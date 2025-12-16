@@ -67,6 +67,18 @@ model Customer {
   currentBalance  Float        @default(0)
   preferredPayment String?
   
+  // Credit Management Fields (SME Feature 1)
+  creditHold      Boolean      @default(false)  // Khóa tín dụng
+  lastCreditCheck DateTime?                     // Lần kiểm tra gần nhất
+  overdueAmount   Float        @default(0)      // Tổng nợ quá hạn
+  maxOverdueDays  Int          @default(0)      // Số ngày quá hạn lâu nhất
+  
+  // Contractor Fields (SME Feature 3)
+  contractorVerified Boolean   @default(false)  // Đã xác minh nhà thầu
+  taxId           String?                       // Mã số thuế
+  companyName     String?                       // Tên công ty
+  companyAddress  String?                       // Địa chỉ công ty
+  
   // Loyalty Program Fields
   loyaltyTier     LoyaltyTier  @default(BRONZE)
   loyaltyPointsToNextTier Int  @default(1000) // Points needed to reach next tier
@@ -92,12 +104,16 @@ model Customer {
   referrals Customer[] @relation("CustomerReferral")
   referredByCustomer Customer? @relation("CustomerReferral", fields: [referredBy], references: [id], onDelete: NoAction, onUpdate: NoAction)
   materialCalculations MaterialCalculation[]
+  creditApprovals CreditApproval[]
+  contracts Contract[]
 
   @@map("customers")
   @@index([customerType])
   @@index([loyaltyTier])
   @@index([totalPointsEarned])
   @@index([lastPurchaseDate])
+  @@index([creditHold])
+  @@index([contractorVerified])
 }
 
 enum LoyaltyTier {
@@ -507,8 +523,9 @@ model Supplier {
   updatedAt     DateTime @updatedAt
 
   // Relationships
-  invoices      Invoice[]
-  purchaseOrders PurchaseOrder[]
+  invoices         Invoice[]
+  purchaseOrders   PurchaseOrder[]
+  supplierProducts SupplierProduct[]
 
   @@map("suppliers")
   @@index([name])
@@ -710,6 +727,7 @@ enum CustomerType {
   REGULAR
   VIP
   WHOLESALE
+  CONTRACTOR
 }
 
 enum ShiftType {
@@ -1046,4 +1064,222 @@ model InventoryHistory {
   @@index([productId])
   @@index([changeType])
   @@index([createdAt])
+}
+
+// ============================================
+// SME FEATURE 1: QUẢN LÝ CÔNG NỢ (DEBT MANAGEMENT)
+// ============================================
+
+// Cấu hình luật công nợ
+model DebtConfiguration {
+  id                  String   @id @default(auto()) @map("_id") @db.ObjectId
+  name                String   @unique // Tên luật (VD: "Default", "VIP", "Contractor")
+  maxOverdueDays      Int      @default(30)  // Số ngày quá hạn tối đa cho phép
+  creditLimitPercent  Float    @default(100) // % hạn mức được sử dụng (100 = 100%)
+  autoHoldOnOverdue   Boolean  @default(true) // Tự động khóa khi quá hạn
+  warningDays         Int      @default(7)   // Cảnh báo trước khi đến hạn
+  isActive            Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@map("debt_configurations")
+}
+
+// Lịch sử duyệt ngoại lệ công nợ
+model CreditApproval {
+  id              String              @id @default(auto()) @map("_id") @db.ObjectId
+  customerId      String
+  orderId         String?             // Order đang chờ duyệt (nếu có)
+  requestedAmount Float               // Số tiền yêu cầu
+  currentDebt     Float               // Nợ hiện tại tại thời điểm request
+  creditLimit     Float               // Hạn mức tại thời điểm request
+  reason          String              // Lý do xin duyệt
+  status          CreditApprovalStatus @default(PENDING)
+  approvedBy      String?             // User ID người duyệt
+  approvedAt      DateTime?
+  rejectedReason  String?
+  expiresAt       DateTime?           // Thời hạn hiệu lực của approval
+  notes           String?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  // Relationships
+  customer        Customer            @relation(fields: [customerId], references: [id])
+
+  @@map("credit_approvals")
+  @@index([customerId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+enum CreditApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  EXPIRED
+}
+
+// ============================================
+// SME FEATURE 2: NHẬP HÀNG THÔNG MINH (SMART PROCUREMENT)
+// ============================================
+
+// Liên kết Nhà cung cấp - Sản phẩm (với giá và thời gian giao)
+model SupplierProduct {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  supplierId      String
+  productId       String
+  unitPrice       Float               // Giá nhập từ NCC này
+  minOrderQty     Float    @default(1) // Số lượng tối thiểu
+  leadTimeDays    Int      @default(3) // Thời gian giao hàng (ngày)
+  isPreferred     Boolean  @default(false) // NCC ưu tiên cho SP này
+  lastPurchaseDate DateTime?
+  averageRating   Float    @default(5) // Đánh giá NCC (1-5)
+  notes           String?
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relationships
+  supplier        Supplier @relation(fields: [supplierId], references: [id])
+
+  @@unique([supplierId, productId])
+  @@map("supplier_products")
+  @@index([productId])
+  @@index([supplierId])
+  @@index([isPreferred])
+}
+
+// Yêu cầu nhập hàng (tự động hoặc thủ công)
+model PurchaseRequest {
+  id              String              @id @default(auto()) @map("_id") @db.ObjectId
+  requestNumber   String              @unique
+  productId       String
+  supplierId      String?             // NCC được đề xuất
+  requestedQty    Float               // Số lượng đề xuất nhập
+  currentStock    Float               // Tồn kho hiện tại lúc tạo
+  reorderPoint    Float               // Điểm đặt hàng lúc tạo
+  estimatedCost   Float?              // Chi phí ước tính
+  source          PurchaseRequestSource @default(SYSTEM) // Tự động hay thủ công
+  status          PurchaseRequestStatus @default(PENDING)
+  priority        Priority            @default(MEDIUM)
+  approvedBy      String?
+  approvedAt      DateTime?
+  purchaseOrderId String?             // Liên kết với PO sau khi duyệt
+  notes           String?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  @@map("purchase_requests")
+  @@index([productId])
+  @@index([status])
+  @@index([priority])
+  @@index([createdAt])
+}
+
+enum PurchaseRequestSource {
+  SYSTEM      // Hệ thống tự động tạo
+  MANUAL      // Thủ công
+}
+
+enum PurchaseRequestStatus {
+  PENDING     // Chờ duyệt
+  APPROVED    // Đã duyệt
+  REJECTED    // Từ chối
+  CONVERTED   // Đã chuyển thành PO
+  CANCELLED   // Đã hủy
+}
+
+// ============================================
+// SME FEATURE 3: GIÁ B2B & HỢP ĐỒNG (CONTRACT PRICING)
+// ============================================
+
+// Bảng giá đa cấp
+model PriceList {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  name            String   @unique // "Giá lẻ", "Giá đại lý cấp 1", "Giá nhà thầu"
+  code            String   @unique // "RETAIL", "DEALER_1", "CONTRACTOR"
+  description     String?
+  discountPercent Float    @default(0) // % giảm so với giá gốc
+  customerTypes   CustomerType[] // Áp dụng cho loại khách hàng nào
+  priority        Int      @default(0) // Ưu tiên (số cao = ưu tiên hơn)
+  isActive        Boolean  @default(true)
+  validFrom       DateTime?
+  validTo         DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("price_lists")
+  @@index([isActive])
+  @@index([priority])
+}
+
+// Hợp đồng giá với khách hàng
+model Contract {
+  id              String         @id @default(auto()) @map("_id") @db.ObjectId
+  contractNumber  String         @unique
+  customerId      String
+  name            String         // Tên hợp đồng
+  description     String?
+  contractType    ContractType   @default(FIXED_PRICE)
+  status          ContractStatus @default(DRAFT)
+  validFrom       DateTime
+  validTo         DateTime
+  totalValue      Float?         // Tổng giá trị hợp đồng (nếu có)
+  usedValue       Float          @default(0) // Đã sử dụng
+  creditTermDays  Int            @default(30) // Số ngày công nợ cho HĐ này
+  specialCreditLimit Float?      // Hạn mức đặc biệt cho HĐ này
+  terms           String?        // Điều khoản
+  approvedBy      String?
+  approvedAt      DateTime?
+  notes           String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  // Relationships
+  customer        Customer       @relation(fields: [customerId], references: [id])
+  contractPrices  ContractPrice[]
+
+  @@map("contracts")
+  @@index([customerId])
+  @@index([status])
+  @@index([validFrom])
+  @@index([validTo])
+}
+
+// Giá sản phẩm trong hợp đồng
+model ContractPrice {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  contractId      String
+  productId       String
+  fixedPrice      Float?          // Giá cố định (nếu có)
+  discountPercent Float?          // % giảm giá (nếu không dùng giá cố định)
+  minQuantity     Float    @default(0) // Số lượng tối thiểu để áp dụng giá này
+  maxQuantity     Float?          // Số lượng tối đa (null = không giới hạn)
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relationships
+  contract        Contract @relation(fields: [contractId], references: [id])
+
+  @@unique([contractId, productId])
+  @@map("contract_prices")
+  @@index([contractId])
+  @@index([productId])
+}
+
+enum ContractType {
+  FIXED_PRICE     // Giá cố định
+  DISCOUNT        // Chiết khấu %
+  VOLUME          // Theo sản lượng
+  MIXED           // Kết hợp
+}
+
+enum ContractStatus {
+  DRAFT           // Nháp
+  PENDING         // Chờ duyệt
+  ACTIVE          // Đang hiệu lực
+  EXPIRED         // Hết hạn
+  CANCELLED       // Đã hủy
+  SUSPENDED       // Tạm dừng
 }

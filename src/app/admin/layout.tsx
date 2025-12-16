@@ -62,6 +62,15 @@ const navigationGroups = [
     ]
   },
   {
+    name: 'Quản Lý SME',
+    icon: CreditCard,
+    items: [
+      { name: 'Quản Lý Công Nợ', href: '/admin/credit-management', icon: CreditCard },
+      { name: 'Nhập Hàng Thông Minh', href: '/admin/procurement-management', icon: Truck },
+      { name: 'Hợp Đồng & Giá B2B', href: '/admin/contract-management', icon: FileText },
+    ]
+  },
+  {
     name: 'Nhân Sự',
     icon: Briefcase,
     items: [
@@ -91,7 +100,7 @@ export default function AdminLayout({
   children: React.ReactNode
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [expandedGroups, setExpandedGroups] = useState<string[]>(['Tổng Quan', 'Quản Lý Sản Phẩm', 'Bán Hàng', 'Nhân Sự'])
+  const [expandedGroups, setExpandedGroups] = useState<string[]>(['Tổng Quan', 'Quản Lý Sản Phẩm', 'Bán Hàng', 'Quản Lý SME', 'Nhân Sự'])
   const pathname = usePathname()
   const router = useRouter()
   const { logout } = useAuth()
