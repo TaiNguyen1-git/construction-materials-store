@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * Contractor Login Page
+ * Contractor Login Page - Light Theme
  * Professional login form for B2B contractors
  */
 
@@ -52,14 +52,11 @@ export default function ContractorLoginPage() {
                 throw new Error(data.error || 'Đăng nhập thất bại')
             }
 
-            // Store token
             if (data.token) {
                 localStorage.setItem('token', data.token)
                 localStorage.setItem('user', JSON.stringify(data.user))
             }
 
-            // Check if user is a verified contractor
-            // For now, redirect to dashboard
             router.push('/contractor/dashboard')
         } catch (err: any) {
             setError(err.message || 'Đã có lỗi xảy ra')
@@ -69,23 +66,23 @@ export default function ContractorLoginPage() {
     }
 
     return (
-        <div className="min-h-screen bg-slate-950 text-white flex flex-col">
+        <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
             {/* Navigation */}
-            <nav className="bg-slate-950/95 backdrop-blur-md border-b border-slate-800">
+            <nav className="bg-white/80 backdrop-blur-sm border-b border-gray-100">
                 <div className="max-w-7xl mx-auto px-6 py-4">
                     <div className="flex items-center justify-between">
                         <Link href="/contractor" className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-gradient-to-br from-amber-500 to-amber-600 rounded-lg flex items-center justify-center">
-                                <Building2 className="w-6 h-6 text-slate-950" />
+                            <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
+                                <Building2 className="w-6 h-6 text-white" />
                             </div>
                             <div>
-                                <span className="text-xl font-bold text-white">SmartBuild</span>
-                                <span className="text-amber-500 font-semibold ml-2">PRO</span>
+                                <span className="text-xl font-bold text-gray-900">SmartBuild</span>
+                                <span className="text-blue-600 font-semibold ml-1">PRO</span>
                             </div>
                         </Link>
                         <Link
                             href="/contractor"
-                            className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors"
+                            className="flex items-center gap-2 text-gray-600 hover:text-blue-600 transition-colors font-medium"
                         >
                             <ArrowLeft className="w-4 h-4" />
                             Quay lại
@@ -95,55 +92,61 @@ export default function ContractorLoginPage() {
             </nav>
 
             {/* Main Content */}
-            <div className="flex-1 flex items-center justify-center px-6 py-12">
+            <div className="flex items-center justify-center px-6 py-16">
                 <div className="w-full max-w-md">
                     {/* Header */}
                     <div className="text-center mb-8">
-                        <div className="w-16 h-16 bg-gradient-to-br from-amber-500 to-amber-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                            <Building2 className="w-8 h-8 text-slate-950" />
+                        <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg">
+                            <Building2 className="w-8 h-8 text-white" />
                         </div>
-                        <h1 className="text-3xl font-bold mb-2">Đăng nhập Đối tác</h1>
-                        <p className="text-slate-400">Truy cập portal dành riêng cho Nhà thầu</p>
+                        <h1 className="text-3xl font-bold text-gray-900 mb-2">Đăng nhập Đối tác</h1>
+                        <p className="text-gray-600">Truy cập portal dành riêng cho Nhà thầu</p>
                     </div>
 
                     {/* Form Card */}
-                    <div className="bg-slate-900 rounded-3xl border border-slate-800 p-8">
+                    <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8">
                         <form onSubmit={handleSubmit} className="space-y-6">
                             <div>
-                                <label className="block text-sm font-medium text-slate-300 mb-2">
-                                    <Mail className="w-4 h-4 inline mr-2" />
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
                                     Email
                                 </label>
-                                <input
-                                    type="email"
-                                    name="email"
-                                    value={formData.email}
-                                    onChange={handleInputChange}
-                                    placeholder="email@company.com"
-                                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all"
-                                    required
-                                />
+                                <div className="relative">
+                                    <div className="absolute left-3 top-1/2 -translate-y-1/2">
+                                        <Mail className="w-5 h-5 text-gray-400" />
+                                    </div>
+                                    <input
+                                        type="email"
+                                        name="email"
+                                        value={formData.email}
+                                        onChange={handleInputChange}
+                                        placeholder="email@company.com"
+                                        className="w-full bg-gray-50 border border-gray-200 rounded-lg pl-11 pr-4 py-3 text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                                        required
+                                    />
+                                </div>
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-slate-300 mb-2">
-                                    <Lock className="w-4 h-4 inline mr-2" />
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
                                     Mật khẩu
                                 </label>
                                 <div className="relative">
+                                    <div className="absolute left-3 top-1/2 -translate-y-1/2">
+                                        <Lock className="w-5 h-5 text-gray-400" />
+                                    </div>
                                     <input
                                         type={showPassword ? 'text' : 'password'}
                                         name="password"
                                         value={formData.password}
                                         onChange={handleInputChange}
                                         placeholder="Nhập mật khẩu"
-                                        className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all pr-12"
+                                        className="w-full bg-gray-50 border border-gray-200 rounded-lg pl-11 pr-12 py-3 text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                                         required
                                     />
                                     <button
                                         type="button"
                                         onClick={() => setShowPassword(!showPassword)}
-                                        className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors"
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
                                     >
                                         {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                                     </button>
@@ -151,34 +154,34 @@ export default function ContractorLoginPage() {
                             </div>
 
                             <div className="flex items-center justify-between text-sm">
-                                <label className="flex items-center gap-2 text-slate-400">
+                                <label className="flex items-center gap-2 text-gray-600">
                                     <input
                                         type="checkbox"
-                                        className="w-4 h-4 rounded border-slate-600 bg-slate-800 text-amber-500 focus:ring-amber-500"
+                                        className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                                     />
                                     Ghi nhớ đăng nhập
                                 </label>
-                                <Link href="#" className="text-amber-500 hover:underline">
+                                <Link href="#" className="text-blue-600 hover:underline font-medium">
                                     Quên mật khẩu?
                                 </Link>
                             </div>
 
                             {/* Error Message */}
                             {error && (
-                                <div className="bg-red-500/10 border border-red-500/50 rounded-xl p-4 flex items-center gap-3 text-red-400">
+                                <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-3 text-red-600">
                                     <AlertCircle className="w-5 h-5 flex-shrink-0" />
-                                    {error}
+                                    <span className="text-sm">{error}</span>
                                 </div>
                             )}
 
                             <button
                                 type="submit"
                                 disabled={loading}
-                                className="w-full bg-amber-500 hover:bg-amber-600 disabled:bg-slate-700 disabled:text-slate-400 text-slate-950 px-6 py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2"
+                                className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white py-3 rounded-lg font-semibold transition-all flex items-center justify-center gap-2 shadow-md hover:shadow-lg"
                             >
                                 {loading ? (
                                     <>
-                                        <div className="w-5 h-5 border-2 border-slate-950/30 border-t-slate-950 rounded-full animate-spin" />
+                                        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                                         Đang đăng nhập...
                                     </>
                                 ) : (
@@ -192,17 +195,17 @@ export default function ContractorLoginPage() {
                     </div>
 
                     {/* Register Link */}
-                    <p className="text-center mt-6 text-slate-400">
+                    <p className="text-center mt-6 text-gray-600">
                         Chưa có tài khoản?{' '}
-                        <Link href="/contractor/register" className="text-amber-500 hover:underline font-medium">
+                        <Link href="/contractor/register" className="text-blue-600 hover:underline font-semibold">
                             Đăng ký ngay
                         </Link>
                     </p>
 
                     {/* Back to User Login */}
-                    <p className="text-center mt-4 text-slate-500 text-sm">
+                    <p className="text-center mt-4 text-gray-500 text-sm">
                         Bạn là khách hàng lẻ?{' '}
-                        <Link href="/login" className="text-slate-400 hover:text-white transition-colors">
+                        <Link href="/login" className="text-gray-600 hover:text-blue-600 transition-colors">
                             Đăng nhập khách hàng
                         </Link>
                     </p>

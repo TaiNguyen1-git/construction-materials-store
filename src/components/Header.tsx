@@ -48,6 +48,7 @@ export default function Header() {
               📞 Liên hệ
               <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-primary-600 to-secondary-600 group-hover:w-full transition-all duration-300"></span>
             </Link>
+            {/* HIDDEN FOR NOW - Contractor Portal (uncomment to enable)
             <Link
               href="/contractor"
               className="flex items-center gap-1 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white px-3 py-1.5 rounded-lg font-semibold transition-all text-sm shadow-md hover:shadow-lg"
@@ -55,6 +56,7 @@ export default function Header() {
               <Building2 className="w-4 h-4" />
               Nhà thầu
             </Link>
+            */}
           </nav>
 
           {/* Actions */}

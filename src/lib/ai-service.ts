@@ -317,62 +317,41 @@ export class AIService {
     }
   }
 
-  // Get product recommendations based on user query using Gemini
+  // Get product recommendations based on user query
+  // Uses database search instead of Gemini to avoid rate limits
   static async getProductRecommendations(query: string, context?: any): Promise<any[]> {
     try {
-      const { client, modelName } = await getWorkingModelConfig();
-      if (!client) throw new Error('Client init failed');
+      // Import prisma dynamically to avoid circular dependencies
+      const { prisma } = await import('./prisma')
 
-      const prompt = `
-      You are a product recommendation engine for a construction materials store.
-      Based on the user's query, suggest 3-5 relevant products.
-      Return a JSON array of product objects with these fields:
-      - name: product name
-      - description: brief description
-      - price: approximate price
-      - unit: unit of measurement
-      
-      Example format:
-      [
-        {"name": "Cement Bags", "description": "Standard Portland cement", "price": 15.00, "unit": "bag"},
-        {"name": "Steel Rebar", "description": "12mm diameter rebar", "price": 8.50, "unit": "piece"}
-      ]
-      
-      User query: ${query}
-      ${context ? `Context: ${JSON.stringify(context)}` : ''}
-      
-      Return only the JSON array, nothing else.
-      `
+      // Search products by query
+      const products = await prisma.product.findMany({
+        where: {
+          isActive: true,
+          OR: [
+            { name: { contains: query, mode: 'insensitive' as any } },
+            { description: { contains: query, mode: 'insensitive' as any } },
+            { tags: { hasSome: query.toLowerCase().split(' ') } }
+          ]
+        },
+        include: {
+          category: true,
+          _count: { select: { orderItems: true } }
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 5
+      })
 
-      const result = await client.models.generateContent({
-        model: modelName!,
-        contents: [{ role: 'user', parts: [{ text: prompt }] }]
-      });
-
-      const recommendationsText = (result as any).text || '[]';
-
-      // Try to parse the JSON response
-      let recommendations: any[] = []
-      try {
-        // Remove any markdown code block markers if present
-        const cleanedText = recommendationsText.replace(/```json\s*|\s*```/g, '').trim()
-        recommendations = JSON.parse(cleanedText)
-      } catch (parseError) {
-        console.error('Failed to parse Gemini recommendations response:', parseError)
-        // Try to extract JSON array from the text
-        const jsonArrayMatch = recommendationsText.match(/\[.*\]/)
-        if (jsonArrayMatch) {
-          try {
-            recommendations = JSON.parse(jsonArrayMatch[0])
-          } catch (secondParseError) {
-            console.error('Second parsing attempt failed:', secondParseError)
-          }
-        }
-      }
-
-      return Array.isArray(recommendations) ? recommendations : []
+      return products.map(p => ({
+        name: p.name,
+        description: p.description || '',
+        price: p.price,
+        unit: p.unit,
+        category: p.category?.name || 'N/A',
+        popularity: p._count.orderItems
+      }))
     } catch (error) {
-      console.error('Gemini product recommendation error:', error)
+      console.error('Product recommendation error:', error)
       return []
     }
   }
@@ -553,71 +532,40 @@ export class AIService {
     }
   }
 
-  // Forecast demand using Gemini
+  // Forecast demand using Statistical Methods (replaced Gemini due to rate limits)
   static async forecastDemand(historyData: any[]): Promise<any> {
     try {
-      const { client, modelName } = await getWorkingModelConfig();
-      if (!client) throw new Error('Client init failed');
+      // Import statistical forecasting service
+      const { statisticalForecasting } = await import('./stats-forecasting')
 
-      const prompt = `
-      You are an expert sales forecaster. Analyze the provided sales history data and forecast future demand.
-      
-      Data Provided: ${JSON.stringify(historyData)}
+      // Convert data format
+      const formattedData = historyData.map(d => ({
+        date: d.date,
+        value: d.quantity || d.value || 0
+      }))
 
-      Task:
-      - Analyze trends, seasonality, and patterns.
-      - Predict demand for the next period (e.g., next month).
-      - Provide a confidence score and reasoning.
-
-      Return a JSON object with:
-      - predictedDemand: number
-      - confidence: number (0.0 to 1.0)
-      - reasoning: string (brief explanation of the forecast)
-      - trend: "increasing" | "decreasing" | "stable"
-
-      Return only the JSON object, nothing else.
-      `
-
-      const result = await client.models.generateContent({
-        model: modelName!,
-        contents: [{ role: 'user', parts: [{ text: prompt }] }]
-      });
-
-      const text = (result as any).text || '{}';
-
-      // Try to parse the JSON response
-      let forecast: any = {}
-      try {
-        const cleanedText = text.replace(/```json\s*|\s*```/g, '').trim()
-        forecast = JSON.parse(cleanedText)
-      } catch (parseError) {
-        // Simple fallback extraction if JSON parse fails
-        const jsonMatch = text.match(/\{[\s\S]*\}/)
-        if (jsonMatch) {
-          try {
-            forecast = JSON.parse(jsonMatch[0])
-          } catch (e) { }
-        }
-      }
+      // Use statistical forecasting
+      const result = await statisticalForecasting.forecast(formattedData, 30, 7)
 
       return {
-        predictedDemand: forecast.predictedDemand || 0,
-        confidence: forecast.confidence || 0.5,
-        reasoning: forecast.reasoning || "Insufficient data pattern",
-        trend: forecast.trend || "stable"
+        predictedDemand: result.predictedDemand,
+        confidence: result.confidence,
+        reasoning: result.reasoning,
+        trend: result.trend,
+        methodBreakdown: result.methodBreakdown
       }
     } catch (error) {
-      console.error('Gemini forecasting error:', error)
+      console.error('Statistical forecasting error:', error)
       return {
         predictedDemand: 0,
         confidence: 0,
-        reasoning: "Error generating forecast",
-        trend: "stable"
+        reasoning: 'Error generating forecast',
+        trend: 'stable'
       }
     }
   }
 
-  // Get smart recommendations using Gemini (Content + Collaborative Hybrid simulation)
+  // Get smart recommendations using Collaborative Filtering (replaced Gemini due to rate limits)
   static async getSmartRecommendations(
     context: {
       viewedProduct?: any,
@@ -626,58 +574,50 @@ export class AIService {
     }
   ): Promise<any[]> {
     try {
-      const { client, modelName } = await getWorkingModelConfig();
-      if (!client) throw new Error('Client init failed');
-
-      const prompt = `
-      You are an intelligent product recommendation engine for a construction materials store.
-      
-      Context:
-      ${context.viewedProduct ? `- User is viewing: ${JSON.stringify(context.viewedProduct)}` : ''}
-      ${context.userHistory ? `- User purchase history: ${JSON.stringify(context.userHistory.slice(0, 5))}` : ''}
-      ${context.cartItems ? `- Items in cart: ${JSON.stringify(context.cartItems)}` : ''}
-
-      Task:
-      - Recommend 5 products that are highly relevant to this context.
-      - If viewing a product, suggest complementary items (e.g., viewing bricks -> suggest cement, sand).
-      - If history exists, suggest items matching their project type/preference.
-      - DO NOT just recommend random popular items.
-      
-      Return a JSON array of objects:
-      [
-        {
-          "name": "Product Name",
-          "reason": "Why this is recommended (e.g., 'Necessary for bricklaying')",
-          "category": "Category Name"
-        }
-      ]
-
-      Return only the JSON array.
-      `
-
-      const result = await client.models.generateContent({
-        model: modelName!,
-        contents: [{ role: 'user', parts: [{ text: prompt }] }]
-      });
-
-      const text = (result as any).text || '[]';
+      // Import collaborative filtering service
+      const { collaborativeFiltering } = await import('./cf-recommendations')
+      const { prisma } = await import('./prisma')
 
       let recommendations: any[] = []
-      try {
-        const cleanedText = text.replace(/```json\s*|\s*```/g, '').trim()
-        recommendations = JSON.parse(cleanedText)
-      } catch (parseError) {
-        const jsonArrayMatch = text.match(/\[[\s\S]*\]/)
-        if (jsonArrayMatch) {
-          try {
-            recommendations = JSON.parse(jsonArrayMatch[0])
-          } catch (e) { }
-        }
+
+      // If viewing a product, get similar products
+      if (context.viewedProduct?.id) {
+        const similar = await collaborativeFiltering.getSimilarProducts(context.viewedProduct.id, 5)
+        const enriched = await collaborativeFiltering.enrichRecommendations(similar)
+        recommendations = enriched.map((p: any) => ({
+          name: p.name,
+          reason: p.recommendationReason || 'Sản phẩm liên quan',
+          category: p.category?.name || 'N/A'
+        }))
       }
 
-      return Array.isArray(recommendations) ? recommendations : []
+      // If user has cart items, get frequently bought together
+      if (context.cartItems && context.cartItems.length > 0) {
+        const cartIds = context.cartItems.map((c: any) => c.productId || c.id).filter(Boolean)
+        const fbt = await collaborativeFiltering.getFrequentlyBoughtTogether(cartIds, 5)
+        const enriched = await collaborativeFiltering.enrichRecommendations(fbt)
+        const fbtRecs = enriched.map((p: any) => ({
+          name: p.name,
+          reason: p.recommendationReason || 'Thường mua cùng',
+          category: p.category?.name || 'N/A'
+        }))
+        recommendations = [...recommendations, ...fbtRecs]
+      }
+
+      // Fallback to popular products
+      if (recommendations.length === 0) {
+        const popular = await collaborativeFiltering.getPopularProducts(5)
+        const enriched = await collaborativeFiltering.enrichRecommendations(popular)
+        recommendations = enriched.map((p: any) => ({
+          name: p.name,
+          reason: 'Sản phẩm bán chạy',
+          category: p.category?.name || 'N/A'
+        }))
+      }
+
+      return recommendations.slice(0, 5)
     } catch (error) {
-      console.error('Gemini smart recommendation error:', error)
+      console.error('Smart recommendation error:', error)
       return []
     }
   }

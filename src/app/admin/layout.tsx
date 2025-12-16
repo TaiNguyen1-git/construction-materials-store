@@ -61,6 +61,7 @@ const navigationGroups = [
       { name: 'Đánh Giá Sản Phẩm', href: '/admin/reviews', icon: Star },
     ]
   },
+  /* HIDDEN FOR NOW - SME Management (uncomment to enable)
   {
     name: 'Quản Lý SME',
     icon: CreditCard,
@@ -70,6 +71,7 @@ const navigationGroups = [
       { name: 'Hợp Đồng & Giá B2B', href: '/admin/contract-management', icon: FileText },
     ]
   },
+  */
   {
     name: 'Nhân Sự',
     icon: Briefcase,
@@ -100,7 +102,7 @@ export default function AdminLayout({
   children: React.ReactNode
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [expandedGroups, setExpandedGroups] = useState<string[]>(['Tổng Quan', 'Quản Lý Sản Phẩm', 'Bán Hàng', 'Quản Lý SME', 'Nhân Sự'])
+  const [expandedGroups, setExpandedGroups] = useState<string[]>(['Tổng Quan', 'Quản Lý Sản Phẩm', 'Bán Hàng', 'Nhân Sự'])
   const pathname = usePathname()
   const router = useRouter()
   const { logout } = useAuth()

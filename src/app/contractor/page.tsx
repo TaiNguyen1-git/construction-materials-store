@@ -1,9 +1,9 @@
 'use client'
 
 /**
- * Contractor Landing Page
- * Professional, minimalist design for B2B contractors
- * Color scheme: Dark navy, white, gold accents
+ * Contractor Landing Page - Light Theme
+ * Professional, clean design for B2B contractors
+ * Color scheme: White, Light Blue, Green accents
  */
 
 import Link from 'next/link'
@@ -14,47 +14,49 @@ import {
     Truck,
     Shield,
     Clock,
-    ChevronRight,
     CheckCircle,
     ArrowRight,
     Users,
     TrendingUp,
-    Briefcase
+    Phone,
+    Mail,
+    MapPin
 } from 'lucide-react'
 
 export default function ContractorLandingPage() {
     return (
-        <div className="min-h-screen bg-slate-950 text-white">
+        <div className="min-h-screen bg-white">
             {/* Navigation */}
-            <nav className="fixed top-0 left-0 right-0 z-50 bg-slate-950/95 backdrop-blur-md border-b border-slate-800">
+            <nav className="bg-white shadow-sm border-b border-gray-100 sticky top-0 z-50">
                 <div className="max-w-7xl mx-auto px-6 py-4">
                     <div className="flex items-center justify-between">
                         <Link href="/" className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-gradient-to-br from-amber-500 to-amber-600 rounded-lg flex items-center justify-center">
-                                <Building2 className="w-6 h-6 text-slate-950" />
+                            <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
+                                <Building2 className="w-6 h-6 text-white" />
                             </div>
                             <div>
-                                <span className="text-xl font-bold text-white">SmartBuild</span>
-                                <span className="text-amber-500 font-semibold ml-2">PRO</span>
+                                <span className="text-xl font-bold text-gray-900">SmartBuild</span>
+                                <span className="text-blue-600 font-semibold ml-1">PRO</span>
                             </div>
                         </Link>
                         <div className="hidden md:flex items-center gap-8">
-                            <a href="#features" className="text-slate-300 hover:text-white transition-colors">Tính năng</a>
-                            <a href="#benefits" className="text-slate-300 hover:text-white transition-colors">Lợi ích</a>
-                            <a href="#process" className="text-slate-300 hover:text-white transition-colors">Quy trình</a>
+                            <a href="#features" className="text-gray-600 hover:text-blue-600 transition-colors font-medium">Tính năng</a>
+                            <a href="#benefits" className="text-gray-600 hover:text-blue-600 transition-colors font-medium">Lợi ích</a>
+                            <a href="#process" className="text-gray-600 hover:text-blue-600 transition-colors font-medium">Quy trình</a>
+                            <a href="#contact" className="text-gray-600 hover:text-blue-600 transition-colors font-medium">Liên hệ</a>
                         </div>
-                        <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-3">
                             <Link
                                 href="/contractor/login"
-                                className="text-slate-300 hover:text-white transition-colors font-medium"
+                                className="text-gray-700 hover:text-blue-600 transition-colors font-medium px-4 py-2"
                             >
                                 Đăng nhập
                             </Link>
                             <Link
                                 href="/contractor/register"
-                                className="bg-amber-500 hover:bg-amber-600 text-slate-950 px-6 py-2.5 rounded-lg font-semibold transition-all hover:shadow-lg hover:shadow-amber-500/25"
+                                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-lg font-semibold transition-all shadow-sm hover:shadow-md"
                             >
-                                Đăng ký ngay
+                                Đăng ký
                             </Link>
                         </div>
                     </div>
@@ -62,86 +64,78 @@ export default function ContractorLandingPage() {
             </nav>
 
             {/* Hero Section */}
-            <section className="pt-32 pb-20 px-6 relative overflow-hidden">
-                {/* Background Elements */}
-                <div className="absolute inset-0 bg-gradient-to-b from-slate-900 to-slate-950" />
-                <div className="absolute top-0 left-1/4 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl" />
-                <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl" />
-
-                <div className="max-w-7xl mx-auto relative">
-                    <div className="grid lg:grid-cols-2 gap-16 items-center">
+            <section className="bg-gradient-to-br from-blue-50 via-white to-green-50 py-20 px-6">
+                <div className="max-w-7xl mx-auto">
+                    <div className="grid lg:grid-cols-2 gap-12 items-center">
                         <div>
-                            <div className="inline-flex items-center gap-2 bg-slate-800/50 border border-slate-700 rounded-full px-4 py-2 mb-8">
-                                <span className="w-2 h-2 bg-amber-500 rounded-full animate-pulse" />
-                                <span className="text-sm text-slate-300">Dành riêng cho Nhà thầu & Doanh nghiệp</span>
+                            <div className="inline-flex items-center gap-2 bg-blue-100 text-blue-700 rounded-full px-4 py-2 mb-6 text-sm font-medium">
+                                <Building2 className="w-4 h-4" />
+                                Dành riêng cho Nhà thầu & Doanh nghiệp
                             </div>
 
-                            <h1 className="text-5xl lg:text-6xl font-bold leading-tight mb-6">
+                            <h1 className="text-4xl lg:text-5xl font-bold text-gray-900 leading-tight mb-6">
                                 Giải pháp
-                                <span className="block text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-amber-600">
-                                    Vật liệu Xây dựng
-                                </span>
-                                cho Doanh nghiệp
+                                <span className="text-blue-600"> Vật liệu Xây dựng</span>
+                                <br />cho Doanh nghiệp
                             </h1>
 
-                            <p className="text-xl text-slate-400 mb-8 leading-relaxed">
-                                Tiết kiệm đến <span className="text-amber-500 font-semibold">15%</span> chi phí với giá sỉ độc quyền.
+                            <p className="text-lg text-gray-600 mb-8 leading-relaxed">
+                                Tiết kiệm đến <span className="text-green-600 font-semibold">15%</span> chi phí với giá sỉ độc quyền.
                                 Quản lý công nợ linh hoạt, giao hàng ưu tiên đến công trình.
                             </p>
 
-                            <div className="flex flex-col sm:flex-row gap-4 mb-12">
+                            <div className="flex flex-col sm:flex-row gap-4 mb-8">
                                 <Link
                                     href="/contractor/register"
-                                    className="group bg-amber-500 hover:bg-amber-600 text-slate-950 px-8 py-4 rounded-xl font-bold text-lg transition-all hover:shadow-xl hover:shadow-amber-500/25 flex items-center justify-center gap-2"
+                                    className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-lg font-semibold text-lg transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2"
                                 >
                                     Trở thành Đối tác
-                                    <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                                    <ArrowRight className="w-5 h-5" />
                                 </Link>
                                 <Link
                                     href="/contractor/login"
-                                    className="bg-slate-800 hover:bg-slate-700 text-white px-8 py-4 rounded-xl font-semibold text-lg transition-all border border-slate-700 flex items-center justify-center"
+                                    className="bg-white border-2 border-gray-200 hover:border-blue-300 text-gray-700 px-8 py-4 rounded-lg font-semibold text-lg transition-all flex items-center justify-center"
                                 >
-                                    Đã có tài khoản? Đăng nhập
+                                    Đăng nhập
                                 </Link>
                             </div>
 
                             {/* Trust Badges */}
-                            <div className="flex items-center gap-8 text-sm text-slate-500">
+                            <div className="flex flex-wrap items-center gap-6 text-sm text-gray-500">
                                 <div className="flex items-center gap-2">
                                     <Shield className="w-5 h-5 text-green-500" />
                                     <span>Bảo mật cao</span>
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <Users className="w-5 h-5 text-blue-500" />
-                                    <span>500+ Nhà thầu</span>
+                                    <span>500+ Đối tác</span>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                    <TrendingUp className="w-5 h-5 text-amber-500" />
+                                    <TrendingUp className="w-5 h-5 text-green-500" />
                                     <span>Tăng trưởng 200%</span>
                                 </div>
                             </div>
                         </div>
 
                         {/* Stats Card */}
-                        <div className="relative">
-                            <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-3xl p-8 border border-slate-700 shadow-2xl">
-                                <div className="grid grid-cols-2 gap-6">
-                                    <div className="bg-slate-800/50 rounded-2xl p-6 border border-slate-700/50">
-                                        <div className="text-4xl font-bold text-white mb-2">15%</div>
-                                        <div className="text-slate-400">Tiết kiệm chi phí</div>
-                                    </div>
-                                    <div className="bg-slate-800/50 rounded-2xl p-6 border border-slate-700/50">
-                                        <div className="text-4xl font-bold text-amber-500 mb-2">30</div>
-                                        <div className="text-slate-400">Ngày công nợ</div>
-                                    </div>
-                                    <div className="bg-slate-800/50 rounded-2xl p-6 border border-slate-700/50">
-                                        <div className="text-4xl font-bold text-green-500 mb-2">24h</div>
-                                        <div className="text-slate-400">Giao hàng ưu tiên</div>
-                                    </div>
-                                    <div className="bg-slate-800/50 rounded-2xl p-6 border border-slate-700/50">
-                                        <div className="text-4xl font-bold text-blue-500 mb-2">1:1</div>
-                                        <div className="text-slate-400">Chuyên viên riêng</div>
-                                    </div>
+                        <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-8">
+                            <h3 className="text-lg font-semibold text-gray-900 mb-6">Ưu đãi dành cho Nhà thầu</h3>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="bg-blue-50 rounded-xl p-5 text-center">
+                                    <div className="text-3xl font-bold text-blue-600 mb-1">15%</div>
+                                    <div className="text-gray-600 text-sm">Tiết kiệm chi phí</div>
+                                </div>
+                                <div className="bg-green-50 rounded-xl p-5 text-center">
+                                    <div className="text-3xl font-bold text-green-600 mb-1">30</div>
+                                    <div className="text-gray-600 text-sm">Ngày công nợ</div>
+                                </div>
+                                <div className="bg-orange-50 rounded-xl p-5 text-center">
+                                    <div className="text-3xl font-bold text-orange-600 mb-1">24h</div>
+                                    <div className="text-gray-600 text-sm">Giao hàng ưu tiên</div>
+                                </div>
+                                <div className="bg-purple-50 rounded-xl p-5 text-center">
+                                    <div className="text-3xl font-bold text-purple-600 mb-1">1:1</div>
+                                    <div className="text-gray-600 text-sm">Chuyên viên riêng</div>
                                 </div>
                             </div>
                         </div>
@@ -150,45 +144,45 @@ export default function ContractorLandingPage() {
             </section>
 
             {/* Features Section */}
-            <section id="features" className="py-20 px-6 bg-slate-900/50">
+            <section id="features" className="py-20 px-6 bg-gray-50">
                 <div className="max-w-7xl mx-auto">
                     <div className="text-center mb-16">
-                        <h2 className="text-4xl font-bold mb-4">Tính năng Dành riêng cho Doanh nghiệp</h2>
-                        <p className="text-xl text-slate-400 max-w-2xl mx-auto">
-                            Hệ thống được thiết kế để tối ưu hóa quy trình mua sắm vật liệu cho các dự án xây dựng lớn
+                        <h2 className="text-3xl font-bold text-gray-900 mb-4">Tính năng Dành riêng cho Doanh nghiệp</h2>
+                        <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+                            Hệ thống được thiết kế để tối ưu hóa quy trình mua sắm vật liệu cho các dự án xây dựng
                         </p>
                     </div>
 
                     <div className="grid md:grid-cols-3 gap-8">
                         {/* Feature 1 */}
-                        <div className="group bg-slate-800/50 rounded-2xl p-8 border border-slate-700/50 hover:border-amber-500/50 transition-all hover:shadow-xl hover:shadow-amber-500/5">
-                            <div className="w-14 h-14 bg-gradient-to-br from-amber-500 to-amber-600 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                                <FileText className="w-7 h-7 text-slate-950" />
+                        <div className="bg-white rounded-xl p-8 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+                            <div className="w-14 h-14 bg-blue-100 rounded-xl flex items-center justify-center mb-6">
+                                <FileText className="w-7 h-7 text-blue-600" />
                             </div>
-                            <h3 className="text-xl font-bold mb-3">Hợp đồng Giá cố định</h3>
-                            <p className="text-slate-400 leading-relaxed">
+                            <h3 className="text-xl font-semibold text-gray-900 mb-3">Hợp đồng Giá cố định</h3>
+                            <p className="text-gray-600 leading-relaxed">
                                 Ký hợp đồng dài hạn với giá cố định, bất chấp biến động thị trường. Bảo vệ ngân sách dự án của bạn.
                             </p>
                         </div>
 
                         {/* Feature 2 */}
-                        <div className="group bg-slate-800/50 rounded-2xl p-8 border border-slate-700/50 hover:border-amber-500/50 transition-all hover:shadow-xl hover:shadow-amber-500/5">
-                            <div className="w-14 h-14 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                                <CreditCard className="w-7 h-7 text-white" />
+                        <div className="bg-white rounded-xl p-8 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+                            <div className="w-14 h-14 bg-green-100 rounded-xl flex items-center justify-center mb-6">
+                                <CreditCard className="w-7 h-7 text-green-600" />
                             </div>
-                            <h3 className="text-xl font-bold mb-3">Công nợ Linh hoạt</h3>
-                            <p className="text-slate-400 leading-relaxed">
+                            <h3 className="text-xl font-semibold text-gray-900 mb-3">Công nợ Linh hoạt</h3>
+                            <p className="text-gray-600 leading-relaxed">
                                 Hạn mức công nợ lên đến 500 triệu đồng. Thanh toán sau 30-60 ngày. Theo dõi nợ trực tuyến 24/7.
                             </p>
                         </div>
 
                         {/* Feature 3 */}
-                        <div className="group bg-slate-800/50 rounded-2xl p-8 border border-slate-700/50 hover:border-amber-500/50 transition-all hover:shadow-xl hover:shadow-amber-500/5">
-                            <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                                <Truck className="w-7 h-7 text-white" />
+                        <div className="bg-white rounded-xl p-8 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+                            <div className="w-14 h-14 bg-orange-100 rounded-xl flex items-center justify-center mb-6">
+                                <Truck className="w-7 h-7 text-orange-600" />
                             </div>
-                            <h3 className="text-xl font-bold mb-3">Giao hàng Ưu tiên</h3>
-                            <p className="text-slate-400 leading-relaxed">
+                            <h3 className="text-xl font-semibold text-gray-900 mb-3">Giao hàng Ưu tiên</h3>
+                            <p className="text-gray-600 leading-relaxed">
                                 Đội xe chuyên dụng, giao hàng đến tận công trình. Lịch giao định kỳ theo tiến độ dự án.
                             </p>
                         </div>
@@ -197,75 +191,75 @@ export default function ContractorLandingPage() {
             </section>
 
             {/* Benefits Section */}
-            <section id="benefits" className="py-20 px-6">
+            <section id="benefits" className="py-20 px-6 bg-white">
                 <div className="max-w-7xl mx-auto">
                     <div className="grid lg:grid-cols-2 gap-16 items-center">
                         <div>
-                            <h2 className="text-4xl font-bold mb-6">
+                            <h2 className="text-3xl font-bold text-gray-900 mb-6">
                                 Tại sao Nhà thầu chọn
-                                <span className="text-amber-500"> SmartBuild PRO</span>?
+                                <span className="text-blue-600"> SmartBuild PRO</span>?
                             </h2>
-                            <p className="text-xl text-slate-400 mb-8">
+                            <p className="text-lg text-gray-600 mb-8">
                                 Chúng tôi hiểu nhu cầu của doanh nghiệp xây dựng khác với khách hàng lẻ
                             </p>
 
-                            <div className="space-y-6">
+                            <div className="space-y-5">
                                 <div className="flex gap-4">
-                                    <div className="w-8 h-8 bg-green-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
-                                        <CheckCircle className="w-5 h-5 text-green-500" />
+                                    <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                                        <CheckCircle className="w-5 h-5 text-green-600" />
                                     </div>
                                     <div>
-                                        <h4 className="font-semibold mb-1">Giá sỉ độc quyền</h4>
-                                        <p className="text-slate-400">Tiết kiệm 10-15% so với giá bán lẻ thông thường</p>
+                                        <h4 className="font-semibold text-gray-900 mb-1">Giá sỉ độc quyền</h4>
+                                        <p className="text-gray-600">Tiết kiệm 10-15% so với giá bán lẻ thông thường</p>
                                     </div>
                                 </div>
 
                                 <div className="flex gap-4">
-                                    <div className="w-8 h-8 bg-green-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
-                                        <CheckCircle className="w-5 h-5 text-green-500" />
+                                    <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                                        <CheckCircle className="w-5 h-5 text-green-600" />
                                     </div>
                                     <div>
-                                        <h4 className="font-semibold mb-1">Quản lý đơn hàng theo dự án</h4>
-                                        <p className="text-slate-400">Phân bổ chi phí, theo dõi từng dự án riêng biệt</p>
+                                        <h4 className="font-semibold text-gray-900 mb-1">Quản lý đơn hàng theo dự án</h4>
+                                        <p className="text-gray-600">Phân bổ chi phí, theo dõi từng dự án riêng biệt</p>
                                     </div>
                                 </div>
 
                                 <div className="flex gap-4">
-                                    <div className="w-8 h-8 bg-green-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
-                                        <CheckCircle className="w-5 h-5 text-green-500" />
+                                    <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                                        <CheckCircle className="w-5 h-5 text-green-600" />
                                     </div>
                                     <div>
-                                        <h4 className="font-semibold mb-1">Báo cáo & Sao kê chi tiết</h4>
-                                        <p className="text-slate-400">Xuất báo cáo công nợ, hóa đơn VAT đầy đủ</p>
+                                        <h4 className="font-semibold text-gray-900 mb-1">Báo cáo & Sao kê chi tiết</h4>
+                                        <p className="text-gray-600">Xuất báo cáo công nợ, hóa đơn VAT đầy đủ</p>
                                     </div>
                                 </div>
 
                                 <div className="flex gap-4">
-                                    <div className="w-8 h-8 bg-green-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
-                                        <CheckCircle className="w-5 h-5 text-green-500" />
+                                    <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                                        <CheckCircle className="w-5 h-5 text-green-600" />
                                     </div>
                                     <div>
-                                        <h4 className="font-semibold mb-1">Chuyên viên tư vấn riêng</h4>
-                                        <p className="text-slate-400">Hỗ trợ 1-1, giải quyết vấn đề nhanh chóng</p>
+                                        <h4 className="font-semibold text-gray-900 mb-1">Chuyên viên tư vấn riêng</h4>
+                                        <p className="text-gray-600">Hỗ trợ 1-1, giải quyết vấn đề nhanh chóng</p>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
                         {/* Testimonial */}
-                        <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-3xl p-8 border border-slate-700">
-                            <div className="text-6xl text-amber-500 mb-6">"</div>
-                            <p className="text-xl text-slate-300 mb-8 italic leading-relaxed">
+                        <div className="bg-gradient-to-br from-blue-50 to-green-50 rounded-2xl p-8 border border-gray-100">
+                            <div className="text-5xl text-blue-400 mb-4">"</div>
+                            <p className="text-lg text-gray-700 mb-6 italic leading-relaxed">
                                 Từ khi hợp tác với SmartBuild PRO, chi phí vật liệu của chúng tôi giảm 12%.
                                 Quan trọng hơn, công nợ linh hoạt giúp dòng tiền dự án ổn định hơn rất nhiều.
                             </p>
                             <div className="flex items-center gap-4">
-                                <div className="w-14 h-14 bg-amber-500 rounded-full flex items-center justify-center">
-                                    <Briefcase className="w-7 h-7 text-slate-950" />
+                                <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold">
+                                    HP
                                 </div>
                                 <div>
-                                    <div className="font-semibold">Công ty XD Hoàng Phát</div>
-                                    <div className="text-slate-400">Đối tác từ năm 2023</div>
+                                    <div className="font-semibold text-gray-900">Công ty XD Hoàng Phát</div>
+                                    <div className="text-gray-500 text-sm">Đối tác từ năm 2023</div>
                                 </div>
                             </div>
                         </div>
@@ -274,62 +268,56 @@ export default function ContractorLandingPage() {
             </section>
 
             {/* Process Section */}
-            <section id="process" className="py-20 px-6 bg-slate-900/50">
+            <section id="process" className="py-20 px-6 bg-gray-50">
                 <div className="max-w-7xl mx-auto">
                     <div className="text-center mb-16">
-                        <h2 className="text-4xl font-bold mb-4">Quy trình Trở thành Đối tác</h2>
-                        <p className="text-xl text-slate-400">Chỉ 3 bước đơn giản để bắt đầu hợp tác</p>
+                        <h2 className="text-3xl font-bold text-gray-900 mb-4">Quy trình Đăng ký Đối tác</h2>
+                        <p className="text-lg text-gray-600">Chỉ 3 bước đơn giản để bắt đầu hợp tác</p>
                     </div>
 
                     <div className="grid md:grid-cols-3 gap-8">
                         {/* Step 1 */}
-                        <div className="relative">
-                            <div className="absolute -top-4 -left-4 w-12 h-12 bg-amber-500 rounded-xl flex items-center justify-center text-slate-950 font-bold text-xl">
+                        <div className="relative bg-white rounded-xl p-8 shadow-sm border border-gray-100">
+                            <div className="absolute -top-4 -left-4 w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold">
                                 1
                             </div>
-                            <div className="bg-slate-800/50 rounded-2xl p-8 pt-10 border border-slate-700/50">
-                                <h3 className="text-xl font-bold mb-3">Đăng ký Online</h3>
-                                <p className="text-slate-400 mb-4">
-                                    Điền thông tin doanh nghiệp, mã số thuế và upload giấy phép kinh doanh.
-                                </p>
-                                <div className="flex items-center text-amber-500 font-medium">
-                                    <Clock className="w-4 h-4 mr-2" />
-                                    5 phút
-                                </div>
+                            <h3 className="text-xl font-semibold text-gray-900 mb-3 mt-2">Đăng ký Online</h3>
+                            <p className="text-gray-600 mb-4">
+                                Điền thông tin doanh nghiệp, mã số thuế và upload giấy phép kinh doanh.
+                            </p>
+                            <div className="flex items-center text-blue-600 font-medium text-sm">
+                                <Clock className="w-4 h-4 mr-2" />
+                                5 phút
                             </div>
                         </div>
 
                         {/* Step 2 */}
-                        <div className="relative">
-                            <div className="absolute -top-4 -left-4 w-12 h-12 bg-amber-500 rounded-xl flex items-center justify-center text-slate-950 font-bold text-xl">
+                        <div className="relative bg-white rounded-xl p-8 shadow-sm border border-gray-100">
+                            <div className="absolute -top-4 -left-4 w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold">
                                 2
                             </div>
-                            <div className="bg-slate-800/50 rounded-2xl p-8 pt-10 border border-slate-700/50">
-                                <h3 className="text-xl font-bold mb-3">Xác minh & Ký hợp đồng</h3>
-                                <p className="text-slate-400 mb-4">
-                                    Đội ngũ của chúng tôi sẽ xác minh thông tin và liên hệ tư vấn gói dịch vụ phù hợp.
-                                </p>
-                                <div className="flex items-center text-amber-500 font-medium">
-                                    <Clock className="w-4 h-4 mr-2" />
-                                    1-2 ngày làm việc
-                                </div>
+                            <h3 className="text-xl font-semibold text-gray-900 mb-3 mt-2">Xác minh & Ký hợp đồng</h3>
+                            <p className="text-gray-600 mb-4">
+                                Đội ngũ sẽ xác minh thông tin và liên hệ tư vấn gói dịch vụ phù hợp.
+                            </p>
+                            <div className="flex items-center text-blue-600 font-medium text-sm">
+                                <Clock className="w-4 h-4 mr-2" />
+                                1-2 ngày làm việc
                             </div>
                         </div>
 
                         {/* Step 3 */}
-                        <div className="relative">
-                            <div className="absolute -top-4 -left-4 w-12 h-12 bg-amber-500 rounded-xl flex items-center justify-center text-slate-950 font-bold text-xl">
+                        <div className="relative bg-white rounded-xl p-8 shadow-sm border border-gray-100">
+                            <div className="absolute -top-4 -left-4 w-10 h-10 bg-green-600 rounded-lg flex items-center justify-center text-white font-bold">
                                 3
                             </div>
-                            <div className="bg-slate-800/50 rounded-2xl p-8 pt-10 border border-slate-700/50">
-                                <h3 className="text-xl font-bold mb-3">Bắt đầu Đặt hàng</h3>
-                                <p className="text-slate-400 mb-4">
-                                    Truy cập portal riêng, xem giá ưu đãi và đặt hàng cho dự án của bạn.
-                                </p>
-                                <div className="flex items-center text-green-500 font-medium">
-                                    <CheckCircle className="w-4 h-4 mr-2" />
-                                    Sẵn sàng sử dụng
-                                </div>
+                            <h3 className="text-xl font-semibold text-gray-900 mb-3 mt-2">Bắt đầu Đặt hàng</h3>
+                            <p className="text-gray-600 mb-4">
+                                Truy cập portal riêng, xem giá ưu đãi và đặt hàng cho dự án của bạn.
+                            </p>
+                            <div className="flex items-center text-green-600 font-medium text-sm">
+                                <CheckCircle className="w-4 h-4 mr-2" />
+                                Sẵn sàng sử dụng
                             </div>
                         </div>
                     </div>
@@ -337,51 +325,78 @@ export default function ContractorLandingPage() {
             </section>
 
             {/* CTA Section */}
-            <section className="py-20 px-6">
+            <section className="py-20 px-6 bg-blue-600">
                 <div className="max-w-4xl mx-auto text-center">
-                    <h2 className="text-4xl font-bold mb-6">
+                    <h2 className="text-3xl font-bold text-white mb-4">
                         Sẵn sàng Tối ưu Chi phí Vật liệu?
                     </h2>
-                    <p className="text-xl text-slate-400 mb-8">
+                    <p className="text-xl text-blue-100 mb-8">
                         Đăng ký ngay hôm nay và nhận ưu đãi 5% cho đơn hàng đầu tiên
                     </p>
                     <div className="flex flex-col sm:flex-row gap-4 justify-center">
                         <Link
                             href="/contractor/register"
-                            className="group bg-amber-500 hover:bg-amber-600 text-slate-950 px-10 py-4 rounded-xl font-bold text-lg transition-all hover:shadow-xl hover:shadow-amber-500/25 flex items-center justify-center gap-2"
+                            className="bg-white text-blue-600 hover:bg-gray-100 px-10 py-4 rounded-lg font-semibold text-lg transition-all shadow-md flex items-center justify-center gap-2"
                         >
                             Đăng ký Miễn phí
-                            <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                            <ArrowRight className="w-5 h-5" />
                         </Link>
                         <Link
                             href="tel:0909123456"
-                            className="bg-slate-800 hover:bg-slate-700 text-white px-10 py-4 rounded-xl font-semibold text-lg transition-all border border-slate-700 flex items-center justify-center"
+                            className="bg-blue-700 hover:bg-blue-800 text-white px-10 py-4 rounded-lg font-semibold text-lg transition-all border border-blue-500 flex items-center justify-center gap-2"
                         >
-                            Gọi ngay: 0909 123 456
+                            <Phone className="w-5 h-5" />
+                            0909 123 456
                         </Link>
                     </div>
                 </div>
             </section>
 
-            {/* Footer */}
-            <footer className="py-12 px-6 border-t border-slate-800">
+            {/* Contact Section */}
+            <section id="contact" className="py-16 px-6 bg-white">
                 <div className="max-w-7xl mx-auto">
-                    <div className="flex flex-col md:flex-row justify-between items-center gap-6">
+                    <div className="grid md:grid-cols-3 gap-8 text-center">
+                        <div className="flex flex-col items-center">
+                            <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mb-4">
+                                <Phone className="w-6 h-6 text-blue-600" />
+                            </div>
+                            <h3 className="font-semibold text-gray-900 mb-2">Hotline</h3>
+                            <p className="text-gray-600">0909 123 456</p>
+                        </div>
+                        <div className="flex flex-col items-center">
+                            <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mb-4">
+                                <Mail className="w-6 h-6 text-green-600" />
+                            </div>
+                            <h3 className="font-semibold text-gray-900 mb-2">Email</h3>
+                            <p className="text-gray-600">contractor@smartbuild.vn</p>
+                        </div>
+                        <div className="flex flex-col items-center">
+                            <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center mb-4">
+                                <MapPin className="w-6 h-6 text-orange-600" />
+                            </div>
+                            <h3 className="font-semibold text-gray-900 mb-2">Địa chỉ</h3>
+                            <p className="text-gray-600">123 Nguyễn Văn Linh, Biên Hòa</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            {/* Footer */}
+            <footer className="py-8 px-6 bg-gray-50 border-t border-gray-200">
+                <div className="max-w-7xl mx-auto">
+                    <div className="flex flex-col md:flex-row justify-between items-center gap-4">
                         <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-gradient-to-br from-amber-500 to-amber-600 rounded-lg flex items-center justify-center">
-                                <Building2 className="w-6 h-6 text-slate-950" />
+                            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+                                <Building2 className="w-5 h-5 text-white" />
                             </div>
-                            <div>
-                                <span className="text-xl font-bold text-white">SmartBuild</span>
-                                <span className="text-amber-500 font-semibold ml-2">PRO</span>
-                            </div>
+                            <span className="font-bold text-gray-900">SmartBuild <span className="text-blue-600">PRO</span></span>
                         </div>
-                        <div className="flex items-center gap-8 text-slate-400">
-                            <Link href="/" className="hover:text-white transition-colors">Trang chủ</Link>
-                            <Link href="/products" className="hover:text-white transition-colors">Sản phẩm</Link>
-                            <Link href="/contact" className="hover:text-white transition-colors">Liên hệ</Link>
+                        <div className="flex items-center gap-6 text-gray-600 text-sm">
+                            <Link href="/" className="hover:text-blue-600 transition-colors">Trang chủ</Link>
+                            <Link href="/products" className="hover:text-blue-600 transition-colors">Sản phẩm</Link>
+                            <Link href="/contact" className="hover:text-blue-600 transition-colors">Liên hệ</Link>
                         </div>
-                        <div className="text-slate-500">
+                        <div className="text-gray-500 text-sm">
                             © 2025 SmartBuild. All rights reserved.
                         </div>
                     </div>

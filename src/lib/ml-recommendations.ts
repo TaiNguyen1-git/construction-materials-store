@@ -1,9 +1,12 @@
 /**
  * ML-Enhanced Recommendations Service
- * Combines rule-based algorithms with ML collaborative filtering
+ * Uses Collaborative Filtering (replaced Gemini due to rate limits)
+ * 
+ * Algorithms: Item-based CF, User-based CF, Co-purchase Matrix, Content-based
  */
 
 import { prisma } from '@/lib/prisma'
+import { collaborativeFiltering } from './cf-recommendations'
 
 interface ProductScore {
   productId: string
@@ -13,6 +16,15 @@ interface ProductScore {
 }
 
 export class MLRecommendationsService {
+
+  /**
+   * Initialize/train the CF model (call on server start or periodically)
+   */
+  static async initialize(): Promise<void> {
+    const result = await collaborativeFiltering.train()
+    console.log('📊 ML Recommendations initialized:', result.stats)
+  }
+
   /**
    * Get hybrid recommendations combining ML and rule-based
    */
@@ -55,60 +67,23 @@ export class MLRecommendationsService {
   }
 
   /**
-   * ML-based collaborative filtering using user-item interactions
-   * NOW: Uses Gemini to understand product relationships
+   * ML-based collaborative filtering using co-purchase matrix
+   * Uses local CF model instead of Gemini API
    */
   static async getMLSimilarProducts(
     productId: string,
     limit: number = 10
   ): Promise<ProductScore[]> {
     try {
-      const product = await prisma.product.findUnique({
-        where: { id: productId },
-        include: { category: true }
-      })
+      // Use Collaborative Filtering service
+      const cfScores = await collaborativeFiltering.getSimilarProducts(productId, limit)
 
-      if (!product) return []
-
-      const recommendations = await import('./ai-service').then(m =>
-        m.default.getSmartRecommendations({
-          viewedProduct: {
-            name: product.name,
-            category: product.category.name,
-            price: product.price,
-            description: product.description
-          }
-        })
-      )
-
-      // Map back to our database products
-      // In a real scenario, we'd search for these product names or IDs
-      // For now, let's find products with matching string similarity or just return placeholder scores
-      // To keep it safe, we'll search for products with similar names
-
-      const scores: ProductScore[] = []
-
-      for (const rec of recommendations) {
-        // Try to find this recommended product in our DB
-        const dbProduct = await prisma.product.findFirst({
-          where: {
-            name: { contains: rec.name.split(' ')[0] }, // Simple fuzzy match on first word
-            isActive: true,
-            id: { not: productId }
-          }
-        })
-
-        if (dbProduct) {
-          scores.push({
-            productId: dbProduct.id,
-            score: 0.9,
-            reason: rec.reason || 'AI Recommended',
-            method: 'ml'
-          })
-        }
-      }
-
-      return scores.slice(0, limit)
+      return cfScores.map(s => ({
+        productId: s.productId,
+        score: s.score,
+        reason: s.reason,
+        method: 'ml' as const
+      }))
     } catch (error) {
       console.error('ML similar products error:', error)
       return []
@@ -116,67 +91,47 @@ export class MLRecommendationsService {
   }
 
   /**
-   * ML-based personalized recommendations using user behavior
-   * NOW: Uses Gemini to profile user and suggest items
+   * ML-based personalized recommendations using purchase history
+   * Uses local CF model instead of Gemini API
    */
   static async getMLPersonalizedRecommendations(
     customerId: string,
     limit: number = 10
   ): Promise<ProductScore[]> {
     try {
-      // Get user's purchase history context
-      const userOrders = await prisma.order.findMany({
-        where: {
-          customerId,
-          status: 'DELIVERED'
-        },
-        include: {
-          orderItems: {
-            include: { product: true }
-          }
-        },
-        orderBy: { createdAt: 'desc' },
-        take: 5
-      })
+      // Use Collaborative Filtering service
+      const cfScores = await collaborativeFiltering.getPersonalizedRecommendations(customerId, limit)
 
-      if (userOrders.length === 0) return []
-
-      const userHistory = userOrders.map(o => ({
-        date: o.createdAt,
-        items: o.orderItems.map(i => i.product.name)
+      return cfScores.map(s => ({
+        productId: s.productId,
+        score: s.score,
+        reason: s.reason,
+        method: 'ml' as const
       }))
-
-      const recommendations = await import('./ai-service').then(m =>
-        m.default.getSmartRecommendations({
-          userHistory
-        })
-      )
-
-      const scores: ProductScore[] = []
-
-      for (const rec of recommendations) {
-        // Try to find this recommended product in our DB
-        const dbProduct = await prisma.product.findFirst({
-          where: {
-            name: { contains: rec.name.split(' ')[0] },
-            isActive: true
-          }
-        })
-
-        if (dbProduct) {
-          scores.push({
-            productId: dbProduct.id,
-            score: 0.95,
-            reason: rec.reason || 'AI Personalized',
-            method: 'ml'
-          })
-        }
-      }
-
-      return scores.slice(0, limit)
-
     } catch (error) {
       console.error('ML personalized recommendations error:', error)
+      return []
+    }
+  }
+
+  /**
+   * Get frequently bought together (for cart suggestions)
+   */
+  static async getFrequentlyBoughtTogether(
+    cartProductIds: string[],
+    limit: number = 5
+  ): Promise<ProductScore[]> {
+    try {
+      const cfScores = await collaborativeFiltering.getFrequentlyBoughtTogether(cartProductIds, limit)
+
+      return cfScores.map(s => ({
+        productId: s.productId,
+        score: s.score,
+        reason: s.reason,
+        method: 'ml' as const
+      }))
+    } catch (error) {
+      console.error('Frequently bought together error:', error)
       return []
     }
   }
@@ -195,7 +150,7 @@ export class MLRecommendationsService {
 
       if (!product) return []
 
-      // Get products in same category
+      // Get products in same category, sorted by popularity
       const related = await prisma.product.findMany({
         where: {
           categoryId: product.categoryId,
@@ -203,8 +158,8 @@ export class MLRecommendationsService {
           isActive: true
         },
         include: {
-          orderItems: {
-            select: { id: true }
+          _count: {
+            select: { orderItems: true }
           }
         },
         orderBy: [
@@ -213,10 +168,13 @@ export class MLRecommendationsService {
         take: limit
       })
 
+      // Score by order count
+      const maxOrders = Math.max(...related.map(p => p._count.orderItems), 1)
+
       return related.map(p => ({
         productId: p.id,
-        score: 0.7, // Fixed score for rule-based
-        reason: 'Same category',
+        score: 0.5 + (p._count.orderItems / maxOrders) * 0.3,
+        reason: 'Cùng danh mục sản phẩm',
         method: 'rule' as const
       }))
     } catch (error) {
@@ -237,48 +195,67 @@ export class MLRecommendationsService {
       const orders = await prisma.order.findMany({
         where: {
           customerId,
-          status: 'DELIVERED'
+          status: { in: ['DELIVERED', 'SHIPPED'] }
         },
         include: {
           orderItems: {
             include: { product: true }
           }
         },
-        take: 5,
+        take: 10,
         orderBy: { createdAt: 'desc' }
       })
 
-      if (orders.length === 0) return []
+      if (orders.length === 0) {
+        // Return bestsellers for new users
+        const bestsellers = await prisma.product.findMany({
+          where: { isActive: true },
+          include: {
+            _count: { select: { orderItems: true } }
+          },
+          orderBy: { createdAt: 'desc' },
+          take: limit
+        })
+
+        return bestsellers.map(p => ({
+          productId: p.id,
+          score: 0.5,
+          reason: 'Sản phẩm bán chạy',
+          method: 'rule' as const
+        }))
+      }
 
       // Get categories user bought from
       const categories = new Set<string>()
+      const purchasedProductIds = new Set<string>()
+
       orders.forEach(order => {
-        order.orderItems.forEach(item => {
+        order.orderItems.forEach((item: any) => {
           categories.add(item.product.categoryId)
+          purchasedProductIds.add(item.productId)
         })
       })
 
-      // Get popular products in those categories
+      // Get popular products in those categories (not already purchased)
       const recommended = await prisma.product.findMany({
         where: {
           categoryId: { in: Array.from(categories) },
-          isActive: true
+          isActive: true,
+          id: { notIn: Array.from(purchasedProductIds) }
         },
         include: {
-          orderItems: {
-            select: { id: true }
-          }
+          _count: { select: { orderItems: true } }
         },
-        orderBy: [
-          { createdAt: 'desc' }
-        ],
+        orderBy: { createdAt: 'desc' },
         take: limit
       })
 
+      const maxOrders = Math.max(...recommended.map(p => p._count.orderItems), 1)
+
       return recommended.map(p => ({
         productId: p.id,
-        score: 0.6,
-        reason: 'Popular in your categories',
+        score: 0.4 + (p._count.orderItems / maxOrders) * 0.4,
+        reason: 'Phù hợp sở thích của bạn',
         method: 'rule' as const
       }))
     } catch (error) {
@@ -312,7 +289,7 @@ export class MLRecommendationsService {
       if (existing) {
         // Combine scores
         existing.score += score.score * weights.ruleWeight
-        existing.reason += ` + ${score.reason}`
+        existing.reason = `${existing.reason} + ${score.reason}`
       } else {
         combined.set(score.productId, {
           ...score,
@@ -362,6 +339,13 @@ export class MLRecommendationsService {
         method: score.method
       }
     }).filter(Boolean)
+  }
+
+  /**
+   * Get model stats
+   */
+  static getModelStats() {
+    return collaborativeFiltering.getModelStats()
   }
 }
 
