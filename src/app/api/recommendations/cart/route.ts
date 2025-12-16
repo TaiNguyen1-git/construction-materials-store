@@ -216,6 +216,7 @@ async function getFrequentlyBoughtTogether(cartProductIds: string[], limit: numb
 
 /**
  * Find complementary products based on knowledge base commonCombinations
+ * Enhanced with fuzzy matching, category-based recommendations, and fallbacks
  */
 async function getComplementaryProducts(
   cartProducts: any[],
@@ -223,39 +224,118 @@ async function getComplementaryProducts(
 ) {
   // Extract all commonCombinations from cart products via knowledge base
   const allCombinations: string[] = []
+  const cartCategoryIds = [...new Set(cartProducts.map(p => p.categoryId))]
 
   for (const cartProduct of cartProducts) {
-    // Try to find product in knowledge base by name matching
-    const kbProduct = KNOWLEDGE_BASE.find(kb =>
-      cartProduct.name.toLowerCase().includes(kb.name.toLowerCase()) ||
-      kb.name.toLowerCase().includes(cartProduct.name.toLowerCase())
-    )
+    // Try multiple matching strategies for knowledge base lookup
+    const kbProduct = KNOWLEDGE_BASE.find(kb => {
+      const cartName = cartProduct.name.toLowerCase()
+      const kbName = kb.name.toLowerCase()
 
-    if (kbProduct && kbProduct.commonCombinations) {
+      // 1. Exact partial match
+      if (cartName.includes(kbName) || kbName.includes(cartName)) return true
+
+      // 2. Match by first significant word (e.g., "Xi măng" -> match "Xi măng INSEE PC40")
+      const cartFirstWords = cartName.split(' ').slice(0, 2).join(' ')
+      const kbFirstWords = kbName.split(' ').slice(0, 2).join(' ')
+      if (cartFirstWords === kbFirstWords || cartName.includes(kbFirstWords) || kbName.includes(cartFirstWords)) return true
+
+      // 3. Category-based match
+      const categoryName = cartProduct.category?.name?.toLowerCase() || ''
+      if (kb.category.toLowerCase() === categoryName) return true
+
+      return false
+    })
+
+    if (kbProduct && kbProduct.commonCombinations && kbProduct.commonCombinations.length > 0) {
+      console.log(`📚 KB Match: "${cartProduct.name}" -> KB: "${kbProduct.name}" with ${kbProduct.commonCombinations.length} combinations`)
       allCombinations.push(...kbProduct.commonCombinations)
     }
   }
 
-  if (allCombinations.length === 0) {
-    return []
-  }
-
   // Remove duplicates
   const uniqueCombinations = [...new Set(allCombinations)]
+  console.log(`🔗 Total unique combinations to search: ${uniqueCombinations.length}`)
 
-  // Search for products matching these combinations
-  const products = await prisma.product.findMany({
+  if (uniqueCombinations.length > 0) {
+    // Search for products matching these combinations
+    const products = await prisma.product.findMany({
+      where: {
+        AND: [
+          { isActive: true },
+          { id: { notIn: cartProducts.map(p => p.id) } },
+          {
+            OR: uniqueCombinations.map(combo => ({
+              OR: [
+                { name: { contains: combo, mode: 'insensitive' as const } },
+                { description: { contains: combo, mode: 'insensitive' as const } },
+                { category: { name: { contains: combo, mode: 'insensitive' as const } } }
+              ]
+            }))
+          }
+        ]
+      },
+      include: {
+        category: true,
+        inventoryItem: true,
+        productReviews: {
+          where: { isPublished: true },
+          select: { rating: true }
+        }
+      },
+      take: limit * 3 // Get more to filter
+    })
+
+    if (products.length > 0) {
+      console.log(`✅ Found ${products.length} complementary products from KB combinations`)
+
+      // Sort by stock availability and rating
+      const sorted = products
+        .map(product => ({
+          ...product,
+          avgRating: calculateAverageRating(product.productReviews),
+          inStock: product.inventoryItem ? product.inventoryItem.availableQuantity > 0 : false
+        }))
+        .sort((a, b) => {
+          // Prioritize in-stock products
+          if (a.inStock !== b.inStock) return a.inStock ? -1 : 1
+          // Then by rating
+          return b.avgRating - a.avgRating
+        })
+        .slice(0, limit)
+
+      return sorted.map(product => ({
+        id: product.id,
+        name: product.name,
+        price: product.price,
+        unit: product.unit,
+        images: product.images,
+        category: product.category.name,
+        inStock: product.inStock,
+        availableQuantity: product.inventoryItem?.availableQuantity || 0,
+        rating: product.avgRating,
+        reviewCount: product.productReviews.length,
+        reason: 'Sản phẩm bổ sung',
+        badge: '🔧 Cần thiết',
+        confidence: 0.95
+      }))
+    }
+  }
+
+  // FALLBACK: If no KB match, get related products from same or related categories
+  console.log('📦 Fallback: Fetching related products by category')
+
+  const relatedProducts = await prisma.product.findMany({
     where: {
       AND: [
         { isActive: true },
         { id: { notIn: cartProducts.map(p => p.id) } },
+        // Either same category or popular products
         {
-          OR: uniqueCombinations.map(combo => ({
-            OR: [
-              { name: { contains: combo, mode: 'insensitive' } },
-              { category: { name: { contains: combo, mode: 'insensitive' } } }
-            ]
-          }))
+          OR: [
+            { categoryId: { in: cartCategoryIds } },
+            { category: { name: { in: ['Xi măng', 'Cát', 'Đá', 'Gạch', 'Thép'] } } }
+          ]
         }
       ]
     },
@@ -267,38 +347,26 @@ async function getComplementaryProducts(
         select: { rating: true }
       }
     },
-    take: limit * 2 // Get more to filter
+    orderBy: [
+      { createdAt: 'desc' }
+    ],
+    take: limit
   })
 
-  // Sort by stock availability and rating
-  const sorted = products
-    .map(product => ({
-      ...product,
-      avgRating: calculateAverageRating(product.productReviews),
-      inStock: product.inventoryItem ? product.inventoryItem.availableQuantity > 0 : false
-    }))
-    .sort((a, b) => {
-      // Prioritize in-stock products
-      if (a.inStock !== b.inStock) return a.inStock ? -1 : 1
-      // Then by rating
-      return b.avgRating - a.avgRating
-    })
-    .slice(0, limit)
-
-  return sorted.map(product => ({
+  return relatedProducts.map(product => ({
     id: product.id,
     name: product.name,
     price: product.price,
     unit: product.unit,
     images: product.images,
     category: product.category.name,
-    inStock: product.inStock,
+    inStock: product.inventoryItem ? product.inventoryItem.availableQuantity > 0 : false,
     availableQuantity: product.inventoryItem?.availableQuantity || 0,
-    rating: product.avgRating,
+    rating: calculateAverageRating(product.productReviews),
     reviewCount: product.productReviews.length,
-    reason: 'Sản phẩm bổ sung',
-    badge: '🔧 Cần thiết',
-    confidence: 0.95
+    reason: 'Sản phẩm liên quan',
+    badge: '⭐ Phổ biến',
+    confidence: 0.7
   }))
 }
 
