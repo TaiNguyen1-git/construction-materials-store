@@ -111,6 +111,23 @@ export default function ContractorRegisterPage() {
         setError('')
 
         try {
+            // First, upload the business license if provided
+            let businessLicenseId = null
+            if (formData.businessLicense) {
+                const uploadFormData = new FormData()
+                uploadFormData.append('file', formData.businessLicense)
+
+                const uploadRes = await fetch('/api/upload/secure', {
+                    method: 'POST',
+                    body: uploadFormData
+                })
+
+                if (uploadRes.ok) {
+                    const uploadData = await uploadRes.json()
+                    businessLicenseId = uploadData.fileId
+                }
+            }
+
             const registerRes = await fetch('/api/auth/register', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -130,6 +147,12 @@ export default function ContractorRegisterPage() {
             const userData = await registerRes.json()
             const userId = userData.user?.id || userData.data?.id
 
+            // Build notes with license reference
+            let notes = `[CONTRACTOR REQUEST] Company: ${formData.companyName}, Tax ID: ${formData.taxId}, City: ${formData.city}`
+            if (businessLicenseId) {
+                notes += ` | Business License: /api/documents/${businessLicenseId}`
+            }
+
             const customerRes = await fetch('/api/customers', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -140,7 +163,7 @@ export default function ContractorRegisterPage() {
                     taxId: formData.taxId,
                     companyAddress: formData.companyAddress,
                     contractorVerified: false,
-                    notes: `[CONTRACTOR REQUEST] Company: ${formData.companyName}, Tax ID: ${formData.taxId}, City: ${formData.city}`
+                    notes
                 })
             })
 
@@ -193,8 +216,8 @@ export default function ContractorRegisterPage() {
                             {[1, 2, 3].map((s) => (
                                 <div key={s} className="relative z-10 flex flex-col items-center">
                                     <div className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg transition-all shadow-sm ${s < step ? 'bg-blue-600 text-white' :
-                                            s === step ? 'bg-blue-600 text-white ring-4 ring-blue-100' :
-                                                'bg-white text-gray-400 border-2 border-gray-200'
+                                        s === step ? 'bg-blue-600 text-white ring-4 ring-blue-100' :
+                                            'bg-white text-gray-400 border-2 border-gray-200'
                                         }`}>
                                         {s < step ? <CheckCircle className="w-6 h-6" /> : s}
                                     </div>

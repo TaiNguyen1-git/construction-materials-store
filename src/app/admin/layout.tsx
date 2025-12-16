@@ -61,7 +61,6 @@ const navigationGroups = [
       { name: 'Đánh Giá Sản Phẩm', href: '/admin/reviews', icon: Star },
     ]
   },
-  /* HIDDEN FOR NOW - SME Management (uncomment to enable)
   {
     name: 'Quản Lý SME',
     icon: CreditCard,
@@ -71,7 +70,6 @@ const navigationGroups = [
       { name: 'Hợp Đồng & Giá B2B', href: '/admin/contract-management', icon: FileText },
     ]
   },
-  */
   {
     name: 'Nhân Sự',
     icon: Briefcase,

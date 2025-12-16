@@ -1,0 +1,484 @@
+'use client'
+
+/**
+ * Contractor Profile Page
+ * Edit business info, upload documents, manage account settings
+ */
+
+import { useState, useEffect, useRef } from 'react'
+import Link from 'next/link'
+import Image from 'next/image'
+import {
+    Building2,
+    User,
+    Mail,
+    Phone,
+    MapPin,
+    FileText,
+    Upload,
+    Save,
+    Camera,
+    AlertCircle,
+    CheckCircle,
+    Loader2,
+    Trash2,
+    Eye,
+    Download,
+    X
+} from 'lucide-react'
+import Sidebar from '../components/Sidebar'
+import toast, { Toaster } from 'react-hot-toast'
+
+interface BusinessDocument {
+    id: string
+    name: string
+    type: string
+    uploadedAt: string
+    url: string
+    status: 'pending' | 'verified' | 'rejected'
+}
+
+export default function ContractorProfilePage() {
+    const [sidebarOpen, setSidebarOpen] = useState(false)
+    const [loading, setLoading] = useState(false)
+    const [saving, setSaving] = useState(false)
+    const fileInputRef = useRef<HTMLInputElement>(null)
+
+    // Profile form state
+    const [profile, setProfile] = useState({
+        companyName: '',
+        taxId: '',
+        representativeName: '',
+        email: '',
+        phone: '',
+        address: '',
+        city: '',
+        district: '',
+        ward: '',
+        businessType: '',
+        website: ''
+    })
+
+    // Documents state
+    const [documents, setDocuments] = useState<BusinessDocument[]>([])
+    const [uploadingDoc, setUploadingDoc] = useState(false)
+
+    // Load profile data
+    useEffect(() => {
+        const loadProfile = async () => {
+            setLoading(true)
+            try {
+                // Load from localStorage for now (would be API in production)
+                const saved = localStorage.getItem('contractor-profile')
+                if (saved) {
+                    setProfile(JSON.parse(saved))
+                }
+
+                // Load saved documents
+                const savedDocs = localStorage.getItem('contractor-documents')
+                if (savedDocs) {
+                    setDocuments(JSON.parse(savedDocs))
+                }
+            } catch (error) {
+                console.error('Failed to load profile:', error)
+            } finally {
+                setLoading(false)
+            }
+        }
+        loadProfile()
+    }, [])
+
+    // Handle input change
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+        const { name, value } = e.target
+        setProfile(prev => ({ ...prev, [name]: value }))
+    }
+
+    // Save profile
+    const handleSave = async () => {
+        setSaving(true)
+        try {
+            // Save to localStorage for now
+            localStorage.setItem('contractor-profile', JSON.stringify(profile))
+            toast.success('Đã lưu thông tin hồ sơ!')
+        } catch (error) {
+            toast.error('Có lỗi xảy ra. Vui lòng thử lại.')
+        } finally {
+            setSaving(false)
+        }
+    }
+
+    // Handle document upload
+    const handleDocumentUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0]
+        if (!file) return
+
+        // Validate file type
+        const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png']
+        if (!allowedTypes.includes(file.type)) {
+            toast.error('Chỉ chấp nhận file PDF, JPG, PNG')
+            return
+        }
+
+        // Validate file size (max 5MB)
+        if (file.size > 5 * 1024 * 1024) {
+            toast.error('File không được vượt quá 5MB')
+            return
+        }
+
+        setUploadingDoc(true)
+        try {
+            // Simulate upload - in production, call /api/contractor/documents
+            await new Promise(resolve => setTimeout(resolve, 1500))
+
+            const newDoc: BusinessDocument = {
+                id: Date.now().toString(),
+                name: file.name,
+                type: file.type.includes('pdf') ? 'PDF' : 'Image',
+                uploadedAt: new Date().toISOString(),
+                url: URL.createObjectURL(file), // In production, use actual uploaded URL
+                status: 'pending'
+            }
+
+            const updatedDocs = [...documents, newDoc]
+            setDocuments(updatedDocs)
+            localStorage.setItem('contractor-documents', JSON.stringify(updatedDocs))
+
+            toast.success('Đã tải lên: ' + file.name)
+        } catch (error) {
+            toast.error('Tải lên thất bại')
+        } finally {
+            setUploadingDoc(false)
+            if (fileInputRef.current) {
+                fileInputRef.current.value = ''
+            }
+        }
+    }
+
+    // Delete document
+    const deleteDocument = (docId: string) => {
+        const updatedDocs = documents.filter(d => d.id !== docId)
+        setDocuments(updatedDocs)
+        localStorage.setItem('contractor-documents', JSON.stringify(updatedDocs))
+        toast.success('Đã xóa tài liệu')
+    }
+
+    // Get status badge
+    const getStatusBadge = (status: BusinessDocument['status']) => {
+        switch (status) {
+            case 'verified':
+                return (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs font-medium">
+                        <CheckCircle className="w-3 h-3" />
+                        Đã xác minh
+                    </span>
+                )
+            case 'rejected':
+                return (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-red-100 text-red-700 rounded-full text-xs font-medium">
+                        <X className="w-3 h-3" />
+                        Từ chối
+                    </span>
+                )
+            default:
+                return (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-yellow-100 text-yellow-700 rounded-full text-xs font-medium">
+                        <AlertCircle className="w-3 h-3" />
+                        Đang chờ
+                    </span>
+                )
+        }
+    }
+
+    return (
+        <div className="min-h-screen bg-gray-50">
+            <Toaster position="top-right" />
+
+            {/* Top Nav */}
+            <nav className="fixed top-0 left-0 right-0 h-[73px] bg-white border-b border-gray-200 z-30 px-6">
+                <div className="h-full flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                        <button
+                            onClick={() => setSidebarOpen(!sidebarOpen)}
+                            className="lg:hidden p-2 hover:bg-gray-100 rounded-lg"
+                        >
+                            <Building2 className="w-6 h-6 text-gray-600" />
+                        </button>
+                        <Link href="/contractor/dashboard" className="flex items-center gap-2">
+                            <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
+                                <Building2 className="w-6 h-6 text-white" />
+                            </div>
+                            <span className="text-xl font-bold text-gray-900">SmartBuild</span>
+                            <span className="text-blue-600 font-semibold">PRO</span>
+                        </Link>
+                    </div>
+                </div>
+            </nav>
+
+            <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+
+            {/* Main Content */}
+            <main className="lg:ml-64 pt-[73px]">
+                <div className="p-6 lg:p-8 max-w-4xl mx-auto">
+                    {/* Header */}
+                    <div className="mb-8">
+                        <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
+                            <User className="w-7 h-7 text-blue-600" />
+                            Hồ Sơ Doanh Nghiệp
+                        </h1>
+                        <p className="text-gray-500 mt-1">Quản lý thông tin và giấy tờ doanh nghiệp</p>
+                    </div>
+
+                    {loading ? (
+                        <div className="flex items-center justify-center py-20">
+                            <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+                        </div>
+                    ) : (
+                        <div className="space-y-6">
+                            {/* Business Info */}
+                            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                                <h2 className="font-semibold text-gray-900 mb-6 flex items-center gap-2">
+                                    <Building2 className="w-5 h-5 text-blue-600" />
+                                    Thông Tin Doanh Nghiệp
+                                </h2>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                            Tên Công Ty *
+                                        </label>
+                                        <input
+                                            type="text"
+                                            name="companyName"
+                                            value={profile.companyName}
+                                            onChange={handleChange}
+                                            placeholder="VD: Công ty TNHH Xây Dựng ABC"
+                                            className="w-full border border-gray-200 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                            Mã Số Thuế *
+                                        </label>
+                                        <input
+                                            type="text"
+                                            name="taxId"
+                                            value={profile.taxId}
+                                            onChange={handleChange}
+                                            placeholder="VD: 0123456789"
+                                            className="w-full border border-gray-200 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                            Người Đại Diện *
+                                        </label>
+                                        <input
+                                            type="text"
+                                            name="representativeName"
+                                            value={profile.representativeName}
+                                            onChange={handleChange}
+                                            placeholder="Họ và tên người đại diện"
+                                            className="w-full border border-gray-200 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                            Loại Hình Kinh Doanh
+                                        </label>
+                                        <select
+                                            name="businessType"
+                                            value={profile.businessType}
+                                            onChange={handleChange}
+                                            className="w-full border border-gray-200 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        >
+                                            <option value="">Chọn loại hình</option>
+                                            <option value="contractor">Nhà thầu xây dựng</option>
+                                            <option value="developer">Chủ đầu tư</option>
+                                            <option value="retailer">Đại lý bán lẻ</option>
+                                            <option value="other">Khác</option>
+                                        </select>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                            Email *
+                                        </label>
+                                        <div className="relative">
+                                            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                                            <input
+                                                type="email"
+                                                name="email"
+                                                value={profile.email}
+                                                onChange={handleChange}
+                                                placeholder="email@company.com"
+                                                className="w-full border border-gray-200 rounded-lg pl-10 pr-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                            Số Điện Thoại *
+                                        </label>
+                                        <div className="relative">
+                                            <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                                            <input
+                                                type="tel"
+                                                name="phone"
+                                                value={profile.phone}
+                                                onChange={handleChange}
+                                                placeholder="0901 234 567"
+                                                className="w-full border border-gray-200 rounded-lg pl-10 pr-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="md:col-span-2">
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                            Địa Chỉ *
+                                        </label>
+                                        <div className="relative">
+                                            <MapPin className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
+                                            <textarea
+                                                name="address"
+                                                value={profile.address}
+                                                onChange={handleChange}
+                                                placeholder="Số nhà, tên đường, phường/xã, quận/huyện, tỉnh/thành phố"
+                                                rows={2}
+                                                className="w-full border border-gray-200 rounded-lg pl-10 pr-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                            Website
+                                        </label>
+                                        <input
+                                            type="url"
+                                            name="website"
+                                            value={profile.website}
+                                            onChange={handleChange}
+                                            placeholder="https://www.company.com"
+                                            className="w-full border border-gray-200 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="mt-6 flex justify-end">
+                                    <button
+                                        onClick={handleSave}
+                                        disabled={saving}
+                                        className="flex items-center gap-2 bg-blue-600 text-white px-6 py-2.5 rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors font-medium"
+                                    >
+                                        {saving ? (
+                                            <>
+                                                <Loader2 className="w-5 h-5 animate-spin" />
+                                                Đang lưu...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Save className="w-5 h-5" />
+                                                Lưu Thông Tin
+                                            </>
+                                        )}
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Documents Section */}
+                            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                                <h2 className="font-semibold text-gray-900 mb-6 flex items-center gap-2">
+                                    <FileText className="w-5 h-5 text-blue-600" />
+                                    Giấy Tờ Pháp Lý
+                                </h2>
+
+                                <p className="text-sm text-gray-500 mb-4">
+                                    Tải lên các giấy tờ: Giấy phép kinh doanh, Giấy chứng nhận đăng ký thuế, CMND/CCCD người đại diện...
+                                </p>
+
+                                {/* Upload Area */}
+                                <div className="border-2 border-dashed border-gray-200 rounded-xl p-6 text-center mb-6">
+                                    <input
+                                        ref={fileInputRef}
+                                        type="file"
+                                        accept=".pdf,.jpg,.jpeg,.png"
+                                        onChange={handleDocumentUpload}
+                                        className="hidden"
+                                        id="doc-upload"
+                                    />
+                                    <label
+                                        htmlFor="doc-upload"
+                                        className="cursor-pointer"
+                                    >
+                                        {uploadingDoc ? (
+                                            <Loader2 className="w-10 h-10 text-blue-600 animate-spin mx-auto mb-3" />
+                                        ) : (
+                                            <Upload className="w-10 h-10 text-gray-400 mx-auto mb-3" />
+                                        )}
+                                        <p className="text-gray-600 font-medium">
+                                            {uploadingDoc ? 'Đang tải lên...' : 'Nhấn hoặc kéo thả file vào đây'}
+                                        </p>
+                                        <p className="text-sm text-gray-400 mt-1">
+                                            PDF, JPG, PNG - Tối đa 5MB
+                                        </p>
+                                    </label>
+                                </div>
+
+                                {/* Documents List */}
+                                {documents.length > 0 ? (
+                                    <div className="space-y-3">
+                                        {documents.map((doc) => (
+                                            <div
+                                                key={doc.id}
+                                                className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg"
+                                            >
+                                                <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                                                    <FileText className="w-5 h-5 text-blue-600" />
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="font-medium text-gray-900 truncate">{doc.name}</p>
+                                                    <p className="text-sm text-gray-500">
+                                                        {doc.type} • {new Date(doc.uploadedAt).toLocaleDateString('vi-VN')}
+                                                    </p>
+                                                </div>
+                                                {getStatusBadge(doc.status)}
+                                                <div className="flex items-center gap-2">
+                                                    <a
+                                                        href={doc.url}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                                        title="Xem"
+                                                    >
+                                                        <Eye className="w-5 h-5" />
+                                                    </a>
+                                                    <button
+                                                        onClick={() => deleteDocument(doc.id)}
+                                                        className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                                        title="Xóa"
+                                                    >
+                                                        <Trash2 className="w-5 h-5" />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="text-center text-gray-400 py-6">
+                                        <FileText className="w-12 h-12 mx-auto mb-2 text-gray-300" />
+                                        <p>Chưa có giấy tờ nào được tải lên</p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </main>
+        </div>
+    )
+}
