@@ -3,6 +3,7 @@ import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import { Toaster } from 'react-hot-toast'
 import Chatbot from '@/components/Chatbot'
+import ContractorRedirect from '@/components/ContractorRedirect'
 import { AuthProvider } from '@/contexts/auth-context'
 // import { ErrorBoundary } from '@/components/ErrorBoundary' // Temporarily disabled
 
@@ -50,11 +51,12 @@ export default function RootLayout({
     <html lang="en">
       <body className={inter.className}>
         <AuthProvider>
+          <ContractorRedirect />
           <div id="root">
             {children}
           </div>
           <Chatbot />
-          <Toaster 
+          <Toaster
             position="top-right"
             toastOptions={{
               duration: 4000,

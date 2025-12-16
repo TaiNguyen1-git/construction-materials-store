@@ -25,6 +25,7 @@ import {
     Camera
 } from 'lucide-react'
 import toast, { Toaster } from 'react-hot-toast'
+import { useCartStore, CartItem } from '@/stores/cartStore'
 
 interface RoomDimension {
     name: string
@@ -71,6 +72,9 @@ export default function EstimatorPage() {
     const [result, setResult] = useState<EstimatorResult | null>(null)
     const [addingToCart, setAddingToCart] = useState(false)
     const fileInputRef = useRef<HTMLInputElement>(null)
+
+    // Cart store for adding estimated materials (regular user cart)
+    const { addItem: addToCart, openCart } = useCartStore()
 
     const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0]
@@ -142,24 +146,37 @@ export default function EstimatorPage() {
         try {
             for (const material of result.materials) {
                 if (material.productId) {
-                    await fetch('/api/cart', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
+                    // Fetch product details to get all required info for cart
+                    const productRes = await fetch(`/api/products/${material.productId}`)
+                    if (productRes.ok) {
+                        const productData = await productRes.json()
+                        const product = productData.data || productData
+
+                        // Add to local cart store
+                        addToCart({
+                            id: `est-${Date.now()}-${material.productId}`,
                             productId: material.productId,
-                            quantity: material.quantity
+                            name: product.name || material.productName,
+                            price: product.price || material.price || 0,
+                            quantity: material.quantity,
+                            image: product.image || product.images?.[0],
+                            sku: product.sku || 'N/A',
+                            unit: product.unit || material.unit,
+                            maxStock: product.availableQuantity
                         })
-                    })
-                    addedCount++
+                        addedCount++
+                    }
                 }
             }
 
             if (addedCount > 0) {
                 toast.success(`Đã thêm ${addedCount} sản phẩm vào giỏ hàng!`)
+                openCart() // Open cart drawer to show added items
             } else {
                 toast.error('Không có sản phẩm nào có sẵn trong hệ thống')
             }
         } catch (error) {
+            console.error('Error adding to cart:', error)
             toast.error('Có lỗi khi thêm vào giỏ hàng')
         } finally {
             setAddingToCart(false)
@@ -223,8 +240,8 @@ export default function EstimatorPage() {
                                         key={type.id}
                                         onClick={() => setProjectType(type.id)}
                                         className={`p-4 rounded-xl border-2 transition-all flex flex-col items-center gap-2 ${projectType === type.id
-                                                ? 'border-blue-500 bg-blue-50'
-                                                : 'border-gray-200 hover:border-blue-300'
+                                            ? 'border-blue-500 bg-blue-50'
+                                            : 'border-gray-200 hover:border-blue-300'
                                             }`}
                                     >
                                         <div className={`w-10 h-10 ${type.color} rounded-lg flex items-center justify-center`}>
@@ -244,8 +261,8 @@ export default function EstimatorPage() {
                                 <button
                                     onClick={() => setInputMode('text')}
                                     className={`flex-1 py-3 px-4 rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${inputMode === 'text'
-                                            ? 'bg-blue-600 text-white'
-                                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                        ? 'bg-blue-600 text-white'
+                                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                                         }`}
                                 >
                                     <Ruler className="w-4 h-4" />
@@ -254,8 +271,8 @@ export default function EstimatorPage() {
                                 <button
                                     onClick={() => setInputMode('image')}
                                     className={`flex-1 py-3 px-4 rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${inputMode === 'image'
-                                            ? 'bg-blue-600 text-white'
-                                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                        ? 'bg-blue-600 text-white'
+                                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                                         }`}
                                 >
                                     <Camera className="w-4 h-4" />

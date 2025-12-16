@@ -12,6 +12,31 @@ const gemini = process.env.GEMINI_API_KEY
     ? new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY })
     : null
 
+// Retry helper with exponential backoff for API calls
+async function withRetry<T>(
+    fn: () => Promise<T>,
+    maxRetries: number = 3,
+    baseDelayMs: number = 1000
+): Promise<T> {
+    let lastError: any
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+            return await fn()
+        } catch (error: any) {
+            lastError = error
+            const isRetryable = error?.status === 503 || error?.message?.includes('overloaded')
+            if (!isRetryable || attempt === maxRetries) {
+                throw error
+            }
+            // Exponential backoff: 1s, 2s, 4s
+            const delay = baseDelayMs * Math.pow(2, attempt - 1)
+            console.log(`API call failed (attempt ${attempt}/${maxRetries}), retrying in ${delay}ms...`)
+            await new Promise(resolve => setTimeout(resolve, delay))
+        }
+    }
+    throw lastError
+}
+
 // Construction material standards (Vietnamese market)
 const MATERIAL_STANDARDS = {
     flooring: {
@@ -120,7 +145,8 @@ Important guidelines:
 Return ONLY the JSON object, no additional text or markdown.
 `
 
-        const result = await model.generateContent({
+        // Use retry wrapper for API resilience (handles 503 errors)
+        const result = await withRetry(() => model.generateContent({
             model: 'gemini-2.5-flash',
             contents: [{
                 role: 'user',
@@ -134,7 +160,7 @@ Return ONLY the JSON object, no additional text or markdown.
                     }
                 ]
             }]
-        })
+        }))
 
         const responseText = (result as any).text || ''
 
@@ -191,7 +217,9 @@ Return ONLY the JSON object, no additional text or markdown.
             materials: [],
             totalEstimatedCost: 0,
             confidence: 0,
-            error: `Lỗi phân tích ảnh: ${error.message}`
+            error: error?.status === 503 || error?.message?.includes('overloaded')
+                ? 'Hệ thống AI đang bận. Vui lòng thử lại sau ít phút.'
+                : `Lỗi phân tích ảnh: ${error.message}`
         }
     }
 }
@@ -210,6 +238,25 @@ async function calculateMaterials(
 
     switch (projectType) {
         case 'flooring':
+            // Cement for floor leveling/base (15kg per m2)
+            const cementKg = Math.ceil(totalArea * MATERIAL_STANDARDS.flooring.cement.per_sqm)
+            const cementBags = Math.ceil(cementKg / 50) // 50kg bags
+            materials.push({
+                productName: 'Xi măng (bao 50kg)',
+                quantity: cementBags,
+                unit: 'bao',
+                reason: `Lót nền: ${cementKg}kg cho ${totalArea.toFixed(0)}m²`
+            })
+
+            // Sand for mortar (ratio 1:3 cement:sand)
+            const sandM3 = Math.ceil((cementKg * 3 / 1500) * 10) / 10 // 1500kg/m3 density
+            materials.push({
+                productName: 'Cát xây dựng',
+                quantity: Math.max(sandM3, 0.5),
+                unit: 'm³',
+                reason: `Tỉ lệ 1:3 với xi măng`
+            })
+
             // Tiles (assuming 60x60cm tiles = 0.36m2 each)
             const tileSize = 0.36
             const tilesNeeded = Math.ceil((totalArea / tileSize) * MATERIAL_STANDARDS.flooring.tile.wastage_factor)
@@ -220,20 +267,10 @@ async function calculateMaterials(
                 reason: `${totalArea.toFixed(1)}m² + 8% hao hụt`
             })
 
-            // Tile adhesive
-            const adhesiveKg = Math.ceil(totalArea * MATERIAL_STANDARDS.flooring.tile.adhesive_per_sqm)
-            const adhesiveBags = Math.ceil(adhesiveKg / 25) // 25kg bags
-            materials.push({
-                productName: 'Keo dán gạch (bao 25kg)',
-                quantity: adhesiveBags,
-                unit: 'bao',
-                reason: `${adhesiveKg}kg cần thiết`
-            })
-
-            // Grout
+            // Grout for tile joints
             const groutKg = Math.ceil(totalArea * MATERIAL_STANDARDS.flooring.tile.grout_per_sqm)
             materials.push({
-                productName: 'Keo chà ron',
+                productName: 'Keo chà ron/mạch gạch',
                 quantity: groutKg,
                 unit: 'kg',
                 reason: `0.5kg/m² × ${totalArea.toFixed(0)}m²`
@@ -271,39 +308,91 @@ async function calculateMaterials(
             break
 
         case 'tiling':
-            // Wall tiles (15x60cm)
+            // Cement for wall tile mortar
+            const tilingCementKg = Math.ceil(totalArea * 2.5 * 5) // 5kg/m2 for wall area
+            materials.push({
+                productName: 'Xi măng (bao 50kg)',
+                quantity: Math.ceil(tilingCementKg / 50),
+                unit: 'bao',
+                reason: `Vữa ốp tường: ${tilingCementKg}kg`
+            })
+
+            // Sand for wall mortar
+            const tilingSandM3 = Math.ceil((tilingCementKg * 3 / 1500) * 10) / 10
+            materials.push({
+                productName: 'Cát xây dựng',
+                quantity: Math.max(tilingSandM3, 0.5),
+                unit: 'm³',
+                reason: `Tỉ lệ 1:3 với xi măng`
+            })
+
+            // Wall tiles (30x60cm = 0.18m2 each)
             const wallTileArea = totalArea * 2.5 // Assuming wall height ~2.5m
-            const wallTilesNeeded = Math.ceil((wallTileArea / 0.09) * 1.1) // 10% wastage
+            const wallTilesNeeded = Math.ceil((wallTileArea / 0.18) * 1.1) // 10% wastage
             materials.push({
                 productName: 'Gạch ốp tường 30x60cm',
                 quantity: wallTilesNeeded,
                 unit: 'viên',
-                reason: `Ốp tường ${wallTileArea.toFixed(0)}m²`
-            })
-
-            // Wall tile adhesive
-            const wallAdhesiveKg = Math.ceil(wallTileArea * MATERIAL_STANDARDS.tiling_wall.adhesive_per_sqm)
-            materials.push({
-                productName: 'Keo dán gạch ốp tường (bao 25kg)',
-                quantity: Math.ceil(wallAdhesiveKg / 25),
-                unit: 'bao',
-                reason: `${wallAdhesiveKg}kg cho ${wallTileArea.toFixed(0)}m²`
+                reason: `Ốp tường ${wallTileArea.toFixed(0)}m² + 10% hao hụt`
             })
             break
 
         default:
-            // General estimation
+            // General house construction estimation (Vietnamese standards)
+            // For nhà cấp 4, typical ratios based on floor area:
+
+            // 1. Wall bricks - for a typical house, wall area ≈ 2.5-3x floor area
+            // Using 75 viên gạch ống 8x8x18cm per m² of floor area (accounts for walls)
+            const bricksPerSqm = 75 // viên per m² floor area
+            const totalBricks = Math.ceil(totalArea * bricksPerSqm * 1.05) // 5% wastage
+            materials.push({
+                productName: 'Gạch ống 8×8×18cm',
+                quantity: totalBricks,
+                unit: 'viên',
+                reason: `Xây tường: ${totalArea.toFixed(0)}m² × ${bricksPerSqm} viên/m² + 5% hao hụt`
+            })
+
+            // 2. Cement - for foundation, walls, plastering, and floor
+            // Typical: 1.5 bao per m² floor area for full construction
+            const cementPerSqm = 1.5 // bao 50kg per m² floor area
+            const totalCement = Math.ceil(totalArea * cementPerSqm)
             materials.push({
                 productName: 'Xi măng (bao 50kg)',
-                quantity: Math.ceil(totalArea * 0.4),
+                quantity: totalCement,
                 unit: 'bao',
-                reason: `Ước tính chung cho ${totalArea.toFixed(0)}m²`
+                reason: `Móng + xây + trát: ${cementPerSqm} bao/m² × ${totalArea.toFixed(0)}m²`
             })
+
+            // 3. Sand - ratio 1:3 with cement, plus extra for plastering
+            // Typical: 0.15 m³ per m² floor area
+            const sandPerSqm = 0.15 // m³ per m² floor area
+            const totalSand = Math.ceil(totalArea * sandPerSqm * 10) / 10
             materials.push({
                 productName: 'Cát xây dựng',
-                quantity: Math.ceil(totalArea * 0.05),
+                quantity: Math.max(totalSand, 1),
                 unit: 'm³',
-                reason: `Ước tính chung`
+                reason: `Xây + trát + lót: ${sandPerSqm} m³/m² × ${totalArea.toFixed(0)}m²`
+            })
+
+            // 4. Gravel/Stone for foundation and concrete
+            // Typical: 0.1 m³ per m² floor area
+            const gravelPerSqm = 0.1 // m³ per m² floor area
+            const totalGravel = Math.ceil(totalArea * gravelPerSqm * 10) / 10
+            materials.push({
+                productName: 'Đá 1×2 xây dựng',
+                quantity: Math.max(totalGravel, 1),
+                unit: 'm³',
+                reason: `Móng + bê tông: ${gravelPerSqm} m³/m² × ${totalArea.toFixed(0)}m²`
+            })
+
+            // 5. Floor tiles
+            const generalFloorTileArea = totalArea * 1.08 // 8% wastage
+            const generalTilesNeeded = Math.ceil(generalFloorTileArea / 0.36) // 60x60cm tiles
+            materials.push({
+                productName: 'Gạch lát nền 60×60cm',
+                quantity: generalTilesNeeded,
+                unit: 'viên',
+                reason: `Lát sàn: ${totalArea.toFixed(0)}m² + 8% hao hụt`
             })
     }
 
@@ -386,10 +475,11 @@ Return a JSON object:
 Return ONLY JSON.
 `
 
-        const result = await model.generateContent({
+        // Use retry wrapper for API resilience (handles 503 errors)
+        const result = await withRetry(() => model.generateContent({
             model: 'gemini-2.5-flash',
             contents: [{ role: 'user', parts: [{ text: prompt }] }]
-        })
+        }))
 
         const responseText = (result as any).text || ''
         const analysisData = JSON.parse(responseText.replace(/```json\s*|\s*```/g, '').trim())

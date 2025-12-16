@@ -481,27 +481,30 @@ export class AIService {
       
       Return a JSON object with these fields (all optional):
       - projectType: 'HOUSE' | 'VILLA' | 'WAREHOUSE' | 'CUSTOM'
-      - area: number (in m2)
-      - floors: number
-      - length: number (in m)
-      - width: number (in m)
+      - area: number (in m2) - ONLY if user explicitly provides this
+      - floors: number - ONLY if user explicitly provides this
+      - length: number (in m) - ONLY if user explicitly provides this
+      - width: number (in m) - ONLY if user explicitly provides this
       - wallType: 'BRICK' | 'CONCRETE'
       - soilType: 'WEAK' | 'NORMAL' | 'HARD'
       - constructionStyle: 'MODERN' | 'CLASSIC' | 'OPEN'
       
-      Rules:
+      IMPORTANT RULES:
+      - DO NOT GUESS or ESTIMATE area, length, width, or floors if user does NOT explicitly provide numbers!
+      - If user says "nhà cấp 4 có 2 phòng ngủ" WITHOUT mentioning m² or dimensions, DO NOT set area or length/width.
+      - Only extract values that are EXPLICITLY stated in the user's query.
       - Map "đất yếu", "ruộng", "sình", "ao" -> soilType: 'WEAK'
       - Map "đất cứng", "đồi", "đá" -> soilType: 'HARD'
       - Map "hiện đại" -> constructionStyle: 'MODERN'
       - Map "cổ điển", "tân cổ điển" -> constructionStyle: 'CLASSIC'
       - Map "không gian mở", "nhiều kính", "kính" -> constructionStyle: 'OPEN'
-      - Map "nhà phố" -> projectType: 'HOUSE'
+      - Map "nhà phố", "nhà cấp 4" -> projectType: 'HOUSE'
       - Map "biệt thự" -> projectType: 'VILLA'
       - Map "nhà xưởng" -> projectType: 'WAREHOUSE'
       
       User query: ${query}
       
-      Return only the JSON object, nothing else.
+      Return only the JSON object.
       `
 
       const result = await client.models.generateContent({
