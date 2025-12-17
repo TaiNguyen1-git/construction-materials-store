@@ -44,7 +44,14 @@ export function getFirebaseApp(): FirebaseApp {
 
 export function getFirebaseDatabase(): Database {
     if (!database) {
-        database = getDatabase(getFirebaseApp())
+        const dbUrl = process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL
+        if (dbUrl) {
+            // Explicitly pass URL to handle non-US database regions correctly
+            database = getDatabase(getFirebaseApp(), dbUrl)
+        } else {
+            console.warn('⚠️ NEXT_PUBLIC_FIREBASE_DATABASE_URL is not set')
+            database = getDatabase(getFirebaseApp())
+        }
     }
     return database
 }

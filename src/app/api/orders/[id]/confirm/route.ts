@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { createSuccessResponse, createErrorResponse } from '@/lib/api-types'
+import { pushOrderStatusUpdate } from '@/lib/firebase-notifications'
 
 // PUT /api/orders/[id]/confirm - Admin confirms order
 export async function PUT(
@@ -77,6 +78,10 @@ export async function PUT(
         return cancelled
       })
 
+      // Push status update to Firebase (non-blocking)
+      pushOrderStatusUpdate(orderId, 'CANCELLED', order.orderNumber)
+        .catch(err => console.error('Firebase push error:', err))
+
       return NextResponse.json(
         createSuccessResponse(updatedOrder, 'Order rejected successfully'),
         { status: 200 }
@@ -84,8 +89,8 @@ export async function PUT(
     }
 
     // Confirm order
-    const newStatus = order.paymentType === 'DEPOSIT' 
-      ? 'CONFIRMED_AWAITING_DEPOSIT' 
+    const newStatus = order.paymentType === 'DEPOSIT'
+      ? 'CONFIRMED_AWAITING_DEPOSIT'
       : 'CONFIRMED'
 
     // Prepare update data
@@ -118,6 +123,10 @@ export async function PUT(
         }
       }
     })
+
+    // Push status update to Firebase for real-time tracking (non-blocking)
+    pushOrderStatusUpdate(orderId, newStatus, order.orderNumber)
+      .catch(err => console.error('Firebase push error:', err))
 
     return NextResponse.json(
       createSuccessResponse(updatedOrder, 'Order confirmed successfully'),

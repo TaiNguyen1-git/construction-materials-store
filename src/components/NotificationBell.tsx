@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Bell, X, CheckCircle, AlertTriangle, Info, RefreshCw } from 'lucide-react'
 import { getAuthHeaders } from '@/lib/api-client'
+import { useAuth } from '@/contexts/auth-context'
 
 interface Notification {
   id: string
@@ -12,6 +13,8 @@ interface Notification {
   priority: string
   read: boolean
   createdAt: string
+  referenceId?: string
+  referenceType?: string
 }
 
 export default function NotificationBell() {
@@ -20,6 +23,7 @@ export default function NotificationBell() {
   const [isOpen, setIsOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const { user } = useAuth()
 
   // Manual refresh function
   const refreshNotifications = async () => {
@@ -45,7 +49,9 @@ export default function NotificationBell() {
             type: n.type,
             priority: n.priority,
             read: n.isRead !== undefined ? n.isRead : (n.read !== undefined ? n.read : false),
-            createdAt: n.createdAt
+            createdAt: n.createdAt,
+            referenceId: n.referenceId,
+            referenceType: n.referenceType
           }))
 
           setNotifications(notifs)
@@ -59,163 +65,101 @@ export default function NotificationBell() {
     }
   }
 
-  // Real-time notifications using Server-Sent Events (SSE)
+  // Real-time notifications using Firebase with API fallback
   useEffect(() => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null
-    if (!token && process.env.NODE_ENV === 'production') return
+    // Check if we are in browser or no user
+    if (typeof window === 'undefined' || !user) return
 
-    let abortController: AbortController | null = null
-    let reader: ReadableStreamDefaultReader<Uint8Array> | null = null
-    let fallbackInterval: NodeJS.Timeout | null = null
-    let isMounted = true
+    let unsubscribe: (() => void) | undefined
+    let pollInterval: NodeJS.Timeout | undefined
+    let firebaseWorking = false
 
-    const setupSSE = async () => {
-      if (!isMounted) return
+    // Fallback polling function
+    const pollNotifications = async () => {
+      if (firebaseWorking) return // Don't poll if Firebase is working
 
       try {
         const headers = getAuthHeaders()
-        // Create new abort controller for each connection attempt
-        const currentAbortController = new AbortController()
-        abortController = currentAbortController
-
-        const response = await fetch('/api/notifications/stream', {
-          headers: {
-            ...headers,
-            'Accept': 'text/event-stream'
-          },
-          signal: currentAbortController.signal
+        const response = await fetch('/api/notifications', {
+          headers: { ...headers, 'Content-Type': 'application/json' }
         })
 
-        if (!response.ok || !response.body) {
-          throw new Error('SSE connection failed')
-        }
-
-        const currentReader = response.body.getReader()
-        reader = currentReader
-        const decoder = new TextDecoder()
-
-        const readStream = async () => {
-          try {
-            while (isMounted && !currentAbortController.signal.aborted) {
-              const { done, value } = await currentReader.read()
-
-              if (done) {
-                if (isMounted && !currentAbortController.signal.aborted) {
-                  setTimeout(() => {
-                    if (isMounted) {
-                      setupSSE()
-                    }
-                  }, 2000)
-                }
-                break
-              }
-
-              const chunk = decoder.decode(value, { stream: true })
-              const lines = chunk.split('\n')
-
-              for (const line of lines) {
-                if (line.startsWith('data: ')) {
-                  try {
-                    const data = JSON.parse(line.slice(6))
-
-                    if (data.type === 'notifications' && data.data && isMounted) {
-                      const notifs = data.data.notifications.map((n: any) => ({
-                        id: n.id,
-                        title: n.title,
-                        message: n.message,
-                        type: n.type,
-                        priority: n.priority,
-                        read: n.isRead ?? n.read ?? false,
-                        createdAt: n.createdAt
-                      }))
-                      setNotifications(notifs)
-                      setUnreadCount(data.data.unreadCount || notifs.filter((n: any) => !n.read).length)
-                    }
-                  } catch (e) {
-                    // Ignore parse errors
-                  }
-                }
-              }
-            }
-          } catch (error: any) {
-            if (error.name !== 'AbortError' && isMounted) {
-              setupFallbackPolling()
-            }
+        if (response.ok) {
+          const result = await response.json()
+          if (result.success && result.data) {
+            const notifs = result.data.notifications.map((n: any) => ({
+              id: n.id,
+              title: n.title,
+              message: n.message,
+              type: n.type,
+              priority: n.priority,
+              read: n.isRead ?? n.read ?? false,
+              createdAt: n.createdAt,
+              referenceId: n.referenceId,
+              referenceType: n.referenceType
+            }))
+            setNotifications(notifs)
+            setUnreadCount(result.data.unreadCount || notifs.filter((n: any) => !n.read).length)
           }
         }
-
-        readStream()
-      } catch (error: any) {
-        if (error.name !== 'AbortError' && isMounted) {
-          setupFallbackPolling()
-        }
+      } catch (error) {
+        console.error('Polling error:', error)
       }
     }
 
-    const setupFallbackPolling = () => {
-      const fetchNotifications = async () => {
-        try {
-          setIsLoading(true)
-          const headers = getAuthHeaders()
+    const setupFirebaseSubscription = async () => {
+      try {
+        const { subscribeToNotifications } = await import('@/lib/firebase-notifications')
 
-          const response = await fetch('/api/notifications', {
-            headers: {
-              ...headers,
-              'Content-Type': 'application/json'
-            }
-          })
+        unsubscribe = subscribeToNotifications(
+          user.id,
+          user.role,
+          (firebaseNotifs) => {
+            firebaseWorking = true // Firebase is working, disable polling
 
-          if (response.ok) {
-            const result = await response.json()
+            const notifs = firebaseNotifs.map(n => ({
+              id: n.id || `temp-${Date.now()}-${Math.random()}`,
+              title: n.title,
+              message: n.message,
+              type: n.type,
+              priority: n.priority,
+              read: n.read,
+              createdAt: n.createdAt,
+              referenceId: n.referenceId,
+              referenceType: n.referenceType
+            }))
 
-            if (result.success && result.data) {
-              const notifs = result.data.notifications.map((n: any) => ({
-                id: n.id,
-                title: n.title,
-                message: n.message,
-                type: n.type,
-                priority: n.priority,
-                read: n.isRead !== undefined ? n.isRead : (n.read !== undefined ? n.read : false),
-                createdAt: n.createdAt
-              }))
-
-              setNotifications(notifs)
-              setUnreadCount(result.data.unreadCount || notifs.filter((n: any) => !n.read).length)
-            }
+            setNotifications(notifs)
+            setUnreadCount(notifs.filter(n => !n.read).length)
           }
-        } catch (error) {
-          // Silent fail
-        } finally {
-          setIsLoading(false)
-        }
-      }
+        )
 
-      fetchNotifications()
-      fallbackInterval = setInterval(fetchNotifications, 10000)
+        // Wait a bit to see if Firebase delivers data
+        setTimeout(() => {
+          if (!firebaseWorking) {
+            console.log('[NotificationBell] Firebase not responding, starting API polling')
+            pollInterval = setInterval(pollNotifications, 30000) // Poll every 30s
+          }
+        }, 3000)
+
+      } catch (e) {
+        console.error("Firebase init error, using API polling:", e)
+        // Start polling on Firebase error
+        pollInterval = setInterval(pollNotifications, 30000)
+      }
     }
 
-    setupFallbackPolling()
-    setupSSE()
+    // Load notifications immediately on mount (don't wait for Firebase)
+    pollNotifications()
+
+    // Then try Firebase subscription
+    setupFirebaseSubscription()
 
     return () => {
-      isMounted = false
-      if (abortController && !abortController.signal.aborted) {
-        try {
-          abortController.abort()
-        } catch (e) {
-          // Ignore abort errors
-        }
-      }
-      if (reader) {
-        reader.cancel().catch(() => {
-          // Ignore cancel errors
-        })
-      }
-      if (fallbackInterval) {
-        clearInterval(fallbackInterval)
-      }
+      if (unsubscribe) unsubscribe()
+      if (pollInterval) clearInterval(pollInterval)
     }
-  }, [])
+  }, [user])
 
   const markAsRead = async (id: string) => {
     try {
@@ -249,31 +193,33 @@ export default function NotificationBell() {
   }
 
   const markAllAsRead = async () => {
+    // Optimistic update - update UI immediately
+    setNotifications(notifications.map(n => ({ ...n, read: true })))
+    setUnreadCount(0)
+
     try {
-      const persistedNotifications = notifications.filter(n => !n.id.startsWith('realtime-'))
+      const persistedNotifications = notifications.filter(n => !n.id.startsWith('realtime-') && !n.read)
+
+      if (persistedNotifications.length === 0) return
 
       const headers = getAuthHeaders()
-      const results = await Promise.all(
-        persistedNotifications.map(n =>
-          fetch('/api/notifications', {
-            method: 'POST',
-            headers: {
-              ...headers,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ notificationId: n.id })
-          })
-        )
-      )
 
-      // Only update state if all requests succeeded
-      const allSucceeded = results.every(r => r.ok)
-      if (allSucceeded) {
-        setNotifications(notifications.map(n => ({ ...n, read: true })))
-        setUnreadCount(0)
-      }
+      // Send requests in background - don't wait for response
+      persistedNotifications.forEach(n => {
+        fetch('/api/notifications', {
+          method: 'POST',
+          headers: {
+            ...headers,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ notificationId: n.id })
+        }).catch(() => {
+          // Silent fail - UI already updated
+        })
+      })
     } catch (error) {
-      // Silent fail
+      // Silent fail - UI already updated
+      console.error('Error marking all as read:', error)
     }
   }
 
@@ -324,6 +270,48 @@ export default function NotificationBell() {
         return 'border-l-red-700'
       default:
         return 'border-l-gray-300'
+    }
+  }
+
+  const handleNotificationClick = (notification: Notification) => {
+    console.log('[NotificationBell] Click:', {
+      id: notification.id,
+      type: notification.type,
+      referenceId: notification.referenceId,
+      referenceType: notification.referenceType
+    })
+
+    // Mark as read
+    if (!notification.read) {
+      markAsRead(notification.id)
+    }
+
+    // Close dropdown
+    setIsOpen(false)
+
+    // Navigate based on type
+    if (notification.referenceId) {
+      const isAdmin = window.location.pathname.startsWith('/admin')
+
+      if (notification.referenceType === 'ORDER' || notification.type === 'ORDER_NEW' || notification.type === 'ORDER_UPDATE') {
+        if (isAdmin) {
+          // For admin, go to orders page - the order detail modal will need to be opened manually
+          window.location.href = `/admin/orders`
+        } else {
+          window.location.href = `/order-tracking?orderId=${notification.referenceId}`
+        }
+      } else if (notification.referenceType === 'PRODUCT' || notification.type === 'LOW_STOCK' || notification.type === 'REORDER_NEEDED') {
+        if (isAdmin) {
+          window.location.href = `/admin/products`
+        } else {
+          window.location.href = `/products/${notification.referenceId}`
+        }
+      } else {
+        // Default: just close dropdown, notification is marked as read
+        console.log('[NotificationBell] Unknown referenceType, no navigation')
+      }
+    } else {
+      console.log('[NotificationBell] No referenceId, no navigation')
     }
   }
 
@@ -380,8 +368,9 @@ export default function NotificationBell() {
               notifications.map((notification) => (
                 <div
                   key={notification.id}
+                  onClick={() => handleNotificationClick(notification)}
                   className={`p-4 border-b border-gray-100 ${getPriorityColor(notification.priority)} border-l-4 ${!notification.read ? 'bg-blue-50' : ''
-                    }`}
+                    } cursor-pointer hover:bg-gray-50 transition-colors`}
                 >
                   <div className="flex justify-between">
                     <div className="flex items-start">
@@ -398,7 +387,7 @@ export default function NotificationBell() {
                         </p>
                       </div>
                     </div>
-                    <div className="flex space-x-1">
+                    <div className="flex space-x-1" onClick={(e) => e.stopPropagation()}>
                       {!notification.read && (
                         <button
                           onClick={() => markAsRead(notification.id)}

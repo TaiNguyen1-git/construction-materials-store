@@ -58,12 +58,99 @@ function OrderTrackingContent() {
   const [order, setOrder] = useState<Order | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [isListening, setIsListening] = useState(false)
 
+  // Initial fetch
   useEffect(() => {
     if (orderInput) {
       fetchOrder()
     }
   }, [orderInput])
+
+  // Firebase real-time subscription for order status updates (with fallback polling)
+  useEffect(() => {
+    if (!order?.id) return
+
+    // Only subscribe for pending/awaiting states
+    const pendingStatuses = ['PENDING', 'PENDING_CONFIRMATION', 'CONFIRMED', 'CONFIRMED_AWAITING_DEPOSIT']
+    if (!pendingStatuses.includes(order.status)) return
+
+    let unsubscribe: (() => void) | undefined
+    let pollInterval: NodeJS.Timeout | undefined
+    let firebaseReceived = false
+
+    const setupFirebaseSubscription = async () => {
+      try {
+        const { subscribeToOrderStatus } = await import('@/lib/firebase-notifications')
+
+        setIsListening(true)
+
+        unsubscribe = subscribeToOrderStatus(order.id, (newStatus) => {
+          console.log(`[Order Tracking] Firebase update received: ${newStatus}`)
+          firebaseReceived = true
+
+          // If status changed, refetch the full order
+          if (newStatus !== order.status) {
+            fetchOrderSilent()
+          }
+        })
+
+        // Fallback: if Firebase doesn't receive updates after 5 seconds, start polling
+        setTimeout(() => {
+          if (!firebaseReceived) {
+            console.log('[Order Tracking] No Firebase update received, starting fallback polling')
+            pollInterval = setInterval(() => {
+              fetchOrderSilent()
+            }, 30000) // Poll every 30 seconds as fallback
+          }
+        }, 5000)
+
+      } catch (e) {
+        console.error('Firebase subscription error:', e)
+        setIsListening(false)
+        // Start polling on Firebase error
+        pollInterval = setInterval(() => {
+          fetchOrderSilent()
+        }, 30000)
+      }
+    }
+
+    setupFirebaseSubscription()
+
+    return () => {
+      if (unsubscribe) unsubscribe()
+      if (pollInterval) clearInterval(pollInterval)
+      setIsListening(false)
+    }
+  }, [order?.id, order?.status])
+
+  // Silent fetch (no loading state)
+  const fetchOrderSilent = async () => {
+    if (!orderInput) return
+
+    try {
+      let response = await fetch(`/api/orders/by-number/${encodeURIComponent(orderInput)}`)
+
+      if (!response.ok && !orderInput.includes('ORD-')) {
+        response = await fetch(`/api/orders/${orderInput}`)
+      }
+
+      if (response.ok) {
+        const data = await response.json()
+        const newOrder = data.data || data
+
+        // Check if status changed
+        if (order && newOrder.status !== order.status) {
+          // Play a sound or show toast notification
+          console.log(`[Order Tracking] Status changed: ${order.status} → ${newOrder.status}`)
+        }
+
+        setOrder(newOrder)
+      }
+    } catch (err) {
+      console.error('Silent refresh error:', err)
+    }
+  }
 
   const fetchOrder = async () => {
     if (!orderInput) return
@@ -74,12 +161,12 @@ function OrderTrackingContent() {
     try {
       // Try to fetch by orderNumber first (public endpoint)
       let response = await fetch(`/api/orders/by-number/${encodeURIComponent(orderInput)}`)
-      
+
       // If not found by orderNumber, try orderId
       if (!response.ok && !orderInput.includes('ORD-')) {
         response = await fetch(`/api/orders/${orderInput}`)
       }
-      
+
       if (response.ok) {
         const data = await response.json()
         setOrder(data.data || data)
@@ -123,7 +210,7 @@ function OrderTrackingContent() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
       <Header />
-      
+
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="text-center mb-8">
           <h1 className="text-4xl font-black text-gray-900 mb-2">
@@ -180,6 +267,14 @@ function OrderTrackingContent() {
               <p className="text-gray-700 text-lg">
                 {getStatusInfo(order.status).desc}
               </p>
+
+              {/* Real-time listening indicator for pending orders */}
+              {['PENDING', 'PENDING_CONFIRMATION', 'CONFIRMED', 'CONFIRMED_AWAITING_DEPOSIT'].includes(order.status) && (
+                <div className="mt-4 flex items-center justify-center gap-2 text-sm text-gray-500">
+                  <div className={`w-2 h-2 rounded-full ${isListening ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`}></div>
+                  <span>{isListening ? '🔴 Đang theo dõi - Cập nhật tự động khi có thay đổi' : 'Đang kết nối...'}</span>
+                </div>
+              )}
             </div>
 
             {/* Payment Section for Bank Transfer */}
@@ -190,7 +285,7 @@ function OrderTrackingContent() {
                     <span className="text-3xl">💳</span>
                     {order.paymentType === 'DEPOSIT' ? 'Thanh Toán Tiền Cọc' : 'Thanh Toán Đơn Hàng'}
                   </h3>
-                  
+
                   {order.paymentType === 'DEPOSIT' ? (
                     // Deposit payment info
                     <div className="mb-6 p-4 bg-amber-50 rounded-xl border border-amber-200">
@@ -227,7 +322,7 @@ function OrderTrackingContent() {
                   <QRPayment
                     amount={order.paymentType === 'DEPOSIT' ? (order.depositAmount || 0) : order.netAmount}
                     orderId={order.orderNumber}
-                    description={order.paymentType === 'DEPOSIT' 
+                    description={order.paymentType === 'DEPOSIT'
                       ? `Coc ${order.depositPercentage}% don hang ${order.orderNumber}`
                       : `Thanh toan don hang ${order.orderNumber}`
                     }
@@ -240,7 +335,7 @@ function OrderTrackingContent() {
             {/* Order Info */}
             <div className="bg-white rounded-2xl shadow-lg p-6">
               <h3 className="text-2xl font-bold text-gray-900 mb-4">Thông Tin Đơn Hàng</h3>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                 <div>
                   <p className="text-sm text-gray-600">Mã đơn hàng:</p>
@@ -255,16 +350,16 @@ function OrderTrackingContent() {
                 <div>
                   <p className="text-sm text-gray-600">Khách hàng:</p>
                   <p className="text-lg font-semibold text-gray-900">
-                    {order.customerType === 'GUEST' 
-                      ? order.guestName 
+                    {order.customerType === 'GUEST'
+                      ? order.guestName
                       : order.customer?.user?.name || 'N/A'}
                   </p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-600">Số điện thoại:</p>
                   <p className="text-lg font-semibold text-gray-900">
-                    {order.customerType === 'GUEST' 
-                      ? order.guestPhone 
+                    {order.customerType === 'GUEST'
+                      ? order.guestPhone
                       : order.customer?.user?.phone || 'N/A'}
                   </p>
                 </div>

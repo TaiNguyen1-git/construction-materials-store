@@ -9,6 +9,7 @@
  */
 
 import { prisma } from './prisma'
+import { pushSystemNotification, pushNotificationToFirebase } from './firebase-notifications'
 
 export interface Notification {
   type: 'LOW_STOCK' | 'REORDER_NEEDED' | 'PREDICTION_ALERT' | 'MONTHLY_REMINDER' | 'ORDER_NEW' | 'ORDER_UPDATE'
@@ -44,8 +45,8 @@ export async function checkLowStock(): Promise<Notification[]> {
   })
 
   // Filter items where availableQuantity <= minStockLevel or <= reorderPoint
-  const lowStockProducts = allInventoryItems.filter(item => 
-    item.availableQuantity <= item.minStockLevel || 
+  const lowStockProducts = allInventoryItems.filter(item =>
+    item.availableQuantity <= item.minStockLevel ||
     item.availableQuantity <= item.reorderPoint
   )
 
@@ -244,7 +245,11 @@ export async function getAllNotifications(): Promise<Notification[]> {
 /**
  * Save notification to database for a specific user
  */
-export async function saveNotificationForUser(notification: Notification, userId: string) {
+/**
+ * Save notification to database for a specific user
+ */
+export async function saveNotificationForUser(notification: Notification, userId: string, userRole: string = 'CUSTOMER') {
+  // 1. Save to Database
   await prisma.notification.create({
     data: {
       userId,
@@ -258,34 +263,75 @@ export async function saveNotificationForUser(notification: Notification, userId
       metadata: notification.data || {}
     }
   })
+
+  // 2. Push to Firebase Realtime Database
+  await pushNotificationToFirebase({
+    userId,
+    userRole,
+    type: notification.type,
+    title: notification.title,
+    message: notification.message,
+    priority: notification.priority,
+    read: false,
+    createdAt: new Date().toISOString(),
+  })
+
+  // 3. Push to Firebase (non-blocking, don't await)
+  pushNotificationToFirebase({
+    userId,
+    userRole,
+    type: notification.type,
+    title: notification.title,
+    message: notification.message,
+    priority: notification.priority,
+    read: false,
+    createdAt: new Date().toISOString(),
+    data: notification.data,
+    referenceId: notification.orderId || notification.productId,
+    referenceType: notification.orderId ? 'ORDER' : notification.productId ? 'PRODUCT' : undefined
+  }).catch(err => console.error('Firebase push error (non-critical):', err))
 }
 
 /**
  * Save notification to database for all managers
  */
 export async function saveNotificationForAllManagers(notification: Notification) {
-  // Get all managers
+  // 1. Save to database for all managers
   const managers = await prisma.user.findMany({
     where: { role: 'MANAGER' },
     select: { id: true }
   })
 
-  if (managers.length === 0) return
+  if (managers.length > 0) {
+    // Create notifications for all managers
+    await prisma.notification.createMany({
+      data: managers.map(manager => ({
+        userId: manager.id,
+        type: notification.type as any,
+        title: notification.title,
+        message: notification.message,
+        priority: notification.priority as any,
+        read: false,
+        referenceId: notification.orderId || notification.productId,
+        referenceType: notification.orderId ? 'ORDER' : notification.productId ? 'PRODUCT' : null,
+        metadata: notification.data || {}
+      }))
+    })
+  }
 
-  // Create notifications for all managers
-  await prisma.notification.createMany({
-    data: managers.map(manager => ({
-      userId: manager.id,
-      type: notification.type as any,
-      title: notification.title,
-      message: notification.message,
-      priority: notification.priority as any,
-      read: false,
-      referenceId: notification.orderId || notification.productId,
-      referenceType: notification.orderId ? 'ORDER' : notification.productId ? 'PRODUCT' : null,
-      metadata: notification.data || {}
-    }))
-  })
+  // 2. Push to Firebase System Channel (non-blocking, don't await)
+  pushSystemNotification({
+    userRole: 'MANAGER',
+    type: notification.type,
+    title: notification.title,
+    message: notification.message,
+    priority: notification.priority,
+    read: false,
+    createdAt: new Date().toISOString(),
+    data: notification.data,
+    referenceId: notification.orderId || notification.productId,
+    referenceType: notification.orderId ? 'ORDER' : notification.productId ? 'PRODUCT' : undefined
+  }).catch(err => console.error('Firebase push error (non-critical):', err))
 }
 
 /**
@@ -321,7 +367,7 @@ export async function createOrderNotification(order: {
   guestPhone?: string | null
   customer?: { user?: { name?: string | null; email?: string | null } | null } | null
 }) {
-  const customerName = order.customerType === 'GUEST' 
+  const customerName = order.customerType === 'GUEST'
     ? order.guestName || 'Khách vãng lai'
     : order.customer?.user?.name || 'Khách hàng'
 

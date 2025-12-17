@@ -14,7 +14,7 @@ export default function LoginPage() {
     email: '',
     password: ''
   })
-  const [rememberMe, setRememberMe] = useState(false)
+  const [rememberMe, setRememberMe] = useState(true)
   const [localErrors, setLocalErrors] = useState<Record<string, string>>({})
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -31,7 +31,9 @@ export default function LoginPage() {
       console.log('[LOGIN] Login successful, checking user data...')
 
       // Get user data from storage (check both localStorage and sessionStorage)
-      // sessionStorage is used when rememberMe is false, localStorage when true
+      // Wait a tick to ensure storage is written
+      await new Promise(resolve => setTimeout(resolve, 100))
+
       const userData = localStorage.getItem('user') || sessionStorage.getItem('user')
       console.log('[LOGIN] Retrieved user data from storage:', userData)
 

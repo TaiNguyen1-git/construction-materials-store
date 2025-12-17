@@ -14,6 +14,17 @@ export async function GET(request: NextRequest) {
 
     let userId = request.headers.get('x-user-id')
 
+    // In development mode, if userId is 'dev-user', find the first admin
+    if (process.env.NODE_ENV === 'development' && userId === 'dev-user') {
+      const admin = await prisma.user.findFirst({
+        where: { role: 'MANAGER' },
+        select: { id: true }
+      })
+      if (admin) {
+        userId = admin.id
+      }
+    }
+
     // Get from database
     const dbNotifications = await prisma.notification.findMany({
       where: {
