@@ -2,6 +2,7 @@ export const AI_CONFIG = {
   GEMINI: {
     API_KEY: process.env.GEMINI_API_KEY || '',
     MODEL: process.env.GEMINI_MODEL || 'models/gemini-2.5-flash',
+    // MODEL: 'models/gemini-1.5-flash', // Force stable model
     TEMPERATURE: parseFloat(process.env.GEMINI_TEMPERATURE || '0.7'),
   },
   TESSERACT: {

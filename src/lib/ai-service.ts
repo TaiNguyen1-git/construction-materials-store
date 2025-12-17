@@ -1,6 +1,7 @@
 
 import { GoogleGenAI } from '@google/genai'
 import { AI_CONFIG, CHATBOT_SYSTEM_PROMPT, OCR_SYSTEM_PROMPT } from './ai-config'
+import { ADMIN_SYSTEM_PROMPT } from './ai-prompts-admin'
 
 // Initialize Gemini client (if API key is provided)
 const client = AI_CONFIG.GEMINI.API_KEY ? new GoogleGenAI({ apiKey: AI_CONFIG.GEMINI.API_KEY }) : null
@@ -99,21 +100,28 @@ export class AIService {
   static async generateChatbotResponse(
     message: string,
     context?: any,
-    conversationHistory?: { role: string; content: string }[]
+    conversationHistory?: { role: string; content: string }[],
+    isAdmin: boolean = false
   ): Promise<ChatbotResponse> {
     try {
       const { client, modelName } = await getWorkingModelConfig();
       if (!client) throw new Error('Client init failed');
 
+      // Select system prompt based on user role
+      const systemPrompt = isAdmin ? ADMIN_SYSTEM_PROMPT : CHATBOT_SYSTEM_PROMPT
+      const welcomeCtx = isAdmin
+        ? "Tôi là trợ lý ảo Business Intelligence (BI) của hệ thống quản trị, sẵn sàng hỗ trợ phân tích dữ liệu và quản lý vận hành."
+        : "Tôi đã hiểu. Tôi sẽ đóng vai trò là trợ lý ảo của cửa hàng vật liệu xây dựng và hỗ trợ khách hàng nhiệt tình, chuyên nghiệp."
+
       // Prepare the conversation history for Gemini
       let contents: any[] = [
         {
           role: "user",
-          parts: [{ text: CHATBOT_SYSTEM_PROMPT }]
+          parts: [{ text: systemPrompt }]
         },
         {
           role: "model",
-          parts: [{ text: "Tôi đã hiểu. Tôi sẽ đóng vai trò là trợ lý ảo của cửa hàng vật liệu xây dựng và hỗ trợ khách hàng nhiệt tình, chuyên nghiệp." }]
+          parts: [{ text: welcomeCtx }]
         }
       ]
 
@@ -141,14 +149,16 @@ export class AIService {
         parts: [{ text: message }]
       });
 
-      // Retry logic
-      let retries = 2
+      // Retry logic with Model Fallback
+      let attempts = 0
+      const maxAttempts = 3
+      let currentModel = modelName!
       let lastError = null
 
-      while (retries >= 0) {
+      while (attempts < maxAttempts) {
         try {
           const result = await client.models.generateContent({
-            model: modelName!,
+            model: currentModel,
             contents: contents,
             config: {
               maxOutputTokens: 1000,
@@ -172,12 +182,20 @@ export class AIService {
             confidence: 0.95
           }
         } catch (error) {
-          console.warn(`Gemini attempt failed (${retries} retries left):`, error)
+          console.warn(`Gemini attempt failed with ${currentModel}:`, error)
           lastError = error
-          retries--
-          if (retries >= 0) {
+          attempts++
+
+          // Fallback Strategy: If primary model fails, try stable model next
+          if (currentModel !== 'models/gemini-1.5-flash' && attempts < maxAttempts) {
+            console.log('⚠️ Primary model failed, switching to fallback: gemini-1.5-flash')
+            currentModel = 'models/gemini-1.5-flash'
+            continue
+          }
+
+          if (attempts < maxAttempts) {
             // Wait before retry (1s, then 2s)
-            await new Promise(resolve => setTimeout(resolve, (2 - retries) * 1000))
+            await new Promise(resolve => setTimeout(resolve, attempts * 1000))
           }
         }
       }

@@ -399,14 +399,14 @@ export async function POST(request: NextRequest) {
 
     // Detect intent
     const intentResult = detectIntent(message, isAdmin, false, {
-      hasCalculation: conversationHistory.some(h => h.role === 'assistant' && h.content.includes('tính toán')),
-      hasProductList: conversationHistory.some(h => h.role === 'assistant' && h.content.includes('danh sách'))
+      currentPage: context?.currentPage
     })
 
-    console.log(`Intent: ${intentResult.intent} (confidence: ${intentResult.confidence})`)
+    console.log(`[CHATBOT] Message: "${message}" | isAdmin: ${isAdmin} | Role: ${userRole} | Intent: ${intentResult.intent}`)
 
     // ===== SECURITY: Prevent customer from accessing admin intents =====
     if (!isAdmin && intentResult.intent.startsWith('ADMIN_')) {
+      console.warn(`[CHATBOT] ACCESS DENIED. Non-admin trying to access ${intentResult.intent}`)
       return NextResponse.json(
         createSuccessResponse({
           message: '⛔ Bạn không có quyền truy cập chức năng này.\n\n💡 Chức năng này chỉ dành cho quản trị viên.',
@@ -2212,7 +2212,7 @@ async function generateChatbotResponse(
   // Try to use AI service first if enabled
   if (isAIEnabled()) {
     try {
-      return await AIService.generateChatbotResponse(message, context, conversationHistory)
+      return await AIService.generateChatbotResponse(message, context, conversationHistory, isAdmin)
     } catch (error) {
       console.error('AI Service failed, falling back to static response:', error)
       // Fall through to static response
