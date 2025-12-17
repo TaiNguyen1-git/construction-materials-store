@@ -97,7 +97,7 @@ export async function PUT(
     }
 
     const body = await request.json()
-    
+
     // Validate input
     const validation = updateEmployeeSchema.safeParse(body)
     if (!validation.success) {
@@ -167,7 +167,7 @@ export async function PUT(
   }
 }
 
-// DELETE /api/employees/[id] - Deactivate employee
+// DELETE /api/employees/[id] - Deactivate or Delete employee
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -183,6 +183,9 @@ export async function DELETE(
       )
     }
 
+    const url = new URL(request.url)
+    const permanent = url.searchParams.get('permanent') === 'true'
+
     // Check if employee exists
     const existingEmployee = await prisma.employee.findUnique({
       where: { id }
@@ -195,23 +198,54 @@ export async function DELETE(
       )
     }
 
-    // Deactivate employee and user account
-    await prisma.$transaction(async (tx) => {
-      await tx.employee.update({
-        where: { id },
-        data: { isActive: false }
+    if (permanent) {
+      // Permanent Delete logic
+      await prisma.$transaction(async (tx) => {
+        // 1. Delete related records
+        await tx.workShift.deleteMany({ where: { employeeId: id } })
+        await tx.employeeTask.deleteMany({ where: { employeeId: id } })
+        await tx.salaryAdvance.deleteMany({ where: { employeeId: id } })
+        await tx.payrollRecord.deleteMany({ where: { employeeId: id } })
+
+        // 2. Delete employee
+        await tx.employee.delete({ where: { id } })
+
+        // 3. Check and delete user if applicable
+        const user = await tx.user.findUnique({
+          where: { id: existingEmployee.userId },
+          include: { customer: true }
+        })
+
+        if (user && !user.customer) {
+          await tx.user.delete({ where: { id: existingEmployee.userId } })
+        }
       })
 
-      await tx.user.update({
-        where: { id: existingEmployee.userId },
-        data: { isActive: false }
-      })
-    })
+      return NextResponse.json(
+        createSuccessResponse(null, 'Employee permanently deleted successfully'),
+        { status: 200 }
+      )
+    } else {
+      // Soft Delete (Deactivate) logic
+      await prisma.$transaction(async (tx) => {
+        await tx.employee.update({
+          where: { id },
+          data: { isActive: false }
+        })
 
-    return NextResponse.json(
-      createSuccessResponse(null, 'Employee deactivated successfully'),
-      { status: 200 }
-    )
+        // Check if user should also be deactivated (optional, maybe keep user active if they are also customer?)
+        // For now, keeping original logic: deactivate user too
+        await tx.user.update({
+          where: { id: existingEmployee.userId },
+          data: { isActive: false }
+        })
+      })
+
+      return NextResponse.json(
+        createSuccessResponse(null, 'Employee deactivated successfully'),
+        { status: 200 }
+      )
+    }
 
   } catch (error) {
     console.error('Delete employee error:', error)

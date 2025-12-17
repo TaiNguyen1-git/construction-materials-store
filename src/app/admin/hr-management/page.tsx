@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { toast } from 'react-hot-toast'
-import { Users, Calendar, ClipboardList, ChevronDown, ChevronUp, Plus, Edit, Trash2, X } from 'lucide-react'
+import { Users, Calendar, ClipboardList, ChevronDown, ChevronUp, Plus, Edit, Trash2, X, XCircle } from 'lucide-react'
 import { fetchWithAuth } from '@/lib/api-client'
 import ConfirmDialog from '@/components/ConfirmDialog'
 import FormModal from '@/components/FormModal'
@@ -122,6 +122,17 @@ export default function HRManagementPage() {
     setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }))
   }
 
+  // Helper functions for currency
+  const formatCurrency = (value: number | string) => {
+    if (!value) return ''
+    const number = typeof value === 'string' ? parseInt(value.replace(/\./g, '')) : value
+    return isNaN(number) ? '' : number.toLocaleString('vi-VN').replace(/,/g, '.')
+  }
+
+  const parseCurrency = (value: string) => {
+    return value ? parseInt(value.replace(/\./g, '')) : 0
+  }
+
   // ============ EMPLOYEES FUNCTIONS ============
   const fetchEmployees = async () => {
     try {
@@ -156,12 +167,27 @@ export default function HRManagementPage() {
       })
     } else {
       setEditingEmployee(null)
+
+      // Auto-generate employee code
+      let nextCode = 'NV001'
+      if (employees.length > 0) {
+        const maxId = employees.reduce((max, emp) => {
+          const match = emp.employeeCode.match(/NV(\d+)/)
+          if (match) {
+            const num = parseInt(match[1])
+            return num > max ? num : max
+          }
+          return max
+        }, 0)
+        nextCode = `NV${String(maxId + 1).padStart(3, '0')}`
+      }
+
       setEmployeeForm({
         name: '',
         email: '',
         password: '',
         phone: '',
-        employeeCode: '',
+        employeeCode: nextCode,
         department: '',
         position: '',
         baseSalary: 0,
@@ -215,12 +241,40 @@ export default function HRManagementPage() {
     }
   }
 
-  const handleDeleteEmployee = async () => {
+  const handlePermanentDelete = async (employee: Employee) => {
+    if (window.confirm(`CẢNH BÁO: Bạn có chắc chắn muốn xóa VĨNH VIỄN nhân viên ${employee.user.name}? Dữ liệu sẽ không thể khôi phục.`)) {
+      try {
+        const response = await fetchWithAuth(`/api/employees/${employee.id}?permanent=true`, { method: 'DELETE' })
+        if (response.ok) {
+          toast.success('Xóa vĩnh viễn nhân viên thành công')
+          fetchEmployees()
+        } else {
+          toast.error('Không thể xóa nhân viên')
+        }
+      } catch (error) {
+        toast.error('Có lỗi xảy ra khi xóa')
+      }
+    }
+  }
+
+  const handleDeleteEmployee = async (permanent: boolean = false) => {
     if (!deletingEmployee) return
+
+    // Additional confirmation for permanent delete
+    if (permanent) {
+      if (!window.confirm('CẢNH BÁO: Hành động này sẽ xóa hoàn toàn dữ liệu nhân viên và không thể khôi phục. Bạn có chắc chắn muốn tiếp tục?')) {
+        return
+      }
+    }
+
     try {
-      const response = await fetchWithAuth(`/api/employees/${deletingEmployee.id}`, { method: 'DELETE' })
+      const url = permanent
+        ? `/api/employees/${deletingEmployee.id}?permanent=true`
+        : `/api/employees/${deletingEmployee.id}`
+
+      const response = await fetchWithAuth(url, { method: 'DELETE' })
       if (response.ok) {
-        toast.success('Xóa nhân viên thành công')
+        toast.success(permanent ? 'Xóa vĩnh viễn nhân viên thành công' : 'Vô hiệu hóa nhân viên thành công')
         setDeletingEmployee(null)
         fetchEmployees()
       } else {
@@ -598,8 +652,9 @@ export default function HRManagementPage() {
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                          <button onClick={() => openEmployeeModal(employee)} className="text-blue-600 hover:text-blue-900"><Edit className="h-4 w-4" /></button>
-                          <button onClick={() => setDeletingEmployee(employee)} className="text-red-600 hover:text-red-900"><Trash2 className="h-4 w-4" /></button>
+                          <button onClick={() => openEmployeeModal(employee)} className="text-blue-600 hover:text-blue-900" title="Sửa"><Edit className="h-4 w-4" /></button>
+                          <button onClick={() => setDeletingEmployee(employee)} className="text-orange-600 hover:text-orange-900" title="Vô hiệu hóa"><Trash2 className="h-4 w-4" /></button>
+                          <button onClick={() => handlePermanentDelete(employee)} className="text-red-600 hover:text-red-900" title="Xóa vĩnh viễn"><XCircle className="h-4 w-4" /></button>
                         </td>
                       </tr>
                     ))}
@@ -793,7 +848,20 @@ export default function HRManagementPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Lương Cơ Bản *</label>
-                  <input type="number" value={employeeForm.baseSalary} onChange={(e) => setEmployeeForm({ ...employeeForm, baseSalary: Number(e.target.value) })} className="mt-1 w-full border rounded-lg px-3 py-2" required min={0} />
+                  <input
+                    type="text"
+                    value={formatCurrency(employeeForm.baseSalary)}
+                    onChange={(e) => {
+                      // Prevent non-numeric input (allow empty)
+                      const val = e.target.value.replace(/\./g, '')
+                      if (/^\d*$/.test(val)) {
+                        setEmployeeForm({ ...employeeForm, baseSalary: parseCurrency(e.target.value) })
+                      }
+                    }}
+                    className="mt-1 w-full border rounded-lg px-3 py-2"
+                    required
+                  />
+                  {employeeForm.baseSalary === 0 && <p className="text-xs text-gray-500 mt-1">Nhập 0 hoặc để trống</p>}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Ngày Vào Làm</label>
