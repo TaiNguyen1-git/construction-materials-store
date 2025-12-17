@@ -36,12 +36,12 @@ export async function GET(request: NextRequest) {
     if (authError) {
       return authError
     }
-    
+
 
 
     const { searchParams } = new URL(request.url)
     const params = Object.fromEntries(searchParams.entries())
-    
+
     const validation = querySchema.safeParse(params)
     if (!validation.success) {
       return NextResponse.json(
@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
 
     // Build where clause
     const where: any = {}
-    
+
     if (search) {
       where.user = {
         OR: [
@@ -100,7 +100,7 @@ export async function GET(request: NextRequest) {
     console.log('✅ Found employees:', employees.length, 'of', total)
 
     const response = createPaginatedResponse(employees, total, page, limit)
-    
+
     return NextResponse.json(
       createSuccessResponse(response, 'Employees retrieved successfully'),
       { status: 200 }
@@ -118,17 +118,14 @@ export async function GET(request: NextRequest) {
 // POST /api/employees - Create new employee
 export async function POST(request: NextRequest) {
   try {
-    // Check user role from middleware
-    const userRole = request.headers.get('x-user-role')
-    if (userRole !== 'MANAGER') {
-      return NextResponse.json(
-        createErrorResponse('Manager access required', 'FORBIDDEN'),
-        { status: 403 }
-      )
+    // Check authentication and role
+    const authError = requireManager(request)
+    if (authError) {
+      return authError
     }
 
     const body = await request.json()
-    
+
     // Validate input
     const validation = createEmployeeSchema.safeParse(body)
     if (!validation.success) {

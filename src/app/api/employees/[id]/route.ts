@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { AuthService } from '@/lib/auth'
 import { createSuccessResponse, createErrorResponse } from '@/lib/api-types'
+import { requireManager } from '@/lib/auth-middleware-api'
 import { z } from 'zod'
 
 const updateEmployeeSchema = z.object({
@@ -87,13 +88,10 @@ export async function PUT(
 ) {
   const { id } = await params
   try {
-    // Check user role from middleware
-    const userRole = request.headers.get('x-user-role')
-    if (userRole !== 'MANAGER') {
-      return NextResponse.json(
-        createErrorResponse('Manager access required', 'FORBIDDEN'),
-        { status: 403 }
-      )
+    // Check authentication and role
+    const authError = requireManager(request)
+    if (authError) {
+      return authError
     }
 
     const body = await request.json()
@@ -174,13 +172,10 @@ export async function DELETE(
 ) {
   const { id } = await params
   try {
-    // Check user role from middleware
-    const userRole = request.headers.get('x-user-role')
-    if (userRole !== 'MANAGER') {
-      return NextResponse.json(
-        createErrorResponse('Manager access required', 'FORBIDDEN'),
-        { status: 403 }
-      )
+    // Check authentication and role
+    const authError = requireManager(request)
+    if (authError) {
+      return authError
     }
 
     const url = new URL(request.url)
