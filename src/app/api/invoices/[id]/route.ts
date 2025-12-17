@@ -7,9 +7,9 @@ import { UserRole } from '@/lib/auth'
 const verifyToken = async (request: NextRequest) => {
   const token = request.headers.get('authorization')?.replace('Bearer ', '') ||
     request.cookies.get('access_token')?.value
-    
+
   if (!token) return null
-  
+
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret') as any
     return decoded
@@ -146,7 +146,7 @@ export async function DELETE(
   const { id } = await params
   try {
     const user = await verifyToken(request)
-    if (!user || user.role !== 'MANAGER') {
+    if (!user || !['MANAGER', 'EMPLOYEE'].includes(user.role)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -166,6 +166,11 @@ export async function DELETE(
     await prisma.$transaction(async (tx) => {
       // Delete invoice items first
       await tx.invoiceItem.deleteMany({
+        where: { invoiceId: id }
+      })
+
+      // Delete payments
+      await tx.payment.deleteMany({
         where: { invoiceId: id }
       })
 

@@ -178,7 +178,7 @@ export default function InventoryPage() {
       <div className="border-b border-gray-200 mb-6">
         <nav className="flex space-x-8">
           <button onClick={() => setActiveTab('stock')} className={activeTab === 'stock' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-600'}>Tồn Kho</button>
-          <button onClick={() => setActiveTab('analytics')} className={activeTab === 'analytics' ? 'border-b-2 border-purple-600 text-purple-600' : 'text-gray-600'}>Phân Tích & Dự Đoán</button>
+          <button onClick={() => setActiveTab('analytics')} className={activeTab === 'analytics' ? 'border-b-2 border-purple-600 text-purple-600' : 'text-gray-600'}>Phân Tích & Dự Báo Nhập Hàng</button>
           <button onClick={() => setActiveTab('management')} className={activeTab === 'management' ? 'border-b-2 border-orange-600 text-orange-600' : 'text-gray-600'}>Quản Lý</button>
         </nav>
       </div>
@@ -187,7 +187,7 @@ export default function InventoryPage() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Quản Lý Kho Hàng</h1>
-          <p className="text-sm text-gray-500 mt-1">Quản lý tồn kho với dự đoán & đề xuất thông minh</p>
+          <p className="text-sm text-gray-500 mt-1">Quản lý tồn kho với dự báo nhập hàng & đề xuất thông minh</p>
         </div>
         <div className="flex space-x-2">
           <select value={filters.timeframe} onChange={e => setFilters({ ...filters, timeframe: e.target.value })} className="px-3 py-2 border border-gray-300 rounded-md text-sm text-gray-900 bg-white">

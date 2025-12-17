@@ -23,39 +23,53 @@ function generatePredictionReason(factors: any, timeframe: string): string {
     'Tháng Chín', 'Tháng Mười', 'Tháng Mười Một', 'Tháng Mười Hai'
   ]
 
-  // Check seasonality
-  if (factors.seasonalMultiplier && factors.seasonalMultiplier > 1.1) {
-    // Calculate target month with offset for variety - hash entire productId
-    const baseMonth = new Date().getMonth() // Current month (0-11)
-    let hash = 0
-    const id = factors.productId || ''
-    for (let i = 0; i < id.length; i++) {
-      hash = ((hash << 5) - hash) + id.charCodeAt(i)
-      hash = hash & hash // Convert to 32bit integer
-    }
-    const productOffset = Math.abs(hash) % 3 // 0, 1, or 2 months
-    const targetMonthIndex = (baseMonth + productOffset) % 12
-    reasons.push(`Mùa cao điểm (${monthNames[targetMonthIndex]})`)
+  // Vietnamese-specific seasonal/holiday context
+  const monthContextMap: { [key: number]: string } = {
+    0: 'Dịp nghỉ Tết Nguyên Đán, nhu cầu giảm',           // Jan
+    1: 'Sau Tết, thị trường hồi phục chậm',               // Feb
+    2: 'Mùa xây dựng bắt đầu, nhu cầu tăng',              // Mar
+    3: 'Cao điểm xây dựng, khách hàng mua nhiều',         // Apr
+    4: 'Mùa khô thuận lợi thi công',                       // May
+    5: 'Bắt đầu mùa mưa, tiến độ chậm lại',               // Jun
+    6: 'Mùa mưa cao điểm, ảnh hưởng thi công',            // Jul
+    7: 'Mùa mưa, nhu cầu vật liệu giảm nhẹ',              // Aug
+    8: 'Dịp lễ 2/9, thị trường ổn định',                  // Sep
+    9: 'Mùa mưa kết thúc, xây dựng tăng trở lại',         // Oct
+    10: 'Gấp rút hoàn thiện công trình cuối năm',         // Nov
+    11: 'Cuối năm, nhu cầu hoàn thiện công trình cao',    // Dec
+  }
+
+  // Calculate target month
+  const baseMonth = new Date().getMonth()
+  let hash = 0
+  const id = factors.productId || ''
+  for (let i = 0; i < id.length; i++) {
+    hash = ((hash << 5) - hash) + id.charCodeAt(i)
+    hash = hash & hash
+  }
+  const productOffset = Math.abs(hash) % 3
+  const targetMonthIndex = (baseMonth + productOffset) % 12
+
+  // Add seasonal context with specific reason
+  if (factors.seasonalMultiplier && factors.seasonalMultiplier > 1.2) {
+    reasons.push(`Nhu cầu thị trường tăng mạnh`)
+    reasons.push(monthContextMap[targetMonthIndex] || `Mùa cao điểm (${monthNames[targetMonthIndex]})`)
+  } else if (factors.seasonalMultiplier && factors.seasonalMultiplier > 1.1) {
+    reasons.push(monthContextMap[targetMonthIndex] || `Mùa cao điểm (${monthNames[targetMonthIndex]})`)
+  } else if (factors.seasonalMultiplier && factors.seasonalMultiplier < 0.8) {
+    reasons.push(`Nhu cầu giảm do yếu tố mùa vụ`)
+    reasons.push(monthContextMap[targetMonthIndex] || `Mùa thấp điểm (${monthNames[targetMonthIndex]})`)
   } else if (factors.seasonalMultiplier && factors.seasonalMultiplier < 0.9) {
-    const baseMonth = new Date().getMonth()
-    let hash = 0
-    const id = factors.productId || ''
-    for (let i = 0; i < id.length; i++) {
-      hash = ((hash << 5) - hash) + id.charCodeAt(i)
-      hash = hash & hash
-    }
-    const productOffset = Math.abs(hash) % 3
-    const targetMonthIndex = (baseMonth + productOffset) % 12
-    reasons.push(`Mùa thấp điểm (${monthNames[targetMonthIndex]})`)
+    reasons.push(monthContextMap[targetMonthIndex] || `Mùa thấp điểm (${monthNames[targetMonthIndex]})`)
   }
 
   // Check trend
   if (factors.trend && factors.trend > 5) {
-    reasons.push('Xu hướng tăng mạnh')
+    reasons.push('Xu hướng tăng mạnh so với tháng trước')
   } else if (factors.trend && factors.trend > 0) {
     reasons.push('Xu hướng tăng nhẹ')
   } else if (factors.trend && factors.trend < -5) {
-    reasons.push('Xu hướng giảm')
+    reasons.push('Xu hướng giảm so với tháng trước')
   }
 
   // Add historical data info

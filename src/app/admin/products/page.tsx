@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { toast } from 'react-hot-toast'
 import { fetchWithAuth } from '@/lib/api-client'
+import FormattedNumberInput from '@/components/FormattedNumberInput'
 import { Package, Building, Plus, Search, ChevronDown, ChevronUp } from 'lucide-react'
 import ConfirmDialog from '@/components/ConfirmDialog'
 import FormModal from '@/components/FormModal'
@@ -747,14 +748,12 @@ export default function ProductsSuppliersPage() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Giá *</label>
-              <input
-                type="number"
+              <FormattedNumberInput
                 value={productForm.price}
-                onChange={(e) => setProductForm({ ...productForm, price: parseFloat(e.target.value) || 0 })}
+                onChange={(val) => setProductForm({ ...productForm, price: val })}
                 className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 bg-white"
+                placeholder="Nhập giá"
                 required
-                min="0"
-                step="0.01"
               />
             </div>
             <div>
@@ -783,12 +782,10 @@ export default function ProductsSuppliersPage() {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Tồn Kho Tối Thiểu</label>
-              <input
-                type="number"
-                value={productForm.minStockLevel}
-                onChange={(e) => setProductForm({ ...productForm, minStockLevel: parseFloat(e.target.value) || 0 })}
+              <FormattedNumberInput
+                value={productForm.minStockLevel || 0}
+                onChange={(val) => setProductForm({ ...productForm, minStockLevel: val })}
                 className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 bg-white"
-                min="0"
               />
             </div>
           </div>

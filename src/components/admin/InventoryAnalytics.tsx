@@ -3,9 +3,10 @@
 
 import { useState } from 'react'
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
-import { TrendingUp, Brain, Download, Play, CheckCircle, AlertCircle, Loader2 } from 'lucide-react'
+import { TrendingUp, Brain, Download, Play, CheckCircle, AlertCircle, Loader2, Edit, Check, X } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 import { fetchWithAuth } from '@/lib/api-client'
+import FormattedNumberInput from '@/components/FormattedNumberInput'
 
 interface InventoryPrediction {
     productId: string
@@ -26,6 +27,8 @@ interface Props {
 }
 
 export default function InventoryAnalytics({ predictions, onRefresh }: Props) {
+    const [editingId, setEditingId] = useState<string | null>(null)
+    const [overrideValue, setOverrideValue] = useState<number>(0)
 
 
     // Generate contextual reason from factors
@@ -83,15 +86,15 @@ export default function InventoryAnalytics({ predictions, onRefresh }: Props) {
             }
         }
 
-        return reasons.length > 0 ? reasons.join(' • ') : 'Dự đoán cơ bản'
+        return reasons.length > 0 ? reasons.join(' • ') : 'Dự báo cơ bản'
     }
 
     // Prepare chart data
     const demandForecastData = predictions.slice(0, 10).map(p => ({
         name: p.productName.substring(0, 15) + '...',
         'Tồn Kho': Math.round(p.currentStock),
-        'Dự Đoán': Math.round(p.predictedDemand),
-        'Đề Xuất': Math.round(p.recommendedOrder),
+        'Nhu Cầu': Math.round(p.predictedDemand),
+        'Cần Nhập': Math.round(p.recommendedOrder),
     }))
 
     const confidenceData = predictions.slice(0, 8).map(p => ({
@@ -135,14 +138,14 @@ export default function InventoryAnalytics({ predictions, onRefresh }: Props) {
                 <div className="flex items-center space-x-3 mb-4">
                     <TrendingUp className="w-8 h-8 text-blue-600" />
                     <div>
-                        <h2 className="text-xl font-bold text-gray-900">Tổng Quan Dự Đoán</h2>
-                        <p className="text-sm text-gray-500">Thống kê nhu cầu nhập hàng sắp tới</p>
+                        <h2 className="text-xl font-bold text-gray-900">Dự Báo & Đề Xuất Nhập Hàng</h2>
+                        <p className="text-sm text-gray-500">Thống kê nhu cầu và số lượng cần nhập</p>
                     </div>
                 </div>
                 <div className="grid grid-cols-3 gap-4 mt-4">
                     <div className="bg-gray-50 rounded-lg p-3">
                         <div className="text-2xl font-bold text-gray-900">{predictions.length}</div>
-                        <div className="text-xs text-gray-500">Sản phẩm dự đoán</div>
+                        <div className="text-xs text-gray-500">Sản phẩm được phân tích</div>
                     </div>
                     <div className="bg-gray-50 rounded-lg p-3">
                         <div className="text-2xl font-bold text-gray-900">{totalPredictedDemand}</div>
@@ -164,7 +167,7 @@ export default function InventoryAnalytics({ predictions, onRefresh }: Props) {
                     <div className="flex items-center justify-between mb-4">
                         <h3 className="text-lg font-semibold text-gray-900 flex items-center">
                             <TrendingUp className="w-5 h-5 mr-2 text-blue-600" />
-                            Dự Đoán Nhu Cầu Top 10
+                            Dự Báo Nhu Cầu Top 10
                         </h3>
                         <button className="text-sm text-blue-600 hover:text-blue-700 flex items-center">
                             <Download className="w-4 h-4 mr-1" />
@@ -179,8 +182,8 @@ export default function InventoryAnalytics({ predictions, onRefresh }: Props) {
                             <Tooltip />
                             <Legend />
                             <Bar dataKey="Tồn Kho" fill="#3B82F6" />
-                            <Bar dataKey="Dự Đoán" fill="#8B5CF6" />
-                            <Bar dataKey="Đề Xuất" fill="#10B981" />
+                            <Bar dataKey="Nhu Cầu" fill="#8B5CF6" />
+                            <Bar dataKey="Cần Nhập" fill="#10B981" />
                         </BarChart>
                     </ResponsiveContainer>
                 </div>
@@ -239,8 +242,8 @@ export default function InventoryAnalytics({ predictions, onRefresh }: Props) {
                             <Tooltip />
                             <Legend />
                             <Line type="monotone" dataKey="Tồn Kho" stroke="#3B82F6" strokeWidth={2} />
-                            <Line type="monotone" dataKey="Dự Đoán" stroke="#8B5CF6" strokeWidth={2} />
-                            <Line type="monotone" dataKey="Đề Xuất" stroke="#10B981" strokeWidth={2} strokeDasharray="5 5" />
+                            <Line type="monotone" dataKey="Nhu Cầu" stroke="#8B5CF6" strokeWidth={2} />
+                            <Line type="monotone" dataKey="Cần Nhập" stroke="#10B981" strokeWidth={2} strokeDasharray="5 5" />
                         </LineChart>
                     </ResponsiveContainer>
                 </div>
@@ -249,7 +252,7 @@ export default function InventoryAnalytics({ predictions, onRefresh }: Props) {
             {/* Prediction Details Table */}
             <div className="bg-white rounded-lg shadow overflow-hidden">
                 <div className="px-6 py-4 border-b border-gray-200">
-                    <h3 className="text-lg font-semibold text-gray-900">Chi Tiết Dự Đoán</h3>
+                    <h3 className="text-lg font-semibold text-gray-900">Chi Tiết Dự Báo & Nhập Hàng</h3>
                 </div>
                 <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-gray-200">
@@ -258,8 +261,9 @@ export default function InventoryAnalytics({ predictions, onRefresh }: Props) {
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Sản Phẩm</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Danh Mục</th>
                                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Tồn Kho</th>
-                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Dự Đoán</th>
-                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Đề Xuất</th>
+                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Nhu Cầu Dự Kiến</th>
+                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Đề Xuất Nhập</th>
+                                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Điều Chỉnh</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Lý Do</th>
                             </tr>
                         </thead>
@@ -271,6 +275,80 @@ export default function InventoryAnalytics({ predictions, onRefresh }: Props) {
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-medium">{Math.round(pred.currentStock)}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-purple-600 font-semibold">{Math.round(pred.predictedDemand)}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-green-600 font-semibold">{Math.round(pred.recommendedOrder)}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-center">
+                                        {editingId === pred.productId ? (
+                                            <div className="flex items-center justify-center space-x-2">
+                                                <FormattedNumberInput
+                                                    value={overrideValue}
+                                                    onChange={(val) => setOverrideValue(val)}
+                                                    className="w-24 px-2 py-1 border border-blue-300 rounded text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                    placeholder="Số lượng"
+                                                />
+                                                <button
+                                                    onClick={async () => {
+                                                        try {
+                                                            const response = await fetchWithAuth('/api/predictions/override', {
+                                                                method: 'POST',
+                                                                headers: { 'Content-Type': 'application/json' },
+                                                                body: JSON.stringify({
+                                                                    productId: pred.productId,
+                                                                    productName: pred.productName,
+                                                                    predictedDemand: Math.round(pred.predictedDemand),
+                                                                    recommendedOrder: Math.round(pred.recommendedOrder),
+                                                                    actualOverride: overrideValue,
+                                                                    timestamp: new Date().toISOString(),
+                                                                    timeContext: {
+                                                                        year: new Date().getFullYear(),
+                                                                        month: new Date().getMonth() + 1,
+                                                                        week: Math.ceil(new Date().getDate() / 7),
+                                                                        quarter: Math.ceil((new Date().getMonth() + 1) / 3),
+                                                                        dayOfWeek: new Date().getDay(),
+                                                                    }
+                                                                })
+                                                            })
+
+                                                            if (response.ok) {
+                                                                toast.success(
+                                                                    `✓ Đã điều chỉnh ${pred.productName}: ${Math.round(pred.recommendedOrder)} → ${overrideValue} đơn vị`,
+                                                                    { duration: 3000 }
+                                                                )
+                                                            } else {
+                                                                toast.error('Không thể lưu dữ liệu học máy')
+                                                            }
+                                                        } catch (error) {
+                                                            console.error('Error saving override:', error)
+                                                            toast.error('Có lỗi xảy ra khi lưu')
+                                                        }
+
+                                                        setEditingId(null)
+                                                    }}
+                                                    className="p-1 text-green-600 hover:bg-green-50 rounded"
+                                                    title="Lưu"
+                                                >
+                                                    <Check className="h-4 w-4" />
+                                                </button>
+                                                <button
+                                                    onClick={() => setEditingId(null)}
+                                                    className="p-1 text-red-600 hover:bg-red-50 rounded"
+                                                    title="Hủy"
+                                                >
+                                                    <X className="h-4 w-4" />
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <button
+                                                onClick={() => {
+                                                    setEditingId(pred.productId)
+                                                    setOverrideValue(Math.round(pred.recommendedOrder))
+                                                }}
+                                                className="inline-flex items-center px-3 py-1 text-sm text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
+                                                title="Điều chỉnh số lượng"
+                                            >
+                                                <Edit className="h-4 w-4 mr-1" />
+                                                Sửa
+                                            </button>
+                                        )}
+                                    </td>
                                     <td className="px-6 py-4 text-sm text-gray-600">
                                         <div className="max-w-xs">{pred.reason || generateReason(pred)}</div>
                                     </td>
@@ -280,6 +358,6 @@ export default function InventoryAnalytics({ predictions, onRefresh }: Props) {
                     </table>
                 </div>
             </div>
-        </div>
+        </div >
     )
 }

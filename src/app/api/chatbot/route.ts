@@ -226,6 +226,28 @@ export async function POST(request: NextRequest) {
         )
       }
 
+      // Check for questions/comparisons/consultation during order flow
+      const questionKeywords = /(?:so sánh|khác nhau|tốt nhất|ngon nhất|tư vấn|là gì|bao nhiêu|\?|tại sao|như thế nào|loại nào|nào tốt)/i
+      if (questionKeywords.test(message)) {
+        // Pause order flow to answer question
+        const aiResponse = await generateChatbotResponse(message, context, conversationHistory, isAdmin)
+
+        // Append reminder to return to order
+        const continuationPrompt = currentState.data.items?.length > 0
+          ? `\n\n💡 **Bạn vẫn muốn tiếp tục đặt hàng chứ?**`
+          : `\n\n💡 **Bạn muốn chọn sản phẩm nào?**`
+
+        return NextResponse.json(
+          createSuccessResponse({
+            message: aiResponse.response + continuationPrompt,
+            suggestions: ['Tiếp tục đặt hàng', 'Xem lại đơn', 'Hủy'],
+            confidence: aiResponse.confidence,
+            sessionId,
+            timestamp: new Date().toISOString()
+          })
+        )
+      }
+
       // Handle product selection in ORDER_CREATION flow (only if not handled above)
       if (currentState.data.currentStep === 'confirm_items' &&
         (message.toLowerCase().match(/^\d+$/) || (message.length > 3 && !message.toLowerCase().includes('xác nhận')))) {

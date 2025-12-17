@@ -10,6 +10,7 @@ interface Category {
   name: string
   description?: string
   productCount?: number
+  totalProducts?: number
   _count?: {
     products: number
   }
@@ -34,7 +35,7 @@ export default function CategoriesPage() {
       if (response.ok) {
         const data = await response.json()
         const categoriesData = data.data || []
-        
+
         // Map API response to match frontend interface
         const mappedCategories = categoriesData
           .filter((cat: Category) => cat.isActive !== false) // Only show active categories
@@ -42,11 +43,12 @@ export default function CategoriesPage() {
             id: cat.id,
             name: cat.name,
             description: cat.description || '',
-            productCount: cat._count?.products || 0,
+            productCount: cat.totalProducts ?? (cat._count?.products || 0),
             children: cat.children || [],
-            isActive: cat.isActive
+            isActive: cat.isActive,
+            image: cat.image
           }))
-        
+
         setCategories(mappedCategories)
       } else {
         setCategories([])
@@ -187,25 +189,28 @@ export default function CategoriesPage() {
         <div className="mt-16">
           <h3 className="text-2xl font-bold text-gray-900 mb-8 text-center">Danh mục phổ biến</h3>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {[
-              { name: 'Xi măng', icon: '🏗️', href: '/products?search=xi+măng' },
-              { name: 'Thép xây dựng', icon: '🔩', href: '/products?search=thép' },
-              { name: 'Gạch ốp lát', icon: '🧱', href: '/products?search=gạch' },
-              { name: 'Sơn tường', icon: '🎨', href: '/products?search=sơn' },
-              { name: 'Ống nước', icon: '🚰', href: '/products?search=ống' },
-              { name: 'Điện tử', icon: '⚡', href: '/products?search=điện' },
-              { name: 'Dụng cụ', icon: '🔨', href: '/products?search=dụng+cụ' },
-              { name: 'Khác', icon: '📦', href: '/products' }
-            ].map((item, index) => (
-              <Link
-                key={index}
-                href={item.href}
-                className="bg-white rounded-lg p-4 text-center hover:shadow-md transition-shadow"
-              >
-                <div className="text-3xl mb-2">{item.icon}</div>
-                <p className="text-sm font-medium text-gray-900">{item.name}</p>
-              </Link>
-            ))}
+            {categories
+              .sort((a, b) => (b.productCount || 0) - (a.productCount || 0))
+              .slice(0, 8)
+              .map((category) => (
+                <Link
+                  key={category.id}
+                  href={`/products?category=${category.id}`}
+                  className="bg-white rounded-lg p-4 text-center hover:shadow-md transition-shadow"
+                >
+                  <div className="text-3xl mb-2">
+                    {category.image ? (
+                      <img src={category.image} alt={category.name} className="w-12 h-12 mx-auto object-cover rounded-full" />
+                    ) : (
+                      <div className="w-12 h-12 mx-auto bg-blue-100 rounded-full flex items-center justify-center text-xl">
+                        📦
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-sm font-medium text-gray-900">{category.name}</p>
+                  <p className="text-xs text-gray-500">{category.productCount || 0} sản phẩm</p>
+                </Link>
+              ))}
           </div>
         </div>
       </div>

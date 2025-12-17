@@ -158,25 +158,25 @@ export default function HomePage() {
                 Xây Dựng
               </span>
               <br />
-              <span className="text-white">Ước Mơ Của Bạn</span> 
+              <span className="text-white">Ước Mơ Của Bạn</span>
               <Sparkles className="inline-block ml-4 h-12 w-12 text-yellow-300 animate-spin" />
             </h1>
             <p className="text-xl md:text-2xl mb-8 text-blue-100 font-medium max-w-3xl mx-auto leading-relaxed">
-              🚀 Từ xi măng đến thép - Tất cả trong tầm tay! 
+              🚀 Từ xi măng đến thép - Tất cả trong tầm tay!
               <br />
               💎 Chất lượng đỉnh, giá cả hợp lý
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-8">
-              <Link 
-                href="/products" 
+              <Link
+                href="/products"
                 className="group gradient-accent text-gray-900 px-10 py-4 rounded-2xl font-black hover:from-accent-400 hover:to-warning-400 transition-all duration-300 hover:scale-110 shadow-2xl inline-flex items-center text-lg focus:outline-none focus:ring-4 focus:ring-yellow-300"
                 aria-label="Mua sắm ngay bây giờ"
               >
                 🛒 Mua Ngay
                 <Zap className="ml-3 h-6 w-6 group-hover:animate-bounce" />
               </Link>
-              <Link 
-                href="#ai-recommendations" 
+              <Link
+                href="#ai-recommendations"
                 className="group bg-white/20 backdrop-blur-md text-white border-2 border-white/30 px-10 py-4 rounded-2xl font-black hover:bg-white/30 transition-all duration-300 hover:scale-110 shadow-2xl inline-flex items-center text-lg focus:outline-none focus:ring-4 focus:ring-white/50"
                 aria-label="Xem gợi ý sản phẩm từ AI"
               >
@@ -208,7 +208,7 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
           <div className="text-center mb-16">
             <h2 className="text-4xl font-black text-gray-900 mb-4">
-              📈 Thống Kê Ấn Tượng 
+              📈 Thống Kê Ấn Tượng
               <span className="text-gradient-primary">Làm Nên Thương Hiệu</span>
             </h2>
             <p className="text-xl text-gray-600 font-medium">Con số không nói dối - Chúng tôi là những gì GenZ cần! 🔥</p>
@@ -267,7 +267,7 @@ export default function HomePage() {
             </h2>
             <p className="text-xl text-blue-200 font-medium">Những sản phẩm chất lượng cao mà mọi dự án xây dựng đều cần! 🚀</p>
           </div>
-          
+
           {aiLoading ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {[...Array(6)].map((_, i) => (
@@ -286,8 +286,8 @@ export default function HomePage() {
                   <div key={product.id} className="group bg-white/10 backdrop-blur-md rounded-3xl border border-white/20 shadow-2xl hover:shadow-3xl transition-all duration-500 overflow-hidden hover:scale-105 hover:rotate-1">
                     <div className="relative bg-gradient-to-br from-pink-200 via-purple-200 to-indigo-200">
                       {product.images && product.images.length > 0 ? (
-                        <Image 
-                          src={product.images[0]} 
+                        <Image
+                          src={product.images[0]}
                           alt={product.name}
                           width={400}
                           height={192}
@@ -325,7 +325,7 @@ export default function HomePage() {
                         <span className="text-3xl font-black bg-gradient-to-r from-yellow-300 to-orange-400 bg-clip-text text-transparent">
                           {product.price?.toLocaleString()}đ
                         </span>
-                        <Link 
+                        <Link
                           href={`/products/${product.id}`}
                           className="gradient-accent text-gray-900 px-6 py-3 rounded-2xl hover:from-accent-400 hover:to-warning-400 font-black transition-all duration-300 hover:scale-110 shadow-lg flex items-center gap-2"
                         >
@@ -360,7 +360,7 @@ export default function HomePage() {
               )}
             </div>
           )}
-          
+
           <div className="text-center mt-16">
             <Link href="/products" className="group gradient-accent text-gray-900 px-12 py-4 rounded-2xl hover:from-accent-400 hover:to-warning-400 font-black text-xl transition-all duration-300 hover:scale-110 shadow-2xl inline-flex items-center">
               🚀 Xem Tất Cả Sản Phẩm
@@ -377,7 +377,7 @@ export default function HomePage() {
             <h2 className="text-3xl font-bold text-gray-900 mb-4">Tại Sao Chọn SmartBuild?</h2>
             <p className="text-gray-600">Chúng tôi cung cấp vật liệu xây dựng chất lượng cao với dịch vụ xuất sắc</p>
           </div>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div className="text-center">
               <div className="bg-primary-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -404,52 +404,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="bg-gray-900 text-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-            <div>
-              <div className="flex items-center mb-4">
-                <Package className="h-8 w-8 text-primary-400" />
-                <span className="ml-2 text-xl font-bold">SmartBuild</span>
-              </div>
-              <p className="text-gray-400">
-                Đối tác tin cậy của bạn cho vật liệu xây dựng chất lượng và dịch vụ xuất sắc.
-              </p>
-            </div>
-            <div>
-              <h3 className="text-lg font-semibold mb-4">Sản Phẩm</h3>
-              <ul className="space-y-2 text-gray-400">
-                <li><Link href="/products" className="hover:text-white">Xi măng</Link></li>
-                <li><Link href="/products" className="hover:text-white">Thép</Link></li>
-                <li><Link href="/products" className="hover:text-white">Gạch</Link></li>
-                <li><Link href="/products" className="hover:text-white">Công cụ</Link></li>
-              </ul>
-            </div>
-            <div>
-              <h3 className="text-lg font-semibold mb-4">Công Ty</h3>
-              <ul className="space-y-2 text-gray-400">
-                <li><Link href="/about" className="hover:text-white">Về chúng tôi</Link></li>
-                <li><Link href="/contact" className="hover:text-white">Liên hệ</Link></li>
-                <li><Link href="#" className="hover:text-white">Tuyển dụng</Link></li>
-                <li><Link href="#" className="hover:text-white">Blog</Link></li>
-              </ul>
-            </div>
-            <div>
-              <h3 className="text-lg font-semibold mb-4">Hỗ Trợ</h3>
-              <ul className="space-y-2 text-gray-400">
-                <li><Link href="#" className="hover:text-white">Trung tâm trợ giúp</Link></li>
-                <li><Link href="#" className="hover:text-white">Thông tin vận chuyển</Link></li>
-                <li><Link href="#" className="hover:text-white">Đổi trả hàng</Link></li>
-                <li><Link href="#" className="hover:text-white">Bảo hành</Link></li>
-              </ul>
-            </div>
-          </div>
-          <div className="border-t border-gray-800 mt-8 pt-8 text-center text-gray-400">
-            <p>&copy; 2025 SmartBuild. Bản quyền thuộc về SmartBuild.</p>
-          </div>
-        </div>
-      </footer>
+      {/* Footer is now in RootLayout */}
     </div>
   )
 }

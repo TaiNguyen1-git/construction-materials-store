@@ -1,3 +1,4 @@
+
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { createSuccessResponse, createErrorResponse } from '@/lib/api-types'
@@ -16,7 +17,7 @@ const createCategorySchema = z.object({
 export async function GET(request: NextRequest) {
   try {
     // Try to get from cache first
-    const cacheKey = 'categories:all'
+    const cacheKey = 'categories:all:v4'
     const cachedResult = await CacheService.get(cacheKey)
     if (cachedResult) {
       return NextResponse.json(
@@ -27,12 +28,12 @@ export async function GET(request: NextRequest) {
 
     const searchParams = request.nextUrl.searchParams
     const includeInactive = searchParams.get('includeInactive') === 'true'
-    
+
     const categories = await prisma.category.findMany({
       where: {
         isActive: includeInactive ? undefined : true,
-        // Only show top-level categories (no parent) for main listing
-        parentId: searchParams.get('parentId') || null
+        // If parentId is provided, filter by it. Otherwise, show all categories (undefined means no filter)
+        parentId: searchParams.get('parentId') || undefined
       },
       include: {
         parent: {
@@ -40,14 +41,19 @@ export async function GET(request: NextRequest) {
         },
         children: {
           where: { isActive: true },
-          select: { id: true, name: true, isActive: true }
-        },
-        _count: {
-          select: { 
+          select: {
+            id: true,
+            name: true,
+            isActive: true,
             products: {
-              where: { isActive: true }
+              where: { isActive: true },
+              select: { id: true }
             }
           }
+        },
+        products: {
+          where: { isActive: true },
+          select: { id: true }
         }
       },
       orderBy: [
@@ -56,11 +62,45 @@ export async function GET(request: NextRequest) {
       ]
     })
 
+    // Calculate total products manually due to Prisma _count issue
+    const categoriesWithCounts = categories.map(category => {
+      // Manual count from fetched array
+      const directCount = category.products.length
+
+      const childrenCount = category.children.reduce((sum, child) => {
+        // Safe access to child.products
+        const count = (child as any).products?.length || 0
+        return sum + count
+      }, 0)
+
+      // Clean up the response to avoid sending large arrays of IDs
+      const { products, children, ...rest } = category
+
+      const cleanChildren = children.map(child => {
+        const { products: childProducts, ...childRest } = child as any
+        return {
+          ...childRest,
+          productCount: childProducts?.length || 0,
+          _count: { products: childProducts?.length || 0 }
+        }
+      })
+
+      return {
+        ...rest,
+        children: cleanChildren,
+        totalProducts: directCount + childrenCount,
+        productCount: directCount,
+        _count: {
+          products: directCount
+        }
+      }
+    })
+
     // Cache the result for 10 minutes
-    await CacheService.set(cacheKey, categories, 600)
+    await CacheService.set(cacheKey, categoriesWithCounts, 600)
 
     return NextResponse.json(
-      createSuccessResponse(categories, 'Categories retrieved successfully'),
+      createSuccessResponse(categoriesWithCounts, 'Categories retrieved successfully'),
       { status: 200 }
     )
 
@@ -86,7 +126,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    
+
     // Validate input
     const validation = createCategorySchema.safeParse(body)
     if (!validation.success) {
@@ -116,6 +156,9 @@ export async function POST(request: NextRequest) {
 
     // Clear categories cache when a new category is added
     await CacheService.del('categories:all')
+    await CacheService.del('categories:all:v2')
+    await CacheService.del('categories:all:v3')
+    await CacheService.del('categories:all:v4')
 
     return NextResponse.json(
       createSuccessResponse(category, 'Category created successfully'),

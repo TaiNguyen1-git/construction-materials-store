@@ -4,6 +4,7 @@ import { Inter } from 'next/font/google'
 import { Toaster } from 'react-hot-toast'
 import Chatbot from '@/components/Chatbot'
 import { AuthProvider } from '@/contexts/auth-context'
+import Footer from '@/components/Footer'
 // import { ErrorBoundary } from '@/components/ErrorBoundary' // Temporarily disabled
 
 const inter = Inter({ subsets: ['latin'] })
@@ -50,11 +51,14 @@ export default function RootLayout({
     <html lang="en">
       <body className={inter.className}>
         <AuthProvider>
-          <div id="root">
-            {children}
+          <div id="root" className="min-h-screen flex flex-col">
+            <main className="flex-grow">
+              {children}
+            </main>
+            <Footer />
           </div>
           <Chatbot />
-          <Toaster 
+          <Toaster
             position="top-right"
             toastOptions={{
               duration: 4000,

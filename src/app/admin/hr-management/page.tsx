@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { toast } from 'react-hot-toast'
 import { Users, Calendar, ClipboardList, ChevronDown, ChevronUp, Plus, Edit, Trash2, X, XCircle } from 'lucide-react'
 import { fetchWithAuth } from '@/lib/api-client'
+import FormattedNumberInput from '@/components/FormattedNumberInput'
 import ConfirmDialog from '@/components/ConfirmDialog'
 import FormModal from '@/components/FormModal'
 
@@ -848,18 +849,10 @@ export default function HRManagementPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Lương Cơ Bản *</label>
-                  <input
-                    type="text"
-                    value={formatCurrency(employeeForm.baseSalary)}
-                    onChange={(e) => {
-                      // Prevent non-numeric input (allow empty)
-                      const val = e.target.value.replace(/\./g, '')
-                      if (/^\d*$/.test(val)) {
-                        setEmployeeForm({ ...employeeForm, baseSalary: parseCurrency(e.target.value) })
-                      }
-                    }}
+                  <FormattedNumberInput
+                    value={employeeForm.baseSalary}
+                    onChange={(val) => setEmployeeForm({ ...employeeForm, baseSalary: val })}
                     className="mt-1 w-full border rounded-lg px-3 py-2"
-                    required
                   />
                   {employeeForm.baseSalary === 0 && <p className="text-xs text-gray-500 mt-1">Nhập 0 hoặc để trống</p>}
                 </div>

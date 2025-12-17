@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from 'react'
 import { toast } from 'react-hot-toast'
-import { Save, Plus, Trash2, FileText, Receipt, Camera, X, Edit } from 'lucide-react'
+import { Save, Plus, Trash2, FileText, Receipt, X, Edit } from 'lucide-react'
 import { fetchWithAuth } from '@/lib/api-client'
+import FormattedNumberInput from '@/components/FormattedNumberInput'
 
 interface Invoice {
   id: string
@@ -57,7 +58,7 @@ export default function SalesManagementPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [invoicesLoading, setInvoicesLoading] = useState(true)
   const [invoiceFilters, setInvoiceFilters] = useState({ type: '', status: '' })
-  const [showOcrModal, setShowOcrModal] = useState(false)
+
   const [showInvoiceModal, setShowInvoiceModal] = useState(false)
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null)
 
@@ -189,6 +190,9 @@ export default function SalesManagementPage() {
   const removeInvoiceItem = (index: number) => {
     if (invoiceItems.length > 1) {
       setInvoiceItems(invoiceItems.filter((_, i) => i !== index))
+    } else {
+      // If it's the last item, just clear the fields instead of removing
+      setInvoiceItems([{ productId: '', productName: '', quantity: 1, unitPrice: 0 }])
     }
   }
 
@@ -281,6 +285,28 @@ export default function SalesManagementPage() {
       toast.error('Không thể cập nhật hóa đơn')
     }
   }
+
+  const deleteInvoice = async (invoiceId: string) => {
+    if (!window.confirm('Bạn có chắc chắn muốn xóa hóa đơn này?')) return
+
+    try {
+      const response = await fetchWithAuth(`/api/invoices/${invoiceId}`, {
+        method: 'DELETE'
+      })
+
+      if (response.ok) {
+        toast.success('Xóa hóa đơn thành công')
+        fetchInvoices()
+      } else {
+        const data = await response.json()
+        toast.error(data.error || 'Không thể xóa hóa đơn')
+      }
+    } catch (error) {
+      console.error('Error deleting invoice:', error)
+      toast.error('Có lỗi xảy ra khi xóa hóa đơn')
+    }
+  }
+
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -383,13 +409,7 @@ export default function SalesManagementPage() {
                 <Plus className="h-4 w-4 mr-2" />
                 Tạo Hóa Đơn
               </button>
-              <button
-                onClick={() => setShowOcrModal(true)}
-                className="flex items-center px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700"
-              >
-                <Camera className="h-4 w-4 mr-2" />
-                Scan OCR
-              </button>
+
             </>
           )}
         </div>
@@ -527,9 +547,14 @@ export default function SalesManagementPage() {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                             <div className="flex space-x-2">
-                              <button type="button" className="text-gray-600 hover:text-gray-900">
+                              <button
+                                type="button"
+                                onClick={() => openInvoiceModal(invoice)}
+                                className="text-gray-600 hover:text-gray-900"
+                              >
                                 Xem
                               </button>
+
                               {['DRAFT', 'PENDING'].includes(invoice.status) && (
                                 <button
                                   type="button"
@@ -555,6 +580,16 @@ export default function SalesManagementPage() {
                                   className="text-red-600 hover:text-red-900"
                                 >
                                   Hủy
+                                </button>
+                              )}
+                              {invoice.status !== 'PAID' && (
+                                <button
+                                  type="button"
+                                  onClick={() => deleteInvoice(invoice.id)}
+                                  className="text-red-600 hover:text-red-900"
+                                  title="Xóa hóa đơn"
+                                >
+                                  <Trash2 className="h-4 w-4" />
                                 </button>
                               )}
                             </div>
@@ -604,20 +639,18 @@ export default function SalesManagementPage() {
 
                 <div className="col-span-2">
                   <label className="block text-sm font-medium mb-2">Số lượng</label>
-                  <input
-                    type="number"
-                    value={entry.quantity || ''}
-                    onChange={(e) => updateEntry(index, 'quantity', parseFloat(e.target.value) || 0)}
+                  <FormattedNumberInput
+                    value={entry.quantity || 0}
+                    onChange={(val) => updateEntry(index, 'quantity', val)}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg"
                   />
                 </div>
 
                 <div className="col-span-2">
                   <label className="block text-sm font-medium mb-2">Đơn giá</label>
-                  <input
-                    type="number"
-                    value={entry.price || ''}
-                    onChange={(e) => updateEntry(index, 'price', parseFloat(e.target.value) || 0)}
+                  <FormattedNumberInput
+                    value={entry.price || 0}
+                    onChange={(val) => updateEntry(index, 'price', val)}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg"
                   />
                 </div>
@@ -767,25 +800,19 @@ export default function SalesManagementPage() {
                         </select>
                       </div>
                       <div className="col-span-2">
-                        <input
-                          type="number"
-                          placeholder="SL"
-                          value={item.quantity || ''}
-                          onChange={(e) => updateInvoiceItem(index, 'quantity', Number(e.target.value))}
+                        <FormattedNumberInput
+                          value={item.quantity || 0}
+                          onChange={(val) => updateInvoiceItem(index, 'quantity', val)}
                           className="w-full border rounded-lg px-3 py-2 text-sm"
-                          min={1}
-                          required
+                          placeholder="SL"
                         />
                       </div>
                       <div className="col-span-3">
-                        <input
-                          type="number"
-                          placeholder="Đơn giá"
-                          value={item.unitPrice || ''}
-                          onChange={(e) => updateInvoiceItem(index, 'unitPrice', Number(e.target.value))}
+                        <FormattedNumberInput
+                          value={item.unitPrice || 0}
+                          onChange={(val) => updateInvoiceItem(index, 'unitPrice', val)}
                           className="w-full border rounded-lg px-3 py-2 text-sm"
-                          min={0}
-                          required
+                          placeholder="Đơn giá"
                         />
                       </div>
                       <div className="col-span-2 flex items-center gap-2">
@@ -838,24 +865,7 @@ export default function SalesManagementPage() {
         </div>
       )}
 
-      {/* OCR Modal */}
-      {showOcrModal && (
-        <div className="fixed inset-0 bg-gray-100 bg-opacity-75 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-lg">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-bold text-gray-900">Scan Hóa Đơn với OCR</h3>
-              <button onClick={() => setShowOcrModal(false)}><X className="h-6 w-6" /></button>
-            </div>
-            <div className="text-center p-8 border-2 border-dashed border-gray-300 rounded-lg">
-              <Camera className="h-16 w-16 mx-auto text-gray-400 mb-4" />
-              <p className="text-gray-600 mb-4">Tính năng OCR sẽ được tích hợp tại đây</p>
-              <button className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
-                Chọn ảnh hóa đơn
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+
     </div>
   )
 }
