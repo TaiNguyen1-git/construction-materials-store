@@ -78,13 +78,14 @@ const navigationGroups = [
       { name: 'Lương', href: '/admin/payroll', icon: CreditCard },
     ]
   },
-  {
-    name: 'Dự Án',
-    icon: FolderOpen,
-    items: [
-      { name: 'Dự Án', href: '/admin/projects', icon: FolderOpen },
-    ]
-  },
+  // === PHASE 2: Dự Án (Tạm ẩn) ===
+  // {
+  //   name: 'Dự Án',
+  //   icon: FolderOpen,
+  //   items: [
+  //     { name: 'Dự Án', href: '/admin/projects', icon: FolderOpen },
+  //   ]
+  // },
   {
     name: 'Báo Cáo Tài Chính',
     icon: LineChart,
