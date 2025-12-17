@@ -61,15 +61,16 @@ const navigationGroups = [
       { name: 'Đánh Giá Sản Phẩm', href: '/admin/reviews', icon: Star },
     ]
   },
-  {
-    name: 'Quản Lý SME',
-    icon: CreditCard,
-    items: [
-      { name: 'Quản Lý Công Nợ', href: '/admin/credit-management', icon: CreditCard },
-      { name: 'Nhập Hàng Thông Minh', href: '/admin/procurement-management', icon: Truck },
-      { name: 'Hợp Đồng & Giá B2B', href: '/admin/contract-management', icon: FileText },
-    ]
-  },
+  // === PHASE 2: SME Features (Tạm ẩn) ===
+  // {
+  //   name: 'Quản Lý SME',
+  //   icon: CreditCard,
+  //   items: [
+  //     { name: 'Quản Lý Công Nợ', href: '/admin/credit-management', icon: CreditCard },
+  //     { name: 'Nhập Hàng Thông Minh', href: '/admin/procurement-management', icon: Truck },
+  //     { name: 'Hợp Đồng & Giá B2B', href: '/admin/contract-management', icon: FileText },
+  //   ]
+  // },
   {
     name: 'Nhân Sự',
     icon: Briefcase,
