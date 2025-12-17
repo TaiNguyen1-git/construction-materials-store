@@ -7,7 +7,8 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import Sidebar from '../components/Sidebar'
+import QRPayment from '@/components/QRPayment'
 import {
     Building2,
     Package,
@@ -25,78 +26,10 @@ import {
     Clock,
     AlertCircle,
     CheckCircle,
-    Calendar
+    Calendar,
+    QrCode,
+    Printer
 } from 'lucide-react'
-
-// Sidebar Component
-function Sidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
-    const pathname = usePathname()
-
-    const navItems = [
-        { href: '/contractor/dashboard', icon: Home, label: 'Tổng quan' },
-        { href: '/contractor/orders', icon: ShoppingCart, label: 'Đơn hàng' },
-        { href: '/products', icon: Package, label: 'Sản phẩm' },
-        { href: '/contractor/debt', icon: CreditCard, label: 'Công nợ' },
-        { href: '/contractor/contracts', icon: FileText, label: 'Hợp đồng' },
-    ]
-
-    return (
-        <>
-            {isOpen && (
-                <div className="lg:hidden fixed inset-0 bg-black/50 z-40" onClick={onClose} />
-            )}
-
-            <aside className={`
-        fixed top-0 left-0 bottom-0 w-64 bg-white border-r border-gray-200 z-50
-        transform transition-transform duration-300 lg:translate-x-0
-        ${isOpen ? 'translate-x-0' : '-translate-x-full'}
-        lg:top-[73px]
-      `}>
-                <div className="lg:hidden flex items-center justify-between p-4 border-b border-gray-100">
-                    <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                            <Building2 className="w-5 h-5 text-white" />
-                        </div>
-                        <span className="font-bold text-gray-900">SmartBuild PRO</span>
-                    </div>
-                    <button onClick={onClose} className="p-2 text-gray-500">
-                        <X className="w-5 h-5" />
-                    </button>
-                </div>
-
-                <nav className="p-4 space-y-1">
-                    {navItems.map((item) => {
-                        const isActive = pathname === item.href
-                        return (
-                            <Link
-                                key={item.href}
-                                href={item.href}
-                                onClick={onClose}
-                                className={`flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-colors ${isActive
-                                        ? 'bg-blue-50 text-blue-600'
-                                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                                    }`}
-                            >
-                                <item.icon className="w-5 h-5" />
-                                {item.label}
-                            </Link>
-                        )
-                    })}
-                </nav>
-
-                <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-100">
-                    <Link
-                        href="/products"
-                        className="flex items-center justify-center gap-2 w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-semibold transition-all"
-                    >
-                        <Plus className="w-5 h-5" />
-                        Đặt hàng mới
-                    </Link>
-                </div>
-            </aside>
-        </>
-    )
-}
 
 interface Invoice {
     id: string
@@ -117,6 +50,10 @@ export default function ContractorDebtPage() {
         overdue: 0,
         dueThisWeek: 15000000
     })
+
+    // QR Payment Modal State
+    const [showQRModal, setShowQRModal] = useState(false)
+    const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null)
 
     useEffect(() => {
         setInvoices([
@@ -155,9 +92,106 @@ export default function ContractorDebtPage() {
     const creditUsage = (stats.totalDebt / stats.creditLimit) * 100
 
     const handleLogout = () => {
-        localStorage.removeItem('token')
+        localStorage.removeItem('access_token')
         localStorage.removeItem('user')
         window.location.href = '/contractor'
+    }
+
+    // Handle payment button click
+    const handlePayment = (invoice: Invoice) => {
+        setSelectedInvoice(invoice)
+        setShowQRModal(true)
+    }
+
+    // Handle invoice PDF download
+    const handleDownloadInvoice = (invoice: Invoice) => {
+        // Load contractor profile from localStorage
+        const profileData = localStorage.getItem('contractor-profile')
+        const profile = profileData ? JSON.parse(profileData) : {}
+
+        // Create invoice HTML content
+        const invoiceHTML = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <title>Hóa đơn ${invoice.invoiceNumber}</title>
+                <style>
+                    body { font-family: Arial, sans-serif; padding: 40px; max-width: 800px; margin: 0 auto; }
+                    .header { text-align: center; border-bottom: 2px solid #2563eb; padding-bottom: 20px; margin-bottom: 30px; }
+                    .header h1 { color: #2563eb; margin: 0; }
+                    .header p { color: #666; margin: 5px 0; }
+                    .info-section { display: flex; justify-content: space-between; margin-bottom: 30px; }
+                    .info-box { width: 45%; }
+                    .info-box h3 { color: #333; border-bottom: 1px solid #ddd; padding-bottom: 5px; }
+                    .info-box p { margin: 5px 0; color: #555; }
+                    .invoice-details { background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 30px; }
+                    .invoice-details h2 { margin-top: 0; color: #2563eb; }
+                    .amount-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #eee; }
+                    .amount-row:last-child { border-bottom: none; font-weight: bold; font-size: 1.2em; color: #2563eb; }
+                    .footer { text-align: center; margin-top: 50px; color: #888; font-size: 0.9em; }
+                    @media print { body { padding: 20px; } }
+                </style>
+            </head>
+            <body>
+                <div class="header">
+                    <h1>SmartBuild PRO</h1>
+                    <p>Cửa hàng Vật liệu Xây dựng</p>
+                    <p>Địa chỉ: 123 Đường Nguyễn Văn Linh, Biên Hòa, Đồng Nai</p>
+                    <p>Hotline: 0909 123 456 | Email: sales@smartbuild.vn</p>
+                </div>
+                
+                <div class="info-section">
+                    <div class="info-box">
+                        <h3>Thông tin Khách hàng</h3>
+                        <p><strong>Công ty:</strong> ${profile.companyName || 'N/A'}</p>
+                        <p><strong>MST:</strong> ${profile.taxId || 'N/A'}</p>
+                        <p><strong>Địa chỉ:</strong> ${profile.address || 'N/A'}</p>
+                        <p><strong>Điện thoại:</strong> ${profile.phone || 'N/A'}</p>
+                    </div>
+                    <div class="info-box">
+                        <h3>Thông tin Hóa đơn</h3>
+                        <p><strong>Số HĐ:</strong> ${invoice.invoiceNumber}</p>
+                        <p><strong>Ngày lập:</strong> ${invoice.date}</p>
+                        <p><strong>Hạn thanh toán:</strong> ${invoice.dueDate}</p>
+                        <p><strong>Trạng thái:</strong> ${getStatusText(invoice.status)}</p>
+                    </div>
+                </div>
+                
+                <div class="invoice-details">
+                    <h2>Chi tiết Thanh toán</h2>
+                    <div class="amount-row">
+                        <span>Tổng giá trị hóa đơn:</span>
+                        <span>${formatCurrency(invoice.amount)}</span>
+                    </div>
+                    <div class="amount-row">
+                        <span>Đã thanh toán:</span>
+                        <span>${formatCurrency(invoice.paid)}</span>
+                    </div>
+                    <div class="amount-row">
+                        <span>Còn lại:</span>
+                        <span>${formatCurrency(invoice.amount - invoice.paid)}</span>
+                    </div>
+                </div>
+                
+                <div class="footer">
+                    <p>Cảm ơn quý khách đã tin tưởng SmartBuild PRO!</p>
+                    <p>Hóa đơn này được tạo tự động và có giá trị pháp lý.</p>
+                </div>
+            </body>
+            </html>
+        `
+
+        // Open print window
+        const printWindow = window.open('', '_blank')
+        if (printWindow) {
+            printWindow.document.write(invoiceHTML)
+            printWindow.document.close()
+            printWindow.focus()
+            setTimeout(() => {
+                printWindow.print()
+            }, 250)
+        }
     }
 
     return (
@@ -279,7 +313,7 @@ export default function ContractorDebtPage() {
                         <div className="h-4 bg-gray-100 rounded-full overflow-hidden">
                             <div
                                 className={`h-full rounded-full transition-all ${creditUsage > 80 ? 'bg-red-500' :
-                                        creditUsage > 60 ? 'bg-orange-500' : 'bg-green-500'
+                                    creditUsage > 60 ? 'bg-orange-500' : 'bg-green-500'
                                     }`}
                                 style={{ width: `${creditUsage}%` }}
                             />
@@ -327,12 +361,28 @@ export default function ContractorDebtPage() {
                                                     {getStatusText(invoice.status)}
                                                 </span>
                                             </td>
-                                            <td className="px-6 py-4 text-center">
-                                                {invoice.status !== 'PAID' && (
-                                                    <button className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm rounded-lg font-medium transition-colors">
-                                                        Thanh toán
+                                            <td className="px-6 py-4">
+                                                <div className="flex items-center justify-end gap-2">
+                                                    {/* Download Invoice Button */}
+                                                    <button
+                                                        onClick={() => handleDownloadInvoice(invoice)}
+                                                        className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                                        title="Tải hóa đơn"
+                                                    >
+                                                        <Printer className="w-5 h-5" />
                                                     </button>
-                                                )}
+
+                                                    {/* QR Payment Button */}
+                                                    {invoice.status !== 'PAID' && (
+                                                        <button
+                                                            onClick={() => handlePayment(invoice)}
+                                                            className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm rounded-lg font-medium transition-colors"
+                                                        >
+                                                            <QrCode className="w-4 h-4" />
+                                                            Thanh toán
+                                                        </button>
+                                                    )}
+                                                </div>
                                             </td>
                                         </tr>
                                     ))}
@@ -364,6 +414,47 @@ export default function ContractorDebtPage() {
                     </Link>
                 </div>
             </nav>
+
+            {/* QR Payment Modal */}
+            {showQRModal && selectedInvoice && (
+                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+                        <div className="p-6 border-b border-gray-100">
+                            <div className="flex items-center justify-between">
+                                <h3 className="text-xl font-bold text-gray-900">
+                                    Thanh toán QR
+                                </h3>
+                                <button
+                                    onClick={() => setShowQRModal(false)}
+                                    className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"
+                                >
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
+                            <p className="text-sm text-gray-500 mt-1">
+                                Hóa đơn: {selectedInvoice.invoiceNumber}
+                            </p>
+                        </div>
+
+                        <div className="p-6">
+                            <QRPayment
+                                amount={selectedInvoice.amount - selectedInvoice.paid}
+                                orderId={selectedInvoice.invoiceNumber}
+                                description={`Thanh toan hoa don ${selectedInvoice.invoiceNumber}`}
+                            />
+                        </div>
+
+                        <div className="p-6 bg-gray-50 border-t border-gray-100">
+                            <button
+                                onClick={() => setShowQRModal(false)}
+                                className="w-full py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg font-medium transition-colors"
+                            >
+                                Đóng
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     )
 }

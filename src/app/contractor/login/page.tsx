@@ -52,12 +52,23 @@ export default function ContractorLoginPage() {
                 throw new Error(data.error || 'Đăng nhập thất bại')
             }
 
-            if (data.token) {
-                localStorage.setItem('token', data.token)
+            // Save tokens using same keys as main auth system for consistency
+            if (data.accessToken) {
+                localStorage.setItem('access_token', data.accessToken)
+                if (data.refreshToken) {
+                    localStorage.setItem('refresh_token', data.refreshToken)
+                }
+            } else if (data.token) {
+                // Fallback for legacy API response
+                localStorage.setItem('access_token', data.token)
+            }
+
+            if (data.user) {
                 localStorage.setItem('user', JSON.stringify(data.user))
             }
 
-            router.push('/contractor/dashboard')
+            // Use hard redirect to ensure AuthProvider re-initializes from localStorage
+            window.location.href = '/contractor/dashboard'
         } catch (err: any) {
             setError(err.message || 'Đã có lỗi xảy ra')
         } finally {

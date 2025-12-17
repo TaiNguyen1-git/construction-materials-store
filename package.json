@@ -42,6 +42,7 @@
     "clsx": "^2.1.1",
     "csrf": "^3.1.0",
     "dotenv": "^16.4.5",
+    "firebase": "^12.7.0",
     "ioredis": "^5.8.2",
     "jsonwebtoken": "^9.0.2",
     "jspdf": "^3.0.3",
