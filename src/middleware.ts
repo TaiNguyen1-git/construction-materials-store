@@ -81,6 +81,26 @@ export async function middleware(request: NextRequest) {
     if (token) {
       const requestHeaders = new Headers(request.headers)
       requestHeaders.set('x-token', token)
+
+      // Decode JWT to extract user info for authorization checks
+      try {
+        const parts = token.split('.')
+        if (parts.length === 3) {
+          const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString('utf-8'))
+          if (payload.userId) {
+            requestHeaders.set('x-user-id', payload.userId)
+          }
+          if (payload.role) {
+            requestHeaders.set('x-user-role', payload.role)
+          }
+          if (payload.email) {
+            requestHeaders.set('x-user-email', payload.email)
+          }
+        }
+      } catch (e) {
+        // Token decode failed - continue without user headers
+      }
+
       return NextResponse.next({
         request: { headers: requestHeaders },
       })
@@ -147,13 +167,33 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // Token found - pass it to downstream via headers
+  // Token found - decode and pass user info to downstream via headers
   const requestHeaders = new Headers(request.headers)
   if (token) {
     requestHeaders.set('x-token', token)
     // Also set Authorization header for API routes that need it
     if (!request.headers.get('authorization')) {
       requestHeaders.set('authorization', `Bearer ${token}`)
+    }
+
+    // Decode JWT to extract user info (without verification - verification happens in API)
+    try {
+      const parts = token.split('.')
+      if (parts.length === 3) {
+        const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString('utf-8'))
+        if (payload.userId) {
+          requestHeaders.set('x-user-id', payload.userId)
+        }
+        if (payload.role) {
+          requestHeaders.set('x-user-role', payload.role)
+        }
+        if (payload.email) {
+          requestHeaders.set('x-user-email', payload.email)
+        }
+      }
+    } catch (e) {
+      // Token decode failed - continue without user headers, API will verify properly
+      console.warn('[Middleware] Failed to decode token for user headers')
     }
   }
 
