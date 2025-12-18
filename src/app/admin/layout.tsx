@@ -51,7 +51,7 @@ export default function AdminLayout({
       name: 'Tổng Quan',
       items: [
         { name: 'Bảng Điều Khiển', href: '/admin', icon: BarChart3 },
-        { name: 'Công Việc Của Tôi', href: '/admin/my-tasks', icon: ClipboardList, roles: ['EMPLOYEE', 'MANAGER'] },
+        { name: 'Công Việc Của Tôi', href: '/admin/my-tasks', icon: ClipboardList, roles: ['EMPLOYEE'] },
       ]
     },
     {

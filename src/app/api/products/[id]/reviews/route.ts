@@ -7,17 +7,22 @@ const createReviewSchema = z.object({
   rating: z.number().min(1).max(5),
   title: z.string().optional(),
   review: z.string().min(10, 'Review must be at least 10 characters'),
-  customerId: z.string(),
+  customerId: z.string().optional(),
   orderId: z.string().optional(),
+  guestInfo: z.object({
+    name: z.string().min(2),
+    email: z.string().email(),
+    phone: z.string().optional(),
+  }).optional()
 })
 
 // GET /api/products/[id]/reviews - Get product reviews
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id: productId } = await params
+    const { id: productId } = await context.params
     const { searchParams } = new URL(request.url)
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '10')
@@ -88,10 +93,10 @@ export async function GET(
 // POST /api/products/[id]/reviews - Create review
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id: productId } = await params
+    const { id: productId } = await context.params
     const body = await request.json()
 
     // Validate input
@@ -103,7 +108,51 @@ export async function POST(
       )
     }
 
-    const { rating, title, review, customerId, orderId } = validation.data
+    const { rating, title, review, orderId, guestInfo } = validation.data
+    let customerId = validation.data.customerId
+
+    // Handle Guest User if no customerId provided
+    if (!customerId && guestInfo) {
+      // Find or create a guest user/customer
+      let user = await prisma.user.findUnique({
+        where: { email: guestInfo.email }
+      })
+
+      if (!user) {
+        // Create a basic user for the guest
+        user = await prisma.user.create({
+          data: {
+            name: guestInfo.name,
+            email: guestInfo.email,
+            phone: guestInfo.phone,
+            password: 'GUEST_USER_NO_PASSWORD', // Dummy password for schema requirement
+            role: 'CUSTOMER'
+          }
+        })
+      }
+
+      let customer = await prisma.customer.findUnique({
+        where: { userId: user.id }
+      })
+
+      if (!customer) {
+        customer = await prisma.customer.create({
+          data: {
+            userId: user.id,
+            customerType: 'REGULAR'
+          }
+        })
+      }
+
+      customerId = customer.id
+    }
+
+    if (!customerId) {
+      return NextResponse.json(
+        createErrorResponse('Customer authentication required', 'UNAUTHORIZED'),
+        { status: 401 }
+      )
+    }
 
     // Check if product exists
     const product = await prisma.product.findUnique({
@@ -127,7 +176,7 @@ export async function POST(
 
     if (existingReview) {
       return NextResponse.json(
-        createErrorResponse('You have already reviewed this product', 'DUPLICATE_REVIEW'),
+        createErrorResponse('Bạn đã đánh giá sản phẩm này rồi.', 'DUPLICATE_REVIEW'),
         { status: 400 }
       )
     }

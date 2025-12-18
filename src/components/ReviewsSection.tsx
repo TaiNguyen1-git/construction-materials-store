@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Star, ThumbsUp, CheckCircle } from 'lucide-react'
+import Link from 'next/link'
+import { Star, ThumbsUp, CheckCircle, X } from 'lucide-react'
 import { useAuth } from '@/contexts/auth-context'
 import ReviewForm from './ReviewForm'
 
@@ -69,16 +70,16 @@ export default function ReviewsSection({ productId, productName }: ReviewsSectio
   const fetchReviews = async () => {
     try {
       setLoading(true)
-      const url = filterRating 
+      const url = filterRating
         ? `/api/products/${productId}/reviews?rating=${filterRating}`
         : `/api/products/${productId}/reviews`
-      
+
       const response = await fetch(url)
       if (response.ok) {
         const data = await response.json()
         const reviewsData = data.data?.data || []
         setReviews(reviewsData)
-        
+
         // Calculate stats
         if (reviewsData.length > 0) {
           const avgRating = reviewsData.reduce((acc: number, r: Review) => acc + r.rating, 0) / reviewsData.length
@@ -86,7 +87,7 @@ export default function ReviewsSection({ productId, productName }: ReviewsSectio
             rating,
             count: reviewsData.filter((r: Review) => r.rating === rating).length
           }))
-          
+
           setStats({
             average: avgRating,
             total: reviewsData.length,
@@ -120,9 +121,8 @@ export default function ReviewsSection({ productId, productName }: ReviewsSectio
         {Array.from({ length: 5 }).map((_, i) => (
           <Star
             key={i}
-            className={`${size} ${
-              i < rating ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'
-            }`}
+            className={`${size} ${i < rating ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'
+              }`}
           />
         ))}
       </div>
@@ -164,9 +164,8 @@ export default function ReviewsSection({ productId, productName }: ReviewsSectio
             <button
               key={rating}
               onClick={() => setFilterRating(filterRating === rating ? null : rating)}
-              className={`w-full flex items-center gap-3 hover:bg-gray-50 p-2 rounded-lg transition-colors ${
-                filterRating === rating ? 'bg-primary-50' : ''
-              }`}
+              className={`w-full flex items-center gap-3 hover:bg-gray-50 p-2 rounded-lg transition-colors ${filterRating === rating ? 'bg-primary-50' : ''
+                }`}
             >
               <div className="flex items-center gap-1 min-w-[80px]">
                 <span className="text-sm font-semibold">{rating}</span>
@@ -184,38 +183,61 @@ export default function ReviewsSection({ productId, productName }: ReviewsSectio
         </div>
       </div>
 
-      {/* Write Review Button */}
-      {isAuthenticated && customerId && (
-        <div className="border-b pb-6">
+      {/* Write Review Section */}
+      <div className="border-b pb-10">
+        <div className="flex flex-col md:flex-row justify-between items-center gap-6 mb-8">
+          <div className="flex-1">
+            <h3 className="text-xl font-bold text-gray-900 mb-1">Bạn có đánh giá về sản phẩm?</h3>
+            <p className="text-gray-500">Chia sẻ trải nghiệm của bạn để giúp những khách hàng khác có sự lựa chọn tốt hơn.</p>
+          </div>
           <button
             onClick={() => setShowWriteReview(!showWriteReview)}
-            className="w-full md:w-auto bg-gradient-to-r from-primary-600 to-secondary-600 text-white px-8 py-3 rounded-xl font-semibold hover:from-primary-700 hover:to-secondary-700 transition-all"
+            className="w-full md:w-auto bg-gradient-to-r from-primary-600 to-secondary-600 text-white px-8 py-3.5 rounded-xl font-black hover:from-primary-700 hover:to-secondary-700 transition-all transform hover:scale-105 active:scale-98 shadow-lg flex items-center justify-center gap-3 group"
           >
-            {showWriteReview ? 'Hủy' : 'Viết Đánh Giá'}
+            {showWriteReview ? (
+              <>
+                <X className="h-5 w-5" />
+                Hủy Bỏ
+              </>
+            ) : (
+              <>
+                <Star className="h-5 w-5 fill-white group-hover:rotate-12 transition-transform" />
+                Viết Đánh Giá Của Bạn
+              </>
+            )}
           </button>
-          
-          {showWriteReview && (
-            <div className="mt-6">
-              <ReviewForm
-                productId={productId}
-                productName={productName}
-                customerId={customerId}
-                onSuccess={() => {
-                  setShowWriteReview(false)
-                  fetchReviews()
-                }}
-              />
-            </div>
-          )}
         </div>
-      )}
+
+        {showWriteReview && (
+          <div className="animate-in fade-in slide-in-from-top-4 duration-500">
+            <ReviewForm
+              productId={productId}
+              productName={productName}
+              customerId={customerId}
+              onSuccess={() => {
+                setShowWriteReview(false)
+                fetchReviews()
+              }}
+            />
+          </div>
+        )}
+
+        {!isAuthenticated && !showWriteReview && (
+          <div className="mt-4 p-4 bg-gray-50 rounded-xl border border-gray-100 flex items-center justify-center gap-3 text-sm text-gray-600">
+            <span>Bạn đã có tài khoản?</span>
+            <Link href={`/login?callbackUrl=/products/${productId}`} className="text-primary-600 font-bold hover:underline">
+              Đăng nhập để tự động điền thông tin
+            </Link>
+          </div>
+        )}
+      </div>
 
       {/* Reviews List */}
       {reviews.length === 0 ? (
         <div className="text-center py-12">
           <Star className="h-16 w-16 text-gray-300 mx-auto mb-4" />
           <p className="text-gray-600 text-lg">
-            {filterRating 
+            {filterRating
               ? `Chưa có đánh giá ${filterRating} sao`
               : 'Chưa có đánh giá nào. Hãy là người đầu tiên đánh giá!'
             }
