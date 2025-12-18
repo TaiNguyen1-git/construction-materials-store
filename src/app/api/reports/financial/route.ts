@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
     // Calculate total revenue from sales invoices
     const salesInvoices = await prisma.invoice.findMany({
       where: {
-        type: 'SALES',
+        invoiceType: 'SALES',
         status: { in: ['PAID', 'SENT'] },
         createdAt: { gte: start, lte: end }
       },
@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
     // Calculate total expenses from purchase invoices
     const purchaseInvoices = await prisma.invoice.findMany({
       where: {
-        type: 'PURCHASE',
+        invoiceType: 'PURCHASE',
         status: { in: ['PAID', 'SENT'] },
         createdAt: { gte: start, lte: end }
       },
@@ -48,17 +48,17 @@ export async function GET(request: NextRequest) {
 
     const totalPurchaseExpenses = purchaseInvoices.reduce((sum, inv) => sum + inv.totalAmount, 0)
 
-    // Calculate payroll expenses
-    const payrollRecords = await prisma.payroll.findMany({
+    // Calculate payroll expenses from PayrollRecord model
+    const payrollRecords = await prisma.payrollRecord.findMany({
       where: {
         createdAt: { gte: start, lte: end }
       },
       select: {
-        totalAmount: true
+        netPay: true
       }
     })
 
-    const totalPayrollExpenses = payrollRecords.reduce((sum, p) => sum + p.totalAmount, 0)
+    const totalPayrollExpenses = payrollRecords.reduce((sum, p) => sum + p.netPay, 0)
 
     const totalExpenses = totalPurchaseExpenses + totalPayrollExpenses
 
@@ -79,11 +79,11 @@ export async function GET(request: NextRequest) {
       { category: 'Lương Nhân Viên', amount: totalPayrollExpenses }
     ]
 
-    // Top revenue products
+    // Top revenue products from orders
     const orderItems = await prisma.orderItem.findMany({
       where: {
         order: {
-          status: 'COMPLETED',
+          status: 'DELIVERED',
           createdAt: { gte: start, lte: end }
         }
       },
@@ -107,7 +107,7 @@ export async function GET(request: NextRequest) {
           quantity: 0
         }
       }
-      productRevenueMap[productId].revenue += item.price * item.quantity
+      productRevenueMap[productId].revenue += item.totalPrice
       productRevenueMap[productId].quantity += item.quantity
     })
 
