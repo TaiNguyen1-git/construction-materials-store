@@ -37,7 +37,7 @@ const createOrderSchema = z.object({
 // GET /api/orders - List orders
 export async function GET(request: NextRequest) {
   const startTime = Date.now()
-  
+
   try {
     // Get user info from headers (optional for guest orders)
     const userId = request.headers.get('x-user-id')
@@ -48,18 +48,20 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '10')
     const status = searchParams.get('status')
     const search = searchParams.get('search')
-    
+    const customerType = searchParams.get('customerType')
+    const customerId = searchParams.get('customerId')
+
     const skip = (page - 1) * limit
 
     // Build where clause
     const where: any = {}
-    
+
     // Regular customers can only see their own orders
     if (userRole === 'CUSTOMER') {
       const customer = await prisma.customer.findFirst({
-        where: { userId }
+        where: { userId: userId || undefined }
       })
-      
+
       if (customer) {
         where.customerId = customer.id
       } else {
@@ -70,17 +72,52 @@ export async function GET(request: NextRequest) {
         )
       }
     }
-    
+
+    // Filter by status
     if (status) {
       where.status = status
     }
-    
+
+    // Filter by customer type (REGISTERED or GUEST)
+    if (customerType) {
+      where.customerType = customerType
+    }
+
+    // Filter by specific registered customer
+    if (customerId) {
+      where.customerId = customerId
+    }
+
+    // Search by order number, phone, name (both guest and registered)
     if (search) {
+      const searchLower = search.toLowerCase()
       where.OR = [
         { orderNumber: { contains: search, mode: 'insensitive' } },
         { guestEmail: { contains: search, mode: 'insensitive' } },
         { guestPhone: { contains: search, mode: 'insensitive' } },
-        { guestName: { contains: search, mode: 'insensitive' } }
+        { guestName: { contains: search, mode: 'insensitive' } },
+        // Search in registered customer name
+        {
+          customer: {
+            user: {
+              name: { contains: search, mode: 'insensitive' }
+            }
+          }
+        },
+        // Search in registered customer email  
+        {
+          customer: {
+            user: {
+              email: { contains: search, mode: 'insensitive' }
+            }
+          }
+        },
+        // Search in registered customer phone
+        {
+          customer: {
+            phone: { contains: search, mode: 'insensitive' }
+          }
+        }
       ]
     }
 
@@ -101,14 +138,24 @@ export async function GET(request: NextRequest) {
           guestName: true,
           guestEmail: true,
           guestPhone: true,
+          // Add missing fields for order details modal
+          shippingAddress: true,
+          notes: true,
+          paymentType: true,
+          depositPercentage: true,
+          depositAmount: true,
+          remainingAmount: true,
+          depositPaidAt: true,
+          confirmedBy: true,
+          confirmedAt: true,
           createdAt: true,
           updatedAt: true,
           customer: {
-            select: { 
-              id: true, 
-              user: { 
-                select: { name: true, email: true } 
-              } 
+            select: {
+              id: true,
+              user: {
+                select: { name: true, email: true }
+              }
             }
           },
           orderItems: {
@@ -118,12 +165,12 @@ export async function GET(request: NextRequest) {
               unitPrice: true,
               totalPrice: true,
               product: {
-                select: { 
-                  id: true, 
-                  name: true, 
-                  sku: true, 
-                  price: true, 
-                  images: true 
+                select: {
+                  id: true,
+                  name: true,
+                  sku: true,
+                  price: true,
+                  images: true
                 }
               }
             }
@@ -137,7 +184,7 @@ export async function GET(request: NextRequest) {
     ])
 
     const response = {
-      orders: orders.map(order => ({
+      orders: orders.map((order: any) => ({
         ...order,
         customerName: order.customer?.user?.name || order.guestName || 'Guest',
         customerEmail: order.customer?.user?.email || order.guestEmail || 'N/A'
@@ -162,7 +209,7 @@ export async function GET(request: NextRequest) {
     const duration = Date.now() - startTime
     logAPI.error('GET', '/api/orders', error, { duration, userId: request.headers.get('x-user-id') })
     logger.error('Get orders error', { error: error.message, stack: error.stack })
-    
+
     return NextResponse.json(
       createErrorResponse('Internal server error', 'INTERNAL_ERROR'),
       { status: 500 }
@@ -173,14 +220,14 @@ export async function GET(request: NextRequest) {
 // POST /api/orders - Create order (supports both authenticated and guest checkout)
 export async function POST(request: NextRequest) {
   const startTime = Date.now()
-  
+
   try {
     // Optional authentication - supports guest checkout
     const userId = request.headers.get('x-user-id')
     const userRole = request.headers.get('x-user-role')
 
     const body = await request.json()
-    
+
     // Validate input
     const validation = createOrderSchema.safeParse(body)
     if (!validation.success) {
@@ -199,20 +246,20 @@ export async function POST(request: NextRequest) {
         where: { productId: item.productId },
         include: { product: true }
       })
-      
+
       if (!inventoryItem) {
         return NextResponse.json(
           createErrorResponse(`Product not found in inventory`, 'NOT_FOUND'),
           { status: 404 }
         )
       }
-      
+
       if (inventoryItem.availableQuantity < item.quantity) {
-        logger.warn('Insufficient stock', { 
-          productId: item.productId, 
+        logger.warn('Insufficient stock', {
+          productId: item.productId,
           productName: inventoryItem.product.name,
-          requested: item.quantity, 
-          available: inventoryItem.availableQuantity 
+          requested: item.quantity,
+          available: inventoryItem.availableQuantity
         })
         return NextResponse.json(
           createErrorResponse(
@@ -243,13 +290,13 @@ export async function POST(request: NextRequest) {
     const order = await prisma.$transaction(async (tx) => {
       // Create the order
       // Determine initial status based on payment type
-      const initialStatus = data.paymentType === 'DEPOSIT' 
+      const initialStatus = data.paymentType === 'DEPOSIT'
         ? 'PENDING_CONFIRMATION'  // Deposit orders need admin confirmation
         : 'PENDING'               // Full payment orders go straight to pending
-      
+
       // Calculate QR expiration time (15 minutes from now)
       const qrExpiresAt = new Date(Date.now() + 15 * 60 * 1000)
-      
+
       const newOrder = await tx.order.create({
         data: {
           orderNumber,
@@ -343,9 +390,9 @@ export async function POST(request: NextRequest) {
         await LoyaltyService.updateCustomerLoyalty(customerId, data.totalAmount)
         logger.info('Customer loyalty updated', { customerId, orderAmount: data.totalAmount })
       } catch (loyaltyError: any) {
-        logger.error('Error updating customer loyalty', { 
-          error: loyaltyError.message, 
-          customerId 
+        logger.error('Error updating customer loyalty', {
+          error: loyaltyError.message,
+          customerId
         })
       }
     }
@@ -363,9 +410,9 @@ export async function POST(request: NextRequest) {
         customer: order.customer
       })
     } catch (notifError: any) {
-      logger.error('Error creating order notification', { 
-        error: notifError.message, 
-        orderId: order.id 
+      logger.error('Error creating order notification', {
+        error: notifError.message,
+        orderId: order.id
       })
     }
 
@@ -382,21 +429,21 @@ export async function POST(request: NextRequest) {
           }
         })
       } catch (notifError: any) {
-        logger.error('Error creating customer order notification', { 
-          error: notifError.message, 
-          orderId: order.id 
+        logger.error('Error creating customer order notification', {
+          error: notifError.message,
+          orderId: order.id
         })
       }
     }
 
     const duration = Date.now() - startTime
-    logger.info('Order created', { 
-      orderId: order.id, 
+    logger.info('Order created', {
+      orderId: order.id,
       orderNumber: order.orderNumber,
-      userId, 
+      userId,
       customerType: data.customerType,
       totalAmount: data.totalAmount,
-      duration 
+      duration
     })
     logAPI.response('POST', '/api/orders', 201, duration)
 
@@ -409,7 +456,7 @@ export async function POST(request: NextRequest) {
     const duration = Date.now() - startTime
     logAPI.error('POST', '/api/orders', error, { duration })
     logger.error('Create order error', { error: error.message, stack: error.stack })
-    
+
     return NextResponse.json(
       createErrorResponse('Internal server error', 'INTERNAL_ERROR'),
       { status: 500 }

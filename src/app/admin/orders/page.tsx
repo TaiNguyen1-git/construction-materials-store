@@ -41,7 +41,7 @@ interface Order {
   customerType: 'REGISTERED' | 'GUEST'
   orderItems: OrderItem[]
   totalAmount: number
-  status: 'PENDING_CONFIRMATION' | 'CONFIRMED_AWAITING_DEPOSIT' | 'DEPOSIT_PAID' | 'PENDING' | 'CONFIRMED' | 'PROCESSING' | 'SHIPPED' | 'DELIVERED' | 'CANCELLED' | 'RETURNED'
+  status: 'PENDING_CONFIRMATION' | 'CONFIRMED_AWAITING_DEPOSIT' | 'DEPOSIT_PAID' | 'PENDING' | 'CONFIRMED' | 'PROCESSING' | 'SHIPPED' | 'DELIVERED' | 'COMPLETED' | 'CANCELLED' | 'RETURNED'
   shippingAddress: string | any
   paymentMethod: string
   paymentStatus?: string
@@ -78,13 +78,30 @@ export default function OrdersPage() {
   const [filters, setFilters] = useState({
     status: '',
     customerId: '',
+    customerType: '', // REGISTERED, GUEST, or empty for all
+    search: '', // Search by order number, phone, name (debounced)
     page: 1
   })
 
+  // Separate state for search input (to avoid triggering API on every keystroke)
+  const [searchInput, setSearchInput] = useState('')
+
+  // Debounce search input - only update filters.search after 500ms of no typing
+  useEffect(() => {
+    const debounceTimer = setTimeout(() => {
+      if (searchInput !== filters.search) {
+        setFilters(prev => ({ ...prev, search: searchInput, page: 1 }))
+      }
+    }, 500) // 500ms debounce
+
+    return () => clearTimeout(debounceTimer)
+  }, [searchInput])
+
+  // Fetch orders when filters change (excluding search input changes)
   useEffect(() => {
     fetchOrders()
     fetchCustomers()
-  }, [filters])
+  }, [filters.status, filters.customerId, filters.customerType, filters.search, filters.page])
 
   // Auto-refresh orders every 30 seconds
   useEffect(() => {
@@ -95,13 +112,16 @@ export default function OrdersPage() {
     return () => clearInterval(interval)
   }, [filters])
 
+
   const fetchOrders = async (silent = false) => {
     try {
       if (!silent) setLoading(true)
-      
+
       const params = new URLSearchParams()
       if (filters.status) params.append('status', filters.status)
       if (filters.customerId) params.append('customerId', filters.customerId)
+      if (filters.customerType) params.append('customerType', filters.customerType)
+      if (filters.search) params.append('search', filters.search)
       params.append('page', filters.page.toString())
       params.append('limit', '20')
 
@@ -112,9 +132,9 @@ export default function OrdersPage() {
         const ordersData = data.data?.orders || data.orders || data.data?.data || data.data || []
         const ordersArray = Array.isArray(ordersData) ? ordersData : []
         const paginationData = data.data?.pagination || data.pagination || {}
-        
+
         console.log('Fetched orders:', ordersArray.length)
-        
+
         // Update pagination
         if (paginationData.total !== undefined) {
           setPagination({
@@ -124,7 +144,7 @@ export default function OrdersPage() {
             pages: paginationData.pages || Math.ceil((paginationData.total || 0) / (paginationData.limit || 20))
           })
         }
-        
+
         // Check for new orders and show notification
         if (silent && ordersArray.length > previousOrderCount && previousOrderCount > 0) {
           const newOrdersCount = ordersArray.length - previousOrderCount
@@ -133,7 +153,7 @@ export default function OrdersPage() {
             icon: '🎉'
           })
         }
-        
+
         setPreviousOrderCount(ordersArray.length)
         setOrders(ordersArray)
       } else {
@@ -203,7 +223,7 @@ export default function OrdersPage() {
       default: return 'bg-gray-100 text-gray-800'
     }
   }
-  
+
   const getStatusLabel = (status: string) => {
     switch (status) {
       case 'PENDING_CONFIRMATION': return 'Chờ Xác Nhận'
@@ -232,7 +252,7 @@ export default function OrdersPage() {
         default: return null
       }
     }
-    
+
     // For regular orders
     switch (currentStatus) {
       case 'PENDING': return 'CONFIRMED'
@@ -243,14 +263,14 @@ export default function OrdersPage() {
       default: return null
     }
   }
-  
+
   const confirmOrder = async (orderId: string, action: 'confirm' | 'reject', reason?: string) => {
     try {
       const response = await fetchWithAuth(`/api/orders/${orderId}/confirm`, {
         method: 'PUT',
         body: JSON.stringify({ action, reason })
       })
-      
+
       if (response.ok) {
         toast.success(action === 'confirm' ? 'Đơn hàng đã được xác nhận' : 'Đơn hàng đã bị từ chối')
         fetchOrders()
@@ -266,14 +286,14 @@ export default function OrdersPage() {
       toast.error('Không thể xử lý đơn hàng')
     }
   }
-  
+
   const confirmDeposit = async (orderId: string) => {
     try {
       const response = await fetchWithAuth(`/api/orders/${orderId}/deposit`, {
         method: 'PUT',
         body: JSON.stringify({})
       })
-      
+
       if (response.ok) {
         toast.success('Đã xác nhận nhận tiền cọc')
         fetchOrders()
@@ -315,7 +335,11 @@ export default function OrdersPage() {
     }
   }
 
-  if (loading) {
+  // Only show full loading spinner on INITIAL load (when no data yet)
+  // After initial load, keep the data visible while fetching
+  const showInitialLoading = loading && orders.length === 0
+
+  if (showInitialLoading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
@@ -327,70 +351,177 @@ export default function OrdersPage() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Quản Lý Đơn Hàng</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            🔄 Tự động cập nhật mỗi 30 giây
-          </p>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold text-gray-900">Quản Lý Đơn Hàng</h1>
+            {/* Small loading indicator when fetching */}
+            {loading && (
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+            )}
+          </div>
         </div>
         <button
           onClick={() => fetchOrders()}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+          disabled={loading}
+          className={`px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
         >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
           </svg>
-          Làm mới
+          {loading ? 'Đang tải...' : 'Làm mới'}
         </button>
       </div>
 
       {/* Filters */}
       <div className="bg-white p-4 rounded-lg shadow">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Search Row */}
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700 mb-1">🔍 Tìm kiếm</label>
+          <div className="relative">
+            <input
+              type="text"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              placeholder="Nhập mã đơn hàng, SĐT, hoặc tên khách hàng..."
+              className="w-full border border-gray-300 rounded-md pl-10 pr-10 py-2 text-gray-900 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+            <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            {/* Clear search button */}
+            {searchInput && (
+              <button
+                onClick={() => setSearchInput('')}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            )}
+          </div>
+          {/* Search hint */}
+          {searchInput && searchInput !== filters.search && (
+            <p className="text-xs text-gray-400 mt-1">⏳ Đang chờ tìm kiếm...</p>
+          )}
+        </div>
+
+        {/* Filter Row */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {/* Status Filter */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Trạng Thái</label>
             <select
               value={filters.status}
               onChange={(e) => setFilters({ ...filters, status: e.target.value, page: 1 })}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 bg-white"
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 bg-white focus:ring-2 focus:ring-blue-500"
             >
               <option value="">Tất Cả Trạng Thái</option>
-              <option value="PENDING_CONFIRMATION">Chờ Xác Nhận</option>
-              <option value="CONFIRMED_AWAITING_DEPOSIT">Chờ Cọc</option>
-              <option value="DEPOSIT_PAID">Đã Cọc</option>
-              <option value="PENDING">Chờ Xử Lý</option>
-              <option value="CONFIRMED">Đã Xác Nhận</option>
-              <option value="PROCESSING">Đang Xử Lý</option>
-              <option value="SHIPPED">Đang Giao</option>
-              <option value="DELIVERED">Đã Giao</option>
-              <option value="COMPLETED">Hoàn Thành</option>
-              <option value="CANCELLED">Đã Hủy</option>
-              <option value="RETURNED">Đã Trả Hàng</option>
+              <optgroup label="Đang Chờ">
+                <option value="PENDING_CONFIRMATION">⏰ Chờ Xác Nhận</option>
+                <option value="PENDING">📋 Chờ Xử Lý</option>
+                <option value="CONFIRMED_AWAITING_DEPOSIT">💳 Chờ Đặt Cọc</option>
+              </optgroup>
+              <optgroup label="Đang Xử Lý">
+                <option value="DEPOSIT_PAID">✅ Đã Cọc</option>
+                <option value="CONFIRMED">✔️ Đã Xác Nhận</option>
+                <option value="PROCESSING">⚙️ Đang Chuẩn Bị</option>
+                <option value="SHIPPED">🚚 Đang Giao Hàng</option>
+              </optgroup>
+              <optgroup label="Hoàn Thành">
+                <option value="DELIVERED">📦 Đã Giao</option>
+                <option value="COMPLETED">🎉 Hoàn Thành</option>
+              </optgroup>
+              <optgroup label="Đã Hủy">
+                <option value="CANCELLED">❌ Đã Hủy</option>
+                <option value="RETURNED">↩️ Đã Trả Hàng</option>
+              </optgroup>
             </select>
           </div>
+
+          {/* Customer Type Filter */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Khách Hàng</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Loại Khách Hàng</label>
+            <select
+              value={filters.customerType}
+              onChange={(e) => setFilters({ ...filters, customerType: e.target.value, customerId: '', page: 1 })}
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 bg-white focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">Tất Cả</option>
+              <option value="REGISTERED">👤 Khách Đăng Ký</option>
+              <option value="GUEST">🚶 Khách Vãng Lai</option>
+            </select>
+          </div>
+
+          {/* Registered Customer Filter (only show when customerType is REGISTERED or empty) */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Khách Hàng Đăng Ký</label>
             <select
               value={filters.customerId}
               onChange={(e) => setFilters({ ...filters, customerId: e.target.value, page: 1 })}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 bg-white"
+              disabled={filters.customerType === 'GUEST'}
+              className={`w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 bg-white focus:ring-2 focus:ring-blue-500 ${filters.customerType === 'GUEST' ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
-              <option value="">Tất Cả Khách Hàng</option>
+              <option value="">Tất Cả Khách Đăng Ký</option>
               {customers.map((customer) => (
                 <option key={customer.id} value={customer.id}>
-                  {customer.name}
+                  {customer.name} ({customer.email})
                 </option>
               ))}
             </select>
           </div>
+
+          {/* Reset Button */}
           <div className="flex items-end">
             <button
-              onClick={() => setFilters({ status: '', customerId: '', page: 1 })}
-              className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+              onClick={() => {
+                setSearchInput('')
+                setFilters({ status: '', customerId: '', customerType: '', search: '', page: 1 })
+              }}
+              className="w-full px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
             >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
               Xóa Bộ Lọc
             </button>
           </div>
         </div>
+
+        {/* Active Filters Display */}
+        {(filters.status || filters.customerType || filters.search || filters.customerId) && (
+          <div className="mt-4 pt-4 border-t border-gray-200">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-sm text-gray-500">Đang lọc:</span>
+              {filters.search && (
+                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                  🔍 "{filters.search}"
+                  <button onClick={() => {
+                    setSearchInput('')
+                    setFilters({ ...filters, search: '', page: 1 })
+                  }} className="ml-1 hover:text-blue-600">×</button>
+                </span>
+              )}
+              {filters.status && (
+                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                  {getStatusLabel(filters.status)}
+                  <button onClick={() => setFilters({ ...filters, status: '', page: 1 })} className="ml-1 hover:text-purple-600">×</button>
+                </span>
+              )}
+              {filters.customerType && (
+                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                  {filters.customerType === 'GUEST' ? '🚶 Khách vãng lai' : '👤 Khách đăng ký'}
+                  <button onClick={() => setFilters({ ...filters, customerType: '', page: 1 })} className="ml-1 hover:text-green-600">×</button>
+                </span>
+              )}
+              {filters.customerId && (
+                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                  👤 {customers.find(c => c.id === filters.customerId)?.name || 'Khách hàng'}
+                  <button onClick={() => setFilters({ ...filters, customerId: '', page: 1 })} className="ml-1 hover:text-yellow-600">×</button>
+                </span>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Orders Table */}
@@ -469,7 +600,7 @@ export default function OrdersPage() {
                       >
                         👁️ Xem
                       </button>
-                      
+
                       {/* Confirm/Reject buttons for pending orders */}
                       {order.status === 'PENDING_CONFIRMATION' && (
                         <>
@@ -490,7 +621,7 @@ export default function OrdersPage() {
                           </button>
                         </>
                       )}
-                      
+
                       {/* Confirm deposit button */}
                       {order.status === 'CONFIRMED_AWAITING_DEPOSIT' && (
                         <button
@@ -504,7 +635,7 @@ export default function OrdersPage() {
                           💰 Xác nhận cọc
                         </button>
                       )}
-                      
+
                       {/* Regular status progression */}
                       {getNextStatus(order.status, order.paymentType) && (
                         <button
@@ -514,7 +645,7 @@ export default function OrdersPage() {
                           ➡️ {getStatusLabel(getNextStatus(order.status, order.paymentType)!)}
                         </button>
                       )}
-                      
+
                       {/* Cancel button */}
                       {order.status !== 'CANCELLED' && order.status !== 'COMPLETED' && order.status !== 'DELIVERED' && (
                         <button
@@ -540,7 +671,7 @@ export default function OrdersPage() {
             </tbody>
           </table>
         </div>
-        
+
         {/* Pagination */}
         <Pagination
           currentPage={pagination.page}
@@ -632,52 +763,51 @@ export default function OrdersPage() {
                 </div>
               </div>
 
-              {selectedOrder.shippingAddress && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Địa Chỉ Giao Hàng</label>
-                  <p className="text-sm text-gray-900">
-                    {typeof selectedOrder.shippingAddress === 'string' 
-                      ? selectedOrder.shippingAddress 
+              {/* Địa Chỉ Giao Hàng - Always show */}
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <label className="block text-sm font-medium text-gray-700 mb-1">📍 Địa Chỉ Giao Hàng</label>
+                <p className="text-sm text-gray-900">
+                  {selectedOrder.shippingAddress ? (
+                    typeof selectedOrder.shippingAddress === 'string'
+                      ? selectedOrder.shippingAddress
                       : `${selectedOrder.shippingAddress.address || ''}, ${selectedOrder.shippingAddress.ward || ''}, ${selectedOrder.shippingAddress.district || ''}, ${selectedOrder.shippingAddress.city || ''}`
-                    }
-                  </p>
-                </div>
-              )}
+                  ) : (
+                    <span className="text-gray-400 italic">Chưa có địa chỉ giao hàng</span>
+                  )}
+                </p>
+              </div>
 
-              {selectedOrder.trackingNumber && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Mã Vận Đơn</label>
-                  <p className="text-sm text-gray-900">{selectedOrder.trackingNumber}</p>
-                </div>
-              )}
-
-              {(selectedOrder.note || selectedOrder.notes) && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Ghi Chú</label>
-                  <p className="text-sm text-gray-900">{selectedOrder.note || selectedOrder.notes}</p>
-                </div>
-              )}
+              {/* Ghi Chú - Always show */}
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <label className="block text-sm font-medium text-gray-700 mb-1">📝 Ghi Chú</label>
+                <p className="text-sm text-gray-900">
+                  {selectedOrder.note || selectedOrder.notes ? (
+                    selectedOrder.note || selectedOrder.notes
+                  ) : (
+                    <span className="text-gray-400 italic">Không có ghi chú</span>
+                  )}
+                </p>
+              </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700">Phương Thức Thanh Toán</label>
                 <div className="flex items-center gap-2">
                   <p className="text-sm text-gray-900">{selectedOrder.paymentMethod}</p>
                   {selectedOrder.paymentStatus && (
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                      selectedOrder.paymentStatus === 'PAID' ? 'bg-green-100 text-green-800' : 
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${selectedOrder.paymentStatus === 'PAID' ? 'bg-green-100 text-green-800' :
                       selectedOrder.paymentStatus === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
-                      selectedOrder.paymentStatus === 'PARTIAL' ? 'bg-blue-100 text-blue-800' : 
-                      'bg-red-100 text-red-800'
-                    }`}>
-                      {selectedOrder.paymentStatus === 'PAID' ? 'Đã thanh toán' : 
-                       selectedOrder.paymentStatus === 'PENDING' ? 'Chờ thanh toán' :
-                       selectedOrder.paymentStatus === 'PARTIAL' ? 'Đã cọc' : 
-                       'Thất bại'}
+                        selectedOrder.paymentStatus === 'PARTIAL' ? 'bg-blue-100 text-blue-800' :
+                          'bg-red-100 text-red-800'
+                      }`}>
+                      {selectedOrder.paymentStatus === 'PAID' ? 'Đã thanh toán' :
+                        selectedOrder.paymentStatus === 'PENDING' ? 'Chờ thanh toán' :
+                          selectedOrder.paymentStatus === 'PARTIAL' ? 'Đã cọc' :
+                            'Thất bại'}
                     </span>
                   )}
                 </div>
               </div>
-              
+
               {/* Deposit Information */}
               {selectedOrder.paymentType === 'DEPOSIT' && (
                 <div className="bg-yellow-50 border-2 border-yellow-200 rounded-xl p-4">
@@ -700,15 +830,14 @@ export default function OrdersPage() {
                     </div>
                     <div>
                       <p className="text-sm text-gray-600">Trạng thái:</p>
-                      <p className={`text-sm font-bold ${
-                        selectedOrder.status === 'DEPOSIT_PAID' ? 'text-cyan-600' :
+                      <p className={`text-sm font-bold ${selectedOrder.status === 'DEPOSIT_PAID' ? 'text-cyan-600' :
                         selectedOrder.status === 'CONFIRMED_AWAITING_DEPOSIT' ? 'text-amber-600' :
-                        'text-gray-600'
-                      }`}>
+                          'text-gray-600'
+                        }`}>
                         {selectedOrder.status === 'DEPOSIT_PAID' ? '✅ Đã nhận cọc' :
-                         selectedOrder.status === 'CONFIRMED_AWAITING_DEPOSIT' ? '⏳ Chờ khách cọc' :
-                         selectedOrder.status === 'PENDING_CONFIRMATION' ? '🔍 Chờ xác nhận' :
-                         'Đang xử lý'}
+                          selectedOrder.status === 'CONFIRMED_AWAITING_DEPOSIT' ? '⏳ Chờ khách cọc' :
+                            selectedOrder.status === 'PENDING_CONFIRMATION' ? '🔍 Chờ xác nhận' :
+                              'Đang xử lý'}
                       </p>
                     </div>
                   </div>

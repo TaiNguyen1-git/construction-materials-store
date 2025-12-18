@@ -4,7 +4,10 @@ import { Inter } from 'next/font/google'
 import { Toaster } from 'react-hot-toast'
 import Chatbot from '@/components/Chatbot'
 import ContractorRedirect from '@/components/ContractorRedirect'
+import AdminRedirect from '@/components/AdminRedirect'
+import ConsoleGuard from '@/components/ConsoleGuard'
 import { AuthProvider } from '@/contexts/auth-context'
+import { GoogleProvider } from '@/components/GoogleProvider'
 import Footer from '@/components/Footer'
 // import { ErrorBoundary } from '@/components/ErrorBoundary' // Temporarily disabled
 
@@ -51,26 +54,30 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        <AuthProvider>
-          <ContractorRedirect />
-          <div id="root" className="min-h-screen flex flex-col">
-            <main className="flex-grow">
-              {children}
-            </main>
-            <Footer />
-          </div>
-          <Chatbot />
-          <Toaster
-            position="top-right"
-            toastOptions={{
-              duration: 4000,
-              style: {
-                background: '#363636',
-                color: '#fff',
-              },
-            }}
-          />
-        </AuthProvider>
+        <GoogleProvider>
+          <AuthProvider>
+            <ConsoleGuard />
+            <ContractorRedirect />
+            <AdminRedirect />
+            <div id="root" className="min-h-screen flex flex-col">
+              <main className="flex-grow">
+                {children}
+              </main>
+              <Footer />
+            </div>
+            <Chatbot />
+            <Toaster
+              position="top-right"
+              toastOptions={{
+                duration: 4000,
+                style: {
+                  background: '#363636',
+                  color: '#fff',
+                },
+              }}
+            />
+          </AuthProvider>
+        </GoogleProvider>
       </body>
     </html>
   )

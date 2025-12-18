@@ -1241,11 +1241,135 @@ async function handleAdminOrderManagement(message: string, entities: any, sessio
   try {
     const lower = message.toLowerCase()
 
+    // ===== CONFIRM ALL PENDING ORDERS =====
+    // Matches: "xác nhận tất cả", "confirm all", "xác nhận", "confirm", "duyệt tất cả"
+    if (
+      (lower.includes('xác nhận') && lower.includes('tất cả')) ||
+      lower === 'xác nhận tất cả' ||
+      lower.includes('confirm all') ||
+      (lower.includes('duyệt') && lower.includes('tất cả')) ||
+      lower === 'trạng thái pending' || // From suggestion button
+      lower === 'xác nhận' || // User confirming after seeing pending orders
+      lower === 'confirm' ||
+      lower === 'xác nhận đơn' ||
+      lower === 'duyệt đơn'
+    ) {
+      // Get all pending orders (both PENDING and PENDING_CONFIRMATION)
+      const pendingOrders = await prisma.order.findMany({
+        where: {
+          status: {
+            in: ['PENDING', 'PENDING_CONFIRMATION']
+          }
+        },
+        select: {
+          id: true,
+          orderNumber: true,
+          netAmount: true,
+          guestName: true,
+          customerType: true,
+          status: true, // Include current status
+          customer: {
+            include: { user: true }
+          }
+        }
+      })
+
+      if (pendingOrders.length === 0) {
+        return NextResponse.json(
+          createSuccessResponse({
+            message: '✅ **Không có đơn hàng chờ xử lý!**\n\nTất cả đơn hàng đã được xác nhận.',
+            suggestions: ['Xem tất cả đơn', 'Doanh thu hôm nay', 'Trợ giúp'],
+            confidence: 1.0,
+            sessionId,
+            timestamp: new Date().toISOString()
+          })
+        )
+      }
+
+      // Confirm all pending orders
+      const confirmedOrders: string[] = []
+      const failedOrders: string[] = []
+
+      for (const order of pendingOrders) {
+        try {
+          await prisma.order.update({
+            where: { id: order.id },
+            data: {
+              status: 'CONFIRMED',
+              updatedAt: new Date()
+            }
+          })
+
+          // Create order tracking entry
+          await prisma.orderTracking.create({
+            data: {
+              orderId: order.id,
+              status: 'CONFIRMED',
+              description: 'Đơn hàng được xác nhận qua chatbot (Xác nhận tất cả)',
+              createdBy: 'ADMIN_CHATBOT'
+            }
+          })
+
+          confirmedOrders.push(order.orderNumber)
+        } catch (err) {
+          console.error(`Failed to confirm order ${order.orderNumber}:`, err)
+          failedOrders.push(order.orderNumber)
+        }
+      }
+
+      let responseMsg = `✅ **Đã Xác Nhận Đơn Hàng**\n\n`
+
+      if (confirmedOrders.length > 0) {
+        responseMsg += `🎉 Đã xác nhận thành công **${confirmedOrders.length}** đơn hàng:\n\n`
+        confirmedOrders.slice(0, 10).forEach((orderNum, idx) => {
+          responseMsg += `${idx + 1}. ${orderNum} ✅\n`
+        })
+
+        if (confirmedOrders.length > 10) {
+          responseMsg += `... và ${confirmedOrders.length - 10} đơn khác\n`
+        }
+
+        // Calculate total value
+        const totalValue = pendingOrders
+          .filter(o => confirmedOrders.includes(o.orderNumber))
+          .reduce((sum, o) => sum + o.netAmount, 0)
+
+        responseMsg += `\n💰 Tổng giá trị: **${totalValue.toLocaleString('vi-VN')}đ**\n`
+      }
+
+      if (failedOrders.length > 0) {
+        responseMsg += `\n⚠️ Có **${failedOrders.length}** đơn không thể xác nhận:\n`
+        failedOrders.forEach(orderNum => {
+          responseMsg += `- ${orderNum} ❌\n`
+        })
+      }
+
+      responseMsg += `\n💡 Các đơn hàng đã chuyển sang trạng thái "Đã xác nhận" và sẵn sàng xử lý.`
+
+      return NextResponse.json(
+        createSuccessResponse({
+          message: responseMsg,
+          suggestions: ['Xem đơn đã xác nhận', 'Đơn chờ xử lý', 'Doanh thu hôm nay'],
+          confidence: 1.0,
+          sessionId,
+          timestamp: new Date().toISOString(),
+          data: {
+            confirmedCount: confirmedOrders.length,
+            failedCount: failedOrders.length,
+            confirmedOrders,
+            failedOrders
+          }
+        })
+      )
+    }
+
     // Check for pending orders
     if (lower.includes('chờ') || lower.includes('pending')) {
       const pendingOrders = await prisma.order.findMany({
         where: {
-          status: 'PENDING_CONFIRMATION'
+          status: {
+            in: ['PENDING', 'PENDING_CONFIRMATION']
+          }
         },
         include: {
           customer: {

@@ -7,14 +7,14 @@ import { logger } from '@/lib/logger'
 const updateStatusSchema = z.object({
   status: z.enum([
     'PENDING_CONFIRMATION',
-    'CONFIRMED_AWAITING_DEPOSIT', 
+    'CONFIRMED_AWAITING_DEPOSIT',
     'DEPOSIT_PAID',
-    'PENDING', 
-    'CONFIRMED', 
-    'PROCESSING', 
-    'SHIPPED', 
+    'PENDING',
+    'CONFIRMED',
+    'PROCESSING',
+    'SHIPPED',
     'DELIVERED',
-    'COMPLETED', 
+    'COMPLETED',
     'CANCELLED',
     'RETURNED'
   ]),
@@ -29,10 +29,10 @@ export async function PUT(
 ) {
   try {
     const { id: orderId } = await params
-    
+
     // Parse request body
     const body = await request.json()
-    
+
     // Validate input
     const validation = updateStatusSchema.safeParse(body)
     if (!validation.success) {
@@ -83,24 +83,67 @@ export async function PUT(
     } else if (status === 'DELIVERED' || status === 'COMPLETED') {
       updateData.paymentStatus = 'PAID'
     } else if (status === 'CANCELLED' || status === 'RETURNED') {
-      updateData.paymentStatus = 'FAILED'
+      updateData.paymentStatus = 'CANCELLED' // Use CANCELLED instead of FAILED (not in enum)
     }
 
-    const updatedOrder = await prisma.order.update({
-      where: { id: orderId },
-      data: updateData,
-      include: {
-        customer: {
-          include: {
-            user: true
-          }
-        },
-        orderItems: {
-          include: {
-            product: true
+    const updatedOrder = await prisma.$transaction(async (tx) => {
+      // If cancelling, restore inventory
+      if (status === 'CANCELLED' && existingOrder.status !== 'CANCELLED') {
+        const orderItems = await tx.orderItem.findMany({
+          where: { orderId }
+        })
+
+        for (const item of orderItems) {
+          // Restore inventory: move from reserved back to available
+          await tx.inventoryItem.update({
+            where: { productId: item.productId },
+            data: {
+              availableQuantity: { increment: item.quantity },
+              reservedQuantity: { decrement: item.quantity }
+            }
+          })
+
+          // Create inventory movement record
+          const inventoryItem = await tx.inventoryItem.findUnique({
+            where: { productId: item.productId }
+          })
+
+          if (inventoryItem) {
+            await tx.inventoryMovement.create({
+              data: {
+                productId: item.productId,
+                inventoryId: inventoryItem.id,
+                movementType: 'IN',
+                quantity: item.quantity,
+                previousStock: inventoryItem.availableQuantity - item.quantity,
+                newStock: inventoryItem.availableQuantity,
+                reason: `Order ${existingOrder.orderNumber} cancelled`,
+                referenceType: 'ORDER',
+                referenceId: orderId,
+                performedBy: 'ADMIN'
+              }
+            })
           }
         }
       }
+
+      // Update order
+      return await tx.order.update({
+        where: { id: orderId },
+        data: updateData,
+        include: {
+          customer: {
+            include: {
+              user: true
+            }
+          },
+          orderItems: {
+            include: {
+              product: true
+            }
+          }
+        }
+      })
     })
 
     logger.info('Order status updated', {
@@ -122,9 +165,9 @@ export async function PUT(
         } : null
       })
     } catch (notifError: any) {
-      logger.error('Error creating order status notification for customer', { 
-        error: notifError.message, 
-        orderId 
+      logger.error('Error creating order status notification for customer', {
+        error: notifError.message,
+        orderId
       })
     }
 
@@ -134,12 +177,11 @@ export async function PUT(
     )
 
   } catch (error: any) {
-    logger.error('Update order status error', { 
-      error: error.message, 
-      stack: error.stack,
-      orderId: params.id
+    logger.error('Update order status error', {
+      error: error.message,
+      stack: error.stack
     })
-    
+
     return NextResponse.json(
       createErrorResponse('Internal server error', 'INTERNAL_ERROR'),
       { status: 500 }

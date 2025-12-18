@@ -16,7 +16,7 @@ export type UserIntent =
   | 'PRICE_INQUIRY'          // Hỏi giá sản phẩm
   | 'MATERIAL_CALCULATE'     // Tính toán vật liệu cần thiết
   | 'GENERAL_INQUIRY'        // Hỏi chung chung về sản phẩm/dịch vụ
-  
+
   // ===== ADMIN INTENTS =====
   // Chỉ dành cho MANAGER/EMPLOYEE - có security check
   | 'ADMIN_ANALYTICS'        // Thống kê, báo cáo, doanh thu
@@ -63,19 +63,19 @@ export interface IntentResult {
  * - "Tính vật liệu xây nhà 3 tầng" → MATERIAL_CALCULATE
  */
 export function detectIntent(
-  message: string, 
+  message: string,
   isAdmin: boolean = false,
   hasImage: boolean = false,
   conversationContext?: any
 ): IntentResult {
   const lower = message.toLowerCase()
-  
+
   // ===== ADMIN INTENTS =====
   // ONLY processed if isAdmin = true
   if (isAdmin) {
     // OCR Invoice (with image)
     if (hasImage && (
-      lower.includes('hóa đơn') || 
+      lower.includes('hóa đơn') ||
       lower.includes('hoá đơn') ||
       lower.includes('invoice') ||
       lower.includes('phiếu') ||
@@ -87,10 +87,10 @@ export function detectIntent(
         requiresConfirmation: true
       }
     }
-    
+
     // Analytics queries
     if (
-      lower.includes('doanh thu') || 
+      lower.includes('doanh thu') ||
       lower.includes('revenue') ||
       lower.includes('bán được') ||
       lower.includes('bán bao nhiêu') ||
@@ -115,7 +115,7 @@ export function detectIntent(
         confidence: 0.90
       }
     }
-    
+
     // Employee queries
     if (
       lower.includes('nhân viên') ||
@@ -130,7 +130,7 @@ export function detectIntent(
         confidence: 0.88
       }
     }
-    
+
     // Payroll queries
     if (
       lower.includes('lương') ||
@@ -144,10 +144,38 @@ export function detectIntent(
         confidence: 0.88
       }
     }
-    
+
+    // Order management - MUST be checked BEFORE CRUD operations
+    // to catch "xác nhận tất cả" before CRUD_UPDATE matches "xác nhận"
+    if (
+      lower.includes('chờ xử lý') ||
+      lower.includes('pending') ||
+      lower.includes('xác nhận đơn') ||
+      lower.includes('duyệt đơn') ||
+      lower.includes('confirm order') ||
+      lower.includes('tất cả đơn') ||
+      lower.includes('all orders') ||
+      // CRITICAL: "xác nhận tất cả" = confirm all pending orders
+      (lower.includes('xác nhận') && lower.includes('tất cả')) ||
+      lower === 'xác nhận tất cả' ||
+      (lower.includes('duyệt') && lower.includes('tất cả')) ||
+      lower.includes('confirm all') ||
+      // Patterns with "đơn hàng"
+      (lower.includes('đơn hàng') && (lower.includes('xác nhận') || lower.includes('duyệt') || lower.includes('từ chối') || lower.includes('chờ') || lower.includes('mới nhất') || lower.includes('recent') || lower.includes('tất cả') || lower.includes('all'))) ||
+      // Patterns with "đơn" (without "hàng")
+      (lower.includes('đơn') && (lower.includes('chờ') || lower.includes('duyệt') || lower.includes('xử lý') || lower.includes('tất cả'))) ||
+      // Just "xác nhận" in order management context (when asking to confirm)
+      (lower === 'xác nhận' || lower === 'confirm')
+    ) {
+      return {
+        intent: 'ADMIN_ORDER_MANAGE',
+        confidence: 0.92
+      }
+    }
+
     // CRUD - CREATE
     if (
-      lower.includes('thêm') || 
+      lower.includes('thêm') ||
       lower.includes('tạo') ||
       lower.includes('add') ||
       lower.includes('create') ||
@@ -159,7 +187,7 @@ export function detectIntent(
         requiresConfirmation: true
       }
     }
-    
+
     // CRUD - UPDATE
     if (
       lower.includes('cập nhật') ||
@@ -176,7 +204,7 @@ export function detectIntent(
         requiresConfirmation: true
       }
     }
-    
+
     // CRUD - DELETE
     if (
       lower.includes('xóa') ||
@@ -189,25 +217,7 @@ export function detectIntent(
         requiresConfirmation: true
       }
     }
-    
-    // Order management (Admin-specific patterns only)
-    if (
-      lower.includes('chờ xử lý') ||
-      lower.includes('pending') ||
-      lower.includes('xác nhận đơn') ||
-      lower.includes('duyệt đơn') ||
-      lower.includes('confirm order') ||
-      lower.includes('tất cả đơn') ||
-      lower.includes('all orders') ||
-      (lower.includes('đơn hàng') && (lower.includes('xác nhận') || lower.includes('duyệt') || lower.includes('từ chối') || lower.includes('chờ') || lower.includes('mới nhất') || lower.includes('recent') || lower.includes('tất cả') || lower.includes('all'))) ||
-      (lower.includes('đơn') && (lower.includes('chờ') || lower.includes('duyệt') || lower.includes('xác nhận') || lower.includes('xử lý') || lower.includes('tất cả')))
-    ) {
-      return {
-        intent: 'ADMIN_ORDER_MANAGE',
-        confidence: 0.88
-      }
-    }
-    
+
     // Inventory check
     if (
       lower.includes('tồn kho') ||
@@ -223,9 +233,9 @@ export function detectIntent(
       }
     }
   }
-  
+
   // ===== CUSTOMER INTENTS =====
-  
+
   // Comparison/Advisory (check early to avoid false PRODUCT_SEARCH)
   if (
     (lower.includes('hay') && (lower.includes('tốt hơn') || lower.includes('better'))) ||
@@ -241,10 +251,10 @@ export function detectIntent(
       confidence: 0.85
     }
   }
-  
+
   // Price inquiry (check BEFORE order creation to avoid conflicts)
   if (
-    lower.includes('giá') || 
+    lower.includes('giá') ||
     lower.includes('price') ||
     (lower.includes('bao nhiêu') && (lower.includes('tiền') || lower.includes('1 bao') || lower.includes('1 viên') || lower.includes('1 m'))) ||
     lower.includes('how much') ||
@@ -258,7 +268,7 @@ export function detectIntent(
       confidence: 0.85
     }
   }
-  
+
   // Material calculation (check BEFORE order to handle "cần bao nhiêu" correctly)
   if (
     // Direct calculation requests
@@ -267,8 +277,8 @@ export function detectIntent(
     (lower.includes('cần gì') && (lower.includes('để') || lower.includes('cho') || lower.includes('m²') || lower.includes('m2'))) ||
     (lower.includes('làm') && (lower.includes('m²') || lower.includes('m2')) && lower.includes('cần')) ||
     // Construction project mentions
-    ((lower.includes('xây') || lower.includes('build') || lower.includes('làm') || lower.includes('dựng')) && 
-     (lower.includes('nhà') || lower.includes('tường') || lower.includes('sàn') || lower.includes('house') || lower.includes('wall') || lower.includes('floor'))) ||
+    ((lower.includes('xây') || lower.includes('build') || lower.includes('làm') || lower.includes('dựng')) &&
+      (lower.includes('nhà') || lower.includes('tường') || lower.includes('sàn') || lower.includes('house') || lower.includes('wall') || lower.includes('floor'))) ||
     // Floor/area mentions
     (/\d+\s*(tầng|floor|m²|m2)/i.test(message) && (lower.includes('xây') || lower.includes('cần') || lower.includes('làm')))
   ) {
@@ -277,16 +287,16 @@ export function detectIntent(
       confidence: 0.90
     }
   }
-  
+
   // Order query (Customer-specific: tracking their own orders)
   if (
     ((lower.includes('đơn hàng') || lower.includes('order')) &&
-     (lower.includes('của tôi') || lower.includes('my') || lower.includes('tôi đã') || 
-      lower.includes('theo dõi') || lower.includes('track') || lower.includes('kiểm tra') || 
-      lower.includes('check') || lower.includes('ở đâu') || lower.includes('where') || /#\d+/.test(message))) ||
+      (lower.includes('của tôi') || lower.includes('my') || lower.includes('tôi đã') ||
+        lower.includes('theo dõi') || lower.includes('track') || lower.includes('kiểm tra') ||
+        lower.includes('check') || lower.includes('ở đâu') || lower.includes('where') || /#\d+/.test(message))) ||
     // Question about past orders: "tôi đã đặt hàng chưa"
-    (lower.includes('tôi đã') && (lower.includes('đặt') || lower.includes('mua')) && 
-     (lower.includes('chưa') || lower.includes('?'))) ||
+    (lower.includes('tôi đã') && (lower.includes('đặt') || lower.includes('mua')) &&
+      (lower.includes('chưa') || lower.includes('?'))) ||
     // Customer asking about order status
     (lower.includes('đơn') && (lower.includes('của tôi') || lower.includes('đến đâu') || lower.includes('status')))
   ) {
@@ -295,7 +305,7 @@ export function detectIntent(
       confidence: 0.88
     }
   }
-  
+
   // Order creation - Enhanced detection
   // Case 1: After calculation/product list
   if (
@@ -308,7 +318,7 @@ export function detectIntent(
       requiresConfirmation: true
     }
   }
-  
+
   // Case 2: Direct order with quantity and product (e.g., "tôi muốn mua 10 bao xi măng")
   if (
     (lower.includes('đặt') || lower.includes('mua') || lower.includes('order') || lower.includes('buy')) &&
@@ -322,12 +332,12 @@ export function detectIntent(
       requiresConfirmation: true
     }
   }
-  
+
   // Case 3: Order without items (need clarification) - "đặt hàng", "mua hàng"
   if (
-    (lower.includes('đặt hàng') || lower.includes('mua hàng') || 
-     (lower.includes('tôi muốn') && (lower.includes('đặt') || lower.includes('mua'))) ||
-     (lower.includes('tôi cần') && (lower.includes('đặt') || lower.includes('mua')))) &&
+    (lower.includes('đặt hàng') || lower.includes('mua hàng') ||
+      (lower.includes('tôi muốn') && (lower.includes('đặt') || lower.includes('mua'))) ||
+      (lower.includes('tôi cần') && (lower.includes('đặt') || lower.includes('mua')))) &&
     !/(\d+)\s*(bao|m³|m2|m²|tấn|kg|viên|cây|cuộn|thùng)/i.test(message)
   ) {
     return {
@@ -336,10 +346,10 @@ export function detectIntent(
       requiresConfirmation: true
     }
   }
-  
+
   // Case 4: Implicit order (quantity + product without "mua/đặt")
   if (
-    !lower.includes('giá') && 
+    !lower.includes('giá') &&
     !lower.includes('price') &&
     !lower.includes('tính') &&
     !lower.includes('bao nhiêu') &&
@@ -353,21 +363,21 @@ export function detectIntent(
       requiresConfirmation: true
     }
   }
-  
+
   // Product search - ENHANCED to detect specific product mentions
   // But avoid very generic questions
   if (
     (lower.includes('tìm') ||
-     lower.includes('search') ||
-     (lower.includes('có') && !(/^có\s*(không|ko)?\s*$/i.test(message.trim()))) || // avoid "có không"
-     lower.includes('bán') ||
-     lower.includes('sell') ||
-     (lower.includes('muốn') && !/^(tôi|em|anh|chị)?\s*muốn\s*(đặt|mua)\s*$/i.test(message.trim())) ||
-     (lower.includes('cần') && !lower.includes('tư vấn')) || // avoid "cần tư vấn"
-     lower.includes('mua') ||
-     lower.includes('đặt') ||
-     // Specific materials
-     /\b(xi măng|xi mang|cement|cát|cat|sand|gạch|gach|brick|sắt|sat|thép|thep|steel|đá|da|stone|sơn|son|paint|tôn|ton|ngói|ngoi|gỗ|go|wood|thạch cao|keo|vữa|vua|ống|ong|đinh|dinh|vít|vit)\b/i.test(message)) &&
+      lower.includes('search') ||
+      (lower.includes('có') && !(/^có\s*(không|ko)?\s*$/i.test(message.trim()))) || // avoid "có không"
+      lower.includes('bán') ||
+      lower.includes('sell') ||
+      (lower.includes('muốn') && !/^(tôi|em|anh|chị)?\s*muốn\s*(đặt|mua)\s*$/i.test(message.trim())) ||
+      (lower.includes('cần') && !lower.includes('tư vấn')) || // avoid "cần tư vấn"
+      lower.includes('mua') ||
+      lower.includes('đặt') ||
+      // Specific materials
+      /\b(xi măng|xi mang|cement|cát|cat|sand|gạch|gach|brick|sắt|sat|thép|thep|steel|đá|da|stone|sơn|son|paint|tôn|ton|ngói|ngoi|gỗ|go|wood|thạch cao|keo|vữa|vua|ống|ong|đinh|dinh|vít|vit)\b/i.test(message)) &&
     // Not a very generic/ambiguous question
     message.trim().length > 3 &&
     // EXCLUDE advice requests - let them fall through to GENERAL_INQUIRY
@@ -380,7 +390,7 @@ export function detectIntent(
       confidence: 0.90
     }
   }
-  
+
   // Default
   return {
     intent: 'GENERAL_INQUIRY',
@@ -418,7 +428,7 @@ export function getSuggestedActions(intent: UserIntent): string[] {
     'PRICE_INQUIRY': ['Báo giá chi tiết', 'Giảm giá số lượng lớn', 'So sánh sản phẩm'],
     'MATERIAL_CALCULATE': ['Xem danh sách', 'Đặt hàng', 'Điều chỉnh tính toán'],
     'GENERAL_INQUIRY': ['Tìm sản phẩm', 'Tính vật liệu', 'Liên hệ'],
-    
+
     'ADMIN_ANALYTICS': ['Chi tiết hơn', 'Xuất báo cáo', 'So sánh kỳ trước'],
     'ADMIN_OCR_INVOICE': ['Lưu hóa đơn', 'Chỉnh sửa', 'Hủy'],
     'ADMIN_CRUD_CREATE': ['Xác nhận tạo', 'Xem trước', 'Hủy'],
@@ -429,6 +439,6 @@ export function getSuggestedActions(intent: UserIntent): string[] {
     'ADMIN_EMPLOYEE_QUERY': ['Xem chi tiết', 'Chấm công', 'Phân công'],
     'ADMIN_PAYROLL_QUERY': ['Chi tiết lương', 'Duyệt ứng', 'Xuất bảng lương']
   }
-  
+
   return suggestions[intent] || []
 }
