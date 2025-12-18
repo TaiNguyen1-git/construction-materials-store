@@ -189,7 +189,7 @@ export default function LoginPage() {
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between py-4">
             <button
-              onClick={() => router.push('/')}
+              onClick={() => window.location.href = '/'}
               className="flex items-center text-gray-700 hover:text-primary-600 font-medium transition-colors"
             >
               <ArrowLeft className="h-5 w-5 mr-2" />

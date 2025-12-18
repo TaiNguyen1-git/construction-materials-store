@@ -32,18 +32,43 @@ export async function middleware(request: NextRequest) {
     '/api/reviews',
   ]
 
-  // ===== ROUTES WITH PUBLIC RECOMMENDATIONS (no auth required) =====
-  // /api/recommendations and /api/recommendations/cart are public
-  // But /api/recommendations/purchase is PROTECTED
+  // ===== PUBLIC PAGES (no auth required) =====
+  const publicPages = [
+    '/',
+    '/login',
+    '/register',
+    '/forgot-password',
+    '/products',
+    '/categories',
+    '/cart',
+    '/checkout',
+    '/order-tracking',
+    '/about',
+    '/contact',
+    '/privacy',
+    '/terms',
+  ]
+
+  // Check if page is public
+  const isPublicPage = publicPages.some(page =>
+    pathname === page ||
+    (page !== '/' && pathname.startsWith(page + '/'))
+  )
+
+  if (isPublicPage) {
+    return NextResponse.next()
+  }
+
+  // Check if API route is public
+  if (publicRoutes.some(route => pathname === route || pathname.startsWith(route + '/'))) {
+    return NextResponse.next()
+  }
+
+  // ===== PUBLIC RECOMMENDATIONS API (except /purchase) =====
   if (
     pathname.startsWith('/api/recommendations') &&
     !pathname.includes('/purchase')
   ) {
-    return NextResponse.next()
-  }
-
-  // Check if route is public
-  if (publicRoutes.some(route => pathname === route || pathname.startsWith(route + '/'))) {
     return NextResponse.next()
   }
 

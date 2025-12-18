@@ -125,6 +125,14 @@ export default function AdminLayout({
 
   const [expandedGroups, setExpandedGroups] = useState<string[]>(navigationGroups.map(g => g.name))
 
+  // Redirect non-admin users to homepage
+  useEffect(() => {
+    if (user && !['MANAGER', 'EMPLOYEE'].includes(user.role)) {
+      // User is logged in but not admin/employee - redirect to homepage
+      window.location.href = '/'
+    }
+  }, [user])
+
   const toggleGroup = (groupName: string) => {
     setExpandedGroups(prev =>
       prev.includes(groupName)
@@ -138,6 +146,15 @@ export default function AdminLayout({
       await logout()
       router.push('/login')
     }
+  }
+
+  // Show nothing while checking auth or redirecting non-admin
+  if (!user || !['MANAGER', 'EMPLOYEE'].includes(user.role)) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    )
   }
 
   return (
