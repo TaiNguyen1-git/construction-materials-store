@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { createSuccessResponse, createErrorResponse } from '@/lib/api-types'
 import { z } from 'zod'
 import { logger } from '@/lib/logger'
+import { pushOrderStatusUpdate } from '@/lib/firebase-notifications'
 
 const updateStatusSchema = z.object({
   status: z.enum([
@@ -152,6 +153,10 @@ export async function PUT(
       newStatus: status,
       trackingNumber
     })
+
+    // Push status update to Firebase for real-time tracking (non-blocking)
+    pushOrderStatusUpdate(orderId, status, updatedOrder.orderNumber)
+      .catch(err => console.error('Firebase push error:', err))
 
     // Send notification to customer
     try {

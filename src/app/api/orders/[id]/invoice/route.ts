@@ -2,8 +2,56 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
+import fs from 'fs'
+import path from 'path'
 
-// GET /api/orders/[id]/invoice - Export order invoice as PDF (public, no auth required)
+// Format currency in Vietnamese style
+function formatCurrency(amount: number): string {
+  return amount.toLocaleString('vi-VN') + 'đ'
+}
+
+function getStatusLabel(status: string): string {
+  const labels: Record<string, string> = {
+    'PENDING': 'Chờ xử lý',
+    'PENDING_CONFIRMATION': 'Chờ xác nhận',
+    'CONFIRMED': 'Đã xác nhận',
+    'CONFIRMED_AWAITING_DEPOSIT': 'Chờ đặt cọc',
+    'DEPOSIT_PAID': 'Đã đặt cọc',
+    'PROCESSING': 'Đang xử lý',
+    'SHIPPED': 'Đang giao hàng',
+    'DELIVERED': 'Đã giao hàng',
+    'COMPLETED': 'Hoàn thành',
+    'CANCELLED': 'Đã hủy',
+    'RETURNED': 'Đã trả hàng'
+  }
+  return labels[status] || status
+}
+
+// Load and register Roboto font for Vietnamese support
+async function registerVietnameseFont(doc: jsPDF): Promise<boolean> {
+  try {
+    const fontPath = path.join(process.cwd(), 'public', 'roboto.ttf')
+
+    if (fs.existsSync(fontPath)) {
+      const fontBuffer = fs.readFileSync(fontPath)
+      const fontBase64 = fontBuffer.toString('base64')
+
+      // Add font to jsPDF virtual file system
+      doc.addFileToVFS('Roboto-Regular.ttf', fontBase64)
+      doc.addFont('Roboto-Regular.ttf', 'Roboto', 'normal')
+
+      return true
+    }
+
+    console.warn('Roboto font not found at:', fontPath)
+    return false
+  } catch (error) {
+    console.error('Error loading Roboto font:', error)
+    return false
+  }
+}
+
+// GET /api/orders/[id]/invoice - Export order invoice as PDF with Vietnamese support
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -80,120 +128,219 @@ export async function GET(
       )
     }
 
-    // Generate PDF invoice
+    // Generate PDF invoice with improved design
     const doc = new jsPDF()
-    
-    // Company info
-    doc.setFontSize(20)
-    doc.text('VIETHOA CONSTRUCTION MATERIALS', 105, 20, { align: 'center' })
-    doc.setFontSize(14)
-    doc.text('HOA DON BAN HANG', 105, 30, { align: 'center' })
-    
-    // Order info
+    const pageWidth = doc.internal.pageSize.getWidth()
+
+    // Register Vietnamese font
+    const hasVietnameseFont = await registerVietnameseFont(doc)
+    const fontName = hasVietnameseFont ? 'Roboto' : 'helvetica'
+
+    // ===== HEADER SECTION =====
+    // Company logo placeholder (blue rectangle)
+    doc.setFillColor(37, 99, 235) // Primary blue
+    doc.rect(14, 10, 40, 15, 'F')
+    doc.setTextColor(255, 255, 255)
+    doc.setFontSize(12)
+    doc.setFont(fontName, 'normal')
+    doc.text('SMARTBUILD', 34, 20, { align: 'center' })
+
+    // Company info on the right
+    doc.setTextColor(0, 0, 0)
     doc.setFontSize(10)
-    doc.text(`Ma don hang: ${order.orderNumber}`, 14, 45)
-    doc.text(`Ngay dat: ${new Date(order.createdAt).toLocaleDateString('vi-VN')}`, 14, 52)
-    doc.text(`Trang thai: ${getStatusLabel(order.status)}`, 14, 59)
-    
-    // Customer info
-    const customerName = order.customerType === 'GUEST' 
-      ? order.guestName 
+    doc.text('SMARTBUILD CONSTRUCTION MATERIALS', pageWidth - 14, 12, { align: 'right' })
+    doc.setFontSize(8)
+    doc.text('Địa chỉ: 123 Nguyễn Văn Linh, Biên Hòa, Đồng Nai', pageWidth - 14, 18, { align: 'right' })
+    doc.text('Hotline: 1900-xxxx | Email: support@smartbuild.com', pageWidth - 14, 24, { align: 'right' })
+
+    // Divider line
+    doc.setDrawColor(37, 99, 235)
+    doc.setLineWidth(0.5)
+    doc.line(14, 30, pageWidth - 14, 30)
+
+    // ===== INVOICE TITLE =====
+    doc.setFontSize(18)
+    doc.setFont(fontName, 'normal')
+    doc.setTextColor(37, 99, 235)
+    doc.text('HÓA ĐƠN BÁN HÀNG', pageWidth / 2, 42, { align: 'center' })
+    doc.setFontSize(10)
+    doc.setTextColor(100, 100, 100)
+    doc.text('(Sales Invoice)', pageWidth / 2, 48, { align: 'center' })
+
+    // ===== ORDER INFO BOX =====
+    doc.setDrawColor(200, 200, 200)
+    doc.setFillColor(248, 250, 252)
+    doc.roundedRect(14, 54, pageWidth - 28, 22, 2, 2, 'FD')
+
+    doc.setTextColor(0, 0, 0)
+    doc.setFontSize(9)
+    doc.setFont(fontName, 'normal')
+    doc.text(`Mã đơn hàng: ${order.orderNumber}`, 20, 62)
+    doc.text(`Ngày đặt: ${new Date(order.createdAt).toLocaleDateString('vi-VN')}`, 20, 70)
+    doc.text(`Trạng thái: ${getStatusLabel(order.status)}`, pageWidth / 2, 62)
+    doc.text(`Phương thức: ${order.paymentMethod === 'COD' ? 'Thanh toán khi nhận hàng' : 'Chuyển khoản'}`, pageWidth / 2, 70)
+
+    // ===== CUSTOMER INFO =====
+    const customerName = order.customerType === 'GUEST'
+      ? order.guestName
       : order.customer?.user?.name || 'N/A'
     const customerPhone = order.customerType === 'GUEST'
       ? order.guestPhone
       : order.customer?.user?.phone || 'N/A'
-    const customerAddress = order.shippingAddress 
+    const customerEmail = order.customerType === 'GUEST'
+      ? order.guestEmail
+      : order.customer?.user?.email || ''
+    const customerAddress = order.shippingAddress
       ? (order.shippingAddress as any).address || 'N/A'
       : order.customer?.user?.address || 'N/A'
-    
-    doc.text('Thong tin khach hang:', 14, 70)
-    doc.text(`Ten: ${customerName}`, 14, 77)
-    doc.text(`SDT: ${customerPhone}`, 14, 84)
-    doc.text(`Dia chi: ${customerAddress}`, 14, 91)
-    
-    // Order items table
+
+    doc.setFontSize(11)
+    doc.setFont(fontName, 'normal')
+    doc.setTextColor(37, 99, 235)
+    doc.text('THÔNG TIN KHÁCH HÀNG', 14, 86)
+
+    doc.setFontSize(9)
+    doc.setTextColor(0, 0, 0)
+    doc.text(`Họ tên: ${customerName || 'N/A'}`, 14, 94)
+    doc.text(`Số điện thoại: ${customerPhone}`, 14, 101)
+    if (customerEmail) {
+      doc.text(`Email: ${customerEmail}`, 14, 108)
+    }
+    doc.text(`Địa chỉ: ${customerAddress}`, 14, customerEmail ? 115 : 108)
+
+    // ===== ORDER ITEMS TABLE =====
+    const tableStartY = customerEmail ? 122 : 115
+
     const tableData = order.orderItems.map((item, idx) => [
-      idx + 1,
+      (idx + 1).toString(),
       item.product.name,
-      item.product.sku || 'N/A',
-      `${item.quantity} ${item.product.unit}`,
-      item.unitPrice.toLocaleString('vi-VN'),
-      item.totalPrice.toLocaleString('vi-VN')
+      item.product.sku || '-',
+      `${item.quantity} ${item.product.unit || 'cái'}`,
+      formatCurrency(item.unitPrice),
+      formatCurrency(item.totalPrice)
     ])
-    
+
     autoTable(doc, {
-      startY: 100,
-      head: [['STT', 'San pham', 'SKU', 'So luong', 'Don gia', 'Thanh tien']],
+      startY: tableStartY,
+      head: [['STT', 'Sản phẩm', 'Mã SP', 'Số lượng', 'Đơn giá', 'Thành tiền']],
       body: tableData,
-      theme: 'grid',
-      headStyles: { fillColor: [41, 128, 185] },
-      styles: { fontSize: 9 }
+      theme: 'striped',
+      styles: {
+        font: fontName,
+        fontSize: 9
+      },
+      headStyles: {
+        fillColor: [37, 99, 235],
+        textColor: [255, 255, 255],
+        fontStyle: 'normal',
+        halign: 'center'
+      },
+      columnStyles: {
+        0: { halign: 'center', cellWidth: 15 },
+        1: { cellWidth: 55 },
+        2: { halign: 'center', cellWidth: 25 },
+        3: { halign: 'center', cellWidth: 25 },
+        4: { halign: 'right', cellWidth: 30 },
+        5: { halign: 'right', cellWidth: 32 }
+      },
+      alternateRowStyles: {
+        fillColor: [248, 250, 252]
+      }
     })
-    
-    // Price summary
-    const finalY = (doc as any).lastAutoTable.finalY + 10
-    doc.setFontSize(10)
-    
-    doc.text('Tong cong:', 140, finalY)
-    doc.text(`${order.totalAmount.toLocaleString('vi-VN')}đ`, 170, finalY, { align: 'right' })
-    
-    if (order.shippingAmount > 0) {
-      doc.text('Phi van chuyen:', 140, finalY + 7)
-      doc.text(`${order.shippingAmount.toLocaleString('vi-VN')}đ`, 170, finalY + 7, { align: 'right' })
-    }
-    
+
+    // ===== PRICE SUMMARY =====
+    const finalY = (doc as any).lastAutoTable.finalY + 8
+
+    // Summary box
+    doc.setDrawColor(200, 200, 200)
+    doc.setFillColor(248, 250, 252)
+    const boxHeight = order.paymentType === 'DEPOSIT' ? 60 : 45
+    doc.roundedRect(pageWidth - 90, finalY, 76, boxHeight, 2, 2, 'FD')
+
+    let summaryY = finalY + 10
+    doc.setFontSize(9)
+    doc.setFont(fontName, 'normal')
+
+    doc.text('Tạm tính:', pageWidth - 85, summaryY)
+    doc.text(formatCurrency(order.totalAmount), pageWidth - 18, summaryY, { align: 'right' })
+
+    summaryY += 8
+    doc.text('Phí vận chuyển:', pageWidth - 85, summaryY)
+    doc.text(formatCurrency(order.shippingAmount || 0), pageWidth - 18, summaryY, { align: 'right' })
+
     if (order.discountAmount > 0) {
-      doc.text('Giam gia:', 140, finalY + 14)
-      doc.text(`-${order.discountAmount.toLocaleString('vi-VN')}đ`, 170, finalY + 14, { align: 'right' })
+      summaryY += 8
+      doc.setTextColor(34, 197, 94)
+      doc.text('Giảm giá:', pageWidth - 85, summaryY)
+      doc.text('-' + formatCurrency(order.discountAmount), pageWidth - 18, summaryY, { align: 'right' })
+      doc.setTextColor(0, 0, 0)
     }
-    
-    doc.setFontSize(12)
-    doc.setFont('helvetica', 'bold')
-    doc.text('TONG TIEN:', 140, finalY + 23)
-    doc.text(`${order.netAmount.toLocaleString('vi-VN')}đ`, 170, finalY + 23, { align: 'right' })
-    
+
+    // Total line
+    summaryY += 10
+    doc.setDrawColor(37, 99, 235)
+    doc.line(pageWidth - 85, summaryY - 3, pageWidth - 18, summaryY - 3)
+
+    doc.setFontSize(11)
+    doc.setFont(fontName, 'normal')
+    doc.setTextColor(37, 99, 235)
+    doc.text('TỔNG CỘNG:', pageWidth - 85, summaryY + 3)
+    doc.text(formatCurrency(order.netAmount), pageWidth - 18, summaryY + 3, { align: 'right' })
+
     // Deposit info if applicable
     if (order.paymentType === 'DEPOSIT') {
-      doc.setFontSize(10)
-      doc.setFont('helvetica', 'normal')
-      doc.text(`Dat coc: ${order.depositAmount?.toLocaleString('vi-VN')}đ (${order.depositPercentage}%)`, 14, finalY + 30)
-      doc.text(`Con lai: ${order.remainingAmount?.toLocaleString('vi-VN')}đ`, 14, finalY + 37)
+      summaryY += 12
+      doc.setFontSize(9)
+      doc.setTextColor(0, 0, 0)
+      doc.text(`Đặt cọc (${order.depositPercentage}%):`, pageWidth - 85, summaryY)
+      doc.text(formatCurrency(order.depositAmount || 0), pageWidth - 18, summaryY, { align: 'right' })
+
+      summaryY += 8
+      doc.setTextColor(220, 38, 38)
+      doc.text('Còn phải trả:', pageWidth - 85, summaryY)
+      doc.text(formatCurrency(order.remainingAmount || 0), pageWidth - 18, summaryY, { align: 'right' })
     }
-    
-    // Footer
+
+    // ===== PAYMENT INFO (Left side) =====
+    doc.setFontSize(10)
+    doc.setFont(fontName, 'normal')
+    doc.setTextColor(37, 99, 235)
+    doc.text('THÔNG TIN THANH TOÁN', 14, finalY + 5)
+
+    doc.setFontSize(9)
+    doc.setTextColor(0, 0, 0)
+    doc.text('Ngân hàng: Vietcombank', 14, finalY + 13)
+    doc.text('STK: 1234567890123', 14, finalY + 20)
+    doc.text('Chủ TK: SMARTBUILD CO., LTD', 14, finalY + 27)
+    doc.text(`Nội dung CK: ${order.orderNumber}`, 14, finalY + 34)
+
+    // ===== FOOTER =====
+    const footerY = 275
+    doc.setDrawColor(37, 99, 235)
+    doc.setLineWidth(0.3)
+    doc.line(14, footerY - 5, pageWidth - 14, footerY - 5)
+
+    doc.setFontSize(9)
+    doc.setTextColor(100, 100, 100)
+    doc.text('Cảm ơn quý khách đã tin tưởng và sử dụng dịch vụ của chúng tôi!', pageWidth / 2, footerY, { align: 'center' })
     doc.setFontSize(8)
-    doc.text('Cam on quy khach da su dung dich vu!', 105, 280, { align: 'center' })
-    doc.text('Hotline: 1900-xxxx | Email: support@viethoa.com', 105, 287, { align: 'center' })
-    
+    doc.text('Mọi thắc mắc xin liên hệ: Hotline 1900-xxxx | Email: support@smartbuild.com', pageWidth / 2, footerY + 6, { align: 'center' })
+    doc.text(`In ngày: ${new Date().toLocaleString('vi-VN')}`, pageWidth / 2, footerY + 12, { align: 'center' })
+
     const pdfBuffer = Buffer.from(doc.output('arraybuffer'))
-    
+
     return new NextResponse(pdfBuffer, {
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': `attachment; filename=hoa-don-${order.orderNumber}.pdf`
       }
     })
-    
+
   } catch (error: any) {
     console.error('Error generating invoice:', error)
     return NextResponse.json(
-      { success: false, error: 'Failed to generate invoice' },
+      { success: false, error: 'Failed to generate invoice: ' + error.message },
       { status: 500 }
     )
   }
 }
-
-function getStatusLabel(status: string): string {
-  const labels: Record<string, string> = {
-    'PENDING': 'Cho xu ly',
-    'PENDING_CONFIRMATION': 'Cho xac nhan',
-    'CONFIRMED': 'Da xac nhan',
-    'PROCESSING': 'Dang xu ly',
-    'SHIPPED': 'Dang giao',
-    'DELIVERED': 'Da giao',
-    'COMPLETED': 'Hoan thanh',
-    'CANCELLED': 'Da huy'
-  }
-  return labels[status] || status
-}
-
