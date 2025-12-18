@@ -132,8 +132,18 @@ export async function PUT(
     const customerEmail = updatedOrder.customer?.user?.email || updatedOrder.guestEmail
     const customerName = updatedOrder.customer?.user?.name || updatedOrder.guestName || 'Quý khách'
 
+    console.log('📧 Email Debug:', {
+      customerEmail,
+      customerName,
+      guestEmail: updatedOrder.guestEmail,
+      guestName: updatedOrder.guestName,
+      hasCustomer: !!updatedOrder.customer,
+      orderNumber: updatedOrder.orderNumber
+    })
+
     if (customerEmail) {
       import('@/lib/email-service').then(({ EmailService }) => {
+        console.log('📧 Sending email to:', customerEmail)
         EmailService.sendOrderApprovedWithPayment({
           email: customerEmail,
           name: customerName || 'Quý khách',
@@ -148,8 +158,12 @@ export async function PUT(
             quantity: item.quantity,
             price: item.unitPrice
           }))
-        }).catch(err => console.error('Email to customer error:', err))
-      })
+        }).then(result => {
+          console.log('📧 Email sent result:', result)
+        }).catch(err => console.error('❌ Email to customer error:', err))
+      }).catch(err => console.error('❌ Email import error:', err))
+    } else {
+      console.log('⚠️ No customer email found, skipping email')
     }
 
     return NextResponse.json(
