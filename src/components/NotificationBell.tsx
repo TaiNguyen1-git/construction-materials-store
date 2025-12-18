@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Bell, X, CheckCircle, AlertTriangle, Info, RefreshCw } from 'lucide-react'
 import { getAuthHeaders } from '@/lib/api-client'
 import { useAuth } from '@/contexts/auth-context'
@@ -29,6 +29,18 @@ export default function NotificationBell() {
   const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set())
   const { user } = useAuth()
 
+  // Use refs to access latest values in callbacks without re-triggering useEffect
+  const readIdsRef = useRef<Set<string>>(new Set())
+  const deletedIdsRef = useRef<Set<string>>(new Set())
+
+  useEffect(() => {
+    readIdsRef.current = readIds
+  }, [readIds])
+
+  useEffect(() => {
+    deletedIdsRef.current = deletedIds
+  }, [deletedIds])
+
   // Manual refresh function
   const refreshNotifications = async (loadMore = false) => {
     try {
@@ -53,15 +65,18 @@ export default function NotificationBell() {
         const result = await response.json()
 
         if (result.success && result.data && Array.isArray(result.data.notifications)) {
+          const currentDeletedIds = deletedIdsRef.current
+          const currentReadIds = readIdsRef.current
+
           const newNotifs = result.data.notifications
-            .filter((n: any) => !deletedIds.has(n.id))
+            .filter((n: any) => !currentDeletedIds.has(n.id))
             .map((n: any) => ({
               id: n.id,
               title: n.title,
               message: n.message,
               type: n.type,
               priority: n.priority,
-              read: readIds.has(n.id) ? true : (n.isRead !== undefined ? n.isRead : (n.read !== undefined ? n.read : false)),
+              read: currentReadIds.has(n.id) ? true : (n.isRead !== undefined ? n.isRead : (n.read !== undefined ? n.read : false)),
               createdAt: n.createdAt,
               referenceId: n.referenceId,
               referenceType: n.referenceType
@@ -76,7 +91,17 @@ export default function NotificationBell() {
           }
 
           setHasMore(result.data.pagination?.hasNext || false)
-          setUnreadCount(result.data.unreadCount !== undefined ? result.data.unreadCount : (loadMore ? unreadCount : newNotifs.filter((n: any) => !n.read).length))
+
+          if (result.data.unreadCount !== undefined) {
+            // Adjust count based on local readIds/deletedIds that haven't synced to DB yet
+            const localAdjusted = result.data.notifications.filter((n: any) =>
+              (currentReadIds.has(n.id) || currentDeletedIds.has(n.id)) &&
+              !(n.isRead ?? n.read ?? false)
+            ).length;
+            setUnreadCount(Math.max(0, result.data.unreadCount - localAdjusted));
+          } else {
+            setUnreadCount(newNotifs.filter((n: any) => !n.read).length)
+          }
         }
       }
     } catch (error) {
@@ -109,21 +134,34 @@ export default function NotificationBell() {
         if (response.ok) {
           const result = await response.json()
           if (result.success && result.data && Array.isArray(result.data.notifications)) {
-            const notifs = result.data.notifications
-              .filter((n: any) => !deletedIds.has(n.id))
+            const currentDeletedIds = deletedIdsRef.current
+            const currentReadIds = readIdsRef.current
+
+            const notifs: Notification[] = result.data.notifications
+              .filter((n: any) => !currentDeletedIds.has(n.id))
               .map((n: any) => ({
                 id: n.id,
                 title: n.title,
                 message: n.message,
                 type: n.type,
                 priority: n.priority,
-                read: readIds.has(n.id) ? true : (n.isRead ?? n.read ?? false),
+                read: currentReadIds.has(n.id) ? true : (n.isRead ?? n.read ?? false),
                 createdAt: n.createdAt,
                 referenceId: n.referenceId,
                 referenceType: n.referenceType
               }))
+
             setNotifications(notifs)
-            setUnreadCount(result.data.unreadCount !== undefined ? result.data.unreadCount : notifs.filter((n: any) => !n.read).length)
+
+            if (result.data.unreadCount !== undefined) {
+              const localAdjusted = result.data.notifications.filter((n: any) =>
+                (currentReadIds.has(n.id) || currentDeletedIds.has(n.id)) &&
+                !(n.isRead ?? n.read ?? false)
+              ).length;
+              setUnreadCount(Math.max(0, result.data.unreadCount - localAdjusted));
+            } else {
+              setUnreadCount(notifs.filter((n: Notification) => !n.read).length)
+            }
           }
         }
       } catch (error) {
@@ -138,25 +176,28 @@ export default function NotificationBell() {
         unsubscribe = subscribeToNotifications(
           user.id,
           user.role,
-          (firebaseNotifs) => {
+          (firebaseNotifs: any[]) => {
             firebaseWorking = true // Firebase is working, disable polling
 
-            const notifs = firebaseNotifs
-              .filter(n => n.id && !deletedIds.has(n.id))
-              .map(n => ({
+            const currentDeletedIds = deletedIdsRef.current
+            const currentReadIds = readIdsRef.current
+
+            const notifs: Notification[] = firebaseNotifs
+              .filter((n: any) => n.id && !currentDeletedIds.has(n.id))
+              .map((n: any) => ({
                 id: n.id || `temp-${Date.now()}-${Math.random()}`,
                 title: n.title,
                 message: n.message,
                 type: n.type,
                 priority: n.priority,
-                read: (n.id && readIds.has(n.id)) ? true : n.read,
+                read: (n.id && currentReadIds.has(n.id)) ? true : n.read,
                 createdAt: n.createdAt,
                 referenceId: n.referenceId,
                 referenceType: n.referenceType
               }))
 
             setNotifications(notifs)
-            setUnreadCount(notifs.filter(n => !n.read).length)
+            setUnreadCount(notifs.filter((n: Notification) => !n.read).length)
           }
         )
 
@@ -185,7 +226,7 @@ export default function NotificationBell() {
       if (unsubscribe) unsubscribe()
       if (pollInterval) clearInterval(pollInterval)
     }
-  }, [user, readIds, deletedIds])
+  }, [user])
 
   const markAsRead = async (id: string) => {
     // 1. Update local tracking instantly to prevent Firebase overwrite
