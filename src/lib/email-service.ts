@@ -665,8 +665,10 @@ export class EmailService {
       </html>
     `
   }
-}
-return `
+
+  // HTML Templates
+  private static getOrderConfirmationHTML(data: any): string {
+    return `
       <!DOCTYPE html>
       <html>
       <head>
@@ -722,7 +724,7 @@ return `
   }
 
   private static getOrderConfirmationText(data: any): string {
-  return `
+    return `
 Xin chào ${data.name},
 
 Cảm ơn bạn đã đặt hàng tại SmartBuild!
@@ -740,10 +742,10 @@ Xem chi tiết: ${process.env.NEXT_PUBLIC_BASE_URL}/account/orders
 
 Hotline: 1900-xxxx
     `
-}
+  }
 
   private static getShippingNotificationHTML(data: any): string {
-  return `
+    return `
       <!DOCTYPE html>
       <html>
       <head>
@@ -769,10 +771,10 @@ Hotline: 1900-xxxx
       </body>
       </html>
     `
-}
+  }
 
   private static getPasswordResetHTML(data: any): string {
-  return `
+    return `
       <!DOCTYPE html>
       <html>
       <head>
@@ -869,5 +871,5 @@ Hotline: 1900-xxxx
       </body>
       </html>
     `
-}
+  }
 }
