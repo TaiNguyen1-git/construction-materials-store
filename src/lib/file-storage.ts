@@ -71,10 +71,13 @@ export async function saveFile(
 export async function getFile(fileId: string): Promise<{ buffer: Buffer; filename: string } | null> {
     await ensureUploadDir()
 
-    // Find file by ID (we need to search since we don't know the extension)
+    // Find file by ID (exact match before extension)
     const { readdir } = await import('fs/promises')
     const files = await readdir(PRIVATE_UPLOADS_DIR)
-    const matchedFile = files.find(f => f.startsWith(fileId))
+    const matchedFile = files.find(f => {
+        const nameWithoutExt = f.split('.')[0]
+        return nameWithoutExt === fileId
+    })
 
     if (!matchedFile) {
         return null
@@ -118,14 +121,27 @@ export async function deleteFile(fileId: string): Promise<boolean> {
 export function getMimeType(filename: string): string {
     const ext = path.extname(filename).toLowerCase()
     const mimeTypes: Record<string, string> = {
-        '.pdf': 'application/pdf',
+        // Images
         '.jpg': 'image/jpeg',
         '.jpeg': 'image/jpeg',
         '.png': 'image/png',
         '.gif': 'image/gif',
         '.webp': 'image/webp',
+        // Documents
+        '.pdf': 'application/pdf',
+        '.txt': 'text/plain',
+        '.csv': 'text/csv',
+        // Microsoft Office
         '.doc': 'application/msword',
         '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        '.xls': 'application/vnd.ms-excel',
+        '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        '.ppt': 'application/vnd.ms-powerpoint',
+        '.pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+        // Video
+        '.mp4': 'video/mp4',
+        '.webm': 'video/webm',
+        '.mov': 'video/quicktime',
     }
     return mimeTypes[ext] || 'application/octet-stream'
 }

@@ -2,11 +2,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { createSuccessResponse, createErrorResponse } from '@/lib/api-types'
 import { z } from 'zod'
+import { verifyTokenFromRequest } from '@/lib/auth-middleware-api'
 
 const updateTaskSchema = z.object({
   title: z.string().min(1).optional(),
   description: z.string().optional(),
-  status: z.enum(['PENDING', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED']).optional(),
+  status: z.enum(['PENDING', 'IN_PROGRESS', 'COMPLETED', 'AWAITING_REVIEW', 'CANCELLED']).optional(),
   priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).optional(),
   dueDate: z.string().optional().transform(val => val ? new Date(val) : undefined),
   estimatedHours: z.number().positive().optional(),

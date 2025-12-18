@@ -22,21 +22,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
-  // DEVELOPMENT MODE - bypass auth
-  if (process.env.NODE_ENV === 'development' && process.env.VERCEL !== '1') {
-    const requestHeaders = new Headers(request.headers)
-
-    // Only set defaults if not already present to allow testing with specific users
-    if (!requestHeaders.has('x-user-id')) {
-      requestHeaders.set('x-user-id', 'dev-user')
-      requestHeaders.set('x-user-email', 'dev@example.com')
-      requestHeaders.set('x-user-role', 'MANAGER')
-    }
-
-    return NextResponse.next({
-      request: { headers: requestHeaders },
-    })
-  }
+  // No bypass here anymore - follow production flow
 
   // ===== PUBLIC ROUTES (no auth required) =====
   const publicRoutes = [

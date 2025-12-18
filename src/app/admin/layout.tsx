@@ -35,32 +35,43 @@ import NotificationBell from '@/components/NotificationBell'
 import { useAuth } from '@/contexts/auth-context'
 
 // Nhóm navigation theo category
-const navigationGroups = [
-  {
-    name: 'Tổng Quan',
-    items: [
-      { name: 'Bảng Điều Khiển', href: '/admin', icon: BarChart3 },
-    ]
-  },
-  {
-    name: 'Quản Lý Sản Phẩm',
-    icon: Box,
-    items: [
-      { name: 'Sản Phẩm & Nhà Cung Cấp', href: '/admin/products', icon: Package },
-      { name: 'Kho Hàng', href: '/admin/inventory', icon: Package },
-    ]
-  },
-  {
-    name: 'Bán Hàng',
-    icon: ShoppingCart,
-    items: [
-      { name: 'Đơn Hàng', href: '/admin/orders', icon: ShoppingCart },
-      { name: 'Khách Hàng', href: '/admin/customers', icon: Users },
-      // { name: 'Khách Hàng Thân Thiết', href: '/admin/loyalty', icon: Star },
-      { name: 'Quản Lý Bán Hàng', href: '/admin/sales-management', icon: Receipt },
-      { name: 'Đánh Giá Sản Phẩm', href: '/admin/reviews', icon: Star },
-    ]
-  },
+export default function AdminLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const pathname = usePathname()
+  const router = useRouter()
+  const { user, logout } = useAuth()
+
+  // Define full navigation items
+  const allGroups = [
+    {
+      name: 'Tổng Quan',
+      items: [
+        { name: 'Bảng Điều Khiển', href: '/admin', icon: BarChart3 },
+        { name: 'Công Việc Của Tôi', href: '/admin/my-tasks', icon: ClipboardList, roles: ['EMPLOYEE', 'MANAGER'] },
+      ]
+    },
+    {
+      name: 'Quản Lý Sản Phẩm',
+      icon: Box,
+      items: [
+        { name: 'Sản Phẩm & Nhà Cung Cấp', href: '/admin/products', icon: Package },
+        { name: 'Kho Hàng', href: '/admin/inventory', icon: Package },
+      ]
+    },
+    {
+      name: 'Bán Hàng',
+      icon: ShoppingCart,
+      items: [
+        { name: 'Đơn Hàng', href: '/admin/orders', icon: ShoppingCart },
+        { name: 'Khách Hàng', href: '/admin/customers', icon: Users },
+        { name: 'Quản Lý Bán Hàng', href: '/admin/sales-management', icon: Receipt },
+        { name: 'Đánh Giá Sản Phẩm', href: '/admin/reviews', icon: Star },
+      ]
+    },
   // === PHASE 2: SME Features (Tạm ẩn) ===
   // {
   //   name: 'Quản Lý SME',
@@ -71,14 +82,15 @@ const navigationGroups = [
   //     { name: 'Hợp Đồng & Giá B2B', href: '/admin/contract-management', icon: FileText },
   //   ]
   // },
-  {
-    name: 'Nhân Sự',
-    icon: Briefcase,
-    items: [
-      { name: 'Quản Lý Nhân Sự', href: '/admin/hr-management', icon: Users },
-      { name: 'Lương', href: '/admin/payroll', icon: CreditCard },
-    ]
-  },
+    {
+      name: 'Nhân Sự',
+      icon: Briefcase,
+      roles: ['MANAGER'], // Only Manager sees the whole group
+      items: [
+        { name: 'Quản Lý Nhân Sự', href: '/admin/hr-management', icon: Users },
+        { name: 'Lương', href: '/admin/payroll', icon: CreditCard },
+      ]
+    },
   // === PHASE 2: Dự Án (Tạm ẩn) ===
   // {
   //   name: 'Dự Án',
@@ -87,25 +99,31 @@ const navigationGroups = [
   //     { name: 'Dự Án', href: '/admin/projects', icon: FolderOpen },
   //   ]
   // },
-  {
-    name: 'Báo Cáo Tài Chính',
-    icon: LineChart,
-    items: [
-      { name: 'Báo Cáo Tài Chính', href: '/admin/financial-reports', icon: LineChart },
-    ]
-  },
-]
+    {
+      name: 'Báo Cáo Tài Chính',
+      icon: LineChart,
+      roles: ['MANAGER'], // Only Manager sees this
+      items: [
+        { name: 'Báo Cáo Tài Chính', href: '/admin/financial-reports', icon: LineChart },
+      ]
+    },
+  ]
 
-export default function AdminLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
-  const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [expandedGroups, setExpandedGroups] = useState<string[]>(['Tổng Quan', 'Quản Lý Sản Phẩm', 'Bán Hàng', 'Nhân Sự'])
-  const pathname = usePathname()
-  const router = useRouter()
-  const { logout } = useAuth()
+  // Filter groups based on user role
+  const navigationGroups = allGroups.filter(group => {
+    // If group has role restriction
+    if (group.roles && !group.roles.includes(user?.role as string)) return false
+    return true
+  }).map(group => ({
+    ...group,
+    items: group.items.filter(item => {
+      // If item has specific role restriction
+      if ((item as any).roles && !(item as any).roles.includes(user?.role as string)) return false
+      return true
+    })
+  }))
+
+  const [expandedGroups, setExpandedGroups] = useState<string[]>(navigationGroups.map(g => g.name))
 
   const toggleGroup = (groupName: string) => {
     setExpandedGroups(prev =>

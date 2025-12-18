@@ -2,11 +2,27 @@
 
 import { useState, useEffect } from 'react'
 import { toast } from 'react-hot-toast'
-import { Users, Calendar, ClipboardList, ChevronDown, ChevronUp, Plus, Edit, Trash2, X, XCircle } from 'lucide-react'
+import { Users, Calendar, ClipboardList, ChevronDown, ChevronUp, Plus, Edit, Trash2, X, XCircle, Image as ImageIcon, CheckCheck, FileText, ExternalLink } from 'lucide-react'
 import { fetchWithAuth } from '@/lib/api-client'
 import FormattedNumberInput from '@/components/FormattedNumberInput'
 import ConfirmDialog from '@/components/ConfirmDialog'
 import FormModal from '@/components/FormModal'
+
+const handleTaskSubmitStatus = async (taskId: string, status: string) => {
+  try {
+    const response = await fetchWithAuth(`/api/employee-tasks/${taskId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status })
+    })
+    if (response.ok) {
+      toast.success('Cập nhật trạng thái thành công')
+      window.location.reload()
+    }
+  } catch (error) {
+    toast.error('Có lỗi xảy ra')
+  }
+}
 
 interface User {
   id: string
@@ -45,11 +61,14 @@ interface Task {
   title: string
   description: string
   employee?: { user: { name: string } }
-  status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED'
+  status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'AWAITING_REVIEW' | 'CANCELLED'
   priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
   taskType?: string
   dueDate?: string | Date
   createdAt: string
+  proofUrl?: string
+  proofNotes?: string
+  submittedAt?: string
 }
 
 export default function HRManagementPage() {
@@ -104,7 +123,8 @@ export default function HRManagementPage() {
     description: '',
     taskType: 'GENERAL',
     priority: 'MEDIUM',
-    dueDate: ''
+    dueDate: '',
+    status: 'PENDING'
   })
 
   useEffect(() => {
@@ -410,7 +430,8 @@ export default function HRManagementPage() {
         description: task.description || '',
         taskType: task.taskType || 'GENERAL',
         priority: task.priority,
-        dueDate: task.dueDate ? (typeof task.dueDate === 'string' ? task.dueDate.split('T')[0] : new Date(task.dueDate).toISOString().split('T')[0]) : ''
+        dueDate: task.dueDate ? (typeof task.dueDate === 'string' ? task.dueDate.split('T')[0] : new Date(task.dueDate).toISOString().split('T')[0]) : '',
+        status: task.status
       })
     } else {
       setEditingTask(null)
@@ -420,7 +441,8 @@ export default function HRManagementPage() {
         description: '',
         taskType: 'GENERAL',
         priority: 'MEDIUM',
-        dueDate: ''
+        dueDate: '',
+        status: 'PENDING'
       })
     }
     setShowTaskModal(true)
@@ -780,7 +802,19 @@ export default function HRManagementPage() {
                   <tbody className="bg-white divide-y divide-gray-200">
                     {tasks.map((task) => (
                       <tr key={task.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{task.title}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                          <div className="flex flex-col">
+                            <span>{task.title}</span>
+                            {(task as any).proofUrl && (
+                              <button
+                                onClick={() => openTaskModal(task)}
+                                className="text-[10px] text-blue-500 font-bold flex items-center gap-1 mt-1 hover:underline text-left"
+                              >
+                                <ImageIcon className="w-3 h-3" /> CÓ MINH CHỨNG
+                              </button>
+                            )}
+                          </div>
+                        </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{task.employee?.user?.name || 'Chưa phân công'}</td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getPriorityBadge(task.priority)}`}>
@@ -788,13 +822,27 @@ export default function HRManagementPage() {
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusBadge(task.status)}`}>
-                            {getStatusText(task.status)}
+                          <span className={`px-2 py-1 text-xs font-semibold rounded-full ${task.status === 'AWAITING_REVIEW' ? 'bg-blue-100 text-blue-800 animate-pulse' : getStatusBadge(task.status)
+                            }`}>
+                            {task.status === 'AWAITING_REVIEW' ? 'Chờ Duyệt' : getStatusText(task.status)}
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{formatDate(task.dueDate)}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                          <button onClick={() => openTaskModal(task)} className="text-blue-600 hover:text-blue-900"><Edit className="h-4 w-4" /></button>
+                          <button onClick={() => openTaskModal(task)} className="text-blue-600 hover:text-blue-900" title="Chi tiết"><Edit className="h-4 w-4" /></button>
+                          {task.status === 'AWAITING_REVIEW' && (
+                            <button
+                              onClick={() => {
+                                // Logic to approve/review
+                                if (confirm('Bạn có muốn phê duyệt công việc này không?')) {
+                                  handleTaskSubmitStatus(task.id, 'COMPLETED')
+                                }
+                              }}
+                              className="text-green-600 hover:text-green-900" title="Duyệt"
+                            >
+                              <CheckCheck className="h-4 w-4" />
+                            </button>
+                          )}
                           <button onClick={() => setDeletingTask(task)} className="text-red-600 hover:text-red-900"><Trash2 className="h-4 w-4" /></button>
                         </td>
                       </tr>
@@ -973,9 +1021,173 @@ export default function HRManagementPage() {
                 </div>
               </div>
               <div>
+                <label className="block text-sm font-medium text-gray-700">Trạng Thái</label>
+                <select value={taskForm.status} onChange={(e) => setTaskForm({ ...taskForm, status: e.target.value })} className="mt-1 w-full border rounded-lg px-3 py-2">
+                  <option value="PENDING">Chờ Xử Lý</option>
+                  <option value="IN_PROGRESS">Đang Làm</option>
+                  <option value="AWAITING_REVIEW">Đang Kiểm Duyệt</option>
+                  <option value="COMPLETED">Hoàn Thành</option>
+                  <option value="CANCELLED">Đã Hủy</option>
+                </select>
+              </div>
+              <div>
                 <label className="block text-sm font-medium text-gray-700">Hạn Hoàn Thành</label>
                 <input type="date" value={taskForm.dueDate} onChange={(e) => setTaskForm({ ...taskForm, dueDate: e.target.value })} className="mt-1 w-full border rounded-lg px-3 py-2" />
               </div>
+              {editingTask && editingTask.proofUrl && (
+                <div className="mt-6 border-t pt-6">
+                  <h4 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
+                    <ImageIcon className="w-5 h-5 text-blue-600" /> Minh chứng công việc
+                  </h4>
+                  <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
+                    <div className="flex flex-col gap-4">
+                      {/* Multimedia Preview */}
+                      <div className="relative aspect-video rounded-xl overflow-hidden border border-gray-200 bg-white shadow-inner flex items-center justify-center">
+                        {/* Check for image extensions explicitly */}
+                        {editingTask.proofUrl.match(/\.(jpg|jpeg|png|webp|gif)$/i) ? (
+                          <img
+                            src={editingTask.proofUrl}
+                            alt="Minh chứng"
+                            className="w-full h-full object-contain"
+                          />
+                        ) : editingTask.proofUrl.match(/\.(mp4|webm|mov)$/i) ? (
+                          <video src={editingTask.proofUrl} controls className="w-full h-full object-contain" />
+                        ) : editingTask.proofUrl.match(/\.pdf$/i) || editingTask.proofUrl.includes('/api/files/') ? (
+                          /* For PDF and API-served files, show document icon */
+                          <div className="flex flex-col items-center justify-center gap-3 p-6">
+                            <div className="w-20 h-20 bg-gradient-to-br from-red-500 to-red-600 rounded-2xl flex items-center justify-center shadow-lg">
+                              <FileText className="w-10 h-10 text-white" />
+                            </div>
+                            <div className="text-center">
+                              <p className="text-sm font-bold text-gray-700">Tài liệu PDF</p>
+                              <p className="text-[11px] text-gray-400 mt-1">Bấm nút bên dưới để xem</p>
+                            </div>
+                          </div>
+                        ) : editingTask.proofUrl.match(/\.(doc|docx)$/i) ? (
+                          <div className="flex flex-col items-center justify-center gap-3 p-6">
+                            <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg">
+                              <FileText className="w-10 h-10 text-white" />
+                            </div>
+                            <div className="text-center">
+                              <p className="text-sm font-bold text-gray-700">Tài liệu Word</p>
+                              <p className="text-[11px] text-gray-400 mt-1">Bấm nút bên dưới để tải</p>
+                            </div>
+                          </div>
+                        ) : editingTask.proofUrl.match(/\.(xls|xlsx)$/i) ? (
+                          <div className="flex flex-col items-center justify-center gap-3 p-6">
+                            <div className="w-20 h-20 bg-gradient-to-br from-green-500 to-green-600 rounded-2xl flex items-center justify-center shadow-lg">
+                              <FileText className="w-10 h-10 text-white" />
+                            </div>
+                            <div className="text-center">
+                              <p className="text-sm font-bold text-gray-700">Tài liệu Excel</p>
+                              <p className="text-[11px] text-gray-400 mt-1">Bấm nút bên dưới để tải</p>
+                            </div>
+                          </div>
+                        ) : (
+                          /* Fallback for unknown file types */
+                          <div className="flex flex-col items-center justify-center gap-3 p-6">
+                            <div className="w-20 h-20 bg-gradient-to-br from-gray-400 to-gray-500 rounded-2xl flex items-center justify-center shadow-lg">
+                              <FileText className="w-10 h-10 text-white" />
+                            </div>
+                            <div className="text-center">
+                              <p className="text-sm font-bold text-gray-700">Tệp đính kèm</p>
+                              <p className="text-[11px] text-gray-400 mt-1">Bấm nút bên dưới để xem</p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Info & Actions */}
+                      <div className="flex flex-col gap-3">
+                        {editingTask.proofNotes && (
+                          <div className="p-3 bg-blue-50/50 rounded-xl border border-blue-100/50">
+                            <p className="text-sm text-blue-800 leading-relaxed italic">
+                              "{editingTask.proofNotes}"
+                            </p>
+                          </div>
+                        )}
+
+                        <div className="flex items-center justify-between">
+                          <div className="flex flex-col">
+                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Thời gian nộp</span>
+                            <span className="text-xs text-gray-600 font-medium">
+                              {editingTask.submittedAt ? new Date(editingTask.submittedAt).toLocaleString('vi-VN', {
+                                day: '2-digit',
+                                month: '2-digit',
+                                year: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              }) : 'N/A'}
+                            </span>
+                          </div>
+                          <a
+                            href={editingTask.proofUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-[10px] font-bold text-gray-700 hover:bg-gray-50 hover:border-blue-300 hover:text-blue-600 transition-all shadow-sm flex items-center gap-2"
+                          >
+                            <ExternalLink className="w-3 h-3" />
+                            MỞ GỐC
+                          </a>
+                        </div>
+
+                        {/* Approve/Reject Buttons for Managers */}
+                        {(editingTask.status === 'AWAITING_REVIEW' || editingTask.status === 'IN_PROGRESS') && (
+                          <div className="grid grid-cols-2 gap-2 mt-2 pt-4 border-t border-gray-100">
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                const reason = prompt('Lý do yêu cầu làm lại:', 'Chưa đạt yêu cầu, vui lòng kiểm tra lại.')
+                                if (reason === null) return
+                                try {
+                                  const res = await fetchWithAuth(`/api/employee-tasks/${editingTask.id}`, {
+                                    method: 'PUT',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                      status: 'IN_PROGRESS',
+                                      proofNotes: `[Quản lý từ chối]: ${reason}`
+                                    })
+                                  })
+                                  if (res.ok) {
+                                    toast.success('Đã yêu cầu làm lại')
+                                    setShowTaskModal(false)
+                                    fetchTasks()
+                                  }
+                                } catch (e) { toast.error('Lỗi khi thực hiện') }
+                              }}
+                              className="px-4 py-2 bg-red-50 text-red-600 rounded-xl text-xs font-bold hover:bg-red-100 transition-colors flex items-center justify-center gap-2"
+                            >
+                              <XCircle className="w-4 h-4" /> Yêu Cầu Làm Lại
+                            </button>
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                if (!confirm('Xác nhận phê duyệt hoàn thành công việc này?')) return
+                                try {
+                                  const res = await fetchWithAuth(`/api/employee-tasks/${editingTask.id}`, {
+                                    method: 'PUT',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ status: 'COMPLETED' })
+                                  })
+                                  if (res.ok) {
+                                    toast.success('Đã phê duyệt công việc')
+                                    setShowTaskModal(false)
+                                    fetchTasks()
+                                  }
+                                } catch (e) { toast.error('Lỗi khi thực hiện') }
+                              }}
+                              className="px-4 py-2 bg-green-600 text-white rounded-xl text-xs font-bold hover:bg-green-700 shadow-md shadow-green-200 transition-all flex items-center justify-center gap-2"
+                            >
+                              <CheckCheck className="w-4 h-4" /> Phê Duyệt
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="flex justify-end gap-3 mt-6">
                 <button type="button" onClick={() => setShowTaskModal(false)} className="px-4 py-2 border rounded-lg hover:bg-gray-50">Hủy</button>
                 <button type="submit" className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700">{editingTask ? 'Cập Nhật' : 'Thêm'}</button>

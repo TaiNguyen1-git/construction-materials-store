@@ -8,7 +8,7 @@ const querySchema = z.object({
   page: z.string().optional().default('1').transform(val => parseInt(val)),
   limit: z.string().optional().default('20').transform(val => parseInt(val)),
   employeeId: z.string().optional(),
-  status: z.enum(['PENDING', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED']).optional(),
+  status: z.enum(['PENDING', 'IN_PROGRESS', 'COMPLETED', 'AWAITING_REVIEW', 'CANCELLED']).optional(),
   taskType: z.enum(['GENERAL', 'LOADING', 'TRANSPORT', 'INVENTORY', 'SALES', 'MAINTENANCE']).optional(),
   priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).optional(),
   dueDateFrom: z.string().optional().transform(val => val ? new Date(val) : undefined),
@@ -30,7 +30,7 @@ const createTaskSchema = z.object({
 const updateTaskSchema = z.object({
   title: z.string().min(1).optional(),
   description: z.string().optional(),
-  status: z.enum(['PENDING', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED']).optional(),
+  status: z.enum(['PENDING', 'IN_PROGRESS', 'COMPLETED', 'AWAITING_REVIEW', 'CANCELLED']).optional(),
   priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).optional(),
   dueDate: z.string().optional().transform(val => val ? new Date(val) : undefined),
   estimatedHours: z.number().positive().optional(),
@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url)
     const params = Object.fromEntries(searchParams.entries())
-    
+
     const validation = querySchema.safeParse(params)
     if (!validation.success) {
       return NextResponse.json(
@@ -68,7 +68,7 @@ export async function GET(request: NextRequest) {
 
     // Build where clause
     const where: any = {}
-    
+
     // If employee role, only show their own tasks unless they're viewing all
     if (user.role === 'EMPLOYEE' && !employeeId) {
       const employee = await prisma.employee.findUnique({
@@ -172,7 +172,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    
+
     // Validate input
     const validation = createTaskSchema.safeParse(body)
     if (!validation.success) {
@@ -207,6 +207,19 @@ export async function POST(request: NextRequest) {
             }
           }
         }
+      }
+    })
+
+    // Create notification for employee
+    await prisma.notification.create({
+      data: {
+        userId: employee.userId,
+        title: 'Công việc mới được giao',
+        message: `Bạn được giao công việc: ${task.title}. Hạn hoàn thành: ${task.dueDate ? new Date(task.dueDate).toLocaleDateString('vi-VN') : 'N/A'}`,
+        type: 'INFO',
+        priority: task.priority as any,
+        referenceId: task.id,
+        referenceType: 'EMPLOYEE_TASK'
       }
     })
 

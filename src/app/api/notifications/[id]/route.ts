@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { createSuccessResponse, createErrorResponse } from '@/lib/api-types'
+import { verifyTokenFromRequest } from '@/lib/auth-middleware-api'
 
 // DELETE /api/notifications/[id] - Delete notification
 export async function DELETE(
@@ -8,8 +9,9 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const userId = request.headers.get('x-user-id')
-    
+    const payload = verifyTokenFromRequest(request)
+    const userId = payload?.userId || request.headers.get('x-user-id')
+
     if (!userId) {
       return NextResponse.json(
         createErrorResponse('Unauthorized', 'UNAUTHORIZED'),

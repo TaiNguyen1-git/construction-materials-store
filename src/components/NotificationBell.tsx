@@ -23,15 +23,24 @@ export default function NotificationBell() {
   const [isOpen, setIsOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const [page, setPage] = useState(1)
+  const [hasMore, setHasMore] = useState(false)
   const { user } = useAuth()
 
   // Manual refresh function
-  const refreshNotifications = async () => {
+  const refreshNotifications = async (loadMore = false) => {
     try {
-      setIsRefreshing(true)
-      const headers = getAuthHeaders()
+      if (loadMore) {
+        setIsLoading(true)
+      } else {
+        setIsRefreshing(true)
+      }
 
-      const response = await fetch('/api/notifications', {
+      const headers = getAuthHeaders()
+      const currentPage = loadMore ? page + 1 : 1
+      const limit = 10
+
+      const response = await fetch(`/api/notifications?page=${currentPage}&limit=${limit}`, {
         headers: {
           ...headers,
           'Content-Type': 'application/json'
@@ -41,8 +50,8 @@ export default function NotificationBell() {
       if (response.ok) {
         const result = await response.json()
 
-        if (result.success && result.data) {
-          const notifs = result.data.notifications.map((n: any) => ({
+        if (result.success && result.data && Array.isArray(result.data.notifications)) {
+          const newNotifs = result.data.notifications.map((n: any) => ({
             id: n.id,
             title: n.title,
             message: n.message,
@@ -54,14 +63,23 @@ export default function NotificationBell() {
             referenceType: n.referenceType
           }))
 
-          setNotifications(notifs)
-          setUnreadCount(result.data.unreadCount || notifs.filter((n: any) => !n.read).length)
+          if (loadMore) {
+            setNotifications(prev => [...prev, ...newNotifs])
+            setPage(currentPage)
+          } else {
+            setNotifications(newNotifs)
+            setPage(1)
+          }
+
+          setHasMore(result.data.pagination?.hasNext || false)
+          setUnreadCount(result.data.unreadCount !== undefined ? result.data.unreadCount : (loadMore ? unreadCount : newNotifs.filter((n: any) => !n.read).length))
         }
       }
     } catch (error) {
       console.error('Error refreshing notifications:', error)
     } finally {
       setIsRefreshing(false)
+      setIsLoading(false)
     }
   }
 
@@ -86,7 +104,7 @@ export default function NotificationBell() {
 
         if (response.ok) {
           const result = await response.json()
-          if (result.success && result.data) {
+          if (result.success && result.data && Array.isArray(result.data.notifications)) {
             const notifs = result.data.notifications.map((n: any) => ({
               id: n.id,
               title: n.title,
@@ -99,7 +117,7 @@ export default function NotificationBell() {
               referenceType: n.referenceType
             }))
             setNotifications(notifs)
-            setUnreadCount(result.data.unreadCount || notifs.filter((n: any) => !n.read).length)
+            setUnreadCount(result.data.unreadCount !== undefined ? result.data.unreadCount : notifs.filter((n: any) => !n.read).length)
           }
         }
       } catch (error) {
@@ -193,33 +211,31 @@ export default function NotificationBell() {
   }
 
   const markAllAsRead = async () => {
-    // Optimistic update - update UI immediately
-    setNotifications(notifications.map(n => ({ ...n, read: true })))
+    // 1. Optimistic update - update UI immediately
+    const updatedNotifications = notifications.map(n => ({ ...n, read: true }))
+    setNotifications(updatedNotifications)
     setUnreadCount(0)
 
     try {
-      const persistedNotifications = notifications.filter(n => !n.id.startsWith('realtime-') && !n.read)
-
-      if (persistedNotifications.length === 0) return
-
       const headers = getAuthHeaders()
 
-      // Send requests in background - don't wait for response
-      persistedNotifications.forEach(n => {
-        fetch('/api/notifications', {
-          method: 'POST',
-          headers: {
-            ...headers,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ notificationId: n.id })
-        }).catch(() => {
-          // Silent fail - UI already updated
-        })
+      // 2. Single batch request to backend
+      const response = await fetch('/api/notifications', {
+        method: 'POST',
+        headers: {
+          ...headers,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ markAll: true })
       })
+
+      if (!response.ok) {
+        // If failed, we should ideally fetch again to get correct state
+        refreshNotifications()
+      }
     } catch (error) {
-      // Silent fail - UI already updated
       console.error('Error marking all as read:', error)
+      // Rollback or silent fail (UI already updated)
     }
   }
 
@@ -336,7 +352,7 @@ export default function NotificationBell() {
               <div className="flex items-center gap-2">
                 <h3 className="text-lg font-medium text-gray-900">Thông Báo</h3>
                 <button
-                  onClick={refreshNotifications}
+                  onClick={() => refreshNotifications(false)}
                   disabled={isRefreshing}
                   className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors disabled:opacity-50"
                   title="Làm mới"
@@ -356,65 +372,78 @@ export default function NotificationBell() {
           </div>
 
           <div className="max-h-96 overflow-y-auto">
-            {isLoading ? (
-              <div className="p-4 text-center text-gray-500">
-                Đang tải thông báo...
-              </div>
-            ) : notifications.length === 0 ? (
+            {notifications.length === 0 && !isLoading ? (
               <div className="p-4 text-center text-gray-500">
                 Không có thông báo
               </div>
             ) : (
-              notifications.map((notification) => (
-                <div
-                  key={notification.id}
-                  onClick={() => handleNotificationClick(notification)}
-                  className={`p-4 border-b border-gray-100 ${getPriorityColor(notification.priority)} border-l-4 ${!notification.read ? 'bg-blue-50' : ''
-                    } cursor-pointer hover:bg-gray-50 transition-colors`}
-                >
-                  <div className="flex justify-between">
-                    <div className="flex items-start">
-                      {getNotificationIcon(notification.type)}
-                      <div className="ml-3">
-                        <h4 className="text-sm font-medium text-gray-900">
-                          {notification.title}
-                        </h4>
-                        <p className="text-sm text-gray-500 mt-1">
-                          {notification.message}
-                        </p>
-                        <p className="text-xs text-gray-400 mt-1">
-                          {new Date(notification.createdAt).toLocaleString('vi-VN')}
-                        </p>
+              <>
+                {notifications.map((notification) => (
+                  <div
+                    key={notification.id}
+                    onClick={() => handleNotificationClick(notification)}
+                    className={`p-4 border-b border-gray-100 ${getPriorityColor(notification.priority)} border-l-4 ${!notification.read ? 'bg-blue-50' : ''
+                      } cursor-pointer hover:bg-gray-50 transition-colors`}
+                  >
+                    <div className="flex justify-between">
+                      <div className="flex items-start">
+                        {getNotificationIcon(notification.type)}
+                        <div className="ml-3">
+                          <h4 className="text-sm font-medium text-gray-900">
+                            {notification.title}
+                          </h4>
+                          <p className="text-sm text-gray-500 mt-1">
+                            {notification.message}
+                          </p>
+                          <p className="text-xs text-gray-400 mt-1">
+                            {new Date(notification.createdAt).toLocaleString('vi-VN')}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex space-x-1" onClick={(e) => e.stopPropagation()}>
+                        {!notification.read && (
+                          <button
+                            onClick={() => markAsRead(notification.id)}
+                            className="text-gray-400 hover:text-gray-600"
+                            title="Đánh dấu đã đọc"
+                          >
+                            <CheckCircle className="w-4 h-4" />
+                          </button>
+                        )}
+                        <button
+                          onClick={() => deleteNotification(notification.id)}
+                          className="text-gray-400 hover:text-red-600"
+                          title="Xóa"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
                       </div>
                     </div>
-                    <div className="flex space-x-1" onClick={(e) => e.stopPropagation()}>
-                      {!notification.read && (
-                        <button
-                          onClick={() => markAsRead(notification.id)}
-                          className="text-gray-400 hover:text-gray-600"
-                          title="Đánh dấu đã đọc"
-                        >
-                          <CheckCircle className="w-4 h-4" />
-                        </button>
-                      )}
-                      <button
-                        onClick={() => deleteNotification(notification.id)}
-                        className="text-gray-400 hover:text-red-600"
-                        title="Xóa"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
                   </div>
-                </div>
-              ))
+                ))}
+
+                {isLoading && (
+                  <div className="p-4 text-center text-gray-500 flex items-center justify-center gap-2">
+                    <RefreshCw className="w-4 h-4 animate-spin text-blue-600" />
+                    <span>Đang tải thêm...</span>
+                  </div>
+                )}
+              </>
             )}
           </div>
 
           <div className="p-4 border-t border-gray-200 text-center">
-            <button className="text-sm text-blue-600 hover:text-blue-800">
-              Xem tất cả thông báo
-            </button>
+            {hasMore ? (
+              <button
+                onClick={() => refreshNotifications(true)}
+                disabled={isLoading}
+                className="text-sm text-blue-600 hover:text-blue-800 font-semibold disabled:opacity-50"
+              >
+                {isLoading ? 'Đang tải...' : 'Xem các thông báo cũ hơn'}
+              </button>
+            ) : notifications.length > 0 ? (
+              <span className="text-xs text-gray-400 italic">Đã hiện tất cả thông báo</span>
+            ) : null}
           </div>
         </div>
       )}
