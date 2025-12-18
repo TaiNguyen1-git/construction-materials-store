@@ -25,6 +25,8 @@ export default function NotificationBell() {
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [page, setPage] = useState(1)
   const [hasMore, setHasMore] = useState(false)
+  const [readIds, setReadIds] = useState<Set<string>>(new Set())
+  const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set())
   const { user } = useAuth()
 
   // Manual refresh function
@@ -51,17 +53,19 @@ export default function NotificationBell() {
         const result = await response.json()
 
         if (result.success && result.data && Array.isArray(result.data.notifications)) {
-          const newNotifs = result.data.notifications.map((n: any) => ({
-            id: n.id,
-            title: n.title,
-            message: n.message,
-            type: n.type,
-            priority: n.priority,
-            read: n.isRead !== undefined ? n.isRead : (n.read !== undefined ? n.read : false),
-            createdAt: n.createdAt,
-            referenceId: n.referenceId,
-            referenceType: n.referenceType
-          }))
+          const newNotifs = result.data.notifications
+            .filter((n: any) => !deletedIds.has(n.id))
+            .map((n: any) => ({
+              id: n.id,
+              title: n.title,
+              message: n.message,
+              type: n.type,
+              priority: n.priority,
+              read: readIds.has(n.id) ? true : (n.isRead !== undefined ? n.isRead : (n.read !== undefined ? n.read : false)),
+              createdAt: n.createdAt,
+              referenceId: n.referenceId,
+              referenceType: n.referenceType
+            }))
 
           if (loadMore) {
             setNotifications(prev => [...prev, ...newNotifs])
@@ -105,17 +109,19 @@ export default function NotificationBell() {
         if (response.ok) {
           const result = await response.json()
           if (result.success && result.data && Array.isArray(result.data.notifications)) {
-            const notifs = result.data.notifications.map((n: any) => ({
-              id: n.id,
-              title: n.title,
-              message: n.message,
-              type: n.type,
-              priority: n.priority,
-              read: n.isRead ?? n.read ?? false,
-              createdAt: n.createdAt,
-              referenceId: n.referenceId,
-              referenceType: n.referenceType
-            }))
+            const notifs = result.data.notifications
+              .filter((n: any) => !deletedIds.has(n.id))
+              .map((n: any) => ({
+                id: n.id,
+                title: n.title,
+                message: n.message,
+                type: n.type,
+                priority: n.priority,
+                read: readIds.has(n.id) ? true : (n.isRead ?? n.read ?? false),
+                createdAt: n.createdAt,
+                referenceId: n.referenceId,
+                referenceType: n.referenceType
+              }))
             setNotifications(notifs)
             setUnreadCount(result.data.unreadCount !== undefined ? result.data.unreadCount : notifs.filter((n: any) => !n.read).length)
           }
@@ -135,17 +141,19 @@ export default function NotificationBell() {
           (firebaseNotifs) => {
             firebaseWorking = true // Firebase is working, disable polling
 
-            const notifs = firebaseNotifs.map(n => ({
-              id: n.id || `temp-${Date.now()}-${Math.random()}`,
-              title: n.title,
-              message: n.message,
-              type: n.type,
-              priority: n.priority,
-              read: n.read,
-              createdAt: n.createdAt,
-              referenceId: n.referenceId,
-              referenceType: n.referenceType
-            }))
+            const notifs = firebaseNotifs
+              .filter(n => n.id && !deletedIds.has(n.id))
+              .map(n => ({
+                id: n.id || `temp-${Date.now()}-${Math.random()}`,
+                title: n.title,
+                message: n.message,
+                type: n.type,
+                priority: n.priority,
+                read: (n.id && readIds.has(n.id)) ? true : n.read,
+                createdAt: n.createdAt,
+                referenceId: n.referenceId,
+                referenceType: n.referenceType
+              }))
 
             setNotifications(notifs)
             setUnreadCount(notifs.filter(n => !n.read).length)
@@ -177,18 +185,20 @@ export default function NotificationBell() {
       if (unsubscribe) unsubscribe()
       if (pollInterval) clearInterval(pollInterval)
     }
-  }, [user])
+  }, [user, readIds, deletedIds])
 
   const markAsRead = async (id: string) => {
-    try {
-      if (id.startsWith('realtime-')) {
-        setNotifications(notifications.map(n =>
-          n.id === id ? { ...n, read: true } : n
-        ))
-        setUnreadCount(Math.max(0, unreadCount - 1))
-        return
-      }
+    // 1. Update local tracking instantly to prevent Firebase overwrite
+    setReadIds(prev => new Set(prev).add(id))
 
+    // 2. Update current notifications list
+    setNotifications(notifications.map(n =>
+      n.id === id ? { ...n, read: true } : n
+    ))
+    setUnreadCount(Math.max(0, unreadCount - 1))
+
+    try {
+      // 3. Update in Database
       const headers = getAuthHeaders()
       const response = await fetch('/api/notifications', {
         method: 'POST',
@@ -199,19 +209,28 @@ export default function NotificationBell() {
         body: JSON.stringify({ notificationId: id })
       })
 
-      if (response.ok) {
-        setNotifications(notifications.map(n =>
-          n.id === id ? { ...n, read: true } : n
-        ))
-        setUnreadCount(Math.max(0, unreadCount - 1))
+      // 4. Update in Firebase
+      if (user) {
+        const { markNotificationReadInFirebase } = await import('@/lib/firebase-notifications')
+        await markNotificationReadInFirebase(user.id, id)
       }
     } catch (error) {
-      // Silent fail
+      console.error('Error marking as read:', error)
     }
   }
 
   const markAllAsRead = async () => {
-    // 1. Optimistic update - update UI immediately
+    // 1. Get all unread IDs
+    const unreadIds = notifications.filter(n => !n.read).map(n => n.id)
+
+    // 2. Update local tracking
+    setReadIds(prev => {
+      const next = new Set(prev)
+      unreadIds.forEach(id => next.add(id))
+      return next
+    })
+
+    // 3. Optimistic update - update UI immediately
     const updatedNotifications = notifications.map(n => ({ ...n, read: true }))
     setNotifications(updatedNotifications)
     setUnreadCount(0)
@@ -219,8 +238,8 @@ export default function NotificationBell() {
     try {
       const headers = getAuthHeaders()
 
-      // 2. Single batch request to backend
-      const response = await fetch('/api/notifications', {
+      // 4. Batch request to Database
+      await fetch('/api/notifications', {
         method: 'POST',
         headers: {
           ...headers,
@@ -229,36 +248,47 @@ export default function NotificationBell() {
         body: JSON.stringify({ markAll: true })
       })
 
-      if (!response.ok) {
-        // If failed, we should ideally fetch again to get correct state
-        refreshNotifications()
+      // 5. Update Firebase (for each unread if possible, though system notifs might not sync)
+      if (user) {
+        const { markNotificationReadInFirebase } = await import('@/lib/firebase-notifications')
+        for (const id of unreadIds) {
+          if (!id.startsWith('system-')) {
+            await markNotificationReadInFirebase(user.id, id)
+          }
+        }
       }
     } catch (error) {
       console.error('Error marking all as read:', error)
-      // Rollback or silent fail (UI already updated)
+      refreshNotifications()
     }
   }
 
   const deleteNotification = async (id: string) => {
+    // 1. Update local tracking instantly 
+    setDeletedIds(prev => new Set(prev).add(id))
+
+    // 2. Update UI
+    const notification = notifications.find(n => n.id === id)
+    if (notification && !notification.read) {
+      setUnreadCount(Math.max(0, unreadCount - 1))
+    }
+    setNotifications(notifications.filter(n => n.id !== id))
+
     try {
-      const notification = notifications.find(n => n.id === id)
-      if (notification && !notification.read) {
-        setUnreadCount(Math.max(0, unreadCount - 1))
-      }
-
-      setNotifications(notifications.filter(n => n.id !== id))
-
-      if (id.startsWith('realtime-')) {
-        return
-      }
-
+      // 3. Update Database
       const headers = getAuthHeaders()
       await fetch(`/api/notifications/${id}`, {
         method: 'DELETE',
         headers
       })
+
+      // 4. Update Firebase
+      if (user) {
+        const { deleteNotificationFromFirebase } = await import('@/lib/firebase-notifications')
+        await deleteNotificationFromFirebase(user.id, id)
+      }
     } catch (error) {
-      // Silent fail
+      console.error('Error deleting notification:', error)
     }
   }
 

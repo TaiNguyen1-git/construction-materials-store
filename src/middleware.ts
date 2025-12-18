@@ -64,8 +64,8 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
-  // ===== PROTECTED ROUTES (auth required) =====
-  const protectedPatterns = [
+  // ===== PROTECTED ROUTES & PAGES (auth required) =====
+  const protectedAPIPatterns = [
     '/api/admin',
     '/api/employee',
     '/api/inventory',
@@ -78,36 +78,59 @@ export async function middleware(request: NextRequest) {
     '/api/notifications',
     '/api/analytics',
     '/api/suppliers',
-    '/api/recommendations/purchase', // Specific: admin purchase recommendations
+    '/api/recommendations/purchase',
   ]
 
-  const isProtectedRoute = protectedPatterns.some(
+  const protectedPagePatterns = [
+    '/admin',
+    '/account',
+    '/contractor',
+    '/supplier',
+  ]
+
+  const isProtectedAPI = protectedAPIPatterns.some(
     pattern => pathname === pattern || pathname.startsWith(pattern + '/')
   )
 
-  if (!isProtectedRoute) {
-    // Not a protected, optional, or public route - pass through
+  const isProtectedPage = protectedPagePatterns.some(
+    pattern => pathname === pattern || pathname.startsWith(pattern + '/')
+  )
+
+  if (!isProtectedAPI && !isProtectedPage) {
+    // Not a protected route or page - pass through
     return NextResponse.next()
   }
 
-  // Protected route - require token
+  // Check for token from headers or cookie
   const token = extractToken(request)
 
   if (!token) {
-    console.log('[Middleware] Protected route requires auth:', pathname, 'headers:', {
-      'authorization': request.headers.get('authorization') ? 'present' : 'missing',
-      'x-auth-token': request.headers.get('x-auth-token') ? 'present' : 'missing',
-      'x-token': request.headers.get('x-token') ? 'present' : 'missing',
-    })
-    return NextResponse.json(
-      { success: false, error: { code: 'UNAUTHORIZED', message: 'Access token required' } },
-      { status: 401 }
-    )
+    // Handle redirect for pages (not logged in)
+    if (isProtectedPage && !pathname.includes('/login') && !pathname.includes('/register')) {
+      const loginUrl = new URL('/login', request.url)
+      loginUrl.searchParams.set('callbackUrl', pathname)
+      return NextResponse.redirect(loginUrl)
+    }
+
+    // Handle 401 for API
+    if (isProtectedAPI) {
+      console.log('[Middleware] Protected API requires auth:', pathname)
+      return NextResponse.json(
+        { success: false, error: { code: 'UNAUTHORIZED', message: 'Access token required' } },
+        { status: 401 }
+      )
+    }
   }
 
-  console.log('[Middleware] Protected route, passing token:', pathname)
+  // Token found - pass it to downstream via headers
   const requestHeaders = new Headers(request.headers)
-  requestHeaders.set('x-token', token)
+  if (token) {
+    requestHeaders.set('x-token', token)
+    // Also set Authorization header for API routes that need it
+    if (!request.headers.get('authorization')) {
+      requestHeaders.set('authorization', `Bearer ${token}`)
+    }
+  }
 
   return NextResponse.next({
     request: { headers: requestHeaders },
@@ -118,19 +141,25 @@ export async function middleware(request: NextRequest) {
  * Extract token from request (try multiple sources)
  */
 function extractToken(request: NextRequest): string | null {
-  // Try Authorization: Bearer token
+  // 1. Try Authorization: Bearer token (API calls from frontend)
   const authHeader = request.headers.get('authorization')
   if (authHeader?.startsWith('Bearer ')) {
     return authHeader.slice(7)
   }
 
-  // Try x-auth-token header
+  // 2. Try auth_token cookie (for page loads after login)
+  const cookieToken = request.cookies.get('auth_token')?.value
+  if (cookieToken) {
+    return cookieToken
+  }
+
+  // 3. Try x-auth-token header
   const customToken = request.headers.get('x-auth-token')
   if (customToken) {
     return customToken
   }
 
-  // Try x-token header (already set by client)
+  // 4. Try x-token header (already set by client)
   const xToken = request.headers.get('x-token')
   if (xToken) {
     return xToken

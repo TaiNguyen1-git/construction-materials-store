@@ -215,13 +215,20 @@ class AuthenticationService {
   }
 
   // Logout user
-  logout(): void {
+  async logout(): Promise<void> {
     this.accessToken = null
     this.refreshToken = null
     this.user = null
 
-    // Clear storage
+    // Clear local storage
     this.clearStorage()
+
+    // Clear server cookie
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' })
+    } catch (e) {
+      console.error('Failed to clear server cookie during logout')
+    }
   }
 
   // Initialize auth state from storage

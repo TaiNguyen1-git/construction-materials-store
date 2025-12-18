@@ -21,10 +21,20 @@ export async function GET(
 ) {
   try {
     const { id } = await context.params
-    const userRole = request.headers.get('x-user-role')
-    const userId = request.headers.get('x-user-id')
 
-    if (!['MANAGER', 'EMPLOYEE'].includes(userRole || '')) {
+    // Verify token and get user info
+    const payload = verifyTokenFromRequest(request)
+    if (!payload) {
+      return NextResponse.json(
+        createErrorResponse('Unauthorized', 'UNAUTHORIZED'),
+        { status: 401 }
+      )
+    }
+
+    const userRole = payload.role
+    const userId = payload.userId
+
+    if (!['MANAGER', 'EMPLOYEE'].includes(userRole)) {
       return NextResponse.json(
         createErrorResponse('Access denied', 'FORBIDDEN'),
         { status: 403 }
@@ -85,10 +95,20 @@ export async function PUT(
 ) {
   try {
     const { id } = await context.params
-    const userRole = request.headers.get('x-user-role')
-    const userId = request.headers.get('x-user-id')
 
-    if (!['MANAGER', 'EMPLOYEE'].includes(userRole || '')) {
+    // Verify token and get user info
+    const payload = verifyTokenFromRequest(request)
+    if (!payload) {
+      return NextResponse.json(
+        createErrorResponse('Unauthorized', 'UNAUTHORIZED'),
+        { status: 401 }
+      )
+    }
+
+    const userRole = payload.role
+    const userId = payload.userId
+
+    if (!['MANAGER', 'EMPLOYEE'].includes(userRole)) {
       return NextResponse.json(
         createErrorResponse('Access denied', 'FORBIDDEN'),
         { status: 403 }
@@ -151,7 +171,7 @@ export async function PUT(
     // Update task
     const task = await prisma.employeeTask.update({
       where: { id },
-      data: updateData,
+      data: updateData as any,
       include: {
         employee: {
           include: {
@@ -184,9 +204,17 @@ export async function DELETE(
 ) {
   try {
     const { id } = await context.params
-    // Only managers can delete tasks
-    const userRole = request.headers.get('x-user-role')
-    if (userRole !== 'MANAGER') {
+
+    // Verify token and get user info - Only managers can delete tasks
+    const payload = verifyTokenFromRequest(request)
+    if (!payload) {
+      return NextResponse.json(
+        createErrorResponse('Unauthorized', 'UNAUTHORIZED'),
+        { status: 401 }
+      )
+    }
+
+    if (payload.role !== 'MANAGER') {
       return NextResponse.json(
         createErrorResponse('Manager access required', 'FORBIDDEN'),
         { status: 403 }

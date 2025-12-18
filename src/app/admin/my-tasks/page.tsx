@@ -302,7 +302,7 @@ export default function MyTasksPage() {
                                             <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100">
                                                 <h4 className="font-bold text-gray-900 mb-3 flex items-center gap-2">
                                                     <CheckCircle2 className="w-5 h-5 text-green-500" />
-                                                    Minh chứng đã nội
+                                                    Minh chứng đã nộp
                                                 </h4>
                                                 {selectedTask.proofUrl && (
                                                     <div className="aspect-video rounded-xl overflow-hidden mb-4 shadow-sm">

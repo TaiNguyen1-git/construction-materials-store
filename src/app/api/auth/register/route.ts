@@ -7,20 +7,20 @@ import { logger, logAuth, logAPI } from '@/lib/logger'
 
 export async function POST(request: NextRequest) {
   const startTime = Date.now()
-  
+
   try {
     const body = await request.json()
-    
+
     // Validate with Zod
     const validation = validateRequest(registerSchema, body)
     if (!validation.success) {
       logAPI.error('POST', '/api/auth/register', new Error('Validation failed'), { errors: validation.errors })
       return NextResponse.json(
-        { 
+        {
           success: false,
-          error: 'Validation failed', 
-          details: validation.errors 
-        }, 
+          error: 'Validation failed',
+          details: validation.errors
+        },
         { status: 400 }
       )
     }
@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
     if (existingUser) {
       logger.warn('Registration attempt with existing email', { email })
       return NextResponse.json(
-        { success: false, error: 'User already exists with this email' }, 
+        { success: false, error: 'User already exists with this email' },
         { status: 400 }
       )
     }
@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
 
     // Helper function to generate unique referral code
     const generateUniqueReferralCode = async (tx: any): Promise<string> => {
-      let referralCode: string
+      let referralCode: string = ''
       let isUnique = false
       let attempts = 0
       const maxAttempts = 20
@@ -107,10 +107,10 @@ export async function POST(request: NextRequest) {
 
     // Generate JWT token
     const token = jwt.sign(
-      { 
-        userId: result.user.id, 
-        email: result.user.email, 
-        role: result.user.role 
+      {
+        userId: result.user.id,
+        email: result.user.email,
+        role: result.user.role
       },
       process.env.JWT_SECRET || 'fallback-secret',
       { expiresIn: '7d' }
@@ -118,8 +118,8 @@ export async function POST(request: NextRequest) {
 
     // Log successful registration
     logAuth.login(result.user.id, result.user.email, true)
-    logger.info('New user registered', { 
-      userId: result.user.id, 
+    logger.info('New user registered', {
+      userId: result.user.id,
       email: result.user.email,
       type: 'auth'
     })
@@ -130,21 +130,32 @@ export async function POST(request: NextRequest) {
     const duration = Date.now() - startTime
     logAPI.response('POST', '/api/auth/register', 201, duration)
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       user: userWithoutPassword,
       token
     }, { status: 201 })
+
+    // Set HTTP-only cookie for middleware protection
+    response.cookies.set('auth_token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 7 * 24 * 60 * 60 // 7 days
+    })
+
+    return response
   } catch (error: any) {
     const duration = Date.now() - startTime
     logAPI.error('POST', '/api/auth/register', error, { duration })
-    logger.error('Registration error', { 
-      error: error.message, 
+    logger.error('Registration error', {
+      error: error.message,
       stack: error.stack,
       code: error.code,
       meta: error.meta
     })
-    
+
     // Handle specific Prisma errors
     if (error.code === 'P2002') {
       // Unique constraint violation
@@ -153,26 +164,26 @@ export async function POST(request: NextRequest) {
         logger.error('Referral code uniqueness violation - this should not happen', { error: error.message })
         // Retry logic could be added here, but for now just return error
         return NextResponse.json(
-          { 
-            success: false, 
-            error: 'Registration failed due to a system error. Please try again.' 
-          }, 
+          {
+            success: false,
+            error: 'Registration failed due to a system error. Please try again.'
+          },
           { status: 500 }
         )
       }
       return NextResponse.json(
-        { success: false, error: `This ${field} is already registered` }, 
+        { success: false, error: `This ${field} is already registered` },
         { status: 400 }
       )
     }
-    
+
     return NextResponse.json(
-      { 
-        success: false, 
-        error: process.env.NODE_ENV === 'development' 
-          ? error.message 
-          : 'Internal server error' 
-      }, 
+      {
+        success: false,
+        error: process.env.NODE_ENV === 'development'
+          ? error.message
+          : 'Internal server error'
+      },
       { status: 500 }
     )
   }

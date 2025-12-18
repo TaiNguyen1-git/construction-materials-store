@@ -184,6 +184,25 @@ export async function markNotificationReadInFirebase(userId: string, notificatio
 }
 
 /**
+ * Delete notification from Firebase
+ */
+export async function deleteNotificationFromFirebase(userId: string, notificationId: string): Promise<boolean> {
+    try {
+        const db = getFirebaseDatabase()
+        if (!notificationId.startsWith('system-')) {
+            const notifRef = ref(db, `notifications/${userId}/${notificationId}`)
+            await set(notifRef, null) // Use set with null to delete
+        }
+        // System notifications are shared, we can't delete them for all users easily
+        // but for now we'll just return true and handle local filtering
+        return true
+    } catch (error) {
+        console.error('Error deleting notification from Firebase:', error)
+        return false
+    }
+}
+
+/**
  * Push order status update to Firebase for real-time tracking
  */
 export async function pushOrderStatusUpdate(orderId: string, status: string, orderNumber: string): Promise<boolean> {

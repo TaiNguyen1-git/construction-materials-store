@@ -80,11 +80,22 @@ export async function POST(request: NextRequest) {
         const duration = Date.now() - startTime
         logAPI.response('POST', '/api/auth/facebook', 200, duration)
 
-        return NextResponse.json({
+        const response = NextResponse.json({
             success: true,
             user: userWithoutPassword,
             token
         })
+
+        // Set HTTP-only cookie for middleware protection
+        response.cookies.set('auth_token', token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax',
+            path: '/',
+            maxAge: 7 * 24 * 60 * 60 // 7 days
+        })
+
+        return response
 
     } catch (error: any) {
         const duration = Date.now() - startTime

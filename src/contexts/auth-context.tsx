@@ -151,8 +151,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   // Logout function
-  const logout = () => {
-    authService.logout()
+  const logout = async () => {
+    await authService.logout()
     setAuthState({
       user: null,
       isAuthenticated: false,
