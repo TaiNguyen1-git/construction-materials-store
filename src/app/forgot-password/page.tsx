@@ -17,11 +17,25 @@ export default function ForgotPasswordPage() {
     setError('')
     setIsLoading(true)
 
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      const response = await fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        setIsSuccess(true)
+      } else {
+        setError(data.error || 'Có lỗi xảy ra. Vui lòng thử lại.')
+      }
+    } catch (err) {
+      setError('Có lỗi xảy ra. Vui lòng thử lại.')
+    } finally {
       setIsLoading(false)
-      setIsSuccess(true)
-    }, 1500)
+    }
   }
 
   return (

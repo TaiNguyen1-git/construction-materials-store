@@ -1,4 +1,6 @@
-// Email Service - Ready for integration with Nodemailer or SendGrid
+// Email Service - Using Nodemailer for SMTP
+
+import nodemailer from 'nodemailer'
 
 export interface EmailTemplate {
   to: string
@@ -55,7 +57,7 @@ export class EmailService {
   }) {
     const template: EmailTemplate = {
       to: data.email,
-      subject: 'Đặt lại mật khẩu',
+      subject: '🔐 Đặt lại mật khẩu - SmartBuild',
       html: this.getPasswordResetHTML(data),
       text: `Xin chào ${data.name},\n\nBạn đã yêu cầu đặt lại mật khẩu.\nNhấp vào link sau: ${data.resetLink}\n\nLink có hiệu lực trong 1 giờ.`
     }
@@ -63,33 +65,36 @@ export class EmailService {
     return this.sendEmail(template)
   }
 
+  // Create nodemailer transporter
+  private static getTransporter() {
+    return nodemailer.createTransport({
+      host: process.env.SMTP_HOST || 'smtp.gmail.com',
+      port: parseInt(process.env.SMTP_PORT || '587'),
+      secure: false,
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASSWORD
+      }
+    })
+  }
+
   // Base send email method
   private static async sendEmail(template: EmailTemplate): Promise<boolean> {
     try {
-      // TODO: Integrate with actual email service
-      // Example with Nodemailer:
-      /*
-      const transporter = nodemailer.createTransporter({
-        host: process.env.SMTP_HOST,
-        port: parseInt(process.env.SMTP_PORT || '587'),
-        secure: false,
-        auth: {
-          user: process.env.SMTP_USER,
-          pass: process.env.SMTP_PASSWORD
-        }
-      })
+      const transporter = this.getTransporter()
 
       await transporter.sendMail({
-        from: process.env.EMAIL_FROM,
-        ...template
+        from: `"SmartBuild" <${process.env.SMTP_USER}>`,
+        to: template.to,
+        subject: template.subject,
+        html: template.html,
+        text: template.text
       })
-      */
 
-      // For now, just log
-      console.log('Email would be sent:', template.subject, 'to:', template.to)
+      console.log('✅ Email sent successfully to:', template.to)
       return true
     } catch (error) {
-      console.error('Email sending failed:', error)
+      console.error('❌ Email sending failed:', error)
       return false
     }
   }
