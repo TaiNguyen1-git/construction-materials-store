@@ -1,0 +1,20 @@
+name: Weekly Prophet ML Training
+
+on:
+  schedule:
+    # Chạy vào 00:00 Chủ Nhật hàng tuần (UTC)
+    - cron: '0 0 * * 0'
+  workflow_dispatch: # Cho phép chạy thủ công từ GitHub UI
+
+jobs:
+  trigger-training:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Prophet Training on Render
+        run: |
+          # Gửi request POST tới API Admin của hệ thống (đã deploy trên Vercel)
+          # Lưu ý: Sẽ cần x-user-role Header để bypass check
+          curl -X POST "${{ secrets.SITE_URL }}/api/ml/train" \
+               -H "Content-Type: application/json" \
+               -H "x-user-role: MANAGER" \
+               -d '{"trainAll": true}'
