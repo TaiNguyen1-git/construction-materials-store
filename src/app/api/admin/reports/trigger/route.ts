@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { EmailService } from '@/lib/email-service'
-import { createSuccessResponse, createErrorResponse } from '@/lib/api-response'
+import { createSuccessResponse, createErrorResponse } from '@/lib/api-types'
 import { startOfDay, endOfDay, subDays, startOfMonth, endOfMonth, subMonths, format } from 'date-fns'
 import { vi } from 'date-fns/locale'
 

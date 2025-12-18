@@ -8,9 +8,9 @@ export async function POST(request: NextRequest) {
     try {
         const { token, email, newPassword } = await request.json()
 
-        if (!token || !email || !newPassword) {
+        if (!token || !newPassword) {
             return NextResponse.json(
-                { success: false, error: 'Token, email và mật khẩu mới là bắt buộc' },
+                { success: false, error: 'Token và mật khẩu mới là bắt buộc' },
                 { status: 400 }
             )
         }
@@ -28,8 +28,8 @@ export async function POST(request: NextRequest) {
         // Find user with valid token
         const user = await prisma.user.findFirst({
             where: {
-                email: email.toLowerCase().trim(),
                 resetToken: tokenHash,
+                ...(email ? { email: email.toLowerCase().trim() } : {}),
                 resetTokenExpiry: {
                     gt: new Date()
                 }
