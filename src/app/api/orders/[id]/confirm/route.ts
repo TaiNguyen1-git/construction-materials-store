@@ -128,6 +128,30 @@ export async function PUT(
     pushOrderStatusUpdate(orderId, newStatus, order.orderNumber)
       .catch(err => console.error('Firebase push error:', err))
 
+    // Send confirmation email to customer (non-blocking)
+    const customerEmail = updatedOrder.customer?.user?.email || updatedOrder.guestEmail
+    const customerName = updatedOrder.customer?.user?.name || updatedOrder.guestName || 'Quý khách'
+
+    if (customerEmail) {
+      import('@/lib/email-service').then(({ EmailService }) => {
+        EmailService.sendOrderApprovedWithPayment({
+          email: customerEmail,
+          name: customerName || 'Quý khách',
+          orderNumber: updatedOrder.orderNumber,
+          orderId: updatedOrder.id,
+          totalAmount: updatedOrder.netAmount,
+          depositAmount: updatedOrder.depositAmount || undefined,
+          paymentMethod: updatedOrder.paymentMethod || 'BANK_TRANSFER',
+          paymentType: updatedOrder.paymentType || 'FULL',
+          items: updatedOrder.orderItems.map(item => ({
+            name: item.product.name,
+            quantity: item.quantity,
+            price: item.unitPrice
+          }))
+        }).catch(err => console.error('Email to customer error:', err))
+      })
+    }
+
     return NextResponse.json(
       createSuccessResponse(updatedOrder, 'Order confirmed successfully'),
       { status: 200 }

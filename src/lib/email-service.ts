@@ -9,8 +9,17 @@ export interface EmailTemplate {
   text?: string
 }
 
+// Bank account info for payment (matching QRPayment.tsx)
+const BANK_INFO = {
+  bankId: '970423', // TPBank
+  bankName: 'TPBank',
+  accountNumber: '06729594301',
+  accountName: 'NGUYEN THANH TAI',
+  fullBankName: 'Ngân hàng TMCP Tiên Phong (TPBank)'
+}
+
 export class EmailService {
-  // Order Confirmation Email
+  // Order Confirmation Email (when customer places order)
   static async sendOrderConfirmation(orderData: {
     email: string
     name: string
@@ -24,9 +33,106 @@ export class EmailService {
   }) {
     const template: EmailTemplate = {
       to: orderData.email,
-      subject: `Xác nhận đơn hàng ${orderData.orderNumber}`,
+      subject: `✅ Xác nhận đơn hàng ${orderData.orderNumber} - SmartBuild`,
       html: this.getOrderConfirmationHTML(orderData),
       text: this.getOrderConfirmationText(orderData)
+    }
+
+    return this.sendEmail(template)
+  }
+
+  // Order Approved Email with Payment Info (when admin confirms order)
+  static async sendOrderApprovedWithPayment(data: {
+    email: string
+    name: string
+    orderNumber: string
+    orderId: string
+    totalAmount: number
+    depositAmount?: number
+    paymentMethod: string
+    paymentType: string
+    items: Array<{ name: string; quantity: number; price: number }>
+  }) {
+    const template: EmailTemplate = {
+      to: data.email,
+      subject: `🎉 Đơn hàng ${data.orderNumber} đã được xác nhận - SmartBuild`,
+      html: this.getOrderApprovedHTML(data),
+      text: `Đơn hàng ${data.orderNumber} đã được xác nhận. Vui lòng thanh toán để tiếp tục xử lý.`
+    }
+
+    return this.sendEmail(template)
+  }
+
+  // New Order Email for Employee
+  static async sendNewOrderToEmployee(data: {
+    orderNumber: string
+    customerName: string
+    customerPhone?: string
+    totalAmount: number
+    itemCount: number
+  }) {
+    const employeeEmail = process.env.EMPLOYEE_NOTIFICATION_EMAIL
+    if (!employeeEmail) {
+      console.log('⚠️ EMPLOYEE_NOTIFICATION_EMAIL not configured')
+      return false
+    }
+
+    const template: EmailTemplate = {
+      to: employeeEmail,
+      subject: `🛒 Đơn hàng mới: ${data.orderNumber}`,
+      html: this.getNewOrderForEmployeeHTML(data),
+      text: `Đơn hàng mới ${data.orderNumber} từ ${data.customerName}, tổng ${data.totalAmount.toLocaleString()}đ`
+    }
+
+    return this.sendEmail(template)
+  }
+
+  // Stock Alert Email for Employee
+  static async sendStockAlertToEmployee(data: {
+    productName: string
+    sku: string
+    currentStock: number
+    minStock: number
+  }) {
+    const employeeEmail = process.env.EMPLOYEE_NOTIFICATION_EMAIL
+    if (!employeeEmail) {
+      console.log('⚠️ EMPLOYEE_NOTIFICATION_EMAIL not configured')
+      return false
+    }
+
+    const template: EmailTemplate = {
+      to: employeeEmail,
+      subject: `⚠️ Cảnh báo tồn kho: ${data.productName}`,
+      html: this.getStockAlertHTML(data, 'warning'),
+      text: `Sản phẩm ${data.productName} (${data.sku}) còn ${data.currentStock} đơn vị, dưới mức tối thiểu ${data.minStock}`
+    }
+
+    return this.sendEmail(template)
+  }
+
+  // Critical Stock Alert Email for Admin (only critical)
+  static async sendCriticalStockAlertToAdmin(data: {
+    productName: string
+    sku: string
+    currentStock: number
+    minStock: number
+  }) {
+    const adminEmail = process.env.ADMIN_NOTIFICATION_EMAIL
+    if (!adminEmail) {
+      console.log('⚠️ ADMIN_NOTIFICATION_EMAIL not configured')
+      return false
+    }
+
+    // Only send if stock is critically low (less than 20% of min stock)
+    if (data.currentStock > data.minStock * 0.2) {
+      return false
+    }
+
+    const template: EmailTemplate = {
+      to: adminEmail,
+      subject: `🚨 KHẨN CẤP: Tồn kho nguy cấp - ${data.productName}`,
+      html: this.getStockAlertHTML(data, 'critical'),
+      text: `KHẨN CẤP: Sản phẩm ${data.productName} (${data.sku}) chỉ còn ${data.currentStock} đơn vị!`
     }
 
     return this.sendEmail(template)
@@ -41,7 +147,7 @@ export class EmailService {
   }) {
     const template: EmailTemplate = {
       to: data.email,
-      subject: `Đơn hàng ${data.orderNumber} đang được giao`,
+      subject: `🚚 Đơn hàng ${data.orderNumber} đang được giao`,
       html: this.getShippingNotificationHTML(data),
       text: `Xin chào ${data.name},\n\nĐơn hàng ${data.orderNumber} của bạn đang được giao.\n${data.trackingNumber ? `Mã vận đơn: ${data.trackingNumber}` : ''}\n\nCảm ơn bạn đã mua hàng!`
     }
@@ -99,9 +205,468 @@ export class EmailService {
     }
   }
 
-  // HTML Templates
-  private static getOrderConfirmationHTML(data: any): string {
+  // ============ HTML TEMPLATES ============
+
+  // Order Approved with Payment Info HTML
+  private static getOrderApprovedHTML(data: any): string {
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'
+    const trackingUrl = `${baseUrl}/order-tracking?orderId=${data.orderId}`
+    const paymentAmount = data.depositAmount || data.totalAmount
+    const qrUrl = `https://img.vietqr.io/image/${BANK_INFO.bankId}-${BANK_INFO.accountNumber}-compact.png?amount=${paymentAmount}&addInfo=${encodeURIComponent('DH ' + data.orderNumber)}&accountName=${encodeURIComponent(BANK_INFO.accountName)}`
+
+    const paymentLabel = data.depositAmount ? 'Số tiền đặt cọc' : 'Số tiền thanh toán'
+
     return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      </head>
+      <body style="margin: 0; padding: 0; background-color: #f4f7fa; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+        <table role="presentation" style="width: 100%; border-collapse: collapse;">
+          <tr>
+            <td align="center" style="padding: 40px 0;">
+              <table role="presentation" style="width: 600px; border-collapse: collapse; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.1);">
+                
+                <!-- Header -->
+                <tr>
+                  <td style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 40px; text-align: center;">
+                    <h1 style="color: #ffffff; font-size: 28px; margin: 0;">🎉 Đơn Hàng Đã Được Xác Nhận!</h1>
+                    <p style="color: rgba(255,255,255,0.9); font-size: 16px; margin: 10px 0 0 0;">Mã đơn: <strong>${data.orderNumber}</strong></p>
+                  </td>
+                </tr>
+
+                <!-- Content -->
+                <tr>
+                  <td style="padding: 40px;">
+                    <p style="color: #374151; font-size: 16px; margin: 0 0 20px 0;">
+                      Xin chào <strong style="color: #10b981;">${data.name}</strong>,
+                    </p>
+                    <p style="color: #6b7280; font-size: 15px; margin: 0 0 30px 0;">
+                      Đơn hàng của bạn đã được xác nhận! Vui lòng thanh toán để chúng tôi tiến hành xử lý.
+                    </p>
+
+                    <!-- Order Items -->
+                    <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+                      <tr>
+                        <td colspan="2" style="background: #f8fafc; padding: 15px; border-radius: 8px 8px 0 0; font-weight: 600; color: #374151;">
+                          📦 Chi tiết đơn hàng
+                        </td>
+                      </tr>
+                      ${data.items.map((item: any) => `
+                      <tr>
+                        <td style="padding: 12px 15px; border-bottom: 1px solid #e5e7eb;">${item.name}</td>
+                        <td style="padding: 12px 15px; border-bottom: 1px solid #e5e7eb; text-align: right;">${item.quantity} x ${item.price.toLocaleString()}đ</td>
+                      </tr>
+                      `).join('')}
+                      <tr>
+                        <td style="padding: 15px; font-weight: 600; font-size: 18px; color: #10b981;">Tổng cộng</td>
+                        <td style="padding: 15px; font-weight: 600; font-size: 18px; color: #10b981; text-align: right;">${data.totalAmount.toLocaleString()}đ</td>
+                      </tr>
+                    </table>
+
+                    ${data.paymentMethod === 'BANK_TRANSFER' ? `
+                    <!-- Payment Info Box -->
+                    <table style="width: 100%; border-collapse: collapse; background: linear-gradient(135deg, #dbeafe 0%, #ede9fe 100%); border-radius: 12px; margin-bottom: 20px;">
+                      <tr>
+                        <td style="padding: 25px;">
+                          <h3 style="color: #1e40af; margin: 0 0 15px 0; font-size: 18px;">💳 Thông Tin Thanh Toán</h3>
+                          
+                          <table style="width: 100%;">
+                            <tr>
+                              <td style="padding: 8px 0; color: #6b7280;">Ngân hàng:</td>
+                              <td style="padding: 8px 0; font-weight: 600; color: #1e40af;">${BANK_INFO.bankName}</td>
+                            </tr>
+                            <tr>
+                              <td style="padding: 8px 0; color: #6b7280;">Số tài khoản:</td>
+                              <td style="padding: 8px 0; font-weight: 600; color: #1e40af; font-size: 18px;">${BANK_INFO.accountNumber}</td>
+                            </tr>
+                            <tr>
+                              <td style="padding: 8px 0; color: #6b7280;">Chủ tài khoản:</td>
+                              <td style="padding: 8px 0; font-weight: 600; color: #1e40af;">${BANK_INFO.accountName}</td>
+                            </tr>
+                            <tr>
+                              <td style="padding: 8px 0; color: #6b7280;">${paymentLabel}:</td>
+                              <td style="padding: 8px 0; font-weight: 600; color: #dc2626; font-size: 20px;">${paymentAmount.toLocaleString()}đ</td>
+                            </tr>
+                            <tr>
+                              <td style="padding: 8px 0; color: #6b7280;">Nội dung CK:</td>
+                              <td style="padding: 8px 0; font-weight: 600; color: #1e40af;">DH ${data.orderNumber}</td>
+                            </tr>
+                          </table>
+                        </td>
+                      </tr>
+                    </table>
+
+                    <!-- QR Code -->
+                    <table style="width: 100%; border-collapse: collapse; text-align: center; margin-bottom: 20px;">
+                      <tr>
+                        <td style="padding: 20px; background: #ffffff; border: 2px dashed #cbd5e1; border-radius: 12px;">
+                          <p style="color: #6b7280; margin: 0 0 15px 0;">Quét mã QR để thanh toán nhanh:</p>
+                          <img src="${qrUrl}" alt="QR Code thanh toán" style="max-width: 200px; height: auto; border-radius: 8px;">
+                        </td>
+                      </tr>
+                    </table>
+                    ` : `
+                    <table style="width: 100%; border-collapse: collapse; background: #fef3c7; border-radius: 12px; margin-bottom: 20px;">
+                      <tr>
+                        <td style="padding: 20px; text-align: center;">
+                          <p style="color: #92400e; margin: 0; font-weight: 600;">
+                            💵 Thanh toán khi nhận hàng (COD)
+                          </p>
+                          <p style="color: #92400e; margin: 10px 0 0 0;">
+                            Vui lòng chuẩn bị ${data.totalAmount.toLocaleString()}đ khi nhận hàng
+                          </p>
+                        </td>
+                      </tr>
+                    </table>
+                    `}
+
+                    <!-- CTA Button -->
+                    <table style="width: 100%;">
+                      <tr>
+                        <td align="center" style="padding: 20px 0;">
+                          <a href="${trackingUrl}" style="display: inline-block; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #ffffff; text-decoration: none; padding: 16px 40px; border-radius: 50px; font-size: 16px; font-weight: 600;">
+                            📍 Theo Dõi Đơn Hàng
+                          </a>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+
+                <!-- Footer -->
+                <tr>
+                  <td style="background-color: #f8fafc; padding: 30px; text-align: center; border-top: 1px solid #e5e7eb;">
+                    <p style="color: #6b7280; font-size: 13px; margin: 0;">
+                      Cần hỗ trợ? Liên hệ: <strong>1900-xxxx</strong>
+                    </p>
+                    <p style="color: #9ca3af; font-size: 12px; margin: 10px 0 0 0;">
+                      © 2024 SmartBuild - Vật Liệu Xây Dựng Thông Minh
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </body>
+      </html>
+    `
+  }
+
+  // New Order for Employee HTML
+  private static getNewOrderForEmployeeHTML(data: any): string {
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head><meta charset="utf-8"></head>
+      <body style="margin: 0; padding: 20px; background-color: #f4f7fa; font-family: Arial, sans-serif;">
+        <table style="max-width: 500px; margin: 0 auto; background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+          <tr>
+            <td style="background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); padding: 25px; text-align: center;">
+              <h2 style="color: #fff; margin: 0;">🛒 Đơn Hàng Mới</h2>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 25px;">
+              <table style="width: 100%;">
+                <tr>
+                  <td style="padding: 8px 0; color: #6b7280;">Mã đơn:</td>
+                  <td style="padding: 8px 0; font-weight: 600; color: #1d4ed8;">${data.orderNumber}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; color: #6b7280;">Khách hàng:</td>
+                  <td style="padding: 8px 0; font-weight: 600;">${data.customerName}</td>
+                </tr>
+                ${data.customerPhone ? `
+                <tr>
+                  <td style="padding: 8px 0; color: #6b7280;">SĐT:</td>
+                  <td style="padding: 8px 0;">${data.customerPhone}</td>
+                </tr>
+                ` : ''}
+                <tr>
+                  <td style="padding: 8px 0; color: #6b7280;">Số sản phẩm:</td>
+                  <td style="padding: 8px 0;">${data.itemCount} sản phẩm</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; color: #6b7280;">Tổng tiền:</td>
+                  <td style="padding: 8px 0; font-weight: 600; color: #dc2626; font-size: 18px;">${data.totalAmount.toLocaleString()}đ</td>
+                </tr>
+              </table>
+              <div style="text-align: center; margin-top: 20px;">
+                <a href="${baseUrl}/admin/orders" style="display: inline-block; background: #1d4ed8; color: #fff; padding: 12px 30px; border-radius: 8px; text-decoration: none; font-weight: 600;">
+                  Xem Chi Tiết
+                </a>
+              </div>
+            </td>
+          </tr>
+        </table>
+      </body>
+      </html>
+    `
+  }
+
+  // Stock Alert HTML
+  private static getStockAlertHTML(data: any, level: 'warning' | 'critical'): string {
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'
+    const bgColor = level === 'critical' ? '#dc2626' : '#f59e0b'
+    const emoji = level === 'critical' ? '🚨' : '⚠️'
+    const title = level === 'critical' ? 'KHẨN CẤP: Tồn Kho Nguy Cấp' : 'Cảnh Báo Tồn Kho'
+
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head><meta charset="utf-8"></head>
+      <body style="margin: 0; padding: 20px; background-color: #f4f7fa; font-family: Arial, sans-serif;">
+        <table style="max-width: 500px; margin: 0 auto; background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+          <tr>
+            <td style="background: ${bgColor}; padding: 25px; text-align: center;">
+              <h2 style="color: #fff; margin: 0;">${emoji} ${title}</h2>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 25px;">
+              <table style="width: 100%;">
+                <tr>
+                  <td style="padding: 8px 0; color: #6b7280;">Sản phẩm:</td>
+                  <td style="padding: 8px 0; font-weight: 600;">${data.productName}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; color: #6b7280;">SKU:</td>
+                  <td style="padding: 8px 0; font-family: monospace;">${data.sku}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; color: #6b7280;">Tồn kho hiện tại:</td>
+                  <td style="padding: 8px 0; font-weight: 600; color: ${bgColor}; font-size: 20px;">${data.currentStock}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; color: #6b7280;">Mức tối thiểu:</td>
+                  <td style="padding: 8px 0;">${data.minStock}</td>
+                </tr>
+              </table>
+              <div style="text-align: center; margin-top: 20px;">
+                <a href="${baseUrl}/admin/inventory" style="display: inline-block; background: ${bgColor}; color: #fff; padding: 12px 30px; border-radius: 8px; text-decoration: none; font-weight: 600;">
+                  Kiểm Tra Kho
+                </a>
+              </div>
+            </td>
+          </tr>
+        </table>
+      </body>
+      </html>
+    `
+  }
+
+  // Admin Daily/Weekly/Monthly Report
+  static async sendAdminReport(data: {
+    reportType: 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY'
+    periodLabel: string
+    revenue: {
+      total: number
+      orderCount: number
+      averageOrderValue: number
+      growth?: number // percentage growth comparison
+    }
+    stats: {
+      newCustomers: number
+      topProducts: Array<{ name: string; quantity: number; revenue: number }>
+      inventoryStatus: {
+        lowStockItems: number
+        totalValue: number
+      }
+    }
+    employeeKPI: Array<{
+      name: string
+      role: string
+      tasksCompleted: number
+      shiftsWorked: number
+      performanceScore: number
+    }>
+  }) {
+    const adminEmail = process.env.ADMIN_NOTIFICATION_EMAIL
+    if (!adminEmail) {
+      console.log('⚠️ ADMIN_NOTIFICATION_EMAIL not configured')
+      return false
+    }
+
+    const typeLabels = {
+      DAILY: 'Ngày',
+      WEEKLY: 'Tuần',
+      MONTHLY: 'Tháng',
+      YEARLY: 'Năm'
+    }
+
+    const template: EmailTemplate = {
+      to: adminEmail,
+      subject: `📊 Báo Cáo Doanh Thu ${typeLabels[data.reportType]} - ${data.periodLabel}`,
+      html: this.getAdminReportHTML(data)
+    }
+
+    return this.sendEmail(template)
+  }
+
+  // Admin Report HTML Template
+  private static getAdminReportHTML(data: any): string {
+    const revenueColor = data.revenue.growth && data.revenue.growth >= 0 ? '#10b981' : '#ef4444'
+    const growthSymbol = data.revenue.growth && data.revenue.growth >= 0 ? '↗' : '↘'
+
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <style>
+          .stat-card { background: #f8fafc; border-radius: 12px; padding: 15px; border-left: 4px solid #3b82f6; }
+          .table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+          .table th { text-align: left; padding: 12px; background: #f1f5f9; color: #475569; font-size: 13px; }
+          .table td { padding: 12px; border-bottom: 1px solid #e2e8f0; color: #1e293b; font-size: 14px; }
+          .badge { padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+        </style>
+      </head>
+      <body style="margin: 0; padding: 0; background-color: #f4f7fa; font-family: 'Segoe UI', Arial, sans-serif;">
+        <table role="presentation" style="width: 100%; border-collapse: collapse;">
+          <tr>
+            <td align="center" style="padding: 30px 0;">
+              <table role="presentation" style="width: 700px; border-collapse: collapse; background: #ffffff; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.1);">
+                
+                <!-- Title Header -->
+                <tr>
+                  <td style="background: #1e293b; padding: 40px; text-align: center;">
+                    <span style="color: #60a5fa; font-size: 14px; font-weight: 700; letter-spacing: 2px;">SMARTBUILD INSIGHTS</span>
+                    <h1 style="color: #ffffff; margin: 10px 0 0 0; font-size: 28px;">Báo Cáo ${data.periodLabel}</h1>
+                  </td>
+                </tr>
+
+                <!-- Summary Section -->
+                <tr>
+                  <td style="padding: 40px;">
+                    <h2 style="color: #334155; font-size: 20px; border-bottom: 2px solid #f1f5f9; padding-bottom: 10px; margin-bottom: 25px;">💰 Tổng Quan Tài Chính</h2>
+                    
+                    <div style="display: flex; gap: 20px; margin-bottom: 30px;">
+                      <div style="flex: 1; background: #eff6ff; border-radius: 16px; padding: 25px; border: 1px solid #bfdbfe;">
+                        <p style="color: #3b82f6; margin: 0; font-size: 14px; font-weight: 600;">Tổng Doanh Thu</p>
+                        <p style="color: #1e40af; margin: 10px 0; font-size: 32px; font-weight: 800;">${data.revenue.total.toLocaleString()}đ</p>
+                        ${data.revenue.growth !== undefined ? `
+                        <span style="color: ${revenueColor}; font-weight: 700; font-size: 14px;">
+                          ${growthSymbol} ${Math.abs(data.revenue.growth)}% <span style="color: #64748b; font-weight: 400;">so với kỳ trước</span>
+                        </span>
+                        ` : ''}
+                      </div>
+                    </div>
+
+                    <table style="width: 100%; margin-bottom: 40px;">
+                      <tr>
+                        <td style="width: 32%; padding-right: 15px;">
+                          <div class="stat-card">
+                            <p style="margin: 0; font-size: 12px; color: #64748b;">Số lượng đơn</p>
+                            <p style="margin: 5px 0 0 0; font-size: 20px; font-weight: 700;">${data.revenue.orderCount}</p>
+                          </div>
+                        </td>
+                        <td style="width: 32%; padding-right: 15px;">
+                          <div class="stat-card" style="border-left-color: #8b5cf6;">
+                            <p style="margin: 0; font-size: 12px; color: #64748b;">TB mỗi đơn</p>
+                            <p style="margin: 5px 0 0 0; font-size: 20px; font-weight: 700;">${Math.round(data.revenue.averageOrderValue).toLocaleString()}đ</p>
+                          </div>
+                        </td>
+                        <td style="width: 32%;">
+                          <div class="stat-card" style="border-left-color: #10b981;">
+                            <p style="margin: 0; font-size: 12px; color: #64748b;">Khách mới</p>
+                            <p style="margin: 5px 0 0 0; font-size: 20px; font-weight: 700;">+${data.stats.newCustomers}</p>
+                          </div>
+                        </td>
+                      </tr>
+                    </table>
+
+                    <!-- Top Products Table -->
+                    <h2 style="color: #334155; font-size: 20px; border-bottom: 2px solid #f1f5f9; padding-bottom: 10px; margin-bottom: 15px;">🏆 Top Sản Phẩm Bán Chạy</h2>
+                    <table class="table">
+                      <thead>
+                        <tr>
+                          <th>Sản Phẩm</th>
+                          <th style="text-align: center;">SL Bán</th>
+                          <th style="text-align: right;">Doanh Thu</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        ${data.stats.topProducts.map((p: any) => `
+                        <tr>
+                          <td style="font-weight: 600;">${p.name}</td>
+                          <td style="text-align: center;">${p.quantity}</td>
+                          <td style="text-align: right; color: #10b981; font-weight: 600;">${p.revenue.toLocaleString()}đ</td>
+                        </tr>
+                        `).join('')}
+                      </tbody>
+                    </table>
+
+                    <div style="margin-top: 40px;"></div>
+
+                    <!-- Employee KPI Section -->
+                    <h2 style="color: #334155; font-size: 20px; border-bottom: 2px solid #f1f5f9; padding-bottom: 10px; margin-bottom: 15px;">👥 Hiệu Suất Nhân Viên</h2>
+                    <table class="table">
+                      <thead>
+                        <tr>
+                          <th>Nhân Viên</th>
+                          <th style="text-align: center;">Công Việc</th>
+                          <th style="text-align: center;">Ca Làm</th>
+                          <th style="text-align: right;">Điểm HS</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        ${data.employeeKPI.map((emp: any) => `
+                        <tr>
+                          <td>
+                            <div style="font-weight: 600;">${emp.name}</div>
+                            <div style="font-size: 11px; color: #64748b;">${emp.role}</div>
+                          </td>
+                          <td style="text-align: center;"><span class="badge" style="background: #dcfce7; color: #166534;">${emp.tasksCompleted}</span></td>
+                          <td style="text-align: center;"><span class="badge" style="background: #f1f5f9; color: #475569;">${emp.shiftsWorked}</span></td>
+                          <td style="text-align: right; font-weight: 700; color: #3b82f6;">${emp.performanceScore}%</td>
+                        </tr>
+                        `).join('')}
+                      </tbody>
+                    </table>
+
+                    <!-- Inventory Warning -->
+                    <div style="margin-top: 40px; background: #fff7ed; border-radius: 12px; padding: 20px; border: 1px solid #fed7aa;">
+                      <table style="width: 100%;">
+                        <tr>
+                          <td style="vertical-align: top; width: 40px; font-size: 24px;">📦</td>
+                          <td>
+                            <h4 style="margin: 0; color: #9a3412;">Tình trạng Kho hàng</h4>
+                            <p style="margin: 5px 0 0 0; font-size: 14px; color: #c2410c;">
+                              Hiện có <strong>${data.stats.inventoryStatus.lowStockItems} mặt hàng</strong> đang ở mức báo động. 
+                              Tổng giá trị hàng tồn ước tính: <strong>${data.stats.inventoryStatus.totalValue.toLocaleString()}đ</strong>
+                            </p>
+                          </td>
+                        </tr>
+                      </table>
+                    </div>
+
+                  </td>
+                </tr>
+
+                <!-- Footer -->
+                <tr>
+                  <td style="background: #f8fafc; padding: 30px; text-align: center; border-top: 1px solid #e2e8f0;">
+                    <p style="color: #94a3b8; font-size: 12px; margin: 0;">
+                      © 2024 SmartBuild Analytics System. Tất cả quyền được bảo lưu.<br>
+                      Email này được gửi tự động từ hệ thống quản trị.
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </body>
+      </html>
+    `
+  }
+}
+return `
       <!DOCTYPE html>
       <html>
       <head>
@@ -157,7 +722,7 @@ export class EmailService {
   }
 
   private static getOrderConfirmationText(data: any): string {
-    return `
+  return `
 Xin chào ${data.name},
 
 Cảm ơn bạn đã đặt hàng tại SmartBuild!
@@ -175,10 +740,10 @@ Xem chi tiết: ${process.env.NEXT_PUBLIC_BASE_URL}/account/orders
 
 Hotline: 1900-xxxx
     `
-  }
+}
 
   private static getShippingNotificationHTML(data: any): string {
-    return `
+  return `
       <!DOCTYPE html>
       <html>
       <head>
@@ -204,10 +769,10 @@ Hotline: 1900-xxxx
       </body>
       </html>
     `
-  }
+}
 
   private static getPasswordResetHTML(data: any): string {
-    return `
+  return `
       <!DOCTYPE html>
       <html>
       <head>
@@ -304,5 +869,5 @@ Hotline: 1900-xxxx
       </body>
       </html>
     `
-  }
+}
 }

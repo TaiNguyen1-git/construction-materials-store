@@ -31,6 +31,7 @@ const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'
 export default function AdminDashboard() {
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [isSendingReport, setIsSendingReport] = useState(false)
 
   useEffect(() => {
     fetchDashboardData(true)
@@ -42,6 +43,22 @@ export default function AdminDashboard() {
 
     return () => clearInterval(interval)
   }, [])
+
+  const handleSendReport = async () => {
+    try {
+      setIsSendingReport(true)
+      const response = await fetchWithAuth('/api/admin/reports/trigger?type=DAILY')
+      if (response.ok) {
+        alert('📊 Báo cáo ngày đã được gửi tới email của bạn!')
+      } else {
+        alert('❌ Có lỗi khi gửi báo cáo')
+      }
+    } catch (error) {
+      console.error('Report error:', error)
+    } finally {
+      setIsSendingReport(false)
+    }
+  }
 
   const fetchDashboardData = async (showLoading = true) => {
     try {
@@ -153,13 +170,23 @@ export default function AdminDashboard() {
           <h1 className="text-2xl font-bold text-gray-900">Bảng Điều Khiển</h1>
           <p className="text-gray-600">Chào mừng đến với bảng quản trị Cửa Hàng Vật Liệu Xây Dựng</p>
         </div>
-        <button
-          onClick={() => fetchDashboardData(false)}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
-        >
-          <RefreshCw className="w-4 h-4" />
-          <span>Làm mới</span>
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={handleSendReport}
+            disabled={isSendingReport}
+            className={`px-4 py-2 border border-blue-600 ${isSendingReport ? 'bg-blue-50 text-blue-300' : 'text-blue-600 hover:bg-blue-50'} rounded-lg transition-colors flex items-center gap-2`}
+          >
+            {isSendingReport ? <RefreshCw className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
+            <span>Gửi báo cáo Email</span>
+          </button>
+          <button
+            onClick={() => fetchDashboardData(false)}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+          >
+            <RefreshCw className="w-4 h-4" />
+            <span>Làm mới</span>
+          </button>
+        </div>
       </div>
 
       {/* Stats Grid */}

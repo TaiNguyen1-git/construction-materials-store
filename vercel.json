@@ -1,11 +1,8 @@
 {
-  "buildCommand": "npm run build",
-  "devCommand": "npm run dev",
-  "installCommand": "npm install",
-  "framework": "nextjs",
-  "regions": ["sin1"],
-  "env": {
-    "NODE_ENV": "production"
-  }
+  "crons": [
+    {
+      "path": "/api/admin/reports/trigger?type=DAILY",
+      "schedule": "55 23 * * *"
+    }
+  ]
 }
-

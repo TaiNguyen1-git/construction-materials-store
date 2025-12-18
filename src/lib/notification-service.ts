@@ -38,6 +38,7 @@ export async function checkLowStock(): Promise<Notification[]> {
         select: {
           id: true,
           name: true,
+          sku: true,
           unit: true
         }
       }
@@ -71,6 +72,26 @@ export async function checkLowStock(): Promise<Notification[]> {
         percentage: Math.round(percentage)
       }
     })
+
+    // Send email alerts (non-blocking)
+    const stockAlertData = {
+      productName: item.product.name,
+      sku: item.product.sku || item.product.id,
+      currentStock: item.availableQuantity,
+      minStock: item.minStockLevel
+    }
+
+    import('@/lib/email-service').then(({ EmailService }) => {
+      // Email to employee for all low stock
+      EmailService.sendStockAlertToEmployee(stockAlertData)
+        .catch(err => console.error('Stock alert email to employee error:', err))
+
+      // Email to admin only for critical (< 20% of min stock)
+      if (percentage < 20) {
+        EmailService.sendCriticalStockAlertToAdmin(stockAlertData)
+          .catch(err => console.error('Critical stock alert email to admin error:', err))
+      }
+    }).catch(err => console.error('Email import error:', err))
   }
 
   return notifications
@@ -366,10 +387,15 @@ export async function createOrderNotification(order: {
   guestName?: string | null
   guestPhone?: string | null
   customer?: { user?: { name?: string | null; email?: string | null } | null } | null
+  orderItems?: Array<{ id: string }>
 }) {
   const customerName = order.customerType === 'GUEST'
     ? order.guestName || 'Khách vãng lai'
     : order.customer?.user?.name || 'Khách hàng'
+
+  const customerPhone = order.customerType === 'GUEST'
+    ? order.guestPhone
+    : undefined
 
   const notification: Notification = {
     type: 'ORDER_NEW',
@@ -389,6 +415,17 @@ export async function createOrderNotification(order: {
 
   await saveNotificationForAllManagers(notification)
   console.log(`📬 Order notification created: ${order.orderNumber}`)
+
+  // Send email to employee (non-blocking)
+  import('@/lib/email-service').then(({ EmailService }) => {
+    EmailService.sendNewOrderToEmployee({
+      orderNumber: order.orderNumber,
+      customerName,
+      customerPhone: customerPhone || undefined,
+      totalAmount: order.netAmount,
+      itemCount: order.orderItems?.length || 0
+    }).catch(err => console.error('Email to employee error:', err))
+  }).catch(err => console.error('Email import error:', err))
 }
 
 /**
