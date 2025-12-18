@@ -33,13 +33,48 @@ export default function NotificationBell() {
   const readIdsRef = useRef<Set<string>>(new Set())
   const deletedIdsRef = useRef<Set<string>>(new Set())
 
+  // Load persisted state from localStorage on mount
   useEffect(() => {
-    readIdsRef.current = readIds
-  }, [readIds])
+    if (typeof window !== 'undefined' && user) {
+      const storedRead = localStorage.getItem(`read_notifs_${user.id}`)
+      const storedDeleted = localStorage.getItem(`deleted_notifs_${user.id}`)
+
+      if (storedRead) {
+        const ids = JSON.parse(storedRead)
+        const set = new Set<string>(ids)
+        setReadIds(set)
+        readIdsRef.current = set
+      }
+
+      if (storedDeleted) {
+        const ids = JSON.parse(storedDeleted)
+        const set = new Set<string>(ids)
+        setDeletedIds(set)
+        deletedIdsRef.current = set
+      }
+    }
+  }, [user])
+
+  // Persist to localStorage whenever state changes
+  useEffect(() => {
+    if (user) {
+      localStorage.setItem(`read_notifs_${user.id}`, JSON.stringify(Array.from(readIds)))
+      readIdsRef.current = readIds
+    }
+  }, [readIds, user])
 
   useEffect(() => {
-    deletedIdsRef.current = deletedIds
-  }, [deletedIds])
+    if (user) {
+      localStorage.setItem(`deleted_notifs_${user.id}`, JSON.stringify(Array.from(deletedIds)))
+      deletedIdsRef.current = deletedIds
+    }
+  }, [deletedIds, user])
+
+  // Automatically sync unreadCount based on current filtered notifications
+  useEffect(() => {
+    const count = notifications.filter(n => !n.read).length
+    setUnreadCount(count)
+  }, [notifications])
 
   // Manual refresh function
   const refreshNotifications = async (loadMore = false) => {
@@ -236,7 +271,6 @@ export default function NotificationBell() {
     setNotifications(notifications.map(n =>
       n.id === id ? { ...n, read: true } : n
     ))
-    setUnreadCount(Math.max(0, unreadCount - 1))
 
     try {
       // 3. Update in Database
@@ -261,11 +295,11 @@ export default function NotificationBell() {
   }
 
   const markAllAsRead = async () => {
-    // 1. Get all unread IDs
+    // 1. Get all unread IDs from current list
     const unreadIds = notifications.filter(n => !n.read).map(n => n.id)
 
-    // 2. Update local tracking
-    setReadIds(prev => {
+    // 2. Update local tracking (including system notifs)
+    setReadIds((prev: Set<string>) => {
       const next = new Set(prev)
       unreadIds.forEach(id => next.add(id))
       return next
@@ -274,13 +308,12 @@ export default function NotificationBell() {
     // 3. Optimistic update - update UI immediately
     const updatedNotifications = notifications.map(n => ({ ...n, read: true }))
     setNotifications(updatedNotifications)
-    setUnreadCount(0)
 
     try {
       const headers = getAuthHeaders()
 
-      // 4. Batch request to Database
-      await fetch('/api/notifications', {
+      // 4. Batch request to Database (will only affect user-specific ones)
+      fetch('/api/notifications', {
         method: 'POST',
         headers: {
           ...headers,
@@ -289,7 +322,7 @@ export default function NotificationBell() {
         body: JSON.stringify({ markAll: true })
       })
 
-      // 5. Update Firebase (for each unread if possible, though system notifs might not sync)
+      // 5. Update Firebase (for each unread if possible)
       if (user) {
         const { markNotificationReadInFirebase } = await import('@/lib/firebase-notifications')
         for (const id of unreadIds) {
@@ -306,7 +339,7 @@ export default function NotificationBell() {
 
   const deleteNotification = async (id: string) => {
     // 1. Update local tracking instantly 
-    setDeletedIds(prev => new Set(prev).add(id))
+    setDeletedIds((prev: Set<string>) => new Set(prev).add(id))
 
     // 2. Update UI
     const notification = notifications.find(n => n.id === id)
