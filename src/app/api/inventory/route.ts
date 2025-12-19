@@ -37,17 +37,17 @@ const updateInventorySchema = z.object({
 // GET /api/inventory - List inventory items with pagination and filters
 export async function GET(request: NextRequest) {
   const startTime = Date.now()
-  
+
   try {
     // Verify authentication
     const authError = requireAuth(request)
     if (authError) {
       return authError
     }
-    
+
     const userRole = request.headers.get('x-user-role')
     const userId = request.headers.get('x-user-id')
-    
+
     if (process.env.NODE_ENV === 'production' && !['MANAGER', 'EMPLOYEE'].includes(userRole || '')) {
       logger.warn('Unauthorized inventory access', { userId, userRole })
       return NextResponse.json(
@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url)
     const params = Object.fromEntries(searchParams.entries())
-    
+
     const validation = querySchema.safeParse(params)
     if (!validation.success) {
       return NextResponse.json(
@@ -72,7 +72,7 @@ export async function GET(request: NextRequest) {
 
     // Build where clause
     const where: any = {}
-    
+
     if (search) {
       where.product = {
         OR: [
@@ -128,10 +128,10 @@ export async function GET(request: NextRequest) {
     }))
 
     const response = createPaginatedResponse(enrichedItems, total, page, limit)
-    
+
     const duration = Date.now() - startTime
     logAPI.response('GET', '/api/inventory', 200, duration, { total, page, userId })
-    
+
     return NextResponse.json(
       createSuccessResponse(response, 'Inventory items retrieved successfully'),
       { status: 200 }
@@ -141,7 +141,7 @@ export async function GET(request: NextRequest) {
     const duration = Date.now() - startTime
     logAPI.error('GET', '/api/inventory', error, { duration })
     logger.error('Get inventory error', { error: error.message, stack: error.stack })
-    
+
     return NextResponse.json(
       createErrorResponse('Internal server error', 'INTERNAL_ERROR'),
       { status: 500 }
@@ -152,12 +152,12 @@ export async function GET(request: NextRequest) {
 // POST /api/inventory/movements - Update stock levels
 export async function POST(request: NextRequest) {
   const startTime = Date.now()
-  
+
   try {
     // Check user role from middleware
     const userRole = request.headers.get('x-user-role')
     const userId = request.headers.get('x-user-id')
-    
+
     if (!['MANAGER', 'EMPLOYEE'].includes(userRole || '')) {
       logger.warn('Unauthorized inventory update attempt', { userId, userRole })
       return NextResponse.json(
@@ -167,7 +167,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    
+
     // Validate input
     const validation = updateStockSchema.safeParse(body)
     if (!validation.success) {
@@ -270,8 +270,8 @@ export async function POST(request: NextRequest) {
 
       // Check if we need to create a stock alert notification
       // Only check for OUT, DAMAGE, ADJUSTMENT movements that reduce stock
-      if (['OUT', 'DAMAGE', 'ADJUSTMENT'].includes(movementType) && 
-          (newQuantity <= 0 || newQuantity <= inventoryItem.minStockLevel)) {
+      if (['OUT', 'DAMAGE', 'ADJUSTMENT'].includes(movementType) &&
+        (newQuantity <= 0 || newQuantity <= inventoryItem.minStockLevel)) {
         try {
           await sendNotification({
             type: 'LOW_STOCK',
@@ -289,6 +289,41 @@ export async function POST(request: NextRequest) {
       return updatedInventory
     })
 
+    // Send email alerts for critical stock levels (non-blocking, outside transaction)
+    // Critical = stock is at or below 20% of minStockLevel
+    const isCriticalStock = newQuantity <= inventoryItem.minStockLevel * 0.2 || newQuantity <= 0
+    if (isCriticalStock) {
+      // Get product info for email
+      const product = await prisma.product.findUnique({
+        where: { id: productId },
+        select: { name: true, sku: true }
+      })
+
+      if (product) {
+        import('@/lib/email-service').then(({ EmailService }) => {
+          // Send critical stock alert to admin
+          EmailService.sendCriticalStockAlertToAdmin({
+            productName: product.name,
+            sku: product.sku || productId,
+            currentStock: newQuantity,
+            minStock: inventoryItem.minStockLevel
+          }).then(sent => {
+            if (sent) {
+              console.log(`📧 Critical stock email sent to admin for: ${product.name}`)
+            }
+          }).catch(err => console.error('Critical stock alert email error:', err))
+
+          // Also send to employee
+          EmailService.sendStockAlertToEmployee({
+            productName: product.name,
+            sku: product.sku || productId,
+            currentStock: newQuantity,
+            minStock: inventoryItem.minStockLevel
+          }).catch(err => console.error('Stock alert email to employee error:', err))
+        }).catch(err => console.error('Email import error:', err))
+      }
+    }
+
     // Send real-time WebSocket notification
     try {
       await notificationWebSocketServer.sendStockUpdate(
@@ -296,7 +331,7 @@ export async function POST(request: NextRequest) {
         newQuantity,
         previousStock
       )
-      
+
       // Send low stock alert if applicable
       if (newQuantity <= 0 || newQuantity <= inventoryItem.minStockLevel) {
         await notificationWebSocketServer.sendLowStockAlert(
@@ -337,7 +372,7 @@ export async function PUT(request: NextRequest, { params }: { params: { productI
 
     const productId = params.productId
     const body = await request.json()
-    
+
     // Validate input
     const validation = updateInventorySchema.safeParse(body)
     if (!validation.success) {
