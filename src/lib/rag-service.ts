@@ -15,6 +15,90 @@ function normalizeVietnamese(text: string): string {
     .toLowerCase()
 }
 
+// Vietnamese synonyms dictionary for better query understanding
+const VIETNAMESE_SYNONYMS: Record<string, string[]> = {
+  // Cement
+  'xi mang': ['xi măng', 'ximang', 'cement', 'xm'],
+  'xi': ['xi măng'],
+  // Sand
+  'cat': ['cát', 'sand'],
+  'cat xay': ['cát xây', 'cát xây dựng', 'cát vàng'],
+  'cat to': ['cát tô', 'cát trát', 'cát mịn'],
+  // Stone/Gravel
+  'da': ['đá', 'stone', 'gravel'],
+  'da 1x2': ['đá 1x2', 'đá dăm', 'đá xây dựng'],
+  'da mi': ['đá mi', 'đá mạt', 'đá 0x4'],
+  // Brick
+  'gach': ['gạch', 'brick'],
+  'gach ong': ['gạch ống', 'gạch 4 lỗ', 'gạch xây'],
+  'gach dinh': ['gạch đinh', 'gạch đặc', 'gạch đỏ'],
+  // Steel
+  'thep': ['thép', 'sắt', 'steel', 'sat'],
+  'sat thep': ['sắt thép', 'thép xây dựng'],
+  // Paint
+  'son': ['sơn', 'paint'],
+  // Roofing
+  'ton': ['tôn', 'tole', 'mái tôn'],
+  'ngoi': ['ngói', 'mái ngói'],
+  // Common phrases
+  'gia': ['giá', 'báo giá', 'bao nhieu', 'price'],
+  'mua': ['mua', 'đặt hàng', 'order', 'dat hang'],
+  'giao hang': ['giao hàng', 'ship', 'vận chuyển', 'van chuyen'],
+  'thanh toan': ['thanh toán', 'payment', 'chuyển khoản', 'chuyen khoan'],
+  'doi tra': ['đổi trả', 'return', 'hoàn tiền', 'hoan tien'],
+  'bao hanh': ['bảo hành', 'warranty'],
+}
+
+// Expand query with synonyms
+function expandQueryWithSynonyms(query: string): string[] {
+  const normalized = normalizeVietnamese(query)
+  const words = normalized.split(/\s+/)
+  const expansions: Set<string> = new Set([query, normalized])
+
+  // Check each word and phrase for synonyms
+  for (const [key, synonyms] of Object.entries(VIETNAMESE_SYNONYMS)) {
+    if (normalized.includes(key)) {
+      for (const syn of synonyms) {
+        expansions.add(normalized.replace(key, normalizeVietnamese(syn)))
+      }
+    }
+    // Also check if any synonym matches
+    for (const syn of synonyms) {
+      if (normalized.includes(normalizeVietnamese(syn))) {
+        expansions.add(normalized.replace(normalizeVietnamese(syn), key))
+      }
+    }
+  }
+
+  return Array.from(expansions)
+}
+
+// Calculate keyword match score
+function calculateKeywordScore(query: string, text: string): number {
+  const normalizedQuery = normalizeVietnamese(query)
+  const normalizedText = normalizeVietnamese(text)
+  const queryWords = normalizedQuery.split(/\s+/).filter(w => w.length > 1)
+
+  if (queryWords.length === 0) return 0
+
+  let matchedWords = 0
+  let exactPhraseBonus = 0
+
+  // Check word matches
+  for (const word of queryWords) {
+    if (normalizedText.includes(word)) {
+      matchedWords++
+    }
+  }
+
+  // Bonus for exact phrase match
+  if (normalizedText.includes(normalizedQuery)) {
+    exactPhraseBonus = 0.3
+  }
+
+  return (matchedWords / queryWords.length) * 0.7 + exactPhraseBonus
+}
+
 // Vector store entry
 interface VectorEntry {
   id: string
@@ -71,23 +155,48 @@ class GeminiVectorStore {
     if (!this.model || this.vectors.length === 0) return []
 
     try {
-      // Generate embedding for query (normalized)
+      // Expand query with synonyms for better matching
+      const queryExpansions = expandQueryWithSynonyms(query)
+
+      // Generate embedding for normalized query
       const normalizedQuery = normalizeVietnamese(query)
       const result = await this.model.embedContent(normalizedQuery)
       const queryEmbedding = result.embedding.values
 
-      // Calculate cosine similarity
-      const scores = this.vectors.map(vec => ({
-        metadata: vec.metadata,
-        score: this.cosineSimilarity(queryEmbedding, vec.embedding)
-      }))
+      // Calculate hybrid scores (vector similarity + keyword matching)
+      const scores = this.vectors.map(vec => {
+        const vectorScore = this.cosineSimilarity(queryEmbedding, vec.embedding)
 
-      // Sort by score and return top K
-      return scores
+        // Calculate keyword score using expanded queries
+        let keywordScore = 0
+        for (const expansion of queryExpansions) {
+          const score = calculateKeywordScore(expansion, vec.text)
+          keywordScore = Math.max(keywordScore, score)
+        }
+
+        // Hybrid score: 70% vector + 30% keyword
+        const hybridScore = vectorScore * 0.7 + keywordScore * 0.3
+
+        // Bonus for exact name match
+        const nameBonus = normalizeVietnamese(vec.metadata.name).includes(normalizedQuery) ? 0.15 : 0
+
+        return {
+          metadata: vec.metadata,
+          score: hybridScore + nameBonus,
+          vectorScore,
+          keywordScore
+        }
+      })
+
+      // Sort by score and return top K with lower threshold (0.35)
+      const results = scores
         .sort((a, b) => b.score - a.score)
         .slice(0, topK)
-        .filter(item => item.score > 0.5) // Threshold for relevance
+        .filter(item => item.score > 0.35) // Lowered from 0.5
         .map(item => item.metadata)
+
+      console.log(`[RAG] Query: "${query}" -> Found ${results.length} results (threshold: 0.35)`)
+      return results
     } catch (error) {
       console.error('Error searching vector store:', error)
       return []
@@ -137,7 +246,22 @@ async function initializeVectorStore() {
     })
 
     for (const product of products) {
-      // Convert DB product to ProductKnowledge format
+      // Smart common combinations based on category
+      let commonCombinations: string[] = []
+      const categoryLower = product.category.name.toLowerCase()
+      if (categoryLower.includes('xi măng') || categoryLower.includes('cement')) {
+        commonCombinations = ['cát', 'đá', 'sắt thép']
+      } else if (categoryLower.includes('gạch') || categoryLower.includes('brick')) {
+        commonCombinations = ['xi măng', 'cát']
+      } else if (categoryLower.includes('cát') || categoryLower.includes('sand')) {
+        commonCombinations = ['xi măng', 'đá']
+      } else if (categoryLower.includes('đá') || categoryLower.includes('stone')) {
+        commonCombinations = ['xi măng', 'cát']
+      } else if (categoryLower.includes('thép') || categoryLower.includes('sắt')) {
+        commonCombinations = ['xi măng', 'dây buộc']
+      }
+
+      // Convert DB product to ProductKnowledge format with enhanced fields
       const doc: ProductKnowledge = {
         id: product.id,
         name: product.name,
@@ -150,12 +274,14 @@ async function initializeVectorStore() {
           bulkDiscount: []
         },
         specifications: {
-          sku: product.sku
+          sku: product.sku,
+          ...(product.weight && { weight: `${product.weight}kg` }),
+          ...(product.dimensions && { dimensions: product.dimensions })
         },
-        usage: [], // Can be populated if we have tags or other fields
+        usage: product.tags || [], // Use tags as usage hints
         tips: [],
         warnings: [],
-        commonCombinations: [],
+        commonCombinations,
         quality: 'Standard',
         supplier: 'Store Inventory'
       }

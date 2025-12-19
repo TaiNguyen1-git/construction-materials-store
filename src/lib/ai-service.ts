@@ -435,12 +435,16 @@ export class AIService {
       
       Return a JSON object with:
       - items: array of { productName, quantity (number), unit }
-      - deliveryAddress: string (if mentioned)
-      - customerName: string (if mentioned)
-      - phone: string (if mentioned)
+      - deliveryAddress: string (if mentioned) OR null if NOT mentioned
+      - customerName: string (if mentioned) OR null if NOT mentioned
+      - phone: string (if mentioned) OR null if NOT mentioned
       - vatInfo: { companyName: string, taxId: string, companyAddress: string } (ONLY if mentioned)
       
-      Rules:
+      CRITICAL RULES:
+      - DO NOT HALLUCINATE or GUESS customer information!
+      - If the user does NOT explicitly provide a name, phone, or address, you MUST return null for those fields.
+      - Common Vietnamese names like "Nguyễn Văn A", "Nguyễn Thị B", "Anh A", "Chị B" are PLACEHOLDER NAMES - do NOT use them unless the user explicitly writes them.
+      - Phone numbers like "0912345678", "0123456789" without user input are PLACEHOLDER - do NOT use them.
       - productName MUST be only the name of the product (e.g., "Xi măng Insee", "Cát xây", "Gạch ống"). DO NOT include delivery info or customer details in productName.
       - If quantity is not specified but implied (e.g., "mua xi măng"), default to 1.
       - Map "xe" to unit "xe" (or "m3" if context implies volume).

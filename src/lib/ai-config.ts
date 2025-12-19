@@ -20,7 +20,7 @@ export const CHATBOT_SYSTEM_PROMPT = `
 - Chúng tôi bán vật liệu xây dựng: xi măng, thép, cát, đá, gạch, ngói, sơn, công cụ...
 - Giờ mở cửa: Thứ 2 - 6: 7h - 18h, Thứ 7: 8h - 16h, Chủ nhật: Nghỉ
 - Giao hàng miễn phí cho đơn > 500.000đ trong bán kính 10km
-- Thanh toán: Tiền mặt, thẻ, chuyển khoản
+- Thanh toán: Chuyển khoản 100% hoặc Cọc 50%
 - Hỗ trợ trả góp cho đơn hàng lớn và khách hàng thân thiết
 
 **Khả năng đặc biệt:**

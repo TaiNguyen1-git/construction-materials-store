@@ -503,7 +503,7 @@ async function processOrderCreationResponse(
 
       return {
         shouldContinue: true,
-        nextPrompt: 'Chọn phương thức thanh toán:\n1. Tiền mặt (COD)\n2. Chuyển khoản\n3. VNPay\n4. MoMo'
+        nextPrompt: '💳 **Chọn phương thức thanh toán:**\n\n1. Chuyển khoản 100%\n2. Cọc 50%\n\n💡 *Gõ "1" hoặc "2" để chọn*'
       }
 
     case 'customer_info':
@@ -513,23 +513,32 @@ async function processOrderCreationResponse(
       await advanceStep(sessionId)
       return {
         shouldContinue: true,
-        nextPrompt: 'Chọn phương thức thanh toán:\n1. Tiền mặt (COD)\n2. Chuyển khoản\n3. VNPay\n4. MoMo'
+        nextPrompt: '💳 **Chọn phương thức thanh toán:**\n\n1. Chuyển khoản 100%\n2. Cọc 50%\n\n💡 *Gõ "1" hoặc "2" để chọn*'
       }
 
     case 'payment_method':
-      // Extract payment method
-      let paymentMethod = 'CASH'
+      // Extract payment method - Only allow "Chuyển khoản 100%" or "Cọc 50%"
+      let paymentMethod = 'BANK_TRANSFER'
+      let paymentType = 'FULL'
+      let depositPercentage: number | undefined = undefined
       const lower = userMessage.toLowerCase()
 
-      if (lower.includes('chuyển khoản') || lower.includes('bank') || lower.includes('2')) {
+      if (lower.includes('cọc') || lower.includes('50') || lower === '2') {
         paymentMethod = 'BANK_TRANSFER'
-      } else if (lower.includes('vnpay') || lower.includes('3')) {
-        paymentMethod = 'VNPAY'
-      } else if (lower.includes('momo') || lower.includes('4')) {
-        paymentMethod = 'MOMO'
+        paymentType = 'DEPOSIT'
+        depositPercentage = 50
+      } else if (lower.includes('chuyển khoản') || lower.includes('100') || lower === '1') {
+        paymentMethod = 'BANK_TRANSFER'
+        paymentType = 'FULL'
+      } else {
+        // Invalid selection - prompt again
+        return {
+          shouldContinue: true,
+          nextPrompt: '❌ Lựa chọn không hợp lệ. Vui lòng chọn:\n\n1. Chuyển khoản 100%\n2. Cọc 50%\n\n💡 *Gõ "1" hoặc "2" để chọn*'
+        }
       }
 
-      await updateFlowData(sessionId, { paymentMethod })
+      await updateFlowData(sessionId, { paymentMethod, paymentType, depositPercentage })
       await setOrderCreationStep(sessionId, 'vat_question')
       await advanceStep(sessionId)
 

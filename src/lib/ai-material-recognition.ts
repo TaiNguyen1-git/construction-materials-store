@@ -84,24 +84,38 @@ export class AIRecognitionService {
 
     const prompt = `
       Analyze this image of construction materials with HIGH PRECISION. 
-      Look closely at the grain size/chunk size relative to objects in the background (like the conveyor belt, trees, or ground).
+      Look closely at the shape, holes, texture, and color to identify the exact material type.
 
       IDENTIFICATION RULES:
-      1. CRITICAL: Distinguish between "đá mi" and "đá 1x2".
-         - "đá mi": Grain size 0-5mm. Looks like a pile of dust, ash, or very fine gravel. Individual grains are barely distinguishable without zooming.
-         - "đá 1x2": Grain size 10-20mm. Individual stones are clearly visible as chunks about the size of a thumb tip.
-      2. Specific Name List (Pick the most accurate):
-         - STONE: "đá mi" (dust/fine), "đá mi bụi", "đá 1x2" (1-2cm), "đá 4x6" (4-6cm), "đá hộc".
-         - SAND: "cát xây tô" (fine sand), "cát bê tông" (coarse sand).
-         - CEMENT: "xi măng" + brand.
+      
+      1. BRICK (category: 'brick') - Rectangular blocks, usually terracotta/red color:
+         - "gạch ống" or "gạch block Tuynel": Has MULTIPLE HOLLOW HOLES running through it (4, 6, or 8 holes). Terracotta red color with ribbed/grooved surface. Common for building walls.
+         - "gạch đinh" or "gạch thẻ": SOLID brick, smaller size (~8x8x18cm or 6x10x20cm), no holes or only 2 small holes. Used for walls.
+         - "gạch lát nền" or "gạch ceramic": Flat, smooth glazed surface. For flooring/tiling.
+         - "gạch block bê tông": Gray cement color, hollow, larger and heavier than clay bricks.
+      
+      2. STONE (category: 'stone') - Crushed rocks/aggregate:
+         - "đá mi": Grain size 0-5mm. Very fine like dust or ash.
+         - "đá 1x2": Grain size 10-20mm. Individual stones visible as chunks.
+         - "đá 4x6": Grain size 4-6cm. Larger crushed rocks.
+      
+      3. SAND (category: 'sand') - Fine granular material:
+         - "cát xây tô" or "cát vàng": Yellow/brown fine sand.
+         - "cát bê tông": Coarser sand for concrete.
+      
+      4. CEMENT (category: 'cement') - Bags or powder:
+         - Look for brand names: INSEE, Hà Tiên, Holcim, etc.
+      
+      5. STEEL (category: 'steel') - Metal bars/rods:
+         - "thép": Round or deformed steel bars, ribbed texture.
          
       Return a JSON object:
-      - visualScaleReasoning: Explain why you chose the size (e.g., "Compared to the conveyor belt texture, these grains are very fine like dust, confirming it is đá mi").
+      - visualScaleReasoning: Explain your identification (e.g., "This is a terracotta brick with 6 hollow holes and ribbed surface, confirming it is gạch ống Tuynel").
       - category: 'cement', 'brick', 'stone', 'sand', 'steel', 'unknown'
-      - specificName: Exact Vietnamese name from list above.
-      - colors: array of colors.
-      - grainSizeMm: your estimate of the average grain diameter in mm.
-      - texture: 'smooth', 'rough', 'grainy', 'metallic'
+      - specificName: Exact Vietnamese name from rules above (e.g., "gạch ống Tuynel", "đá 1x2", "xi măng INSEE").
+      - colors: array of colors observed.
+      - texture: 'smooth', 'rough', 'grainy', 'metallic', 'ribbed'
+      - shape: 'rectangular', 'cylindrical', 'irregular', 'granular'
       
       Return ONLY the JSON object.
     `

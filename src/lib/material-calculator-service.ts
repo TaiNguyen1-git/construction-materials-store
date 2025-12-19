@@ -1,9 +1,148 @@
 import { AIService } from './ai-service'
+import { prisma } from './prisma'
 
 /**
  * Material Calculator Service for Chatbot Integration
  * Simplified calculator that can be called from chatbot
  */
+
+// Price cache to avoid repeated DB queries within same calculation
+interface PriceCache {
+  [keyword: string]: { price: number; unit: string; productName: string } | null
+}
+
+// Mapping from material calculation names to database search keywords
+const MATERIAL_KEYWORDS: Record<string, string[]> = {
+  'Xi măng PC40': ['xi măng', 'PC40', 'INSEE', 'Hà Tiên'],
+  'Xi măng PC30': ['xi măng', 'PC30'],
+  'Xi măng trắng': ['xi măng trắng', 'xi măng'],
+  'Đá 4x6': ['đá 4x6', 'đá xây dựng', 'đá'],
+  'Đá 1x2': ['đá 1x2', 'đá', 'đá xây dựng'],
+  'Cát xây dựng': ['cát xây', 'cát', 'cát vàng'],
+  'Cát xây': ['cát xây', 'cát'],
+  'Cát mịn': ['cát mịn', 'cát'],
+  'Thép': ['thép', 'sắt'],
+  'Gạch ống': ['gạch ống', 'gạch block', 'gạch'],
+  'Gạch đinh': ['gạch đinh', 'gạch thẻ', 'gạch đỏ'],
+  'Sơn nước': ['sơn', 'sơn nước'],
+  'Tôn': ['tôn', 'tôn lạnh', 'tôn mạ kẽm'],
+  'Xà gồ': ['xà gồ', 'thép hộp']
+}
+
+// Default prices as fallback (updated to 2024 market prices)
+const DEFAULT_PRICES: Record<string, number> = {
+  'Xi măng PC40': 95000,      // per bao
+  'Xi măng PC30': 90000,      // per bao
+  'Xi măng trắng': 95000,     // per bao
+  'Đá 4x6': 350000,           // per m³
+  'Đá 1x2': 350000,           // per m³
+  'Cát xây dựng': 280000,     // per m³
+  'Cát xây': 280000,          // per m³
+  'Cát mịn': 300000,          // per m³
+  'Thép D8': 16000,           // per kg
+  'Thép D10': 16000,          // per kg
+  'Thép D12': 16000,          // per kg
+  'Thép D16': 16000,          // per kg
+  'Gạch ống': 1200,           // per viên
+  'Gạch đinh': 1500,          // per viên
+  'Sơn nước': 850000,         // per thùng 18L
+  'Tôn': 120000,              // per m²
+  'Xà gồ': 25000              // per kg
+}
+
+/**
+ * Look up product price from database
+ */
+async function getProductPrice(
+  materialName: string,
+  priceCache: PriceCache
+): Promise<{ price: number; unit: string; productName: string }> {
+  // Check cache first
+  if (priceCache[materialName] !== undefined) {
+    return priceCache[materialName] || {
+      price: getDefaultPrice(materialName),
+      unit: 'đơn vị',
+      productName: materialName
+    }
+  }
+
+  try {
+    // Get search keywords for this material
+    const keywords = MATERIAL_KEYWORDS[materialName] || [materialName.split(' ')[0]]
+
+    // Search database
+    for (const keyword of keywords) {
+      const product = await prisma.product.findFirst({
+        where: {
+          name: { contains: keyword, mode: 'insensitive' },
+          isActive: true
+        },
+        select: {
+          name: true,
+          price: true,
+          unit: true
+        },
+        orderBy: { price: 'asc' } // Get cheapest option
+      })
+
+      if (product) {
+        const result = {
+          price: Number(product.price),
+          unit: product.unit,
+          productName: product.name
+        }
+        priceCache[materialName] = result
+        console.log(`[PRICE_LOOKUP] ${materialName} -> ${product.name}: ${product.price}đ/${product.unit}`)
+        return result
+      }
+    }
+
+    // Not found in DB - use default
+    console.log(`[PRICE_LOOKUP] ${materialName} not found in DB, using default`)
+    priceCache[materialName] = null
+    return {
+      price: getDefaultPrice(materialName),
+      unit: 'đơn vị',
+      productName: materialName
+    }
+  } catch (error) {
+    console.error(`[PRICE_LOOKUP] Error looking up ${materialName}:`, error)
+    priceCache[materialName] = null
+    return {
+      price: getDefaultPrice(materialName),
+      unit: 'đơn vị',
+      productName: materialName
+    }
+  }
+}
+
+/**
+ * Get default price for material (fallback)
+ */
+function getDefaultPrice(materialName: string): number {
+  // Try exact match first
+  if (DEFAULT_PRICES[materialName]) {
+    return DEFAULT_PRICES[materialName]
+  }
+
+  // Try partial match
+  for (const [key, price] of Object.entries(DEFAULT_PRICES)) {
+    if (materialName.toLowerCase().includes(key.toLowerCase()) ||
+      key.toLowerCase().includes(materialName.toLowerCase())) {
+      return price
+    }
+  }
+
+  // Generic fallback
+  if (materialName.includes('xi măng')) return 95000
+  if (materialName.includes('đá')) return 350000
+  if (materialName.includes('cát')) return 280000
+  if (materialName.includes('thép')) return 16000
+  if (materialName.includes('gạch')) return 1200
+  if (materialName.includes('sơn')) return 850000
+
+  return 100000 // Ultimate fallback
+}
 
 export interface QuickCalculationInput {
   projectType?: 'HOUSE' | 'VILLA' | 'WAREHOUSE' | 'TILING' | 'WALLING' | 'CUSTOM'
@@ -158,185 +297,341 @@ export class MaterialCalculatorService {
     }
 
     // ===== FULL HOUSE CALCULATIONS (Default) =====
-    // ===== FOUNDATION CALCULATIONS =====
+    // Based on real construction estimates for Vietnam 2024
+    // Reference: 3.2-4.0 triệu/m² phần thô
+
+    const totalFloorArea = totalArea * floors // Tổng diện tích sàn
+
+    // ===== 1. MÓNG (FOUNDATION) =====
     let foundationMultiplier = 1.0
-    if (soilType === 'WEAK') foundationMultiplier = 1.2 // +20% for weak soil
+    if (soilType === 'WEAK') foundationMultiplier = 1.3 // +30% for weak soil (cọc/gia cố)
     if (soilType === 'HARD') foundationMultiplier = 0.9 // -10% for hard soil
 
-    const foundationVolume = totalArea * 0.4 * foundationMultiplier // 40cm depth average * multiplier
-    const foundationConcrete = foundationVolume
+    // Móng băng: 0.5m³ BT/m² sàn tầng trệt
+    const foundationConcreteVolume = totalArea * 0.5 * foundationMultiplier
 
-    // Cement for foundation (8 bags per m³)
-    const foundationCement = Math.ceil(foundationConcrete * 8)
+    const foundationCement = Math.ceil(foundationConcreteVolume * 8)
     materials.push({
       material: 'Xi măng PC40 (Móng)',
       quantity: foundationCement,
       unit: 'bao',
-      estimatedCost: foundationCement * 120000,
+      estimatedCost: foundationCement * 95000,
       category: 'Móng'
     })
-    totalCost += foundationCement * 120000
+    totalCost += foundationCement * 95000
 
-    // Stone for foundation (0.8m³ per 1m³ concrete)
-    const foundationStone = foundationConcrete * 0.8
+    const foundationStone = Math.ceil(foundationConcreteVolume * 0.8 * 10) / 10
     materials.push({
       material: 'Đá 4x6 (Móng)',
-      quantity: Math.ceil(foundationStone * 10) / 10, // Round to 1 decimal
+      quantity: foundationStone,
       unit: 'm³',
       estimatedCost: Math.ceil(foundationStone * 350000),
       category: 'Móng'
     })
     totalCost += Math.ceil(foundationStone * 350000)
 
-    // Sand for foundation
-    const foundationSand = foundationConcrete * 0.4
+    const foundationSand = Math.ceil(foundationConcreteVolume * 0.5 * 10) / 10
     materials.push({
       material: 'Cát xây dựng (Móng)',
-      quantity: Math.ceil(foundationSand * 10) / 10,
+      quantity: foundationSand,
       unit: 'm³',
-      estimatedCost: Math.ceil(foundationSand * 300000),
+      estimatedCost: Math.ceil(foundationSand * 280000),
       category: 'Móng'
     })
-    totalCost += Math.ceil(foundationSand * 300000)
+    totalCost += Math.ceil(foundationSand * 280000)
 
-    // Steel for foundation (50kg per m³)
-    const foundationSteel = Math.ceil(foundationConcrete * 50)
+    // Thép móng: 60 kg/m³ BT
+    const foundationSteel = Math.ceil(foundationConcreteVolume * 60)
     materials.push({
-      material: 'Thép D16 (Móng)',
+      material: 'Thép D12-D16 (Móng)',
       quantity: foundationSteel,
       unit: 'kg',
-      estimatedCost: foundationSteel * 18000,
+      estimatedCost: foundationSteel * 16000,
       category: 'Móng'
     })
-    totalCost += foundationSteel * 18000
+    totalCost += foundationSteel * 16000
 
-    // ===== WALLS CALCULATIONS =====
-    // Assume 3m height per floor
-    const wallHeight = 3 * floors
-    const wallPerimeter = length && width ? 2 * (length + width) : Math.sqrt(totalArea) * 4
-    const wallArea = wallPerimeter * wallHeight
+    // ===== 2. CỘT + DẦM (COLUMNS + BEAMS) =====
+    // 0.12 m³ BT/m² sàn cho cột + dầm
+    const columnBeamVolume = totalFloorArea * 0.12
 
-    if (wallType === 'BRICK') {
-      // Brick walls (60 bricks per m²)
-      let brickMultiplier = 1.0
-      if (constructionStyle === 'OPEN') brickMultiplier = 0.7 // -30% for open style (more glass)
-      if (constructionStyle === 'CLASSIC') brickMultiplier = 1.1 // +10% for classic (more partitions)
+    const columnBeamCement = Math.ceil(columnBeamVolume * 9)
+    materials.push({
+      material: 'Xi măng PC40 (Cột, Dầm)',
+      quantity: columnBeamCement,
+      unit: 'bao',
+      estimatedCost: columnBeamCement * 95000,
+      category: 'Khung chịu lực'
+    })
+    totalCost += columnBeamCement * 95000
 
-      const bricksNeeded = Math.ceil(wallArea * 60 * brickMultiplier)
-      materials.push({
-        material: 'Gạch đỏ 6x10x20',
-        quantity: bricksNeeded,
-        unit: 'viên',
-        estimatedCost: bricksNeeded * 2200,
-        category: 'Tường'
-      })
-      totalCost += bricksNeeded * 2200
+    const columnBeamStone = Math.ceil(columnBeamVolume * 0.85 * 10) / 10
+    materials.push({
+      material: 'Đá 1x2 (Cột, Dầm)',
+      quantity: columnBeamStone,
+      unit: 'm³',
+      estimatedCost: Math.ceil(columnBeamStone * 350000),
+      category: 'Khung chịu lực'
+    })
+    totalCost += Math.ceil(columnBeamStone * 350000)
 
-      // Cement for mortar (0.02m³ per m²)
-      const mortarCement = Math.ceil(wallArea * 0.02 * 8) // 8 bags per m³
-      materials.push({
-        material: 'Xi măng PC30 (Vữa)',
-        quantity: mortarCement,
-        unit: 'bao',
-        estimatedCost: mortarCement * 105000,
-        category: 'Tường'
-      })
-      totalCost += mortarCement * 105000
+    const columnBeamSand = Math.ceil(columnBeamVolume * 0.45 * 10) / 10
+    materials.push({
+      material: 'Cát xây dựng (Cột, Dầm)',
+      quantity: columnBeamSand,
+      unit: 'm³',
+      estimatedCost: Math.ceil(columnBeamSand * 280000),
+      category: 'Khung chịu lực'
+    })
+    totalCost += Math.ceil(columnBeamSand * 280000)
 
-      // Sand for mortar
-      const mortarSand = Math.ceil(wallArea * 0.04 * 10) / 10
-      materials.push({
-        material: 'Cát vàng (Vữa)',
-        quantity: mortarSand,
-        unit: 'm³',
-        estimatedCost: Math.ceil(mortarSand * 280000),
-        category: 'Tường'
-      })
-      totalCost += Math.ceil(mortarSand * 280000)
-    } else {
-      // Concrete walls
-      const concreteVolume = wallArea * 0.15 // 15cm thick
-      const concreteCement = Math.ceil(concreteVolume * 9) // 9 bags per m³ for walls
+    // Thép cột dầm: 100 kg/m³ BT (nhiều thép hơn móng)
+    const columnBeamSteel = Math.ceil(columnBeamVolume * 100)
+    materials.push({
+      material: 'Thép D10-D16 (Cột, Dầm)',
+      quantity: columnBeamSteel,
+      unit: 'kg',
+      estimatedCost: columnBeamSteel * 16000,
+      category: 'Khung chịu lực'
+    })
+    totalCost += columnBeamSteel * 16000
 
-      materials.push({
-        material: 'Xi măng PCB40 (Tường bê tông)',
-        quantity: concreteCement,
-        unit: 'bao',
-        estimatedCost: concreteCement * 135000,
-        category: 'Tường'
-      })
-      totalCost += concreteCement * 135000
-    }
-
-    // ===== FLOOR/SLAB CALCULATIONS =====
-    const slabArea = totalArea * floors
-    const slabVolume = slabArea * 0.12 // 12cm thick slab
+    // ===== 3. SÀN BTCT (SLABS) =====
+    // Sàn dày 10-12cm = 0.11 m³/m²
+    const slabVolume = totalFloorArea * 0.11
 
     const slabCement = Math.ceil(slabVolume * 8)
     materials.push({
       material: 'Xi măng PC40 (Sàn)',
       quantity: slabCement,
       unit: 'bao',
-      estimatedCost: slabCement * 120000,
-      category: 'Sàn'
+      estimatedCost: slabCement * 95000,
+      category: 'Sàn BTCT'
     })
-    totalCost += slabCement * 120000
+    totalCost += slabCement * 95000
 
     const slabStone = Math.ceil(slabVolume * 0.8 * 10) / 10
     materials.push({
       material: 'Đá 1x2 (Sàn)',
       quantity: slabStone,
       unit: 'm³',
-      estimatedCost: Math.ceil(slabStone * 320000),
-      category: 'Sàn'
+      estimatedCost: Math.ceil(slabStone * 350000),
+      category: 'Sàn BTCT'
     })
-    totalCost += Math.ceil(slabStone * 320000)
+    totalCost += Math.ceil(slabStone * 350000)
 
-    const slabSand = Math.ceil(slabVolume * 0.4 * 10) / 10
+    const slabSand = Math.ceil(slabVolume * 0.45 * 10) / 10
     materials.push({
-      material: 'Cát rửa (Sàn)',
+      material: 'Cát xây dựng (Sàn)',
       quantity: slabSand,
       unit: 'm³',
-      estimatedCost: Math.ceil(slabSand * 300000),
-      category: 'Sàn'
+      estimatedCost: Math.ceil(slabSand * 280000),
+      category: 'Sàn BTCT'
     })
-    totalCost += Math.ceil(slabSand * 300000)
+    totalCost += Math.ceil(slabSand * 280000)
+
+    // Thép sàn: 25 kg/m² sàn
+    const slabSteel = Math.ceil(totalFloorArea * 25)
+    materials.push({
+      material: 'Thép D8-D10 (Sàn)',
+      quantity: slabSteel,
+      unit: 'kg',
+      estimatedCost: slabSteel * 16000,
+      category: 'Sàn BTCT'
+    })
+    totalCost += slabSteel * 16000
+
+    // ===== 4. TƯỜNG XÂY (WALLS) =====
+    const wallHeight = 3.3 * floors // 3.3m mỗi tầng (3m thông thủy + sàn)
+    const wallPerimeter = length && width ? 2 * (length + width) : Math.sqrt(totalArea) * 4
+    // Tường ngoài + tường ngăn trong ~ 1.3x chu vi
+    const totalWallLength = wallPerimeter * 1.3
+    const wallArea = totalWallLength * wallHeight
+
+    // Trừ 15% cho cửa đi, cửa sổ
+    let effectiveWallArea = wallArea * 0.85
+    if (constructionStyle === 'OPEN') effectiveWallArea = wallArea * 0.6 // Nhiều kính
+    if (constructionStyle === 'CLASSIC') effectiveWallArea = wallArea * 0.9 // Ít cửa hơn
+
+    if (wallType === 'BRICK') {
+      // Gạch ống 8x8x18: 75 viên/m² (xây 20cm)
+      const bricksNeeded = Math.ceil(effectiveWallArea * 75)
+      materials.push({
+        material: 'Gạch ống 8x8x18',
+        quantity: bricksNeeded,
+        unit: 'viên',
+        estimatedCost: bricksNeeded * 1200,
+        category: 'Tường xây'
+      })
+      totalCost += bricksNeeded * 1200
+
+      // Vữa xây: 0.03 m³/m² tường
+      const mortarVolume = effectiveWallArea * 0.03
+      const mortarCement = Math.ceil(mortarVolume * 7)
+      materials.push({
+        material: 'Xi măng PC30 (Vữa xây)',
+        quantity: mortarCement,
+        unit: 'bao',
+        estimatedCost: mortarCement * 90000,
+        category: 'Tường xây'
+      })
+      totalCost += mortarCement * 90000
+
+      const mortarSand = Math.ceil(mortarVolume * 10) / 10
+      materials.push({
+        material: 'Cát xây (Vữa xây)',
+        quantity: mortarSand,
+        unit: 'm³',
+        estimatedCost: Math.ceil(mortarSand * 280000),
+        category: 'Tường xây'
+      })
+      totalCost += Math.ceil(mortarSand * 280000)
+    } else {
+      // Tường bê tông 15cm
+      const concreteWallVolume = effectiveWallArea * 0.15
+      const concreteCement = Math.ceil(concreteWallVolume * 9)
+      materials.push({
+        material: 'Xi măng PC40 (Tường BT)',
+        quantity: concreteCement,
+        unit: 'bao',
+        estimatedCost: concreteCement * 95000,
+        category: 'Tường bê tông'
+      })
+      totalCost += concreteCement * 95000
+    }
+
+    // ===== 5. TRÁT + SƠN (PLASTERING) =====
+    // Diện tích trát = 2 mặt tường
+    const plasterArea = effectiveWallArea * 2
+
+    // Vữa trát: 0.015 m³/m²
+    const plasterVolume = plasterArea * 0.015
+    const plasterCement = Math.ceil(plasterVolume * 6)
+    materials.push({
+      material: 'Xi măng trắng (Trát)',
+      quantity: plasterCement,
+      unit: 'bao',
+      estimatedCost: plasterCement * 95000,
+      category: 'Hoàn thiện'
+    })
+    totalCost += plasterCement * 95000
+
+    const plasterSand = Math.ceil(plasterVolume * 10) / 10
+    materials.push({
+      material: 'Cát mịn (Trát)',
+      quantity: plasterSand,
+      unit: 'm³',
+      estimatedCost: Math.ceil(plasterSand * 300000),
+      category: 'Hoàn thiện'
+    })
+    totalCost += Math.ceil(plasterSand * 300000)
+
+    // Sơn: 0.3 lít/m² x 2 lớp
+    const paintLiters = Math.ceil(plasterArea * 0.6)
+    const paintBuckets = Math.ceil(paintLiters / 18) // Thùng 18L
+    materials.push({
+      material: 'Sơn nước nội thất (18L)',
+      quantity: paintBuckets,
+      unit: 'thùng',
+      estimatedCost: paintBuckets * 850000,
+      category: 'Hoàn thiện'
+    })
+    totalCost += paintBuckets * 850000
+
+    // ===== 6. CẦU THANG (STAIRS) - nếu > 1 tầng =====
+    if (floors > 1) {
+      // Cầu thang BTCT: 0.4 m³ BT/tầng
+      const stairVolume = (floors - 1) * 0.4
+      const stairCement = Math.ceil(stairVolume * 9)
+      materials.push({
+        material: 'Xi măng PC40 (Cầu thang)',
+        quantity: stairCement,
+        unit: 'bao',
+        estimatedCost: stairCement * 95000,
+        category: 'Cầu thang'
+      })
+      totalCost += stairCement * 95000
+
+      const stairSteel = Math.ceil(stairVolume * 120)
+      materials.push({
+        material: 'Thép D10-D12 (Cầu thang)',
+        quantity: stairSteel,
+        unit: 'kg',
+        estimatedCost: stairSteel * 16000,
+        category: 'Cầu thang'
+      })
+      totalCost += stairSteel * 16000
+    }
+
+    // ===== 7. MÁI (ROOF) =====
+    const roofArea = totalArea * 1.15 // +15% cho mái dốc
+    materials.push({
+      material: 'Tôn lạnh mạ kẽm (0.45mm)',
+      quantity: Math.ceil(roofArea),
+      unit: 'm²',
+      estimatedCost: Math.ceil(roofArea * 120000),
+      category: 'Mái'
+    })
+    totalCost += Math.ceil(roofArea * 120000)
+
+    materials.push({
+      material: 'Xà gồ thép hộp (40x80)',
+      quantity: Math.ceil(roofArea * 0.8),
+      unit: 'kg',
+      estimatedCost: Math.ceil(roofArea * 0.8 * 25000),
+      category: 'Mái'
+    })
+    totalCost += Math.ceil(roofArea * 0.8 * 25000)
 
     // ===== SUMMARY =====
     const projectDesc = projectType === 'HOUSE' ? 'Nhà phố' :
       projectType === 'VILLA' ? 'Biệt thự' :
         projectType === 'WAREHOUSE' ? 'Nhà xưởng' : 'Công trình'
 
-    const summary = `${projectDesc} ${totalArea}m² x ${floors} tầng\n` +
-      `Tổng chi phí vật liệu dự kiến: ${this.formatCurrency(totalCost)}`
+    // Note: costPerM2 and summary are calculated AFTER DB price enrichment below
 
     const tips = [
-      `Mua thêm 5-10% vật liệu để dự phòng hư hỏng`,
-      `Xi măng PC40 cho móng và sàn, PC30 cho vữa xây`,
+      `Mua thêm 5-10% vật liệu để dự phòng hao hụt`,
+      `Xi măng PC40 cho bê tông chịu lực, PC30 cho vữa xây`,
       `Thời gian thi công dự kiến: ${this.estimateDuration(totalArea, floors)}`,
-      `Nên chia làm nhiều đợt mua để kiểm soát chất lượng`,
+      `Chưa bao gồm: Điện nước, cửa, gạch lát nền, thiết bị vệ sinh`,
     ]
 
-    if (totalArea > 200) {
-      tips.push(`Diện tích lớn - nên có kế hoạch vận chuyển và lưu trữ chi tiết`)
-    }
-
     if (soilType === 'WEAK') {
-      tips.push(`Đất yếu: Đã tăng 20% vật liệu móng. Nên gia cố thêm cừ tràm hoặc cọc bê tông.`)
-    }
-
-    if (soilType === 'HARD') {
-      tips.push(`Đất cứng: Đã giảm 10% vật liệu móng.`)
+      tips.push(`⚠️ Đất yếu: Đã tăng 30% vật liệu móng. Cân nhắc gia cố cọc/cừ tràm.`)
     }
 
     if (constructionStyle === 'OPEN') {
-      tips.push(`Phong cách mở: Đã giảm 30% gạch xây. Hãy cân nhắc chi phí kính cường lực.`)
+      tips.push(`💡 Phong cách mở: Đã giảm gạch xây. Cần tính thêm chi phí kính cường lực.`)
     }
+
+    // ===== ENRICH PRICES FROM DATABASE =====
+    const priceCache: PriceCache = {}
+    let newTotalCost = 0
+
+    for (const mat of materials) {
+      // Extract base material name (remove location suffix like "Móng", "Sàn", etc.)
+      const baseName = mat.material.split(' (')[0].trim()
+
+      const dbPrice = await getProductPrice(baseName, priceCache)
+
+      // Recalculate cost with DB price
+      mat.estimatedCost = Math.ceil(mat.quantity * dbPrice.price)
+      newTotalCost += mat.estimatedCost
+    }
+
+    // Update total cost and summary with DB prices
+    const costPerM2 = Math.round(newTotalCost / totalFloorArea / 1000) * 1000
+    const updatedSummary = `${projectDesc} ${totalArea}m² x ${floors} tầng (Tổng sàn: ${totalFloorArea}m²)\n` +
+      `Chi phí vật liệu phần thô: ${this.formatCurrency(newTotalCost)} (~${this.formatCurrency(costPerM2)}/m² sàn)`
+
+    // Add note about price source
+    tips.unshift(`💰 Giá được cập nhật từ hệ thống cửa hàng`)
 
     return {
       materials,
-      totalEstimatedCost: totalCost,
-      summary,
+      totalEstimatedCost: newTotalCost,
+      summary: updatedSummary,
       tips
     }
   }
@@ -438,37 +733,87 @@ export class MaterialCalculatorService {
    * Format result for chatbot display
    */
   static formatForChat(result: QuickCalculationResult): string {
-    let response = `📊 **KẾT QUẢ TÍNH TOÁN VẬT LIỆU**\n\n`
+    let response = `📊 **KẾT QUẢ TÍNH TOÁN VẬT LIỆU XÂY DỰNG**\n\n`
     response += `${result.summary}\n\n`
-    response += `📦 **DANH SÁCH VẬT LIỆU:**\n\n`
 
     // Group by category
     const byCategory: Record<string, MaterialEstimate[]> = {}
+    const categoryCosts: Record<string, number> = {}
+
     result.materials.forEach(m => {
       if (!byCategory[m.category]) {
         byCategory[m.category] = []
+        categoryCosts[m.category] = 0
       }
       byCategory[m.category].push(m)
+      categoryCosts[m.category] += m.estimatedCost || 0
     })
 
-    // Display by category
+    // Category icons
+    const categoryIcons: Record<string, string> = {
+      'Móng': '🏗️',
+      'Khung chịu lực': '🏛️',
+      'Sàn BTCT': '🧱',
+      'Tường xây': '🧱',
+      'Tường bê tông': '🧱',
+      'Hoàn thiện': '🎨',
+      'Cầu thang': '🪜',
+      'Mái': '🏠',
+      'Lát nền': '🪨',
+      'Xây tường': '🧱'
+    }
+
+    // Display each category as a section
+    response += `━━━━━━━━━━━━━━━━━━━━━━\n`
+    response += `📦 **DANH SÁCH VẬT LIỆU**\n`
+    response += `━━━━━━━━━━━━━━━━━━━━━━\n\n`
+
     Object.entries(byCategory).forEach(([category, items]) => {
-      response += `**${category}:**\n`
+      const icon = categoryIcons[category] || '📦'
+      const categoryCost = categoryCosts[category]
+
+      response += `${icon} **${category.toUpperCase()}**\n`
+
       items.forEach(item => {
-        response += `  • ${item.material}: **${item.quantity} ${item.unit}**`
-        if (item.estimatedCost) {
-          response += ` (${this.formatCurrency(item.estimatedCost)})`
-        }
-        response += `\n`
+        const unitPrice = item.estimatedCost && item.quantity > 0
+          ? Math.round(item.estimatedCost / item.quantity)
+          : 0
+        response += `   • ${item.material}\n`
+        response += `     ${item.quantity} ${item.unit} × ${this.formatCurrency(unitPrice)} = **${this.formatCurrency(item.estimatedCost || 0)}**\n`
       })
-      response += `\n`
+
+      response += `   ➤ Tổng ${category}: **${this.formatCurrency(categoryCost)}**\n\n`
     })
 
-    response += `💰 **TỔNG CHI PHÍ:** ${this.formatCurrency(result.totalEstimatedCost)}\n\n`
-    response += `💡 **LƯU Ý:**\n`
-    result.tips.forEach(tip => {
-      response += `  • ${tip}\n`
+    // Cost summary
+    response += `━━━━━━━━━━━━━━━━━━━━━━\n`
+    response += `💰 **TỔNG HỢP CHI PHÍ**\n`
+    response += `━━━━━━━━━━━━━━━━━━━━━━\n\n`
+
+    Object.entries(categoryCosts).forEach(([category, cost]) => {
+      response += `• ${category}: ${this.formatCurrency(cost)}\n`
     })
+
+    response += `\n🔸 **TỔNG VẬT LIỆU: ${this.formatCurrency(result.totalEstimatedCost)}**\n`
+
+    // Add contingency note
+    const contingency10 = Math.round(result.totalEstimatedCost * 0.1)
+    const contingency15 = Math.round(result.totalEstimatedCost * 0.15)
+    response += `🔸 Dự phòng (10-15%): ${this.formatCurrency(contingency10)} - ${this.formatCurrency(contingency15)}\n\n`
+
+    // Tips section
+    response += `━━━━━━━━━━━━━━━━━━━━━━\n`
+    response += `🛠️ **LƯU Ý**\n`
+    response += `━━━━━━━━━━━━━━━━━━━━━━\n\n`
+    result.tips.forEach(tip => {
+      response += `• ${tip}\n`
+    })
+
+    // What's NOT included
+    response += `\n⚠️ **Chưa bao gồm:** Điện nước, cửa, gạch lát, thiết bị vệ sinh, nhân công\n\n`
+
+    // CTA
+    response += `📞 *Liên hệ để được báo giá chi tiết!*`
 
     return response
   }

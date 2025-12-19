@@ -34,6 +34,47 @@ import { checkRateLimit, getRateLimitIdentifier, RateLimitConfigs, formatRateLim
 import { generateChatbotFallbackResponse } from '@/app/api/chatbot/fallback-responses'
 import { checkRuleBasedResponse } from '@/lib/chatbot/rule-based-responses'
 
+// ===== HELPER: Filter placeholder guest info =====
+const PLACEHOLDER_NAMES = [
+  'nguyễn văn a', 'nguyen van a', 'nguyễn thị a', 'nguyen thi a',
+  'nguyễn văn b', 'nguyen van b', 'nguyễn thị b', 'nguyen thi b',
+  'anh a', 'chị a', 'chi a', 'anh b', 'chị b', 'chi b',
+  'khách hàng', 'khach hang', 'customer', 'test', 'abc'
+]
+const PLACEHOLDER_PHONES = [
+  '0912345678', '0123456789', '0987654321', '0909090909',
+  '0900000000', '0111111111', '0999999999'
+]
+function isPlaceholderGuestInfo(info: { name?: string; phone?: string; address?: string } | undefined): boolean {
+  if (!info) return true
+  const nameLower = (info.name || '').toLowerCase().trim()
+  const phoneTrimmed = (info.phone || '').replace(/\s/g, '')
+
+  // Check for placeholder names
+  if (PLACEHOLDER_NAMES.some(p => nameLower === p || nameLower.includes(p))) {
+    console.log('[GUEST_INFO] Detected placeholder name:', info.name)
+    return true
+  }
+  // Check for placeholder phones
+  if (PLACEHOLDER_PHONES.includes(phoneTrimmed)) {
+    console.log('[GUEST_INFO] Detected placeholder phone:', info.phone)
+    return true
+  }
+  return false
+}
+
+function sanitizeGuestInfo(info: { name?: string; phone?: string; address?: string } | undefined): { name: string; phone: string; address: string } | undefined {
+  if (!info) return undefined
+  if (isPlaceholderGuestInfo(info)) return undefined
+  // Only return if we have real data
+  if (!info.name && !info.phone && !info.address) return undefined
+  return {
+    name: info.name || '',
+    phone: info.phone || '',
+    address: info.address || ''
+  }
+}
+
 const chatMessageSchema = z.object({
   message: z.string().optional(),
   image: z.string().optional(),
@@ -787,12 +828,12 @@ export async function POST(request: NextRequest) {
             unit: x.item.unit || 'cái'
           }))]
 
-          // Build guest info from AI extraction
-          const guestInfo = (aiOrderRequest.customerName || aiOrderRequest.phone || aiOrderRequest.deliveryAddress) ? {
+          // Build guest info from AI extraction (with placeholder filter)
+          const guestInfo = sanitizeGuestInfo({
             name: aiOrderRequest.customerName || '',
             phone: aiOrderRequest.phone || '',
             address: aiOrderRequest.deliveryAddress || ''
-          } : undefined
+          })
 
           startOrderCreationFlow(sessionId, initialItems, !!customerId, guestInfo)
 
@@ -815,12 +856,12 @@ export async function POST(request: NextRequest) {
 
         // All items valid - proceed to confirmation
         if (enrichedItems.length > 0) {
-          // Build guest info from AI extraction
-          const guestInfoFromAI = (aiOrderRequest.customerName || aiOrderRequest.phone || aiOrderRequest.deliveryAddress) ? {
+          // Build guest info from AI extraction (with placeholder filter)
+          const guestInfoFromAI = sanitizeGuestInfo({
             name: aiOrderRequest.customerName || '',
             phone: aiOrderRequest.phone || '',
             address: aiOrderRequest.deliveryAddress || ''
-          } : undefined
+          })
 
           startOrderCreationFlow(sessionId, enrichedItems, !!customerId, guestInfoFromAI)
 
@@ -2308,7 +2349,7 @@ async function handleOrderCreation(sessionId: string, customerId: string | undef
       }
     }
 
-    // Create order with transaction
+    // Create order with transaction (increased timeout for large orders)
     const result = await prisma.$transaction(async (tx) => {
       const items = flowData.items || []
       let subtotal = 0
@@ -2317,22 +2358,23 @@ async function handleOrderCreation(sessionId: string, customerId: string | undef
 
       // Match products and calculate totals using fuzzy keyword search
       for (const item of items) {
-        // Extract searchable keywords from colloquial product name
         const keywords = extractProductKeywords(item.productName)
-        console.log(`[ORDER] Searching for "${item.productName}" with keywords:`, keywords)
+        console.log(`[ORDER] Searching for: "${item.productName}" with keywords:`, keywords)
 
-        // Build OR conditions for all keywords
-        const orConditions = keywords.flatMap(kw => [
-          { name: { contains: kw, mode: 'insensitive' as const } },
-          { description: { contains: kw, mode: 'insensitive' as const } }
-        ])
-
-        const product = await tx.product.findFirst({
-          where: {
-            OR: orConditions,
-            isActive: true
-          }
-        })
+        // Search for matching product in DB using fuzzy matching
+        let product = null
+        for (const keyword of keywords) {
+          product = await tx.product.findFirst({
+            where: {
+              OR: [
+                { name: { contains: keyword, mode: 'insensitive' } },
+                { tags: { hasSome: [keyword.toLowerCase()] } }
+              ],
+              isActive: true
+            }
+          })
+          if (product) break
+        }
 
         if (product) {
           const quantity = item.quantity || 1
@@ -2409,21 +2451,21 @@ async function handleOrderCreation(sessionId: string, customerId: string | undef
         }
       })
 
-      // Create order items
-      for (const orderItem of orderItems) {
-        await tx.orderItem.create({
-          data: {
-            orderId: order.id,
-            ...orderItem
-          }
-        })
-      }
+      // Create order items in batch (faster than loop)
+      await tx.orderItem.createMany({
+        data: orderItems.map(item => ({
+          orderId: order.id,
+          ...item
+        }))
+      })
 
       return {
         order,
         itemsMatched,
         totalItems: items.length
       }
+    }, {
+      timeout: 30000 // 30 seconds timeout for large orders
     })
 
     clearConversationState(sessionId)

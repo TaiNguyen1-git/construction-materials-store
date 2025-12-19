@@ -53,8 +53,8 @@ const POLICIES = {
         cement: 'Bảo hành chất lượng trong hạn sử dụng (thường 60 ngày)'
     },
     payment: {
-        methods: ['Tiền mặt', 'Chuyển khoản ngân hàng', 'COD (thanh toán khi nhận hàng)'],
-        deposit: 'Cọc 30% cho đơn hàng lớn (> 10 triệu)',
+        methods: ['Chuyển khoản 100%', 'Cọc 50%'],
+        deposit: 'Cọc 50% khi đặt hàng, thanh toán phần còn lại khi nhận hàng',
         transferNote: 'Nội dung CK: [Mã đơn hàng] - [SĐT]'
     }
 }
