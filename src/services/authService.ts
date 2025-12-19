@@ -1,4 +1,3 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 
 // Configure axios base URL (update this to match your backend)
@@ -9,10 +8,30 @@ const api = axios.create({
   timeout: 10000,
 });
 
+// Helper to safely access localStorage (SSR-safe)
+const getStorageItem = (key: string): string | null => {
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem(key);
+  }
+  return null;
+};
+
+const setStorageItem = (key: string, value: string): void => {
+  if (typeof window !== 'undefined') {
+    localStorage.setItem(key, value);
+  }
+};
+
+const removeStorageItem = (key: string): void => {
+  if (typeof window !== 'undefined') {
+    localStorage.removeItem(key);
+  }
+};
+
 // Add auth token to requests
 api.interceptors.request.use(
   async (config) => {
-    const token = await AsyncStorage.getItem('authToken');
+    const token = getStorageItem('authToken');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -34,21 +53,21 @@ api.interceptors.response.use(
 
       try {
         // Try to refresh token
-        const refreshToken = await AsyncStorage.getItem('refreshToken');
+        const refreshToken = getStorageItem('refreshToken');
         if (refreshToken) {
           const response = await api.post('/auth/refresh', { refreshToken });
           const { token, refreshToken: newRefreshToken } = response.data;
 
-          await AsyncStorage.setItem('authToken', token);
-          await AsyncStorage.setItem('refreshToken', newRefreshToken);
+          setStorageItem('authToken', token);
+          setStorageItem('refreshToken', newRefreshToken);
 
           originalRequest.headers.Authorization = `Bearer ${token}`;
           return api(originalRequest);
         }
       } catch (refreshError) {
         // Refresh failed, logout user
-        await AsyncStorage.removeItem('authToken');
-        await AsyncStorage.removeItem('refreshToken');
+        removeStorageItem('authToken');
+        removeStorageItem('refreshToken');
       }
     }
 
@@ -86,8 +105,8 @@ export const authService = {
       const { user, token, refreshToken } = response.data;
 
       // Store tokens
-      await AsyncStorage.setItem('authToken', token);
-      await AsyncStorage.setItem('refreshToken', refreshToken);
+      setStorageItem('authToken', token);
+      setStorageItem('refreshToken', refreshToken);
 
       return { user, token, refreshToken };
     } catch (error) {
@@ -102,8 +121,8 @@ export const authService = {
       const { user, token, refreshToken } = response.data;
 
       // Store tokens
-      await AsyncStorage.setItem('authToken', token);
-      await AsyncStorage.setItem('refreshToken', refreshToken);
+      setStorageItem('authToken', token);
+      setStorageItem('refreshToken', refreshToken);
 
       return { user, token, refreshToken };
     } catch (error) {
@@ -115,30 +134,30 @@ export const authService = {
   async logout(): Promise<void> {
     try {
       // Clear tokens
-      await AsyncStorage.removeItem('authToken');
-      await AsyncStorage.removeItem('refreshToken');
+      removeStorageItem('authToken');
+      removeStorageItem('refreshToken');
 
       // Notify backend about logout (optional)
       await api.post('/auth/logout');
     } catch (error) {
       // Even if backend call fails, clear local tokens
-      await AsyncStorage.removeItem('authToken');
-      await AsyncStorage.removeItem('refreshToken');
+      removeStorageItem('authToken');
+      removeStorageItem('refreshToken');
     }
   },
 
   // Get current user
   async getCurrentUser(): Promise<User | null> {
     try {
-      const token = await AsyncStorage.getItem('authToken');
+      const token = getStorageItem('authToken');
       if (!token) return null;
 
       const response = await api.get('/auth/me');
       return response.data.user;
     } catch (error) {
       // If token is invalid, clear it
-      await AsyncStorage.removeItem('authToken');
-      await AsyncStorage.removeItem('refreshToken');
+      removeStorageItem('authToken');
+      removeStorageItem('refreshToken');
       return null;
     }
   },
@@ -151,7 +170,7 @@ export const authService = {
 
   // Get auth token
   async getAuthToken(): Promise<string | null> {
-    return await AsyncStorage.getItem('authToken');
+    return getStorageItem('authToken');
   },
 };
 

@@ -14,7 +14,7 @@ jobs:
         run: |
           # Gửi request POST tới API Admin của hệ thống (đã deploy trên Vercel)
           # Lưu ý: Sẽ cần x-user-role Header để bypass check
-          curl -X POST "${{ secrets.SITE_URL }}/api/ml/train" \
+          curl -X POST "${{ secrets.SITE_URL || '' }}/api/ml/train" \
                -H "Content-Type: application/json" \
                -H "x-user-role: MANAGER" \
                -d '{"trainAll": true}'
