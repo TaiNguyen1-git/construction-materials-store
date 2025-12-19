@@ -32,6 +32,7 @@ import {
 } from '@/lib/chatbot/conversation-state'
 import { checkRateLimit, getRateLimitIdentifier, RateLimitConfigs, formatRateLimitError } from '@/lib/rate-limiter'
 import { generateChatbotFallbackResponse } from '@/app/api/chatbot/fallback-responses'
+import { checkRuleBasedResponse } from '@/lib/chatbot/rule-based-responses'
 
 const chatMessageSchema = z.object({
   message: z.string().optional(),
@@ -385,6 +386,136 @@ export async function POST(request: NextRequest) {
             createSuccessResponse({
               message: flowResponse.nextPrompt,
               suggestions: ['Xác nhận', 'Hủy'],
+              confidence: 1.0,
+              sessionId,
+              timestamp: new Date().toISOString()
+            })
+          )
+        }
+      }
+    }
+
+    // ===== RULE-BASED RESPONSES (Fast path for simple FAQs) =====
+    // Only for customers, not admin (admin needs full AI capabilities)
+    if (!isAdmin) {
+      const ruleBasedResult = checkRuleBasedResponse(message)
+
+      if (ruleBasedResult.matched) {
+        // Handle comparison request (RAG + template-based)
+        if (ruleBasedResult.requiresComparison && ruleBasedResult.comparisonProducts) {
+          console.log(`[RULE-BASED] Comparison request for: ${ruleBasedResult.comparisonProducts.join(' vs ')}`)
+
+          // Import comparison generator
+          const { generateComparisonResponse } = await import('@/lib/chatbot/rule-based-responses')
+
+          // Fetch products from knowledge base (RAG) and DB
+          const comparisonData: any[] = []
+
+          for (const productKeyword of ruleBasedResult.comparisonProducts) {
+            // Try knowledge base first (has more detailed info)
+            const ragProducts = await RAGService.retrieveContext(productKeyword, 1)
+
+            if (ragProducts.length > 0) {
+              const ragProduct = ragProducts[0]
+              comparisonData.push({
+                name: ragProduct.name,
+                brand: ragProduct.brand,
+                price: ragProduct.pricing.basePrice,
+                unit: ragProduct.pricing.unit,
+                description: ragProduct.description,
+                usage: ragProduct.usage,
+                quality: ragProduct.quality
+              })
+            } else {
+              // Fallback to DB
+              const dbProduct = await prisma.product.findFirst({
+                where: {
+                  OR: [
+                    { name: { contains: productKeyword, mode: 'insensitive' } },
+                    { description: { contains: productKeyword, mode: 'insensitive' } }
+                  ],
+                  isActive: true
+                },
+                select: {
+                  name: true,
+                  price: true,
+                  unit: true,
+                  description: true
+                }
+              })
+
+              if (dbProduct) {
+                comparisonData.push({
+                  name: dbProduct.name,
+                  price: dbProduct.price,
+                  unit: dbProduct.unit,
+                  description: dbProduct.description
+                })
+              }
+            }
+          }
+
+          if (comparisonData.length >= 2) {
+            const comparisonResponse = generateComparisonResponse(comparisonData)
+            return NextResponse.json(
+              createSuccessResponse({
+                message: comparisonResponse,
+                suggestions: ['Đặt hàng', 'Tư vấn thêm', 'Xem giá chi tiết'],
+                confidence: 1.0,
+                sessionId,
+                timestamp: new Date().toISOString()
+              })
+            )
+          }
+          // If not enough products found, fall through to AI
+          console.log(`[RULE-BASED] Comparison failed - only found ${comparisonData.length} products, falling through to AI`)
+        }
+        // Handle quick price lookup that needs DB data
+        else if (ruleBasedResult.requiresProductLookup && ruleBasedResult.productKeyword) {
+          console.log(`[RULE-BASED] Quick price lookup for: ${ruleBasedResult.productKeyword}`)
+
+          // Fetch products matching the keyword
+          const products = await prisma.product.findMany({
+            where: {
+              OR: [
+                { name: { contains: ruleBasedResult.productKeyword, mode: 'insensitive' } },
+                { category: { name: { contains: ruleBasedResult.productKeyword, mode: 'insensitive' } } }
+              ],
+              isActive: true
+            },
+            select: {
+              name: true,
+              price: true,
+              unit: true,
+              category: { select: { name: true } }
+            },
+            take: 5,
+            orderBy: { price: 'asc' }
+          })
+
+          if (products.length > 0) {
+            const priceList = products.map((p, idx) =>
+              `${idx + 1}. **${p.name}**: ${p.price.toLocaleString('vi-VN')}đ/${p.unit}`
+            ).join('\n')
+
+            return NextResponse.json(
+              createSuccessResponse({
+                message: `💰 **Bảng giá ${ruleBasedResult.productKeyword}**\n\n${priceList}\n\n💡 Giảm 5-8% khi mua số lượng lớn!`,
+                suggestions: ruleBasedResult.suggestions || ['Đặt hàng', 'Tính vật liệu', 'So sánh'],
+                confidence: 1.0,
+                sessionId,
+                timestamp: new Date().toISOString()
+              })
+            )
+          }
+          // If no products found, fall through to AI handling
+        } else {
+          // Direct rule-based response (no DB lookup needed)
+          console.log(`[RULE-BASED] Matched! Returning direct response.`)
+          return NextResponse.json(
+            createSuccessResponse({
+              message: ruleBasedResult.response!,
+              suggestions: ruleBasedResult.suggestions || [],
               confidence: 1.0,
               sessionId,
               timestamp: new Date().toISOString()
