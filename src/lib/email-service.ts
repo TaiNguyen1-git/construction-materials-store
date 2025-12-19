@@ -9,13 +9,23 @@ export interface EmailTemplate {
   text?: string
 }
 
-// Bank account info for payment (matching QRPayment.tsx)
 const BANK_INFO = {
   bankId: '970423', // TPBank
   bankName: 'TPBank',
   accountNumber: '06729594301',
   accountName: 'NGUYEN THANH TAI',
   fullBankName: 'Ngân hàng TMCP Tiên Phong (TPBank)'
+}
+
+// Helper function to get base URL - handles Vercel serverless environment
+function getBaseUrl(): string {
+  const url = (
+    process.env.NEXT_PUBLIC_BASE_URL ||
+    (process.env.VERCEL_PROJECT_PRODUCTION_URL && `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`) ||
+    (process.env.VERCEL_URL && `https://${process.env.VERCEL_URL}`) ||
+    'http://localhost:3000'
+  ).replace(/\/$/, '')
+  return url
 }
 
 export class EmailService {
@@ -210,7 +220,7 @@ export class EmailService {
 
   // Order Approved with Payment Info HTML
   private static getOrderApprovedHTML(data: any): string {
-    const baseUrl = (process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000').replace(/\/$/, '')
+    const baseUrl = getBaseUrl()
     const trackingUrl = `${baseUrl}/order-tracking?orderId=${data.orderId}`
     const paymentAmount = data.depositAmount || data.totalAmount
     const qrUrl = `https://img.vietqr.io/image/${BANK_INFO.bankId}-${BANK_INFO.accountNumber}-compact.png?amount=${paymentAmount}&addInfo=${encodeURIComponent('DH ' + data.orderNumber)}&accountName=${encodeURIComponent(BANK_INFO.accountName)}`
@@ -359,7 +369,7 @@ export class EmailService {
 
   // New Order for Employee HTML
   private static getNewOrderForEmployeeHTML(data: any): string {
-    const baseUrl = (process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000').replace(/\/$/, '')
+    const baseUrl = getBaseUrl()
     return `
       <!DOCTYPE html>
       <html>
@@ -412,7 +422,8 @@ export class EmailService {
 
   // Stock Alert HTML - Enhanced with more details
   private static getStockAlertHTML(data: any, level: 'warning' | 'critical'): string {
-    const baseUrl = (process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000').replace(/\/$/, '')
+    const baseUrl = getBaseUrl()
+    console.log('📧 Stock Alert Email baseUrl:', baseUrl)
     const bgColor = level === 'critical' ? '#dc2626' : '#f59e0b'
     const emoji = level === 'critical' ? '🚨' : '⚠️'
     const title = level === 'critical' ? 'KHẨN CẤP: Tồn Kho Nguy Cấp' : 'Cảnh Báo Tồn Kho'
@@ -694,8 +705,8 @@ export class EmailService {
                         ${data.stats.topProducts.map((p: any) => `
                         <tr>
                           <td style="font-weight: 600;">${p.name}</td>
-                          <td style="text-align: center;">${p.quantity}</td>
-                          <td style="text-align: right; color: #10b981; font-weight: 600;">${p.revenue.toLocaleString()}đ</td>
+                          <td style="text-align: center;">${Math.round(p.quantity)}</td>
+                          <td style="text-align: right; color: #10b981; font-weight: 600;">${Math.round(p.revenue).toLocaleString()}đ</td>
                         </tr>
                         `).join('')}
                       </tbody>
