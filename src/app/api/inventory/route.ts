@@ -289,10 +289,14 @@ export async function POST(request: NextRequest) {
       return updatedInventory
     })
 
-    // Send email alerts for critical stock levels (non-blocking, outside transaction)
-    // Critical = stock is at or below 20% of minStockLevel
+    // Send email alerts for low/critical stock levels (non-blocking, outside transaction)
+    // Send email when stock is at or below minStockLevel
+    const isLowStock = newQuantity <= inventoryItem.minStockLevel
     const isCriticalStock = newQuantity <= inventoryItem.minStockLevel * 0.2 || newQuantity <= 0
-    if (isCriticalStock) {
+
+    console.log(`📊 Stock check: newQuantity=${newQuantity}, minStockLevel=${inventoryItem.minStockLevel}, isLowStock=${isLowStock}, isCritical=${isCriticalStock}`)
+
+    if (isLowStock) {
       // Get product info for email
       const product = await prisma.product.findUnique({
         where: { id: productId },
@@ -300,27 +304,36 @@ export async function POST(request: NextRequest) {
       })
 
       if (product) {
-        import('@/lib/email-service').then(({ EmailService }) => {
-          // Send critical stock alert to admin
-          EmailService.sendCriticalStockAlertToAdmin({
-            productName: product.name,
-            sku: product.sku || productId,
-            currentStock: newQuantity,
-            minStock: inventoryItem.minStockLevel
-          }).then(sent => {
-            if (sent) {
-              console.log(`📧 Critical stock email sent to admin for: ${product.name}`)
-            }
-          }).catch(err => console.error('Critical stock alert email error:', err))
+        console.log(`📧 Preparing to send stock alert emails for: ${product.name}`)
 
-          // Also send to employee
+        import('@/lib/email-service').then(({ EmailService }) => {
+          console.log(`📧 EmailService imported successfully`)
+
+          // Send to employee for all low stock
           EmailService.sendStockAlertToEmployee({
             productName: product.name,
             sku: product.sku || productId,
             currentStock: newQuantity,
             minStock: inventoryItem.minStockLevel
+          }).then(sent => {
+            console.log(`📧 Employee email result: ${sent ? 'SENT' : 'NOT SENT (check EMPLOYEE_NOTIFICATION_EMAIL env)'}`)
           }).catch(err => console.error('Stock alert email to employee error:', err))
+
+          // Send critical stock alert to admin only for critical levels
+          if (isCriticalStock) {
+            console.log(`🚨 Critical stock detected! Sending email to admin...`)
+            EmailService.sendCriticalStockAlertToAdmin({
+              productName: product.name,
+              sku: product.sku || productId,
+              currentStock: newQuantity,
+              minStock: inventoryItem.minStockLevel
+            }).then(sent => {
+              console.log(`📧 Admin critical email result: ${sent ? 'SENT' : 'NOT SENT (check ADMIN_NOTIFICATION_EMAIL env or stock > 20% of minStock)'}`)
+            }).catch(err => console.error('Critical stock alert email error:', err))
+          }
         }).catch(err => console.error('Email import error:', err))
+      } else {
+        console.log(`⚠️ Product not found for email: ${productId}`)
       }
     }
 

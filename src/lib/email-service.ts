@@ -118,15 +118,16 @@ export class EmailService {
     minStock: number
   }) {
     const adminEmail = process.env.ADMIN_NOTIFICATION_EMAIL
+    console.log(`📧 sendCriticalStockAlertToAdmin called - adminEmail: ${adminEmail ? 'configured' : 'NOT configured'}`)
+    console.log(`📧 Stock data: currentStock=${data.currentStock}, minStock=${data.minStock}, threshold=${data.minStock * 0.2}`)
+
     if (!adminEmail) {
-      console.log('⚠️ ADMIN_NOTIFICATION_EMAIL not configured')
+      console.log('⚠️ ADMIN_NOTIFICATION_EMAIL not configured in environment variables')
       return false
     }
 
-    // Only send if stock is critically low (less than 20% of min stock)
-    if (data.currentStock > data.minStock * 0.2) {
-      return false
-    }
+    // Removed the 20% check here - it's already checked in the API route
+    // This allows the API to control when to send admin emails
 
     const template: EmailTemplate = {
       to: adminEmail,
@@ -409,49 +410,148 @@ export class EmailService {
     `
   }
 
-  // Stock Alert HTML
+  // Stock Alert HTML - Enhanced with more details
   private static getStockAlertHTML(data: any, level: 'warning' | 'critical'): string {
     const baseUrl = (process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000').replace(/\/$/, '')
     const bgColor = level === 'critical' ? '#dc2626' : '#f59e0b'
     const emoji = level === 'critical' ? '🚨' : '⚠️'
     const title = level === 'critical' ? 'KHẨN CẤP: Tồn Kho Nguy Cấp' : 'Cảnh Báo Tồn Kho'
 
+    // Calculate percentage and urgency
+    const percentage = data.minStock > 0 ? Math.round((data.currentStock / data.minStock) * 100) : 0
+    const now = new Date()
+    const dateStr = now.toLocaleDateString('vi-VN', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    })
+    const timeStr = now.toLocaleTimeString('vi-VN', {
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+
+    // Determine urgency level and action
+    let urgencyBadge = ''
+    let urgencyText = ''
+    let actionText = ''
+
+    if (data.currentStock <= 0) {
+      urgencyBadge = '<span style="background: #dc2626; color: white; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;">HẾT HÀNG</span>'
+      urgencyText = '⛔ Sản phẩm đã HẾT HÀNG hoàn toàn!'
+      actionText = 'Cần đặt hàng NGAY LẬP TỨC để tránh mất khách.'
+    } else if (percentage <= 20) {
+      urgencyBadge = '<span style="background: #dc2626; color: white; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;">CỰC KỲ THẤP</span>'
+      urgencyText = `🔴 Chỉ còn ${percentage}% so với mức tối thiểu!`
+      actionText = 'Đề xuất: Liên hệ nhà cung cấp đặt hàng khẩn cấp trong ngày.'
+    } else if (percentage <= 50) {
+      urgencyBadge = '<span style="background: #f59e0b; color: white; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;">THẤP</span>'
+      urgencyText = `🟡 Còn ${percentage}% so với mức tối thiểu`
+      actionText = 'Đề xuất: Lên kế hoạch đặt hàng trong 2-3 ngày tới.'
+    } else {
+      urgencyBadge = '<span style="background: #3b82f6; color: white; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;">CẦN CHÚ Ý</span>'
+      urgencyText = `🔵 Còn ${percentage}% so với mức tối thiểu`
+      actionText = 'Đề xuất: Theo dõi và chuẩn bị đặt hàng khi cần.'
+    }
+
+    // Calculate shortage
+    const shortage = Math.max(0, data.minStock - data.currentStock)
+
     return `
       <!DOCTYPE html>
       <html>
       <head><meta charset="utf-8"></head>
-      <body style="margin: 0; padding: 20px; background-color: #f4f7fa; font-family: Arial, sans-serif;">
-        <table style="max-width: 500px; margin: 0 auto; background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+      <body style="margin: 0; padding: 20px; background-color: #f4f7fa; font-family: 'Segoe UI', Arial, sans-serif;">
+        <table style="max-width: 600px; margin: 0 auto; background: #fff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
+          <!-- Header -->
           <tr>
-            <td style="background: ${bgColor}; padding: 25px; text-align: center;">
-              <h2 style="color: #fff; margin: 0;">${emoji} ${title}</h2>
+            <td style="background: ${bgColor}; padding: 30px; text-align: center;">
+              <h1 style="color: #fff; margin: 0; font-size: 24px;">${emoji} ${title}</h1>
+              <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0 0; font-size: 14px;">
+                📅 ${dateStr} lúc ${timeStr}
+              </p>
             </td>
           </tr>
+          
+          <!-- Urgency Badge -->
+          <tr>
+            <td style="padding: 20px 25px 0 25px; text-align: center;">
+              ${urgencyBadge}
+            </td>
+          </tr>
+          
+          <!-- Product Info -->
           <tr>
             <td style="padding: 25px;">
-              <table style="width: 100%;">
+              <table style="width: 100%; border-collapse: collapse;">
                 <tr>
-                  <td style="padding: 8px 0; color: #6b7280;">Sản phẩm:</td>
-                  <td style="padding: 8px 0; font-weight: 600;">${data.productName}</td>
-                </tr>
-                <tr>
-                  <td style="padding: 8px 0; color: #6b7280;">SKU:</td>
-                  <td style="padding: 8px 0; font-family: monospace;">${data.sku}</td>
-                </tr>
-                <tr>
-                  <td style="padding: 8px 0; color: #6b7280;">Tồn kho hiện tại:</td>
-                  <td style="padding: 8px 0; font-weight: 600; color: ${bgColor}; font-size: 20px;">${data.currentStock}</td>
-                </tr>
-                <tr>
-                  <td style="padding: 8px 0; color: #6b7280;">Mức tối thiểu:</td>
-                  <td style="padding: 8px 0;">${data.minStock}</td>
+                  <td colspan="2" style="padding: 15px; background: #f8fafc; border-radius: 8px; margin-bottom: 15px;">
+                    <div style="font-size: 18px; font-weight: 700; color: #1e293b; margin-bottom: 5px;">
+                      📦 ${data.productName}
+                    </div>
+                    <div style="color: #64748b; font-size: 13px;">SKU: ${data.sku}</div>
+                  </td>
                 </tr>
               </table>
-              <div style="text-align: center; margin-top: 20px;">
-                <a href="${baseUrl}/admin/inventory" style="display: inline-block; background: ${bgColor}; color: #fff; padding: 12px 30px; border-radius: 8px; text-decoration: none; font-weight: 600;">
-                  Kiểm Tra Kho
-                </a>
+              
+              <!-- Stock Details -->
+              <table style="width: 100%; margin-top: 20px; border-collapse: collapse;">
+                <tr>
+                  <td style="padding: 12px; background: ${data.currentStock <= 0 ? '#fef2f2' : '#fff7ed'}; border-radius: 8px 0 0 8px; text-align: center; border: 1px solid ${data.currentStock <= 0 ? '#fecaca' : '#fed7aa'};">
+                    <div style="font-size: 11px; color: #6b7280; text-transform: uppercase; letter-spacing: 1px;">Tồn kho</div>
+                    <div style="font-size: 32px; font-weight: 800; color: ${bgColor};">${data.currentStock}</div>
+                  </td>
+                  <td style="padding: 12px; background: #f0fdf4; text-align: center; border: 1px solid #bbf7d0; border-left: none;">
+                    <div style="font-size: 11px; color: #6b7280; text-transform: uppercase; letter-spacing: 1px;">Tối thiểu</div>
+                    <div style="font-size: 32px; font-weight: 800; color: #16a34a;">${data.minStock}</div>
+                  </td>
+                  <td style="padding: 12px; background: #eff6ff; border-radius: 0 8px 8px 0; text-align: center; border: 1px solid #bfdbfe; border-left: none;">
+                    <div style="font-size: 11px; color: #6b7280; text-transform: uppercase; letter-spacing: 1px;">Cần thêm</div>
+                    <div style="font-size: 32px; font-weight: 800; color: #2563eb;">${shortage}</div>
+                  </td>
+                </tr>
+              </table>
+              
+              <!-- Progress Bar -->
+              <div style="margin-top: 20px;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                  <span style="font-size: 13px; color: #6b7280;">Mức tồn kho</span>
+                  <span style="font-size: 13px; font-weight: 600; color: ${bgColor};">${percentage}%</span>
+                </div>
+                <div style="height: 8px; background: #e5e7eb; border-radius: 4px; overflow: hidden;">
+                  <div style="height: 100%; width: ${Math.min(percentage, 100)}%; background: ${percentage <= 20 ? '#dc2626' : percentage <= 50 ? '#f59e0b' : '#10b981'}; border-radius: 4px;"></div>
+                </div>
               </div>
+              
+              <!-- Status Message -->
+              <div style="margin-top: 20px; padding: 15px; background: ${data.currentStock <= 0 ? '#fef2f2' : '#fffbeb'}; border-radius: 8px; border-left: 4px solid ${bgColor};">
+                <div style="font-weight: 600; color: #1e293b; margin-bottom: 5px;">${urgencyText}</div>
+                <div style="font-size: 14px; color: #4b5563;">${actionText}</div>
+              </div>
+              
+              <!-- CTA Buttons -->
+              <table style="width: 100%; margin-top: 25px;">
+                <tr>
+                  <td style="text-align: center;">
+                    <a href="${baseUrl}/admin/inventory" style="display: inline-block; background: ${bgColor}; color: #fff; padding: 14px 35px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 15px; margin-right: 10px;">
+                      📊 Kiểm Tra Kho
+                    </a>
+                    <a href="${baseUrl}/admin/products" style="display: inline-block; background: #1e293b; color: #fff; padding: 14px 35px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 15px;">
+                      📦 Xem Sản Phẩm
+                    </a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          
+          <!-- Footer -->
+          <tr>
+            <td style="background: #f8fafc; padding: 20px 25px; text-align: center; border-top: 1px solid #e5e7eb;">
+              <p style="margin: 0; font-size: 12px; color: #9ca3af;">
+                Email tự động từ hệ thống quản lý kho SmartBuild<br>
+                Vui lòng không trả lời email này.
+              </p>
             </td>
           </tr>
         </table>

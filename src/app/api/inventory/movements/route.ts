@@ -133,6 +133,51 @@ export async function POST(request: NextRequest) {
       return mov
     })
 
+    // Send email alerts for low/critical stock levels (non-blocking, outside transaction)
+    const isLowStock = newStock <= inventory.minStockLevel
+    const isCriticalStock = newStock <= inventory.minStockLevel * 0.2 || newStock <= 0
+
+    console.log(`📊 Stock check after movement: productId=${productId}, newStock=${newStock}, minStockLevel=${inventory.minStockLevel}, isLowStock=${isLowStock}, isCritical=${isCriticalStock}`)
+
+    if (isLowStock) {
+      // Get product info for email
+      const product = await prisma.product.findUnique({
+        where: { id: productId },
+        select: { name: true, sku: true }
+      })
+
+      if (product) {
+        console.log(`📧 Preparing to send stock alert emails for: ${product.name}`)
+
+        import('@/lib/email-service').then(({ EmailService }) => {
+          console.log(`📧 EmailService imported successfully`)
+
+          // Send to employee for all low stock
+          EmailService.sendStockAlertToEmployee({
+            productName: product.name,
+            sku: product.sku || productId,
+            currentStock: newStock,
+            minStock: inventory.minStockLevel
+          }).then(sent => {
+            console.log(`📧 Employee email result: ${sent ? 'SENT' : 'NOT SENT (check EMPLOYEE_NOTIFICATION_EMAIL env)'}`)
+          }).catch(err => console.error('Stock alert email to employee error:', err))
+
+          // Send stock alert to admin for ALL low stock situations
+          console.log(`🚨 Low stock detected! Sending email to admin... (isCritical: ${isCriticalStock})`)
+          EmailService.sendCriticalStockAlertToAdmin({
+            productName: product.name,
+            sku: product.sku || productId,
+            currentStock: newStock,
+            minStock: inventory.minStockLevel
+          }).then(sent => {
+            console.log(`📧 Admin email result: ${sent ? 'SENT' : 'NOT SENT (check ADMIN_NOTIFICATION_EMAIL env or stock > 20% of minStock)'}`)
+          }).catch(err => console.error('Stock alert email to admin error:', err))
+        }).catch(err => console.error('Email import error:', err))
+      } else {
+        console.log(`⚠️ Product not found for email: ${productId}`)
+      }
+    }
+
     return NextResponse.json(
       createSuccessResponse({ data: movement }, 'Inventory movement recorded successfully'),
       { status: 201 }
