@@ -209,7 +209,7 @@ export class EmailService {
 
   // Order Approved with Payment Info HTML
   private static getOrderApprovedHTML(data: any): string {
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'
+    const baseUrl = (process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000').replace(/\/$/, '')
     const trackingUrl = `${baseUrl}/order-tracking?orderId=${data.orderId}`
     const paymentAmount = data.depositAmount || data.totalAmount
     const qrUrl = `https://img.vietqr.io/image/${BANK_INFO.bankId}-${BANK_INFO.accountNumber}-compact.png?amount=${paymentAmount}&addInfo=${encodeURIComponent('DH ' + data.orderNumber)}&accountName=${encodeURIComponent(BANK_INFO.accountName)}`
@@ -358,7 +358,7 @@ export class EmailService {
 
   // New Order for Employee HTML
   private static getNewOrderForEmployeeHTML(data: any): string {
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'
+    const baseUrl = (process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000').replace(/\/$/, '')
     return `
       <!DOCTYPE html>
       <html>
@@ -411,7 +411,7 @@ export class EmailService {
 
   // Stock Alert HTML
   private static getStockAlertHTML(data: any, level: 'warning' | 'critical'): string {
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'
+    const baseUrl = (process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000').replace(/\/$/, '')
     const bgColor = level === 'critical' ? '#dc2626' : '#f59e0b'
     const emoji = level === 'critical' ? '🚨' : '⚠️'
     const title = level === 'critical' ? 'KHẨN CẤP: Tồn Kho Nguy Cấp' : 'Cảnh Báo Tồn Kho'

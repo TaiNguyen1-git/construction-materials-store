@@ -1,5 +1,5 @@
 // API Constants
-export const API_BASE_URL = 'http://localhost:3000/api';
+export const API_BASE_URL = (process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000').replace(/\/$/, '') + '/api';
 
 // Authentication Constants
 export const AUTH_TOKEN_KEY = 'authToken';

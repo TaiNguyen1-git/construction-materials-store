@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 
 // Configure axios base URL (update this to match your backend)
-const API_BASE_URL = 'http://localhost:3000/api';
+const API_BASE_URL = (process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000').replace(/\/$/, '') + '/api';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -28,20 +28,20 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
-    
+
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
-      
+
       try {
         // Try to refresh token
         const refreshToken = await AsyncStorage.getItem('refreshToken');
         if (refreshToken) {
           const response = await api.post('/auth/refresh', { refreshToken });
           const { token, refreshToken: newRefreshToken } = response.data;
-          
+
           await AsyncStorage.setItem('authToken', token);
           await AsyncStorage.setItem('refreshToken', newRefreshToken);
-          
+
           originalRequest.headers.Authorization = `Bearer ${token}`;
           return api(originalRequest);
         }
@@ -51,7 +51,7 @@ api.interceptors.response.use(
         await AsyncStorage.removeItem('refreshToken');
       }
     }
-    
+
     return Promise.reject(error);
   }
 );
@@ -84,11 +84,11 @@ export const authService = {
     try {
       const response = await api.post('/auth/login', credentials);
       const { user, token, refreshToken } = response.data;
-      
+
       // Store tokens
       await AsyncStorage.setItem('authToken', token);
       await AsyncStorage.setItem('refreshToken', refreshToken);
-      
+
       return { user, token, refreshToken };
     } catch (error) {
       throw new Error((error as any).response?.data?.error || 'Login failed');
@@ -100,11 +100,11 @@ export const authService = {
     try {
       const response = await api.post('/auth/register', data);
       const { user, token, refreshToken } = response.data;
-      
+
       // Store tokens
       await AsyncStorage.setItem('authToken', token);
       await AsyncStorage.setItem('refreshToken', refreshToken);
-      
+
       return { user, token, refreshToken };
     } catch (error) {
       throw new Error((error as any).response?.data?.error || 'Registration failed');
@@ -117,7 +117,7 @@ export const authService = {
       // Clear tokens
       await AsyncStorage.removeItem('authToken');
       await AsyncStorage.removeItem('refreshToken');
-      
+
       // Notify backend about logout (optional)
       await api.post('/auth/logout');
     } catch (error) {
