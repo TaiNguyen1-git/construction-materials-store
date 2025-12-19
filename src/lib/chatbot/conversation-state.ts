@@ -228,12 +228,20 @@ export interface OrderCreationData {
 export async function startOrderCreationFlow(
   sessionId: string,
   items: OrderCreationData['items'],
-  hasCustomerId: boolean = false
+  hasCustomerId: boolean = false,
+  existingGuestInfo?: { name?: string; phone?: string; address?: string }
 ): Promise<ConversationState> {
+  // Check if existing guest info has all required fields
+  const hasCompleteGuestInfo = existingGuestInfo &&
+    existingGuestInfo.name &&
+    existingGuestInfo.phone &&
+    existingGuestInfo.address
+
   return await setConversationState(sessionId, 'ORDER_CREATION', 1, {
     items,
     currentStep: 'confirm_items',
-    needsGuestInfo: !hasCustomerId
+    needsGuestInfo: !hasCustomerId && !hasCompleteGuestInfo,
+    guestInfo: existingGuestInfo // Preserve any extracted guest info
   })
 }
 
@@ -346,11 +354,37 @@ async function processOrderCreationResponse(
   state: ConversationState
 ): Promise<any> {
   const currentStep = state.data.currentStep
+  const lowerMessage = userMessage.toLowerCase().trim()
+
+  // EARLY HANDLING: If message is exactly "xác nhận đặt hàng" (from ChatOrderSummary button)
+  // Treat as confirmation regardless of current step
+  if (lowerMessage === 'xác nhận đặt hàng' || lowerMessage === 'xác nhận') {
+    console.log('[ORDER_FLOW] Early confirmation detected:', lowerMessage)
+    if (state.data.needsGuestInfo && !state.data.guestInfo?.phone) {
+      // Need guest info first
+      await setOrderCreationStep(sessionId, 'guest_info')
+      await advanceStep(sessionId)
+      return {
+        shouldContinue: true,
+        nextPrompt: '📝 **Thông tin giao hàng**\n\n' +
+          'Vui lòng cung cấp:\n' +
+          '- Họ tên\n' +
+          '- Số điện thoại\n' +
+          '- Địa chỉ nhận hàng\n\n' +
+          '💡 *Ví dụ: Nguyễn Văn A, 0901234567, 123 Nguyễn Huệ, Q1, HCM*'
+      }
+    } else {
+      // Has all info - confirm order
+      return {
+        shouldContinue: true,
+        isConfirmed: true
+      }
+    }
+  }
 
   switch (currentStep) {
     case 'confirm_items':
       // Check if user is confirming or cancelling
-      const lowerMessage = userMessage.toLowerCase().trim()
 
       // Check for cancellation first
       if (lowerMessage.includes('hủy') || lowerMessage.includes('cancel') ||

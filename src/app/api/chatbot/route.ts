@@ -583,13 +583,20 @@ export async function POST(request: NextRequest) {
         const itemsToClarify: Array<{ item: any, products: any[] }> = []
 
         for (const item of aiOrderRequest.items) {
-          // Search for products matching this item name
+          // Extract searchable keywords from colloquial product name
+          const keywords = extractProductKeywords(item.productName)
+          console.log(`[ORDER_CREATE] Searching for "${item.productName}" with keywords:`, keywords)
+
+          // Build OR conditions for all keywords
+          const orConditions = keywords.flatMap(kw => [
+            { name: { contains: kw, mode: 'insensitive' as const } },
+            { description: { contains: kw, mode: 'insensitive' as const } }
+          ])
+
+          // Search for products matching this item name using fuzzy keywords
           const matchingProducts = await prisma.product.findMany({
             where: {
-              OR: [
-                { name: { contains: item.productName, mode: 'insensitive' } },
-                { description: { contains: item.productName, mode: 'insensitive' } }
-              ],
+              OR: orConditions,
               isActive: true
             },
             select: {
@@ -649,15 +656,19 @@ export async function POST(request: NextRequest) {
             unit: x.item.unit || 'cái'
           }))]
 
-          startOrderCreationFlow(sessionId, initialItems, !!customerId)
+          // Build guest info from AI extraction
+          const guestInfo = (aiOrderRequest.customerName || aiOrderRequest.phone || aiOrderRequest.deliveryAddress) ? {
+            name: aiOrderRequest.customerName || '',
+            phone: aiOrderRequest.phone || '',
+            address: aiOrderRequest.deliveryAddress || ''
+          } : undefined
 
-          // Store pending selections
+          startOrderCreationFlow(sessionId, initialItems, !!customerId, guestInfo)
+
+          // Store pending selections and VAT info
           await updateFlowData(sessionId, {
             pendingProductSelection: itemsToClarify.filter(({ products }) => products.length > 0),
-            // Store address if detected
-            deliveryAddress: aiOrderRequest.deliveryAddress,
-            customerName: aiOrderRequest.customerName,
-            phone: aiOrderRequest.phone
+            vatInfo: aiOrderRequest.vatInfo
           })
 
           return NextResponse.json(
@@ -673,18 +684,39 @@ export async function POST(request: NextRequest) {
 
         // All items valid - proceed to confirmation
         if (enrichedItems.length > 0) {
-          startOrderCreationFlow(sessionId, enrichedItems, !!customerId)
+          // Build guest info from AI extraction
+          const guestInfoFromAI = (aiOrderRequest.customerName || aiOrderRequest.phone || aiOrderRequest.deliveryAddress) ? {
+            name: aiOrderRequest.customerName || '',
+            phone: aiOrderRequest.phone || '',
+            address: aiOrderRequest.deliveryAddress || ''
+          } : undefined
 
-          // Store address info if detected
-          if (aiOrderRequest.deliveryAddress || aiOrderRequest.customerName || aiOrderRequest.phone) {
+          startOrderCreationFlow(sessionId, enrichedItems, !!customerId, guestInfoFromAI)
+
+          // Store VAT info if detected
+          if (aiOrderRequest.vatInfo) {
             await updateFlowData(sessionId, {
-              deliveryAddress: aiOrderRequest.deliveryAddress,
-              customerName: aiOrderRequest.customerName,
-              phone: aiOrderRequest.phone
+              vatInfo: aiOrderRequest.vatInfo
             })
           }
 
-          const needsInfo = !customerId && !aiOrderRequest.deliveryAddress
+          const hasGuestInfo = aiOrderRequest.customerName && aiOrderRequest.phone && aiOrderRequest.deliveryAddress
+          const needsInfo = !customerId && !hasGuestInfo
+
+          let infoSummary = ''
+          if (aiOrderRequest.customerName || aiOrderRequest.phone || aiOrderRequest.deliveryAddress) {
+            infoSummary = '\n\n📍 **Thông tin giao hàng:**\n' +
+              `- Tên: ${aiOrderRequest.customerName || '(thiếu)'}\n` +
+              `- SĐT: ${aiOrderRequest.phone || '(thiếu)'}\n` +
+              `- Địa chỉ: ${aiOrderRequest.deliveryAddress || '(thiếu)'}`
+          }
+
+          if (aiOrderRequest.vatInfo) {
+            infoSummary += '\n\n🧾 **Thông tin hóa đơn VAT:**\n' +
+              `- Công ty: ${aiOrderRequest.vatInfo.companyName}\n` +
+              `- MST: ${aiOrderRequest.vatInfo.taxId}\n` +
+              `- Địa chỉ: ${aiOrderRequest.vatInfo.companyAddress}`
+          }
 
           return NextResponse.json(
             createSuccessResponse({
@@ -693,9 +725,9 @@ export async function POST(request: NextRequest) {
                 enrichedItems.map((item, idx) =>
                   `${idx + 1}. ${item.productName}: ${item.quantity} ${item.unit}`
                 ).join('\n') +
+                infoSummary +
                 '\n\n✅ Xác nhận đặt hàng?' +
-                (aiOrderRequest.deliveryAddress ? `\n\n📍 Giao đến: ${aiOrderRequest.deliveryAddress}` : '') +
-                (needsInfo ? '\n\n⚠️ *Bạn chưa đăng nhập. Chúng tôi sẽ hỏi thông tin giao hàng sau khi xác nhận.*' : ''),
+                (needsInfo ? '\n\n⚠️ *Bạn chưa đăng nhập. Chúng tôi sẽ hỏi thêm thông tin giao hàng còn thiếu sau khi xác nhận.*' : ''),
               suggestions: needsInfo ? ['Xác nhận', 'Đăng nhập', 'Hủy'] : ['Xác nhận', 'Chỉnh sửa', 'Hủy'],
               confidence: 0.95,
               sessionId,
@@ -950,40 +982,108 @@ export async function POST(request: NextRequest) {
         )
       }
 
-      // Check if there's a recent material calculation
-      const recentCalc = conversationHistory.reverse().find(h =>
-        h.role === 'assistant' && (
-          h.content.includes('Xi măng') ||
-          h.content.includes('Gạch') ||
-          h.content.includes('Cát') ||
-          h.content.includes('Đá')
-        )
-      )
+      // Check if this is a button click ("Đặt hàng ngay") vs a fresh order with product details
+      const lowerMsg = message.toLowerCase().trim()
+      const isButtonClick = lowerMsg === 'đặt hàng ngay' || lowerMsg === 'đặt hàng' || lowerMsg === 'order now'
 
-      if (recentCalc) {
-        // Parse material list from calculation
-        // (Simplified - in production, store calculation data in state)
-        const items = [
-          { productName: 'Xi măng PC40', quantity: 180, unit: 'bao' },
-          { productName: 'Gạch ống', quantity: 12000, unit: 'viên' }
-        ]
+      // First check if there's stored calculation data - ONLY use if it's a button click
+      const currentState = await getConversationState(sessionId)
+      if (isButtonClick && currentState?.data?.lastCalculation && currentState.data.lastCalculation.length > 0) {
+        // Use stored calculation items directly
+        const items = currentState.data.lastCalculation
+        const storedGuestInfo = currentState.data.guestInfo
+        console.log('[ORDER_CREATE] Button click - Using stored calculation items:', items)
+        console.log('[ORDER_CREATE] Using stored guestInfo:', storedGuestInfo)
 
-        startOrderCreationFlow(sessionId, items)
+        // Pass stored guest info to order flow
+        startOrderCreationFlow(sessionId, items, !!customerId, storedGuestInfo)
+
+        // Build guest info display if available
+        let guestInfoDisplay = ''
+        const hasCompleteGuestInfo = storedGuestInfo?.name && storedGuestInfo?.phone && storedGuestInfo?.address
+        if (storedGuestInfo && (storedGuestInfo.name || storedGuestInfo.phone || storedGuestInfo.address)) {
+          guestInfoDisplay = '\n\n📍 **Thông tin giao hàng:**\n' +
+            `- Tên: ${storedGuestInfo.name || '(thiếu)'}\n` +
+            `- SĐT: ${storedGuestInfo.phone || '(thiếu)'}\n` +
+            `- Địa chỉ: ${storedGuestInfo.address || '(thiếu)'}`
+        }
 
         return NextResponse.json(
           createSuccessResponse({
             message: '🛒 **Xác nhận đặt hàng**\n\n' +
               'Danh sách vật liệu từ tính toán:\n' +
-              items.map((item, idx) =>
+              items.map((item: any, idx: number) =>
                 `${idx + 1}. ${item.productName}: ${item.quantity} ${item.unit}`
               ).join('\n') +
-              '\n\n✅ Xác nhận đặt hàng?',
-            suggestions: ['Xác nhận', 'Chỉnh sửa', 'Hủy'],
-            confidence: 0.9,
+              guestInfoDisplay +
+              '\n\n✅ Xác nhận đặt hàng?' +
+              (hasCompleteGuestInfo ? '' : '\n\n⚠️ *Bạn chưa đăng nhập. Chúng tôi sẽ hỏi thông tin giao hàng sau khi xác nhận.*'),
+            suggestions: ['Xác nhận', 'Đăng nhập', 'Hủy'],
+            confidence: 0.95,
             sessionId,
             timestamp: new Date().toISOString()
           })
         )
+      }
+
+      // Clear old calculation state if this is a fresh order (not button click)
+      if (!isButtonClick && currentState?.data?.lastCalculation) {
+        console.log('[ORDER_CREATE] Fresh order detected - clearing old calculation state')
+        await clearConversationState(sessionId)
+      }
+
+      // Fallback: Check if there's a recent material calculation in history
+      const recentCalc = conversationHistory.reverse().find(h =>
+        h.role === 'assistant' && (
+          h.content.includes('KẾT QUẢ TÍNH TOÁN') ||
+          h.content.includes('DANH SÁCH VẬT LIỆU')
+        )
+      )
+
+      if (recentCalc) {
+        // Parse material list from calculation result dynamically
+        const items: Array<{ productName: string, quantity: number, unit: string }> = []
+        const calcContent = recentCalc.content
+
+        // Parse patterns like "• Xi măng dán gạch: 8 bao" or "• Gạch lát (60x60): 42 m²"
+        const materialPattern = /•\s*([^:]+):\s*([0-9.]+)\s*([^\n\(]+)/g
+        let match
+        while ((match = materialPattern.exec(calcContent)) !== null) {
+          const productName = match[1].trim()
+          const quantity = parseFloat(match[2])
+          const unit = match[3].trim()
+          if (productName && quantity > 0) {
+            items.push({ productName, quantity, unit })
+          }
+        }
+
+        // If no items parsed, try simpler pattern
+        if (items.length === 0) {
+          // Fallback: look for common material names
+          if (calcContent.includes('Xi măng')) items.push({ productName: 'Xi măng', quantity: 10, unit: 'bao' })
+          if (calcContent.includes('Gạch')) items.push({ productName: 'Gạch', quantity: 50, unit: 'm²' })
+          if (calcContent.includes('Cát')) items.push({ productName: 'Cát xây dựng', quantity: 1, unit: 'm³' })
+        }
+
+        if (items.length > 0) {
+          startOrderCreationFlow(sessionId, items)
+
+          return NextResponse.json(
+            createSuccessResponse({
+              message: '🛒 **Xác nhận đặt hàng**\n\n' +
+                'Danh sách vật liệu từ tính toán:\n' +
+                items.map((item, idx) =>
+                  `${idx + 1}. ${item.productName}: ${item.quantity} ${item.unit}`
+                ).join('\n') +
+                '\n\n✅ Xác nhận đặt hàng?' +
+                '\n\n⚠️ *Bạn chưa đăng nhập. Chúng tôi sẽ hỏi thông tin giao hàng sau khi xác nhận.*',
+              suggestions: ['Xác nhận', 'Đăng nhập', 'Hủy'],
+              confidence: 0.9,
+              sessionId,
+              timestamp: new Date().toISOString()
+            })
+          )
+        }
       } else {
         return NextResponse.json(
           createSuccessResponse({
@@ -1098,6 +1198,37 @@ export async function POST(request: NextRequest) {
         if (calcInput) {
           const calcResult = await materialCalculator.quickCalculate(calcInput)
           const formattedResponse = materialCalculator.formatForChat(calcResult)
+
+          // Store calculation items in conversation state for "Đặt hàng ngay" button
+          const calcItems = calcResult.materials?.map(m => ({
+            productName: m.material,
+            quantity: m.quantity,
+            unit: m.unit
+          })) || []
+
+          // Also try to extract guest info from the message for later use
+          let guestInfoFromMessage: any = undefined
+          try {
+            const parsedInfo = await AIService.parseOrderRequest(message)
+            if (parsedInfo && (parsedInfo.customerName || parsedInfo.phone || parsedInfo.deliveryAddress)) {
+              guestInfoFromMessage = {
+                name: parsedInfo.customerName || '',
+                phone: parsedInfo.phone || '',
+                address: parsedInfo.deliveryAddress || ''
+              }
+              console.log('[MATERIAL_CALCULATE] Extracted guest info:', guestInfoFromMessage)
+            }
+          } catch (e) {
+            console.log('[MATERIAL_CALCULATE] Could not extract guest info:', e)
+          }
+
+          if (calcItems.length > 0) {
+            await setConversationState(sessionId, 'NONE', 0, {
+              lastCalculation: calcItems,
+              calculationTotal: calcResult.totalEstimatedCost,
+              guestInfo: guestInfoFromMessage // Store for later use
+            })
+          }
 
           return NextResponse.json(
             createSuccessResponse({
@@ -1897,6 +2028,70 @@ async function handleOCRInvoiceSave(sessionId: string, state: any) {
   }
 }
 
+/**
+ * Extract searchable keywords from colloquial Vietnamese product names
+ * Maps common customer terms to database-searchable keywords
+ */
+function extractProductKeywords(productName: string): string[] {
+  const keywords: string[] = []
+  const lower = productName.toLowerCase()
+
+  // Vietnamese colloquial aliases -> Database keywords
+  // Cát variations
+  if (lower.includes('cát tô') || lower.includes('cát xây tô')) {
+    keywords.push('cát xây dựng', 'cát')
+  } else if (lower.includes('cát san lấp') || lower.includes('cát vàng')) {
+    keywords.push('cát vàng', 'cát')
+  } else if (lower.includes('cát')) {
+    keywords.push('cát')
+  }
+
+  // Xi măng variations
+  if (lower.includes('insee')) keywords.push('INSEE')
+  if (lower.includes('hà tiên')) keywords.push('Hà Tiên')
+  if (lower.includes('xi măng') || lower.includes('ximang') || lower.includes('xi-măng')) {
+    keywords.push('xi măng')
+  }
+
+  // Gạch variations
+  if (lower.includes('gạch ống') || lower.includes('gạch ong') || lower.includes('gach ong')) {
+    keywords.push('gạch ống', 'gạch')
+  } else if (lower.includes('gạch đỏ') || lower.includes('gạch đinh') || lower.includes('gach dinh')) {
+    keywords.push('gạch đinh', 'gạch đỏ', 'gạch')
+  } else if (lower.includes('gạch') || lower.includes('gach')) {
+    keywords.push('gạch')
+  }
+
+  // Đá variations  
+  if (lower.includes('đá 1x2') || lower.includes('đá dăm') || lower.includes('da dam')) {
+    keywords.push('đá 1x2', 'đá')
+  } else if (lower.includes('đá mi') || lower.includes('đá mạt') || lower.includes('da mi')) {
+    keywords.push('đá mi', 'đá')
+  } else if (lower.includes('đá') || lower.includes('da ')) {
+    keywords.push('đá')
+  }
+
+  // Thép/Sắt
+  if (lower.includes('thép') || lower.includes('sắt') || lower.includes('sat ') || lower.includes('thep')) {
+    keywords.push('thép')
+  }
+
+  // If no known keywords found, try to extract meaningful words
+  if (keywords.length === 0) {
+    // Split and use words longer than 2 characters
+    const words = productName.split(/\s+/).filter(w => w.length > 2)
+    if (words.length > 0) {
+      // Take first 2 meaningful words
+      keywords.push(...words.slice(0, 2))
+    } else {
+      // Fallback to full product name
+      keywords.push(productName)
+    }
+  }
+
+  return keywords
+}
+
 async function handleOrderCreation(sessionId: string, customerId: string | undefined, state: any) {
   try {
     const flowData = state.data
@@ -1989,14 +2184,21 @@ async function handleOrderCreation(sessionId: string, customerId: string | undef
       const orderItems: any[] = []
       let itemsMatched = 0
 
-      // Match products and calculate totals
+      // Match products and calculate totals using fuzzy keyword search
       for (const item of items) {
+        // Extract searchable keywords from colloquial product name
+        const keywords = extractProductKeywords(item.productName)
+        console.log(`[ORDER] Searching for "${item.productName}" with keywords:`, keywords)
+
+        // Build OR conditions for all keywords
+        const orConditions = keywords.flatMap(kw => [
+          { name: { contains: kw, mode: 'insensitive' as const } },
+          { description: { contains: kw, mode: 'insensitive' as const } }
+        ])
+
         const product = await tx.product.findFirst({
           where: {
-            OR: [
-              { name: { contains: item.productName, mode: 'insensitive' } },
-              { description: { contains: item.productName, mode: 'insensitive' } }
-            ],
+            OR: orConditions,
             isActive: true
           }
         })
@@ -2029,8 +2231,8 @@ async function handleOrderCreation(sessionId: string, customerId: string | undef
       // Create order with PENDING_CONFIRMATION status (needs admin approval)
       const orderNumber = `ORD-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Date.now().toString().slice(-4)}`
 
-      // Calculate deposit (30% of total)
-      const depositPercentage = 30
+      // Calculate deposit (50% of total)
+      const depositPercentage = 50
       const depositAmount = Math.round(subtotal * (depositPercentage / 100))
       const remainingAmount = subtotal - depositAmount
 
@@ -2160,7 +2362,7 @@ async function handleOrderCreation(sessionId: string, customerId: string | undef
           `- SĐT: ${customerInfo.phone}\n` +
           `- Tổng tiền: ${result.order.netAmount.toLocaleString('vi-VN')}đ\n` +
           `- Sản phẩm: ${result.itemsMatched}/${result.totalItems} items\n` +
-          `- Đặt cọc: ${(result.order.depositAmount || 0).toLocaleString('vi-VN')}đ (30%)\n` +
+          `- Đặt cọc: ${(result.order.depositAmount || 0).toLocaleString('vi-VN')}đ (50%)\n` +
           (flowData.vatInfo ? `- Xuất hóa đơn VAT: ✅\n\n` : `\n`) +
           `💳 **QUÉT MÃ ĐỂ THANH TOÁN CỌC:**\n` +
           `![QR Code](${qrUrl})\n\n` +
@@ -2171,8 +2373,8 @@ async function handleOrderCreation(sessionId: string, customerId: string | undef
           (isGuest
             ? `📞 Chúng tôi sẽ liên hệ qua SĐT **${customerInfo.phone}** để xác nhận!\n\n` +
             `📋 **Lưu mã đơn hàng:** ${result.order.orderNumber}\n` +
-            `💡 Bạn có thể theo dõi đơn hàng tại: /order-tracking?orderNumber=${result.order.orderNumber}`
-            : `👉 Nhấn "Xem chi tiết" để theo dõi đơn hàng!`),
+            `💡 [👉 Theo dõi đơn hàng tại đây](/order-tracking?orderNumber=${result.order.orderNumber})`
+            : `👉 [Xem chi tiết đơn hàng](/account/orders/${result.order.id})`),
         suggestions: isGuest
           ? ['Xem đơn hàng', 'Lưu mã đơn', 'Tiếp tục mua sắm']
           : ['Xem chi tiết', 'Tiếp tục mua sắm'],

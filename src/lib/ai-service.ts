@@ -17,16 +17,9 @@ export const getWorkingModelConfig = async () => {
 
   // Try different model names in order of preference
   const modelNames = [
-    'gemini-2.5-flash',     // User requested (Newest)
-    'gemini-2.0-flash-exp', // Experimental
-    'gemini-1.5-flash',     // Standard
-    'gemini-1.5-flash-001', // Specific version
-    'gemini-1.5-flash-002', // Newer specific version
-    'gemini-1.5-flash-8b',  // Lightweight
-    'gemini-1.5-pro',
-    'gemini-1.5-pro-001',
-    'gemini-1.5-pro-002',
-    'gemini-1.0-pro'
+    'gemini-2.5-flash',          // Priority 1 - User confirmed available
+    'gemini-2.5-flash-lite',     // Priority 2 - User confirmed available
+    'gemini-3-flash',            // Priority 3 - Available but may be new
   ];
 
   // First try the model specified in the configuration
@@ -445,8 +438,10 @@ export class AIService {
       - deliveryAddress: string (if mentioned)
       - customerName: string (if mentioned)
       - phone: string (if mentioned)
+      - vatInfo: { companyName: string, taxId: string, companyAddress: string } (ONLY if mentioned)
       
       Rules:
+      - productName MUST be only the name of the product (e.g., "Xi măng Insee", "Cát xây", "Gạch ống"). DO NOT include delivery info or customer details in productName.
       - If quantity is not specified but implied (e.g., "mua xi măng"), default to 1.
       - Map "xe" to unit "xe" (or "m3" if context implies volume).
       - Map "thiên" to quantity 1000 and unit "viên" (for bricks/gạch).
@@ -498,7 +493,7 @@ export class AIService {
       Extract construction material calculation parameters from the user's query.
       
       Return a JSON object with these fields (all optional):
-      - projectType: 'HOUSE' | 'VILLA' | 'WAREHOUSE' | 'CUSTOM'
+      - projectType: 'HOUSE' | 'VILLA' | 'WAREHOUSE' | 'TILING' | 'WALLING' | 'CUSTOM'
       - area: number (in m2) - ONLY if user explicitly provides this
       - floors: number - ONLY if user explicitly provides this
       - length: number (in m) - ONLY if user explicitly provides this
@@ -511,6 +506,8 @@ export class AIService {
       - DO NOT GUESS or ESTIMATE area, length, width, or floors if user does NOT explicitly provide numbers!
       - If user says "nhà cấp 4 có 2 phòng ngủ" WITHOUT mentioning m² or dimensions, DO NOT set area or length/width.
       - Only extract values that are EXPLICITLY stated in the user's query.
+      - Map "lát gạch", "ốp gạch", "lát nền", "lát sân" -> projectType: 'TILING'
+      - Map "xây tường", "làm hàng rào" -> projectType: 'WALLING'
       - Map "đất yếu", "ruộng", "sình", "ao" -> soilType: 'WEAK'
       - Map "đất cứng", "đồi", "đá" -> soilType: 'HARD'
       - Map "hiện đại" -> constructionStyle: 'MODERN'
@@ -583,6 +580,51 @@ export class AIService {
         reasoning: 'Error generating forecast',
         trend: 'stable'
       }
+    }
+  }
+
+  /**
+   * Analyze image using Gemini Vision
+   */
+  static async analyzeImage(imageData: string, promptText: string): Promise<string> {
+    try {
+      const { client, modelName } = await getWorkingModelConfig();
+      if (!client) throw new Error('Client init failed');
+
+      // Prepare image parts for Gemini SDK
+      // Extract mime type and data from data URL
+      const match = imageData.match(/^data:([^;]+);base64,(.+)$/);
+      const mimeType = match ? match[1] : 'image/jpeg';
+      const data = match ? match[2] : imageData;
+
+      const imagePart = {
+        inlineData: {
+          data,
+          mimeType
+        }
+      };
+
+      const result = await client.models.generateContent({
+        model: modelName!,
+        contents: [
+          {
+            role: 'user',
+            parts: [
+              { text: promptText },
+              imagePart
+            ]
+          }
+        ]
+      });
+
+      const text = (result as any).text || '';
+      if (!text) {
+        console.warn('⚠️ Gemini Vision returned empty text. Result:', JSON.stringify(result));
+      }
+      return text;
+    } catch (error) {
+      console.error('Gemini Vision error:', error);
+      throw error;
     }
   }
 

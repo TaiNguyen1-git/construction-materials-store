@@ -12,6 +12,7 @@ import ChatOCRPreview from './ChatOCRPreview'
 interface ChatMessage {
   id: string
   userMessage: string
+  userImage?: string // Base64 image uploaded by user
   botMessage: string
   suggestions: string[]
   productRecommendations?: any[]
@@ -42,7 +43,7 @@ export default function Chatbot({ customerId }: ChatbotProps) {
   const [sessionId] = useState(() => `chat_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
-  
+
   // New state for enhanced features
   const [showOrderSummary, setShowOrderSummary] = useState(false)
   const [showOCRPreview, setShowOCRPreview] = useState(false)
@@ -50,7 +51,7 @@ export default function Chatbot({ customerId }: ChatbotProps) {
   const [confirmDialogData, setConfirmDialogData] = useState<any>(null)
   const [pendingOrderData, setPendingOrderData] = useState<any>(null)
   const [pendingOCRData, setPendingOCRData] = useState<any>(null)
-  
+
   // Check if user is admin/manager
   // Check both user role AND pathname to handle reload cases
   const isAdminRoute = pathname?.startsWith('/admin')
@@ -80,7 +81,7 @@ export default function Chatbot({ customerId }: ChatbotProps) {
   const sendMessage = async (message: string, useCurrentMessage = false) => {
     const messageToSend = useCurrentMessage ? currentMessage : message
     const imageToSend = selectedImage
-    
+
     // Must have either message or image
     if (!messageToSend.trim() && !imageToSend) return
 
@@ -111,6 +112,7 @@ export default function Chatbot({ customerId }: ChatbotProps) {
         const newMessage: ChatMessage = {
           id: Date.now().toString(),
           userMessage: messageToSend,
+          userImage: imageToSend || undefined,
           botMessage: data.data.message,
           suggestions: data.data.suggestions || [],
           productRecommendations: data.data.productRecommendations || [],
@@ -124,13 +126,13 @@ export default function Chatbot({ customerId }: ChatbotProps) {
 
         setMessages(prev => [...prev, newMessage])
         setErrorRetryCount(0)
-        
+
         // Handle special responses
         if (data.data.ocrData) {
           setPendingOCRData(data.data.ocrData)
           setShowOCRPreview(true)
         }
-        
+
         if (data.data.orderData) {
           setPendingOrderData(data.data.orderData)
           setShowOrderSummary(true)
@@ -187,7 +189,7 @@ export default function Chatbot({ customerId }: ChatbotProps) {
       }
       return
     }
-    
+
     // Handle "Lưu mã đơn" - show order number
     if (suggestion === 'Lưu mã đơn' && message?.orderData?.orderNumber) {
       const orderNumber = message.orderData.orderNumber
@@ -200,13 +202,13 @@ export default function Chatbot({ customerId }: ChatbotProps) {
       }
       return
     }
-    
+
     // Handle "Xem tất cả đơn" - show all orders
     if (suggestion === 'Xem tất cả đơn' || suggestion.toLowerCase().includes('tất cả đơn')) {
       sendMessage('Tất cả đơn hàng')
       return
     }
-    
+
     // Handle "Chi tiết hơn" - show detailed report
     if (suggestion === 'Chi tiết hơn' || suggestion.toLowerCase().includes('chi tiết')) {
       if (message?.data) {
@@ -220,11 +222,11 @@ export default function Chatbot({ customerId }: ChatbotProps) {
         return
       }
       // Fallback: send as message to get data
-      toast.info('Đang tải dữ liệu báo cáo...')
+      toast('Đang tải dữ liệu báo cáo...')
       sendMessage(suggestion)
       return
     }
-    
+
     // Handle "Xuất báo cáo" - export report as file
     if (suggestion === 'Xuất báo cáo' || suggestion.toLowerCase().includes('xuất báo cáo')) {
       if (message?.data) {
@@ -238,11 +240,11 @@ export default function Chatbot({ customerId }: ChatbotProps) {
         return
       }
       // Fallback: send as message to get data
-      toast.info('Đang tải dữ liệu báo cáo...')
+      toast('Đang tải dữ liệu báo cáo...')
       sendMessage(suggestion)
       return
     }
-    
+
     // Default: send as message
     sendMessage(suggestion)
   }
@@ -255,11 +257,11 @@ export default function Chatbot({ customerId }: ChatbotProps) {
       }
 
       // Ensure from and to are Date objects
-      const from = reportData.dateRange.from instanceof Date 
-        ? reportData.dateRange.from 
+      const from = reportData.dateRange.from instanceof Date
+        ? reportData.dateRange.from
         : new Date(reportData.dateRange.from)
-      const to = reportData.dateRange.to instanceof Date 
-        ? reportData.dateRange.to 
+      const to = reportData.dateRange.to instanceof Date
+        ? reportData.dateRange.to
         : new Date(reportData.dateRange.to)
 
       // Fetch detailed orders data
@@ -269,33 +271,41 @@ export default function Chatbot({ customerId }: ChatbotProps) {
       })
 
       toast.loading('Đang tải chi tiết...', { id: 'detailed-report' })
-      
+
       const response = await fetch(`/api/reports/analytics/detailed?${params}`)
-      
+
       if (response.ok) {
         const result = await response.json()
         const detailedData = result.data || result
-        
+
         // Format detailed message
         let detailedMessage = `📊 **Báo Cáo Chi Tiết**\n\n`
         detailedMessage += `📅 **Thời gian:** ${from.toLocaleDateString('vi-VN')} - ${to.toLocaleDateString('vi-VN')}\n\n`
-        
+
         if (detailedData.orders && detailedData.orders.length > 0) {
           detailedMessage += `📦 **Danh Sách Đơn Hàng (${detailedData.orders.length} đơn):**\n\n`
-          
+
           detailedData.orders.slice(0, 10).forEach((order: any, idx: number) => {
-            const customerName = order.customerType === 'GUEST' 
-              ? order.guestName 
+            const customerName = order.customerType === 'GUEST'
+              ? order.guestName
               : order.customer?.user?.name || 'N/A'
-            
-            const statusLabel = getStatusLabel(order.status)
+
+            const statusMap: Record<string, string> = {
+              'PENDING': 'Chờ xử lý',
+              'CONFIRMED': 'Đã xác nhận',
+              'PROCESSING': 'Đang xử lý',
+              'SHIPPED': 'Đang giao',
+              'DELIVERED': 'Đã giao',
+              'CANCELLED': 'Đã hủy'
+            }
+            const statusLabel = statusMap[order.status as string] || order.status
             detailedMessage += `${idx + 1}. **${order.orderNumber}**\n`
             detailedMessage += `   👤 ${customerName}\n`
             detailedMessage += `   💰 ${order.netAmount.toLocaleString('vi-VN')}đ\n`
             detailedMessage += `   📦 ${statusLabel} | ${order.paymentMethod || 'N/A'}\n`
             detailedMessage += `   📅 ${new Date(order.createdAt).toLocaleDateString('vi-VN')}\n\n`
           })
-          
+
           if (detailedData.orders.length > 10) {
             detailedMessage += `... và ${detailedData.orders.length - 10} đơn hàng khác\n\n`
           }
@@ -343,11 +353,11 @@ export default function Chatbot({ customerId }: ChatbotProps) {
       }
 
       // Ensure from and to are Date objects
-      const from = reportData.dateRange.from instanceof Date 
-        ? reportData.dateRange.from 
+      const from = reportData.dateRange.from instanceof Date
+        ? reportData.dateRange.from
         : new Date(reportData.dateRange.from)
-      const to = reportData.dateRange.to instanceof Date 
-        ? reportData.dateRange.to 
+      const to = reportData.dateRange.to instanceof Date
+        ? reportData.dateRange.to
         : new Date(reportData.dateRange.to)
 
       const params = new URLSearchParams({
@@ -357,9 +367,9 @@ export default function Chatbot({ customerId }: ChatbotProps) {
       })
 
       toast.loading('Đang xuất báo cáo...', { id: 'export-report' })
-      
+
       const response = await fetch(`/api/reports/analytics/export?${params}`)
-      
+
       if (response.ok) {
         const blob = await response.blob()
         const url = window.URL.createObjectURL(blob)
@@ -451,8 +461,8 @@ export default function Chatbot({ customerId }: ChatbotProps) {
               {isAdmin ? '🎯 Admin Assistant' : '🛠️ Hỗ trợ khách hàng'}
             </div>
             <div className="text-xs opacity-90">
-              {isAdmin 
-                ? 'Trợ lý quản trị hệ thống' 
+              {isAdmin
+                ? 'Trợ lý quản trị hệ thống'
                 : 'Trợ lý ảo Construction Materials'
               }
             </div>
@@ -478,14 +488,23 @@ export default function Chatbot({ customerId }: ChatbotProps) {
         {messages.map((message) => (
           <div key={message.id} className="space-y-3">
             {/* User Message */}
-            {message.userMessage !== 'hello' && message.userMessage !== 'admin_hello' && (
+            {(message.userMessage !== 'hello' && message.userMessage !== 'admin_hello') || message.userImage ? (
               <div className="flex justify-end">
                 <div className={`${isAdmin ? 'bg-gradient-to-r from-indigo-600 to-purple-600' : 'bg-primary-600'} text-white p-3 rounded-lg max-w-xs`}>
-                  <div className="text-sm">{message.userMessage}</div>
+                  {message.userImage && (
+                    <img
+                      src={message.userImage}
+                      alt="Uploaded"
+                      className="w-full max-w-[200px] rounded mb-2"
+                    />
+                  )}
+                  {message.userMessage && message.userMessage !== 'hello' && message.userMessage !== 'admin_hello' && (
+                    <div className="text-sm">{message.userMessage}</div>
+                  )}
                   <div className="text-xs opacity-75 mt-1">{formatTime(message.timestamp)}</div>
                 </div>
               </div>
-            )}
+            ) : null}
 
             {/* Bot Message */}
             <div className="flex justify-start">
@@ -493,9 +512,9 @@ export default function Chatbot({ customerId }: ChatbotProps) {
                 <div className="flex items-start gap-2">
                   <Bot className="w-4 h-4 text-primary-600 mt-0.5 flex-shrink-0" />
                   <div className="flex-1">
-                    <div 
+                    <div
                       className="text-sm text-gray-950 font-medium leading-relaxed whitespace-pre-wrap"
-                      style={{ 
+                      style={{
                         fontFamily: 'system-ui, -apple-system, sans-serif',
                         lineHeight: '1.6'
                       }}
@@ -509,20 +528,82 @@ export default function Chatbot({ customerId }: ChatbotProps) {
                             </div>
                           )
                         }
-                        // Style bold text
-                        const parts = line.split(/(\*\*.*?\*\*)/g)
+
+                        // Function to render inline markdown (bold, links, images)
+                        const renderInlineMarkdown = (text: string) => {
+                          const elements: React.ReactNode[] = []
+                          let remaining = text
+                          let keyCounter = 0
+
+                          while (remaining.length > 0) {
+                            // Check for image ![alt](url)
+                            const imgMatch = remaining.match(/^!\[([^\]]*)\]\(([^)]+)\)/)
+                            if (imgMatch) {
+                              elements.push(
+                                <img
+                                  key={keyCounter++}
+                                  src={imgMatch[2]}
+                                  alt={imgMatch[1]}
+                                  className="max-w-full rounded-lg my-2"
+                                />
+                              )
+                              remaining = remaining.slice(imgMatch[0].length)
+                              continue
+                            }
+
+                            // Check for link [text](url)
+                            const linkMatch = remaining.match(/^\[([^\]]+)\]\(([^)]+)\)/)
+                            if (linkMatch) {
+                              elements.push(
+                                <a
+                                  key={keyCounter++}
+                                  href={linkMatch[2]}
+                                  className="text-blue-600 hover:text-blue-800 font-semibold underline"
+                                  target={linkMatch[2].startsWith('http') ? '_blank' : undefined}
+                                  rel={linkMatch[2].startsWith('http') ? 'noopener noreferrer' : undefined}
+                                >
+                                  {linkMatch[1]}
+                                </a>
+                              )
+                              remaining = remaining.slice(linkMatch[0].length)
+                              continue
+                            }
+
+                            // Check for bold **text**
+                            const boldMatch = remaining.match(/^\*\*([^*]+)\*\*/)
+                            if (boldMatch) {
+                              elements.push(
+                                <span key={keyCounter++} className="font-bold text-gray-900">
+                                  {boldMatch[1]}
+                                </span>
+                              )
+                              remaining = remaining.slice(boldMatch[0].length)
+                              continue
+                            }
+
+                            // Find next special character or end
+                            const nextSpecial = remaining.search(/\*\*|\[|\!\[/)
+                            if (nextSpecial === -1) {
+                              // No more special chars, add rest as text
+                              elements.push(<span key={keyCounter++}>{remaining}</span>)
+                              break
+                            } else if (nextSpecial > 0) {
+                              // Add text before special char
+                              elements.push(<span key={keyCounter++}>{remaining.slice(0, nextSpecial)}</span>)
+                              remaining = remaining.slice(nextSpecial)
+                            } else {
+                              // Special char at start but didn't match, treat as normal char
+                              elements.push(<span key={keyCounter++}>{remaining[0]}</span>)
+                              remaining = remaining.slice(1)
+                            }
+                          }
+
+                          return elements
+                        }
+
                         return (
                           <div key={idx} className={idx > 0 && !line.trim().startsWith('━━') ? 'mt-1' : ''}>
-                            {parts.map((part, pIdx) => {
-                              if (part.startsWith('**') && part.endsWith('**')) {
-                                return (
-                                  <span key={pIdx} className="font-bold text-gray-900">
-                                    {part.replace(/\*\*/g, '')}
-                                  </span>
-                                )
-                              }
-                              return <span key={pIdx}>{part}</span>
-                            })}
+                            {renderInlineMarkdown(line)}
                           </div>
                         )
                       })}
@@ -610,7 +691,7 @@ export default function Chatbot({ customerId }: ChatbotProps) {
             </div>
           </div>
         )}
-        
+
         {/* OCR Preview */}
         {showOCRPreview && pendingOCRData && (
           <div className="mt-4">
@@ -627,7 +708,7 @@ export default function Chatbot({ customerId }: ChatbotProps) {
               }}
               onEdit={() => {
                 setShowOCRPreview(false)
-                toast.info('Chức năng chỉnh sửa đang được phát triển')
+                toast('Chức năng chỉnh sửa đang được phát triển')
               }}
               onCancel={() => {
                 sendMessage('Hủy')
@@ -637,7 +718,7 @@ export default function Chatbot({ customerId }: ChatbotProps) {
             />
           </div>
         )}
-        
+
         {/* Order Summary */}
         {showOrderSummary && pendingOrderData && (
           <div className="mt-4">
@@ -653,7 +734,7 @@ export default function Chatbot({ customerId }: ChatbotProps) {
               }}
               onEdit={() => {
                 setShowOrderSummary(false)
-                toast.info('Chức năng chỉnh sửa đang được phát triển')
+                toast('Chức năng chỉnh sửa đang được phát triển')
               }}
               onCancel={() => {
                 sendMessage('Hủy đơn hàng')
@@ -663,7 +744,7 @@ export default function Chatbot({ customerId }: ChatbotProps) {
             />
           </div>
         )}
-        
+
         {/* Confirm Dialog */}
         {showConfirmDialog && confirmDialogData && (
           <div className="mt-4">
@@ -697,9 +778,9 @@ export default function Chatbot({ customerId }: ChatbotProps) {
         {/* Image Preview */}
         {selectedImage && (
           <div className="mb-3 relative inline-block">
-            <img 
-              src={selectedImage} 
-              alt="Preview" 
+            <img
+              src={selectedImage}
+              alt="Preview"
               className="h-20 w-20 object-cover rounded-lg border-2 border-primary-500"
             />
             <button
@@ -719,7 +800,7 @@ export default function Chatbot({ customerId }: ChatbotProps) {
             className="hidden"
             onChange={handleFileUpload}
           />
-          
+
           <button
             onClick={() => fileInputRef.current?.click()}
             disabled={isLoading}

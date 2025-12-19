@@ -272,15 +272,15 @@ export function detectIntent(
   // Material calculation (check BEFORE order to handle "cần bao nhiêu" correctly)
   if (
     // Direct calculation requests
-    (lower.includes('tính') && (lower.includes('vật liệu') || lower.includes('material') || lower.includes('m²') || lower.includes('m2'))) ||
-    (lower.includes('cần bao nhiêu') && (lower.includes('m²') || lower.includes('m2') || lower.includes('cho'))) ||
-    (lower.includes('cần gì') && (lower.includes('để') || lower.includes('cho') || lower.includes('m²') || lower.includes('m2'))) ||
-    (lower.includes('làm') && (lower.includes('m²') || lower.includes('m2')) && lower.includes('cần')) ||
+    (lower.includes('tính') && (lower.includes('vật liệu') || lower.includes('material') || lower.includes('m²') || lower.includes('m2') || lower.includes('gạch') || lower.includes('sàn') || lower.includes('tường'))) ||
+    (lower.includes('cần bao nhiêu') && (lower.includes('m²') || lower.includes('m2') || lower.includes('cho') || lower.includes('gạch'))) ||
+    (lower.includes('cần gì') && (lower.includes('để') || lower.includes('cho') || lower.includes('m²') || lower.includes('m2') || lower.includes('lát') || lower.includes('ốp'))) ||
+    ((lower.includes('làm') || lower.includes('lát') || lower.includes('ốp')) && (lower.includes('m²') || lower.includes('m2')) && (lower.includes('cần') || lower.includes('hết'))) ||
     // Construction project mentions
     ((lower.includes('xây') || lower.includes('build') || lower.includes('làm') || lower.includes('dựng')) &&
       (lower.includes('nhà') || lower.includes('tường') || lower.includes('sàn') || lower.includes('house') || lower.includes('wall') || lower.includes('floor'))) ||
     // Floor/area mentions
-    (/\d+\s*(tầng|floor|m²|m2)/i.test(message) && (lower.includes('xây') || lower.includes('cần') || lower.includes('làm')))
+    ((/\d+\s*(tầng|floor|m²|m2|mét vuông)/i.test(message) || lower.includes('rộng khoảng')) && (lower.includes('xây') || lower.includes('cần') || lower.includes('làm') || lower.includes('lát') || lower.includes('ốp') || lower.includes('tư vấn')))
   ) {
     return {
       intent: 'MATERIAL_CALCULATE',
@@ -307,9 +307,18 @@ export function detectIntent(
   }
 
   // Order creation - Enhanced detection
+  // Case 0: Explicit button click "Đặt hàng ngay" or "Đặt hàng"
+  if (lower === 'đặt hàng ngay' || lower === 'đặt hàng' || lower === 'order now') {
+    return {
+      intent: 'ORDER_CREATE',
+      confidence: 0.95,
+      requiresConfirmation: true
+    }
+  }
+
   // Case 1: After calculation/product list
   if (
-    (lower.includes('đặt') || lower.includes('mua') || lower.includes('order') || lower.includes('buy')) &&
+    (lower.includes('đặt') || lower.includes('mua') || lower.includes('lấy') || lower.includes('order') || lower.includes('buy')) &&
     (conversationContext?.hasCalculation || conversationContext?.hasProductList)
   ) {
     return {
@@ -321,8 +330,8 @@ export function detectIntent(
 
   // Case 2: Direct order with quantity and product (e.g., "tôi muốn mua 10 bao xi măng")
   if (
-    (lower.includes('đặt') || lower.includes('mua') || lower.includes('order') || lower.includes('buy')) &&
-    /(\d+)\s*(bao|m³|m2|m²|tấn|kg|viên|cây|cuộn|thùng)/i.test(message) &&
+    (lower.includes('đặt') || lower.includes('mua') || lower.includes('lấy') || lower.includes('order') || lower.includes('buy')) &&
+    /(\d+)\s*(bao|m³|m3|khối|m2|m²|tấn|kg|viên|cây|cuộn|thùng)/i.test(message) &&
     /(xi măng|xi mang|cement|cát|cat|sand|gạch|gach|brick|sắt|sat|thép|thep|steel|đá|da|stone|sơn|son|paint|tôn|ton|ngói|ngoi)/i.test(message) &&
     !lower.includes('bao nhiêu tiền')
   ) {
@@ -336,8 +345,8 @@ export function detectIntent(
   // Case 3: Order without items (need clarification) - "đặt hàng", "mua hàng"
   if (
     (lower.includes('đặt hàng') || lower.includes('mua hàng') ||
-      (lower.includes('tôi muốn') && (lower.includes('đặt') || lower.includes('mua'))) ||
-      (lower.includes('tôi cần') && (lower.includes('đặt') || lower.includes('mua')))) &&
+      (lower.includes('tôi muốn') && (lower.includes('đặt') || lower.includes('mua') || lower.includes('lấy'))) ||
+      (lower.includes('tôi cần') && (lower.includes('đặt') || lower.includes('mua') || lower.includes('lấy')))) &&
     !/(\d+)\s*(bao|m³|m2|m²|tấn|kg|viên|cây|cuộn|thùng)/i.test(message)
   ) {
     return {
@@ -354,7 +363,7 @@ export function detectIntent(
     !lower.includes('tính') &&
     !lower.includes('bao nhiêu') &&
     !lower.includes('cần') &&
-    /(\d+)\s*(bao|m³|m2|m²|tấn|kg|viên|cây|cuộn|thùng)/i.test(message) &&
+    /(\d+)\s*(bao|m³|m3|khối|m2|m²|tấn|kg|viên|cây|cuộn|thùng)/i.test(message) &&
     /(xi măng|xi mang|cement|cát|cat|sand|gạch|gach|brick|sắt|sat|thép|thep|steel|đá|da|stone|sơn|son|paint|tôn|ton|ngói|ngoi)/i.test(message)
   ) {
     return {

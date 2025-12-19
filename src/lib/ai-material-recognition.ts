@@ -12,6 +12,7 @@ interface MaterialFeatures {
   shape: string // rectangular, irregular, cylindrical
   size?: string // estimated dimensions
   category: string // cement, brick, stone, sand, steel
+  specificName?: string // Specific name in Vietnamese (e.g., "đá mi", "xi măng Insee")
 }
 
 interface RecognitionResult {
@@ -25,22 +26,18 @@ interface RecognitionResult {
 export class AIRecognitionService {
   /**
    * Analyze image and identify material
-   * Uses multiple strategies:
-   * 1. Color analysis
-   * 2. Texture detection
-   * 3. Shape recognition
-   * 4. Product matching from database
+   * Uses real Gemini Vision capabilities
    */
   static async recognizeMaterial(
     imageFile: File | string
   ): Promise<RecognitionResult> {
     try {
       // Convert to base64 if File
-      const imageData = typeof imageFile === 'string' 
-        ? imageFile 
+      const imageData = typeof imageFile === 'string'
+        ? imageFile
         : await this.fileToBase64(imageFile)
 
-      // Step 1: Analyze image features
+      // Step 1: Analyze image features using Gemini Vision
       const features = await this.analyzeImageFeatures(imageData)
 
       // Step 2: Identify material type
@@ -52,16 +49,22 @@ export class AIRecognitionService {
         features
       )
 
-      // Step 4: Calculate confidence
+      // Step 4: Find complementary products for cross-sell
+      const complementaryProducts = await this.getComplementaryProducts(features)
+
+      // Step 5: Combine with reasons
+      const allProducts = [...matchedProducts, ...complementaryProducts].slice(0, 8)
+
+      // Step 6: Calculate confidence
       const confidence = this.calculateConfidence(features, matchedProducts)
 
-      // Step 5: Generate suggestions
-      const suggestions = this.generateSuggestions(materialType, matchedProducts)
+      // Step 7: Generate suggestions
+      const suggestions = this.generateSuggestions(materialType, allProducts)
 
       return {
         confidence,
         materialType,
-        matchedProducts,
+        matchedProducts: allProducts,
         features,
         suggestions
       }
@@ -72,131 +75,92 @@ export class AIRecognitionService {
   }
 
   /**
-   * Analyze image features using multiple techniques
+   * Analyze image features using Gemini Vision
    */
   private static async analyzeImageFeatures(
     imageData: string
   ): Promise<MaterialFeatures> {
-    // In production, this would use TensorFlow.js or Vision API
-    // For now, we'll use pattern matching and heuristics
+    const { AIService } = await import('./ai-service')
 
-    // Simulate image analysis
-    // TODO: Integrate with actual image processing library
-    
-    const colors = await this.extractColors(imageData)
-    const texture = this.detectTexture(imageData)
-    const shape = this.detectShape(imageData)
+    const prompt = `
+      Analyze this image of construction materials with HIGH PRECISION. 
+      Look closely at the grain size/chunk size relative to objects in the background (like the conveyor belt, trees, or ground).
 
-    // Determine category from colors and texture
-    let category = 'unknown'
-    
-    // Gray colors → Likely cement or concrete
-    if (colors.some(c => c.match(/#[89ABCDEF]{6}/i))) {
-      category = 'cement'
-    }
-    // Red/orange → Bricks
-    else if (colors.some(c => c.match(/#[A-F][0-5]/i))) {
-      category = 'brick'
-    }
-    // Multi-colored rocks → Stone
-    else if (colors.length > 3) {
-      category = 'stone'
-    }
-    // Yellow/beige → Sand
-    else if (colors.some(c => c.match(/#[C-F][C-F][8-C]/i))) {
-      category = 'sand'
-    }
-    // Dark/metallic → Steel
-    else if (colors.some(c => c.match(/#[0-4][0-4][0-4]/i))) {
-      category = 'steel'
-    }
+      IDENTIFICATION RULES:
+      1. CRITICAL: Distinguish between "đá mi" and "đá 1x2".
+         - "đá mi": Grain size 0-5mm. Looks like a pile of dust, ash, or very fine gravel. Individual grains are barely distinguishable without zooming.
+         - "đá 1x2": Grain size 10-20mm. Individual stones are clearly visible as chunks about the size of a thumb tip.
+      2. Specific Name List (Pick the most accurate):
+         - STONE: "đá mi" (dust/fine), "đá mi bụi", "đá 1x2" (1-2cm), "đá 4x6" (4-6cm), "đá hộc".
+         - SAND: "cát xây tô" (fine sand), "cát bê tông" (coarse sand).
+         - CEMENT: "xi măng" + brand.
+         
+      Return a JSON object:
+      - visualScaleReasoning: Explain why you chose the size (e.g., "Compared to the conveyor belt texture, these grains are very fine like dust, confirming it is đá mi").
+      - category: 'cement', 'brick', 'stone', 'sand', 'steel', 'unknown'
+      - specificName: Exact Vietnamese name from list above.
+      - colors: array of colors.
+      - grainSizeMm: your estimate of the average grain diameter in mm.
+      - texture: 'smooth', 'rough', 'grainy', 'metallic'
+      
+      Return ONLY the JSON object.
+    `
 
-    return {
-      colors,
-      texture,
-      shape,
-      category
+    try {
+      const aiResponse = await AIService.analyzeImage(imageData, prompt)
+      console.log('--- Raw AI Vision Response ---')
+      console.log(aiResponse)
+      console.log('------------------------------')
+
+      let features: any = {}
+
+      try {
+        const cleanedText = aiResponse.replace(/```json\s*|\s*```/g, '').trim()
+        features = JSON.parse(cleanedText)
+      } catch (e) {
+        const jsonMatch = aiResponse.match(/\{[\s\S]*\}/)
+        if (jsonMatch) features = JSON.parse(jsonMatch[0])
+      }
+
+      if (features.visualScaleReasoning) {
+        console.log('--- AI Vision Reasoning ---')
+        console.log(features.visualScaleReasoning)
+        console.log('---------------------------')
+      }
+
+      return {
+        category: features.category || 'unknown',
+        specificName: features.specificName || '',
+        colors: features.colors || [],
+        texture: features.texture || 'unknown',
+        shape: features.shape || features.texture || 'unknown'
+      }
+    } catch (error) {
+      console.error('AI Vision feature analysis error:', error)
+      return {
+        category: 'unknown',
+        specificName: '',
+        colors: [],
+        texture: 'unknown',
+        shape: 'unknown'
+      }
     }
-  }
-
-  /**
-   * Extract dominant colors from image
-   */
-  private static async extractColors(imageData: string): Promise<string[]> {
-    // Mock implementation
-    // In production: use color-thief or similar library
-    
-    // Simulate color extraction based on common materials
-    const mockColors: Record<string, string[]> = {
-      cement: ['#808080', '#A0A0A0', '#909090'],
-      brick: ['#B22222', '#CD5C5C', '#8B4513'],
-      stone: ['#696969', '#808080', '#A9A9A9', '#D3D3D3'],
-      sand: ['#F4A460', '#DEB887', '#D2B48C'],
-      steel: ['#2F4F4F', '#36454F', '#4B4B4B']
-    }
-
-    // For demo, return cement colors
-    return mockColors.cement
-  }
-
-  /**
-   * Detect texture type
-   */
-  private static detectTexture(imageData: string): string {
-    // Mock implementation
-    // In production: analyze pixel patterns
-    
-    const textures = ['smooth', 'rough', 'grainy', 'patterned', 'metallic']
-    return textures[Math.floor(Math.random() * textures.length)]
-  }
-
-  /**
-   * Detect shape
-   */
-  private static detectShape(imageData: string): string {
-    // Mock implementation
-    // In production: use edge detection and shape recognition
-    
-    const shapes = ['rectangular', 'cylindrical', 'irregular', 'powder', 'bar']
-    return shapes[Math.floor(Math.random() * shapes.length)]
   }
 
   /**
    * Identify material type from features
    */
   private static identifyMaterialType(features: MaterialFeatures): string {
-    const { category, texture, shape } = features
+    const { category, specificName } = features
 
-    // Rule-based classification
-    if (category === 'cement') {
-      if (shape === 'powder' || texture === 'grainy') {
-        return 'Xi măng (Cement)'
-      }
-    }
+    if (specificName) return specificName.charAt(0).toUpperCase() + specificName.slice(1)
 
-    if (category === 'brick') {
-      if (shape === 'rectangular') {
-        return 'Gạch (Bricks)'
-      }
-    }
-
-    if (category === 'stone') {
-      if (texture === 'rough' || shape === 'irregular') {
-        return 'Đá (Stone)'
-      }
-    }
-
-    if (category === 'sand') {
-      if (texture === 'grainy' || shape === 'powder') {
-        return 'Cát (Sand)'
-      }
-    }
-
-    if (category === 'steel') {
-      if (shape === 'bar' || shape === 'cylindrical') {
-        return 'Thép (Steel)'
-      }
-    }
+    // Fallback classification based on AI category
+    if (category === 'cement') return 'Xi măng (Cement)'
+    if (category === 'brick') return 'Gạch (Bricks)'
+    if (category === 'stone') return 'Đá (Stone)'
+    if (category === 'sand') return 'Cát (Sand)'
+    if (category === 'steel') return 'Thép (Steel)'
 
     return 'Vật liệu xây dựng (Construction Material)'
   }
@@ -209,8 +173,8 @@ export class AIRecognitionService {
     features: MaterialFeatures
   ): Promise<any[]> {
     try {
-      // Extract category keywords
       const keywords = materialType.toLowerCase()
+      const specificName = features.specificName?.toLowerCase() || ''
       let categoryFilter: any = {}
 
       if (keywords.includes('xi măng') || keywords.includes('cement')) {
@@ -271,37 +235,128 @@ export class AIRecognitionService {
         orderBy: [
           { price: 'asc' }
         ],
-        take: 10
+        take: 15
       })
 
-      // Score and sort by relevance
+      // Score and sort by relevance with reasons
       const scoredProducts = products.map(product => {
         let score = 0.5 // Base score
+        let reason = ''
+        const productName = product.name.toLowerCase()
+
+        // Boost if specific name matches exactly or partially
+        if (specificName) {
+          if (productName === specificName) {
+            score += 1.0 // Exact match
+            reason = '✅ Khớp chính xác với ảnh bạn gửi'
+          } else if (productName.includes(specificName) || specificName.includes(productName)) {
+            score += 0.5 // Partial match
+            reason = '🎯 Phù hợp với ảnh bạn gửi'
+          }
+
+          // Secondary specific keywords boost (for "đá mi" vs "đá 1x2")
+          const subTypes = ['mi', '1x2', '1x1', '4x6', 'xây tô', 'bát tràng']
+          for (const sub of subTypes) {
+            if (specificName.includes(sub) && productName.includes(sub)) {
+              score += 0.4
+              if (!reason) reason = '🎯 Phù hợp với ảnh'
+            }
+          }
+        }
 
         // Boost popular products
         const orderItemCount = product.orderItems?.length || 0
-        if (orderItemCount > 10) score += 0.2
-        if (orderItemCount > 50) score += 0.1
+        if (orderItemCount > 10) {
+          score += 0.1
+          if (!reason) reason = '🔥 Bán chạy nhất'
+        }
 
         // Boost if in stock
         if (product.inventoryItem && product.inventoryItem.availableQuantity > 0) {
           score += 0.2
+          if (!reason) reason = '✨ Còn hàng, giao nhanh'
         }
+
+        if (!reason) reason = '📦 Sản phẩm cùng loại'
 
         return {
           ...product,
           matchScore: score,
-          inStock: product.inventoryItem 
-            ? product.inventoryItem.availableQuantity > 0 
+          reason,
+          inStock: product.inventoryItem
+            ? product.inventoryItem.availableQuantity > 0
             : false
         }
       })
 
       return scoredProducts
         .sort((a, b) => b.matchScore - a.matchScore)
-        .slice(0, 5)
+        .slice(0, 4)
     } catch (error) {
       console.error('Error finding matching products:', error)
+      return []
+    }
+  }
+
+  /**
+   * Get complementary products for cross-selling
+   */
+  private static async getComplementaryProducts(features: MaterialFeatures): Promise<any[]> {
+    try {
+      const category = features.category
+
+      // Define complementary categories
+      const complementaryMap: Record<string, string[]> = {
+        stone: ['sand', 'cement'],
+        sand: ['cement', 'stone'],
+        cement: ['sand', 'stone'],
+        brick: ['cement', 'sand'],
+        steel: ['cement']
+      }
+
+      const complementaryCategories = complementaryMap[category] || ['cement', 'sand']
+
+      const products = await prisma.product.findMany({
+        where: {
+          isActive: true,
+          OR: complementaryCategories.flatMap(cat => [
+            { name: { contains: cat === 'cement' ? 'xi măng' : cat === 'sand' ? 'cát' : cat === 'stone' ? 'đá' : cat, mode: 'insensitive' as const } },
+            { category: { name: { contains: cat === 'cement' ? 'xi măng' : cat === 'sand' ? 'cát' : cat === 'stone' ? 'đá' : cat, mode: 'insensitive' as const } } }
+          ])
+        },
+        include: {
+          category: true,
+          inventoryItem: true,
+          orderItems: {
+            select: { id: true }
+          }
+        },
+        orderBy: { price: 'asc' },
+        take: 6
+      })
+
+      // Add cross-sell reasons
+      const productsWithReasons = products.map(product => {
+        const orderCount = product.orderItems?.length || 0
+        let reason = '💡 Thường mua cùng'
+
+        if (orderCount > 20) {
+          reason = '🔥 Sản phẩm bán chạy'
+        } else if (product.inventoryItem && product.inventoryItem.availableQuantity > 100) {
+          reason = '📦 Còn nhiều hàng - Giá tốt'
+        }
+
+        return {
+          ...product,
+          matchScore: 0.3,
+          reason,
+          inStock: product.inventoryItem ? product.inventoryItem.availableQuantity > 0 : false
+        }
+      })
+
+      return productsWithReasons.slice(0, 3)
+    } catch (error) {
+      console.error('Error getting complementary products:', error)
       return []
     }
   }
@@ -317,15 +372,16 @@ export class AIRecognitionService {
 
     // Boost if category is clearly identified
     if (features.category !== 'unknown') {
-      confidence += 0.2
+      confidence += 0.1
+    }
+
+    // Boost if specific name was found
+    if (features.specificName) {
+      confidence += 0.15
     }
 
     // Boost if we found matching products
     if (matchedProducts.length > 0) {
-      confidence += 0.1
-    }
-
-    if (matchedProducts.length > 3) {
       confidence += 0.1
     }
 
@@ -345,20 +401,16 @@ export class AIRecognitionService {
       suggestions.push('Không tìm thấy sản phẩm phù hợp. Thử chụp ảnh rõ hơn.')
       suggestions.push('Đảm bảo ánh sáng tốt và chụp từ nhiều góc độ.')
     } else {
-      suggestions.push(`Tìm thấy ${matchedProducts.length} sản phẩm ${materialType}`)
-      
-      if (materialType.includes('Xi măng')) {
-        suggestions.push('Lưu ý: Kiểm tra loại PC30/PC40/PCB40 phù hợp với công trình')
-        suggestions.push('Xi măng có hạn sử dụng 3 tháng từ ngày sản xuất')
-      } else if (materialType.includes('Gạch')) {
-        suggestions.push('Lưu ý: Chọn kích thước gạch phù hợp với thiết kế')
-        suggestions.push('Nên mua dư 5-10% để dự phòng hư hỏng')
-      } else if (materialType.includes('Đá')) {
-        suggestions.push('Lưu ý: Kích thước đá phụ thuộc vào mục đích sử dụng')
-        suggestions.push('Đá 1x2 cho bê tông, Đá 4x6 cho móng')
-      }
+      suggestions.push(`Nhấn vào sản phẩm để xem chi tiết`)
 
-      suggestions.push('Nhấn vào sản phẩm để xem chi tiết và đặt hàng')
+      const type = materialType.toLowerCase()
+      if (type.includes('xi măng')) {
+        suggestions.push('Lưu ý: Kiểm tra loại PC30/PC40 phù hợp')
+      } else if (type.includes('gạch')) {
+        suggestions.push('Nên mua dư 5-10% để dự phòng')
+      } else if (type.includes('đá')) {
+        suggestions.push('Lưu ý: Chọn đúng kích thước đá mi/1x2/4x6')
+      }
     }
 
     return suggestions
@@ -378,7 +430,6 @@ export class AIRecognitionService {
 
   /**
    * Quick material identification from keywords
-   * Used when user types material name instead of uploading image
    */
   static async identifyFromText(query: string): Promise<RecognitionResult> {
     const lowerQuery = query.toLowerCase()
@@ -389,7 +440,8 @@ export class AIRecognitionService {
       colors: [],
       texture: 'unknown',
       shape: 'unknown',
-      category: 'unknown'
+      category: 'unknown',
+      specificName: ''
     }
 
     if (lowerQuery.includes('xi măng') || lowerQuery.includes('cement')) {
@@ -401,6 +453,8 @@ export class AIRecognitionService {
     } else if (lowerQuery.includes('đá') || lowerQuery.includes('stone')) {
       materialType = 'Đá (Stone)'
       features.category = 'stone'
+      if (lowerQuery.includes('mi')) features.specificName = 'đá mi'
+      if (lowerQuery.includes('1x2')) features.specificName = 'đá 1x2'
     } else if (lowerQuery.includes('cát') || lowerQuery.includes('sand')) {
       materialType = 'Cát (Sand)'
       features.category = 'sand'

@@ -6,7 +6,7 @@ import { AIService } from './ai-service'
  */
 
 export interface QuickCalculationInput {
-  projectType?: 'HOUSE' | 'VILLA' | 'WAREHOUSE' | 'CUSTOM'
+  projectType?: 'HOUSE' | 'VILLA' | 'WAREHOUSE' | 'TILING' | 'WALLING' | 'CUSTOM'
   area?: number
   floors?: number
   length?: number
@@ -62,6 +62,102 @@ export class MaterialCalculatorService {
     const materials: MaterialEstimate[] = []
     let totalCost = 0
 
+    // Handle specific small projects
+    if (projectType === 'TILING') {
+      // Calculation for tiling (gạch lát)
+      // 1m2 takes 1.1m2 of tiles, 0.2 bags of cement, 0.05m3 of sand
+      const tileQuantity = Math.ceil(totalArea * 1.05) // +5% wastage
+      materials.push({
+        material: 'Gạch lát (60x60)',
+        quantity: tileQuantity,
+        unit: 'm²',
+        estimatedCost: tileQuantity * 250000,
+        category: 'Lát nền'
+      })
+      totalCost += tileQuantity * 250000
+
+      const cementQuantity = Math.ceil(totalArea * 0.2)
+      materials.push({
+        material: 'Xi măng dán gạch',
+        quantity: cementQuantity,
+        unit: 'bao',
+        estimatedCost: cementQuantity * 150000,
+        category: 'Lát nền'
+      })
+      totalCost += cementQuantity * 150000
+
+      const sandQuantity = Math.ceil(totalArea * 0.02 * 10) / 10
+      materials.push({
+        material: 'Cát xây dựng (Lót)',
+        quantity: sandQuantity,
+        unit: 'm³',
+        estimatedCost: sandQuantity * 300000,
+        category: 'Lát nền'
+      })
+      totalCost += sandQuantity * 300000
+
+      return {
+        materials,
+        totalEstimatedCost: totalCost,
+        summary: `Dự án lát nền/sân diện tích ${totalArea}m²`,
+        tips: [
+          'Chọn gạch chống trơn trượt cho sân vườn',
+          'Nên mua thêm 5% gạch để dự phòng vỡ khi thi công',
+          'Sử dụng keo dán gạch để có độ bền tốt nhất'
+        ]
+      }
+    }
+
+    if (projectType === 'WALLING') {
+      // Calculation for just walls (e.g., fence)
+      // Assume wall height is 2.5m if not specified
+      const h = 2.5
+      const bricksPerM2 = 65
+      const totalWallArea = totalArea * h // Here totalArea is used as length if only one number provided? 
+      // Actually if user says "30m2 wall", we use 30 as area.
+
+      const bricksNeeded = Math.ceil(totalArea * bricksPerM2)
+      materials.push({
+        material: 'Gạch ống 8x8x18',
+        quantity: bricksNeeded,
+        unit: 'viên',
+        estimatedCost: bricksNeeded * 1500,
+        category: 'Xây tường'
+      })
+      totalCost += bricksNeeded * 1500
+
+      const cementNeeded = Math.ceil(totalArea * 0.15)
+      materials.push({
+        material: 'Xi măng PC30',
+        quantity: cementNeeded,
+        unit: 'bao',
+        estimatedCost: cementNeeded * 105000,
+        category: 'Xây tường'
+      })
+      totalCost += cementNeeded * 105000
+
+      const sandNeeded = Math.ceil(totalArea * 0.05 * 10) / 10
+      materials.push({
+        material: 'Cát xây tô',
+        quantity: sandNeeded,
+        unit: 'm³',
+        estimatedCost: sandNeeded * 320000,
+        category: 'Xây tường'
+      })
+      totalCost += sandNeeded * 320000
+
+      return {
+        materials,
+        totalEstimatedCost: totalCost,
+        summary: `Dự án xây tường diện tích ${totalArea}m²`,
+        tips: [
+          'Xây tường rào cần có giằng bê tông để đảm bảo chịu lực',
+          'Nên tưới nước ẩm gạch trước khi xây để vữa kết dính tốt'
+        ]
+      }
+    }
+
+    // ===== FULL HOUSE CALCULATIONS (Default) =====
     // ===== FOUNDATION CALCULATIONS =====
     let foundationMultiplier = 1.0
     if (soilType === 'WEAK') foundationMultiplier = 1.2 // +20% for weak soil
@@ -229,6 +325,10 @@ export class MaterialCalculatorService {
       tips.push(`Đất yếu: Đã tăng 20% vật liệu móng. Nên gia cố thêm cừ tràm hoặc cọc bê tông.`)
     }
 
+    if (soilType === 'HARD') {
+      tips.push(`Đất cứng: Đã giảm 10% vật liệu móng.`)
+    }
+
     if (constructionStyle === 'OPEN') {
       tips.push(`Phong cách mở: Đã giảm 30% gạch xây. Hãy cân nhắc chi phí kính cường lực.`)
     }
@@ -311,6 +411,19 @@ export class MaterialCalculatorService {
       ...basicParse,
       ...aiParams,
       customQuery: query
+    }
+
+    // EXPLICIT OVERRIDE: Force TILING projectType for obvious tiling queries
+    // AI sometimes misclassifies "lát sân vườn" as full house project
+    const lowerQuery = query.toLowerCase()
+    if (
+      (lowerQuery.includes('lát sân') || lowerQuery.includes('sân vườn') ||
+        lowerQuery.includes('lát gạch') || lowerQuery.includes('lát nền') ||
+        lowerQuery.includes('ốp gạch') || lowerQuery.includes('ốp tường')) &&
+      !lowerQuery.includes('xây nhà') && !lowerQuery.includes('xây dựng nhà')
+    ) {
+      console.log('[MATERIAL_CALC] Overriding projectType to TILING for tiling query')
+      merged.projectType = 'TILING'
     }
 
     // Ensure we have at least area or dimensions
