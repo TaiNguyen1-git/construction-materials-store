@@ -49,7 +49,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
     try {
       const response = await fetch(`/api/orders/${resolvedParams.id}`)
       const result = await response.json()
-      
+
       if (response.ok && result.success) {
         setOrder(result.data)
       }
@@ -70,7 +70,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
     ]
 
     const currentIndex = allSteps.findIndex(step => step.key === order?.status)
-    
+
     return allSteps.map((step, index) => ({
       ...step,
       completed: index <= currentIndex,
@@ -158,17 +158,15 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
               {steps.map((step, index) => (
                 <div key={step.key} className="flex flex-col items-center">
                   <div
-                    className={`w-12 h-12 rounded-full flex items-center justify-center mb-2 transition-all ${
-                      step.completed
+                    className={`w-12 h-12 rounded-full flex items-center justify-center mb-2 transition-all ${step.completed
                         ? 'bg-primary-600 text-white'
                         : 'bg-gray-200 text-gray-400'
-                    } ${step.current ? 'ring-4 ring-primary-200 scale-110' : ''}`}
+                      } ${step.current ? 'ring-4 ring-primary-200 scale-110' : ''}`}
                   >
                     <step.icon className="h-6 w-6" />
                   </div>
-                  <span className={`text-sm font-semibold text-center max-w-[100px] ${
-                    step.completed ? 'text-gray-900' : 'text-gray-500'
-                  }`}>
+                  <span className={`text-sm font-semibold text-center max-w-[100px] ${step.completed ? 'text-gray-900' : 'text-gray-500'
+                    }`}>
                     {step.label}
                   </span>
                 </div>
@@ -267,15 +265,13 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                   <p className="text-sm text-gray-600">
                     <span className="font-semibold">Phương thức:</span>{' '}
                     {order.paymentMethod === 'COD' && 'Thanh toán khi nhận hàng'}
-                    {order.paymentMethod === 'VNPAY' && 'VNPay'}
-                    {order.paymentMethod === 'MOMO' && 'Ví MoMo'}
                     {order.paymentMethod === 'BANK_TRANSFER' && 'Chuyển khoản'}
+                    {order.paymentMethod === 'QR_CODE' && 'Quét mã QR'}
                   </p>
                   <p className="text-sm mt-2">
                     <span className="font-semibold">Trạng thái:</span>{' '}
-                    <span className={`${
-                      order.paymentStatus === 'PAID' ? 'text-green-600' : 'text-yellow-600'
-                    } font-semibold`}>
+                    <span className={`${order.paymentStatus === 'PAID' ? 'text-green-600' : 'text-yellow-600'
+                      } font-semibold`}>
                       {order.paymentStatus === 'PAID' ? 'Đã thanh toán' : 'Chưa thanh toán'}
                     </span>
                   </p>

@@ -42,14 +42,14 @@ export default function ChatOrderSummary({
         <ShoppingCart className="w-5 h-5 text-primary-600" />
         <h3 className="font-semibold text-gray-900">Đơn Hàng Của Bạn</h3>
       </div>
-      
+
       {/* Items */}
       <div className="space-y-2">
         <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
           <Package className="w-4 h-4" />
           <span>Sản phẩm ({items.length})</span>
         </div>
-        
+
         {items.map((item, idx) => (
           <div key={idx} className="bg-gray-50 p-2 rounded text-sm">
             <div className="font-medium text-gray-900">{item.productName}</div>
@@ -62,7 +62,7 @@ export default function ChatOrderSummary({
           </div>
         ))}
       </div>
-      
+
       {/* Customer Info */}
       {customerInfo && (
         <div className="space-y-2">
@@ -77,7 +77,7 @@ export default function ChatOrderSummary({
           </div>
         </div>
       )}
-      
+
       {/* Payment Method */}
       {paymentMethod && (
         <div className="space-y-2">
@@ -92,7 +92,7 @@ export default function ChatOrderSummary({
           </div>
         </div>
       )}
-      
+
       {/* Total */}
       {totalAmount && (
         <div className="border-t pt-2">
@@ -104,7 +104,7 @@ export default function ChatOrderSummary({
           </div>
         </div>
       )}
-      
+
       {/* Actions */}
       <div className="flex gap-2 pt-2">
         <button
@@ -134,8 +134,7 @@ function formatPaymentMethod(method: string): string {
   const labels: Record<string, string> = {
     'CASH': 'Tiền mặt (COD)',
     'BANK_TRANSFER': 'Chuyển khoản ngân hàng',
-    'VNPAY': 'VNPay',
-    'MOMO': 'MoMo',
+    'QR_CODE': 'Quét mã QR',
     'CREDIT_CARD': 'Thẻ tín dụng'
   }
   return labels[method] || method

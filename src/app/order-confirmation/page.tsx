@@ -32,7 +32,7 @@ function OrderConfirmationContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const orderId = searchParams.get('orderId')
-  
+
   const [order, setOrder] = useState<OrderDetails | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -101,7 +101,7 @@ function OrderConfirmationContent() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
       <Header />
-      
+
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {/* Success Message */}
         <div className="text-center mb-12">
@@ -222,7 +222,7 @@ function OrderConfirmationContent() {
         {/* Order Summary */}
         <div className="bg-white rounded-2xl shadow-xl p-6 border border-gray-100">
           <h3 className="text-xl font-bold text-gray-900 mb-4">Chi Tiết Đơn Hàng</h3>
-          
+
           <div className="border-t border-gray-200 pt-4 space-y-3">
             <div className="flex justify-between text-gray-600">
               <span>Tạm tính:</span>
@@ -242,9 +242,8 @@ function OrderConfirmationContent() {
             <p className="text-sm text-blue-900">
               <span className="font-bold">Phương thức thanh toán:</span>{' '}
               {order.paymentMethod === 'COD' && 'Thanh toán khi nhận hàng (COD)'}
-              {order.paymentMethod === 'VNPAY' && 'VNPay'}
-              {order.paymentMethod === 'MOMO' && 'Ví MoMo'}
               {order.paymentMethod === 'BANK_TRANSFER' && 'Chuyển khoản ngân hàng'}
+              {order.paymentMethod === 'QR_CODE' && 'Quét mã QR'}
             </p>
           </div>
         </div>

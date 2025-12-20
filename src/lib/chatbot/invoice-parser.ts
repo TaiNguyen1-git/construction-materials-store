@@ -279,11 +279,8 @@ function normalizePaymentMethod(method: string): string {
   if (lower.includes('credit') || lower.includes('card')) {
     return 'CREDIT_CARD'
   }
-  if (lower.includes('vnpay')) {
-    return 'VNPAY'
-  }
-  if (lower.includes('momo')) {
-    return 'MOMO'
+  if (lower.includes('qr')) {
+    return 'QR_CODE'
   }
   
   return method.toUpperCase()
