@@ -42,11 +42,11 @@ const createProductSchema = z.object({
 // GET /api/products - List products with pagination and filters
 export async function GET(request: NextRequest) {
   const startTime = Date.now()
-  
+
   try {
     const { searchParams } = new URL(request.url)
     const params = Object.fromEntries(searchParams.entries())
-    
+
     const validation = querySchema.safeParse(params)
     if (!validation.success) {
       logAPI.error('GET', '/api/products', new Error('Validation failed'), { errors: validation.error.issues })
@@ -58,13 +58,13 @@ export async function GET(request: NextRequest) {
 
     const { page, limit, q, search, category, minPrice, maxPrice, sort, sortBy, sortOrder, isActive, featured } = validation.data
     const skip = (page - 1) * limit
-    
+
     // Use q or search for search query
     const searchQuery = q || search
 
     // Create cache key based on query parameters
     const cacheKey = `products:${page}:${limit}:${searchQuery || 'all'}:${category || 'all'}:${minPrice || 'min'}:${maxPrice || 'max'}:${sort || sortBy}:${sortOrder}:${isActive !== undefined ? isActive : 'all'}:${featured !== undefined ? featured : 'all'}`
-    
+
     // TEMPORARILY DISABLE CACHE FOR DEBUGGING
     // Try to get from cache first
     // const cachedResult = await CacheService.get(cacheKey)
@@ -77,33 +77,33 @@ export async function GET(request: NextRequest) {
 
     // Build where clause
     const where: any = {}
-    
+
     // Handle search query - Use Prisma's contains directly for MongoDB
     // MongoDB with Prisma supports contains which is case-sensitive by default
     // We'll search with multiple variations to catch different cases
     if (searchQuery) {
       const normalizedQuery = searchQuery.trim()
-      
+
       logger.info('Searching products', { searchQuery: normalizedQuery })
-      
+
       // Create comprehensive search variations for case-insensitive matching
       // Since MongoDB with Prisma is case-sensitive, we need to try all variations
       const lowerQuery = normalizedQuery.toLowerCase()
       const upperQuery = normalizedQuery.toUpperCase()
-      
+
       // Vietnamese text normalization: "xi măng" -> "Xi măng", "XI MĂNG", etc.
       // Split by words and capitalize first letter of each word
       const words = normalizedQuery.split(/\s+/)
       const capitalizedQuery = words
         .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
         .join(' ')
-      
+
       // Also try with only first word capitalized
       const firstWordCapitalized = words.length > 0
-        ? words[0].charAt(0).toUpperCase() + words[0].slice(1).toLowerCase() + 
-          (words.length > 1 ? ' ' + words.slice(1).join(' ').toLowerCase() : '')
+        ? words[0].charAt(0).toUpperCase() + words[0].slice(1).toLowerCase() +
+        (words.length > 1 ? ' ' + words.slice(1).join(' ').toLowerCase() : '')
         : normalizedQuery
-      
+
       // Collect all unique variations
       const searchVariations = [
         normalizedQuery,          // Original: "xi măng"
@@ -112,21 +112,21 @@ export async function GET(request: NextRequest) {
         capitalizedQuery,         // Capitalized: "Xi Măng"
         firstWordCapitalized,     // First word capitalized: "Xi măng"
       ].filter(Boolean)
-      
+
       // Remove duplicates (case-insensitive)
       const uniqueVariations = Array.from(
         new Map(searchVariations.map(v => [v.toLowerCase(), v])).values()
       )
-      
-      logger.info('Search variations', { 
+
+      logger.info('Search variations', {
         original: normalizedQuery,
         variations: uniqueVariations,
         variationCount: uniqueVariations.length
       })
-      
+
       // Build comprehensive OR condition with all variations
       const orConditions: any[] = []
-      
+
       // For each variation, search in name, description, and SKU
       for (const variation of uniqueVariations) {
         orConditions.push(
@@ -135,16 +135,16 @@ export async function GET(request: NextRequest) {
           { sku: { contains: variation } }
         )
       }
-      
+
       // Also search in tags array
       orConditions.push({ tags: { hasSome: uniqueVariations } })
-      
+
       where.OR = orConditions
-      
+
       // Also ensure we only get active products
       where.isActive = { not: false }
-      
-      logger.info('Built where clause for search', { 
+
+      logger.info('Built where clause for search', {
         orCount: where.OR.length,
         isActive: where.isActive,
         sampleConditions: where.OR.slice(0, 3)
@@ -168,7 +168,7 @@ export async function GET(request: NextRequest) {
     if (isActive === true || isActive === false) {
       where.isActive = isActive
     }
-    
+
     // Only add featured filter if explicitly provided
     if (featured === true || featured === false) {
       where.isFeatured = featured
@@ -218,14 +218,14 @@ export async function GET(request: NextRequest) {
     ])
 
     const response = createPaginatedResponse(products, total, page, limit)
-    
+
     // TEMPORARILY DISABLE CACHE FOR DEBUGGING
     // Cache the result for 5 minutes
     // await CacheService.set(cacheKey, response, 300)
-    
+
     const duration = Date.now() - startTime
     logAPI.response('GET', '/api/products', 200, duration, { total, page, limit })
-    
+
     return NextResponse.json(
       createSuccessResponse(response, 'Products retrieved successfully'),
       { status: 200 }
@@ -234,27 +234,27 @@ export async function GET(request: NextRequest) {
   } catch (error: any) {
     const duration = Date.now() - startTime
     logAPI.error('GET', '/api/products', error, { duration })
-    logger.error('Get products error', { 
-      error: error.message, 
+    logger.error('Get products error', {
+      error: error.message,
       stack: error.stack,
       name: error.name,
       code: error.code,
       cause: error.cause
     })
-    
+
     // Log database connection errors specifically
     if (error.code === 'P1001' || error.message?.includes('connection')) {
       console.error('❌ Database connection error:', error.message)
     }
-    
+
     return NextResponse.json(
       createErrorResponse(
-        error.message || 'Internal server error', 
+        error.message || 'Internal server error',
         'INTERNAL_ERROR',
-        process.env.NODE_ENV === 'development' ? { 
-          message: error.message, 
+        process.env.NODE_ENV === 'development' ? {
+          message: error.message,
           code: error.code,
-          stack: error.stack 
+          stack: error.stack
         } : undefined
       ),
       { status: 500 }
@@ -265,12 +265,12 @@ export async function GET(request: NextRequest) {
 // POST /api/products - Create new product
 export async function POST(request: NextRequest) {
   const startTime = Date.now()
-  
+
   try {
     // Check user role from middleware
     const userRole = request.headers.get('x-user-role')
     const userId = request.headers.get('x-user-id')
-    
+
     if (!['MANAGER', 'EMPLOYEE'].includes(userRole || '')) {
       logger.warn('Unauthorized product creation attempt', { userId, userRole })
       return NextResponse.json(
@@ -280,7 +280,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    
+
     // Validate input
     const validation = createProductSchema.safeParse(body)
     if (!validation.success) {
@@ -293,14 +293,27 @@ export async function POST(request: NextRequest) {
 
     const productData = validation.data
 
+    // Separate inventory-related fields from product fields
+    const { minStockLevel, maxStockLevel, reorderPoint, ...productFields } = productData
+
     // Create product and inventory item in a transaction
     const product = await prisma.$transaction(async (tx) => {
-      // Create product
+      // Create product (only with Product model fields)
       const newProduct = await tx.product.create({
         data: {
-          ...productData,
-          images: productData.images || [],
-          tags: productData.tags || [],
+          name: productFields.name,
+          description: productFields.description,
+          categoryId: productFields.categoryId,
+          sku: productFields.sku,
+          price: productFields.price,
+          costPrice: productFields.costPrice,
+          unit: productFields.unit,
+          weight: productFields.weight,
+          dimensions: productFields.dimensions,
+          images: productFields.images || [],
+          tags: productFields.tags || [],
+          isActive: productFields.isActive,
+          isFeatured: productFields.isFeatured,
         },
         include: {
           category: {
@@ -309,15 +322,15 @@ export async function POST(request: NextRequest) {
         }
       })
 
-      // Create inventory item
+      // Create inventory item (with inventory-related fields)
       await tx.inventoryItem.create({
         data: {
           productId: newProduct.id,
           quantity: 0,
           availableQuantity: 0,
-          minStockLevel: productData.minStockLevel,
-          maxStockLevel: productData.maxStockLevel,
-          reorderPoint: productData.reorderPoint,
+          minStockLevel: minStockLevel || 0,
+          maxStockLevel: maxStockLevel,
+          reorderPoint: reorderPoint || 0,
         }
       })
 
@@ -340,7 +353,7 @@ export async function POST(request: NextRequest) {
     const duration = Date.now() - startTime
     logAPI.error('POST', '/api/products', error, { duration })
     logger.error('Create product error', { error: error.message, stack: error.stack })
-    
+
     return NextResponse.json(
       createErrorResponse('Internal server error', 'INTERNAL_ERROR'),
       { status: 500 }

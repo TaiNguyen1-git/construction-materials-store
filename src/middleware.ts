@@ -25,10 +25,8 @@ export async function middleware(request: NextRequest) {
   // No bypass here anymore - follow production flow
 
   // ===== PUBLIC ROUTES (no auth required) =====
+  // These routes are purely public and don't need any auth headers
   const publicRoutes = [
-    '/api/products',
-    '/api/categories',
-    '/api/customers',
     '/api/reviews',
   ]
 
@@ -73,7 +71,8 @@ export async function middleware(request: NextRequest) {
   }
 
   // ===== ROUTES WITH OPTIONAL AUTH =====
-  const optionalAuthRoutes = ['/api/orders', '/api/invoices']
+  // These routes allow public access (GET) but also need user info when authenticated (POST/PUT/DELETE)
+  const optionalAuthRoutes = ['/api/orders', '/api/invoices', '/api/products', '/api/customers', '/api/categories']
 
   if (optionalAuthRoutes.some(route => pathname === route || pathname.startsWith(route + '/'))) {
     // Try to extract token but don't require it

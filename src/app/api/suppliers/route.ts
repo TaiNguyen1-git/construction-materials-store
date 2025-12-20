@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireEmployee } from '@/lib/auth-middleware-api'
-import { UserRole } from '@/lib/auth'
 
 // GET /api/suppliers - Get all suppliers with performance metrics
 export async function GET(request: NextRequest) {
   try {
     const authError = requireEmployee(request)
     if (authError) return authError
-    
+
 
     const { searchParams } = new URL(request.url)
     const search = searchParams.get('search')
@@ -18,12 +17,12 @@ export async function GET(request: NextRequest) {
     const sortOrder = searchParams.get('sortOrder') || 'asc'
     const status = searchParams.get('status')
     const minRating = searchParams.get('minRating')
-    
+
     const skip = (page - 1) * limit
 
     // Build filter object
     const where: any = {}
-    
+
     if (search) {
       where.OR = [
         { name: { contains: search, mode: 'insensitive' } },
@@ -31,13 +30,13 @@ export async function GET(request: NextRequest) {
         { contactPerson: { contains: search, mode: 'insensitive' } }
       ]
     }
-    
+
     if (status === 'active') {
       where.isActive = true
     } else if (status === 'inactive') {
       where.isActive = false
     }
-    
+
     if (minRating) {
       where.rating = { gte: parseInt(minRating) }
     }
@@ -84,21 +83,21 @@ export async function GET(request: NextRequest) {
         // Calculate metrics
         const totalOrders = purchaseOrders.length
         const totalSpent = purchaseOrders.reduce((sum, order) => sum + order.totalAmount, 0)
-        
+
         // Calculate on-time delivery rate
         const completedOrders = purchaseOrders.filter(order => order.status === 'RECEIVED')
-        const onTimeDeliveries = completedOrders.filter(order => 
-          order.receivedDate && order.expectedDate && 
+        const onTimeDeliveries = completedOrders.filter(order =>
+          order.receivedDate && order.expectedDate &&
           new Date(order.receivedDate) <= new Date(order.expectedDate)
         ).length
-        const onTimeDeliveryRate = completedOrders.length > 0 
-          ? Math.round((onTimeDeliveries / completedOrders.length) * 100) 
+        const onTimeDeliveryRate = completedOrders.length > 0
+          ? Math.round((onTimeDeliveries / completedOrders.length) * 100)
           : 0
 
         // Calculate average quality rating from purchase items
         let qualityRatingSum = 0
         let qualityRatingCount = 0
-        
+
         for (const order of purchaseOrders) {
           for (const item of order.purchaseItems) {
             // In a real implementation, we might have quality ratings for items
@@ -107,19 +106,19 @@ export async function GET(request: NextRequest) {
             qualityRatingCount++
           }
         }
-        
-        const qualityRating = qualityRatingCount > 0 
-          ? Math.round(qualityRatingSum / qualityRatingCount) 
+
+        const qualityRating = qualityRatingCount > 0
+          ? Math.round(qualityRatingSum / qualityRatingCount)
           : 0
 
         // Calculate average response time (mock data for now)
         const responseTime = Math.floor(Math.random() * 48) + 1 // 1-48 hours
 
         // Get last order date
-        const lastOrder = purchaseOrders.length > 0 
-          ? purchaseOrders.reduce((latest, order) => 
-              !latest || order.createdAt > latest.createdAt ? order : latest
-            )
+        const lastOrder = purchaseOrders.length > 0
+          ? purchaseOrders.reduce((latest, order) =>
+            !latest || order.createdAt > latest.createdAt ? order : latest
+          )
           : null
         const lastOrderDate = lastOrder ? lastOrder.createdAt : null
 
@@ -165,10 +164,8 @@ export async function GET(request: NextRequest) {
 // POST /api/suppliers - Create supplier
 export async function POST(request: NextRequest) {
   try {
-    const user = await verifyToken(request)
-    if (!user || !['MANAGER', 'EMPLOYEE'].includes(user.role)) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const authError = requireEmployee(request)
+    if (authError) return authError
 
     const body = await request.json()
     const { name, email, phone, address, contactPerson, taxId, paymentTerms, creditLimit, note } = body

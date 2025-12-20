@@ -3,6 +3,13 @@ import { PrismaClient } from '@prisma/client'
 
 const prisma = new PrismaClient()
 
+// Helper to check admin permissions
+function checkAdminPermission(request: NextRequest): { allowed: boolean; userRole: string | null } {
+  const userRole = request.headers.get('x-user-role')
+  const allowed = ['MANAGER', 'EMPLOYEE'].includes(userRole || '')
+  return { allowed, userRole }
+}
+
 export async function GET(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
@@ -78,6 +85,15 @@ export async function PUT(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
+    // Check admin permission
+    const { allowed } = checkAdminPermission(request)
+    if (!allowed) {
+      return NextResponse.json(
+        { success: false, error: { code: 'FORBIDDEN', message: 'Insufficient permissions' } },
+        { status: 403 }
+      )
+    }
+
     const { id } = await context.params
     const body = await request.json()
 
@@ -154,6 +170,15 @@ export async function DELETE(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
+    // Check admin permission
+    const { allowed } = checkAdminPermission(request)
+    if (!allowed) {
+      return NextResponse.json(
+        { success: false, error: { code: 'FORBIDDEN', message: 'Insufficient permissions' } },
+        { status: 403 }
+      )
+    }
+
     const { id } = await context.params
 
     console.log('Deactivating product:', id)

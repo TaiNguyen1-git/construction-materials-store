@@ -165,8 +165,17 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     )
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Create category error:', error)
+
+    // Handle unique constraint error (duplicate name)
+    if (error.code === 'P2002') {
+      return NextResponse.json(
+        createErrorResponse('Danh mục này đã tồn tại', 'DUPLICATE_ERROR'),
+        { status: 409 }
+      )
+    }
+
     return NextResponse.json(
       createErrorResponse('Internal server error', 'INTERNAL_ERROR'),
       { status: 500 }

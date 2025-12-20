@@ -154,7 +154,7 @@ export class AIService {
             model: currentModel,
             contents: contents,
             config: {
-              maxOutputTokens: 1000,
+              maxOutputTokens: 4096,
               temperature: 0.7
             }
           });
