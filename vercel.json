@@ -2,7 +2,7 @@
   "crons": [
     {
       "path": "/api/admin/reports/trigger?type=DAILY",
-      "schedule": "55 23 * * *"
+      "schedule": "30 10 * * *"
     }
   ]
 }
