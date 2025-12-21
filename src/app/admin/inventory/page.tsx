@@ -87,7 +87,7 @@ export default function InventoryPage() {
       setLoading(true)
       const params = new URLSearchParams({ timeframe: filters.timeframe })
       const [productsRes, movementsRes, predictionsRes, recommendationsRes] = await Promise.all([
-        fetchWithAuth('/api/products'),
+        fetchWithAuth('/api/products?limit=1000'),
         fetchWithAuth('/api/inventory/movements'),
         fetchWithAuth(`/api/predictions/inventory?${params}`),
         fetchWithAuth(`/api/recommendations/purchase?${params}`),

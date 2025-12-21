@@ -264,6 +264,11 @@ export async function GET(request: NextRequest) {
           rate: Number(e.total) > 0 ? (Number(e.completed) / Number(e.total) * 100).toFixed(1) : 0
         }))
       }
+    }, {
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate',
+        'Pragma': 'no-cache'
+      }
     })
   } catch (error) {
     console.error('Dashboard analytics error:', error)

@@ -139,7 +139,7 @@ export default function SalesManagementPage() {
 
   const fetchProducts = async () => {
     try {
-      const res = await fetchWithAuth('/api/products')
+      const res = await fetchWithAuth('/api/products?limit=1000')
       const data = await res.json()
       // Handle nested data structure
       const productsArray = data.data?.data || data.data || data || []

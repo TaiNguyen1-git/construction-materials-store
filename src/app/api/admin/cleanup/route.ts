@@ -15,57 +15,54 @@ export async function POST(request: NextRequest) {
         }
 
         const results = {
-            deletedProducts: 0,
             deletedInventoryItems: 0,
-            deletedInventoryMovements: 0
+            deletedInventoryMovements: 0,
+            deletedProducts: 0,
+            skippedProducts: 0,
+            errors: [] as string[]
         }
 
-        await prisma.$transaction(async (tx) => {
-            // 1. Find inactive products
-            const inactiveProducts = await tx.product.findMany({
-                where: { isActive: false },
-                select: { id: true, name: true }
-            })
-
-            const inactiveProductIds = inactiveProducts.map(p => p.id)
-
-            if (inactiveProductIds.length > 0) {
-                // 2. Delete inventory movements for inactive products
-                const deletedMovements = await tx.inventoryMovement.deleteMany({
-                    where: { productId: { in: inactiveProductIds } }
-                })
-                results.deletedInventoryMovements = deletedMovements.count
-
-                // 3. Delete inventory items for inactive products
-                const deletedItems = await tx.inventoryItem.deleteMany({
-                    where: { productId: { in: inactiveProductIds } }
-                })
-                results.deletedInventoryItems = deletedItems.count
-
-                // 4. Delete the inactive products
-                const deletedProducts = await tx.product.deleteMany({
-                    where: { id: { in: inactiveProductIds } }
-                })
-                results.deletedProducts = deletedProducts.count
-            }
-
-            // 5. Also cleanup orphaned inventory items (where product doesn't exist anymore)
-            // Note: This should not happen normally due to cascade deletes, but just in case
-            const allProducts = await tx.product.findMany({ select: { id: true } })
-            const productIds = allProducts.map(p => p.id)
-
-            const orphanedItems = await tx.inventoryItem.deleteMany({
-                where: {
-                    productId: { notIn: productIds.length > 0 ? productIds : ['__none__'] }
-                }
-            })
-            results.deletedInventoryItems += orphanedItems.count
+        // 1. Find inactive products
+        const inactiveProducts = await prisma.product.findMany({
+            where: { isActive: false },
+            select: { id: true, name: true }
         })
+
+        // 2. Delete inventory data for each inactive product
+        for (const product of inactiveProducts) {
+            try {
+                // Delete inventory movements
+                const deletedMovements = await prisma.inventoryMovement.deleteMany({
+                    where: { productId: product.id }
+                })
+                results.deletedInventoryMovements += deletedMovements.count
+
+                // Delete inventory items
+                const deletedItems = await prisma.inventoryItem.deleteMany({
+                    where: { productId: product.id }
+                })
+                results.deletedInventoryItems += deletedItems.count
+
+                // Try to delete the product (may fail if has order history)
+                try {
+                    await prisma.product.delete({
+                        where: { id: product.id }
+                    })
+                    results.deletedProducts++
+                } catch (e: any) {
+                    // Product has order history, can't delete - just leave as inactive
+                    results.skippedProducts++
+                    results.errors.push(`${product.name}: has order history, kept as inactive`)
+                }
+            } catch (e: any) {
+                results.errors.push(`${product.name}: ${e.message}`)
+            }
+        }
 
         console.log('🧹 Cleanup completed:', results)
 
         return NextResponse.json(
-            createSuccessResponse(results, `Cleanup complete: ${results.deletedProducts} products, ${results.deletedInventoryItems} inventory items deleted`),
+            createSuccessResponse(results, `Cleanup complete: ${results.deletedProducts} products deleted, ${results.skippedProducts} skipped`),
             { status: 200 }
         )
 

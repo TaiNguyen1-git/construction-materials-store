@@ -167,7 +167,8 @@ export default function ProductsSuppliersPage() {
   const fetchProducts = async () => {
     try {
       setProductsLoading(true)
-      const response = await fetchWithAuth('/api/products')
+      // Fetch all products (no limit) for accurate total count
+      const response = await fetchWithAuth('/api/products?limit=1000')
       if (response.ok) {
         const data = await response.json()
         // Handle nested data structure from API
