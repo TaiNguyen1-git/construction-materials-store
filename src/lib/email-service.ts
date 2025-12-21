@@ -603,16 +603,19 @@ export class EmailService {
       return false
     }
 
-    const typeLabels = {
+    const typeLabels: Record<string, string> = {
       DAILY: 'Ngày',
       WEEKLY: 'Tuần',
       MONTHLY: 'Tháng',
       YEARLY: 'Năm'
     }
 
+    // Ensure reportType is valid with fallback
+    const reportTypeLabel = typeLabels[data.reportType] || typeLabels['DAILY'] || 'Ngày'
+
     const template: EmailTemplate = {
       to: adminEmail,
-      subject: `📊 Báo Cáo Doanh Thu ${typeLabels[data.reportType]} - ${data.periodLabel}`,
+      subject: `📊 Báo Cáo Doanh Thu ${reportTypeLabel} - ${data.periodLabel}`,
       html: this.getAdminReportHTML(data)
     }
 
