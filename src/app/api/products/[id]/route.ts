@@ -199,15 +199,27 @@ export async function DELETE(
       )
     }
 
-    // Soft delete: set isActive = false instead of actually deleting
-    // This preserves order history and related data
-    await prisma.product.update({
-      where: { id },
-      data: { isActive: false }
+    // Hard delete: Delete related InventoryItem first, then delete the Product
+    // This properly removes product from all counts
+    await prisma.$transaction(async (tx) => {
+      // 1. Delete InventoryItem (if exists)
+      await tx.inventoryItem.deleteMany({
+        where: { productId: id }
+      })
+
+      // 2. Delete associated inventory movements (if any)
+      await tx.inventoryMovement.deleteMany({
+        where: { productId: id }
+      })
+
+      // 3. Delete the product itself
+      await tx.product.delete({
+        where: { id }
+      })
     })
 
     return NextResponse.json(
-      { success: true, message: 'Sản phẩm đã được ngừng bán' },
+      { success: true, message: 'Sản phẩm đã được xoá hoàn toàn' },
       { status: 200 }
     )
   } catch (error) {

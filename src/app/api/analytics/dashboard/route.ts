@@ -23,7 +23,8 @@ export async function GET(request: NextRequest) {
       prisma.customer.count(),
       prisma.inventoryItem.count({
         where: {
-          availableQuantity: { lte: prisma.inventoryItem.fields.minStockLevel }
+          availableQuantity: { lte: prisma.inventoryItem.fields.minStockLevel },
+          product: { isActive: true }
         }
       }),
       prisma.order.count({
