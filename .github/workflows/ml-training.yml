@@ -11,10 +11,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Trigger Prophet Training on Render
+        env:
+          SITE_URL: ${{ secrets.SITE_URL }}
         run: |
-          # Gửi request POST tới API Admin của hệ thống (đã deploy trên Vercel)
-          # Lưu ý: Sẽ cần x-user-role Header để bypass check
-          curl -X POST "${{ secrets.SITE_URL || '' }}/api/ml/train" \
+          # Fallback to production URL if secret not set
+          URL="${SITE_URL:-https://smartbuildai.vercel.app}"
+          
+          echo "🚀 Triggering ML training at: $URL/api/ml/train"
+          
+          # Send POST request with --fail to fail on HTTP errors
+          response=$(curl -s -f -w "\n%{http_code}" -X POST "$URL/api/ml/train" \
                -H "Content-Type: application/json" \
                -H "x-user-role: MANAGER" \
-               -d '{"trainAll": true}'
+               -d '{"trainAll": true}') || {
+            echo "❌ Failed to trigger ML training!"
+            echo "Response: $response"
+            exit 1
+          }
+          
+          echo "✅ ML training triggered successfully!"
+          echo "Response: $response"
