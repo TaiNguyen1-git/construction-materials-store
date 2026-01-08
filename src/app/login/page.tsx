@@ -118,6 +118,29 @@ export default function LoginPage() {
     }
   }
 
+  // Handle "Go Home" button - clear stale auth and use replace() to avoid history loop
+  const handleGoHome = () => {
+    // Check if we came from a protected route (has callbackUrl)
+    const urlParams = new URLSearchParams(window.location.search)
+    const callbackUrl = urlParams.get('callbackUrl')
+
+    if (callbackUrl) {
+      // Clear potentially stale auth data to break the redirect loop
+      localStorage.removeItem('access_token')
+      localStorage.removeItem('user')
+      sessionStorage.removeItem('access_token')
+      sessionStorage.removeItem('user')
+
+      // Also clear the auth cookie by setting it to expire
+      document.cookie = 'auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT'
+
+      console.log('[LOGIN] Cleared stale auth data before navigating home')
+    }
+
+    // Use replace() instead of href to prevent back button from returning to login
+    window.location.replace('/')
+  }
+
   const [formData, setFormData] = useState({
     email: '',
     password: ''
@@ -189,7 +212,7 @@ export default function LoginPage() {
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between py-4">
             <button
-              onClick={() => window.location.href = '/'}
+              onClick={handleGoHome}
               className="flex items-center text-gray-700 hover:text-primary-600 font-medium transition-colors"
             >
               <ArrowLeft className="h-5 w-5 mr-2" />

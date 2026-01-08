@@ -34,6 +34,30 @@ export default function ContractorLoginPage() {
         setFormData(prev => ({ ...prev, [name]: value }))
     }
 
+    // Handle "Go Back" button - clear stale auth and use replace() to avoid history loop
+    const handleGoBack = () => {
+        // Check if we came from a protected route (has callbackUrl in URL)
+        const urlParams = new URLSearchParams(window.location.search)
+        const callbackUrl = urlParams.get('callbackUrl')
+
+        if (callbackUrl) {
+            // Clear potentially stale auth data to break the redirect loop
+            localStorage.removeItem('access_token')
+            localStorage.removeItem('user')
+            localStorage.removeItem('refresh_token')
+            sessionStorage.removeItem('access_token')
+            sessionStorage.removeItem('user')
+
+            // Also clear the auth cookie
+            document.cookie = 'auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT'
+
+            console.log('[CONTRACTOR LOGIN] Cleared stale auth data before navigating back')
+        }
+
+        // Use replace() instead of href to prevent back button from returning to login loop
+        window.location.replace('/contractor')
+    }
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
         setLoading(true)
@@ -91,13 +115,13 @@ export default function ContractorLoginPage() {
                                 <span className="text-blue-600 font-semibold ml-1">PRO</span>
                             </div>
                         </Link>
-                        <Link
-                            href="/contractor"
+                        <button
+                            onClick={handleGoBack}
                             className="flex items-center gap-2 text-gray-600 hover:text-blue-600 transition-colors font-medium"
                         >
                             <ArrowLeft className="w-4 h-4" />
                             Quay lại
-                        </Link>
+                        </button>
                     </div>
                 </div>
             </nav>

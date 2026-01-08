@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Building2, Lock, Mail } from 'lucide-react'
+import { Building2, Lock, Mail, ArrowLeft } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 export default function SupplierLoginPage() {
@@ -10,6 +10,32 @@ export default function SupplierLoginPage() {
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
     const [loading, setLoading] = useState(false)
+
+    // Handle "Go Back" button - clear stale auth and use replace() to avoid history loop
+    const handleGoBack = () => {
+        // Check if we came from a protected route (has callbackUrl in URL)
+        const urlParams = new URLSearchParams(window.location.search)
+        const callbackUrl = urlParams.get('callbackUrl')
+
+        if (callbackUrl) {
+            // Clear potentially stale auth data to break the redirect loop
+            localStorage.removeItem('supplier_token')
+            localStorage.removeItem('supplier_id')
+            localStorage.removeItem('supplier_name')
+            localStorage.removeItem('access_token')
+            localStorage.removeItem('user')
+            sessionStorage.removeItem('access_token')
+            sessionStorage.removeItem('user')
+
+            // Also clear the auth cookie
+            document.cookie = 'auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT'
+
+            console.log('[SUPPLIER LOGIN] Cleared stale auth data before navigating back')
+        }
+
+        // Use replace() instead of href to prevent back button from returning to login loop
+        window.location.replace('/')
+    }
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -45,6 +71,15 @@ export default function SupplierLoginPage() {
     return (
         <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
             <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-8">
+                {/* Back Button */}
+                <button
+                    onClick={handleGoBack}
+                    className="flex items-center gap-2 text-gray-600 hover:text-blue-600 transition-colors font-medium mb-6"
+                >
+                    <ArrowLeft className="w-4 h-4" />
+                    Quay lại trang chủ
+                </button>
+
                 {/* Logo */}
                 <div className="text-center mb-8">
                     <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-600 rounded-2xl mb-4">
