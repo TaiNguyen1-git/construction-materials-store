@@ -60,6 +60,17 @@ export async function middleware(request: NextRequest) {
     '/contact',
     '/privacy',
     '/terms',
+    '/contractors',  // Marketplace - find contractors
+    '/projects',     // Marketplace - projects listing
+    '/estimator',    // AI Estimator tool
+    '/market',       // Market analysis page
+  ]
+
+  // Contractor landing page and auth pages are public
+  const publicContractorPages = [
+    '/contractor',           // Landing page
+    '/contractor/login',     // Login page
+    '/contractor/register',  // Register page
   ]
 
   // Check if page is public
@@ -68,7 +79,10 @@ export async function middleware(request: NextRequest) {
     (page !== '/' && pathname.startsWith(page + '/'))
   )
 
-  if (isPublicPage) {
+  // Check if it's a public contractor page (exact match only)
+  const isPublicContractorPage = publicContractorPages.some(page => pathname === page)
+
+  if (isPublicPage || isPublicContractorPage) {
     return NextResponse.next()
   }
 

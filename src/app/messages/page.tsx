@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import Header from '@/components/Header'
-import { Send, ArrowLeft, MessageCircle } from 'lucide-react'
+import { Send, ArrowLeft, MessageCircle, Paperclip, Image as ImageIcon, FileText, Download, X } from 'lucide-react'
 import Link from 'next/link'
 import { getFirebaseDatabase } from '@/lib/firebase'
 import { ref, onChildAdded, off } from 'firebase/database'
@@ -22,7 +22,11 @@ interface Message {
     id: string
     senderId: string
     senderName: string
-    content: string
+    content: string | null
+    fileUrl: string | null
+    fileName: string | null
+    fileType: string | null
+    fileSize: number | null
     isRead: boolean
     createdAt: string
 }
@@ -34,7 +38,14 @@ export default function MessagesPage() {
     const [newMessage, setNewMessage] = useState('')
     const [loading, setLoading] = useState(true)
     const [sending, setSending] = useState(false)
-    const messagesEndRef = useRef<HTMLDivElement>(null)
+    const [uploading, setUploading] = useState(false)
+    const [selectedFile, setSelectedFile] = useState<{
+        file: File;
+        preview: string;
+        type: string;
+    } | null>(null)
+    const messagesContainerRef = useRef<HTMLDivElement>(null)
+    const fileInputRef = useRef<HTMLInputElement>(null)
 
     // Get current user from localStorage
     const [userId, setUserId] = useState<string>('')
@@ -49,7 +60,13 @@ export default function MessagesPage() {
     }, [])
 
     useEffect(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+        if (messagesContainerRef.current) {
+            const { scrollHeight, clientHeight } = messagesContainerRef.current
+            messagesContainerRef.current.scrollTo({
+                top: scrollHeight - clientHeight,
+                behavior: 'smooth'
+            })
+        }
     }, [messages])
 
     const fetchConversations = async (uid: string) => {
@@ -72,8 +89,8 @@ export default function MessagesPage() {
 
     const selectConversation = async (convId: string) => {
         setSelectedConv(convId)
+        setMessages([])
 
-        // 1. Fetch initial messages from API (History)
         try {
             const res = await fetch(`/api/messages/${convId}`, {
                 headers: { 'x-user-id': userId }
@@ -87,25 +104,18 @@ export default function MessagesPage() {
         } catch (error) {
             console.error('Failed to fetch messages:', error)
         }
-
-        // 2. Listen for new messages from Firebase (Real-time)
-        // Note: In a real app, we should unsubscribe when switching conversations.
-        // We'll use a useEffect for subscription to handle cleanup properly.
     }
 
-    // Effect to handle Firebase subscription for selected conversation
     useEffect(() => {
         if (!selectedConv) return
 
         const db = getFirebaseDatabase()
         const messagesRef = ref(db, `conversations/${selectedConv}/messages`)
 
-        // Listen for new child added
         const unsubscribe = onChildAdded(messagesRef, (snapshot) => {
             const newMsg = snapshot.val()
             if (newMsg) {
                 setMessages(prev => {
-                    // Avoid duplicates if message already exists (e.g. from initial fetch)
                     if (prev.some(m => m.id === newMsg.id)) return prev
                     return [...prev, newMsg]
                 })
@@ -113,15 +123,64 @@ export default function MessagesPage() {
         })
 
         return () => {
-            // Cleanup listener
             off(messagesRef, 'child_added', unsubscribe)
         }
     }, [selectedConv])
 
+    const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0]
+        if (!file) return
+
+        const type = file.type.startsWith('image/') ? 'image' : 'file'
+        const preview = type === 'image' ? URL.createObjectURL(file) : ''
+
+        setSelectedFile({ file, preview, type })
+    }
+
+    const uploadFileLoad = async (file: File): Promise<{ fileId: string; fileName: string; fileType: string; fileSize: number } | null> => {
+        setUploading(true)
+        try {
+            const formData = new FormData()
+            formData.append('file', file)
+
+            const res = await fetch('/api/upload/secure', {
+                method: 'POST',
+                body: formData
+            })
+
+            if (res.ok) {
+                const data = await res.json()
+                return {
+                    fileId: data.fileId,
+                    fileName: data.originalName,
+                    fileType: file.type.startsWith('image/') ? 'image' : 'document',
+                    fileSize: data.size
+                }
+            }
+            return null
+        } catch (error) {
+            console.error('Upload failed:', error)
+            return null
+        } finally {
+            setUploading(false)
+        }
+    }
+
     const sendMessage = async () => {
-        if (!newMessage.trim() || !selectedConv) return
+        if ((!newMessage.trim() && !selectedFile) || !selectedConv) return
 
         setSending(true)
+        let fileData = null
+
+        if (selectedFile) {
+            fileData = await uploadFileLoad(selectedFile.file)
+            if (!fileData) {
+                alert('Tải file thất bại')
+                setSending(false)
+                return
+            }
+        }
+
         try {
             const res = await fetch(`/api/messages/${selectedConv}`, {
                 method: 'POST',
@@ -129,15 +188,20 @@ export default function MessagesPage() {
                 body: JSON.stringify({
                     senderId: userId,
                     senderName: userName,
-                    content: newMessage
+                    content: newMessage || null,
+                    fileUrl: fileData ? `/api/files/${fileData.fileId}` : null,
+                    fileName: fileData?.fileName,
+                    fileType: fileData?.fileType,
+                    fileSize: fileData?.fileSize
                 })
             })
 
             if (res.ok) {
                 const data = await res.json()
                 if (data.success) {
-                    setMessages([...messages, data.data.message])
                     setNewMessage('')
+                    setSelectedFile(null)
+                    if (fileInputRef.current) fileInputRef.current.value = ''
                 }
             }
         } catch (error) {
@@ -152,26 +216,28 @@ export default function MessagesPage() {
         return date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
     }
 
-    const formatDate = (dateStr: string) => {
-        const date = new Date(dateStr)
-        return date.toLocaleDateString('vi-VN')
+    const formatFileSize = (bytes?: number) => {
+        if (!bytes) return ''
+        if (bytes < 1024) return bytes + ' B'
+        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
+        return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
     }
 
     return (
-        <div className="min-h-screen bg-gray-50">
+        <div className="h-screen bg-gray-50 flex flex-col overflow-hidden">
             <Header />
 
-            <div className="max-w-6xl mx-auto px-4 py-6">
-                <h1 className="text-2xl font-bold text-gray-800 mb-6">Tin nhắn</h1>
+            <div className="flex-1 max-w-6xl w-full mx-auto px-4 py-6 flex flex-col overflow-hidden">
+                <h1 className="text-2xl font-bold text-gray-800 mb-6 flex-shrink-0">Tin nhắn</h1>
 
-                <div className="bg-white rounded-lg border border-gray-200 overflow-hidden" style={{ height: '70vh' }}>
-                    <div className="flex h-full">
+                <div className="bg-white rounded-lg border border-gray-200 overflow-hidden flex-1 flex flex-col shadow-sm min-h-0">
+                    <div className="flex flex-1 min-h-0">
                         {/* Conversation List */}
-                        <div className="w-1/3 border-r border-gray-200 overflow-y-auto">
+                        <div className="w-1/3 border-r border-gray-200 overflow-y-auto bg-gray-50 flex-shrink-0">
                             {loading ? (
                                 <div className="p-6 text-center text-gray-500">Đang tải...</div>
                             ) : conversations.length === 0 ? (
-                                <div className="p-6 text-center">
+                                <div className="p-12 text-center">
                                     <MessageCircle className="w-12 h-12 text-gray-300 mx-auto mb-3" />
                                     <p className="text-gray-500">Chưa có tin nhắn</p>
                                 </div>
@@ -180,80 +246,185 @@ export default function MessagesPage() {
                                     <button
                                         key={conv.id}
                                         onClick={() => selectConversation(conv.id)}
-                                        className={`w-full p-4 text-left border-b border-gray-100 hover:bg-gray-50 ${selectedConv === conv.id ? 'bg-blue-50' : ''
+                                        className={`w-full p-4 text-left border-b border-gray-100 transition-colors hover:bg-white ${selectedConv === conv.id ? 'bg-white border-l-4 border-l-blue-500' : ''
                                             }`}
                                     >
-                                        <div className="flex items-center justify-between mb-1">
-                                            <span className="font-medium text-gray-800 truncate">
-                                                {conv.otherUserName}
-                                            </span>
-                                            {conv.unreadCount > 0 && (
-                                                <span className="bg-blue-500 text-white text-xs px-2 py-0.5 rounded-full">
-                                                    {conv.unreadCount}
+                                        <div className="flex flex-col mb-1 w-full">
+                                            <div className="flex items-center justify-between w-full">
+                                                <span className="font-semibold text-gray-800 truncate mr-2">
+                                                    {conv.otherUserName}
                                                 </span>
-                                            )}
+                                                {conv.unreadCount > 0 && (
+                                                    <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0">
+                                                        {conv.unreadCount}
+                                                    </span>
+                                                )}
+                                            </div>
                                         </div>
                                         {conv.projectTitle && (
-                                            <p className="text-xs text-blue-600 truncate mb-1">{conv.projectTitle}</p>
+                                            <p className="text-xs text-blue-600 font-medium truncate mb-1">
+                                                Dự án: {conv.projectTitle}
+                                            </p>
                                         )}
-                                        <p className="text-sm text-gray-500 truncate">
-                                            {conv.lastMessage || 'Cuộc trò chuyện mới'}
-                                        </p>
+                                        <div className="flex justify-between items-center">
+                                            <p className="text-sm text-gray-500 truncate flex-1">
+                                                {conv.lastMessage || 'Bắt đầu trò chuyện'}
+                                            </p>
+                                            <span className="text-[10px] text-gray-400 ml-2">
+                                                {conv.lastMessageAt ? formatTime(conv.lastMessageAt) : ''}
+                                            </span>
+                                        </div>
                                     </button>
                                 ))
                             )}
                         </div>
 
                         {/* Message Area */}
-                        <div className="flex-1 flex flex-col">
+                        <div className="flex-1 flex flex-col bg-white min-w-0">
                             {selectedConv ? (
                                 <>
                                     {/* Messages */}
-                                    <div className="flex-1 overflow-y-auto p-4 space-y-3">
-                                        {messages.map(msg => (
+                                    <div
+                                        ref={messagesContainerRef}
+                                        className="flex-1 overflow-y-auto p-4 space-y-4 bg-[#f0f2f5]"
+                                    >
+                                        {messages.map((msg, index) => (
                                             <div
-                                                key={msg.id}
-                                                className={`flex ${msg.senderId === userId ? 'justify-end' : 'justify-start'}`}
+                                                key={msg.id || index}
+                                                className={`flex w-full ${msg.senderId === userId ? 'justify-end' : 'justify-start'} mb-4`}
                                             >
-                                                <div className={`max-w-[70%] rounded-lg px-4 py-2 ${msg.senderId === userId
-                                                    ? 'bg-blue-500 text-white'
-                                                    : 'bg-gray-100 text-gray-800'
+                                                <div className={`max-w-[70%] rounded-2xl px-4 py-3 shadow-md ${msg.senderId === userId
+                                                    ? 'bg-blue-600 text-white rounded-br-none'
+                                                    : 'bg-white text-gray-800 rounded-bl-none border border-gray-100'
                                                     }`}>
-                                                    <p className="text-sm">{msg.content}</p>
-                                                    <p className={`text-xs mt-1 ${msg.senderId === userId ? 'text-blue-100' : 'text-gray-400'
-                                                        }`}>
-                                                        {formatTime(msg.createdAt)}
-                                                    </p>
+
+                                                    {msg.fileUrl && msg.fileType === 'image' && (
+                                                        <div className="mb-2 -mx-1 -mt-1 overflow-hidden rounded-lg">
+                                                            <Link href={msg.fileUrl} target="_blank">
+                                                                <img
+                                                                    src={msg.fileUrl}
+                                                                    alt={msg.fileName || 'Image'}
+                                                                    className="max-h-60 rounded-lg hover:opacity-90 transition-opacity cursor-pointer object-cover w-full"
+                                                                />
+                                                            </Link>
+                                                        </div>
+                                                    )}
+
+                                                    {msg.fileUrl && msg.fileType !== 'image' && (
+                                                        <a
+                                                            href={msg.fileUrl}
+                                                            target="_blank"
+                                                            download={msg.fileName || undefined}
+                                                            className={`flex items-center gap-3 p-3 rounded-lg mb-2 transition-colors ${msg.senderId === userId ? 'bg-blue-700 hover:bg-blue-800' : 'bg-gray-50 hover:bg-gray-100'
+                                                                }`}
+                                                        >
+                                                            <div className={`p-2 rounded-full ${msg.senderId === userId ? 'bg-blue-500' : 'bg-blue-100'}`}>
+                                                                <FileText className={`w-5 h-5 ${msg.senderId === userId ? 'text-white' : 'text-blue-600'}`} />
+                                                            </div>
+                                                            <div className="flex-1 min-w-0">
+                                                                <p className="text-sm font-medium truncate">{msg.fileName}</p>
+                                                                <p className={`text-[10px] ${msg.senderId === userId ? 'text-blue-200' : 'text-gray-400'}`}>
+                                                                    {formatFileSize(msg.fileSize || 0)}
+                                                                </p>
+                                                            </div>
+                                                            <Download className="w-4 h-4 opacity-50 flex-shrink-0" />
+                                                        </a>
+                                                    )}
+
+                                                    {msg.content && <p className="text-sm whitespace-pre-wrap">{msg.content}</p>}
+
+                                                    <div className={`flex items-center justify-end gap-1 mt-1 ${msg.senderId === userId ? 'text-blue-100' : 'text-gray-400'}`}>
+                                                        <span className="text-[10px]">
+                                                            {formatTime(msg.createdAt)}
+                                                        </span>
+                                                    </div>
                                                 </div>
                                             </div>
                                         ))}
-                                        <div ref={messagesEndRef} />
                                     </div>
 
-                                    {/* Input */}
-                                    <div className="border-t border-gray-200 p-4">
-                                        <div className="flex gap-3">
+                                    {/* Input Area */}
+                                    <div className="border-t border-gray-200 p-4 bg-white">
+                                        {selectedFile && (
+                                            <div className="mb-3 p-2 bg-gray-50 rounded-lg flex items-center justify-between border border-dashed border-gray-300">
+                                                <div className="flex items-center gap-3">
+                                                    {selectedFile.type === 'image' ? (
+                                                        <img src={selectedFile.preview} className="w-12 h-12 object-cover rounded" />
+                                                    ) : (
+                                                        <div className="w-12 h-12 bg-blue-100 flex items-center justify-center rounded">
+                                                            <FileText className="text-blue-600" />
+                                                        </div>
+                                                    )}
+                                                    <div>
+                                                        <p className="text-xs font-medium text-gray-700 max-w-[200px] truncate">
+                                                            {selectedFile.file.name}
+                                                        </p>
+                                                        <p className="text-[10px] text-gray-400">{formatFileSize(selectedFile.file.size)}</p>
+                                                    </div>
+                                                </div>
+                                                <button
+                                                    onClick={() => setSelectedFile(null)}
+                                                    className="p-1 hover:bg-gray-200 rounded-full text-gray-400"
+                                                >
+                                                    <X className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                        )}
+
+                                        <div className="flex items-end gap-3">
+                                            <button
+                                                onClick={() => fileInputRef.current?.click()}
+                                                disabled={sending || uploading}
+                                                className="p-2.5 text-gray-500 hover:bg-gray-100 rounded-full transition-colors disabled:opacity-50"
+                                                title="Gửi file hoặc ảnh"
+                                            >
+                                                <Paperclip className="w-5 h-5" />
+                                            </button>
                                             <input
-                                                type="text"
-                                                value={newMessage}
-                                                onChange={e => setNewMessage(e.target.value)}
-                                                onKeyPress={e => e.key === 'Enter' && sendMessage()}
-                                                placeholder="Nhập tin nhắn..."
-                                                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
+                                                type="file"
+                                                ref={fileInputRef}
+                                                onChange={handleFileSelect}
+                                                className="hidden"
+                                                accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx,.txt"
                                             />
+
+                                            <div className="flex-1 relative">
+                                                <textarea
+                                                    value={newMessage}
+                                                    onChange={e => setNewMessage(e.target.value)}
+                                                    onKeyDown={e => {
+                                                        if (e.key === 'Enter' && !e.shiftKey) {
+                                                            e.preventDefault()
+                                                            sendMessage()
+                                                        }
+                                                    }}
+                                                    placeholder="Nhập tin nhắn..."
+                                                    className="w-full px-4 py-2.5 bg-gray-100 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all resize-none max-h-32 text-sm"
+                                                    rows={1}
+                                                />
+                                            </div>
+
                                             <button
                                                 onClick={sendMessage}
-                                                disabled={sending || !newMessage.trim()}
-                                                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                                                disabled={sending || uploading || (!newMessage.trim() && !selectedFile)}
+                                                className="p-2.5 bg-blue-600 text-white rounded-full hover:bg-blue-700 disabled:opacity-50 transition-all shadow-md active:scale-95 flex-shrink-0"
                                             >
-                                                <Send className="w-5 h-5" />
+                                                {sending || uploading ? (
+                                                    <div className="w-5 h-5 border-2 border-white border-t-transparent animate-spin rounded-full" />
+                                                ) : (
+                                                    <Send className="w-5 h-5" />
+                                                )}
                                             </button>
                                         </div>
                                     </div>
                                 </>
                             ) : (
-                                <div className="flex-1 flex items-center justify-center text-gray-500">
-                                    Chọn một cuộc trò chuyện để bắt đầu
+                                <div className="flex-1 flex flex-col items-center justify-center text-gray-400 bg-gray-50">
+                                    <div className="bg-white p-6 rounded-full shadow-sm mb-4">
+                                        <MessageCircle className="w-12 h-12 text-blue-100" />
+                                    </div>
+                                    <p className="font-medium text-gray-600">Chọn một cuộc trò chuyện để bắt đầu</p>
+                                    <p className="text-sm">Kết nối trực tiếp giữa nhà thầu và khách hàng</p>
                                 </div>
                             )}
                         </div>

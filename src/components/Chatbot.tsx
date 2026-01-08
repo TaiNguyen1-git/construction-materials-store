@@ -58,16 +58,49 @@ export default function Chatbot({ customerId }: ChatbotProps) {
   const isAdminByRole = isAuthenticated && user && (user.role === 'MANAGER' || user.role === 'EMPLOYEE')
   const isAdmin = isAdminRoute || isAdminByRole
 
+  // ===== CHATBOT VISIBILITY LOGIC =====
+  // Hide chatbot on auth pages, checkout flow, static pages, and marketplace
+  const hiddenPages = [
+    // Auth pages
+    '/login',
+    '/register',
+    '/forgot-password',
+    // Contractor auth/landing
+    '/contractor',
+    '/contractor/login',
+    '/contractor/register',
+    // Checkout flow (user needs focus)
+    '/cart',
+    '/checkout',
+    '/order-tracking',
+    '/wishlist',
+    // Static/info pages
+    '/about',
+    '/contact',
+    '/privacy',
+    '/terms',
+    // Marketplace & AI tool (has own UI)
+    '/estimator',
+    '/contractors',
+    '/projects',
+  ]
+
+  const shouldHideChatbot = hiddenPages.some(page =>
+    pathname === page || pathname?.startsWith(page + '/')
+  )
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }
 
   useEffect(() => {
-    scrollToBottom()
-  }, [messages])
+    if (!shouldHideChatbot) {
+      scrollToBottom()
+    }
+  }, [messages, shouldHideChatbot])
 
   useEffect(() => {
-    if (isOpen && messages.length === 0) {
+    if (!shouldHideChatbot && isOpen && messages.length === 0) {
       // Send welcome message with role context
       // Wait a bit for auth state to initialize on reload
       const timer = setTimeout(() => {
@@ -76,7 +109,11 @@ export default function Chatbot({ customerId }: ChatbotProps) {
       }, 100)
       return () => clearTimeout(timer)
     }
-  }, [isOpen, isAdmin, messages.length])
+  }, [isOpen, isAdmin, messages.length, shouldHideChatbot])
+
+  if (shouldHideChatbot) {
+    return null
+  }
 
   const sendMessage = async (message: string, useCurrentMessage = false) => {
     const messageToSend = useCurrentMessage ? currentMessage : message
@@ -442,10 +479,10 @@ export default function Chatbot({ customerId }: ChatbotProps) {
     return (
       <button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-6 right-6 bg-primary-600 text-white p-4 rounded-full shadow-lg hover:bg-primary-700 transition-colors z-50"
+        className="fixed bottom-6 right-6 bg-blue-600 text-white p-0 rounded-full shadow-lg hover:scale-110 transition-all z-50 overflow-hidden border-2 border-white w-16 h-16 flex items-center justify-center bg-white"
         aria-label="Mở chat hỗ trợ"
       >
-        <MessageCircle className="w-6 h-6" />
+        <img src="/images/smartbuild_bot.png" alt="SmartBuild AI" className="w-full h-full object-cover" />
       </button>
     )
   }
@@ -453,17 +490,19 @@ export default function Chatbot({ customerId }: ChatbotProps) {
   return (
     <div className="fixed bottom-6 right-6 w-96 bg-white rounded-lg shadow-2xl border z-50 flex flex-col max-h-[600px]">
       {/* Header */}
-      <div className={`${isAdmin ? 'bg-gradient-to-r from-indigo-600 to-purple-600' : 'bg-primary-600'} text-white p-4 rounded-t-lg flex justify-between items-center`}>
-        <div className="flex items-center gap-2">
-          {isAdmin ? <BarChart3 className="w-5 h-5" /> : <Bot className="w-5 h-5" />}
+      <div className={`${isAdmin ? 'bg-gradient-to-r from-indigo-600 to-blue-600' : 'bg-blue-600'} text-white p-4 rounded-t-lg flex justify-between items-center`}>
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-white rounded-full overflow-hidden border-2 border-blue-400">
+            <img src="/images/smartbuild_bot.png" alt="SmartBuild AI" className="w-full h-full object-cover" />
+          </div>
           <div>
             <div className="font-semibold">
-              {isAdmin ? '🎯 Admin Assistant' : '🛠️ Hỗ trợ khách hàng'}
+              {isAdmin ? '🎯 SmartBuild Admin' : '🤖 SmartBuild AI'}
             </div>
             <div className="text-xs opacity-90">
               {isAdmin
                 ? 'Trợ lý quản trị hệ thống'
-                : 'Trợ lý ảo Construction Materials'
+                : 'Trợ lý vật liệu thông minh'
               }
             </div>
           </div>
@@ -480,8 +519,10 @@ export default function Chatbot({ customerId }: ChatbotProps) {
       <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0">
         {messages.length === 0 && !isLoading && (
           <div className="text-center text-gray-500 py-8">
-            <Bot className="w-8 h-8 mx-auto mb-2 text-gray-400" />
-            <div>Xin chào! Tôi có thể giúp gì cho bạn?</div>
+            <div className="w-16 h-16 mx-auto mb-3 bg-white rounded-full overflow-hidden border-2 border-gray-100 shadow-sm">
+              <img src="/images/smartbuild_bot.png" alt="SmartBuild AI" className="w-full h-full object-cover" />
+            </div>
+            <div className="font-medium">Xin chào! SmartBuild AI có thể giúp gì cho bạn?</div>
           </div>
         )}
 
@@ -508,9 +549,11 @@ export default function Chatbot({ customerId }: ChatbotProps) {
 
             {/* Bot Message */}
             <div className="flex justify-start">
-              <div className="bg-gray-100 p-4 rounded-lg max-w-2xl border border-gray-200">
-                <div className="flex items-start gap-2">
-                  <Bot className="w-4 h-4 text-primary-600 mt-0.5 flex-shrink-0" />
+              <div className="bg-gray-100 p-4 rounded-lg max-w-2xl border border-gray-200 shadow-sm">
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 border border-gray-200 bg-white shadow-sm">
+                    <img src="/images/smartbuild_bot.png" alt="SmartBuild AI" className="w-full h-full object-cover" />
+                  </div>
                   <div className="flex-1">
                     <div
                       className="text-sm text-gray-950 font-medium leading-relaxed whitespace-pre-wrap"
@@ -654,13 +697,15 @@ export default function Chatbot({ customerId }: ChatbotProps) {
         {/* Loading indicator */}
         {isLoading && (
           <div className="flex justify-start">
-            <div className="bg-gray-100 p-3 rounded-lg max-w-xs">
-              <div className="flex items-center gap-2">
-                <Bot className="w-4 h-4 text-primary-600 mt-0.5 flex-shrink-0" />
+            <div className="bg-gray-100 p-3 rounded-lg max-w-xs border border-gray-200">
+              <div className="flex items-center gap-3">
+                <div className="w-6 h-6 rounded-full overflow-hidden bg-white flex-shrink-0 border border-gray-100">
+                  <img src="/images/smartbuild_bot.png" alt="SmartBuild AI" className="w-full h-full object-cover" />
+                </div>
                 <div className="flex space-x-1">
-                  <div className="h-2 w-2 bg-primary-600 rounded-full animate-bounce"></div>
-                  <div className="h-2 w-2 bg-primary-600 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                  <div className="h-2 w-2 bg-primary-600 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
+                  <div className="h-1.5 w-1.5 bg-primary-600 rounded-full animate-bounce"></div>
+                  <div className="h-1.5 w-1.5 bg-primary-600 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                  <div className="h-1.5 w-1.5 bg-primary-600 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
                 </div>
               </div>
             </div>

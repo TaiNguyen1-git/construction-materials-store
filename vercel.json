@@ -3,6 +3,18 @@
     {
       "path": "/api/admin/reports/trigger?type=DAILY",
       "schedule": "30 10 * * *"
+    },
+    {
+      "path": "/api/admin/reports/trigger?type=WEEKLY&timeframe=previous",
+      "schedule": "0 1 * * 1"
+    },
+    {
+      "path": "/api/admin/reports/trigger?type=MONTHLY&timeframe=previous",
+      "schedule": "0 1 1 * *"
+    },
+    {
+      "path": "/api/admin/reports/trigger?type=YEARLY&timeframe=previous",
+      "schedule": "0 1 1 1 *"
     }
   ]
 }

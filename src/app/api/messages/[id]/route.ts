@@ -74,6 +74,10 @@ export async function GET(
                     senderId: m.senderId,
                     senderName: m.senderName,
                     content: m.content,
+                    fileUrl: m.fileUrl,
+                    fileName: m.fileName,
+                    fileType: m.fileType,
+                    fileSize: m.fileSize,
                     isRead: m.isRead,
                     createdAt: m.createdAt
                 }))
@@ -97,11 +101,11 @@ export async function POST(
     try {
         const { id } = await params
         const body = await request.json()
-        const { senderId, senderName, content } = body
+        const { senderId, senderName, content, fileUrl, fileName, fileType, fileSize } = body
 
-        if (!senderId || !content) {
+        if (!senderId || (!content && !fileUrl)) {
             return NextResponse.json(
-                createErrorResponse('Missing required fields', 'VALIDATION_ERROR'),
+                createErrorResponse('Missing required fields or content', 'VALIDATION_ERROR'),
                 { status: 400 }
             )
         }
@@ -111,31 +115,37 @@ export async function POST(
             data: {
                 conversationId: id,
                 senderId,
-                senderName: senderName || 'Khách', // Keep original senderName fallback
-                content,
+                senderName: senderName || 'Khách',
+                content: content || null,
+                fileUrl: fileUrl || null,
+                fileName: fileName || null,
+                fileType: fileType || null,
+                fileSize: fileSize || null,
                 isRead: false
             }
         })
 
         // Update conversation last message and unread counts
-        const conversation = await prisma.conversation.findUnique({ // Re-fetch conversation to get participant IDs
+        const conversation = await prisma.conversation.findUnique({
             where: { id }
         })
 
-        if (!conversation) { // Should not happen if message was created, but good for type safety
+        if (!conversation) {
             return NextResponse.json(
-                createErrorResponse('Conversation not found after message creation', 'NOT_FOUND'),
+                createErrorResponse('Conversation not found', 'NOT_FOUND'),
                 { status: 404 }
             )
         }
 
         const isParticipant1 = conversation.participant1Id === senderId
+        const lastMsgText = content ? content.substring(0, 100) : (fileType === 'image' ? '[Hình ảnh]' : '[Tệp tin]')
+
         await prisma.conversation.update({
             where: { id },
             data: {
-                lastMessage: content.substring(0, 100), // Keep original substring logic
+                lastMessage: lastMsgText,
                 lastMessageAt: new Date(),
-                [isParticipant1 ? 'unread2' : 'unread1']: { increment: 1 } // Keep original unread logic
+                [isParticipant1 ? 'unread2' : 'unread1']: { increment: 1 }
             }
         })
 
@@ -147,23 +157,30 @@ export async function POST(
             await set(newMessageRef, {
                 id: message.id,
                 senderId,
-                senderName: message.senderName, // Use senderName from created message
-                content,
+                senderName: message.senderName,
+                content: content || null,
+                fileUrl: fileUrl || null,
+                fileName: fileName || null,
+                fileType: fileType || null,
+                fileSize: fileSize || null,
                 isRead: false,
                 createdAt: message.createdAt.toISOString()
             })
         } catch (firebaseError) {
             console.error('Firebase sync failed:', firebaseError)
-            // Firebase sync failure shouldn't stop the primary response
         }
 
         return NextResponse.json(
             createSuccessResponse({
-                message: { // Keep original success response structure
+                message: {
                     id: message.id,
                     senderId: message.senderId,
                     senderName: message.senderName,
                     content: message.content,
+                    fileUrl: message.fileUrl,
+                    fileName: message.fileName,
+                    fileType: message.fileType,
+                    fileSize: message.fileSize,
                     createdAt: message.createdAt
                 }
             }, 'Message sent'),
@@ -177,3 +194,4 @@ export async function POST(
         )
     }
 }
+

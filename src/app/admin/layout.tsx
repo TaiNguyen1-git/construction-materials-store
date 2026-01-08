@@ -29,7 +29,8 @@ import {
   Briefcase,
   Receipt,
   LineChart,
-  Star
+  Star,
+  Headset
 } from 'lucide-react'
 import NotificationBell from '@/components/NotificationBell'
 import { useAuth } from '@/contexts/auth-context'
@@ -52,6 +53,7 @@ export default function AdminLayout({
       items: [
         { name: 'Bảng Điều Khiển', href: '/admin', icon: BarChart3 },
         { name: 'Công Việc Của Tôi', href: '/admin/my-tasks', icon: ClipboardList, roles: ['EMPLOYEE'] },
+        { name: 'Hỗ Trợ Khách Hàng', href: '/admin/support', icon: Headset },
         { name: 'Hồ Sơ Cá Nhân', href: '/admin/profile', icon: User },
       ]
     },
@@ -73,16 +75,17 @@ export default function AdminLayout({
         { name: 'Đánh Giá Sản Phẩm', href: '/admin/reviews', icon: Star },
       ]
     },
-    // === PHASE 2: SME Features (Tạm ẩn) ===
-    // {
-    //   name: 'Quản Lý SME',
-    //   icon: CreditCard,
-    //   items: [
-    //     { name: 'Quản Lý Công Nợ', href: '/admin/credit-management', icon: CreditCard },
-    //     { name: 'Nhập Hàng Thông Minh', href: '/admin/procurement-management', icon: Truck },
-    //     { name: 'Hợp Đồng & Giá B2B', href: '/admin/contract-management', icon: FileText },
-    //   ]
-    // },
+    // === PHASE 2: SME Features ===
+    {
+      name: 'Quản Lý SME',
+      icon: CreditCard,
+      items: [
+        { name: 'Quản Lý Công Nợ', href: '/admin/credit-management', icon: CreditCard },
+        { name: 'Nhập Hàng Thông Minh', href: '/admin/procurement-management', icon: Truck },
+        { name: 'Hợp Đồng & Giá B2B', href: '/admin/contract-management', icon: FileText },
+      ]
+    },
+
     {
       name: 'Nhân Sự',
       icon: Briefcase,
@@ -92,14 +95,22 @@ export default function AdminLayout({
         { name: 'Lương', href: '/admin/payroll', icon: CreditCard },
       ]
     },
-    // === PHASE 2: Dự Án (Tạm ẩn) ===
-    // {
-    //   name: 'Dự Án',
-    //   icon: FolderOpen,
-    //   items: [
-    //     { name: 'Dự Án', href: '/admin/projects', icon: FolderOpen },
-    //   ]
-    // },
+    // === PHASE 2: Dự Án ===
+    {
+      name: 'Dự Án',
+      icon: FolderOpen,
+      items: [
+        { name: 'Dự Án', href: '/admin/projects', icon: FolderOpen },
+      ]
+    },
+
+    {
+      name: 'Giao Diện',
+      icon: Settings,
+      items: [
+        { name: 'Quản Lý Banner', href: '/admin/banners', icon: Star },
+      ]
+    },
     {
       name: 'Báo Cáo Tài Chính',
       icon: LineChart,

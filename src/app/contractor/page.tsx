@@ -1,5 +1,7 @@
 'use client'
 
+import { useState, useEffect } from 'react'
+
 /**
  * Contractor Landing Page - Light Theme
  * Professional, clean design for B2B contractors
@@ -20,10 +22,70 @@ import {
     TrendingUp,
     Phone,
     Mail,
-    MapPin
+    MapPin,
+    Star,
+    BadgeCheck
 } from 'lucide-react'
 
+// Sample testimonials data
+const testimonials = [
+    {
+        id: 1,
+        quote: "Từ khi hợp tác với SmartBuild PRO, chi phí vật liệu của chúng tôi giảm 12%. Quan trọng hơn, công nợ linh hoạt giúp dòng tiền dự án ổn định hơn rất nhiều.",
+        company: "Công ty XD Hoàng Phát",
+        initials: "HP",
+        since: "Đối tác từ năm 2023",
+        color: "bg-blue-600"
+    },
+    {
+        id: 2,
+        quote: "Giá sỉ cạnh tranh, giao hàng đúng hẹn. Đội ngũ hỗ trợ rất chuyên nghiệp, luôn sẵn sàng giải quyết vấn đề cho chúng tôi.",
+        company: "CTCP Xây dựng Minh Đức",
+        initials: "MĐ",
+        since: "Đối tác từ năm 2022",
+        color: "bg-green-600"
+    },
+    {
+        id: 3,
+        quote: "Hệ thống quản lý công nợ trực tuyến rất tiện lợi. Chúng tôi có thể theo dõi và xuất báo cáo bất cứ lúc nào.",
+        company: "Nhà thầu Trường Thành",
+        initials: "TT",
+        since: "Đối tác từ năm 2024",
+        color: "bg-orange-600"
+    },
+    {
+        id: 4,
+        quote: "SmartBuild PRO giúp chúng tôi tiết kiệm thời gian đặt hàng và quản lý vật tư cho nhiều công trình cùng lúc.",
+        company: "Công ty TNHH Phúc An",
+        initials: "PA",
+        since: "Đối tác từ năm 2023",
+        color: "bg-purple-600"
+    }
+]
+
+// Sample trusted contractors data
+const trustedContractors = [
+    { id: 1, name: "Công ty XD Hoàng Phát", rating: 4.9, projects: 45, initials: "HP", color: "bg-blue-600" },
+    { id: 2, name: "CTCP Xây dựng Minh Đức", rating: 4.8, projects: 38, initials: "MĐ", color: "bg-green-600" },
+    { id: 3, name: "Nhà thầu Trường Thành", rating: 4.7, projects: 52, initials: "TT", color: "bg-orange-600" },
+    { id: 4, name: "Công ty TNHH Phúc An", rating: 4.9, projects: 31, initials: "PA", color: "bg-purple-600" },
+    { id: 5, name: "XD Tân Phát Lộc", rating: 4.6, projects: 28, initials: "TP", color: "bg-red-600" },
+    { id: 6, name: "Công ty XD Thịnh Vượng", rating: 4.8, projects: 41, initials: "TV", color: "bg-teal-600" },
+    { id: 7, name: "DNTN Xây dựng Hưng Long", rating: 4.7, projects: 35, initials: "HL", color: "bg-indigo-600" },
+    { id: 8, name: "Nhà thầu Đại Việt", rating: 4.9, projects: 48, initials: "ĐV", color: "bg-cyan-600" },
+]
+
 export default function ContractorLandingPage() {
+    const [currentTestimonial, setCurrentTestimonial] = useState(0)
+
+    // Auto-scroll testimonials every 5 seconds
+    useEffect(() => {
+        const timer = setInterval(() => {
+            setCurrentTestimonial(prev => (prev + 1) % testimonials.length)
+        }, 5000)
+        return () => clearInterval(timer)
+    }, [])
+
     return (
         <div className="min-h-screen bg-white">
             {/* Navigation */}
@@ -246,25 +308,140 @@ export default function ContractorLandingPage() {
                             </div>
                         </div>
 
-                        {/* Testimonial */}
-                        <div className="bg-gradient-to-br from-blue-50 to-green-50 rounded-2xl p-8 border border-gray-100">
+                        {/* Testimonials Carousel */}
+                        <div className="bg-gradient-to-br from-blue-50 to-green-50 rounded-2xl p-8 border border-gray-100 relative overflow-hidden">
                             <div className="text-5xl text-blue-400 mb-4">"</div>
-                            <p className="text-lg text-gray-700 mb-6 italic leading-relaxed">
-                                Từ khi hợp tác với SmartBuild PRO, chi phí vật liệu của chúng tôi giảm 12%.
-                                Quan trọng hơn, công nợ linh hoạt giúp dòng tiền dự án ổn định hơn rất nhiều.
-                            </p>
-                            <div className="flex items-center gap-4">
-                                <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold">
-                                    HP
-                                </div>
-                                <div>
-                                    <div className="font-semibold text-gray-900">Công ty XD Hoàng Phát</div>
-                                    <div className="text-gray-500 text-sm">Đối tác từ năm 2023</div>
-                                </div>
+
+                            {/* Testimonial Content with Fade Animation */}
+                            <div className="relative min-h-[180px]">
+                                {testimonials.map((testimonial, index) => (
+                                    <div
+                                        key={testimonial.id}
+                                        className={`absolute inset-0 transition-all duration-500 ${index === currentTestimonial
+                                                ? 'opacity-100 translate-x-0'
+                                                : 'opacity-0 translate-x-8'
+                                            }`}
+                                    >
+                                        <p className="text-lg text-gray-700 mb-6 italic leading-relaxed">
+                                            {testimonial.quote}
+                                        </p>
+                                        <div className="flex items-center gap-4">
+                                            <div className={`w-12 h-12 ${testimonial.color} rounded-full flex items-center justify-center text-white font-bold`}>
+                                                {testimonial.initials}
+                                            </div>
+                                            <div>
+                                                <div className="font-semibold text-gray-900">{testimonial.company}</div>
+                                                <div className="text-gray-500 text-sm">{testimonial.since}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+
+                            {/* Carousel Dots */}
+                            <div className="flex justify-center gap-2 mt-6">
+                                {testimonials.map((_, index) => (
+                                    <button
+                                        key={index}
+                                        onClick={() => setCurrentTestimonial(index)}
+                                        className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${index === currentTestimonial
+                                                ? 'bg-blue-600 w-6'
+                                                : 'bg-gray-300 hover:bg-gray-400'
+                                            }`}
+                                    />
+                                ))}
                             </div>
                         </div>
                     </div>
                 </div>
+            </section>
+
+            {/* Trusted Contractors Section - Auto-scroll Marquee */}
+            <section className="py-16 px-6 bg-gray-50 overflow-hidden">
+                <div className="max-w-7xl mx-auto mb-8">
+                    <div className="text-center">
+                        <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                            Nhà Thầu Uy Tín Đã Tham Gia
+                        </h2>
+                        <p className="text-gray-600">Những đối tác tin cậy của SmartBuild PRO</p>
+                    </div>
+                </div>
+
+                {/* Infinite Scroll Marquee */}
+                <div className="relative">
+                    <div className="flex animate-marquee">
+                        {/* First set */}
+                        {trustedContractors.map((contractor) => (
+                            <div
+                                key={contractor.id}
+                                className="flex-shrink-0 w-72 mx-3 bg-white rounded-xl p-5 border border-gray-200 shadow-sm hover:shadow-md transition-shadow"
+                            >
+                                <div className="flex items-center gap-4">
+                                    <div className={`w-14 h-14 ${contractor.color} rounded-xl flex items-center justify-center text-white font-bold text-lg`}>
+                                        {contractor.initials}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <div className="font-semibold text-gray-900 truncate flex items-center gap-1">
+                                            {contractor.name}
+                                            <BadgeCheck className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                                        </div>
+                                        <div className="flex items-center gap-3 mt-1">
+                                            <div className="flex items-center text-yellow-500">
+                                                <Star className="w-4 h-4 fill-current" />
+                                                <span className="text-sm font-medium text-gray-700 ml-1">{contractor.rating}</span>
+                                            </div>
+                                            <div className="text-sm text-gray-500">
+                                                {contractor.projects} dự án
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                        {/* Duplicate set for seamless loop */}
+                        {trustedContractors.map((contractor) => (
+                            <div
+                                key={`dup-${contractor.id}`}
+                                className="flex-shrink-0 w-72 mx-3 bg-white rounded-xl p-5 border border-gray-200 shadow-sm hover:shadow-md transition-shadow"
+                            >
+                                <div className="flex items-center gap-4">
+                                    <div className={`w-14 h-14 ${contractor.color} rounded-xl flex items-center justify-center text-white font-bold text-lg`}>
+                                        {contractor.initials}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <div className="font-semibold text-gray-900 truncate flex items-center gap-1">
+                                            {contractor.name}
+                                            <BadgeCheck className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                                        </div>
+                                        <div className="flex items-center gap-3 mt-1">
+                                            <div className="flex items-center text-yellow-500">
+                                                <Star className="w-4 h-4 fill-current" />
+                                                <span className="text-sm font-medium text-gray-700 ml-1">{contractor.rating}</span>
+                                            </div>
+                                            <div className="text-sm text-gray-500">
+                                                {contractor.projects} dự án
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                {/* CSS for marquee animation */}
+                <style jsx>{`
+                    @keyframes marquee {
+                        0% { transform: translateX(0); }
+                        100% { transform: translateX(-50%); }
+                    }
+                    .animate-marquee {
+                        animation: marquee 30s linear infinite;
+                    }
+                    .animate-marquee:hover {
+                        animation-play-state: paused;
+                    }
+                `}</style>
             </section>
 
             {/* Process Section */}

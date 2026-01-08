@@ -1,410 +1,962 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { ShoppingCart, Package, Truck, Users, Star, ArrowRight, Sparkles, Zap, Award, Heart, Sparkles as SparklesIcon, Brain } from 'lucide-react'
+import { Search, MapPin, ArrowRight, Zap, TrendingUp, ShieldCheck, PenTool, LayoutGrid, Brain, CreditCard, Package, ChevronRight, UserPlus, ChevronDown, HardHat, Quote, Star } from 'lucide-react'
 import Header from '@/components/Header'
+import Footer from '@/components/Footer'
 import { useAuth } from '@/contexts/auth-context'
-
-interface Product {
-  id: string
-  name: string
-  price: number
-  description: string
-  images: string[]
-  category: {
-    name: string
-  }
-  recommendationScore?: number
-  recommendationReason?: string
-  inventoryItem?: {
-    availableQuantity: number
-  }
-}
-
-interface Stats {
-  totalProducts: number
-  totalCategories: number
-  activeOrders: number
-  totalCustomers: number
-}
 
 export default function HomePage() {
   const { user, isAuthenticated } = useAuth()
-  const [featuredProducts, setFeaturedProducts] = useState<Product[]>([])
-  const [aiRecommendedProducts, setAiRecommendedProducts] = useState<Product[]>([])
-  const [stats, setStats] = useState<Stats>({
-    totalProducts: 0,
-    totalCategories: 0,
-    activeOrders: 0,
-    totalCustomers: 0
+  const [featuredProducts, setFeaturedProducts] = useState<any[]>([])
+  const [aiRecommendedProducts, setAiRecommendedProducts] = useState<any[]>([])
+  const [stats, setStats] = useState({
+    totalProducts: 850,
+    totalCustomers: 1500,
+    activeOrders: 45
   })
   const [loading, setLoading] = useState(true)
-  const [aiLoading, setAiLoading] = useState(false)
+  const [featuredLoading, setFeaturedLoading] = useState(true)
+  const [categories, setCategories] = useState<any[]>([])
+  const [currentBanner, setCurrentBanner] = useState(0)
+  const [contractorIndex, setContractorIndex] = useState(0)
+  const [isLocationOpen, setIsLocationOpen] = useState(false)
+  const [selectedLocation, setSelectedLocation] = useState('Toàn quốc')
+  const [activeSearchTab, setActiveSearchTab] = useState<'products' | 'contractors'>('products')
+  const [hoveredCategory, setHoveredCategory] = useState<any | null>(null)
+  const [selectedSubCategories, setSelectedSubCategories] = useState<string[]>([])
+  const [loadedLogos, setLoadedLogos] = useState<Set<string>>(new Set())
+  const [failedLogos, setFailedLogos] = useState<Set<string>>(new Set())
+
+  const partners = [
+    { name: 'Hòa Phát', logo: 'https://www.hoaphat.com.vn/assets/images/logo.png', color: 'bg-blue-50', text: 'text-blue-700' },
+    { name: 'Hoa Sen', logo: 'https://upload.wikimedia.org/wikipedia/vi/thumb/e/e0/Logo_T%E1%BA%ADp_%C4%91o%C3%A0n_Hoa_Sen.svg/512px-Logo_T%E1%BA%ADp_%C4%91o%C3%A0n_Hoa_Sen.svg.png', color: 'bg-red-50', text: 'text-red-700' },
+    { name: 'Viglacera', logo: 'https://viglacera.com.vn/themes/viglacera/images/logo.png', color: 'bg-blue-50', text: 'text-blue-800' },
+    { name: 'Dulux', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e3/Dulux_logo.svg/512px-Dulux_logo.svg.png', color: 'bg-blue-50', text: 'text-indigo-600' },
+    { name: 'Inax', logo: 'https://www.inax.com.vn/images/logo.png', color: 'bg-blue-50', text: 'text-slate-800' },
+    { name: 'Vicem Hà Tiên', logo: '', color: 'bg-orange-50', text: 'text-orange-700' },
+    { name: 'Pomina', logo: '', color: 'bg-rose-50', text: 'text-rose-700' },
+    { name: 'SCG Build', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e3/SCG_Logo.svg/512px-SCG_Logo.svg.png', color: 'bg-red-50', text: 'text-red-600' },
+    { name: 'Prime Group', logo: 'https://prime.vn/Images/logo.png', color: 'bg-orange-50', text: 'text-orange-600' },
+    { name: 'Tôn Đông Á', logo: 'https://www.tondonga.com.vn/vnt_upload/weblink/logo_tda_2.png', color: 'bg-sky-50', text: 'text-sky-600' }
+  ]
+
+  const locations = ['Toàn quốc', 'Hồ Chí Minh', 'Hà Nội', 'Đồng Nai', 'Bình Dương', 'Long An']
+
+  const fallbackProducts: Record<string, { name: string, price: string }[]> = {
+    'cát': [
+      { name: 'Cát xây tô loại 1', price: '250.000₫/m3' },
+      { name: 'Cát bê tông vàng', price: '380.000₫/m3' },
+      { name: 'Cát san lấp', price: '180.000₫/m3' }
+    ],
+    'gạch': [
+      { name: 'Gạch ống 4 lỗ (8x8x18)', price: '1.250₫/viên' },
+      { name: 'Gạch thẻ xây dựng', price: '1.100₫/viên' },
+      { name: 'Gạch block 190', price: '9.500₫/viên' }
+    ],
+    'xi măng': [
+      { name: 'Xi măng Hà Tiên PCB40', price: '89.000₫/bao' },
+      { name: 'Xi măng Insee Đa Dụng', price: '94.000₫/bao' },
+      { name: 'Xi măng Holcim', price: '92.000₫/bao' }
+    ],
+    'thép': [
+      { name: 'Thép Pomina CB300V', price: '15.800₫/kg' },
+      { name: 'Thép Hòa Phát CB400V', price: '16.500₫/kg' },
+      { name: 'Thép Miền Nam', price: '16.200₫/kg' }
+    ],
+    'sơn': [
+      { name: 'Sơn nước Dulux nội thất 18L', price: '2.450.000₫' },
+      { name: 'Sơn Jotun Essence 17L', price: '1.850.000₫' },
+      { name: 'Sơn Nippon Vatex', price: '850.000₫' }
+    ],
+    'tôn': [
+      { name: 'Tôn lạnh mạ kẽm (0.45mm)', price: '115.000₫/m' },
+      { name: 'Tôn màu Đông Á', price: '125.000₫/m' },
+      { name: 'Tôn cách nhiệt Hoa Sen', price: '165.000₫/m' }
+    ],
+    'đá': [
+      { name: 'Đá 1x2 xanh Biên Hòa', price: '450.000₫/m3' },
+      { name: 'Đá 4x6 đen', price: '380.000₫/m3' },
+      { name: 'Đá mi sàng', price: '290.000₫/m3' }
+    ]
+  }
+
+  const fallbackSubCategories: Record<string, string[]> = {
+    'xi măng': ['Xi măng PCB30', 'Xi măng PCB40', 'Bê tông tươi', 'Bê tông nhựa', 'Phụ gia bê tông', 'Xi măng trắng'],
+    'thép': ['Thép cuộn', 'Thép thanh vằn', 'Thép hình V/U/I', 'Thép tấm', 'Lưới thép B40', 'Dây thép buộc'],
+    'gạch': ['Gạch ống 4 lỗ', 'Gạch thẻ', 'Cát xây tô', 'Cát bê tông vàng', 'Đá 1x2 xanh', 'Đá chẻ', 'Gạch block'],
+    'sơn': ['Sơn nội thất', 'Sơn ngoại thất', 'Sơn lót kháng kiềm', 'Chống thấm sàn KOVA', 'Sika Latex', 'Bột trét tường'],
+    'điện': ['Ống nhựa Tiền Phong', 'Dây điện Cadivi', 'Thiết bị vệ sinh Inax', 'Đèn LED âm trần', 'Bồn nước Tân Á', 'Máy bơm nước'],
+    'nội thất': ['Gạch ốp lát 60x60', 'Sàn gỗ công nghiệp', 'Trần thạch cao Vĩnh Tường', 'Cửa nhôm Xingfa', 'Đá hoa cương Marble'],
+    'công cụ': ['Máy khoan bê tông', 'Máy cắt sắt', 'Máy trộn bê tông 250L', 'Giàn giáo nêm', 'Xe rùa HK', 'Thước laser'],
+    'cát': ['Cát xây tô', 'Cát bê tông', 'Cát san lấp'],
+    'tôn': ['Tôn lạnh', 'Tôn màu', 'Tôn kẽm'],
+    'đá': ['Đá 1x2', 'Đá 4x6', 'Đá mi']
+  }
+
+  const getSubCategories = (cat: any) => {
+    // 1. If API has children (sub-categories), use them
+    if (cat.children && cat.children.length > 0) {
+      return cat.children.map((c: any) => c.name)
+    }
+    // 2. Try to match name with fallback map (lowercase, partial match)
+    const catNameLower = cat.name.toLowerCase()
+    const key = Object.keys(fallbackSubCategories).find(k => catNameLower.includes(k))
+    if (key) return fallbackSubCategories[key]
+
+    // 3. Last resort
+    return ['Sản phẩm bán chạy', 'Hàng mới về', 'Đang khuyến mãi', 'Sản phẩm cao cấp']
+  }
+
+  const getSuggestedProducts = (cat: any) => {
+    const catNameLower = cat.name.toLowerCase()
+    const key = Object.keys(fallbackProducts).find(k => catNameLower.includes(k))
+    if (key) return fallbackProducts[key]
+    return [
+      { name: `${cat.name} Loại 1`, price: '120.000₫' },
+      { name: `${cat.name} Dự án`, price: '115.000₫' },
+      { name: `${cat.name} Xuất khẩu`, price: '145.000₫' }
+    ]
+  }
+
+  /* State for banners */
+  const [dbBanners, setDbBanners] = useState<any[]>([])
+
+  const defaultBanners = [
+    {
+      image: '/images/banner_1.png',
+      tag: 'HOT DEAL',
+      title: 'Hệ Thống Phân Phối Toàn Quốc',
+      sub: 'Cung cấp vật liệu xây dựng chính hãng từ các nhà máy sản xuất lớn nhất Việt Nam.'
+    },
+    {
+      image: '/images/banner_2.png',
+      tag: 'UY TÍN',
+      title: 'Ưu Đãi Đặc Biệt Mùa Xây Dựng 2026',
+      sub: 'Chiết khấu lên đến 20% cho các đơn hàng thép và xi măng dự án quy mô lớn.'
+    },
+    {
+      image: '/images/banner_3.png',
+      tag: 'CÔNG NGHỆ',
+      title: 'Giải Pháp Cung Ứng Dự Án Với AI',
+      sub: 'Tối ưu hóa ngân sách và thời gian cung ứng với hệ thống dự toán thông minh của chúng tôi.'
+    }
+  ]
+
+  const banners = dbBanners.length > 0 ? dbBanners : defaultBanners
 
   useEffect(() => {
     fetchFeaturedProducts()
+    fetchCategories()
     fetchStats()
     fetchAIRecommendations()
+    fetchBanners()
+
+    const bannerInterval = setInterval(() => {
+      setCurrentBanner((prev) => (prev + 1) % (dbBanners.length > 0 ? dbBanners.length : defaultBanners.length))
+    }, 5000)
+
+    const reviewInterval = setInterval(() => {
+      setContractorIndex((prev) => (prev + 1) % 6) // Scroll up to the 6th position (8 total - 3 visible)
+    }, 5000)
+
+    return () => {
+      clearInterval(bannerInterval)
+      clearInterval(reviewInterval)
+    }
   }, [isAuthenticated, user])
 
-  const fetchFeaturedProducts = async () => {
+  const fetchBanners = async () => {
     try {
-      const response = await fetch('/api/products?featured=true&limit=6')
+      const res = await fetch('/api/banners')
+      if (res.ok) {
+        const data = await res.json()
+        if (data.length > 0) {
+          // Map API data to UI structure if needed (though we named fields consistently)
+          const mapped = data.map((b: any) => ({
+            image: b.imageUrl,
+            tag: b.tag,
+            title: b.title,
+            sub: b.description, // Mapping description to 'sub' as used in UI
+            link: b.link
+          }))
+          setDbBanners(mapped)
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch banners')
+    }
+  }
+
+  const fetchCategories = async () => {
+    try {
+      const response = await fetch('/api/categories?limit=8')
       if (response.ok) {
         const data = await response.json()
-        setFeaturedProducts(data.data || [])
-      } else {
-        setFeaturedProducts([])
+        setCategories(data.data?.data || data.data || [])
       }
+    } catch (error) {
+      console.error('Failed to fetch categories:', error)
+    }
+  }
+
+  const fetchFeaturedProducts = async () => {
+    setFeaturedLoading(true)
+    try {
+      let response = await fetch('/api/products?featured=true&limit=8')
+      let resJson = await response.json()
+
+      let products = resJson.data?.data && Array.isArray(resJson.data.data)
+        ? resJson.data.data
+        : (Array.isArray(resJson.data) ? resJson.data : [])
+
+      if (products.length === 0) {
+        response = await fetch('/api/products?limit=8&sort=createdAt&order=desc')
+        resJson = await response.json()
+        products = resJson.data?.data && Array.isArray(resJson.data.data)
+          ? resJson.data.data
+          : (Array.isArray(resJson.data) ? resJson.data : [])
+      }
+
+      setFeaturedProducts(products)
     } catch (error) {
       console.error('Failed to fetch featured products:', error)
       setFeaturedProducts([])
+    } finally {
+      setFeaturedLoading(false)
     }
   }
 
   const fetchStats = async () => {
     try {
-      // Fetch real stats from API
       const response = await fetch('/api/stats')
       if (response.ok) {
         const data = await response.json()
         setStats({
-          totalProducts: data.data?.totalProducts || data.totalProducts || 85,
-          totalCategories: data.data?.totalCategories || data.totalCategories || 8,
-          activeOrders: data.data?.activeOrders || data.activeOrders || 12,
-          totalCustomers: data.data?.totalCustomers || data.totalCustomers || 156
-        })
-      } else {
-        // Fallback to reasonable numbers
-        setStats({
-          totalProducts: 85,
-          totalCategories: 8,
-          activeOrders: 12,
-          totalCustomers: 156
+          totalProducts: data.data?.totalProducts || 850,
+          totalCustomers: data.data?.totalCustomers || 1500,
+          activeOrders: data.data?.activeOrders || 45
         })
       }
     } catch (error) {
       console.error('Failed to fetch stats:', error)
-      // Fallback to reasonable numbers
-      setStats({
-        totalProducts: 85,
-        totalCategories: 8,
-        activeOrders: 12,
-        totalCustomers: 156
-      })
     } finally {
       setLoading(false)
     }
   }
 
   const fetchAIRecommendations = async () => {
-    setAiLoading(true)
+    if (!user) return
     try {
-      // Get customer ID if authenticated
-      let customerId: string | undefined = undefined
-      if (isAuthenticated && user) {
+      let customerId = null
+      if (user.role === 'CUSTOMER') {
         try {
           const customerResponse = await fetch(`/api/customers/by-user/${user.id}`)
           if (customerResponse.ok) {
             const customerData = await customerResponse.json()
             customerId = customerData.data?.id
           }
-        } catch (error) {
-          console.error('Failed to fetch customer:', error)
+        } catch (e) {
+          console.error('Failed to get customer id', e)
         }
       }
 
-      const params = new URLSearchParams({
-        limit: '6'
-      })
-      if (customerId) {
-        params.append('customerId', customerId)
-      }
+      const params = new URLSearchParams({ limit: '4' })
+      if (customerId) params.append('customerId', customerId)
 
       const response = await fetch(`/api/recommendations/ai?${params}`)
       if (response.ok) {
         const data = await response.json()
         setAiRecommendedProducts(data.data?.products || [])
-      } else {
-        setAiRecommendedProducts([])
       }
     } catch (error) {
       console.error('Failed to fetch AI recommendations:', error)
-      setAiRecommendedProducts([])
-    } finally {
-      setAiLoading(false)
     }
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
-      {/* Header */}
+    <div className="min-h-screen bg-slate-50 font-sans text-slate-800 flex flex-col">
       <Header />
 
-      {/* Hero Section */}
-      <section className="relative gradient-primary text-white overflow-hidden">
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg width=%2240%22 height=%2240%22 viewBox=%220 0 40 40%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cg fill=%22%23ffffff%22 fill-opacity=%220.05%22%3E%3Cpath d=%22M20 20c0-11.046-8.954-20-20-20s-20 8.954-20 20 8.954 20 20 20 20-8.954 20-20zm-30 0c0-5.523 4.477-10 10-10s10 4.477 10 10-4.477 10-10 10-10-4.477-10-10z%22/%3E%3C/g%3E%3C/svg%3E')] animate-pulse"></div>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 relative">
-          <div className="text-center">
-            <div className="flex justify-center mb-8">
-              <div className="bg-white/10 backdrop-blur-md rounded-2xl px-6 py-3 border border-white/20">
-                <span className="text-lg font-semibold">🔥 Vật Liệu Xây Dựng Chất Lượng Cao #1 Việt Nam</span>
-              </div>
-            </div>
-            <h1 className="text-5xl md:text-7xl font-black mb-8 leading-tight">
-              <span className="text-gradient-accent">
-                Xây Dựng
-              </span>
-              <br />
-              <span className="text-white">Ước Mơ Của Bạn</span>
-              <Sparkles className="inline-block ml-4 h-12 w-12 text-yellow-300 animate-spin" />
-            </h1>
-            <p className="text-xl md:text-2xl mb-8 text-blue-100 font-medium max-w-3xl mx-auto leading-relaxed">
-              🚀 Từ xi măng đến thép - Tất cả trong tầm tay!
-              <br />
-              💎 Chất lượng đỉnh, giá cả hợp lý
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-8">
-              <Link
-                href="/products"
-                className="group gradient-accent text-gray-900 px-10 py-4 rounded-2xl font-black hover:from-accent-400 hover:to-warning-400 transition-all duration-300 hover:scale-110 shadow-2xl inline-flex items-center text-lg focus:outline-none focus:ring-4 focus:ring-yellow-300"
-                aria-label="Mua sắm ngay bây giờ"
-              >
-                🛒 Mua Ngay
-                <Zap className="ml-3 h-6 w-6 group-hover:animate-bounce" />
-              </Link>
-              <Link
-                href="#ai-recommendations"
-                className="group bg-white/20 backdrop-blur-md text-white border-2 border-white/30 px-10 py-4 rounded-2xl font-black hover:bg-white/30 transition-all duration-300 hover:scale-110 shadow-2xl inline-flex items-center text-lg focus:outline-none focus:ring-4 focus:ring-white/50"
-                aria-label="Xem gợi ý sản phẩm từ AI"
-              >
-                <Brain className="mr-3 h-6 w-6 group-hover:animate-pulse" />
-                AI Gợi ý
-              </Link>
-            </div>
-            <div className="mt-12 flex justify-center space-x-8 text-sm font-semibold">
-              <div className="flex items-center">
-                <Award className="h-5 w-5 text-yellow-300 mr-2" />
-                Top #1 VN
-              </div>
-              <div className="flex items-center">
-                <Truck className="h-5 w-5 text-green-300 mr-2" />
-                Giao hàng 24h
-              </div>
-              <div className="flex items-center">
-                <Star className="h-5 w-5 text-pink-300 mr-2" />
-                4.9⭐ (2.1k reviews)
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
+      <main className="flex-1">
+        {/* Hero Section - Clean & Professional */}
+        <section className="bg-gradient-to-r from-blue-900 via-blue-800 to-slate-900 text-white pt-20 pb-28 relative overflow-hidden">
+          <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(#ffffff 1px, transparent 1px)', backgroundSize: '30px 30px' }}></div>
 
-      {/* Stats Section */}
-      <section className="py-20 bg-gradient-to-r from-white via-blue-50 to-purple-50 relative overflow-hidden">
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg width=%2260%22 height=%2260%22 viewBox=%220 0 60 60%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cg fill=%22%23f1f5f9%22 fill-opacity=%220.4%22%3E%3Ccircle cx=%2230%22 cy=%2230%22 r=%222%22/%3E%3C/g%3E%3C/svg%3E')]"></div>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-black text-gray-900 mb-4">
-              📈 Thống Kê Ấn Tượng
-              <span className="text-gradient-primary">Làm Nên Thương Hiệu</span>
-            </h2>
-            <p className="text-xl text-gray-600 font-medium">Con số không nói dối - Chúng tôi là những gì GenZ cần! 🔥</p>
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-            <div className="text-center group hover:scale-110 transition-all duration-300">
-              <div className="bg-gradient-to-br from-primary-400 to-primary-600 w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-xl group-hover:shadow-2xl group-hover:rotate-3 transition-all duration-300">
-                <Package className="h-10 w-10 text-white" />
-              </div>
-              <div className="text-4xl font-black text-gray-900 mb-2">{stats.totalProducts}+</div>
-              <div className="text-lg font-semibold text-gray-600">📦 Sản Phẩm</div>
-              <div className="text-sm text-blue-600 font-medium">Đa dạng & chất lượng</div>
-            </div>
-            <div className="text-center group hover:scale-110 transition-all duration-300">
-              <div className="bg-gradient-to-br from-success-400 to-success-600 w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-xl group-hover:shadow-2xl group-hover:rotate-3 transition-all duration-300">
-                <Users className="h-10 w-10 text-white" />
-              </div>
-              <div className="text-4xl font-black text-gray-900 mb-2">{stats.totalCustomers}+</div>
-              <div className="text-lg font-semibold text-gray-600">😊 Khách Hàng</div>
-              <div className="text-sm text-success-600 font-medium">Đã tin tưởng & sử dụng</div>
-            </div>
-            <div className="text-center group hover:scale-110 transition-all duration-300">
-              <div className="bg-gradient-to-br from-accent-400 to-warning-500 w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-xl group-hover:shadow-2xl group-hover:rotate-3 transition-all duration-300">
-                <Truck className="h-10 w-10 text-white" />
-              </div>
-              <div className="text-4xl font-black text-gray-900 mb-2">{stats.activeOrders}+</div>
-              <div className="text-lg font-semibold text-gray-600">🚛 Đơn Hàng</div>
-              <div className="text-sm text-warning-600 font-medium">Đang xử lý tích cực</div>
-            </div>
-            <div className="text-center group hover:scale-110 transition-all duration-300">
-              <div className="bg-gradient-to-br from-secondary-400 to-accent-500 w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-xl group-hover:shadow-2xl group-hover:rotate-3 transition-all duration-300">
-                <Star className="h-10 w-10 text-white" />
-              </div>
-              <div className="text-4xl font-black text-gray-900 mb-2">4.7</div>
-              <div className="text-lg font-semibold text-gray-600">⭐ Đánh Giá</div>
-              <div className="text-sm text-secondary-600 font-medium">Rất tốt</div>
-            </div>
-          </div>
-        </div>
-      </section>
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+            <div className="text-center max-w-4xl mx-auto mb-12">
+              <h1 className="text-4xl md:text-6xl font-extrabold mb-6 leading-tight tracking-tight text-white">
+                Nền Tảng Cung Cấp <br className="hidden lg:block" />
+                <span className="text-blue-400">Vật Liệu Xây Dựng</span> Tin Cậy
+              </h1>
+              <p className="text-base md:text-xl text-slate-300 mb-10 max-w-3xl mx-auto leading-relaxed font-medium">
+                Giải pháp cung ứng vật tư toàn diện, kết nối trực tiếp chủ thầu với nhà sản xuất uy tín, tối ưu 15-20% chi phí.
+              </p>
 
-      {/* AI Recommendations Section */}
-      <section className="py-20 bg-gradient-to-br from-gray-900 via-primary-900 to-secondary-900 relative overflow-hidden">
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg width=%2280%22 height=%2280%22 viewBox=%220 0 80 80%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cg fill=%22%23ffffff%22 fill-opacity=%220.03%22%3E%3Cpath d=%22M40 40c0-22.091-17.909-40-40-40s-40 17.909-40 40 17.909 40 40 40 40-17.909 40-40zm-20 0a20 20 0 1 1-40 0 20 20 0 0 1 40 0z%22/%3E%3C/g%3E%3C/svg%3E')]"></div>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
-          <div className="text-center mb-16">
-            <div className="inline-block gradient-accent text-gray-900 px-6 py-2 rounded-full font-bold text-sm mb-6 animate-bounce">
-              🔥 HOT TREND 2025
-            </div>
-            <h2 className="text-5xl font-black text-white mb-6">
-              <span className="text-gradient-accent">
-                Sản Phẩm Bán Chạy
-              </span>
-              <br />
-              <span className="text-white">Được Đề Xuất</span> ✨
-            </h2>
-            <p className="text-xl text-blue-200 font-medium">Những sản phẩm chất lượng cao mà mọi dự án xây dựng đều cần! 🚀</p>
-          </div>
-
-          {aiLoading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {[...Array(6)].map((_, i) => (
-                <div key={i} className="bg-white/10 backdrop-blur-md rounded-3xl border border-white/20 p-6 animate-pulse">
-                  <div className="bg-white/20 h-48 rounded-2xl mb-4"></div>
-                  <div className="bg-white/20 h-4 rounded mb-2"></div>
-                  <div className="bg-white/20 h-4 rounded w-3/4 mb-4"></div>
-                  <div className="bg-white/20 h-8 rounded w-1/2"></div>
+              {/* Hybrid Search Tabs */}
+              <div className="flex justify-center mb-0 translate-y-[1px]">
+                <div className="bg-blue-900/50 backdrop-blur-md p-1 rounded-t-xl flex gap-1 border-x border-t border-blue-100/20">
+                  <button
+                    onClick={() => setActiveSearchTab('products')}
+                    className={`px-6 py-2.5 rounded-t-lg text-sm font-bold transition-all flex items-center gap-2 ${activeSearchTab === 'products' ? 'bg-white text-blue-900 shadow-lg' : 'text-blue-200 hover:text-white hover:bg-white/10'}`}
+                  >
+                    <Package className="w-4 h-4" /> MUA VẬT TƯ
+                  </button>
+                  <button
+                    onClick={() => setActiveSearchTab('contractors')}
+                    className={`px-6 py-2.5 rounded-t-lg text-sm font-bold transition-all flex items-center gap-2 ${activeSearchTab === 'contractors' ? 'bg-white text-blue-900 shadow-lg' : 'text-blue-200 hover:text-white hover:bg-white/10'}`}
+                  >
+                    <HardHat className="w-4 h-4" /> TÌM NHÀ THẦU
+                  </button>
                 </div>
-              ))}
+              </div>
+
+              {/* Main Search Bar - Refined Custom Dropdown */}
+              <div className="bg-white p-2 rounded-xl rounded-tr-none shadow-2xl max-w-4xl mx-auto flex flex-col md:flex-row gap-2 border border-blue-100/50 relative z-20">
+                <div className="flex-[2] relative flex items-center px-4 border-b md:border-b-0 md:border-r border-gray-100 group">
+                  <Search className="h-5 w-5 text-blue-500 mr-3 group-focus-within:scale-110 transition-transform" />
+                  <input
+                    type="text"
+                    placeholder={activeSearchTab === 'products' ? "Tên vật liệu, thương hiệu (xi măng, thép...)" : "Tìm nhà thầu xây dựng, thợ điện nước..."}
+                    className="w-full py-4 outline-none text-slate-700 placeholder-slate-400 font-medium bg-transparent"
+                  />
+                </div>
+                {activeSearchTab === 'contractors' && (
+                  <div className="flex-1 relative">
+                    <button
+                      onClick={() => setIsLocationOpen(!isLocationOpen)}
+                      className="w-full h-full flex items-center px-4 py-4 text-left outline-none cursor-pointer group"
+                    >
+                      <MapPin className="h-5 w-5 text-blue-400 mr-3 group-hover:scale-110 transition-transform" />
+                      <span className="flex-1 text-slate-600 font-medium truncate">{selectedLocation}</span>
+                      <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform duration-300 ${isLocationOpen ? 'rotate-180' : ''}`} />
+                    </button>
+
+                    {/* Custom Dropdown Menu */}
+                    {isLocationOpen && (
+                      <div className="absolute top-full left-0 mt-2 w-full bg-white rounded-xl shadow-2xl border border-slate-100 overflow-hidden z-[100] animate-in fade-in slide-in-from-top-2 duration-300">
+                        {locations.map((loc) => (
+                          <button
+                            key={loc}
+                            onClick={() => {
+                              setSelectedLocation(loc)
+                              setIsLocationOpen(false)
+                            }}
+                            className={`w-full px-5 py-3 text-left text-sm font-medium transition-all flex items-center gap-2
+                              ${selectedLocation === loc ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-50 hover:text-blue-600'}
+                            `}
+                          >
+                            <MapPin className={`w-3.5 h-3.5 ${selectedLocation === loc ? 'text-blue-500' : 'text-slate-300'}`} />
+                            {loc}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {isLocationOpen && (
+                      <div className="fixed inset-0 z-[90]" onClick={() => setIsLocationOpen(false)} />
+                    )}
+                  </div>
+                )}
+                <button className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-10 rounded-lg transition-all w-full md:w-auto shadow-lg shadow-blue-200 active:scale-95 flex items-center justify-center gap-2">
+                  <Search className="w-4 h-4 md:hidden" />
+                  TÌM KIẾM
+                </button>
+              </div>
+
+              {/* Quick Stats Tags */}
+              <div className="mt-8 flex flex-wrap justify-center gap-8 text-xs text-slate-300 font-medium">
+                <span className="flex items-center opacity-90 hover:text-white transition-colors cursor-default"><ShieldCheck className="w-4 h-4 mr-2 text-green-400" /> 100% Chính hãng</span>
+                <span className="flex items-center opacity-90 hover:text-white transition-colors cursor-default"><TrendingUp className="w-4 h-4 mr-2 text-blue-400" /> Giá cạnh tranh</span>
+                <span className="flex items-center opacity-90 hover:text-white transition-colors cursor-default"><Zap className="w-4 h-4 mr-2 text-yellow-400" /> Giao hàng 24h</span>
+              </div>
             </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {aiRecommendedProducts.length > 0 ? (
-                aiRecommendedProducts.map((product) => (
-                  <div key={product.id} className="group bg-white/10 backdrop-blur-md rounded-3xl border border-white/20 shadow-2xl hover:shadow-3xl transition-all duration-500 overflow-hidden hover:scale-105 hover:rotate-1">
-                    <div className="relative bg-gradient-to-br from-pink-200 via-purple-200 to-indigo-200">
-                      {product.images && product.images.length > 0 ? (
-                        <Image
-                          src={product.images[0]}
-                          alt={product.name}
-                          width={400}
-                          height={192}
-                          className="w-full h-48 object-cover group-hover:scale-110 transition-transform duration-500"
-                          loading="lazy"
-                        />
-                      ) : (
-                        <div className="w-full h-48 bg-gradient-to-br from-pink-200 to-purple-300 flex items-center justify-center">
-                          <Heart className="h-16 w-16 text-white animate-pulse" />
+          </div>
+        </section>
+
+        {/* Content Section: Category Sidebar + Banner */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-12 mb-16 relative z-10">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+            {/* Left: Category Sidebar with Mega Menu */}
+            <div
+              className="lg:col-span-3 bg-white rounded-xl shadow-xl self-start border border-slate-100 relative group/sidebar"
+              onMouseLeave={() => setHoveredCategory(null)}
+            >
+              <div className="bg-slate-50 px-5 py-4 border-b border-slate-100 flex items-center justify-between rounded-t-xl">
+                <span className="font-bold text-slate-800 flex items-center gap-2">
+                  <LayoutGrid className="w-4 h-4 text-blue-600" /> NGÀNH HÀNG
+                </span>
+                <ChevronRight className="w-4 h-4 text-slate-400" />
+              </div>
+              <div className="py-2 relative">
+                {(categories.length > 0 ? categories : [
+                  { name: 'Xi măng - Bê tông' },
+                  { name: 'Sắt thép xây dựng' },
+                  { name: 'Gạch - Cát - Đá' },
+                  { name: 'Sơn - Chống thấm' },
+                  { name: 'Điện - Nước' },
+                  { name: 'Nội thất - Trang trí' },
+                  { name: 'Công cụ - Máy móc' }
+                ]).map((cat, i) => (
+                  <div
+                    key={i}
+                    onMouseEnter={() => setHoveredCategory(cat.name)}
+                    className="relative"
+                  >
+                    <Link
+                      href={`/products?category=${cat.id || ''}`}
+                      onMouseEnter={() => setHoveredCategory(cat)}
+                      className={`flex items-center justify-between px-5 py-3.5 transition-all border-b border-slate-50 last:border-0 group/item
+                        ${hoveredCategory?.id === cat.id ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-50 hover:text-blue-700'}
+                      `}
+                    >
+                      <span className="text-[14px] font-medium">{cat.name}</span>
+                      <ChevronRight className={`w-4 h-4 transition-all ${hoveredCategory?.id === cat.id ? 'text-blue-400 translate-x-1' : 'text-slate-300'}`} />
+                    </Link>
+                  </div>
+                ))}
+
+                {/* Mega Menu Panel */}
+                {hoveredCategory && (
+                  <div className="absolute top-0 left-full ml-[1px] w-[650px] min-h-[400px] bg-white shadow-2xl border border-slate-100 rounded-r-xl p-8 z-50 animate-in fade-in slide-in-from-left-2 duration-200">
+                    <div className="flex flex-col gap-8">
+                      <div>
+                        <div className="flex items-center justify-between mb-6">
+                          <h4 className="text-sm font-black text-slate-800 uppercase tracking-tighter flex items-center gap-2">
+                            <Package className="w-4 h-4 text-blue-600" />
+                            {hoveredCategory.name}
+                          </h4>
+                          <span className="text-[10px] text-slate-400 font-bold uppercase">Phân loại & Sản phẩm</span>
                         </div>
-                      )}
-                      <div className="absolute top-4 left-4 bg-gradient-to-r from-pink-500 to-purple-600 text-white px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1">
-                        <SparklesIcon className="h-3 w-3" />
-                        Đề Xuất
-                      </div>
-                      {product.recommendationScore && (
-                        <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm text-purple-600 px-2 py-1 rounded-lg text-xs font-bold">
-                          {Math.round(product.recommendationScore * 100)}% phù hợp
+
+                        <div className="grid grid-cols-2 gap-x-8 gap-y-6">
+                          {/* Sub-groups / Sub-categories */}
+                          <div>
+                            <p className="text-[11px] font-extrabold text-blue-600 mb-4 uppercase tracking-widest">Nhóm hàng</p>
+                            <div className="flex flex-wrap gap-2">
+                              {getSubCategories(hoveredCategory).map((sub: string, idx: number) => {
+                                const isSelected = selectedSubCategories.includes(sub);
+                                return (
+                                  <button
+                                    key={idx}
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      if (isSelected) {
+                                        setSelectedSubCategories(prev => prev.filter(item => item !== sub));
+                                      } else {
+                                        setSelectedSubCategories(prev => [...prev, sub]);
+                                      }
+                                    }}
+                                    className={`px-4 py-2 rounded-lg text-xs font-semibold transition-all border
+                                        ${isSelected
+                                        ? 'bg-blue-600 text-white border-blue-600 shadow-md scale-105'
+                                        : 'bg-slate-50 text-slate-600 border-slate-200 hover:border-blue-300 hover:bg-white hover:text-blue-600'
+                                      }
+                                      `}
+                                  >
+                                    {sub}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+
+                          {/* Featured Items in this category Area */}
+                          <div className="border-l border-slate-100 pl-8">
+                            <p className="text-[11px] font-extrabold text-indigo-600 mb-4 uppercase tracking-widest">Sản phẩm gợi ý</p>
+                            <div className="space-y-3">
+                              {getSuggestedProducts(hoveredCategory).map((prod, idx) => (
+                                <Link
+                                  key={idx}
+                                  href={`/products?q=${prod.name}`}
+                                  className="group/prod flex items-center justify-between p-2 rounded-lg hover:bg-slate-50 transition-colors border border-transparent hover:border-slate-100 cursor-pointer"
+                                >
+                                  <div className="flex items-center gap-3">
+                                    <div className="w-8 h-8 rounded bg-blue-50 flex items-center justify-center text-blue-500 group-hover/prod:bg-blue-600 group-hover/prod:text-white transition-colors">
+                                      <TrendingUp className="w-4 h-4" />
+                                    </div>
+                                    <span className="text-xs font-semibold text-slate-700">{prod.name}</span>
+                                  </div>
+                                  <span className="text-[10px] font-bold text-blue-600">{prod.price}</span>
+                                </Link>
+                              ))}
+                              <Link href={`/products?category=${hoveredCategory.id}`} className="block text-center mt-4 text-[10px] font-black text-blue-600 hover:underline">
+                                XEM TẤT CẢ SẢN PHẨM <ArrowRight className="w-3 h-3 inline ml-1" />
+                              </Link>
+                            </div>
+                          </div>
                         </div>
-                      )}
-                    </div>
-                    <div className="p-6 text-white">
-                      <div className="text-sm text-blue-200 mb-2 font-semibold flex items-center gap-1">
-                        <Heart className="h-4 w-4 fill-current" />
-                        {product.category?.name}
                       </div>
-                      <h3 className="text-xl font-black text-white mb-3 group-hover:text-yellow-300 transition-colors line-clamp-2">{product.name}</h3>
-                      {product.recommendationReason && (
-                        <p className="text-xs text-blue-300 mb-3 italic">
-                          💡 {product.recommendationReason}
-                        </p>
-                      )}
-                      <p className="text-blue-100 text-sm mb-6 line-clamp-2">{product.description}</p>
-                      <div className="flex items-center justify-between">
-                        <span className="text-3xl font-black bg-gradient-to-r from-yellow-300 to-orange-400 bg-clip-text text-transparent">
-                          {product.price?.toLocaleString()}đ
-                        </span>
-                        <Link
-                          href={`/products/${product.id}`}
-                          className="gradient-accent text-gray-900 px-6 py-3 rounded-2xl hover:from-accent-400 hover:to-warning-400 font-black transition-all duration-300 hover:scale-110 shadow-lg flex items-center gap-2"
-                        >
-                          <Heart className="h-4 w-4" />
-                          Xem Ngay
-                        </Link>
-                      </div>
-                      {product.inventoryItem && product.inventoryItem.availableQuantity > 0 && (
-                        <div className="mt-3 text-xs text-green-300 font-semibold">
-                          ✓ Còn hàng: {product.inventoryItem.availableQuantity} sản phẩm
+
+                      {selectedSubCategories.length > 0 && (
+                        <div className="mt-auto pt-4 border-t border-slate-100 flex items-center justify-between">
+                          <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                            Đã chọn: {selectedSubCategories.length} mục lọc
+                          </div>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => setSelectedSubCategories([])}
+                              className="text-[10px] font-bold text-slate-400 hover:text-red-500 transition-colors uppercase"
+                            >
+                              Xóa tất cả
+                            </button>
+                            <Link
+                              href={`/products?${hoveredCategory.id ? `category=${hoveredCategory.id}` : `q=${hoveredCategory.name}`}&tags=${selectedSubCategories.join(',')}`}
+                              className="bg-blue-600 text-white px-4 py-2 rounded-lg text-[10px] font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 uppercase"
+                            >
+                              Lọc kết quả ngay
+                            </Link>
+                          </div>
                         </div>
                       )}
                     </div>
                   </div>
+                )}
+              </div>
+            </div>
+
+            {/* Middle: Professional Banner Carousel */}
+            <div className="lg:col-span-6 flex flex-col gap-4">
+              <div className="relative flex-1 bg-white rounded-xl shadow-xl overflow-hidden border border-slate-100 min-h-[300px]">
+                {banners.map((banner, idx) => (
+                  <div
+                    key={idx}
+                    className={`absolute inset-0 transition-all duration-700 ease-in-out ${idx === currentBanner ? 'opacity-100 scale-100' : 'opacity-0 scale-105 pointer-events-none'}`}
+                  >
+                    <Image
+                      src={banner.image}
+                      alt={banner.title}
+                      fill
+                      sizes="(max-width: 768px) 100vw, 50vw"
+                      className="object-cover"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex flex-col justify-end p-8 text-white">
+                      <span className="bg-blue-600 text-[10px] font-extrabold px-2 py-0.5 rounded w-fit mb-3 tracking-widest">{banner.tag}</span>
+                      <h3 className="text-2xl font-black mb-2 uppercase italic tracking-tighter leading-tight">{banner.title}</h3>
+                      <p className="text-white/80 text-sm max-w-sm font-medium">{banner.sub}</p>
+                    </div>
+                  </div>
+                ))}
+
+                {/* Carousel Indicators */}
+                <div className="absolute bottom-4 right-8 flex gap-2 z-20">
+                  {banners.map((_, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => setCurrentBanner(idx)}
+                      className={`h-1.5 rounded-full transition-all ${idx === currentBanner ? 'w-8 bg-blue-500' : 'w-2 bg-white/50 hover:bg-white'}`}
+                    />
+                  ))}
+                </div>
+              </div>
+              {/* Quick Action Badges below banner */}
+              <div className="flex gap-4">
+                <Link href="/estimator" className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-700 p-4 rounded-xl text-white shadow-lg flex items-center justify-between group cursor-pointer hover:shadow-blue-200 transition-all active:scale-95">
+                  <div>
+                    <div className="text-[10px] font-bold opacity-80 uppercase tracking-widest">Báo giá ngay</div>
+                    <div className="font-bold text-sm">Dự toán vật liệu AI</div>
+                  </div>
+                  <Brain className="w-6 h-6 opacity-80 group-hover:scale-110 transition-transform" />
+                </Link>
+                <Link href="/contractors" className="flex-1 bg-gradient-to-r from-teal-500 to-emerald-600 p-4 rounded-xl text-white shadow-lg flex items-center justify-between group cursor-pointer hover:shadow-teal-200 transition-all active:scale-95">
+                  <div>
+                    <div className="text-[10px] font-bold opacity-80 uppercase tracking-widest">Kết nối</div>
+                    <div className="font-bold text-sm">Tìm nhà thầu uy tín</div>
+                  </div>
+                  <ShieldCheck className="w-6 h-6 opacity-80 group-hover:scale-110 transition-transform" />
+                </Link>
+              </div>
+            </div>
+
+            {/* Right: Small Info Cards / Quick Actions */}
+            <div className="lg:col-span-3 flex flex-col gap-4">
+              <div className="bg-white p-6 rounded-xl shadow-lg border border-slate-100 flex flex-col items-center text-center">
+                <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mb-4">
+                  <UserPlus className="w-8 h-8 text-blue-600" />
+                </div>
+                <h4 className="font-bold text-slate-800 text-sm mb-1">Dành Cho Nhà Thầu</h4>
+                <p className="text-[11px] text-slate-500 mb-4">Đăng ký làm đối tác để nhận ưu đãi chiết khấu tốt nhất.</p>
+                <button className="w-full bg-slate-900 text-white py-2 rounded-lg text-xs font-bold hover:bg-slate-800 transition-all">ĐĂNG KÝ NGAY</button>
+              </div>
+              <div className="bg-gradient-to-br from-indigo-50 to-blue-50 p-6 rounded-xl shadow-lg border border-blue-100 flex-1 relative overflow-hidden group">
+                <div className="relative z-10">
+                  <h4 className="font-bold text-blue-900 text-sm mb-2">Trợ Lý Ổn Định</h4>
+                  <p className="text-[11px] text-blue-700/80 mb-4 font-medium leading-relaxed">
+                    Theo dõi biến động giá thép và xi măng thị trường theo thời gian thực.
+                  </p>
+                  <Link href="/market" className="text-blue-600 text-xs font-black flex items-center group-hover:underline underline-offset-4">
+                    XEM BIỂU ĐỒ <ChevronRight className="w-3 h-3 ml-1" />
+                  </Link>
+                </div>
+                <TrendingUp className="absolute -bottom-4 -right-4 w-24 h-24 text-blue-600/5 group-hover:scale-110 transition-transform" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Stats Section */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-8 relative z-20 mb-20">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {[
+              { label: 'Sản phẩm đa dạng', value: `${stats.totalProducts}+`, icon: LayoutGrid, color: 'text-blue-600', bg: 'bg-blue-50' },
+              { label: 'Khách hàng tin dùng', value: `${stats.totalCustomers}+`, icon: ShieldCheck, color: 'text-green-600', bg: 'bg-green-50' },
+              { label: 'Đơn hàng thành công', value: `${stats.activeOrders}+`, icon: CreditCard, color: 'text-orange-600', bg: 'bg-orange-50' },
+            ].map((item, idx) => (
+              <div key={idx} className="bg-white rounded-xl shadow-lg border border-slate-100 p-6 flex items-center hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
+                <div className={`p-4 rounded-lg ${item.bg} mr-5`}>
+                  <item.icon className={`h-8 w-8 ${item.color}`} />
+                </div>
+                <div>
+                  <div className="text-3xl font-bold text-slate-800">{loading ? '...' : item.value}</div>
+                  <div className="text-sm text-slate-500 font-medium mt-1">{item.label}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Featured Products */}
+        <section className="py-20 bg-white">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex justify-between items-end mb-10 pb-4 border-b border-slate-100">
+              <div>
+                <h2 className="text-2xl font-bold text-slate-800 mb-2">Vật Liệu Nổi Bật</h2>
+                <p className="text-slate-500 text-sm">Các sản phẩm được tìm kiếm và đặt hàng nhiều nhất tuần qua</p>
+              </div>
+              <Link href="/products" className="text-blue-600 font-semibold hover:text-blue-700 flex items-center transition-colors text-sm">
+                Xem tất cả <ArrowRight className="h-4 w-4 ml-1" />
+              </Link>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              {featuredLoading ? (
+                [...Array(4)].map((_, i) => (
+                  <div key={i} className="bg-slate-50 rounded-lg h-80 animate-pulse border border-slate-100"></div>
+                ))
+              ) : featuredProducts.length > 0 ? (
+                featuredProducts.map((product) => (
+                  <Link
+                    href={`/products/${product.id}`}
+                    key={product.id}
+                    className="group block bg-white border border-slate-200 rounded-xl overflow-hidden hover:shadow-xl hover:border-blue-300 transition-all duration-300"
+                  >
+                    <div className="relative h-48 bg-slate-100 overflow-hidden">
+                      {product.images?.[0] ? (
+                        <Image src={product.images[0]} alt={product.name} fill className="object-cover group-hover:scale-105 transition-transform duration-500" />
+                      ) : (
+                        <div className="flex items-center justify-center h-full text-slate-300">
+                          <LayoutGrid className="h-12 w-12" />
+                        </div>
+                      )}
+                    </div>
+                    <div className="p-4">
+                      <div className="text-xs text-slate-400 mb-1 uppercase font-semibold tracking-wide">
+                        {product.category?.name || 'Vật liệu'}
+                      </div>
+                      <h3 className="font-bold text-slate-800 mb-2 line-clamp-2 min-h-[2.5rem] group-hover:text-blue-700 transition-colors text-sm leading-relaxed">
+                        {product.name}
+                      </h3>
+                      <div className="flex items-center justify-between mt-4">
+                        <span className="text-lg font-bold text-blue-600">
+                          {product.price.toLocaleString('vi-VN')}₫
+                        </span>
+                        <span className="p-2 bg-slate-50 rounded-full group-hover:bg-blue-50 text-slate-300 group-hover:text-blue-600 transition-colors">
+                          <ArrowRight className="h-4 w-4" />
+                        </span>
+                      </div>
+                    </div>
+                  </Link>
                 ))
               ) : (
-                <div className="col-span-full text-center py-16">
-                  <div className="bg-white/10 backdrop-blur-md rounded-3xl border border-white/20 p-12">
-                    <Brain className="h-20 w-20 text-white/60 mx-auto mb-6 animate-pulse" />
-                    <h3 className="text-2xl font-black text-white mb-4">🔍 Đang Tải Sản Phẩm</h3>
-                    <p className="text-blue-200 text-lg">
-                      Hệ thống đang phân tích và sẽ đề xuất sản phẩm phù hợp với bạn! 🚀
-                    </p>
-                    <button
-                      onClick={fetchAIRecommendations}
-                      className="mt-6 gradient-accent text-gray-900 px-8 py-3 rounded-2xl font-black hover:from-accent-400 hover:to-warning-400 transition-all duration-300 hover:scale-110 shadow-lg"
-                    >
-                      🔄 Làm Mới Gợi Ý
-                    </button>
-                  </div>
+                <div className="col-span-full text-center py-10 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                  <Package className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                  <p className="text-slate-500 font-medium">Chưa có sản phẩm nào</p>
                 </div>
               )}
             </div>
-          )}
-
-          <div className="text-center mt-16">
-            <Link href="/products" className="group gradient-accent text-gray-900 px-12 py-4 rounded-2xl hover:from-accent-400 hover:to-warning-400 font-black text-xl transition-all duration-300 hover:scale-110 shadow-2xl inline-flex items-center">
-              🚀 Xem Tất Cả Sản Phẩm
-              <ArrowRight className="ml-3 h-6 w-6 group-hover:animate-bounce" />
-            </Link>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* Features Section */}
-      <section className="py-16 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-gray-900 mb-4">Tại Sao Chọn SmartBuild?</h2>
-            <p className="text-gray-600">Chúng tôi cung cấp vật liệu xây dựng chất lượng cao với dịch vụ xuất sắc</p>
+        {/* AI Recommendations */}
+        {aiRecommendedProducts.length > 0 && (
+          <section className="py-16 bg-slate-50 border-t border-slate-200">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+              <div className="text-center mb-12">
+                <span className="bg-indigo-100 text-indigo-700 text-[11px] font-bold px-3 py-1 rounded-full uppercase tracking-widest mb-4 inline-block">
+                  Dành riêng cho bạn
+                </span>
+                <h2 className="text-3xl font-bold text-slate-900 mb-4 tracking-tight">Gợi Ý Từ Trợ Lý AI</h2>
+                <p className="text-slate-500 max-w-4xl mx-auto text-base leading-relaxed">
+                  Hệ thống tự động phân tích nhu cầu và đề xuất những vật liệu tối ưu nhất cho công trình của bạn.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                {aiRecommendedProducts.map((product) => (
+                  <div key={product.id} className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col hover:border-indigo-300 transition-colors">
+                    <div className="flex items-start gap-4 mb-4">
+                      <div className="relative w-16 h-16 bg-slate-100 rounded-lg overflow-hidden flex-shrink-0 border border-slate-100">
+                        {product.images?.[0] && (
+                          <Image src={product.images[0]} alt={product.name} fill className="object-cover" />
+                        )}
+                      </div>
+                      <div>
+                        <h4 className="font-semibold text-slate-800 line-clamp-2 text-sm mb-1 leading-snug">{product.name}</h4>
+                        <span className="text-indigo-600 font-bold text-sm">{product.price.toLocaleString()}₫</span>
+                      </div>
+                    </div>
+                    {product.recommendationScore && (
+                      <div className="mt-auto pt-3 border-t border-slate-100">
+                        <div className="flex items-center text-xs text-slate-500 mb-3">
+                          <Zap className="w-3 h-3 text-yellow-500 mr-1" />
+                          Độ phù hợp: <span className="font-semibold text-slate-700 ml-1">{Math.round(product.recommendationScore * 100)}%</span>
+                        </div>
+                        <Link href={`/products/${product.id}`} className="block w-full text-center bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-sm font-semibold py-2 rounded-lg transition-colors">
+                          Xem chi tiết
+                        </Link>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* Tools Section */}
+        <section className="py-20 bg-white">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+              <div>
+                <h2 className="text-3xl font-extrabold text-slate-900 mb-6 tracking-tight">Công Cụ Hỗ Trợ Thông Minh</h2>
+                <p className="text-slate-600 mb-8 text-lg leading-relaxed">
+                  Chúng tôi tích hợp công nghệ AI giúp bạn quản lý ngân sách và lựa chọn đối tác xây dựng chỉ trong vài lần nhấp chuột.
+                </p>
+                <div className="space-y-6">
+                  <div className="flex gap-4 group">
+                    <div className="bg-blue-50 p-3 rounded-lg h-fit text-blue-600 group-hover:bg-blue-100 transition-colors">
+                      <PenTool className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-slate-800 text-lg">Dự toán chi phí AI</h4>
+                      <p className="text-slate-500 text-sm mt-1">Tính toán khối lượng vật liệu chính xác trong tích tắc chỉ với vài thông số cơ bản.</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-4 group">
+                    <div className="bg-green-50 p-3 rounded-lg h-fit text-green-600 group-hover:bg-green-100 transition-colors">
+                      <ShieldCheck className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-slate-800 text-lg">Tìm nhà thầu uy tín</h4>
+                      <p className="text-slate-500 text-sm mt-1">Kết nối với đội ngũ thầu thợ đã được xác minh năng lực và đánh giá thực tế từ cộng đồng.</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-10">
+                  <Link href="/estimator" className="inline-flex items-center justify-center px-8 py-3 border border-transparent text-base font-semibold rounded-lg text-white bg-slate-900 hover:bg-slate-800 transition-all shadow-lg hover:shadow-xl">
+                    <Brain className="w-4 h-4 mr-2" />
+                    Thử công cụ AI
+                  </Link>
+                </div>
+              </div>
+              <div className="relative h-96 bg-gradient-to-br from-slate-100 to-white rounded-2xl overflow-hidden border border-slate-200 p-8 flex items-center justify-center">
+                <div className="absolute inset-0 bg-[radial-gradient(#e2e8f0_1px,transparent_1px)] [background-size:16px_16px]"></div>
+                <div className="bg-white p-6 rounded-xl shadow-2xl max-w-sm w-full relative z-10 border border-slate-100">
+                  <div className="flex items-center justify-between mb-6 border-b border-slate-100 pb-4">
+                    <span className="font-bold text-slate-800 flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-green-500"></div> Bảng dự toán mẫu
+                    </span>
+                    <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-1 rounded font-medium border border-slate-200">Export PDF</span>
+                  </div>
+                  <div className="space-y-4">
+                    {[
+                      { name: "Xi măng PCB40", qty: "50 bao", price: "4.500.000₫" },
+                      { name: "Cát xây dựng", qty: "12 m³", price: "3.600.000₫" },
+                      { name: "Gạch 4 lỗ", qty: "5000 viên", price: "6.250.000₫" }
+                    ].map((item, i) => (
+                      <div key={i} className="flex justify-between items-center text-sm p-2 hover:bg-slate-50 rounded transition-colors">
+                        <div className="flex items-center gap-3">
+                          <Package className="w-4 h-4 text-blue-500" />
+                          <div>
+                            <div className="font-medium text-slate-700">{item.name}</div>
+                            <div className="text-[10px] text-slate-400">{item.qty}</div>
+                          </div>
+                        </div>
+                        <div className="font-semibold text-slate-600 text-xs">{item.price}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-6 pt-4 border-t border-slate-100 flex justify-between items-center">
+                    <span className="font-semibold text-slate-600 text-sm">Tổng cộng</span>
+                    <span className="font-bold text-blue-600 text-lg">145.000.000₫</span>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
+        </section>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="text-center">
-              <div className="bg-primary-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Package className="h-8 w-8 text-primary-600" />
+        {/* Trusted Contractors & Partners Section */}
+        <section className="py-24 bg-gradient-to-b from-white via-blue-50/50 to-indigo-50/30 relative">
+          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-600 via-indigo-500 to-teal-400 mt-[1px]"></div>
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex justify-between items-end mb-12">
+              <div>
+                <h2 className="text-3xl font-black text-slate-900 mb-4 tracking-tight">Khách Hàng Nói Về Chúng Tôi</h2>
+                <p className="text-slate-500 font-medium">Những chia sẻ thực tế từ các chủ thầu và khách hàng đã tin dùng sản phẩm</p>
               </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">Vật Liệu Chất Lượng</h3>
-              <p className="text-gray-600">Chúng tôi chỉ cung cấp vật liệu xây dựng chất lượng cao nhất từ các nhà cung cấp uy tín.</p>
+              <div className="flex flex-col items-end">
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="flex gap-0.5">
+                    {[1, 2, 3, 4, 5].map((s) => (
+                      <Star key={s} className="w-3 h-3 fill-yellow-500 text-yellow-500" />
+                    ))}
+                  </div>
+                  <span className="text-sm font-bold text-slate-900">1,200+ Đánh giá</span>
+                </div>
+                <div className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em]">Khách hàng tin dùng</div>
+              </div>
             </div>
-            <div className="text-center">
-              <div className="bg-success-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Truck className="h-8 w-8 text-success-600" />
+
+            {/* Contractor Carousel Wrapper */}
+            <div className="relative group/carousel">
+              <div className="overflow-hidden py-4">
+                <div
+                  className="flex transition-all duration-1000 ease-in-out gap-6"
+                  style={{ transform: `translateX(-${contractorIndex * (100 / 3)}%)` }}
+                >
+                  {[
+                    { name: 'Anh Hùng', role: 'Chủ thầu (Quận 7)', comment: 'Sản phẩm thép Hòa Phát rất chuẩn, giao hàng nhanh đúng tiến độ công trình. Dịch vụ chăm sóc khách hàng cực kỳ tốt.', rating: 5.0, avatar: 'H' },
+                    { name: 'Chị Lan', role: 'Chủ nhà (Bình Chánh)', comment: 'Gạch Viglacera mẫu mã đẹp, giá cả cạnh tranh. Nhân viên tư vấn rất nhiệt tình và chu đáo.', rating: 5.0, avatar: 'L' },
+                    { name: 'Bác Thành', role: 'Thầu xây dựng (Thủ Đức)', comment: 'Xi măng Hà Tiên loại 1, chất lượng khỏi bàn. Chatbot tư vấn dự toán AI rất chính xác và tiện lợi.', rating: 4.9, avatar: 'T' },
+                    { name: 'Anh Minh', role: 'Công ty xây dựng (Q.2)', comment: 'Hệ thống đặt hàng online rất chuyên nghiệp, giúp chúng tôi quản lý vật tư cho nhiều công trình cùng lúc dễ dàng.', rating: 4.8, avatar: 'M' },
+                    { name: 'Chị Mai', role: 'Nhà thiết kế (Q.9)', comment: 'Sơn Dulux lên màu rất chuẩn, giao hàng cẩn thận. SmartBuild là lựa chọn hàng đầu cho các dự án của tôi.', rating: 5.0, avatar: 'M' },
+                    { name: 'Chú Sáu', role: 'Chủ công trình (Hóc Môn)', comment: 'Giá cả vật liệu rất minh bạch, không lo bị đội giá. Tôi rất an tâm khi mua hàng tại đây.', rating: 4.9, avatar: 'S' },
+                    { name: 'Anh Tuấn', role: 'Kỹ sư (Bình Tân)', comment: 'Vật liệu đa dạng, từ cát đá đến thiết bị vệ sinh cao cấp cái gì cũng có. Tiết kiệm thời gian đi tìm kiếm.', rating: 4.7, avatar: 'T' },
+                    { name: 'Chị Hồng', role: 'Chủ cửa hàng (Củ Chi)', comment: 'Tôi thường xuyên nhập hàng sỉ ở đây, chiết khấu tốt và giao hàng đúng hẹn là điều tôi đánh giá cao nhất.', rating: 4.9, avatar: 'H' }
+                  ].map((review, i) => (
+                    <div
+                      key={i}
+                      className="min-w-[calc(33.33%-16px)] bg-white p-8 rounded-3xl shadow-lg border border-slate-100 hover:shadow-2xl transition-all duration-500 flex flex-col group relative overflow-hidden"
+                    >
+                      <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+                        <Quote className="w-16 h-16 text-slate-900" />
+                      </div>
+
+                      <div className="flex gap-1 text-yellow-500 mb-6">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <Star key={star} className={`w-4 h-4 ${star <= Math.floor(review.rating) ? 'fill-current' : 'text-slate-200'}`} />
+                        ))}
+                      </div>
+
+                      <p className="text-slate-600 italic mb-8 leading-relaxed flex-grow text-sm">"{review.comment}"</p>
+
+                      <div className="flex items-center gap-4 border-t border-slate-50 pt-6">
+                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-lg shadow-md uppercase">
+                          {review.avatar}
+                        </div>
+                        <div>
+                          <h4 className="font-bold text-slate-900 text-sm">{review.name}</h4>
+                          <p className="text-[11px] text-slate-500 font-medium uppercase tracking-wider">{review.role}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">Giao Hàng Nhanh</h3>
-              <p className="text-gray-600">Giao hàng nhanh chóng và đáng tin cậy đến công trình của bạn khi bạn cần.</p>
+
+              {/* Carousel Controls */}
+              <button
+                onClick={() => setContractorIndex(prev => Math.max(0, prev - 1))}
+                className={`absolute left-0 top-1/2 -translate-y-1/2 -translate-x-6 w-12 h-12 bg-white rounded-full shadow-xl border border-slate-100 flex items-center justify-center hover:bg-slate-50 transition-all ${contractorIndex === 0 ? 'opacity-0 invisible' : 'opacity-100 visible'}`}
+              >
+                <ChevronRight className="w-6 h-6 rotate-180 text-slate-600" />
+              </button>
+              <button
+                onClick={() => setContractorIndex(prev => Math.min(5, prev + 1))}
+                className={`absolute right-0 top-1/2 -translate-y-1/2 translate-x-6 w-12 h-12 bg-white rounded-full shadow-xl border border-slate-100 flex items-center justify-center hover:bg-slate-50 transition-all ${contractorIndex >= 5 ? 'opacity-0 invisible' : 'opacity-100 visible'}`}
+              >
+                <ChevronRight className="w-6 h-6 text-slate-600" />
+              </button>
             </div>
-            <div className="text-center">
-              <div className="bg-warning-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Users className="h-8 w-8 text-warning-600" />
+
+            {/* Partner Logo Infinite Scroller */}
+            <div className="pt-24 border-t border-slate-200 mt-20 relative overflow-hidden">
+              <p className="text-center text-[11px] font-black text-slate-500 underline underline-offset-8 decoration-blue-500 uppercase tracking-[0.4em] mb-12">Đối tác cung ứng vật liệu chiến lược</p>
+
+              <style dangerouslySetInnerHTML={{
+                __html: `
+                @keyframes scroll {
+                  0% { transform: translateX(0); }
+                  100% { transform: translateX(-50%); }
+                }
+                .logo-scroller {
+                  display: flex;
+                  width: fit-content;
+                  animation: scroll 30s linear infinite;
+                }
+                .logo-scroller:hover {
+                  animation-play-state: paused;
+                }
+              `}} />
+
+              <div className="logo-scroller gap-16 items-center">
+                {[...partners, ...partners].map((p, i) => {
+                  const key = `${i < partners.length ? 'orig' : 'dup'}-${i % partners.length}`
+                  const isLoaded = loadedLogos.has(key)
+
+                  return (
+                    <div key={key} className={`flex items-center justify-center min-w-[220px] h-24 px-8 rounded-2xl transition-all hover:scale-105 duration-500 pointer-events-auto cursor-pointer ${p.color} border border-transparent shadow-sm group relative overflow-hidden`}>
+
+                      {/* Fallback Text - Visible until loaded OR if failed */}
+                      <span
+                        className={`absolute inset-0 flex items-center justify-center font-black text-sm tracking-tighter ${p.text} whitespace-nowrap uppercase transition-opacity duration-500 ${(isLoaded && !failedLogos.has(key)) ? 'opacity-0' : 'opacity-100'}`}
+                      >
+                        {p.name}
+                      </span>
+
+                      {/* Logo Image - Fades in on load */}
+                      {/* Logo Image - Fades in on load */}
+                      {p.logo && (
+                        <img
+                          src={p.logo}
+                          alt={p.name}
+                          className={`relative z-10 h-10 md:h-12 object-contain max-w-full drop-shadow-sm group-hover:drop-shadow-md transition-all duration-500 ${isLoaded ? 'opacity-100 scale-100' : 'opacity-0 scale-90'}`}
+                          onLoad={() => setLoadedLogos(prev => new Set(prev).add(key))}
+                          onError={(e) => {
+                            setFailedLogos(prev => new Set(prev).add(key))
+                            e.currentTarget.style.display = 'none'
+                          }}
+                        />
+                      )}
+                    </div>
+                  )
+                })}
               </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">Hỗ Trợ Chuyên Nghiệp</h3>
-              <p className="text-gray-600">Đội ngũ chuyên gia của chúng tôi sẵn sàng giúp bạn chọn vật liệu phù hợp cho dự án.</p>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* Footer is now in RootLayout */}
+        {/* Footer CTA */}
+        <section className="bg-slate-900 text-white py-16">
+          <div className="max-w-4xl mx-auto text-center px-4">
+            <h2 className="text-3xl font-bold mb-4">Sẵn sàng bắt đầu dự án của bạn?</h2>
+            <p className="text-blue-100 mb-8 text-lg">Tham gia cùng hàng ngàn khách hàng và nhà thầu đang sử dụng nền tảng của chúng tôi.</p>
+            <div className="flex gap-4 justify-center">
+              <Link href="/products" className="bg-white text-blue-900 px-8 py-3 rounded-lg font-bold hover:bg-blue-50 transition-colors shadow-lg">
+                Xem Sản Phẩm
+              </Link>
+              <Link href="/contractors" className="bg-blue-800 border border-blue-700 text-white px-8 py-3 rounded-lg font-bold hover:bg-blue-700 transition-colors">
+                Tìm Nhà Thầu
+              </Link>
+            </div>
+          </div>
+        </section>
+      </main>
+
     </div>
   )
 }

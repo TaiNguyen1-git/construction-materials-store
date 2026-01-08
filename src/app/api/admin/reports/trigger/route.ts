@@ -2,7 +2,13 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { EmailService } from '@/lib/email-service'
 import { createSuccessResponse, createErrorResponse } from '@/lib/api-types'
-import { startOfDay, endOfDay, subDays, startOfMonth, endOfMonth, subMonths, format } from 'date-fns'
+import {
+    startOfDay, endOfDay, subDays,
+    startOfWeek, endOfWeek, subWeeks,
+    startOfMonth, endOfMonth, subMonths,
+    startOfYear, endOfYear, subYears,
+    format
+} from 'date-fns'
 import { vi } from 'date-fns/locale'
 
 export async function GET(request: NextRequest) {
@@ -16,6 +22,7 @@ export async function GET(request: NextRequest) {
 
         const searchParams = request.nextUrl.searchParams
         const type = (searchParams.get('type') || 'DAILY').toUpperCase() as 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY'
+        const timeframe = (searchParams.get('timeframe') || 'current').toLowerCase() as 'current' | 'previous'
 
         // 2. Define Time Range
         let startDate: Date
@@ -25,26 +32,44 @@ export async function GET(request: NextRequest) {
         let periodLabel: string
 
         const now = new Date()
+        const targetDate = timeframe === 'previous' ?
+            (type === 'DAILY' ? subDays(now, 1) :
+                type === 'WEEKLY' ? subWeeks(now, 1) :
+                    type === 'MONTHLY' ? subMonths(now, 1) :
+                        subYears(now, 1))
+            : now
 
         if (type === 'DAILY') {
-            startDate = startOfDay(now)
-            endDate = endOfDay(now)
-            prevStartDate = startOfDay(subDays(now, 1))
-            prevEndDate = endOfDay(subDays(now, 1))
-            periodLabel = `Ngày ${format(now, 'dd/MM/yyyy')}`
+            startDate = startOfDay(targetDate)
+            endDate = endOfDay(targetDate)
+            prevStartDate = startOfDay(subDays(targetDate, 1))
+            prevEndDate = endOfDay(subDays(targetDate, 1))
+            periodLabel = `Ngày ${format(targetDate, 'dd/MM/yyyy')}`
+        } else if (type === 'WEEKLY') {
+            startDate = startOfWeek(targetDate, { weekStartsOn: 1 })
+            endDate = endOfWeek(targetDate, { weekStartsOn: 1 })
+            prevStartDate = startOfWeek(subWeeks(targetDate, 1), { weekStartsOn: 1 })
+            prevEndDate = endOfWeek(subWeeks(targetDate, 1), { weekStartsOn: 1 })
+            periodLabel = `Tuần ${format(startDate, 'dd/MM')} - ${format(endDate, 'dd/MM/yyyy')}`
         } else if (type === 'MONTHLY') {
-            startDate = startOfMonth(now)
-            endDate = endOfMonth(now)
-            prevStartDate = startOfMonth(subMonths(now, 1))
-            prevEndDate = endOfMonth(subMonths(now, 1))
-            periodLabel = `Tháng ${format(now, 'MM/yyyy')}`
+            startDate = startOfMonth(targetDate)
+            endDate = endOfMonth(targetDate)
+            prevStartDate = startOfMonth(subMonths(targetDate, 1))
+            prevEndDate = endOfMonth(subMonths(targetDate, 1))
+            periodLabel = `Tháng ${format(targetDate, 'MM/yyyy')}`
+        } else if (type === 'YEARLY') {
+            startDate = startOfYear(targetDate)
+            endDate = endOfYear(targetDate)
+            prevStartDate = startOfYear(subYears(targetDate, 1))
+            prevEndDate = endOfYear(subYears(targetDate, 1))
+            periodLabel = `Năm ${format(targetDate, 'yyyy')}`
         } else {
-            // Default to daily for others in this simplified version
-            startDate = startOfDay(now)
-            endDate = endOfDay(now)
-            prevStartDate = startOfDay(subDays(now, 1))
-            prevEndDate = endOfDay(subDays(now, 1))
-            periodLabel = `Ngày ${format(now, 'dd/MM/yyyy')}`
+            // Default fallback
+            startDate = startOfDay(targetDate)
+            endDate = endOfDay(targetDate)
+            prevStartDate = startOfDay(subDays(targetDate, 1))
+            prevEndDate = endOfDay(subDays(targetDate, 1))
+            periodLabel = `Ngày ${format(targetDate, 'dd/MM/yyyy')}`
         }
 
         // 3. Fetch Revenue Data

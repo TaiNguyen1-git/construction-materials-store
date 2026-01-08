@@ -87,7 +87,9 @@ export async function POST(request: NextRequest) {
               reviewCount: dbProduct.productReviews.length,
               reason: rec.reason || 'Sản phẩm tương tự',
               badge: '✨ AI Gợi ý',
-              confidence: 0.9
+              confidence: 0.9,
+              wholesalePrice: dbProduct.wholesalePrice,
+              minWholesaleQty: dbProduct.minWholesaleQty
             })
           }
         }
@@ -210,7 +212,9 @@ async function getFrequentlyBoughtTogether(cartProductIds: string[], limit: numb
       reviewCount: product.productReviews.length,
       reason: 'Thường được mua cùng',
       badge: '🔥 Mua cùng',
-      confidence: Math.min(count / 10, 1)
+      confidence: Math.min(count / 10, 1),
+      wholesalePrice: product.wholesalePrice,
+      minWholesaleQty: product.minWholesaleQty
     }))
 }
 
@@ -317,7 +321,9 @@ async function getComplementaryProducts(
         reviewCount: product.productReviews.length,
         reason: 'Sản phẩm bổ sung',
         badge: '🔧 Cần thiết',
-        confidence: 0.95
+        confidence: 0.95,
+        wholesalePrice: product.wholesalePrice,
+        minWholesaleQty: product.minWholesaleQty
       }))
     }
   }
@@ -366,7 +372,9 @@ async function getComplementaryProducts(
     reviewCount: product.productReviews.length,
     reason: 'Sản phẩm liên quan',
     badge: '⭐ Phổ biến',
-    confidence: 0.7
+    confidence: 0.7,
+    wholesalePrice: product.wholesalePrice,
+    minWholesaleQty: product.minWholesaleQty
   }))
 }
 

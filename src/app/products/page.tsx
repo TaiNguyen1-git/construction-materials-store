@@ -43,7 +43,7 @@ interface Category {
 function ProductsPageContent() {
   const searchParams = useSearchParams()
   const { addItem } = useCartStore()
-  
+
   const [products, setProducts] = useState<Product[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
@@ -111,7 +111,7 @@ function ProductsPageContent() {
       image: product.images?.[0],
       maxStock: product.inventoryItem?.availableQuantity
     })
-    
+
     toast.success('Đã thêm vào giỏ hàng!', {
       duration: 2000,
     })
@@ -141,7 +141,7 @@ function ProductsPageContent() {
           <p className="text-gray-600 mb-6 text-lg">
             Duyệt qua bộ sưu tập đầy đủ các vật liệu xây dựng chất lượng của chúng tôi
           </p>
-          
+
           <div className="flex justify-center mb-6">
             <SearchBar />
           </div>
@@ -155,37 +155,64 @@ function ProductsPageContent() {
 
           {/* Products Content */}
           <div className="flex-1">
-            {/* View Controls */}
+            {/* View Controls & Active Tags */}
             <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-4 mb-6">
-              <div className="flex items-center justify-between">
-                <div className="text-sm font-semibold text-gray-700">
-                  {loading ? 'Đang tải...' : `Hiển thị ${products.length} / ${totalProducts} sản phẩm`}
+              <div className="flex flex-col gap-4">
+                <div className="flex items-center justify-between">
+                  <div className="text-sm font-semibold text-gray-700">
+                    {loading ? 'Đang tải...' : `Hiển thị ${products.length} / ${totalProducts} sản phẩm`}
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() => setViewMode('grid')}
+                      className={`p-2 rounded-lg transition-colors ${viewMode === 'grid'
+                        ? 'bg-primary-600 text-white'
+                        : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'}`}
+                    >
+                      <Grid className="h-5 w-5" />
+                    </button>
+                    <button
+                      onClick={() => setViewMode('list')}
+                      className={`p-2 rounded-lg transition-colors ${viewMode === 'list'
+                        ? 'bg-primary-600 text-white'
+                        : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'}`}
+                    >
+                      <List className="h-5 w-5" />
+                    </button>
+                  </div>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <button
-                    onClick={() => setViewMode('grid')}
-                    className={`p-2 rounded-lg transition-colors ${viewMode === 'grid' 
-                      ? 'bg-primary-600 text-white' 
-                      : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'}`}
-                  >
-                    <Grid className="h-5 w-5" />
-                  </button>
-                  <button
-                    onClick={() => setViewMode('list')}
-                    className={`p-2 rounded-lg transition-colors ${viewMode === 'list' 
-                      ? 'bg-primary-600 text-white' 
-                      : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'}`}
-                  >
-                    <List className="h-5 w-5" />
-                  </button>
-                </div>
+
+                {searchParams.get('tags') && (
+                  <div className="flex items-center gap-2 pt-3 border-t border-gray-50">
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Thẻ đang lọc:</span>
+                    <div className="flex flex-wrap gap-2">
+                      {searchParams.get('tags')?.split(',').map(tag => (
+                        <div key={tag} className="bg-blue-50 text-blue-600 px-3 py-1 rounded-full text-xs font-bold border border-blue-100 flex items-center gap-2">
+                          {tag}
+                          <Link
+                            href={`/products?${(() => {
+                              const p = new URLSearchParams(searchParams.toString());
+                              const currentTags = p.get('tags')?.split(',') || [];
+                              const newTags = currentTags.filter(t => t !== tag).join(',');
+                              if (newTags) p.set('tags', newTags); else p.delete('tags');
+                              return p.toString();
+                            })()}`}
+                            className="hover:text-red-500 transition-colors"
+                          >
+                            ×
+                          </Link>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
             {/* Products Grid/List */}
             {loading ? (
-              <div className={`grid gap-6 ${viewMode === 'grid' 
-                ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3' 
+              <div className={`grid gap-6 ${viewMode === 'grid'
+                ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3'
                 : 'grid-cols-1'}`}>
                 {[...Array(12)].map((_, i) => (
                   <div key={i} className="bg-white rounded-2xl shadow-lg p-6 animate-pulse">
@@ -197,8 +224,8 @@ function ProductsPageContent() {
                 ))}
               </div>
             ) : products.length > 0 ? (
-              <div className={`grid gap-6 ${viewMode === 'grid' 
-                ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3' 
+              <div className={`grid gap-6 ${viewMode === 'grid'
+                ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3'
                 : 'grid-cols-1'}`}>
                 {products.map((product) => (
                   <div key={product.id} className="bg-white rounded-2xl shadow-lg border border-gray-100 hover:shadow-xl transition-all duration-300 overflow-hidden group hover:scale-[1.02]">
@@ -206,11 +233,14 @@ function ProductsPageContent() {
                       <>
                         <div className="relative aspect-w-16 aspect-h-9 bg-gradient-to-br from-gray-100 to-gray-200">
                           {product.images && product.images.length > 0 ? (
-                            <Image 
-                              src={product.images[0]} 
+                            <Image
+                              src={product.images[0]}
                               alt={product.name}
                               width={400}
                               height={300}
+                              loading="lazy"
+                              placeholder="blur"
+                              blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAAIAAoDASIAAhEBAxEB/8QAFgABAQEAAAAAAAAAAAAAAAAAAAMH/8QAFhABAQEAAAAAAAAAAAAAAAAAAAEW/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAVEQEBAAAAAAAAAAAAAAAAAAAAA//aAAwDAQACEQMRAD8AyXDWuVtr0QBTXP/Z"
                               className="w-full h-48 object-cover group-hover:scale-110 transition-transform duration-300"
                             />
                           ) : (
@@ -218,13 +248,13 @@ function ProductsPageContent() {
                               <Package className="h-12 w-12 text-gray-400" />
                             </div>
                           )}
-                          
+
                           {/* Action Buttons */}
                           <div className="absolute top-2 right-2 z-10 flex gap-2">
                             <ComparisonButton product={product} size="md" />
                             <WishlistButton product={product} size="md" />
                           </div>
-                          
+
                           {product.inventoryItem?.availableQuantity && product.inventoryItem.availableQuantity <= 10 && (
                             <div className="absolute top-2 left-2 bg-red-500 text-white px-2 py-1 rounded-lg text-xs font-bold">
                               Còn {product.inventoryItem.availableQuantity}
@@ -240,18 +270,17 @@ function ProductsPageContent() {
                             <span className="text-2xl font-black text-primary-600">
                               {product.price?.toLocaleString()}đ
                             </span>
-                            <div className={`text-sm font-semibold ${
-                              (product.inventoryItem?.availableQuantity || 0) > 0 
-                                ? 'text-green-600' 
-                                : 'text-red-600'
-                            }`}>
-                              {(product.inventoryItem?.availableQuantity || 0) > 0 
-                                ? `Kho: ${product.inventoryItem?.availableQuantity}` 
+                            <div className={`text-sm font-semibold ${(product.inventoryItem?.availableQuantity || 0) > 0
+                              ? 'text-green-600'
+                              : 'text-red-600'
+                              }`}>
+                              {(product.inventoryItem?.availableQuantity || 0) > 0
+                                ? `Kho: ${product.inventoryItem?.availableQuantity}`
                                 : 'Hết hàng'}
                             </div>
                           </div>
                           <div className="flex gap-2">
-                            <Link 
+                            <Link
                               href={`/products/${product.id}`}
                               className="flex-1 bg-primary-600 text-white px-4 py-2 rounded-xl hover:bg-primary-700 text-sm font-bold text-center transition-colors"
                             >
@@ -271,10 +300,11 @@ function ProductsPageContent() {
                       <div className="flex p-6">
                         <div className="relative w-32 h-32 bg-gradient-to-br from-gray-100 to-gray-200 rounded-xl mr-6 flex-shrink-0 overflow-hidden">
                           {product.images && product.images.length > 0 ? (
-                            <Image 
-                              src={product.images[0]} 
+                            <Image
+                              src={product.images[0]}
                               alt={product.name}
                               fill
+                              loading="lazy"
                               className="object-cover"
                             />
                           ) : (
@@ -294,20 +324,19 @@ function ProductsPageContent() {
                               <div className="text-2xl font-black text-primary-600 mb-1">
                                 {product.price?.toLocaleString()}đ
                               </div>
-                              <div className={`text-sm font-semibold ${
-                                (product.inventoryItem?.availableQuantity || 0) > 0 
-                                  ? 'text-green-600' 
-                                  : 'text-red-600'
-                              }`}>
-                                {(product.inventoryItem?.availableQuantity || 0) > 0 
-                                  ? `Kho: ${product.inventoryItem?.availableQuantity}` 
+                              <div className={`text-sm font-semibold ${(product.inventoryItem?.availableQuantity || 0) > 0
+                                ? 'text-green-600'
+                                : 'text-red-600'
+                                }`}>
+                                {(product.inventoryItem?.availableQuantity || 0) > 0
+                                  ? `Kho: ${product.inventoryItem?.availableQuantity}`
                                   : 'Hết hàng'}
                               </div>
                             </div>
                           </div>
                           <p className="text-gray-600 mb-4 line-clamp-2">{product.description}</p>
                           <div className="flex gap-2">
-                            <Link 
+                            <Link
                               href={`/products/${product.id}`}
                               className="bg-primary-600 text-white px-6 py-2 rounded-xl hover:bg-primary-700 text-sm font-bold transition-colors"
                             >
@@ -353,7 +382,7 @@ function ProductsPageContent() {
                   >
                     ← Trước
                   </button>
-                  
+
                   {[...Array(Math.min(totalPages, 7))].map((_, i) => {
                     let page
                     if (totalPages <= 7) {
@@ -365,24 +394,23 @@ function ProductsPageContent() {
                     } else {
                       page = currentPage - 3 + i
                     }
-                    
+
                     if (page > totalPages || page < 1) return null
-                    
+
                     return (
                       <button
                         key={page}
                         onClick={() => setCurrentPage(page)}
-                        className={`px-4 py-2 text-sm font-bold rounded-lg transition-colors ${
-                          currentPage === page
-                            ? 'bg-primary-600 text-white shadow-md'
-                            : 'text-gray-700 hover:bg-gray-100'
-                        }`}
+                        className={`px-4 py-2 text-sm font-bold rounded-lg transition-colors ${currentPage === page
+                          ? 'bg-primary-600 text-white shadow-md'
+                          : 'text-gray-700 hover:bg-gray-100'
+                          }`}
                       >
                         {page}
                       </button>
                     )
                   })}
-                  
+
                   <button
                     onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
                     disabled={currentPage === totalPages}

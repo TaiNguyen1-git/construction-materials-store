@@ -26,7 +26,10 @@
     "check:notifications": "tsx scripts/check-notifications.ts",
     "check:env": "tsx scripts/check-env.ts",
     "list:gemini-models": "tsx scripts/list-gemini-models.ts",
-    "ws:start": "tsx scripts/start-websocket-server.ts"
+    "ws:start": "tsx scripts/start-websocket-server.ts",
+    "db:seed:contractors": "tsx scripts/seed-contractors.ts",
+    "db:seed:projects": "tsx scripts/seed-projects.ts",
+    "db:seed:demo": "tsx scripts/seed-contractors.ts && tsx scripts/seed-projects.ts"
   },
   "dependencies": {
     "@edge-runtime/cookies": "^6.0.0",

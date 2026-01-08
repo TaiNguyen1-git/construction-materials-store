@@ -16,35 +16,42 @@ interface ProductFiltersProps {
 export default function ProductFilters({ categories }: ProductFiltersProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
-  
+
   const [showFilters, setShowFilters] = useState(false)
   const [selectedCategory, setSelectedCategory] = useState(searchParams.get('category') || '')
   const [minPrice, setMinPrice] = useState(searchParams.get('minPrice') || '')
   const [maxPrice, setMaxPrice] = useState(searchParams.get('maxPrice') || '')
   const [sortBy, setSortBy] = useState(searchParams.get('sort') || '')
 
+  useEffect(() => {
+    setSelectedCategory(searchParams.get('category') || '')
+    setMinPrice(searchParams.get('minPrice') || '')
+    setMaxPrice(searchParams.get('maxPrice') || '')
+    setSortBy(searchParams.get('sort') || '')
+  }, [searchParams])
+
   const applyFilters = () => {
     const params = new URLSearchParams(searchParams.toString())
-    
+
     // Add or remove filters
     if (selectedCategory) {
       params.set('category', selectedCategory)
     } else {
       params.delete('category')
     }
-    
+
     if (minPrice) {
       params.set('minPrice', minPrice)
     } else {
       params.delete('minPrice')
     }
-    
+
     if (maxPrice) {
       params.set('maxPrice', maxPrice)
     } else {
       params.delete('maxPrice')
     }
-    
+
     if (sortBy) {
       params.set('sort', sortBy)
     } else {
@@ -59,6 +66,7 @@ export default function ProductFilters({ categories }: ProductFiltersProps) {
     setMinPrice('')
     setMaxPrice('')
     setSortBy('')
+    // Clear all params including tags
     router.push('/products')
   }
 

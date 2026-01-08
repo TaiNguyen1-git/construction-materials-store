@@ -6,18 +6,21 @@ import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { useCartStore } from '@/stores/cartStore'
 import Header from '@/components/Header'
-import { 
-  ShoppingBag, 
-  Plus, 
-  Minus, 
-  Trash2, 
-  ArrowLeft, 
+import { jsPDF } from 'jspdf'
+import autoTable from 'jspdf-autotable'
+import {
+  ShoppingBag,
+  Plus,
+  Minus,
+  Trash2,
+  ArrowLeft,
   ArrowRight,
   Package,
   Truck,
   CreditCard,
   Star,
-  Sparkles
+  Sparkles,
+  FileText
 } from 'lucide-react'
 
 interface Recommendation {
@@ -58,7 +61,7 @@ export default function CartPage() {
     try {
       setLoadingRecommendations(true)
       const productIds = items.map(item => item.productId)
-      
+
       const response = await fetch('/api/recommendations/cart', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -78,6 +81,7 @@ export default function CartPage() {
 
   const handleAddToCart = (product: Recommendation) => {
     addItem({
+      id: product.id,
       productId: product.id,
       name: product.name,
       price: product.price,
@@ -90,19 +94,71 @@ export default function CartPage() {
 
   const handleCheckout = async () => {
     if (items.length === 0) return
-    
+
     setIsProcessing(true)
     // Simulate processing
     await new Promise(resolve => setTimeout(resolve, 1000))
-    
+
     // Redirect to checkout page
     router.push('/checkout')
+  }
+
+  const handleExportQuote = () => {
+    const doc = new jsPDF()
+
+    // Header
+    doc.setFontSize(22)
+    doc.setTextColor(41, 128, 185)
+    doc.text("SMARTBUILD - BAO GIA", 105, 20, { align: 'center' })
+
+    doc.setFontSize(10)
+    doc.setTextColor(100)
+    doc.text(`Ngay: ${new Date().toLocaleDateString('vi-VN')}`, 20, 30)
+    doc.text(`Khach hang: Quy khach`, 20, 35)
+
+    // Table
+    const tableColumn = ["STT", "Ten San Pham", "Don Vi", "SL", "Don Gia", "Thanh Tien"]
+    const tableRows = items.map((item, index) => {
+      const isWholesale = item.wholesalePrice && item.minWholesaleQty && item.quantity >= item.minWholesaleQty
+      const unitPrice = isWholesale ? item.wholesalePrice! : item.price
+
+      return [
+        index + 1,
+        item.name.normalize("NFD").replace(/[\u0300-\u036f]/g, ""), // Remove accents for basic PDF support
+        item.unit,
+        item.quantity,
+        unitPrice.toLocaleString('vi-VN'),
+        (unitPrice * item.quantity).toLocaleString('vi-VN')
+      ]
+    })
+
+    autoTable(doc, {
+      head: [tableColumn],
+      body: tableRows,
+      startY: 45,
+      theme: 'grid',
+      headStyles: { fillColor: [41, 128, 185] },
+      styles: { font: 'helvetica', fontSize: 10 }
+    })
+
+    // Footer
+    const finalY = (doc as any).lastAutoTable.finalY || 45
+    doc.setFontSize(12)
+    doc.setTextColor(0)
+    doc.text(`Tong cong: ${finalTotal.toLocaleString('vi-VN')} VND`, 140, finalY + 15)
+
+    doc.setFontSize(10)
+    doc.setTextColor(150)
+    doc.text(`* Bao gia co hieu luc trong 3 ngay ke tu ngay xuat.`, 20, finalY + 25)
+    doc.text(`* Mien phi van chuyen cho don hang tren 50 trieu.`, 20, finalY + 30)
+
+    doc.save(`Bao_Gia_SmartBuild_${Date.now()}.pdf`)
   }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
       <Header />
-      
+
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {/* Breadcrumb */}
         <div className="flex items-center gap-2 text-sm text-gray-600 mb-8">
@@ -160,91 +216,101 @@ export default function CartPage() {
             <div className="lg:col-span-2 space-y-6">
               {/* Products List */}
               <div className="space-y-4">
-                {items.map((item) => (
-                  <div
-                    key={item.productId}
-                    className="bg-white rounded-2xl shadow-lg p-6 hover:shadow-xl transition-shadow border border-gray-100"
-                  >
-                    <div className="flex gap-6">
-                      {/* Product Image */}
-                      <div className="relative w-32 h-32 bg-gray-100 rounded-xl overflow-hidden flex-shrink-0 border-2 border-gray-200">
-                        {item.image ? (
-                          <Image
-                            src={item.image}
-                            alt={item.name}
-                            fill
-                            className="object-cover"
-                          />
-                        ) : (
-                          <div className="w-full h-full bg-gradient-to-br from-blue-100 to-purple-200 flex items-center justify-center">
-                            <Package className="h-16 w-16 text-gray-400" />
-                          </div>
-                        )}
-                      </div>
+                {items.map((item) => {
+                  const isWholesale = item.wholesalePrice && item.minWholesaleQty && item.quantity >= item.minWholesaleQty
+                  const unitPrice = isWholesale ? item.wholesalePrice! : item.price
 
-                      {/* Product Info */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex justify-between items-start mb-3">
-                          <div>
-                            <h3 className="text-xl font-bold text-gray-900 mb-1">
-                              {item.name}
-                            </h3>
-                            <p className="text-sm text-gray-500">
-                              SKU: {item.sku} • Đơn vị: {item.unit}
-                            </p>
-                          </div>
-                          <button
-                            onClick={() => removeItem(item.productId)}
-                            className="p-2 hover:bg-red-50 text-red-600 rounded-lg transition-colors"
-                            aria-label="Xóa sản phẩm"
-                          >
-                            <Trash2 className="h-5 w-5" />
-                          </button>
+                  return (
+                    <div
+                      key={item.productId}
+                      className="bg-white rounded-2xl shadow-lg p-6 hover:shadow-xl transition-shadow border border-gray-100"
+                    >
+                      <div className="flex gap-6">
+                        {/* Product Image */}
+                        <div className="relative w-32 h-32 bg-gray-100 rounded-xl overflow-hidden flex-shrink-0 border-2 border-gray-200">
+                          {item.image ? (
+                            <Image
+                              src={item.image}
+                              alt={item.name}
+                              fill
+                              className="object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full bg-gradient-to-br from-blue-100 to-purple-200 flex items-center justify-center">
+                              <Package className="h-16 w-16 text-gray-400" />
+                            </div>
+                          )}
                         </div>
 
-                        <div className="flex items-center justify-between">
-                          {/* Quantity Controls */}
-                          <div className="flex items-center gap-3">
+                        {/* Product Info */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex justify-between items-start mb-3">
+                            <div>
+                              <h3 className="text-xl font-bold text-gray-900 mb-1">
+                                {item.name}
+                              </h3>
+                              <p className="text-sm text-gray-500">
+                                SKU: {item.sku} • Đơn vị: {item.unit}
+                              </p>
+                              {isWholesale && (
+                                <span className="inline-block mt-1 bg-green-100 text-green-700 text-xs font-bold px-2 py-0.5 rounded-full">
+                                  Giá sỉ áp dụng
+                                </span>
+                              )}
+                            </div>
                             <button
-                              onClick={() => updateQuantity(item.productId, item.quantity - 1)}
-                              className="w-10 h-10 flex items-center justify-center border-2 border-gray-300 rounded-lg hover:bg-gray-100 transition-colors text-gray-700 hover:text-gray-900"
-                              aria-label="Giảm số lượng"
+                              onClick={() => removeItem(item.productId)}
+                              className="p-2 hover:bg-red-50 text-red-600 rounded-lg transition-colors"
+                              aria-label="Xóa sản phẩm"
                             >
-                              <Minus className="h-4 w-4" />
-                            </button>
-                            <input
-                              type="number"
-                              value={item.quantity}
-                              onChange={(e) => {
-                                const value = parseInt(e.target.value) || 0
-                                updateQuantity(item.productId, value)
-                              }}
-                              className="w-20 text-center border-2 border-gray-300 rounded-lg py-2 font-bold text-lg text-gray-900 focus:border-primary-500 focus:outline-none"
-                              min="1"
-                            />
-                            <button
-                              onClick={() => updateQuantity(item.productId, item.quantity + 1)}
-                              className="w-10 h-10 flex items-center justify-center border-2 border-gray-300 rounded-lg hover:bg-gray-100 transition-colors text-gray-700 hover:text-gray-900"
-                              aria-label="Tăng số lượng"
-                            >
-                              <Plus className="h-4 w-4" />
+                              <Trash2 className="h-5 w-5" />
                             </button>
                           </div>
 
-                          {/* Price */}
-                          <div className="text-right">
-                            <p className="text-sm text-gray-500 mb-1">
-                              {item.price.toLocaleString()}đ x {item.quantity}
-                            </p>
-                            <p className="text-2xl font-black text-primary-600">
-                              {(item.price * item.quantity).toLocaleString()}đ
-                            </p>
+                          <div className="flex items-center justify-between">
+                            {/* Quantity Controls */}
+                            <div className="flex items-center gap-3">
+                              <button
+                                onClick={() => updateQuantity(item.productId, item.quantity - 1)}
+                                className="w-10 h-10 flex items-center justify-center border-2 border-gray-300 rounded-lg hover:bg-gray-100 transition-colors text-gray-700 hover:text-gray-900"
+                                aria-label="Giảm số lượng"
+                              >
+                                <Minus className="h-4 w-4" />
+                              </button>
+                              <input
+                                type="number"
+                                value={item.quantity}
+                                onChange={(e) => {
+                                  const value = parseInt(e.target.value) || 0
+                                  updateQuantity(item.productId, value)
+                                }}
+                                className="w-20 text-center border-2 border-gray-300 rounded-lg py-2 font-bold text-lg text-gray-900 focus:border-primary-500 focus:outline-none"
+                                min="1"
+                              />
+                              <button
+                                onClick={() => updateQuantity(item.productId, item.quantity + 1)}
+                                className="w-10 h-10 flex items-center justify-center border-2 border-gray-300 rounded-lg hover:bg-gray-100 transition-colors text-gray-700 hover:text-gray-900"
+                                aria-label="Tăng số lượng"
+                              >
+                                <Plus className="h-4 w-4" />
+                              </button>
+                            </div>
+
+                            {/* Price */}
+                            <div className="text-right">
+                              <p className="text-sm text-gray-500 mb-1">
+                                {unitPrice.toLocaleString()}đ x {item.quantity}
+                              </p>
+                              <p className="text-2xl font-black text-primary-600">
+                                {(unitPrice * item.quantity).toLocaleString()}đ
+                              </p>
+                            </div>
                           </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
 
               {/* Recommendations Section - Right after cart items */}
@@ -313,11 +379,10 @@ export default function CartPage() {
                                 {[...Array(5)].map((_, i) => (
                                   <Star
                                     key={i}
-                                    className={`h-3 w-3 ${
-                                      i < Math.floor(product.rating)
-                                        ? 'fill-yellow-400 text-yellow-400'
-                                        : 'text-gray-300'
-                                    }`}
+                                    className={`h-3 w-3 ${i < Math.floor(product.rating)
+                                      ? 'fill-yellow-400 text-yellow-400'
+                                      : 'text-gray-300'
+                                      }`}
                                   />
                                 ))}
                               </div>
@@ -344,11 +409,10 @@ export default function CartPage() {
                           <button
                             onClick={() => handleAddToCart(product)}
                             disabled={!product.inStock}
-                            className={`w-full py-2 rounded-lg font-semibold text-sm transition-all ${
-                              product.inStock
-                                ? 'bg-primary-600 text-white hover:bg-primary-700 hover:shadow-lg'
-                                : 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                            }`}
+                            className={`w-full py-2 rounded-lg font-semibold text-sm transition-all ${product.inStock
+                              ? 'bg-primary-600 text-white hover:bg-primary-700 hover:shadow-lg'
+                              : 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                              }`}
                           >
                             {product.inStock ? (
                               <>
@@ -408,9 +472,17 @@ export default function CartPage() {
                   )}
                 </button>
 
+                <button
+                  onClick={handleExportQuote}
+                  className="w-full mt-3 bg-white text-slate-700 py-3 rounded-xl border-2 border-slate-200 hover:bg-slate-50 transition-colors font-bold text-center flex items-center justify-center gap-2"
+                >
+                  <FileText className="h-5 w-5 text-slate-500" />
+                  Xuất Báo Giá (PDF)
+                </button>
+
                 <Link
                   href="/products"
-                  className="w-full mt-4 bg-white text-primary-600 py-3 rounded-xl border-2 border-primary-600 hover:bg-primary-50 transition-colors font-bold text-center flex items-center justify-center gap-2"
+                  className="w-full mt-3 bg-white text-primary-600 py-3 rounded-xl border-2 border-primary-600 hover:bg-primary-50 transition-colors font-bold text-center flex items-center justify-center gap-2"
                 >
                   <ArrowLeft className="h-5 w-5" />
                   Tiếp Tục Mua Sắm

@@ -11,12 +11,14 @@ export interface CartItem {
   sku: string
   unit: string
   maxStock?: number
+  wholesalePrice?: number
+  minWholesaleQty?: number
 }
 
 interface CartStore {
   items: CartItem[]
   isOpen: boolean
-  
+
   // Actions
   addItem: (item: Omit<CartItem, 'quantity'> & { quantity?: number }) => void
   removeItem: (productId: string) => void
@@ -25,7 +27,7 @@ interface CartStore {
   toggleCart: () => void
   openCart: () => void
   closeCart: () => void
-  
+
   // Getters
   getTotalItems: () => number
   getTotalPrice: () => number
@@ -45,7 +47,7 @@ export const useCartStore = create<CartStore>()(
         if (existingItem) {
           // Update quantity if item already exists
           const newQuantity = existingItem.quantity + (item.quantity || 1)
-          
+
           // Check max stock if available
           if (item.maxStock && newQuantity > item.maxStock) {
             alert(`Chỉ còn ${item.maxStock} sản phẩm trong kho!`)
@@ -121,7 +123,12 @@ export const useCartStore = create<CartStore>()(
       },
 
       getTotalPrice: () => {
-        return get().items.reduce((total, item) => total + (item.price * item.quantity), 0)
+        return get().items.reduce((total, item) => {
+          const unitPrice = (item.wholesalePrice && item.minWholesaleQty && item.quantity >= item.minWholesaleQty)
+            ? item.wholesalePrice
+            : item.price
+          return total + (unitPrice * item.quantity)
+        }, 0)
       },
 
       getItem: (productId) => {

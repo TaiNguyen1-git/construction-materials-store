@@ -10,6 +10,24 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// Banner Management
+model Banner {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  title       String
+  description String?
+  imageUrl    String
+  tag         String?
+  link        String?
+  order       Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("banners")
+  @@index([isActive])
+  @@index([order])
+}
+
 // User Management
 model User {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
@@ -277,6 +295,8 @@ model Product {
   tags        String[]
   isActive    Boolean @default(true)
   isFeatured  Boolean @default(false)
+  wholesalePrice    Float?   // Giá sỉ
+  minWholesaleQty   Float    @default(10) // Số lượng tối thiểu để được giá sỉ
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -1290,4 +1310,298 @@ enum ContractStatus {
   EXPIRED         // Hết hạn
   CANCELLED       // Đã hủy
   SUSPENDED       // Tạm dừng
+}
+
+// ============================================
+// MARKETPLACE: CONTRACTOR PROFILES
+// ============================================
+
+model ContractorProfile {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  customerId      String   @unique
+  displayName     String
+  bio             String?
+  phone           String?
+  email           String?
+  address         String?
+  district        String?
+  city            String   @default("Biên Hòa")
+  skills          String[]
+  experienceYears Int      @default(0)
+  teamSize        Int      @default(1)
+  portfolioImages String[]
+  portfolioDesc   String[]
+  documents       String[]
+  isVerified      Boolean  @default(false)
+  avgRating       Float    @default(0)
+  totalReviews    Int      @default(0)
+  completedJobs   Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relationships
+  reviews         ContractorReview[]
+
+  @@map("contractor_profiles")
+  @@index([isVerified])
+  @@index([city])
+  @@index([avgRating])
+}
+
+model ContractorReview {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  contractorId  String   @db.ObjectId
+  reviewerId    String   // Customer or User ID
+  projectId     String?  // Optional project reference
+  rating        Int      // 1-5
+  title         String?
+  comment       String
+  isApproved    Boolean  @default(true)
+  isHidden      Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relationships
+  contractor    ContractorProfile @relation(fields: [contractorId], references: [id])
+
+  @@map("contractor_reviews")
+  @@index([contractorId])
+  @@index([reviewerId])
+  @@index([rating])
+  @@index([isApproved])
+}
+
+// ============================================
+// MARKETPLACE: PROJECTS
+// ============================================
+
+enum ProjectType {
+  NEW_BUILD      // Xây mới
+  RENOVATION     // Sửa chữa/Cải tạo
+  INTERIOR       // Nội thất
+  ELECTRICAL     // Điện
+  PLUMBING       // Nước
+  ROOFING        // Mái
+  OTHER          // Khác
+}
+
+model MarketProject {
+  id              String        @id @default(auto()) @map("_id") @db.ObjectId
+  customerId      String        // Owner of the project
+  title           String
+  description     String
+  projectType     ProjectType   @default(NEW_BUILD)
+  status          ProjectStatus @default(PLANNING)
+  address         String?
+  district        String?
+  city            String        @default("Biên Hòa")
+  budgetMin       Float?        // Minimum budget
+  budgetMax       Float?        // Maximum budget
+  startDate       DateTime?     // Expected start date
+  endDate         DateTime?     // Expected end date
+  requirements    String[]      // Required skills
+  images          String[]      // Project images
+  isUrgent        Boolean       @default(false)
+  viewCount       Int           @default(0)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  // Relationships
+  applications    MarketProjectApplication[]
+
+  @@map("market_projects")
+  @@index([status])
+  @@index([projectType])
+  @@index([city])
+  @@index([isUrgent])
+}
+
+model MarketProjectApplication {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  projectId       String   @db.ObjectId
+  contractorId    String   @db.ObjectId
+  message         String   // Application message
+  proposedBudget  Float?   // Proposed budget
+  proposedDays    Int?     // Proposed number of days to complete
+  status          String   @default("PENDING") // PENDING, ACCEPTED, REJECTED, WITHDRAWN
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relationships
+  project         MarketProject @relation(fields: [projectId], references: [id])
+
+  @@map("market_project_applications")
+  @@index([projectId])
+  @@index([contractorId])
+  @@index([status])
+}
+
+model ConstructionProject {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  title           String
+  description     String
+  projectType     String
+  location        String
+  district        String?
+  city            String   @default("Biên Hòa")
+  estimatedBudget Float?
+  budgetType      String   @default("NEGOTIABLE")
+  requirements    String[]
+  materialsNeeded String[]
+  images          String[]
+  contactName     String
+  contactPhone    String
+  contactEmail    String?
+  customerId      String   @default("guest")
+  status          String   @default("OPEN")
+  isUrgent        Boolean  @default(false)
+  isFeatured      Boolean  @default(false)
+  viewCount       Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  applications    ProjectApplication[]
+
+  @@map("construction_projects")
+  @@index([status])
+  @@index([projectType])
+  @@index([city])
+  @@index([customerId])
+}
+
+model ProjectApplication {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  projectId       String   @db.ObjectId
+  contractorId    String   // Contractor's customerId
+  message         String
+  proposedBudget  Float?
+  proposedDays    Int?
+  status          String   @default("PENDING") // PENDING, ACCEPTED, REJECTED
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  project         ConstructionProject @relation(fields: [projectId], references: [id])
+
+  @@map("project_applications")
+  @@index([projectId])
+  @@index([contractorId])
+}
+
+
+// ============================================
+// SAVED ESTIMATES (AI Estimator)
+// ============================================
+
+model SavedEstimate {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  customerId  String?  // For logged-in users
+  sessionId   String?  // For guest users
+  projectType String   // Type of project (wall, floor, etc.)
+  projectName String?  // User-given name
+  area        Float    // Area in m²
+  materials   Json     // Array of calculated materials with quantities and prices
+  totalCost   Float    // Total estimated cost
+  notes       String?  // User notes
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("saved_estimates")
+  @@index([customerId])
+  @@index([sessionId])
+}
+
+// ============================================
+// CHAT & MESSAGING
+// ============================================
+
+model Conversation {
+  id               String    @id @default(auto()) @map("_id") @db.ObjectId
+  participant1Id   String
+  participant1Name String
+  participant2Id   String
+  participant2Name String
+  projectId        String?   @db.ObjectId
+  projectTitle     String?
+  lastMessage      String?
+  lastMessageAt    DateTime?
+  unread1          Int       @default(0)
+  unread2          Int       @default(0)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  messages         Message[]
+
+  @@map("conversations")
+  @@index([participant1Id])
+  @@index([participant2Id])
+}
+
+model Message {
+  id             String       @id @default(auto()) @map("_id") @db.ObjectId
+  conversationId String       @db.ObjectId
+  senderId       String
+  senderName     String
+  content        String?
+  
+  // File attachments
+  fileUrl        String?
+  fileName       String?
+  fileType       String?      // image, document, video, etc.
+  fileSize       Int?
+  
+  isRead         Boolean      @default(false)
+  readAt         DateTime?
+  createdAt      DateTime     @default(now())
+
+  conversation   Conversation @relation(fields: [conversationId], references: [id])
+
+  @@map("messages")
+  @@index([conversationId])
+  @@index([senderId])
+}
+
+// ============================================
+// CUSTOMER SUPPORT
+// ============================================
+
+enum SupportStatus {
+  PENDING
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+model SupportRequest {
+  id              String        @id @default(auto()) @map("_id") @db.ObjectId
+  name            String
+  phone           String
+  email           String?
+  message         String
+  status          SupportStatus @default(PENDING)
+  priority        Priority      @default(MEDIUM)
+  
+  // System Info
+  ipAddress       String?
+  userAgent       String?
+  browserName     String?
+  browserVersion  String?
+  osName          String?
+  osVersion       String?
+  deviceType      String?       // mobile, desktop, tablet
+  screenRes       String?       // e.g. 1920x1080
+  
+  // Context
+  pageUrl         String?
+  userId          String?       // If logged in
+  
+  // Attachments
+  attachments     Json?         // Array of { fileUrl, fileName, fileType, fileSize }
+  
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@map("support_requests")
+  @@index([status])
+  @@index([createdAt])
+  @@index([phone])
 }

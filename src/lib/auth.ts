@@ -1,5 +1,6 @@
 import jwt, { JwtPayload } from 'jsonwebtoken'
 import bcrypt from 'bcryptjs'
+import { cookies } from 'next/headers'
 
 // Define enum locally until Prisma client is generated
 export enum UserRole {
@@ -77,4 +78,22 @@ export const isEmployee = (userRole: UserRole): boolean => {
 
 export const isCustomer = (userRole: UserRole): boolean => {
   return userRole === UserRole.CUSTOMER
+}
+
+export async function getUser() {
+  const cookieStore = await cookies()
+  const token = cookieStore.get('auth_token')?.value
+
+  if (!token) return null
+
+  try {
+    const payload = AuthService.verifyAccessToken(token)
+    return {
+      userId: payload.userId,
+      email: payload.email,
+      role: payload.role
+    }
+  } catch (error) {
+    return null
+  }
 }

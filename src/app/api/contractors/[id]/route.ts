@@ -1,5 +1,5 @@
 /**
- * Single Contractor API - Get contractor details and reviews
+ * Single Contractor API - Get contractor details
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -15,14 +15,7 @@ export async function GET(
         const { id } = await params
 
         const contractor = await prisma.contractorProfile.findUnique({
-            where: { id },
-            include: {
-                reviews: {
-                    where: { isApproved: true, isHidden: false },
-                    orderBy: { createdAt: 'desc' },
-                    take: 10
-                }
-            }
+            where: { id }
         })
 
         if (!contractor) {
@@ -36,30 +29,27 @@ export async function GET(
             createSuccessResponse({
                 contractor: {
                     id: contractor.id,
+                    customerId: contractor.customerId,
                     displayName: contractor.displayName,
                     bio: contractor.bio,
-                    avatar: contractor.avatar,
                     city: contractor.city,
                     district: contractor.district,
+                    address: contractor.address,
                     phone: contractor.phone,
                     email: contractor.email,
                     skills: contractor.skills,
                     experienceYears: contractor.experienceYears,
                     teamSize: contractor.teamSize,
+                    portfolioImages: contractor.portfolioImages,
+                    portfolioDesc: contractor.portfolioDesc,
+                    documents: contractor.documents,
                     isVerified: contractor.isVerified,
                     avgRating: contractor.avgRating,
                     totalReviews: contractor.totalReviews,
                     completedJobs: contractor.completedJobs,
-                    isAvailable: contractor.isAvailable,
                     createdAt: contractor.createdAt
                 },
-                reviews: contractor.reviews.map(r => ({
-                    id: r.id,
-                    rating: r.rating,
-                    title: r.title,
-                    comment: r.comment,
-                    createdAt: r.createdAt
-                }))
+                reviews: [] // Reviews will be loaded separately if needed
             }, 'Contractor loaded'),
             { status: 200 }
         )

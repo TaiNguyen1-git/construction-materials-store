@@ -18,6 +18,7 @@ const querySchema = z.object({
   sortOrder: z.enum(['asc', 'desc']).optional().default('desc'),
   isActive: z.string().optional().transform(val => val === 'true' ? true : val === 'false' ? false : undefined),
   featured: z.string().optional().transform(val => val === 'true' ? true : val === 'false' ? false : undefined),
+  tags: z.string().optional(),
 })
 
 const createProductSchema = z.object({
@@ -156,6 +157,34 @@ export async function GET(request: NextRequest) {
 
     if (category) {
       where.categoryId = category
+    }
+
+    if (validation.data.tags) {
+      const tagList = validation.data.tags.split(',').map(t => t.trim())
+      if (tagList.length > 0) {
+        // Smart Tag Search: If a tag "Đá 1x2" is provided, 
+        // search for it in tags array OR as part of the name/description
+        const tagFilters = tagList.map(tag => {
+          // Normalize tag for case-insensitive simulation on MongoDB
+          const variations = [
+            tag,
+            tag.toLowerCase(),
+            tag.toUpperCase(),
+            tag.split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ')
+          ].filter((v, i, a) => a.indexOf(v) === i)
+
+          return {
+            OR: [
+              { tags: { hasSome: variations } },
+              ...variations.map(v => ({ name: { contains: v } })),
+              ...variations.map(v => ({ description: { contains: v } }))
+            ]
+          }
+        })
+
+        // Combine with existing AND conditions (if any)
+        where.AND = [...(where.AND || []), ...tagFilters]
+      }
     }
 
     if (minPrice !== undefined || maxPrice !== undefined) {

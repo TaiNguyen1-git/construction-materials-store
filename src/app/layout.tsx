@@ -3,6 +3,7 @@ import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import { Toaster } from 'react-hot-toast'
 import Chatbot from '@/components/Chatbot'
+import SupportWidget from '@/components/SupportWidget'
 import ContractorRedirect from '@/components/ContractorRedirect'
 import AdminRedirect from '@/components/AdminRedirect'
 import ConsoleGuard from '@/components/ConsoleGuard'
@@ -66,6 +67,7 @@ export default function RootLayout({
               <Footer />
             </div>
             <Chatbot />
+            <SupportWidget />
             <Toaster
               position="top-right"
               toastOptions={{
