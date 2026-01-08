@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { createSuccessResponse, createErrorResponse } from '@/lib/api-types'
+import { EmailService } from '@/lib/email-service'
 
 export async function POST(request: NextRequest) {
     try {
@@ -63,6 +64,27 @@ export async function POST(request: NextRequest) {
                 priority: 'MEDIUM',
                 status: 'PENDING'
             }
+        })
+
+        // Send email notification to employee and admin (async, don't block response)
+        EmailService.sendSupportRequestNotification({
+            requestId: supportRequest.id,
+            name,
+            phone,
+            email,
+            message,
+            attachments: attachments || null,
+            systemInfo: systemInfo || null,
+            pageUrl,
+            priority: 'MEDIUM'
+        }).then(sent => {
+            if (sent) {
+                console.log('✅ Support request email sent successfully')
+            } else {
+                console.log('⚠️ No support request email was sent (check email config)')
+            }
+        }).catch(err => {
+            console.error('❌ Failed to send support request email:', err)
         })
 
         return NextResponse.json(

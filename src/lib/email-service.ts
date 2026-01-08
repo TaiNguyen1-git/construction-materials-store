@@ -986,4 +986,255 @@ Hotline: 1900-xxxx
       </html>
     `
   }
+
+  // Support Request Notification Email
+  static async sendSupportRequestNotification(data: {
+    requestId: string
+    name: string
+    phone: string
+    email?: string | null
+    message: string
+    attachments?: Array<{ fileName: string; fileUrl: string; fileType: string; fileSize: number }> | null
+    systemInfo?: {
+      browserName?: string
+      browserVersion?: string
+      osName?: string
+      osVersion?: string
+      deviceType?: string
+      screenRes?: string
+    }
+    pageUrl?: string
+    priority: string
+  }) {
+    const employeeEmail = process.env.EMPLOYEE_NOTIFICATION_EMAIL
+    const adminEmail = process.env.ADMIN_NOTIFICATION_EMAIL
+
+    const results: boolean[] = []
+
+    // Send to employee
+    if (employeeEmail) {
+      const template: EmailTemplate = {
+        to: employeeEmail,
+        subject: `[Hỗ Trợ] Yêu cầu mới từ ${data.name} - #${data.requestId.slice(-8).toUpperCase()}`,
+        html: this.getSupportRequestHTML(data)
+      }
+      results.push(await this.sendEmail(template))
+    } else {
+      console.log('⚠️ EMPLOYEE_NOTIFICATION_EMAIL not configured for support requests')
+    }
+
+    // Send to admin
+    if (adminEmail) {
+      const template: EmailTemplate = {
+        to: adminEmail,
+        subject: `[Hỗ Trợ] Yêu cầu mới từ ${data.name} - #${data.requestId.slice(-8).toUpperCase()}`,
+        html: this.getSupportRequestHTML(data)
+      }
+      results.push(await this.sendEmail(template))
+    } else {
+      console.log('⚠️ ADMIN_NOTIFICATION_EMAIL not configured for support requests')
+    }
+
+    return results.some(r => r === true) // Return true if at least one email was sent
+  }
+
+  // Support Request HTML Template
+  private static getSupportRequestHTML(data: any): string {
+    const baseUrl = getBaseUrl()
+    const ticketId = `#SP-${data.requestId.slice(-8).toUpperCase()}`
+    const now = new Date()
+    const timestamp = now.toLocaleString('vi-VN', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+
+    const priorityColors: Record<string, { bg: string; text: string; label: string }> = {
+      LOW: { bg: '#dcfce7', text: '#166534', label: 'Thấp' },
+      MEDIUM: { bg: '#fef3c7', text: '#92400e', label: 'Trung bình' },
+      HIGH: { bg: '#fee2e2', text: '#991b1b', label: 'Cao' },
+      URGENT: { bg: '#dc2626', text: '#ffffff', label: 'Khẩn cấp' }
+    }
+    const priority = priorityColors[data.priority] || priorityColors.MEDIUM
+
+    // Generate attachments HTML
+    let attachmentsHTML = ''
+    if (data.attachments && data.attachments.length > 0) {
+      attachmentsHTML = `
+        <tr>
+          <td style="padding: 0 30px 25px 30px;">
+            <h3 style="color: #374151; font-size: 14px; font-weight: 700; margin: 0 0 15px 0; text-transform: uppercase; letter-spacing: 0.5px;">
+              Tệp Đính Kèm (${data.attachments.length})
+            </h3>
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr>
+                ${data.attachments.map((file: any) => `
+                  <td style="padding: 10px; background: #f8fafc; border-radius: 8px; border: 1px solid #e5e7eb; margin-right: 10px;">
+                    <table style="width: 100%;">
+                      <tr>
+                        <td style="width: 40px; vertical-align: top;">
+                          ${file.fileType?.startsWith('image')
+          ? `<img src="${file.fileUrl}" style="width: 40px; height: 40px; object-fit: cover; border-radius: 6px;" />`
+          : `<div style="width: 40px; height: 40px; background: #e0e7ff; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 12px; color: #4338ca; font-weight: 700;">FILE</div>`
+        }
+                        </td>
+                        <td style="padding-left: 10px; vertical-align: top;">
+                          <a href="${file.fileUrl}" target="_blank" style="color: #1e40af; font-size: 13px; font-weight: 600; text-decoration: none; display: block; margin-bottom: 2px;">
+                            ${file.fileName}
+                          </a>
+                          <span style="color: #6b7280; font-size: 11px;">
+                            ${(file.fileSize / 1024).toFixed(1)} KB
+                          </span>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                `).join('')}
+              </tr>
+            </table>
+          </td>
+        </tr>
+      `
+    }
+
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      </head>
+      <body style="margin: 0; padding: 0; background-color: #f3f4f6; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+        <table role="presentation" style="width: 100%; border-collapse: collapse;">
+          <tr>
+            <td align="center" style="padding: 40px 20px;">
+              <table role="presentation" style="width: 600px; max-width: 100%; border-collapse: collapse; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.08);">
+                
+                <!-- Header -->
+                <tr>
+                  <td style="background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%); padding: 30px; text-align: center;">
+                    <h1 style="color: #ffffff; font-size: 22px; margin: 0 0 8px 0; font-weight: 700;">
+                      YÊU CẦU HỖ TRỢ MỚI
+                    </h1>
+                    <p style="color: rgba(255,255,255,0.9); font-size: 14px; margin: 0;">
+                      Mã ticket: <strong>${ticketId}</strong>
+                    </p>
+                  </td>
+                </tr>
+
+                <!-- Priority Badge -->
+                <tr>
+                  <td style="padding: 20px 30px 0 30px; text-align: right;">
+                    <span style="display: inline-block; background: ${priority.bg}; color: ${priority.text}; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; text-transform: uppercase;">
+                      ${priority.label}
+                    </span>
+                  </td>
+                </tr>
+
+                <!-- Customer Info -->
+                <tr>
+                  <td style="padding: 20px 30px 25px 30px;">
+                    <h3 style="color: #374151; font-size: 14px; font-weight: 700; margin: 0 0 15px 0; text-transform: uppercase; letter-spacing: 0.5px;">
+                      THÔNG TIN KHÁCH HÀNG
+                    </h3>
+                    <table style="width: 100%; background: #f8fafc; border-radius: 12px; border: 1px solid #e5e7eb;">
+                      <tr>
+                        <td style="padding: 15px 20px; border-bottom: 1px solid #e5e7eb;">
+                          <span style="color: #6b7280; font-size: 12px;">Họ tên</span><br>
+                          <strong style="color: #111827; font-size: 15px;">${data.name}</strong>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 15px 20px; border-bottom: 1px solid #e5e7eb;">
+                          <span style="color: #6b7280; font-size: 12px;">Số điện thoại</span><br>
+                          <a href="tel:${data.phone}" style="color: #2563eb; font-size: 15px; font-weight: 600; text-decoration: none;">${data.phone}</a>
+                        </td>
+                      </tr>
+                      ${data.email ? `
+                      <tr>
+                        <td style="padding: 15px 20px;">
+                          <span style="color: #6b7280; font-size: 12px;">Email</span><br>
+                          <a href="mailto:${data.email}" style="color: #2563eb; font-size: 15px; font-weight: 600; text-decoration: none;">${data.email}</a>
+                        </td>
+                      </tr>
+                      ` : ''}
+                    </table>
+                  </td>
+                </tr>
+
+                <!-- Message Content -->
+                <tr>
+                  <td style="padding: 0 30px 25px 30px;">
+                    <h3 style="color: #374151; font-size: 14px; font-weight: 700; margin: 0 0 15px 0; text-transform: uppercase; letter-spacing: 0.5px;">
+                      NỘI DUNG YÊU CẦU
+                    </h3>
+                    <div style="background: linear-gradient(135deg, #eff6ff 0%, #f5f3ff 100%); border-radius: 12px; padding: 20px; border-left: 4px solid #3b82f6;">
+                      <p style="color: #1f2937; font-size: 14px; line-height: 1.7; margin: 0; white-space: pre-wrap;">
+                        ${data.message}
+                      </p>
+                    </div>
+                  </td>
+                </tr>
+
+                <!-- Attachments -->
+                ${attachmentsHTML}
+
+                <!-- System Info -->
+                ${data.systemInfo ? `
+                <tr>
+                  <td style="padding: 0 30px 25px 30px;">
+                    <h3 style="color: #374151; font-size: 14px; font-weight: 700; margin: 0 0 15px 0; text-transform: uppercase; letter-spacing: 0.5px;">
+                      THÔNG TIN HỆ THỐNG
+                    </h3>
+                    <table style="width: 100%; border-collapse: collapse;">
+                      <tr>
+                        <td style="width: 33%; padding: 10px; background: #f8fafc; border-radius: 8px 0 0 8px; border: 1px solid #e5e7eb; text-align: center;">
+                          <span style="color: #6b7280; font-size: 10px; display: block; margin-bottom: 4px;">Thiết bị</span>
+                          <strong style="color: #111827; font-size: 12px;">${data.systemInfo.deviceType || 'N/A'}</strong>
+                        </td>
+                        <td style="width: 33%; padding: 10px; background: #f8fafc; border: 1px solid #e5e7eb; border-left: none; text-align: center;">
+                          <span style="color: #6b7280; font-size: 10px; display: block; margin-bottom: 4px;">Trình duyệt</span>
+                          <strong style="color: #111827; font-size: 12px;">${data.systemInfo.browserName || 'N/A'} ${data.systemInfo.browserVersion || ''}</strong>
+                        </td>
+                        <td style="width: 33%; padding: 10px; background: #f8fafc; border-radius: 0 8px 8px 0; border: 1px solid #e5e7eb; border-left: none; text-align: center;">
+                          <span style="color: #6b7280; font-size: 10px; display: block; margin-bottom: 4px;">Hệ điều hành</span>
+                          <strong style="color: #111827; font-size: 12px;">${data.systemInfo.osName || 'N/A'} ${data.systemInfo.osVersion || ''}</strong>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+                ` : ''}
+
+                <!-- CTA Button -->
+                <tr>
+                  <td style="padding: 10px 30px 30px 30px; text-align: center;">
+                    <a href="${baseUrl}/admin/support" style="display: inline-block; background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%); color: #ffffff; text-decoration: none; padding: 14px 40px; border-radius: 8px; font-size: 14px; font-weight: 600; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);">
+                      Xem Chi Tiết
+                    </a>
+                  </td>
+                </tr>
+
+                <!-- Footer -->
+                <tr>
+                  <td style="background: #f8fafc; padding: 20px 30px; text-align: center; border-top: 1px solid #e5e7eb;">
+                    <p style="color: #6b7280; font-size: 12px; margin: 0 0 5px 0;">
+                      SmartBuild - Hệ thống quản lý yêu cầu hỗ trợ
+                    </p>
+                    <p style="color: #9ca3af; font-size: 11px; margin: 0;">
+                      ${timestamp}
+                    </p>
+                  </td>
+                </tr>
+
+              </table>
+            </td>
+          </tr>
+        </table>
+      </body>
+      </html>
+    `
+  }
 }
