@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { Search, MapPin, ArrowRight, Zap, TrendingUp, ShieldCheck, PenTool, LayoutGrid, Brain, CreditCard, Package, ChevronRight, UserPlus, ChevronDown, HardHat, Quote, Star, Sparkles, Clock, X } from 'lucide-react'
@@ -34,6 +34,55 @@ export default function HomePage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [isSearchFocused, setIsSearchFocused] = useState(false)
   const [searchSuggestions, setSearchSuggestions] = useState<any[]>([])
+  const [contractorSuggestions, setContractorSuggestions] = useState<any[]>([])
+  const [featuredContractors, setFeaturedContractors] = useState<any[]>([])
+  const [contractorSearchLoading, setContractorSearchLoading] = useState(false)
+  const [dropdownDirection, setDropdownDirection] = useState<'up' | 'down'>('down')
+  const [locationDropdownDirection, setLocationDropdownDirection] = useState<'up' | 'down'>('down')
+  const searchInputRef = useRef<HTMLInputElement>(null)
+  const locationButtonRef = useRef<HTMLButtonElement>(null)
+
+  // Calculate dropdown direction based on available viewport space
+  const calculateDropdownDirection = useCallback(() => {
+    if (searchInputRef.current) {
+      const rect = searchInputRef.current.getBoundingClientRect()
+      const spaceBelow = window.innerHeight - rect.bottom - 20
+      const spaceAbove = rect.top - 20
+      const dropdownHeight = 300
+
+      if (spaceBelow < dropdownHeight && spaceAbove > spaceBelow) {
+        setDropdownDirection('up')
+      } else {
+        setDropdownDirection('down')
+      }
+    }
+
+    if (locationButtonRef.current) {
+      const rect = locationButtonRef.current.getBoundingClientRect()
+      const spaceBelow = window.innerHeight - rect.bottom - 20
+      const spaceAbove = rect.top - 20
+      const dropdownHeight = 250
+
+      if (spaceBelow < dropdownHeight && spaceAbove > spaceBelow) {
+        setLocationDropdownDirection('up')
+      } else {
+        setLocationDropdownDirection('down')
+      }
+    }
+  }, [])
+
+  // Recalculate on focus, scroll, or location dropdown open
+  useEffect(() => {
+    if (isSearchFocused || isLocationOpen) {
+      calculateDropdownDirection()
+      window.addEventListener('scroll', calculateDropdownDirection)
+      window.addEventListener('resize', calculateDropdownDirection)
+      return () => {
+        window.removeEventListener('scroll', calculateDropdownDirection)
+        window.removeEventListener('resize', calculateDropdownDirection)
+      }
+    }
+  }, [isSearchFocused, isLocationOpen, calculateDropdownDirection])
 
   const topSearches = [
     { name: 'Sắt thép Hòa Phát', tag: 'Bán chạy' },
@@ -183,12 +232,60 @@ export default function HomePage() {
       setSearchSuggestions([])
     }
   }, [searchQuery])
+  // Fetch contractor suggestions when typing in contractor search
+  useEffect(() => {
+    if (activeSearchTab === 'contractors' && searchQuery.length > 0) {
+      const timer = setTimeout(() => {
+        fetchContractorSuggestions(searchQuery)
+      }, 300)
+      return () => clearTimeout(timer)
+    } else if (activeSearchTab === 'contractors' && searchQuery.length === 0) {
+      setContractorSuggestions([])
+    }
+  }, [searchQuery, activeSearchTab])
+
+  const fetchContractorSuggestions = async (query: string) => {
+    setContractorSearchLoading(true)
+    try {
+      const city = selectedLocation !== 'Toàn quốc' ? selectedLocation : ''
+      const params = new URLSearchParams({ q: query, limit: '6' })
+      if (city) params.append('city', city)
+
+      const res = await fetch(`/api/contractors/search?${params.toString()}`)
+      if (res.ok) {
+        const data = await res.json()
+        if (data.success) {
+          setContractorSuggestions(data.data.contractors || [])
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch contractor suggestions:', error)
+    } finally {
+      setContractorSearchLoading(false)
+    }
+  }
+
+  const fetchFeaturedContractors = async () => {
+    try {
+      const res = await fetch('/api/contractors/search?featured=true&limit=5')
+      if (res.ok) {
+        const data = await res.json()
+        if (data.success) {
+          setFeaturedContractors(data.data.contractors || [])
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch featured contractors:', error)
+    }
+  }
+
   useEffect(() => {
     fetchFeaturedProducts()
     fetchCategories()
     fetchStats()
     fetchAIRecommendations()
     fetchBanners()
+    fetchFeaturedContractors()
 
     const bannerInterval = setInterval(() => {
       setCurrentBanner((prev) => (prev + 1) % (dbBanners.length > 0 ? dbBanners.length : defaultBanners.length))
@@ -318,9 +415,9 @@ export default function HomePage() {
 
       <main className="flex-1">
         {/* Hero Section - Clean & Professional */}
-        <section className="relative min-h-[650px] flex items-center pt-20 pb-28 overflow-hidden">
+        <section className="relative min-h-[650px] flex items-center pt-20 pb-28 z-40">
           {/* Background Image with Parallax-like effect */}
-          <div className="absolute inset-0 z-0">
+          <div className="absolute inset-0 z-0 overflow-hidden">
             <Image
               src="/images/hero_bg.png"
               alt="Construction Site"
@@ -376,6 +473,7 @@ export default function HomePage() {
                 <div className="flex-[2] relative flex items-center px-5 border-b md:border-b-0 md:border-r border-gray-100 group">
                   <Search className="h-5 w-5 text-blue-500 mr-3.5 group-focus-within:scale-110 transition-transform" />
                   <input
+                    ref={searchInputRef}
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
@@ -387,7 +485,9 @@ export default function HomePage() {
 
                   {/* Smart Suggestions Dropdown */}
                   {isSearchFocused && activeSearchTab === 'products' && (
-                    <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.15)] border border-slate-100 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                    <div className={`absolute left-0 right-0 bg-white/95 backdrop-blur-md rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.2)] border border-white/20 overflow-hidden z-50 animate-in fade-in duration-200 max-h-[300px] overflow-y-auto
+                      ${dropdownDirection === 'up' ? 'bottom-full mb-2 slide-in-from-bottom-2' : 'top-full mt-2 slide-in-from-top-2'}
+                    `}>
                       {searchQuery.length === 0 ? (
                         <div className="p-4">
                           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 px-2">Tìm kiếm phổ biến</p>
@@ -429,10 +529,107 @@ export default function HomePage() {
                       )}
                     </div>
                   )}
+
+                  {/* Contractor Suggestions Dropdown */}
+                  {isSearchFocused && activeSearchTab === 'contractors' && (
+                    <div className={`absolute left-0 right-0 bg-white/95 backdrop-blur-md rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.2)] border border-white/20 overflow-hidden z-50 animate-in fade-in duration-200 max-h-[350px] overflow-y-auto
+                      ${dropdownDirection === 'up' ? 'bottom-full mb-2 slide-in-from-bottom-2' : 'top-full mt-2 slide-in-from-top-2'}
+                    `}>
+                      {searchQuery.length === 0 ? (
+                        <div className="p-4">
+                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 px-2">Nhà thầu nổi bật</p>
+                          {featuredContractors.length > 0 ? (
+                            <div className="space-y-1">
+                              {featuredContractors.map((contractor, idx) => (
+                                <Link
+                                  key={contractor.id || idx}
+                                  href={`/contractors/${contractor.id}`}
+                                  className="w-full flex items-center justify-between px-3 py-2.5 hover:bg-teal-50 rounded-lg transition-colors group"
+                                >
+                                  <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-full bg-gradient-to-r from-teal-500 to-emerald-500 flex items-center justify-center text-white font-bold text-sm">
+                                      {contractor.displayName?.charAt(0)?.toUpperCase() || 'N'}
+                                    </div>
+                                    <div>
+                                      <p className="text-sm font-bold text-slate-700 group-hover:text-teal-700 flex items-center gap-1">
+                                        {contractor.displayName}
+                                        {contractor.isVerified && (
+                                          <ShieldCheck className="w-3.5 h-3.5 text-blue-500" />
+                                        )}
+                                      </p>
+                                      <p className="text-[11px] text-slate-400 flex items-center gap-2">
+                                        <Star className="w-3 h-3 text-yellow-400 fill-yellow-400" />
+                                        {(contractor.avgRating || 0).toFixed(1)}
+                                        {contractor.city && <span>• {contractor.city}</span>}
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <span className="text-[9px] px-1.5 py-0.5 bg-teal-100 text-teal-600 rounded font-black">HOT</span>
+                                </Link>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="text-center py-4">
+                              <p className="text-sm text-slate-400 italic">Đang tải nhà thầu nổi bật...</p>
+                            </div>
+                          )}
+                        </div>
+                      ) : contractorSearchLoading ? (
+                        <div className="p-6 text-center">
+                          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-teal-600 mx-auto"></div>
+                          <p className="text-sm text-slate-400 mt-2">Đang tìm kiếm...</p>
+                        </div>
+                      ) : (
+                        <div className="p-2">
+                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 p-2">Kết quả gợi ý</p>
+                          {contractorSuggestions.length > 0 ? (
+                            contractorSuggestions.map((contractor, idx) => (
+                              <Link
+                                key={contractor.id || idx}
+                                href={`/contractors/${contractor.id}`}
+                                className="w-full flex items-center justify-between px-4 py-3 hover:bg-teal-50 rounded-lg transition-colors group"
+                              >
+                                <div className="flex items-center gap-3">
+                                  <div className="w-10 h-10 rounded-full bg-gradient-to-r from-teal-500 to-emerald-500 flex items-center justify-center text-white font-bold text-sm">
+                                    {contractor.displayName?.charAt(0)?.toUpperCase() || 'N'}
+                                  </div>
+                                  <div className="text-left">
+                                    <p className="text-sm font-bold text-slate-700 group-hover:text-teal-700 flex items-center gap-1">
+                                      {contractor.displayName}
+                                      {contractor.isVerified && (
+                                        <ShieldCheck className="w-3.5 h-3.5 text-blue-500" />
+                                      )}
+                                    </p>
+                                    <div className="flex items-center gap-2 text-[11px] text-slate-500">
+                                      <span className="flex items-center gap-1">
+                                        <Star className="w-3 h-3 text-yellow-400 fill-yellow-400" />
+                                        {(contractor.avgRating || 0).toFixed(1)}
+                                      </span>
+                                      {contractor.skills?.slice(0, 2).map((skill: string, i: number) => (
+                                        <span key={i} className="px-1.5 py-0.5 bg-slate-100 rounded text-[9px]">{skill}</span>
+                                      ))}
+                                    </div>
+                                  </div>
+                                </div>
+                                <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-teal-500 group-hover:translate-x-1 transition-all" />
+                              </Link>
+                            ))
+                          ) : (
+                            <div className="p-4 text-center">
+                              <HardHat className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                              <p className="text-sm text-slate-400 font-medium italic">Không tìm thấy nhà thầu phù hợp</p>
+                              <p className="text-xs text-slate-300 mt-1">Thử từ khóa khác hoặc thay đổi khu vực</p>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
                 {activeSearchTab === 'contractors' && (
                   <div className="flex-1 relative">
                     <button
+                      ref={locationButtonRef}
                       onClick={() => setIsLocationOpen(!isLocationOpen)}
                       className="w-full h-full flex items-center px-5 py-3 text-left outline-none cursor-pointer group"
                     >
@@ -441,9 +638,11 @@ export default function HomePage() {
                       <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform duration-300 ${isLocationOpen ? 'rotate-180' : ''}`} />
                     </button>
 
-                    {/* Custom Dropdown Menu */}
+                    {/* Custom Dropdown Menu - Smart Positioning */}
                     {isLocationOpen && (
-                      <div className="absolute top-full left-0 mt-2 w-full bg-white rounded-xl shadow-2xl border border-slate-100 overflow-hidden z-[100] animate-in fade-in slide-in-from-top-2 duration-300">
+                      <div className={`absolute left-0 w-full bg-white/95 backdrop-blur-md rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.2)] border border-white/20 overflow-hidden z-[100] animate-in fade-in duration-300 max-h-[250px] overflow-y-auto
+                        ${locationDropdownDirection === 'up' ? 'bottom-full mb-2 slide-in-from-bottom-2' : 'top-full mt-2 slide-in-from-top-2'}
+                      `}>
                         {locations.map((loc) => (
                           <button
                             key={loc}
