@@ -6,6 +6,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { saveNotificationForUser } from '@/lib/notification-service'
 
 interface RouteParams {
     params: Promise<{ id: string }>
@@ -68,6 +69,18 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             }, { status: 404 })
         }
 
+        // Get contractor info for notification
+        const contractor = await prisma.customer.findUnique({
+            where: { id: contractorId },
+            include: { user: { select: { name: true } } }
+        })
+
+        // Get contractor profile separately (linked by customerId)
+        const contractorProfile = await prisma.contractorProfile.findUnique({
+            where: { customerId: contractorId },
+            select: { displayName: true, avgRating: true }
+        })
+
         // Check if already applied
         const existingApplication = await prisma.marketProjectApplication.findFirst({
             where: {
@@ -94,6 +107,39 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
                 status: 'PENDING'
             }
         })
+
+        // Send notification to project owner
+        if (project.customerId && project.customerId !== 'guest') {
+            try {
+                // Find the customer's userId
+                const projectOwner = await prisma.customer.findUnique({
+                    where: { id: project.customerId },
+                    select: { userId: true }
+                })
+
+                if (projectOwner?.userId) {
+                    const contractorName = contractorProfile?.displayName || contractor?.user?.name || 'Nhà thầu'
+                    const rating = contractorProfile?.avgRating || 0
+
+                    await saveNotificationForUser({
+                        type: 'ORDER_UPDATE' as any,
+                        priority: 'HIGH',
+                        title: '👷 Có nhà thầu ứng tuyển mới!',
+                        message: `${contractorName} (⭐${rating.toFixed(1)}) vừa ứng tuyển dự án "${project.title}"${proposedBudget ? `. Đề xuất: ${proposedBudget.toLocaleString()}đ` : ''}`,
+                        data: {
+                            projectId,
+                            applicationId: application.id,
+                            contractorId,
+                            contractorName,
+                            proposedBudget,
+                            proposedDays
+                        }
+                    }, projectOwner.userId, 'CUSTOMER')
+                }
+            } catch (notifyError) {
+                console.error('Failed to send application notification:', notifyError)
+            }
+        }
 
         return NextResponse.json({
             success: true,

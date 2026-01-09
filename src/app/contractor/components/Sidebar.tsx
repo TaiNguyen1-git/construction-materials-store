@@ -16,7 +16,8 @@ import {
     FileText,
     Building2,
     X,
-    User
+    User,
+    PenTool
 } from 'lucide-react'
 import { useContractorCartStore } from '@/stores/contractorCartStore'
 
@@ -36,6 +37,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
         { href: '/contractor/cart', icon: ShoppingCart, label: 'Giỏ hàng', badge: cartItemCount },
         { href: '/contractor/orders', icon: Package, label: 'Đơn hàng' },
         { href: '/contractor/projects', icon: Building2, label: 'Công trình' },
+        { href: '/contractor/quotes', icon: PenTool, label: 'Báo giá' },
         { href: '/contractor/debt', icon: CreditCard, label: 'Công nợ' },
         { href: '/contractor/contracts', icon: FileText, label: 'Hợp đồng' },
         { href: '/contractor/profile', icon: User, label: 'Hồ sơ' },

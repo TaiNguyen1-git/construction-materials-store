@@ -12,7 +12,7 @@ import { prisma } from './prisma'
 import { pushSystemNotification, pushNotificationToFirebase } from './firebase-notifications'
 
 export interface Notification {
-  type: 'LOW_STOCK' | 'REORDER_NEEDED' | 'PREDICTION_ALERT' | 'MONTHLY_REMINDER' | 'ORDER_NEW' | 'ORDER_UPDATE'
+  type: 'LOW_STOCK' | 'REORDER_NEEDED' | 'PREDICTION_ALERT' | 'MONTHLY_REMINDER' | 'ORDER_NEW' | 'ORDER_UPDATE' | 'QUOTE_NEW' | 'QUOTE_UPDATE' | 'KYC_PENDING' | 'SMART_REORDER'
   priority: 'HIGH' | 'MEDIUM' | 'LOW'
   title: string
   message: string

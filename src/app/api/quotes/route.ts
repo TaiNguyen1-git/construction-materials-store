@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { createSuccessResponse, createErrorResponse } from '@/lib/api-types'
 import { z } from 'zod'
+import { saveNotificationForUser } from '@/lib/notification-service'
 
 const createQuoteRequestSchema = z.object({
     contractorId: z.string(),
@@ -9,7 +10,8 @@ const createQuoteRequestSchema = z.object({
     budget: z.number().optional(),
     location: z.string().optional(),
     startDate: z.string().optional(), // ISO date string
-    projectId: z.string().optional()
+    projectId: z.string().optional(),
+    attachments: z.array(z.string()).optional()
 })
 
 // GET /api/quotes - List quotes for current user (either sent or received)
@@ -35,64 +37,75 @@ export async function GET(request: NextRequest) {
         let where: any = {}
 
         if (type === 'received') {
-            // As a contractor
+            // As a contractor viewing received requests
             where.contractorId = customer.id
         } else {
-            // As a customer (default)
+            // As a customer viewing sent requests (default)
             where.customerId = customer.id
         }
 
-        // Fetch quotes without relations first
-        const quotesRaw = await prisma.quoteRequest.findMany({
+        // Fetch quotes using Prisma relations
+        const quotes = await (prisma.quoteRequest as any).findMany({
             where,
+            select: {
+                id: true,
+                customerId: true,
+                contractorId: true,
+                projectId: true,
+                status: true,
+                details: true,
+                budget: true,
+                location: true,
+                startDate: true,
+                response: true,
+                priceQuote: true,
+                respondedAt: true,
+                createdAt: true,
+                updatedAt: true,
+                attachments: true,
+                conversationId: true,
+                history: {
+                    select: {
+                        id: true,
+                        oldStatus: true,
+                        newStatus: true,
+                        notes: true,
+                        createdAt: true
+                    },
+                    orderBy: { createdAt: 'desc' }
+                },
+                customer: {
+                    select: {
+                        id: true,
+                        userId: true,
+                        companyName: true,
+                        user: {
+                            select: { name: true, email: true, phone: true }
+                        }
+                    }
+                },
+                contractor: {
+                    select: {
+                        id: true,
+                        userId: true,
+                        companyName: true,
+                        user: {
+                            select: { name: true }
+                        },
+                        contractorProfile: {
+                            select: {
+                                trustScore: true,
+                                totalProjectsCompleted: true,
+                                avgRating: true
+                            }
+                        }
+                    }
+                },
+                project: {
+                    select: { id: true, name: true }
+                }
+            },
             orderBy: { createdAt: 'desc' }
-        })
-
-        // Manually fetch related data
-        const customerIds: string[] = Array.from(new Set(quotesRaw.map((q: any) => String(q.customerId))))
-        const contractorIds: string[] = Array.from(new Set(quotesRaw.map((q: any) => String(q.contractorId))))
-        const projectIds: string[] = Array.from(new Set(quotesRaw.map((q: any) => q.projectId).filter(Boolean).map((id: any) => String(id))))
-
-        const [customers, contractors, projects] = await Promise.all([
-            prisma.customer.findMany({
-                where: { id: { in: customerIds } },
-                include: { user: { select: { name: true, email: true, phone: true } } }
-            }),
-            prisma.customer.findMany({
-                where: { id: { in: contractorIds } },
-                include: { user: { select: { name: true } } }
-            }),
-            prisma.project.findMany({
-                where: { id: { in: projectIds } },
-                select: { id: true, name: true }
-            })
-        ])
-
-        const customerMap = new Map(customers.map(c => [c.id, c]))
-        const contractorMap = new Map(contractors.map(c => [c.id, c]))
-        const projectMap = new Map(projects.map(p => [p.id, p]))
-
-        // Map data back
-        const quotes = quotesRaw.map((quote: any) => {
-            const cust = customerMap.get(quote.customerId as string)
-            const cont = contractorMap.get(quote.contractorId as string)
-            const proj = quote.projectId ? projectMap.get(quote.projectId as string) : null
-
-            return {
-                ...quote,
-                customer: cust ? {
-                    id: cust.id,
-                    user: (cust as any).user
-                } : null,
-                contractor: cont ? {
-                    id: cont.id,
-                    user: (cont as any).user,
-                    companyName: cont.companyName
-                } : null,
-                project: proj ? {
-                    name: proj.name
-                } : null
-            }
         })
 
         return NextResponse.json(createSuccessResponse(quotes))
@@ -120,21 +133,95 @@ export async function POST(request: NextRequest) {
             )
         }
 
-        const { contractorId, details, budget, location, startDate, projectId } = validation.data
+        const { contractorId, details, budget, location, startDate, projectId, attachments } = validation.data
 
-        // Find customer record
+        // 1. Find the requesting customer
         const customer = await prisma.customer.findFirst({
-            where: { userId }
+            where: { userId },
+            include: { user: true }
         })
 
         if (!customer) {
-            return NextResponse.json(createErrorResponse('Please complete your profile first', 'PROFILE_MISSING'), { status: 400 })
+            return NextResponse.json(createErrorResponse('Vui lòng hoàn thiện hồ sơ thành viên trước khi yêu cầu báo giá', 'PROFILE_MISSING'), { status: 400 })
         }
 
         if (customer.id === contractorId) {
-            return NextResponse.json(createErrorResponse('Cannot request quote from yourself', 'INVALID_OPERATION'), { status: 400 })
+            return NextResponse.json(createErrorResponse('Bạn không thể gửi yêu cầu báo giá cho chính mình', 'INVALID_OPERATION'), { status: 400 })
         }
 
+        // 2. Validate the contractor
+        const contractor = await prisma.customer.findUnique({
+            where: { id: contractorId },
+            include: { user: true }
+        })
+
+        if (!contractor) {
+            return NextResponse.json(createErrorResponse('Không tìm thấy thông tin nhà thầu', 'NOT_FOUND'), { status: 404 })
+        }
+
+        if (!contractor.contractorVerified) {
+            return NextResponse.json(createErrorResponse('Thành viên này chưa được xác minh là nhà thầu', 'INVALID_OPERATION'), { status: 400 })
+        }
+
+        // 3. Project validation
+        let project: any = null
+        if (projectId) {
+            project = await prisma.project.findFirst({
+                where: {
+                    id: projectId,
+                    customerId: customer.id
+                }
+            })
+
+            if (!project) {
+                return NextResponse.json(createErrorResponse('Dự án không tồn tại hoặc không thuộc quyền sở hữu của bạn', 'NOT_FOUND'), { status: 400 })
+            }
+        }
+
+        // 4. Flow 5: Create/Find Conversation for Chat Integration
+        let conversation = await prisma.conversation.findFirst({
+            where: {
+                OR: [
+                    { participant1Id: customer.userId, participant2Id: contractor.userId },
+                    { participant1Id: contractor.userId, participant2Id: customer.userId }
+                ]
+            }
+        })
+
+        if (!conversation) {
+            conversation = await prisma.conversation.create({
+                data: {
+                    participant1Id: customer.userId,
+                    participant1Name: customer.user.name || 'Khách hàng',
+                    participant2Id: contractor.userId,
+                    participant2Name: contractor.user.name || 'Nhà thầu',
+                    projectId: projectId || null,
+                    projectTitle: project?.name || null
+                }
+            })
+        }
+
+        // Initial system message in chat
+        const initialMsg = `[SYSTEM] Khách hàng ${customer.user.name} đã gửi yêu cầu báo giá mới cho dự án ${project?.name || location || ''}. Chi tiết: ${details.substring(0, 100)}...`
+
+        await prisma.message.create({
+            data: {
+                conversationId: conversation.id,
+                senderId: 'SYSTEM',
+                senderName: 'Hệ thống',
+                content: initialMsg
+            }
+        })
+
+        await prisma.conversation.update({
+            where: { id: conversation.id },
+            data: {
+                lastMessage: initialMsg,
+                lastMessageAt: new Date()
+            }
+        })
+
+        // 5. Create the quote request
         const quote = await prisma.quoteRequest.create({
             data: {
                 customerId: customer.id,
@@ -144,9 +231,36 @@ export async function POST(request: NextRequest) {
                 location,
                 startDate: startDate ? new Date(startDate) : undefined,
                 projectId,
-                status: 'PENDING'
+                attachments: attachments || [],
+                conversationId: conversation.id,
+                status: 'PENDING',
+                history: {
+                    create: {
+                        userId: customer.userId,
+                        newStatus: 'PENDING',
+                        notes: 'Khởi tạo yêu cầu báo giá'
+                    }
+                }
             }
         })
+
+        // 6. Send notification
+        try {
+            await saveNotificationForUser({
+                type: 'INFO' as any,
+                priority: 'HIGH',
+                title: 'Yêu cầu báo giá mới',
+                message: `Khách hàng ${customer.user.name} vừa gửi cho bạn một yêu cầu báo giá mới cho dự án tại ${location || 'vị trí chưa xác định'}.`,
+                data: {
+                    quoteId: quote.id,
+                    senderName: customer.user.name,
+                    projectId: projectId,
+                    conversationId: conversation.id
+                }
+            }, contractor.userId)
+        } catch (notifyError) {
+            console.error('Failed to send notification:', notifyError)
+        }
 
         return NextResponse.json(createSuccessResponse(quote, 'Gửi yêu cầu báo giá thành công'), { status: 201 })
 

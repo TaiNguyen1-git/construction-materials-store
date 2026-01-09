@@ -1,18 +1,19 @@
 'use client'
 
 import Link from 'next/link'
-import { 
-  User, 
-  ShoppingBag, 
-  CreditCard, 
-  MapPin, 
-  Shield, 
+import {
+  User,
+  ShoppingBag,
+  CreditCard,
+  MapPin,
+  Shield,
   Heart,
   Trophy,
   Star,
   Package,
   Calendar,
-  FileText
+  FileText,
+  PenTool
 } from 'lucide-react'
 import { useAuth } from '@/contexts/auth-context'
 import { useRouter } from 'next/navigation'
@@ -163,6 +164,18 @@ export default function AccountPage() {
             </div>
             <p className="text-sm text-gray-600">
               Xem và quản lý các dự án xây dựng của bạn
+            </p>
+          </Link>
+
+          <Link href="/account/quotes" className="group bg-white rounded-xl shadow-md hover:shadow-xl transition-all duration-300 p-6 border border-gray-100 hover:border-orange-200 hover:scale-105">
+            <div className="flex items-center mb-3">
+              <div className="w-12 h-12 rounded-lg bg-orange-100 flex items-center justify-center group-hover:bg-orange-200 transition-colors">
+                <PenTool className="h-6 w-6 text-orange-600" />
+              </div>
+              <h3 className="ml-3 text-lg font-semibold text-gray-900">Báo Giá & Thương Thảo</h3>
+            </div>
+            <p className="text-sm text-gray-600">
+              Theo dõi các yêu cầu báo giá vật tư và thi công
             </p>
           </Link>
         </div>

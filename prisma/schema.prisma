@@ -131,8 +131,8 @@ model Customer {
   contracts Contract[]
   
   // Brokerage
-  // quoteRequests   QuoteRequest[] @relation("CustomerOutboundQuotes")
-  // receivedQuotes  QuoteRequest[] @relation("ContractorInboundQuotes")
+  quoteRequests   QuoteRequest[] @relation("CustomerOutboundQuotes")
+  receivedQuotes  QuoteRequest[] @relation("ContractorInboundQuotes")
   
   @@map("customers")
   @@index([customerType])
@@ -290,7 +290,7 @@ model Product {
   id          String  @id @default(auto()) @map("_id") @db.ObjectId
   name        String
   description String?
-  categoryId  String
+  categoryId  String @db.ObjectId
   supplierId  String? @db.ObjectId  // Default supplier for this product
   sku         String  @unique
   price       Float
@@ -389,7 +389,7 @@ model InventoryMovement {
 model Order {
   id              String      @id @default(auto()) @map("_id") @db.ObjectId
   orderNumber     String      @unique
-  customerId      String?
+  customerId      String?     @db.ObjectId
   customerType    OrderCustomerType @default(REGISTERED)
   guestEmail      String?
   guestPhone      String?
@@ -948,7 +948,7 @@ model Project {
   id              String     @id @default(auto()) @map("_id") @db.ObjectId
   name            String
   description     String?
-  customerId      String
+  customerId      String     @db.ObjectId
   status          ProjectStatus @default(PLANNING)
   startDate       DateTime
   endDate         DateTime?
@@ -957,6 +957,7 @@ model Project {
   progress        Int        @default(0) // 0-100%
   priority        Priority   @default(MEDIUM)
   notes           String?
+  location        String?
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt
 
@@ -966,6 +967,7 @@ model Project {
   contractor      Customer?  @relation("ProjectContractor", fields: [contractorId], references: [id])
   projectTasks    ProjectTask[]
   projectMaterials ProjectMaterial[]
+  quoteRequests   QuoteRequest[]
 
   @@map("projects")
   @@index([customerId])
@@ -1270,16 +1272,91 @@ model QuoteRequest {
   
   // Response from contractor
   response     String?
-  priceQuote   Float?
+  priceQuote   Float?      // Total from QuoteItems
   respondedAt  DateTime?
   
+  // Flow 4: Versioning & Negotiation
+  version      Int         @default(1)
+  parentQuoteId String?    @db.ObjectId // Link to the original or previous version
+  isLatest     Boolean     @default(true)
+  
+  // Flow 2: Digital Verification
+  otpCode      String?
+  otpExpiresAt DateTime?
+  isVerified   Boolean     @default(false)
+  verifiedAt   DateTime?
+
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
+
+  // Relationships
+  customer     Customer    @relation("CustomerOutboundQuotes", fields: [customerId], references: [id])
+  contractor   Customer    @relation("ContractorInboundQuotes", fields: [contractorId], references: [id])
+  project      Project?    @relation(fields: [projectId], references: [id])
+
+  attachments  String[]    // List of file URLs (drawings, specs)
+  conversationId String?   @db.ObjectId // Reference to chat conversation
+  
+  // Flow 1: Detailed BoQ
+  items        QuoteItem[]
+  
+  // Flow 3: Staged Payments
+  milestones   PaymentMilestone[]
+  
+  history      QuoteStatusHistory[]
 
   @@map("quote_requests")
   @@index([customerId])
   @@index([contractorId])
   @@index([status])
+  @@index([parentQuoteId])
+}
+
+// Flow 1: Bill of Quantities (BoQ)
+model QuoteItem {
+  id           String      @id @default(auto()) @map("_id") @db.ObjectId
+  quoteId      String      @db.ObjectId
+  description  String      // Name of material or task
+  quantity     Float
+  unit         String      // kg, m2, box, day...
+  unitPrice    Float
+  totalPrice   Float
+  category     String?     // Material, Labor, Other
+  
+  quote        QuoteRequest @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+
+  @@map("quote_items")
+}
+
+// Flow 3: Payment Milestones
+model PaymentMilestone {
+  id             String        @id @default(auto()) @map("_id") @db.ObjectId
+  quoteId        String        @db.ObjectId
+  quote          QuoteRequest  @relation(fields: [quoteId], references: [id])
+  name           String        // VD: Tạm ứng, Xong phần thô...
+  percentage     Float
+  amount         Float
+  order          Int           @default(1)
+  status         String        @default("PENDING") // PENDING, ESCROW_PAID, RELEASED
+  paidAt         DateTime?
+  createdAt      DateTime      @default(now())
+
+  @@map("payment_milestones")
+}
+
+model QuoteStatusHistory {
+  id           String      @id @default(auto()) @map("_id") @db.ObjectId
+  quoteId      String      @db.ObjectId
+  userId       String      @db.ObjectId // User who made the change
+  oldStatus    QuoteStatus?
+  newStatus    QuoteStatus
+  notes        String?
+  createdAt    DateTime    @default(now())
+
+  quote        QuoteRequest @relation(fields: [quoteId], references: [id])
+
+  @@map("quote_status_history")
+  @@index([quoteId])
 }
 
 enum QuoteStatus {
@@ -1294,7 +1371,8 @@ enum QuoteStatus {
 model Contract {
   id              String         @id @default(auto()) @map("_id") @db.ObjectId
   contractNumber  String         @unique
-  customerId      String
+  customerId      String         @db.ObjectId
+  quoteId         String?        @db.ObjectId
   name            String         // Tên hợp đồng
   description     String?
   contractType    ContractType   @default(FIXED_PRICE)
@@ -1372,19 +1450,21 @@ model ContractorProfile {
   bio             String?
   phone           String?
   email           String?
-  address         String?
-  district        String?
-  city            String   @default("Biên Hòa")
-  skills          String[]
-  experienceYears Int      @default(0)
-  teamSize        Int      @default(1)
-  portfolioImages String[]
-  portfolioDesc   String[]
-  documents       String[]
+  website         String?
+  companyName     String?
+  experienceYears Int?
+  skills          String[]  // List of skills/specialties
   isVerified      Boolean  @default(false)
+  
+  // Market filters
+  city            String?
   avgRating       Float    @default(0)
-  totalReviews    Int      @default(0)
-  completedJobs   Int      @default(0)
+  reviewCount     Int      @default(0)
+  
+  // Flow 5: Trust Score
+  trustScore      Float    @default(100) // Điểm tín nhiệm (0-100)
+  totalProjectsCompleted Int @default(0) // Tổng số dự án đã hoàn thành
+  
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -1395,6 +1475,7 @@ model ContractorProfile {
   @@index([isVerified])
   @@index([city])
   @@index([avgRating])
+  @@index([trustScore])
 }
 
 model ContractorReview {
@@ -1402,7 +1483,12 @@ model ContractorReview {
   contractorId  String   @db.ObjectId
   reviewerId    String   // Customer or User ID
   projectId     String?  // Optional project reference
-  rating        Int      // 1-5
+  rating        Int      // 1-5 sao tổng thể
+  
+  // Flow 5: Trust Metrics
+  priceAccuracy   Int      @default(5) // 1-5 sao về tính đúng giá
+  materialQuality Int      @default(5) // 1-5 sao về chất lượng vật tư
+  
   title         String?
   comment       String
   isApproved    Boolean  @default(true)
@@ -1436,7 +1522,7 @@ enum ProjectType {
 
 model MarketProject {
   id              String        @id @default(auto()) @map("_id") @db.ObjectId
-  customerId      String        // Owner of the project
+  customerId      String        @db.ObjectId // Owner of the project
   title           String
   description     String
   projectType     ProjectType   @default(NEW_BUILD)
@@ -1501,7 +1587,7 @@ model ConstructionProject {
   contactName     String
   contactPhone    String
   contactEmail    String?
-  customerId      String   @default("guest")
+  customerId      String   @default("guest") // Note: guest projects might have this as a string
   status          String   @default("OPEN")
   isUrgent        Boolean  @default(false)
   isFeatured      Boolean  @default(false)
