@@ -75,6 +75,7 @@ export async function POST(request: NextRequest) {
             message,
             attachments: attachments || null,
             systemInfo: systemInfo || null,
+            ipAddress: ip,
             pageUrl,
             priority: 'MEDIUM'
         }).then(sent => {

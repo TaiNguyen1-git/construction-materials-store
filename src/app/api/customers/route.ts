@@ -8,13 +8,14 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const search = searchParams.get('search')
     const status = searchParams.get('status')
+    const type = searchParams.get('type')
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '20')
     const skip = (page - 1) * limit
 
     // Build filter object
     const where: any = {}
-    
+
     if (search) {
       where.user = {
         OR: [
@@ -23,9 +24,13 @@ export async function GET(request: NextRequest) {
         ]
       }
     }
-    
+
     if (status) {
       where.status = status
+    }
+
+    if (type) {
+      where.customerType = type
     }
 
     const [customers, total] = await Promise.all([
@@ -127,9 +132,8 @@ export async function POST(request: NextRequest) {
 
       const customer = await tx.customer.create({
         data: {
-          userId: user.id,
-          address: address || null,
-          status: status || 'ACTIVE'
+          userId: user.id
+          // Removed address: address || null because Customer model doesn't have it
         },
         include: {
           user: {

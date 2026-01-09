@@ -7,6 +7,7 @@
 
 import { useState, useRef } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import {
     Upload,
     Calculator,
@@ -22,10 +23,13 @@ import {
     Grid3X3,
     Hammer,
     Plus,
-    Camera
+    Camera,
+    FolderPlus,
+    Sparkles
 } from 'lucide-react'
 import toast, { Toaster } from 'react-hot-toast'
 import { useCartStore, CartItem } from '@/stores/cartStore'
+import { useAuth } from '@/contexts/auth-context'
 
 interface RoomDimension {
     name: string
@@ -63,6 +67,8 @@ const PROJECT_TYPES = [
 ]
 
 export default function EstimatorPage() {
+    const router = useRouter()
+    const { isAuthenticated } = useAuth()
     const [projectType, setProjectType] = useState<string>('flooring')
     const [inputMode, setInputMode] = useState<'image' | 'text'>('text')
     const [description, setDescription] = useState('')
@@ -71,6 +77,9 @@ export default function EstimatorPage() {
     const [loading, setLoading] = useState(false)
     const [result, setResult] = useState<EstimatorResult | null>(null)
     const [addingToCart, setAddingToCart] = useState(false)
+    const [creatingProject, setCreatingProject] = useState(false)
+    const [showProjectModal, setShowProjectModal] = useState(false)
+    const [projectName, setProjectName] = useState('')
     const fileInputRef = useRef<HTMLInputElement>(null)
 
     // Cart store for adding estimated materials (regular user cart)
@@ -183,6 +192,56 @@ export default function EstimatorPage() {
         }
     }
 
+    const handleCreateProject = async () => {
+        if (!result || !projectName.trim()) {
+            toast.error('Vui lòng nhập tên dự án')
+            return
+        }
+
+        setCreatingProject(true)
+        try {
+            const token = localStorage.getItem('access_token')
+            const res = await fetch('/api/projects', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    name: projectName,
+                    description: `Dự án ${PROJECT_TYPES.find(t => t.id === projectType)?.name || projectType}. Diện tích: ${result.totalArea}m². ${description}`,
+                    startDate: new Date().toISOString(),
+                    budget: result.totalEstimatedCost || 0,
+                    priority: 'MEDIUM',
+                    notes: `Dự toán AI: ${result.materials.map(m => `${m.productName} x${m.quantity} ${m.unit}`).join(', ')}`
+                })
+            })
+
+            if (res.ok) {
+                const project = await res.json()
+                toast.success('Đã tạo dự án thành công!')
+                setShowProjectModal(false)
+
+                // Save estimate data to localStorage for project materials page
+                localStorage.setItem('pending_estimate', JSON.stringify({
+                    projectId: project.id,
+                    materials: result.materials,
+                    totalCost: result.totalEstimatedCost
+                }))
+
+                router.push(`/account/projects/${project.id}`)
+            } else {
+                const error = await res.json()
+                toast.error(error.error || 'Không thể tạo dự án')
+            }
+        } catch (error) {
+            console.error('Error creating project:', error)
+            toast.error('Lỗi kết nối server')
+        } finally {
+            setCreatingProject(false)
+        }
+    }
+
     const formatCurrency = (amount: number) => {
         return new Intl.NumberFormat('vi-VN', {
             style: 'currency',
@@ -193,6 +252,77 @@ export default function EstimatorPage() {
     return (
         <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
             <Toaster position="top-right" />
+
+            {/* Project Creation Modal */}
+            {showProjectModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-gray-100 animate-in zoom-in-95 duration-200">
+                        <div className="bg-gradient-to-r from-indigo-600 to-purple-600 p-6 text-white">
+                            <h2 className="text-xl font-bold flex items-center gap-2">
+                                <FolderPlus className="w-6 h-6" />
+                                Tạo Dự Án Mới
+                            </h2>
+                            <p className="text-indigo-100 text-sm mt-1">Lưu trữ dự toán và theo dõi tiến độ công trình</p>
+                        </div>
+
+                        <div className="p-6 space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Tên dự án *</label>
+                                <input
+                                    type="text"
+                                    value={projectName}
+                                    onChange={(e) => setProjectName(e.target.value)}
+                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                    placeholder="VD: Xây nhà Q7, Sửa phòng khách..."
+                                />
+                            </div>
+
+                            {result && (
+                                <div className="bg-gray-50 rounded-xl p-4 space-y-2">
+                                    <div className="flex justify-between text-sm">
+                                        <span className="text-gray-500">Diện tích:</span>
+                                        <span className="font-semibold text-gray-800">{result.totalArea.toFixed(1)} m²</span>
+                                    </div>
+                                    <div className="flex justify-between text-sm">
+                                        <span className="text-gray-500">Ngân sách dự kiến:</span>
+                                        <span className="font-semibold text-indigo-600">{formatCurrency(result.totalEstimatedCost)}</span>
+                                    </div>
+                                    <div className="flex justify-between text-sm">
+                                        <span className="text-gray-500">Số loại vật liệu:</span>
+                                        <span className="font-semibold text-gray-800">{result.materials.length} sản phẩm</span>
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="flex gap-3 pt-4">
+                                <button
+                                    onClick={() => setShowProjectModal(false)}
+                                    className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 font-medium transition-colors"
+                                >
+                                    Hủy
+                                </button>
+                                <button
+                                    onClick={handleCreateProject}
+                                    disabled={creatingProject || !projectName.trim()}
+                                    className="flex-1 px-4 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 font-semibold transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                                >
+                                    {creatingProject ? (
+                                        <>
+                                            <Loader2 className="w-4 h-4 animate-spin" />
+                                            Đang tạo...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <CheckCircle className="w-4 h-4" />
+                                            Tạo Dự Án
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Header */}
             <header className="bg-white/80 backdrop-blur-sm border-b border-gray-200 sticky top-0 z-40">
@@ -448,6 +578,38 @@ export default function EstimatorPage() {
                                             </>
                                         )}
                                     </button>
+
+                                    {/* Create Project Button */}
+                                    {isAuthenticated ? (
+                                        <button
+                                            onClick={() => {
+                                                setProjectName(`Dự án ${PROJECT_TYPES.find(t => t.id === projectType)?.name} - ${new Date().toLocaleDateString('vi-VN')}`)
+                                                setShowProjectModal(true)
+                                            }}
+                                            className="w-full mt-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white py-3 rounded-xl font-semibold transition-all flex items-center justify-center gap-2 shadow-lg"
+                                        >
+                                            <FolderPlus className="w-5 h-5" />
+                                            Tạo Dự Án Từ Dự Toán Này
+                                        </button>
+                                    ) : (
+                                        <div className="mt-4 p-5 bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-100 rounded-xl">
+                                            <div className="flex items-start gap-4">
+                                                <div className="bg-white p-2 rounded-lg shadow-sm">
+                                                    <Sparkles className="w-5 h-5 text-indigo-600" />
+                                                </div>
+                                                <div>
+                                                    <h4 className="font-bold text-gray-800 text-sm">Biến dự toán thành Dự án thực tế</h4>
+                                                    <p className="text-xs text-gray-500 mt-1">Đăng ký tài khoản để lưu trữ, theo dõi tiến độ và mời nhà thầu tham gia dự án của bạn.</p>
+                                                    <Link
+                                                        href="/register?redirect=/estimator"
+                                                        className="inline-flex items-center mt-3 text-indigo-600 font-bold hover:underline text-sm"
+                                                    >
+                                                        Đăng ký miễn phí <CheckCircle className="w-4 h-4 ml-1" />
+                                                    </Link>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             </>
                         ) : (

@@ -295,11 +295,18 @@ export default function ContractorDashboardPage() {
                                 <h2 className="text-lg font-semibold text-gray-900 mb-4">Thao tác Nhanh</h2>
                                 <div className="grid grid-cols-2 gap-4">
                                     <Link
-                                        href="/products"
+                                        href="/contractor/projects"
+                                        className="flex flex-col items-center gap-2 p-4 bg-orange-50 rounded-xl hover:bg-orange-100 transition-colors"
+                                    >
+                                        <Building2 className="w-8 h-8 text-orange-600" />
+                                        <span className="text-sm font-medium text-gray-700">Công trình</span>
+                                    </Link>
+                                    <Link
+                                        href="/contractor/orders"
                                         className="flex flex-col items-center gap-2 p-4 bg-blue-50 rounded-xl hover:bg-blue-100 transition-colors"
                                     >
                                         <Package className="w-8 h-8 text-blue-600" />
-                                        <span className="text-sm font-medium text-gray-700">Xem Sản phẩm</span>
+                                        <span className="text-sm font-medium text-gray-700">Lịch sử ĐH</span>
                                     </Link>
                                     <Link
                                         href="/contractor/debt"
@@ -314,13 +321,6 @@ export default function ContractorDashboardPage() {
                                     >
                                         <FileText className="w-8 h-8 text-purple-600" />
                                         <span className="text-sm font-medium text-gray-700">Xem Hợp đồng</span>
-                                    </Link>
-                                    <Link
-                                        href="/contractor/orders"
-                                        className="flex flex-col items-center gap-2 p-4 bg-orange-50 rounded-xl hover:bg-orange-100 transition-colors"
-                                    >
-                                        <Calendar className="w-8 h-8 text-orange-600" />
-                                        <span className="text-sm font-medium text-gray-700">Lịch sử ĐH</span>
                                     </Link>
                                 </div>
                             </div>

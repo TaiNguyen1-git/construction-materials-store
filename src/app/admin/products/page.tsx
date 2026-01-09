@@ -16,6 +16,8 @@ interface Product {
   price: number
   unit: string
   category: { id: string; name: string }
+  supplier?: { id: string; name: string } | null
+  supplierId?: string | null
   inventoryItem?: {
     quantity: number
     availableQuantity?: number
@@ -67,6 +69,7 @@ export default function ProductsSuppliersPage() {
     price: 0,
     unit: '',
     categoryId: '',
+    supplierId: '' as string,
     minStockLevel: 0,
     isActive: true,
     images: [] as string[],
@@ -200,6 +203,10 @@ export default function ProductsSuppliersPage() {
 
   // Product CRUD Functions
   const openProductModal = (product?: Product) => {
+    // Ensure suppliers are loaded when opening product modal
+    if (suppliers.length === 0) {
+      fetchSuppliers()
+    }
     if (product) {
       setEditingProduct(product)
       setProductForm({
@@ -208,6 +215,7 @@ export default function ProductsSuppliersPage() {
         price: product.price,
         unit: product.unit,
         categoryId: product.category.id,
+        supplierId: product.supplierId || '',
         minStockLevel: product.inventoryItem?.minStockLevel || 0,
         isActive: product.isActive,
         images: (product as any).images || [],
@@ -221,6 +229,7 @@ export default function ProductsSuppliersPage() {
         price: 0,
         unit: '',
         categoryId: '',
+        supplierId: '',
         minStockLevel: 0,
         isActive: true,
         images: [],
@@ -885,6 +894,9 @@ export default function ProductsSuppliersPage() {
                 </div>
               )}
             </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Tồn Kho Tối Thiểu</label>
               <FormattedNumberInput
@@ -892,6 +904,22 @@ export default function ProductsSuppliersPage() {
                 onChange={(val) => setProductForm({ ...productForm, minStockLevel: val })}
                 className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 bg-white"
               />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Nhà Cung Cấp</label>
+              <select
+                value={productForm.supplierId}
+                onChange={(e) => setProductForm({ ...productForm, supplierId: e.target.value })}
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 bg-white"
+              >
+                <option value="">-- Chọn nhà cung cấp --</option>
+                {suppliers.filter(s => s.isActive).map((supplier) => (
+                  <option key={supplier.id} value={supplier.id}>
+                    {supplier.name}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-gray-500 mt-1">Chọn NCC để tự động đặt hàng khi sắp hết</p>
             </div>
           </div>
 

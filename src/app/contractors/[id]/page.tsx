@@ -5,7 +5,11 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Header from '@/components/Header'
 import GuestInfoModal from '@/components/GuestInfoModal'
-import { Star, MapPin, Phone, Mail, CheckCircle, Briefcase, Users, ArrowLeft, Calendar, MessageCircle } from 'lucide-react'
+import { Star, MapPin, Phone, Mail, CheckCircle, Briefcase, Users, ArrowLeft, Calendar, MessageCircle, Building2, ChevronRight } from 'lucide-react'
+import { useAuth } from '@/contexts/auth-context'
+import FormModal from '@/components/FormModal'
+import { fetchWithAuth } from '@/lib/api-client'
+import { toast } from 'react-hot-toast'
 
 interface Contractor {
     id: string
@@ -24,6 +28,7 @@ interface Contractor {
     totalReviews: number
     completedJobs: number
     isAvailable: boolean
+    customerId: string
     createdAt: string
 }
 
@@ -63,6 +68,14 @@ export default function ContractorDetailPage() {
     const [submitRating, setSubmitRating] = useState(5)
     const [submitComment, setSubmitComment] = useState('')
     const [submitLoading, setSubmitLoading] = useState(false)
+
+    // Invite to Project State
+    const { user: authUser, isAuthenticated } = useAuth()
+    const [showInviteModal, setShowInviteModal] = useState(false)
+    const [customerProjects, setCustomerProjects] = useState<any[]>([])
+    const [inviteLoading, setInviteLoading] = useState(false)
+    const [fetchProjectsLoading, setFetchProjectsLoading] = useState(false)
+    const [selectedProjectId, setSelectedProjectId] = useState('')
 
     useEffect(() => {
         if (params.id) {
@@ -176,6 +189,54 @@ export default function ContractorDetailPage() {
             alert('Lỗi kết nối server')
         } finally {
             setSubmitLoading(false)
+        }
+    }
+
+    const handleOpenInvite = async () => {
+        if (!isAuthenticated) {
+            router.push('/login?redirect=' + window.location.pathname)
+            return
+        }
+
+        setShowInviteModal(true)
+        setFetchProjectsLoading(true)
+        try {
+            const res = await fetchWithAuth('/api/projects')
+            if (res.ok) {
+                const data = await res.json()
+                setCustomerProjects(data.data || [])
+            }
+        } catch (error) {
+            console.error('Failed to fetch projects:', error)
+            toast.error('Không thể tải danh sách dự án')
+        } finally {
+            setFetchProjectsLoading(false)
+        }
+    }
+
+    const handleInviteToProject = async () => {
+        if (!selectedProjectId || !contractor) return
+        setInviteLoading(true)
+        try {
+            const res = await fetchWithAuth(`/api/projects/${selectedProjectId}`, {
+                method: 'PUT',
+                body: JSON.stringify({ contractorId: contractor.customerId })
+            })
+
+            if (res.ok) {
+                toast.success('Gửi lời mời thành công! Nhà thầu đã được thêm vào dự án.')
+                setShowInviteModal(false)
+                setSelectedProjectId('')
+                fetchContractor() // Refresh to show updated status if needed
+            } else {
+                const error = await res.json()
+                toast.error(error.error || 'Có lỗi xảy ra')
+            }
+        } catch (error) {
+            console.error('Invite error:', error)
+            toast.error('Lỗi kết nối server')
+        } finally {
+            setInviteLoading(false)
         }
     }
 
@@ -312,11 +373,21 @@ export default function ContractorDetailPage() {
                         )}
                         <button
                             onClick={handleMessage}
-                            className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-bold transition-all shadow-md mt-4"
+                            className="w-full flex items-center justify-center gap-2 bg-white border-2 border-blue-600 text-blue-600 hover:bg-blue-50 py-3 rounded-lg font-bold transition-all mt-4"
                         >
                             <MessageCircle className="w-5 h-5" />
                             Nhắn tin
                         </button>
+
+                        {authUser?.role === 'CUSTOMER' && (
+                            <button
+                                onClick={handleOpenInvite}
+                                className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white py-3 rounded-lg font-bold transition-all shadow-md mt-3"
+                            >
+                                <Building2 className="w-5 h-5" />
+                                Mời vào dự án
+                            </button>
+                        )}
                     </div>
                 </div>
 
@@ -325,6 +396,86 @@ export default function ContractorDetailPage() {
                     onClose={() => setShowGuestModal(false)}
                     onSubmit={handleGuestSubmit}
                 />
+
+                {/* Invite to Project Modal */}
+                <FormModal
+                    isOpen={showInviteModal}
+                    onClose={() => setShowInviteModal(false)}
+                    title="Mời Nhà Thầu Vào Dự Án"
+                    size="md"
+                >
+                    <div className="p-6 space-y-6">
+                        <div className="text-center">
+                            <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-3">
+                                <Building2 className="w-8 h-8" />
+                            </div>
+                            <h3 className="text-xl font-bold text-gray-900">Mời {contractor.displayName}</h3>
+                            <p className="text-gray-500 text-sm">Chọn dự án bạn muốn mời nhà thầu này tham gia thi công</p>
+                        </div>
+
+                        {fetchProjectsLoading ? (
+                            <div className="flex justify-center py-8">
+                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                            </div>
+                        ) : customerProjects.length === 0 ? (
+                            <div className="text-center py-8 bg-gray-50 rounded-xl border border-dashed border-gray-300">
+                                <p className="text-gray-500 mb-4">Bạn chưa có dự án nào đang hoạt động</p>
+                                <Link
+                                    href="/estimator"
+                                    className="text-blue-600 font-bold hover:underline"
+                                >
+                                    Tạo dự án mới ngay →
+                                </Link>
+                            </div>
+                        ) : (
+                            <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                                {customerProjects.map((project) => (
+                                    <button
+                                        key={project.id}
+                                        onClick={() => setSelectedProjectId(project.id)}
+                                        className={`w-full text-left p-4 rounded-xl border-2 transition-all flex items-center justify-between group ${selectedProjectId === project.id
+                                            ? 'border-blue-600 bg-blue-50'
+                                            : 'border-gray-100 hover:border-blue-200 hover:bg-gray-50'
+                                            }`}
+                                    >
+                                        <div>
+                                            <p className={`font-bold ${selectedProjectId === project.id ? 'text-blue-700' : 'text-gray-900'}`}>
+                                                {project.name}
+                                            </p>
+                                            <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
+                                                <Calendar className="w-3 h-3" />
+                                                Ngày tạo: {new Date(project.createdAt).toLocaleDateString('vi-VN')}
+                                            </p>
+                                        </div>
+                                        {selectedProjectId === project.id ? (
+                                            <div className="bg-blue-600 rounded-full p-1 text-white">
+                                                <CheckCircle className="w-5 h-5" />
+                                            </div>
+                                        ) : (
+                                            <ChevronRight className="w-5 h-5 text-gray-300 group-hover:text-blue-400" />
+                                        )}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+
+                        <div className="flex gap-3 pt-6 border-t font-bold">
+                            <button
+                                onClick={() => setShowInviteModal(false)}
+                                className="flex-1 px-4 py-3 border border-gray-300 rounded-xl text-gray-700 hover:bg-gray-50 transition-colors"
+                            >
+                                Hủy
+                            </button>
+                            <button
+                                onClick={handleInviteToProject}
+                                disabled={inviteLoading || !selectedProjectId}
+                                className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 shadow-lg transition-all disabled:opacity-50"
+                            >
+                                {inviteLoading ? 'Đang gửi...' : 'Xác nhận mời'}
+                            </button>
+                        </div>
+                    </div>
+                </FormModal>
 
                 {/* Reviews */}
                 <div className="bg-white rounded-lg border border-gray-200 p-6">

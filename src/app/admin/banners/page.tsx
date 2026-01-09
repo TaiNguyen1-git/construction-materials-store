@@ -24,6 +24,7 @@ export default function BannerManagementPage() {
     const [searchTerm, setSearchTerm] = useState('')
     const [isModalOpen, setIsModalOpen] = useState(false)
     const [editingBanner, setEditingBanner] = useState<Banner | null>(null)
+    const [previewImage, setPreviewImage] = useState<string | null>(null)
 
     // Form State
     const [formData, setFormData] = useState({
@@ -173,15 +174,29 @@ export default function BannerManagementPage() {
                                     {banner.order}
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap">
-                                    <div className="h-16 w-32 relative rounded-md overflow-hidden bg-gray-100 border border-gray-200">
-                                        <img src={banner.imageUrl} alt={banner.title} className="w-full h-full object-cover" />
+                                    <div
+                                        className="h-16 w-40 relative rounded-lg overflow-hidden bg-gray-200 border-2 border-transparent hover:border-blue-500 group cursor-zoom-in transition-all duration-200 shadow-sm hover:shadow-md"
+                                        onClick={() => setPreviewImage(banner.imageUrl)}
+                                    >
+                                        <img
+                                            src={banner.imageUrl}
+                                            alt={banner.title}
+                                            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+                                            onError={(e) => {
+                                                const target = e.target as HTMLImageElement;
+                                                target.src = 'https://placehold.co/600x300/e2e8f0/475569?text=Broken+Link';
+                                            }}
+                                        />
+                                        <div className="absolute inset-0 bg-blue-600/0 group-hover:bg-blue-600/10 transition-colors flex items-center justify-center">
+                                            <Search className="text-white opacity-0 group-hover:opacity-100 w-6 h-6 drop-shadow-md transition-opacity" />
+                                        </div>
                                     </div>
                                 </td>
                                 <td className="px-6 py-4">
-                                    <div className="text-sm font-medium text-gray-900">{banner.title}</div>
-                                    <div className="text-sm text-gray-500 truncate max-w-md">{banner.description}</div>
+                                    <div className="text-sm font-bold text-gray-900">{banner.title}</div>
+                                    <div className="text-xs text-gray-500 mt-0.5 line-clamp-1">{banner.description}</div>
                                     {banner.tag && (
-                                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 mt-1">
+                                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-600 border border-blue-100 mt-1.5 uppercase tracking-wider">
                                             {banner.tag}
                                         </span>
                                     )}
@@ -229,6 +244,23 @@ export default function BannerManagementPage() {
                     </tbody>
                 </table>
             </div>
+
+            {/* Full Image Preview Overlay */}
+            {previewImage && (
+                <div
+                    className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-10 cursor-zoom-out"
+                    onClick={() => setPreviewImage(null)}
+                >
+                    <button className="absolute top-5 right-5 text-white/70 hover:text-white bg-white/10 p-2 rounded-full transition-colors">
+                        <XCircle className="w-8 h-8" />
+                    </button>
+                    <img
+                        src={previewImage}
+                        alt="Full Preview"
+                        className="max-w-full max-h-full object-contain shadow-2xl rounded-lg animate-in zoom-in-95 duration-200"
+                    />
+                </div>
+            )}
 
             {/* Modal Create/Edit */}
             {isModalOpen && (
@@ -287,10 +319,17 @@ export default function BannerManagementPage() {
                                         />
                                     </div>
                                     {formData.imageUrl && (
-                                        <div className="mt-2 h-32 bg-gray-100 rounded-lg border border-gray-200 overflow-hidden relative group">
-                                            <img src={formData.imageUrl} alt="Preview" className="w-full h-full object-cover" />
-                                            <div className="absolute inset-0 bg-black/40 flex items-center justify-center text-white text-xs opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                                                Xem trước hình ảnh
+                                        <div
+                                            className="mt-2 h-40 bg-gray-100 rounded-xl border-2 border-dashed border-gray-300 overflow-hidden relative group cursor-zoom-in transition-all hover:border-blue-400"
+                                            onClick={() => setPreviewImage(formData.imageUrl)}
+                                            title="Click để phóng to"
+                                        >
+                                            <img src={formData.imageUrl} alt="Preview" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                                            <div className="absolute inset-0 bg-blue-600/0 group-hover:bg-blue-600/20 flex flex-col items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-all duration-300">
+                                                <div className="bg-white/20 backdrop-blur-md p-3 rounded-full mb-2">
+                                                    <Search className="w-6 h-6 text-white" />
+                                                </div>
+                                                <span className="text-sm font-bold tracking-wide drop-shadow-md">XEM ẢNH PHÓNG TO</span>
                                             </div>
                                         </div>
                                     )}

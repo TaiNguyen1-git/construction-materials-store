@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { fullName, email, phone, password } = validation.data
+    const { fullName, email, phone, password, guestId } = validation.data as any
     const sanitizedName = sanitizeString(fullName)
 
     // Check if user already exists
@@ -101,6 +101,57 @@ export async function POST(request: NextRequest) {
           referralCode
         }
       })
+
+      // Migrate guest data if guestId provided
+      if (guestId && guestId.startsWith('guest_')) {
+        try {
+          // Find conversations where guest was a participant
+          const guestConversations = await tx.conversation.findMany({
+            where: {
+              OR: [
+                { participant1Id: guestId },
+                { participant2Id: guestId }
+              ]
+            }
+          })
+
+          // Update each conversation to use new customer ID
+          for (const conv of guestConversations) {
+            const updateData: any = {}
+            if (conv.participant1Id === guestId) {
+              updateData.participant1Id = customer.id
+              updateData.participant1Name = sanitizedName
+            }
+            if (conv.participant2Id === guestId) {
+              updateData.participant2Id = customer.id
+              updateData.participant2Name = sanitizedName
+            }
+
+            await tx.conversation.update({
+              where: { id: conv.id },
+              data: updateData
+            })
+          }
+
+          // Update messages from guest to new customer
+          await tx.message.updateMany({
+            where: { senderId: guestId },
+            data: {
+              senderId: customer.id,
+              senderName: sanitizedName
+            }
+          })
+
+          logger.info('Guest data migrated', {
+            guestId,
+            customerId: customer.id,
+            conversationsCount: guestConversations.length
+          })
+        } catch (migrationError) {
+          // Don't fail registration if migration fails
+          logger.error('Guest migration failed', { guestId, error: migrationError })
+        }
+      }
 
       return { user, customer }
     })

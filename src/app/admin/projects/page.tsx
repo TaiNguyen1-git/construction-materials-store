@@ -3,17 +3,19 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { fetchWithAuth } from '@/lib/api-client'
-import { 
-  Plus, 
-  Search, 
-  Filter, 
-  Calendar, 
-  DollarSign, 
-  CheckCircle, 
-  Clock, 
+import {
+  Plus,
+  Search,
+  Filter,
+  Calendar,
+  DollarSign,
+  CheckCircle,
+  Clock,
   AlertCircle,
   Eye,
   Edit,
+  Trash2,
+  Trash,
   Play,
   Pause,
   Check,
@@ -59,7 +61,7 @@ export default function AdminProjectsPage() {
   const [editingProject, setEditingProject] = useState<Project | null>(null)
   const [deletingProject, setDeletingProject] = useState<Project | null>(null)
   const [formLoading, setFormLoading] = useState(false)
-  
+
   const [form, setForm] = useState({
     name: '',
     description: '',
@@ -78,13 +80,13 @@ export default function AdminProjectsPage() {
     try {
       setLoading(true)
       const params = new URLSearchParams()
-      
+
       if (filters.search) params.append('search', filters.search)
       if (filters.status) params.append('status', filters.status)
       if (filters.priority) params.append('priority', filters.priority)
 
       const response = await fetchWithAuth(`/api/projects?${params.toString()}`)
-      
+
       if (response.ok) {
         const data = await response.json()
         setProjects(data.data)
@@ -251,7 +253,7 @@ export default function AdminProjectsPage() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-gray-900">Quản Lý Dự Án</h1>
-        <button 
+        <button
           onClick={() => openModal()}
           className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 flex items-center"
         >
@@ -272,18 +274,18 @@ export default function AdminProjectsPage() {
               <input
                 type="text"
                 value={filters.search}
-                onChange={(e) => setFilters({...filters, search: e.target.value})}
+                onChange={(e) => setFilters({ ...filters, search: e.target.value })}
                 className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                 placeholder="Tìm kiếm dự án..."
               />
             </div>
           </div>
-          
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Trạng Thái</label>
             <select
               value={filters.status}
-              onChange={(e) => setFilters({...filters, status: e.target.value})}
+              onChange={(e) => setFilters({ ...filters, status: e.target.value })}
               className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
             >
               <option value="">Tất Cả Trạng Thái</option>
@@ -294,12 +296,12 @@ export default function AdminProjectsPage() {
               <option value="CANCELLED">Đã Hủy</option>
             </select>
           </div>
-          
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Mức Độ Ưu Tiên</label>
             <select
               value={filters.priority}
-              onChange={(e) => setFilters({...filters, priority: e.target.value})}
+              onChange={(e) => setFilters({ ...filters, priority: e.target.value })}
               className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
             >
               <option value="">Tất Cả Mức Độ</option>
@@ -309,7 +311,7 @@ export default function AdminProjectsPage() {
               <option value="URGENT">Khẩn Cấp</option>
             </select>
           </div>
-          
+
           <div className="flex items-end">
             <button
               onClick={() => setFilters({ search: '', status: '', priority: '' })}
@@ -360,9 +362,9 @@ export default function AdminProjectsPage() {
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredProjects.map((project) => (
                   <tr key={project.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">{project.name}</div>
-                      <div className="text-sm text-gray-500 line-clamp-1">
+                    <td className="px-6 py-4 min-w-[300px]">
+                      <div className="text-sm font-bold text-gray-900 mb-0.5">{project.name}</div>
+                      <div className="text-xs text-gray-500 line-clamp-2 leading-relaxed">
                         {project.description || 'Không có mô tả'}
                       </div>
                     </td>
@@ -403,7 +405,7 @@ export default function AdminProjectsPage() {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <div className="w-16 bg-gray-200 rounded-full h-2 mr-2">
-                          <div 
+                          <div
                             className={`h-2 rounded-full ${getProgressColor(project.taskCompletion)}`}
                             style={{ width: `${project.taskCompletion}%` }}
                           ></div>
@@ -414,25 +416,30 @@ export default function AdminProjectsPage() {
                         {project.completedTasks}/{project.totalTasks} công việc
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <Link 
-                        href={`/admin/projects/${project.id}`}
-                        className="text-blue-600 hover:text-blue-900 mr-3"
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Link>
-                      <button 
-                        onClick={() => openModal(project)}
-                        className="text-green-600 hover:text-green-900 mr-3"
-                      >
-                        <Edit className="h-4 w-4" />
-                      </button>
-                      <button 
-                        onClick={() => setDeletingProject(project)}
-                        className="text-red-600 hover:text-red-900"
-                      >
-                        Xóa
-                      </button>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <div className="flex items-center justify-end space-x-3">
+                        <Link
+                          href={`/admin/projects/${project.id}`}
+                          className="text-blue-600 hover:text-blue-900 bg-blue-50 p-1.5 rounded-full transition-colors"
+                          title="Xem chi tiết"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Link>
+                        <button
+                          onClick={() => openModal(project)}
+                          className="text-amber-600 hover:text-amber-900 bg-amber-50 p-1.5 rounded-full transition-colors"
+                          title="Chỉnh sửa"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => setDeletingProject(project)}
+                          className="text-red-600 hover:text-red-900 bg-red-50 p-1.5 rounded-full transition-colors"
+                          title="Xóa"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}

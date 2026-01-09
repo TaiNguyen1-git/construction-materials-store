@@ -283,6 +283,34 @@ export async function POST(request: NextRequest) {
       })
       if (customer) {
         customerId = customer.id
+
+        // --- DEBT MANAGEMENT CHECK ---
+        // Verify credit eligibility before proceeding
+        const { creditCheckService } = await import('@/lib/credit-check-service')
+        const creditResult = await creditCheckService.checkCreditEligibility(customerId, data.totalAmount)
+
+        if (!creditResult.eligible) {
+          logger.warn('Order blocked due to credit check', {
+            customerId,
+            reason: creditResult.reason,
+            currentDebt: creditResult.currentDebt,
+            amount: data.totalAmount
+          })
+
+          return NextResponse.json(
+            createErrorResponse(
+              creditResult.reason || 'Đơn hàng bị chặn do vấn đề công nợ/tín dụng',
+              'CREDIT_CHECK_FAILED',
+              {
+                currentDebt: creditResult.currentDebt,
+                creditLimit: creditResult.creditLimit,
+                overdueAmount: creditResult.overdueAmount
+              }
+            ),
+            { status: 400 }
+          )
+        }
+        // --- END DEBT CHECK ---
       }
     }
 

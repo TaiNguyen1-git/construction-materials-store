@@ -122,13 +122,18 @@ model Customer {
   user    User    @relation(fields: [userId], references: [id])
   orders  Order[]
   invoices Invoice[]
-  projects Project[]
+  projects        Project[]  @relation("ProjectOwner")
+  contractedProjects Project[] @relation("ProjectContractor")
   referrals Customer[] @relation("CustomerReferral")
   referredByCustomer Customer? @relation("CustomerReferral", fields: [referredBy], references: [id], onDelete: NoAction, onUpdate: NoAction)
   materialCalculations MaterialCalculation[]
   creditApprovals CreditApproval[]
   contracts Contract[]
-
+  
+  // Brokerage
+  // quoteRequests   QuoteRequest[] @relation("CustomerOutboundQuotes")
+  // receivedQuotes  QuoteRequest[] @relation("ContractorInboundQuotes")
+  
   @@map("customers")
   @@index([customerType])
   @@index([loyaltyTier])
@@ -259,6 +264,7 @@ model PayrollRecord {
 }
 
 // Product and Inventory Management
+
 model Category {
   id          String    @id @default(auto()) @map("_id") @db.ObjectId
   name        String    @unique
@@ -285,6 +291,7 @@ model Product {
   name        String
   description String?
   categoryId  String
+  supplierId  String? @db.ObjectId  // Default supplier for this product
   sku         String  @unique
   price       Float
   costPrice   Float?
@@ -302,6 +309,7 @@ model Product {
 
   // Relationships
   category         Category           @relation(fields: [categoryId], references: [id])
+  supplier         Supplier?          @relation(fields: [supplierId], references: [id])
   inventoryItem    InventoryItem?
   orderItems       OrderItem[]
   invoiceItems     InvoiceItem[]
@@ -550,6 +558,7 @@ model Supplier {
   updatedAt     DateTime @updatedAt
 
   // Relationships
+  products         Product[]
   invoices         Invoice[]
   purchaseOrders   PurchaseOrder[]
   supplierProducts SupplierProduct[]
@@ -952,7 +961,9 @@ model Project {
   updatedAt       DateTime   @updatedAt
 
   // Relationships
-  customer        Customer   @relation(fields: [customerId], references: [id])
+  customer        Customer   @relation("ProjectOwner", fields: [customerId], references: [id])
+  contractorId    String?    @db.ObjectId
+  contractor      Customer?  @relation("ProjectContractor", fields: [contractorId], references: [id])
   projectTasks    ProjectTask[]
   projectMaterials ProjectMaterial[]
 
@@ -1241,6 +1252,44 @@ model PriceList {
   @@index([priority])
 }
 
+
+
+
+
+
+model QuoteRequest {
+  id           String      @id @default(auto()) @map("_id") @db.ObjectId
+  customerId   String      @db.ObjectId
+  contractorId String      @db.ObjectId
+  projectId    String?     @db.ObjectId
+  status       QuoteStatus @default(PENDING)
+  details      String
+  budget       Float?
+  location     String?
+  startDate    DateTime?
+  
+  // Response from contractor
+  response     String?
+  priceQuote   Float?
+  respondedAt  DateTime?
+  
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  @@map("quote_requests")
+  @@index([customerId])
+  @@index([contractorId])
+  @@index([status])
+}
+
+enum QuoteStatus {
+  PENDING
+  REPLIED
+  ACCEPTED
+  REJECTED
+  CANCELLED
+}
+
 // Hợp đồng giá với khách hàng
 model Contract {
   id              String         @id @default(auto()) @map("_id") @db.ObjectId
@@ -1505,9 +1554,130 @@ model SavedEstimate {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  // Relationships
+  phases      ProjectPhase[]
+  reminders   ProjectReminder[]
+
   @@map("saved_estimates")
   @@index([customerId])
   @@index([sessionId])
+}
+
+// ============================================
+// PROJECT ROADMAP (AI Timeline)
+// ============================================
+
+enum PhaseStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  SKIPPED
+}
+
+model ProjectPhase {
+  id              String      @id @default(auto()) @map("_id") @db.ObjectId
+  estimateId      String      @db.ObjectId
+  name            String      // Phase name: "Móng", "Xây thô", "Lát nền"...
+  description     String?     // AI-generated description
+  order           Int         // Sequence order
+  status          PhaseStatus @default(PENDING)
+  
+  // Timeline
+  estimatedStartDate DateTime?
+  estimatedEndDate   DateTime?
+  actualStartDate    DateTime?
+  actualEndDate      DateTime?
+  
+  // Materials for this phase
+  recommendedMaterials Json?   // Array of { productId, name, quantity, priority }
+  purchaseDeadline     DateTime? // When materials should be ordered
+  
+  // Progress
+  completionPercent Int @default(0)
+  notes            String?
+  
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  // Relationships
+  estimate         SavedEstimate @relation(fields: [estimateId], references: [id])
+
+  @@map("project_phases")
+  @@index([estimateId])
+  @@index([status])
+  @@index([order])
+}
+
+model ProjectReminder {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  estimateId   String   @db.ObjectId
+  customerId   String?
+  
+  // Reminder details
+  title        String
+  message      String
+  type         String   // MATERIAL_PURCHASE, PHASE_START, DEADLINE, CUSTOM
+  priority     String   @default("MEDIUM") // LOW, MEDIUM, HIGH, URGENT
+  
+  // Scheduling
+  scheduledFor DateTime
+  sentAt       DateTime?
+  isRead       Boolean  @default(false)
+  isDismissed  Boolean  @default(false)
+  
+  // Reference
+  phaseId      String?  @db.ObjectId
+  productIds   String[] // Products to remind about
+  
+  createdAt    DateTime @default(now())
+
+  // Relationships
+  estimate     SavedEstimate @relation(fields: [estimateId], references: [id])
+
+  @@map("project_reminders")
+  @@index([estimateId])
+  @@index([customerId])
+  @@index([scheduledFor])
+  @@index([isRead])
+}
+
+// ============================================
+// CHAT SUMMARY (Smart Settlement)
+// ============================================
+
+model ChatSummary {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  conversationId  String   @db.ObjectId
+  
+  // Summary content
+  title           String   // Auto-generated title
+  summary         String   // Full AI summary
+  
+  // Extracted key points
+  agreedPrice     Float?   // Extracted agreed price
+  priceUnit       String?  // "m2", "total", "day"...
+  agreedDate      DateTime? // Agreed delivery/start date
+  keyTerms        Json?    // Array of { term, value, confidence }
+  
+  // Participants info at time of summary
+  participant1Name String
+  participant2Name String
+  
+  // Messages covered
+  messageCount    Int
+  fromMessageId   String?  @db.ObjectId
+  toMessageId     String?  @db.ObjectId
+  
+  // Status
+  isConfirmed     Boolean  @default(false) // Both parties confirmed
+  confirmedBy     String[] // IDs of users who confirmed
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("chat_summaries")
+  @@index([conversationId])
+  @@index([createdAt])
 }
 
 // ============================================

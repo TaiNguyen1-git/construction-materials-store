@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { Search, MapPin, ArrowRight, Zap, TrendingUp, ShieldCheck, PenTool, LayoutGrid, Brain, CreditCard, Package, ChevronRight, UserPlus, ChevronDown, HardHat, Quote, Star } from 'lucide-react'
+import { Search, MapPin, ArrowRight, Zap, TrendingUp, ShieldCheck, PenTool, LayoutGrid, Brain, CreditCard, Package, ChevronRight, UserPlus, ChevronDown, HardHat, Quote, Star, Sparkles, Clock, X } from 'lucide-react'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import { useAuth } from '@/contexts/auth-context'
@@ -29,6 +29,18 @@ export default function HomePage() {
   const [selectedSubCategories, setSelectedSubCategories] = useState<string[]>([])
   const [loadedLogos, setLoadedLogos] = useState<Set<string>>(new Set())
   const [failedLogos, setFailedLogos] = useState<Set<string>>(new Set())
+
+  // Search state
+  const [searchQuery, setSearchQuery] = useState('')
+  const [isSearchFocused, setIsSearchFocused] = useState(false)
+  const [searchSuggestions, setSearchSuggestions] = useState<any[]>([])
+
+  const topSearches = [
+    { name: 'Sắt thép Hòa Phát', tag: 'Bán chạy' },
+    { name: 'Xi măng Hà Tiên PCB40', tag: 'Dự án' },
+    { name: 'Gạch ốp lát Prime', tag: 'Nổi bật' },
+    { name: 'Sơn Dulux nội thất', tag: 'Khuyến mãi' }
+  ]
 
   const partners = [
     { name: 'Hòa Phát', logo: 'https://www.hoaphat.com.vn/assets/images/logo.png', color: 'bg-blue-50', text: 'text-blue-700' },
@@ -147,6 +159,30 @@ export default function HomePage() {
 
   const banners = dbBanners.length > 0 ? dbBanners : defaultBanners
 
+  // Utility to remove Vietnamese accents
+  const removeAccents = (str: string) => {
+    return str.normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/đ/g, 'd')
+      .replace(/Đ/g, 'D');
+  }
+
+  useEffect(() => {
+    // Smart search filtering with accent-insensitivity
+    if (searchQuery.length > 0) {
+      const normalizedQuery = removeAccents(searchQuery.toLowerCase())
+      const allProducts = Object.values(fallbackProducts).flat()
+
+      const filtered = allProducts.filter(p => {
+        const normalizedName = removeAccents(p.name.toLowerCase())
+        return normalizedName.includes(normalizedQuery)
+      }).slice(0, 5)
+
+      setSearchSuggestions(filtered)
+    } else {
+      setSearchSuggestions([])
+    }
+  }, [searchQuery])
   useEffect(() => {
     fetchFeaturedProducts()
     fetchCategories()
@@ -282,55 +318,126 @@ export default function HomePage() {
 
       <main className="flex-1">
         {/* Hero Section - Clean & Professional */}
-        <section className="bg-gradient-to-r from-blue-900 via-blue-800 to-slate-900 text-white pt-20 pb-28 relative overflow-hidden">
-          <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(#ffffff 1px, transparent 1px)', backgroundSize: '30px 30px' }}></div>
+        <section className="relative min-h-[650px] flex items-center pt-20 pb-28 overflow-hidden">
+          {/* Background Image with Parallax-like effect */}
+          <div className="absolute inset-0 z-0">
+            <Image
+              src="/images/hero_bg.png"
+              alt="Construction Site"
+              fill
+              className="object-cover scale-105 animate-slow-zoom"
+              priority
+            />
+            <div className="absolute inset-0 bg-gradient-to-r from-blue-900 via-blue-800 to-slate-900 opacity-90 z-10"></div>
+            <div className="absolute inset-0 opacity-10 z-10" style={{ backgroundImage: 'radial-gradient(#ffffff 1px, transparent 1px)', backgroundSize: '30px 30px' }}></div>
+          </div>
 
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-            <div className="text-center max-w-4xl mx-auto mb-12">
-              <h1 className="text-4xl md:text-6xl font-extrabold mb-6 leading-tight tracking-tight text-white">
+            <div className="text-center max-w-5xl mx-auto">
+              {/* Badge/Tag */}
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-500/10 border border-blue-400/20 backdrop-blur-md text-blue-300 text-[11px] font-bold mb-8 animate-fade-in-up">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
+                </span>
+                HỆ THỐNG CUNG CẤP VẬT TƯ 4.0
+              </div>
+
+              <h1 className="text-5xl md:text-7xl font-extrabold mb-8 leading-tight tracking-tight text-white animate-fade-in-up">
                 Nền Tảng Cung Cấp <br className="hidden lg:block" />
-                <span className="text-blue-400">Vật Liệu Xây Dựng</span> Tin Cậy
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-sky-300 to-indigo-300 animate-gradient-text">
+                  Vật Liệu Xây Dựng
+                </span> Tin Cậy
               </h1>
-              <p className="text-base md:text-xl text-slate-300 mb-10 max-w-3xl mx-auto leading-relaxed font-medium">
+              <p className="text-lg md:text-xl text-slate-200 mb-12 max-w-3xl mx-auto leading-relaxed font-medium animate-fade-in-up delay-100">
                 Giải pháp cung ứng vật tư toàn diện, kết nối trực tiếp chủ thầu với nhà sản xuất uy tín, tối ưu 15-20% chi phí.
               </p>
 
               {/* Hybrid Search Tabs */}
-              <div className="flex justify-center mb-0 translate-y-[1px]">
-                <div className="bg-blue-900/50 backdrop-blur-md p-1 rounded-t-xl flex gap-1 border-x border-t border-blue-100/20">
+              <div className="flex justify-center mb-0 translate-y-[1px] animate-fade-in-up delay-200">
+                <div className="bg-blue-900/50 backdrop-blur-md p-1.5 rounded-t-xl flex gap-1.5 border-x border-t border-blue-100/20">
                   <button
                     onClick={() => setActiveSearchTab('products')}
-                    className={`px-6 py-2.5 rounded-t-lg text-sm font-bold transition-all flex items-center gap-2 ${activeSearchTab === 'products' ? 'bg-white text-blue-900 shadow-lg' : 'text-blue-200 hover:text-white hover:bg-white/10'}`}
+                    className={`px-8 py-3 rounded-t-lg text-sm font-bold transition-all flex items-center gap-2.5 ${activeSearchTab === 'products' ? 'bg-white text-blue-900 shadow-lg' : 'text-blue-200 hover:text-white hover:bg-white/10'}`}
                   >
-                    <Package className="w-4 h-4" /> MUA VẬT TƯ
+                    <Package className="w-5 h-5" /> MUA VẬT TƯ
                   </button>
                   <button
                     onClick={() => setActiveSearchTab('contractors')}
-                    className={`px-6 py-2.5 rounded-t-lg text-sm font-bold transition-all flex items-center gap-2 ${activeSearchTab === 'contractors' ? 'bg-white text-blue-900 shadow-lg' : 'text-blue-200 hover:text-white hover:bg-white/10'}`}
+                    className={`px-8 py-3 rounded-t-lg text-sm font-bold transition-all flex items-center gap-2.5 ${activeSearchTab === 'contractors' ? 'bg-white text-blue-900 shadow-lg' : 'text-blue-200 hover:text-white hover:bg-white/10'}`}
                   >
-                    <HardHat className="w-4 h-4" /> TÌM NHÀ THẦU
+                    <HardHat className="w-5 h-5" /> TÌM NHÀ THẦU
                   </button>
                 </div>
               </div>
 
-              {/* Main Search Bar - Refined Custom Dropdown */}
-              <div className="bg-white p-2 rounded-xl rounded-tr-none shadow-2xl max-w-4xl mx-auto flex flex-col md:flex-row gap-2 border border-blue-100/50 relative z-20">
-                <div className="flex-[2] relative flex items-center px-4 border-b md:border-b-0 md:border-r border-gray-100 group">
-                  <Search className="h-5 w-5 text-blue-500 mr-3 group-focus-within:scale-110 transition-transform" />
+              {/* Main Search Bar - Compact & Smart */}
+              <div className="bg-white p-1.5 rounded-xl rounded-tr-none shadow-2xl max-w-4xl mx-auto flex flex-col md:flex-row gap-1.5 border border-blue-100/50 relative z-30 animate-fade-in-up delay-300">
+                <div className="flex-[2] relative flex items-center px-5 border-b md:border-b-0 md:border-r border-gray-100 group">
+                  <Search className="h-5 w-5 text-blue-500 mr-3.5 group-focus-within:scale-110 transition-transform" />
                   <input
                     type="text"
-                    placeholder={activeSearchTab === 'products' ? "Tên vật liệu, thương hiệu (xi măng, thép...)" : "Tìm nhà thầu xây dựng, thợ điện nước..."}
-                    className="w-full py-4 outline-none text-slate-700 placeholder-slate-400 font-medium bg-transparent"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onFocus={() => setIsSearchFocused(true)}
+                    onBlur={() => setTimeout(() => setIsSearchFocused(false), 200)}
+                    placeholder={activeSearchTab === 'products' ? "Bạn đang tìm vật liệu gì?..." : "Tìm nhà thầu, thợ xây dựng..."}
+                    className="w-full py-3 outline-none text-slate-700 placeholder-slate-400 font-bold text-base bg-transparent"
                   />
+
+                  {/* Smart Suggestions Dropdown */}
+                  {isSearchFocused && activeSearchTab === 'products' && (
+                    <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.15)] border border-slate-100 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                      {searchQuery.length === 0 ? (
+                        <div className="p-4">
+                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 px-2">Tìm kiếm phổ biến</p>
+                          <div className="space-y-1">
+                            {topSearches.map((item, idx) => (
+                              <button key={idx} onClick={() => setSearchQuery(item.name)} className="w-full flex items-center justify-between px-3 py-2.5 hover:bg-blue-50 rounded-lg transition-colors group">
+                                <span className="text-sm font-bold text-slate-600 group-hover:text-blue-700 flex items-center gap-2">
+                                  <TrendingUp className="w-3.5 h-3.5 text-blue-400" /> {item.name}
+                                </span>
+                                <span className="text-[9px] px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded font-black">{item.tag}</span>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="p-2">
+                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 p-2">Kết quả gợi ý</p>
+                          {searchSuggestions.length > 0 ? (
+                            searchSuggestions.map((item, idx) => (
+                              <button key={idx} className="w-full flex items-center justify-between px-4 py-3 hover:bg-blue-50 rounded-lg transition-colors group">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-8 h-8 rounded bg-slate-100 flex items-center justify-center">
+                                    <Package className="w-4 h-4 text-slate-400" />
+                                  </div>
+                                  <div className="text-left">
+                                    <p className="text-sm font-bold text-slate-700 group-hover:text-blue-700">{item.name}</p>
+                                    <p className="text-[11px] text-blue-600 font-black">{item.price}</p>
+                                  </div>
+                                </div>
+                                <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-blue-500 group-hover:translate-x-1 transition-all" />
+                              </button>
+                            ))
+                          ) : (
+                            <div className="p-4 text-center">
+                              <p className="text-sm text-slate-400 font-medium italic">Không tìm thấy sản phẩm phù hợp</p>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
                 {activeSearchTab === 'contractors' && (
                   <div className="flex-1 relative">
                     <button
                       onClick={() => setIsLocationOpen(!isLocationOpen)}
-                      className="w-full h-full flex items-center px-4 py-4 text-left outline-none cursor-pointer group"
+                      className="w-full h-full flex items-center px-5 py-3 text-left outline-none cursor-pointer group"
                     >
                       <MapPin className="h-5 w-5 text-blue-400 mr-3 group-hover:scale-110 transition-transform" />
-                      <span className="flex-1 text-slate-600 font-medium truncate">{selectedLocation}</span>
+                      <span className="flex-1 text-slate-600 font-bold truncate text-sm">{selectedLocation}</span>
                       <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform duration-300 ${isLocationOpen ? 'rotate-180' : ''}`} />
                     </button>
 
@@ -344,11 +451,11 @@ export default function HomePage() {
                               setSelectedLocation(loc)
                               setIsLocationOpen(false)
                             }}
-                            className={`w-full px-5 py-3 text-left text-sm font-medium transition-all flex items-center gap-2
+                            className={`w-full px-5 py-3.5 text-left text-sm font-bold transition-all flex items-center gap-3
                               ${selectedLocation === loc ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-50 hover:text-blue-600'}
                             `}
                           >
-                            <MapPin className={`w-3.5 h-3.5 ${selectedLocation === loc ? 'text-blue-500' : 'text-slate-300'}`} />
+                            <MapPin className={`w-4 h-4 ${selectedLocation === loc ? 'text-blue-500' : 'text-slate-300'}`} />
                             {loc}
                           </button>
                         ))}
@@ -360,17 +467,17 @@ export default function HomePage() {
                     )}
                   </div>
                 )}
-                <button className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-10 rounded-lg transition-all w-full md:w-auto shadow-lg shadow-blue-200 active:scale-95 flex items-center justify-center gap-2">
+                <button className="bg-blue-600 hover:bg-blue-700 text-white font-black py-3.5 px-10 rounded-xl transition-all w-full md:w-auto shadow-lg shadow-blue-200 active:scale-95 flex items-center justify-center gap-2">
                   <Search className="w-4 h-4 md:hidden" />
                   TÌM KIẾM
                 </button>
               </div>
 
               {/* Quick Stats Tags */}
-              <div className="mt-8 flex flex-wrap justify-center gap-8 text-xs text-slate-300 font-medium">
-                <span className="flex items-center opacity-90 hover:text-white transition-colors cursor-default"><ShieldCheck className="w-4 h-4 mr-2 text-green-400" /> 100% Chính hãng</span>
-                <span className="flex items-center opacity-90 hover:text-white transition-colors cursor-default"><TrendingUp className="w-4 h-4 mr-2 text-blue-400" /> Giá cạnh tranh</span>
-                <span className="flex items-center opacity-90 hover:text-white transition-colors cursor-default"><Zap className="w-4 h-4 mr-2 text-yellow-400" /> Giao hàng 24h</span>
+              <div className="mt-12 flex flex-wrap justify-center gap-10 text-xs text-slate-300 font-bold animate-fade-in-up delay-400">
+                <span className="flex items-center opacity-90 hover:text-white transition-colors cursor-default"><ShieldCheck className="w-5 h-5 mr-2 text-green-400" /> 100% Chính hãng</span>
+                <span className="flex items-center opacity-90 hover:text-white transition-colors cursor-default"><TrendingUp className="w-5 h-5 mr-2 text-blue-400" /> Giá cạnh tranh</span>
+                <span className="flex items-center opacity-90 hover:text-white transition-colors cursor-default"><Zap className="w-5 h-5 mr-2 text-yellow-400" /> Giao hàng 24h</span>
               </div>
             </div>
           </div>
@@ -761,6 +868,25 @@ export default function HomePage() {
                     Thử công cụ AI
                   </Link>
                 </div>
+
+                {!isAuthenticated && (
+                  <div className="mt-8 p-6 bg-indigo-50 border border-indigo-100 rounded-2xl">
+                    <div className="flex items-start gap-4">
+                      <div className="bg-white p-2 rounded-lg text-indigo-600 shadow-sm">
+                        <Sparkles className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h4 className="font-black text-slate-800 text-sm uppercase tracking-wider">Mở khóa toàn bộ trải nghiệm AI</h4>
+                        <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                          Chỉ thành viên mới có thể <strong>lưu trữ kết quả dự toán</strong>, theo dõi tiến độ vật tư và nhận tư vấn chuyên sâu từ chuyên gia.
+                        </p>
+                        <Link href="/register" className="inline-flex items-center mt-3 text-indigo-600 font-bold text-xs hover:underline">
+                          Tạo tài khoản miễn phí <ArrowRight className="w-3 h-3 ml-1" />
+                        </Link>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
               <div className="relative h-96 bg-gradient-to-br from-slate-100 to-white rounded-2xl overflow-hidden border border-slate-200 p-8 flex items-center justify-center">
                 <div className="absolute inset-0 bg-[radial-gradient(#e2e8f0_1px,transparent_1px)] [background-size:16px_16px]"></div>
@@ -939,6 +1065,105 @@ export default function HomePage() {
             </div>
           </div>
         </section>
+
+        {/* Registration Incentive Section */}
+        {!isAuthenticated && (
+          <section className="py-24 bg-white overflow-hidden relative">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+              <div className="bg-gradient-to-br from-indigo-600 to-blue-700 rounded-[3rem] p-12 md:p-20 text-white shadow-2xl relative overflow-hidden">
+                {/* Abstract background elements */}
+                <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/4 w-96 h-96 bg-white/10 rounded-full blur-3xl"></div>
+                <div className="absolute bottom-0 left-0 translate-y-1/4 -translate-x-1/4 w-96 h-96 bg-blue-400/20 rounded-full blur-3xl"></div>
+
+                <div className="grid lg:grid-cols-2 gap-16 items-center">
+                  <div>
+                    <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-md rounded-full text-xs font-black tracking-widest uppercase mb-8 border border-white/20">
+                      <Zap className="w-3 h-3 text-yellow-300" />
+                      Đặc quyền thành viên
+                    </div>
+                    <h2 className="text-4xl md:text-5xl font-black mb-8 leading-tight tracking-tight">
+                      Xây Dựng Thông Minh Hơn Với <span className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-orange-400">SmartBuild Member</span>
+                    </h2>
+                    <p className="text-blue-100 text-lg mb-12 leading-relaxed opacity-90">
+                      Đừng chỉ là người xem. Hãy trở thành một phần của cộng đồng xây dựng hiện đại nhất Việt Nam để nhận được những công cụ và ưu đãi độc quyền.
+                    </p>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-12">
+                      {[
+                        { icon: Clock, title: "Lưu lịch sử", desc: "Không bao giờ mất lịch sử chat & dự toán" },
+                        { icon: TrendingUp, title: "Giá ưu đãi", desc: "Chiết khấu riêng cho thành viên" },
+                        { icon: LayoutGrid, title: "Quản lý dự án", desc: "Theo dõi tiến độ & vật tư thông minh" },
+                        { icon: ShieldCheck, title: "Ưu tiên hỗ trợ", desc: "Kết nối trực tiếp với đội ngũ kỹ thuật" }
+                      ].map((benefit, i) => (
+                        <div key={i} className="flex gap-4 items-start">
+                          <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center flex-shrink-0 border border-white/10">
+                            <benefit.icon className="w-5 h-5 text-white" />
+                          </div>
+                          <div>
+                            <h4 className="font-bold text-sm text-white">{benefit.title}</h4>
+                            <p className="text-[11px] text-blue-100 opacity-70 mt-0.5">{benefit.desc}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <Link
+                      href="/register"
+                      className="inline-flex items-center justify-center px-10 py-5 bg-white text-indigo-700 rounded-2xl font-black text-lg shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all"
+                    >
+                      <UserPlus className="w-5 h-5 mr-3" />
+                      Đăng Ký Tài Khoản Ngay
+                    </Link>
+                  </div>
+
+                  <div className="relative group">
+                    <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-8 shadow-2xl transform group-hover:rotate-1 transition-transform duration-500">
+                      <div className="flex items-center justify-between mb-8">
+                        <div className="flex items-center gap-3">
+                          <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-lg">
+                            <span className="text-indigo-600 font-black text-xl">S</span>
+                          </div>
+                          <div>
+                            <p className="font-black text-white">Guest vs Member</p>
+                            <p className="text-[10px] text-blue-100 opacity-60">So sánh quyền lợi</p>
+                          </div>
+                        </div>
+                        <div className="px-3 py-1 bg-green-400 text-green-950 font-black text-[10px] rounded-full uppercase tracking-tighter">FREE ACCOUNT</div>
+                      </div>
+
+                      <div className="space-y-4">
+                        {[
+                          { feature: "Xem sản phẩm & giá", guest: true, member: true },
+                          { feature: "Sử dụng AI Dự toán", guest: true, member: true },
+                          { feature: "Lưu trữ lịch sử tìm kiếm", guest: false, member: true },
+                          { feature: "Theo dõi dự án realtime", guest: false, member: true },
+                          { feature: "Ưu đãi giá (Member Price)", guest: false, member: true },
+                          { feature: "Tích lũy điểm thưởng", guest: false, member: true }
+                        ].map((f, i) => (
+                          <div key={i} className="flex items-center justify-between p-3 rounded-xl hover:bg-white/5 transition-colors border border-white/5">
+                            <span className="text-xs font-medium text-blue-50 text-opacity-80">{f.feature}</span>
+                            <div className="flex gap-4 items-center">
+                              <div className={`w-5 h-5 rounded-full flex items-center justify-center ${f.guest ? 'bg-white/10' : 'bg-red-500/20'}`}>
+                                {f.guest ? <ShieldCheck className="w-3 h-3 text-white/40" /> : <ChevronRight className="w-3 h-3 text-red-400 rotate-90" />}
+                              </div>
+                              <div className="w-5 h-5 rounded-full bg-green-400 flex items-center justify-center shadow-lg shadow-green-400/20">
+                                <ShieldCheck className="w-3 h-3 text-green-950" />
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="mt-8 text-center">
+                        <p className="text-[10px] text-blue-100 opacity-50 italic">Bạn chỉ mất 30 giây để nhận toàn bộ đặc quyền trên</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
 
         {/* Footer CTA */}
         <section className="bg-slate-900 text-white py-16">

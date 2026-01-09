@@ -1,9 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Eye, EyeOff, Mail, Lock, User, Phone, ArrowLeft } from 'lucide-react'
+import { Eye, EyeOff, Mail, Lock, User, Phone, ArrowLeft, Sparkles } from 'lucide-react'
 import { useAuth } from '@/contexts/auth-context'
 
 export default function RegisterPage() {
@@ -11,6 +11,7 @@ export default function RegisterPage() {
   const { register, isLoading, error } = useAuth()
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [guestId, setGuestId] = useState<string | null>(null)
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
@@ -19,6 +20,14 @@ export default function RegisterPage() {
     confirmPassword: ''
   })
   const [localErrors, setLocalErrors] = useState<Record<string, string>>({})
+
+  // Check for existing guest session
+  useEffect(() => {
+    const storedGuestId = localStorage.getItem('user_id')
+    if (storedGuestId && storedGuestId.startsWith('guest_')) {
+      setGuestId(storedGuestId)
+    }
+  }, [])
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {}
@@ -41,16 +50,26 @@ export default function RegisterPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     if (!validateForm()) return
-    
+
     try {
       await register({
         fullName: formData.fullName,
         email: formData.email,
         phone: formData.phone,
-        password: formData.password
+        password: formData.password,
+        guestId: guestId || undefined
       })
+
+      // Clear guest data after successful registration
+      if (guestId) {
+        localStorage.removeItem('user_id')
+        localStorage.removeItem('user_name')
+        localStorage.removeItem('user_phone')
+        localStorage.removeItem('user_email')
+      }
+
       router.push('/account')
     } catch (error: any) {
       setLocalErrors({ general: error.message || 'Đăng ký thất bại' })
@@ -98,6 +117,23 @@ export default function RegisterPage() {
             </p>
           </div>
 
+          {/* Guest Data Migration Notice */}
+          {guestId && (
+            <div className="bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 rounded-xl p-4">
+              <div className="flex items-start gap-3">
+                <div className="bg-indigo-100 p-2 rounded-lg">
+                  <Sparkles className="h-5 w-5 text-indigo-600" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-gray-800 text-sm">Dữ liệu của bạn sẽ được bảo toàn!</h3>
+                  <p className="text-xs text-gray-600 mt-1">
+                    Chúng tôi phát hiện bạn đã có lịch sử chat với nhà thầu. Sau khi đăng ký, toàn bộ cuộc hội thoại sẽ được liên kết vào tài khoản mới của bạn.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
             {(error || localErrors.general) && (
               <div className="bg-red-50 border border-red-200 rounded-md p-4">
@@ -119,9 +155,8 @@ export default function RegisterPage() {
                   required
                   value={formData.fullName}
                   onChange={handleChange}
-                  className={`appearance-none relative block w-full px-3 py-2 border placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 focus:z-10 sm:text-sm ${
-                    localErrors.fullName ? 'border-red-300' : 'border-gray-300'
-                  }`}
+                  className={`appearance-none relative block w-full px-3 py-2 border placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 focus:z-10 sm:text-sm ${localErrors.fullName ? 'border-red-300' : 'border-gray-300'
+                    }`}
                   placeholder="Nhập họ và tên của bạn"
                 />
                 {localErrors.fullName && <p className="text-red-500 text-xs mt-1">{localErrors.fullName}</p>}
@@ -140,9 +175,8 @@ export default function RegisterPage() {
                   required
                   value={formData.email}
                   onChange={handleChange}
-                  className={`appearance-none relative block w-full px-3 py-2 border placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 focus:z-10 sm:text-sm ${
-                    localErrors.email ? 'border-red-300' : 'border-gray-300'
-                  }`}
+                  className={`appearance-none relative block w-full px-3 py-2 border placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 focus:z-10 sm:text-sm ${localErrors.email ? 'border-red-300' : 'border-gray-300'
+                    }`}
                   placeholder="Nhập email của bạn"
                 />
                 {localErrors.email && <p className="text-red-500 text-xs mt-1">{localErrors.email}</p>}
@@ -161,9 +195,8 @@ export default function RegisterPage() {
                   required
                   value={formData.phone}
                   onChange={handleChange}
-                  className={`appearance-none relative block w-full px-3 py-2 border placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 focus:z-10 sm:text-sm ${
-                    localErrors.phone ? 'border-red-300' : 'border-gray-300'
-                  }`}
+                  className={`appearance-none relative block w-full px-3 py-2 border placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 focus:z-10 sm:text-sm ${localErrors.phone ? 'border-red-300' : 'border-gray-300'
+                    }`}
                   placeholder="Nhập số điện thoại"
                 />
                 {localErrors.phone && <p className="text-red-500 text-xs mt-1">{localErrors.phone}</p>}
@@ -183,9 +216,8 @@ export default function RegisterPage() {
                     required
                     value={formData.password}
                     onChange={handleChange}
-                    className={`appearance-none relative block w-full px-3 py-2 pr-10 border placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 focus:z-10 sm:text-sm ${
-                      localErrors.password ? 'border-red-300' : 'border-gray-300'
-                    }`}
+                    className={`appearance-none relative block w-full px-3 py-2 pr-10 border placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 focus:z-10 sm:text-sm ${localErrors.password ? 'border-red-300' : 'border-gray-300'
+                      }`}
                     placeholder="Tạo mật khẩu (8+ ký tự, có chữ hoa, thường, số)"
                   />
                   <button
@@ -217,9 +249,8 @@ export default function RegisterPage() {
                     required
                     value={formData.confirmPassword}
                     onChange={handleChange}
-                    className={`appearance-none relative block w-full px-3 py-2 pr-10 border placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 focus:z-10 sm:text-sm ${
-                      localErrors.confirmPassword ? 'border-red-300' : 'border-gray-300'
-                    }`}
+                    className={`appearance-none relative block w-full px-3 py-2 pr-10 border placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 focus:z-10 sm:text-sm ${localErrors.confirmPassword ? 'border-red-300' : 'border-gray-300'
+                      }`}
                     placeholder="Nhập lại mật khẩu"
                   />
                   <button

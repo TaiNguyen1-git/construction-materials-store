@@ -54,69 +54,53 @@ export default function AdminLayout({
         { name: 'Bảng Điều Khiển', href: '/admin', icon: BarChart3 },
         { name: 'Công Việc Của Tôi', href: '/admin/my-tasks', icon: ClipboardList, roles: ['EMPLOYEE'] },
         { name: 'Hỗ Trợ Khách Hàng', href: '/admin/support', icon: Headset },
+        { name: 'Quản Lý Hình Ảnh (Banner)', href: '/admin/banners', icon: Star },
         { name: 'Hồ Sơ Cá Nhân', href: '/admin/profile', icon: User },
       ]
     },
     {
-      name: 'Quản Lý Sản Phẩm',
+      name: 'Kho & Hàng Hóa',
       icon: Box,
       items: [
-        { name: 'Sản Phẩm & Nhà Cung Cấp', href: '/admin/products', icon: Package },
-        { name: 'Kho Hàng', href: '/admin/inventory', icon: Package },
+        { name: 'Hàng Hóa & Đại Lý', href: '/admin/products', icon: Package },
+        { name: 'Hàng Trong Kho', href: '/admin/inventory', icon: Package },
       ]
     },
     {
       name: 'Bán Hàng',
       icon: ShoppingCart,
       items: [
-        { name: 'Đơn Hàng', href: '/admin/orders', icon: ShoppingCart },
+        { name: 'Đơn Hàng Khách', href: '/admin/orders', icon: ShoppingCart },
         { name: 'Khách Hàng', href: '/admin/customers', icon: Users },
-        { name: 'Quản Lý Bán Hàng', href: '/admin/sales-management', icon: Receipt },
-        { name: 'Đánh Giá Sản Phẩm', href: '/admin/reviews', icon: Star },
+        { name: 'Theo Dõi Dự Án', href: '/admin/projects', icon: FolderOpen },
+        { name: 'Số Liệu Bán Hàng', href: '/admin/sales-management', icon: Receipt },
+        { name: 'Đánh Giá Của Khách', href: '/admin/reviews', icon: Star },
       ]
     },
-    // === PHASE 2: SME Features ===
     {
-      name: 'Quản Lý SME',
+      name: 'Quản Lý Kinh Doanh',
       icon: CreditCard,
       items: [
-        { name: 'Quản Lý Công Nợ', href: '/admin/credit-management', icon: CreditCard },
-        { name: 'Nhập Hàng Thông Minh', href: '/admin/procurement-management', icon: Truck },
-        { name: 'Hợp Đồng & Giá B2B', href: '/admin/contract-management', icon: FileText },
+        { name: 'Theo Dõi Công Nợ', href: '/admin/credit-management', icon: CreditCard },
+        { name: 'Đặt Hàng Phụ Tùng/Vật Liệu', href: '/admin/procurement-management', icon: Truck },
+        { name: 'Hợp Đồng & Đại Lý', href: '/admin/contract-management', icon: FileText },
       ]
     },
-
     {
-      name: 'Nhân Sự',
+      name: 'Vấn Đề Nhân Sự',
       icon: Briefcase,
-      roles: ['MANAGER'], // Only Manager sees the whole group
+      roles: ['MANAGER'],
       items: [
-        { name: 'Quản Lý Nhân Sự', href: '/admin/hr-management', icon: Users },
-        { name: 'Lương', href: '/admin/payroll', icon: CreditCard },
-      ]
-    },
-    // === PHASE 2: Dự Án ===
-    {
-      name: 'Dự Án',
-      icon: FolderOpen,
-      items: [
-        { name: 'Dự Án', href: '/admin/projects', icon: FolderOpen },
-      ]
-    },
-
-    {
-      name: 'Giao Diện',
-      icon: Settings,
-      items: [
-        { name: 'Quản Lý Banner', href: '/admin/banners', icon: Star },
+        { name: 'Danh Sách Nhân Viên', href: '/admin/hr-management', icon: Users },
+        { name: 'Tính Lương', href: '/admin/payroll', icon: CreditCard },
       ]
     },
     {
       name: 'Báo Cáo Tài Chính',
       icon: LineChart,
-      roles: ['MANAGER'], // Only Manager sees this
+      roles: ['MANAGER'],
       items: [
-        { name: 'Báo Cáo Tài Chính', href: '/admin/financial-reports', icon: LineChart },
+        { name: 'Báo Cáo Lợi Nhuận', href: '/admin/financial-reports', icon: LineChart },
       ]
     },
   ]

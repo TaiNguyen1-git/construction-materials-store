@@ -1004,6 +1004,7 @@ Hotline: 1900-xxxx
       screenRes?: string
     }
     pageUrl?: string
+    ipAddress?: string
     priority: string
   }) {
     const employeeEmail = process.env.EMPLOYEE_NOTIFICATION_EMAIL
@@ -1059,34 +1060,28 @@ Hotline: 1900-xxxx
     }
     const priority = priorityColors[data.priority] || priorityColors.MEDIUM
 
-    // Generate attachments HTML
+    // Compact Attachments HTML
     let attachmentsHTML = ''
     if (data.attachments && data.attachments.length > 0) {
       attachmentsHTML = `
         <tr>
-          <td style="padding: 0 30px 25px 30px;">
-            <h3 style="color: #374151; font-size: 14px; font-weight: 700; margin: 0 0 15px 0; text-transform: uppercase; letter-spacing: 0.5px;">
-              Tệp Đính Kèm (${data.attachments.length})
-            </h3>
+          <td style="padding: 0 20px 15px 20px;">
             <table style="width: 100%; border-collapse: collapse;">
               <tr>
                 ${data.attachments.map((file: any) => `
-                  <td style="padding: 10px; background: #f8fafc; border-radius: 8px; border: 1px solid #e5e7eb; margin-right: 10px;">
+                  <td style="padding: 8px; background: #f8fafc; border: 1px solid #e5e7eb; border-radius: 6px; display: inline-block; margin: 0 8px 8px 0; min-width: 140px;">
                     <table style="width: 100%;">
                       <tr>
-                        <td style="width: 40px; vertical-align: top;">
+                        <td style="width: 24px; vertical-align: middle;">
                           ${file.fileType?.startsWith('image')
-          ? `<img src="${file.fileUrl}" style="width: 40px; height: 40px; object-fit: cover; border-radius: 6px;" />`
-          : `<div style="width: 40px; height: 40px; background: #e0e7ff; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 12px; color: #4338ca; font-weight: 700;">FILE</div>`
+          ? `<img src="${file.fileUrl}" style="width: 24px; height: 24px; object-fit: cover; border-radius: 4px;" />`
+          : `<div style="width: 24px; height: 24px; background: #e0e7ff; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 8px; color: #4338ca; font-weight: 800;">FILE</div>`
         }
                         </td>
-                        <td style="padding-left: 10px; vertical-align: top;">
-                          <a href="${file.fileUrl}" target="_blank" style="color: #1e40af; font-size: 13px; font-weight: 600; text-decoration: none; display: block; margin-bottom: 2px;">
-                            ${file.fileName}
+                        <td style="padding-left: 8px; vertical-align: middle;">
+                          <a href="${file.fileUrl}" target="_blank" style="color: #1e40af; font-size: 11px; font-weight: 700; text-decoration: none; display: block; border-bottom: 1px dotted #bfdbfe;">
+                            ${file.fileName.length > 15 ? file.fileName.slice(0, 12) + '...' : file.fileName}
                           </a>
-                          <span style="color: #6b7280; font-size: 11px;">
-                            ${(file.fileSize / 1024).toFixed(1)} KB
-                          </span>
                         </td>
                       </tr>
                     </table>
@@ -1106,101 +1101,94 @@ Hotline: 1900-xxxx
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
       </head>
-      <body style="margin: 0; padding: 0; background-color: #f3f4f6; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+      <body style="margin: 0; padding: 0; background-color: #f3f4f6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
         <table role="presentation" style="width: 100%; border-collapse: collapse;">
           <tr>
-            <td align="center" style="padding: 40px 20px;">
-              <table role="presentation" style="width: 600px; max-width: 100%; border-collapse: collapse; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.08);">
+            <td align="center" style="padding: 20px 10px;">
+              <table role="presentation" style="width: 580px; max-width: 100%; border-collapse: collapse; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.05);">
                 
-                <!-- Header -->
+                <!-- Header: Compact -->
                 <tr>
-                  <td style="background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%); padding: 30px; text-align: center;">
-                    <h1 style="color: #ffffff; font-size: 22px; margin: 0 0 8px 0; font-weight: 700;">
-                      YÊU CẦU HỖ TRỢ MỚI
-                    </h1>
-                    <p style="color: rgba(255,255,255,0.9); font-size: 14px; margin: 0;">
-                      Mã ticket: <strong>${ticketId}</strong>
-                    </p>
-                  </td>
-                </tr>
-
-                <!-- Priority Badge -->
-                <tr>
-                  <td style="padding: 20px 30px 0 30px; text-align: right;">
-                    <span style="display: inline-block; background: ${priority.bg}; color: ${priority.text}; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; text-transform: uppercase;">
-                      ${priority.label}
-                    </span>
-                  </td>
-                </tr>
-
-                <!-- Customer Info -->
-                <tr>
-                  <td style="padding: 20px 30px 25px 30px;">
-                    <h3 style="color: #374151; font-size: 14px; font-weight: 700; margin: 0 0 15px 0; text-transform: uppercase; letter-spacing: 0.5px;">
-                      THÔNG TIN KHÁCH HÀNG
-                    </h3>
-                    <table style="width: 100%; background: #f8fafc; border-radius: 12px; border: 1px solid #e5e7eb;">
+                  <td style="background: #1e293b; padding: 15px 25px;">
+                    <table style="width: 100%; border-collapse: collapse;">
                       <tr>
-                        <td style="padding: 15px 20px; border-bottom: 1px solid #e5e7eb;">
-                          <span style="color: #6b7280; font-size: 12px;">Họ tên</span><br>
-                          <strong style="color: #111827; font-size: 15px;">${data.name}</strong>
+                        <td>
+                          <h1 style="color: #ffffff; font-size: 16px; margin: 0; font-weight: 800; letter-spacing: -0.02em;">
+                            YÊU CẦU HỖ TRỢ <span style="color: #60a5fa; margin-left: 8px;">${ticketId}</span>
+                          </h1>
+                        </td>
+                        <td align="right">
+                          <span style="background: ${priority.bg}; color: ${priority.text}; padding: 3px 10px; border-radius: 4px; font-size: 10px; font-weight: 800; text-transform: uppercase;">
+                            ${priority.label}
+                          </span>
                         </td>
                       </tr>
-                      <tr>
-                        <td style="padding: 15px 20px; border-bottom: 1px solid #e5e7eb;">
-                          <span style="color: #6b7280; font-size: 12px;">Số điện thoại</span><br>
-                          <a href="tel:${data.phone}" style="color: #2563eb; font-size: 15px; font-weight: 600; text-decoration: none;">${data.phone}</a>
-                        </td>
-                      </tr>
-                      ${data.email ? `
-                      <tr>
-                        <td style="padding: 15px 20px;">
-                          <span style="color: #6b7280; font-size: 12px;">Email</span><br>
-                          <a href="mailto:${data.email}" style="color: #2563eb; font-size: 15px; font-weight: 600; text-decoration: none;">${data.email}</a>
-                        </td>
-                      </tr>
-                      ` : ''}
                     </table>
                   </td>
                 </tr>
 
-                <!-- Message Content -->
+                <!-- Customer Details: 2-Column Mesh -->
                 <tr>
-                  <td style="padding: 0 30px 25px 30px;">
-                    <h3 style="color: #374151; font-size: 14px; font-weight: 700; margin: 0 0 15px 0; text-transform: uppercase; letter-spacing: 0.5px;">
-                      NỘI DUNG YÊU CẦU
-                    </h3>
-                    <div style="background: linear-gradient(135deg, #eff6ff 0%, #f5f3ff 100%); border-radius: 12px; padding: 20px; border-left: 4px solid #3b82f6;">
-                      <p style="color: #1f2937; font-size: 14px; line-height: 1.7; margin: 0; white-space: pre-wrap;">
-                        ${data.message}
-                      </p>
+                  <td style="padding: 15px 20px 10px 20px;">
+                    <table style="width: 100%; border-collapse: collapse; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;">
+                      <tr>
+                        <td style="width: 50%; padding: 10px 15px; border-right: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0;">
+                          <div style="color: #64748b; font-size: 10px; font-weight: 700; text-transform: uppercase; margin-bottom: 2px;">Khách hàng</div>
+                          <div style="color: #0f172a; font-size: 14px; font-weight: 700;">${data.name}</div>
+                        </td>
+                        <td style="width: 50%; padding: 10px 15px; border-bottom: 1px solid #e2e8f0;">
+                          <div style="color: #64748b; font-size: 10px; font-weight: 700; text-transform: uppercase; margin-bottom: 2px;">Điện thoại</div>
+                          <div style="color: #2563eb; font-size: 14px; font-weight: 700;">${data.phone}</div>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="width: 50%; padding: 10px 15px; border-right: 1px solid #e2e8f0;">
+                          <div style="color: #64748b; font-size: 10px; font-weight: 700; text-transform: uppercase; margin-bottom: 2px;">Email</div>
+                          <div style="color: #334155; font-size: 13px; font-weight: 600;">${data.email || '—'}</div>
+                        </td>
+                        <td style="width: 50%; padding: 10px 15px;">
+                          <div style="color: #64748b; font-size: 10px; font-weight: 700; text-transform: uppercase; margin-bottom: 2px;">Thời gian</div>
+                          <div style="color: #334155; font-size: 12px; font-weight: 600;">${timestamp}</div>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+
+                <!-- Message Content: Clean & Direct -->
+                <tr>
+                  <td style="padding: 5px 20px 15px 20px;">
+                    <div style="background: #ffffff; border: 1px solid #e2e8f0; border-left: 4px solid #3b82f6; border-radius: 6px; padding: 10px 15px;">
+                      <div style="color: #3b82f6; font-size: 9px; font-weight: 800; text-transform: uppercase; margin-bottom: 4px; display: block;">Nội dung chi tiết:</div>
+                      <p style="color: #1e293b; font-size: 13px; line-height: 1.5; margin: 0; white-space: pre-wrap; font-weight: 500;">${data.message.trim()}</p>
                     </div>
                   </td>
                 </tr>
 
-                <!-- Attachments -->
+                <!-- Compact Attachments -->
                 ${attachmentsHTML}
 
-                <!-- System Info -->
+                <!-- Tech/System Info: Ultra Dense -->
                 ${data.systemInfo ? `
                 <tr>
-                  <td style="padding: 0 30px 25px 30px;">
-                    <h3 style="color: #374151; font-size: 14px; font-weight: 700; margin: 0 0 15px 0; text-transform: uppercase; letter-spacing: 0.5px;">
-                      THÔNG TIN HỆ THỐNG
-                    </h3>
-                    <table style="width: 100%; border-collapse: collapse;">
+                  <td style="padding: 0 20px 20px 20px;">
+                    <table style="width: 100%; border-collapse: collapse; background: #1e293b; border-radius: 6px; color: #94a3b8;">
                       <tr>
-                        <td style="width: 33%; padding: 10px; background: #f8fafc; border-radius: 8px 0 0 8px; border: 1px solid #e5e7eb; text-align: center;">
-                          <span style="color: #6b7280; font-size: 10px; display: block; margin-bottom: 4px;">Thiết bị</span>
-                          <strong style="color: #111827; font-size: 12px;">${data.systemInfo.deviceType || 'N/A'}</strong>
+                        <td style="padding: 8px 12px; border-right: 1px solid #334155; text-align: center;">
+                          <span style="font-size: 8px; text-transform: uppercase; display: block; opacity: 0.7;">IP</span>
+                          <span style="color: #e2e8f0; font-size: 11px; font-weight: 700;">${data.ipAddress || '—'}</span>
                         </td>
-                        <td style="width: 33%; padding: 10px; background: #f8fafc; border: 1px solid #e5e7eb; border-left: none; text-align: center;">
-                          <span style="color: #6b7280; font-size: 10px; display: block; margin-bottom: 4px;">Trình duyệt</span>
-                          <strong style="color: #111827; font-size: 12px;">${data.systemInfo.browserName || 'N/A'} ${data.systemInfo.browserVersion || ''}</strong>
+                        <td style="padding: 8px 12px; border-right: 1px solid #334155; text-align: center;">
+                          <span style="font-size: 8px; text-transform: uppercase; display: block; opacity: 0.7;">Thiết bị</span>
+                          <span style="color: #e2e8f0; font-size: 11px; font-weight: 700;">${data.systemInfo.deviceType}</span>
                         </td>
-                        <td style="width: 33%; padding: 10px; background: #f8fafc; border-radius: 0 8px 8px 0; border: 1px solid #e5e7eb; border-left: none; text-align: center;">
-                          <span style="color: #6b7280; font-size: 10px; display: block; margin-bottom: 4px;">Hệ điều hành</span>
-                          <strong style="color: #111827; font-size: 12px;">${data.systemInfo.osName || 'N/A'} ${data.systemInfo.osVersion || ''}</strong>
+                        <td style="padding: 8px 12px; border-right: 1px solid #334155; text-align: center;">
+                          <span style="font-size: 8px; text-transform: uppercase; display: block; opacity: 0.7;">OS</span>
+                          <span style="color: #e2e8f0; font-size: 11px; font-weight: 700;">${data.systemInfo.osName}</span>
+                        </td>
+                        <td style="padding: 8px 12px; text-align: center;">
+                          <span style="font-size: 8px; text-transform: uppercase; display: block; opacity: 0.7;">Browser</span>
+                          <span style="color: #e2e8f0; font-size: 11px; font-weight: 700;">${data.systemInfo.browserName}</span>
                         </td>
                       </tr>
                     </table>
@@ -1208,27 +1196,23 @@ Hotline: 1900-xxxx
                 </tr>
                 ` : ''}
 
-                <!-- CTA Button -->
+                <!-- Footer CTA -->
                 <tr>
-                  <td style="padding: 10px 30px 30px 30px; text-align: center;">
-                    <a href="${baseUrl}/admin/support" style="display: inline-block; background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%); color: #ffffff; text-decoration: none; padding: 14px 40px; border-radius: 8px; font-size: 14px; font-weight: 600; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);">
-                      Xem Chi Tiết
-                    </a>
+                  <td style="background: #f1f5f9; padding: 12px 25px; text-align: center;">
+                    <table style="width: 100%;">
+                      <tr>
+                        <td align="left">
+                           <span style="color: #64748b; font-size: 10px; font-weight: 600;">SmartBuild Support System</span>
+                        </td>
+                        <td align="right">
+                          <a href="${baseUrl}/admin/support" style="background: #3b82f6; color: #ffffff; text-decoration: none; padding: 6px 15px; border-radius: 4px; font-size: 11px; font-weight: 700; display: inline-block;">
+                            XỬ LÝ NGAY
+                          </a>
+                        </td>
+                      </tr>
+                    </table>
                   </td>
                 </tr>
-
-                <!-- Footer -->
-                <tr>
-                  <td style="background: #f8fafc; padding: 20px 30px; text-align: center; border-top: 1px solid #e5e7eb;">
-                    <p style="color: #6b7280; font-size: 12px; margin: 0 0 5px 0;">
-                      SmartBuild - Hệ thống quản lý yêu cầu hỗ trợ
-                    </p>
-                    <p style="color: #9ca3af; font-size: 11px; margin: 0;">
-                      ${timestamp}
-                    </p>
-                  </td>
-                </tr>
-
               </table>
             </td>
           </tr>

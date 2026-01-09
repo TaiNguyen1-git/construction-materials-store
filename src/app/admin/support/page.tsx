@@ -27,26 +27,45 @@ import toast from 'react-hot-toast'
 export default function SupportManagementPage() {
     const [requests, setRequests] = useState<any[]>([])
     const [loading, setLoading] = useState(true)
+    const [isRefreshing, setIsRefreshing] = useState(false)
     const [selectedRequest, setSelectedRequest] = useState<any>(null)
     const [search, setSearch] = useState('')
 
     useEffect(() => {
         fetchRequests()
+
+        // Auto-refresh every 30 seconds
+        const interval = setInterval(() => {
+            fetchRequests(true)
+        }, 30000)
+
+        return () => clearInterval(interval)
     }, [])
 
-    const fetchRequests = async () => {
+    const fetchRequests = async (isAuto = false) => {
         try {
+            if (!isAuto) setLoading(true)
+            else setIsRefreshing(true)
+
             const res = await fetch('/api/admin/support')
             const data = await res.json()
             if (data.success) {
                 setRequests(data.data)
-            } else {
+                // If the selected request was updated, refresh its detail
+                if (selectedRequest) {
+                    const updated = data.data.find((r: any) => r.id === selectedRequest.id)
+                    if (updated && JSON.stringify(updated) !== JSON.stringify(selectedRequest)) {
+                        setSelectedRequest(updated)
+                    }
+                }
+            } else if (!isAuto) {
                 toast.error(data.error?.message || 'Không thể tải yêu cầu hỗ trợ')
             }
         } catch (error) {
-            toast.error('Lỗi kết nối server')
+            if (!isAuto) toast.error('Lỗi kết nối server')
         } finally {
             setLoading(false)
+            setIsRefreshing(false)
         }
     }
 
@@ -113,9 +132,21 @@ export default function SupportManagementPage() {
                 {/* List */}
                 <div className="lg:col-span-1 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col h-[650px]">
                     <div className="p-4 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
-                        <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Danh sách yêu cầu</span>
-                        <button onClick={fetchRequests} className="text-indigo-600 hover:text-indigo-800 transition-colors">
-                            <Clock className="w-4 h-4" />
+                        <div className="flex items-center gap-2">
+                            <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Danh sách yêu cầu</span>
+                            {isRefreshing && (
+                                <div className="flex items-center gap-1.5 px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded-full animate-pulse border border-indigo-100">
+                                    <div className="w-1.5 h-1.5 bg-indigo-600 rounded-full animate-bounce"></div>
+                                    <span className="text-[9px] font-black uppercase tracking-tighter">Đang cập nhật...</span>
+                                </div>
+                            )}
+                        </div>
+                        <button
+                            onClick={() => fetchRequests()}
+                            disabled={isRefreshing}
+                            className="text-indigo-600 hover:text-indigo-800 transition-colors disabled:opacity-50"
+                        >
+                            <Clock className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
                         </button>
                     </div>
                     <div className="flex-1 overflow-y-auto custom-scrollbar">
@@ -205,7 +236,7 @@ export default function SupportManagementPage() {
                                     </div>
                                     <div className="bg-indigo-50/30 p-8 rounded-[32px] border-2 border-indigo-100/50 relative shadow-inner">
                                         <div className="absolute -top-3 left-8 px-3 py-1 bg-indigo-600 text-[10px] font-black text-white rounded-full shadow-lg shadow-indigo-100 uppercase tracking-wider">
-                                            Message Content
+                                            Chi tiết nội dung
                                         </div>
                                         <p className="text-gray-900 text-[15px] leading-relaxed font-medium whitespace-pre-wrap">
                                             {selectedRequest.message}
@@ -257,7 +288,7 @@ export default function SupportManagementPage() {
                                 {/* System Info Section */}
                                 <section>
                                     <h4 className="flex items-center gap-2 text-[11px] font-black text-gray-400 uppercase tracking-[0.2em] mb-6">
-                                        <Shield className="w-4 h-4 text-indigo-400" /> Technical Context (Lead metadata)
+                                        <Shield className="w-4 h-4 text-indigo-400" /> Thông tin kỹ thuật (Lead metadata)
                                     </h4>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div className="p-5 rounded-[24px] border border-gray-100 bg-gray-50/50 flex items-center gap-5 hover:bg-white hover:shadow-xl hover:shadow-gray-100 transition-all group">
@@ -265,7 +296,7 @@ export default function SupportManagementPage() {
                                                 <Globe className="w-5 h-5" />
                                             </div>
                                             <div>
-                                                <div className="text-[10px] text-gray-400 font-black uppercase tracking-widest mb-1">IP Address</div>
+                                                <div className="text-[10px] text-gray-400 font-black uppercase tracking-widest mb-1">Địa chỉ IP</div>
                                                 <div className="text-sm font-black text-gray-900 font-mono">{selectedRequest.ipAddress || 'Not Captured'}</div>
                                             </div>
                                         </div>
@@ -274,7 +305,7 @@ export default function SupportManagementPage() {
                                                 <Monitor className="w-5 h-5" />
                                             </div>
                                             <div className="flex-1">
-                                                <div className="text-[10px] text-gray-400 font-black uppercase tracking-widest mb-1">Operating System</div>
+                                                <div className="text-[10px] text-gray-400 font-black uppercase tracking-widest mb-1">Hệ điều hành</div>
                                                 <div className="text-sm font-black text-gray-900 flex items-center gap-2 flex-wrap">
                                                     {selectedRequest.osName} {selectedRequest.osVersion !== 'Unknown' ? selectedRequest.osVersion : ''}
                                                     <span className="text-[9px] bg-indigo-600 text-white px-2 py-0.5 rounded-full font-black uppercase tracking-tighter">{selectedRequest.deviceType}</span>
@@ -286,7 +317,7 @@ export default function SupportManagementPage() {
                                                 <Info className="w-5 h-5" />
                                             </div>
                                             <div>
-                                                <div className="text-[10px] text-gray-400 font-black uppercase tracking-widest mb-1">Browser Info</div>
+                                                <div className="text-[10px] text-gray-400 font-black uppercase tracking-widest mb-1">Trình duyệt</div>
                                                 <div className="text-sm font-black text-gray-900">{selectedRequest.browserName} <span className="text-gray-400 text-xs font-medium">v{selectedRequest.browserVersion}</span></div>
                                             </div>
                                         </div>
@@ -295,7 +326,7 @@ export default function SupportManagementPage() {
                                                 <Box className="w-5 h-5" />
                                             </div>
                                             <div>
-                                                <div className="text-[10px] text-gray-400 font-black uppercase tracking-widest mb-1">Screen Resolution</div>
+                                                <div className="text-[10px] text-gray-400 font-black uppercase tracking-widest mb-1">Độ phân giải</div>
                                                 <div className="text-sm font-black text-gray-900">{selectedRequest.screenRes || 'Resolution N/A'}</div>
                                             </div>
                                         </div>
@@ -306,7 +337,7 @@ export default function SupportManagementPage() {
                                 <section className="bg-gray-900 rounded-[32px] p-8 space-y-6 shadow-2xl">
                                     <div>
                                         <h4 className="flex items-center gap-2 text-[11px] font-black text-gray-500 uppercase tracking-[0.2em] mb-4">
-                                            Raw User Agent String
+                                            Chuỗi User Agent (Gốc)
                                         </h4>
                                         <div className="p-5 rounded-2xl bg-black/40 text-indigo-300 font-mono text-[10px] leading-relaxed break-all border border-indigo-900/30">
                                             {selectedRequest.userAgent}
@@ -315,7 +346,7 @@ export default function SupportManagementPage() {
 
                                     {selectedRequest.pageUrl && (
                                         <div className="pt-4 border-t border-white/5">
-                                            <div className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-3">Origin Page Request</div>
+                                            <div className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-3">Trang gửi yêu cầu</div>
                                             <div className="flex items-center gap-3">
                                                 <div className="bg-indigo-500/20 p-2 rounded-lg">
                                                     < Globe className="w-4 h-4 text-indigo-400" />
@@ -340,8 +371,8 @@ export default function SupportManagementPage() {
                                 </div>
                             </div>
                             <div className="text-center">
-                                <p className="font-black text-gray-400 text-xl uppercase tracking-tighter">Waiting for selection</p>
-                                <p className="text-xs text-gray-400 font-medium">Please select a customer request from the left panel</p>
+                                <p className="font-black text-gray-400 text-xl uppercase tracking-tighter">Đang chờ lựa chọn</p>
+                                <p className="text-xs text-gray-400 font-medium">Vui lòng chọn một yêu cầu khách hàng từ danh sách bên trái</p>
                             </div>
                         </div>
                     )}

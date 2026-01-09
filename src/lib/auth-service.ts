@@ -20,6 +20,7 @@ export interface RegisterData {
   email: string
   phone: string
   password: string
+  guestId?: string // Optional: for migrating guest data
 }
 
 // Define the structure for token response

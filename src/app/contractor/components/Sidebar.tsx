@@ -35,6 +35,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
         { href: '/contractor/quick-order', icon: ClipboardList, label: 'Đặt hàng nhanh' },
         { href: '/contractor/cart', icon: ShoppingCart, label: 'Giỏ hàng', badge: cartItemCount },
         { href: '/contractor/orders', icon: Package, label: 'Đơn hàng' },
+        { href: '/contractor/projects', icon: Building2, label: 'Công trình' },
         { href: '/contractor/debt', icon: CreditCard, label: 'Công nợ' },
         { href: '/contractor/contracts', icon: FileText, label: 'Hợp đồng' },
         { href: '/contractor/profile', icon: User, label: 'Hồ sơ' },

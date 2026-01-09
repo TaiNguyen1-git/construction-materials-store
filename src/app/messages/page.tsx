@@ -2,7 +2,9 @@
 
 import { useState, useEffect, useRef } from 'react'
 import Header from '@/components/Header'
-import { Send, ArrowLeft, MessageCircle, Paperclip, Image as ImageIcon, FileText, Download, X } from 'lucide-react'
+import ChatSummaryButton from '@/components/ChatSummaryButton'
+import { Send, ArrowLeft, MessageCircle, Paperclip, Image as ImageIcon, FileText, Download, X, Sparkles, UserPlus } from 'lucide-react'
+import { useAuth } from '@/contexts/auth-context'
 import Link from 'next/link'
 import { getFirebaseDatabase } from '@/lib/firebase'
 import { ref, onChildAdded, off } from 'firebase/database'
@@ -32,6 +34,7 @@ interface Message {
 }
 
 export default function MessagesPage() {
+    const { isAuthenticated, isLoading: authLoading } = useAuth()
     const [conversations, setConversations] = useState<Conversation[]>([])
     const [selectedConv, setSelectedConv] = useState<string | null>(null)
     const [messages, setMessages] = useState<Message[]>([])
@@ -283,6 +286,41 @@ export default function MessagesPage() {
                         <div className="flex-1 flex flex-col bg-white min-w-0">
                             {selectedConv ? (
                                 <>
+                                    {/* Guest Conversion Prompt */}
+                                    {!isAuthenticated && (
+                                        <div className="bg-gradient-to-r from-primary-600 to-indigo-700 p-4 text-white shadow-md relative z-10">
+                                            <div className="flex items-center justify-between gap-4">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="bg-white/20 p-2 rounded-lg backdrop-blur-sm">
+                                                        <Sparkles className="w-5 h-5 text-yellow-300" />
+                                                    </div>
+                                                    <div>
+                                                        <p className="font-black text-sm uppercase tracking-wider">Bản tin khách (Guest Mode)</p>
+                                                        <p className="text-xs text-blue-100 font-medium">Đăng ký tài khoản để lưu trữ lịch sử chat mãi mãi và quản lý dự án chuyên nghiệp hơn!</p>
+                                                    </div>
+                                                </div>
+                                                <Link
+                                                    href="/register"
+                                                    className="bg-white text-primary-700 px-4 py-2 rounded-xl text-xs font-black shadow-lg hover:bg-gray-50 transition-all flex items-center gap-2 whitespace-nowrap"
+                                                >
+                                                    <UserPlus className="w-4 h-4" />
+                                                    Đăng ký ngay
+                                                </Link>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Chat Header with Summary Button */}
+                                    <div className="px-4 py-3 border-b bg-white flex items-center justify-between">
+                                        <div className="font-semibold text-gray-800">
+                                            {conversations.find(c => c.id === selectedConv)?.otherUserName || 'Cuộc hội thoại'}
+                                        </div>
+                                        <ChatSummaryButton
+                                            conversationId={selectedConv}
+                                            currentUserId={userId}
+                                        />
+                                    </div>
+
                                     {/* Messages */}
                                     <div
                                         ref={messagesContainerRef}

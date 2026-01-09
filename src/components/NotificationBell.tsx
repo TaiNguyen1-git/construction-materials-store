@@ -240,14 +240,14 @@ export default function NotificationBell() {
         setTimeout(() => {
           if (!firebaseWorking) {
             console.log('[NotificationBell] Firebase not responding, starting API polling')
-            pollInterval = setInterval(pollNotifications, 30000) // Poll every 30s
+            pollInterval = setInterval(pollNotifications, 10000) // Poll every 10s for snappier feel
           }
         }, 3000)
 
       } catch (e) {
         console.error("Firebase init error, using API polling:", e)
         // Start polling on Firebase error
-        pollInterval = setInterval(pollNotifications, 30000)
+        pollInterval = setInterval(pollNotifications, 10000)
       }
     }
 

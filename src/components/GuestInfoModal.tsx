@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { User, Phone, Mail } from 'lucide-react'
+import Link from 'next/link'
 
 interface GuestInfoModalProps {
     isOpen: boolean
@@ -92,6 +93,16 @@ export default function GuestInfoModal({ isOpen, onClose, onSubmit }: GuestInfoM
                         >
                             Bắt đầu chat
                         </button>
+                    </div>
+
+                    <div className="mt-6 pt-6 border-t border-gray-100 text-center">
+                        <p className="text-xs text-gray-500">
+                            Bạn đã có tài khoản?{' '}
+                            <Link href="/login" className="text-blue-600 font-bold hover:underline">Đăng nhập</Link>
+                        </p>
+                        <p className="text-[10px] text-gray-400 mt-2 italic">
+                            * Lưu ý: Tài khoản khách chỉ lưu dữ liệu tạm thời trên trình duyệt này.
+                        </p>
                     </div>
                 </form>
             </div>

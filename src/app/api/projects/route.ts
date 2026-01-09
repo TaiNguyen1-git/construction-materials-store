@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
   try {
     const authError = requireAuth(request)
     if (authError) return authError
-    
+
 
     const { searchParams } = new URL(request.url)
     const page = parseInt(searchParams.get('page') || '1')
@@ -17,29 +17,37 @@ export async function GET(request: NextRequest) {
     const customerId = searchParams.get('customerId')
     const sortBy = searchParams.get('sortBy') || 'createdAt'
     const sortOrder = searchParams.get('sortOrder') || 'desc'
-    
+
     const skip = (page - 1) * limit
+
+    // Get user from token for authorization check
+    const { verifyTokenFromRequest } = await import('@/lib/auth-middleware-api')
+    const user = verifyTokenFromRequest(request)
 
     // Build filter object
     const where: any = {}
-    
-    // For customers, only show their own projects
-    if (user.role === 'CUSTOMER') {
+
+    // For customers, show projects they own OR projects they are contractors for
+    if (user && user.role === 'CUSTOMER') {
       const customer = await prisma.customer.findFirst({
-        where: { userId: user.id }
+        where: { userId: user.userId }
       })
-      
+
       if (!customer) {
         return NextResponse.json({ error: 'Customer not found' }, { status: 404 })
       }
-      
-      where.customerId = customer.id
-    } 
+
+      // If it's a contractor, they might be either customer OR contractor for a project
+      where.OR = [
+        { customerId: customer.id },
+        { contractorId: customer.id }
+      ]
+    }
     // For employees/managers, filter by customerId if provided
     else if (customerId) {
       where.customerId = customerId
     }
-    
+
     if (status) {
       where.status = status
     }
@@ -80,7 +88,7 @@ export async function GET(request: NextRequest) {
       const totalTasks = project.projectTasks.length
       const completedTasks = project.projectTasks.filter((task: any) => task.status === 'COMPLETED').length
       const taskCompletion = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0
-      
+
       return {
         ...project,
         taskCompletion,
@@ -107,13 +115,15 @@ export async function GET(request: NextRequest) {
 // POST /api/projects - Create project
 export async function POST(request: NextRequest) {
   try {
-    const user = await verifyToken(request)
+    const { verifyTokenFromRequest } = await import('@/lib/auth-middleware-api')
+    const user = verifyTokenFromRequest(request)
+
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const body = await request.json()
-    const { name, description, customerId, startDate, endDate, budget, priority, notes } = body
+    const { name, description, customerId, contractorId, startDate, endDate, budget, priority, notes } = body
 
     // Validate required fields
     if (!name || !startDate || !budget) {
@@ -124,13 +134,13 @@ export async function POST(request: NextRequest) {
     let projectCustomerId = customerId
     if (user.role === 'CUSTOMER') {
       const customer = await prisma.customer.findFirst({
-        where: { userId: user.id }
+        where: { userId: user.userId }
       })
-      
+
       if (!customer) {
         return NextResponse.json({ error: 'Customer not found' }, { status: 404 })
       }
-      
+
       projectCustomerId = customer.id
     }
 
@@ -149,6 +159,7 @@ export async function POST(request: NextRequest) {
         name,
         description: description || '',
         customerId: projectCustomerId,
+        contractorId: contractorId || null,
         startDate: new Date(startDate),
         endDate: endDate ? new Date(endDate) : null,
         budget: parseFloat(budget),

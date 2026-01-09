@@ -185,7 +185,6 @@ export default function ProjectsPage() {
                                         </div>
                                         {project.estimatedBudget && (
                                             <div className="flex items-center text-gray-600 text-sm">
-                                                <DollarSign className="w-4 h-4 mr-2 text-gray-400" />
                                                 {formatCurrency(project.estimatedBudget)}
                                             </div>
                                         )}

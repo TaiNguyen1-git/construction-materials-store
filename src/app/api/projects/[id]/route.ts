@@ -6,9 +6,9 @@ import jwt from 'jsonwebtoken'
 const verifyToken = async (request: NextRequest) => {
   const token = request.headers.get('authorization')?.replace('Bearer ', '') ||
     request.cookies.get('access_token')?.value
-    
+
   if (!token) return null
-  
+
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret') as any
     return decoded
@@ -52,6 +52,16 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
             }
           }
         },
+        contractor: {
+          include: {
+            user: {
+              select: {
+                name: true,
+                email: true
+              }
+            }
+          }
+        },
         projectMaterials: {
           include: {
             product: {
@@ -75,7 +85,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       const customer = await prisma.customer.findFirst({
         where: { userId: user.id }
       })
-      
+
       if (!customer || customer.id !== project.customerId) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
       }
@@ -130,7 +140,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       const customer = await prisma.customer.findFirst({
         where: { userId: user.id }
       })
-      
+
       if (!customer || customer.id !== existingProject.customerId) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
       }
@@ -148,7 +158,8 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         budget: budget !== undefined ? parseFloat(budget) : undefined,
         priority,
         notes,
-        progress: progress !== undefined ? parseInt(progress) : undefined
+        progress: progress !== undefined ? parseInt(progress) : undefined,
+        contractorId: body.contractorId
       },
       include: {
         customer: {

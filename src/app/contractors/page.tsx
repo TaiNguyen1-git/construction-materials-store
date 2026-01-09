@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Header from '@/components/Header'
+import SmartNudge from '@/components/SmartNudge'
 import { Star, MapPin, Users, Briefcase, CheckCircle, Search, Filter } from 'lucide-react'
 
 interface Contractor {
@@ -43,6 +44,16 @@ export default function ContractorsPage() {
     const [search, setSearch] = useState('')
     const [filterSkill, setFilterSkill] = useState('')
 
+    const [selectedContractor, setSelectedContractor] = useState<Contractor | null>(null)
+    const [showQuoteModal, setShowQuoteModal] = useState(false)
+    const [quoteForm, setQuoteForm] = useState({
+        details: '',
+        location: '',
+        budget: '',
+        startDate: ''
+    })
+    const [submitting, setSubmitting] = useState(false)
+
     useEffect(() => {
         fetchContractors()
     }, [filterSkill])
@@ -67,6 +78,62 @@ export default function ContractorsPage() {
         }
     }
 
+    const handleOpenQuote = (e: React.MouseEvent, contractor: Contractor) => {
+        e.preventDefault() // Prevent navigation to details page
+        setSelectedContractor(contractor)
+        setShowQuoteModal(true)
+    }
+
+    const handleSubmitQuote = async () => {
+        if (!quoteForm.details || !selectedContractor) {
+            // toast.error('Vui lòng nhập mô tả yêu cầu')
+            alert('Vui lòng nhập mô tả yêu cầu')
+            return
+        }
+
+        setSubmitting(true)
+        try {
+            const token = localStorage.getItem('access_token')
+            if (!token) {
+                // toast.error('Vui lòng đăng nhập để gửi yêu cầu')
+                window.location.href = '/login?redirect=/contractors'
+                return
+            }
+
+            const res = await fetch('/api/quotes', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    contractorId: selectedContractor.id,
+                    details: quoteForm.details,
+                    location: quoteForm.location,
+                    budget: quoteForm.budget ? parseFloat(quoteForm.budget) : undefined,
+                    startDate: quoteForm.startDate || undefined
+                })
+            })
+
+            const data = await res.json()
+
+            if (res.ok) {
+                // toast.success('Đã gửi yêu cầu báo giá!')
+                alert('Đã gửi yêu cầu báo giá thành công! Nhà thầu sẽ phản hồi sớm.')
+                setShowQuoteModal(false)
+                setQuoteForm({ details: '', location: '', budget: '', startDate: '' })
+            } else {
+                // toast.error(data.error || 'Có lỗi xảy ra')
+                alert(data.error || 'Có lỗi xảy ra')
+            }
+        } catch (error) {
+            console.error('Error sending quote:', error)
+            alert('Lỗi kết nối server')
+        } finally {
+            setSubmitting(false)
+        }
+    }
+
     const filteredContractors = contractors.filter(c =>
         c.displayName.toLowerCase().includes(search.toLowerCase()) ||
         c.city.toLowerCase().includes(search.toLowerCase())
@@ -75,6 +142,92 @@ export default function ContractorsPage() {
     return (
         <div className="min-h-screen bg-gray-50">
             <Header />
+
+            {/* Quote Modal */}
+            {showQuoteModal && selectedContractor && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200">
+                        <div className="bg-indigo-600 p-4 text-white flex justify-between items-center">
+                            <h3 className="font-bold text-lg">Yêu cầu Báo giá</h3>
+                            <button onClick={() => setShowQuoteModal(false)} className="text-white/80 hover:text-white">✕</button>
+                        </div>
+                        <div className="p-6 space-y-4">
+                            <div>
+                                <p className="text-sm text-gray-500 mb-1">Gửi tới nhà thầu:</p>
+                                <div className="font-semibold flex items-center gap-2">
+                                    <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 text-xs font-bold">
+                                        {selectedContractor.displayName.charAt(0)}
+                                    </div>
+                                    {selectedContractor.displayName}
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Mô tả công việc *</label>
+                                <textarea
+                                    className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 focus:border-transparent min-h-[100px]"
+                                    placeholder="VD: Cần xây thêm phòng ngủ 20m2, lát gạch sân vườn..."
+                                    value={quoteForm.details}
+                                    onChange={e => setQuoteForm({ ...quoteForm, details: e.target.value })}
+                                />
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Ngân sách dự kiến</label>
+                                    <div className="relative">
+                                        <input
+                                            type="number"
+                                            className="w-full border border-gray-300 rounded-lg p-2.5 pl-8"
+                                            placeholder="0"
+                                            value={quoteForm.budget}
+                                            onChange={e => setQuoteForm({ ...quoteForm, budget: e.target.value })}
+                                        />
+                                        <span className="absolute left-3 top-2.5 text-gray-400">₫</span>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Địa điểm</label>
+                                    <input
+                                        type="text"
+                                        className="w-full border border-gray-300 rounded-lg p-2.5"
+                                        placeholder="Quận/Huyện..."
+                                        value={quoteForm.location}
+                                        onChange={e => setQuoteForm({ ...quoteForm, location: e.target.value })}
+                                    />
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Dự kiến bắt đầu</label>
+                                <input
+                                    type="date"
+                                    className="w-full border border-gray-300 rounded-lg p-2.5"
+                                    value={quoteForm.startDate}
+                                    onChange={e => setQuoteForm({ ...quoteForm, startDate: e.target.value })}
+                                />
+                            </div>
+
+                            <div className="flex gap-3 mt-6">
+                                <button
+                                    onClick={() => setShowQuoteModal(false)}
+                                    className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                                >
+                                    Hủy
+                                </button>
+                                <button
+                                    onClick={handleSubmitQuote}
+                                    disabled={submitting}
+                                    className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:bg-indigo-400 flex items-center justify-center gap-2"
+                                >
+                                    {submitting ? 'Đang gửi...' : 'Gửi yêu cầu'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Header Section - Clean white */}
             <div className="bg-white border-b border-gray-200 py-8">
                 <div className="max-w-6xl mx-auto px-4">
@@ -123,10 +276,10 @@ export default function ContractorsPage() {
                             <Link
                                 key={contractor.id}
                                 href={`/contractors/${contractor.id}`}
-                                className="bg-white rounded-xl shadow-sm hover:shadow-lg transition-all overflow-hidden group"
+                                className="bg-white rounded-xl shadow-sm hover:shadow-lg transition-all overflow-hidden group flex flex-col h-full"
                             >
                                 {/* Header */}
-                                <div className="p-6">
+                                <div className="p-6 flex-1">
                                     <div className="flex items-start gap-4">
                                         {/* Avatar */}
                                         <div className="w-16 h-16 rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 flex items-center justify-center text-white text-2xl font-bold flex-shrink-0">
@@ -187,8 +340,18 @@ export default function ContractorsPage() {
                                     </div>
                                 </div>
 
+                                {/* Action Buttons */}
+                                <div className="px-6 pb-4 pt-2">
+                                    <button
+                                        onClick={(e) => handleOpenQuote(e, contractor)}
+                                        className="w-full py-2 bg-indigo-50 text-indigo-700 font-semibold rounded-lg hover:bg-indigo-100 transition-colors"
+                                    >
+                                        Nhận Báo Giá
+                                    </button>
+                                </div>
+
                                 {/* Footer */}
-                                <div className="px-6 py-4 bg-gray-50 border-t flex justify-between items-center">
+                                <div className="px-6 py-4 bg-gray-50 border-t flex justify-between items-center mt-auto">
                                     <div className="flex items-center gap-4 text-sm text-gray-500">
                                         <span className="flex items-center gap-1">
                                             <Briefcase className="w-4 h-4" />
@@ -211,6 +374,14 @@ export default function ContractorsPage() {
                     </div>
                 )}
             </div>
+
+            {/* Smart AI Nudge */}
+            <SmartNudge
+                pageType="contractors"
+                contextData={{
+                    category: filterSkill ? SKILL_LABELS[filterSkill] : undefined
+                }}
+            />
         </div>
     )
 }

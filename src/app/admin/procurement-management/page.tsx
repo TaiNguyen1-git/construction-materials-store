@@ -62,6 +62,7 @@ export default function ProcurementManagementPage() {
     const [suggestions, setSuggestions] = useState<PurchaseSuggestion[]>([])
     const [requests, setRequests] = useState<PurchaseRequest[]>([])
     const [loading, setLoading] = useState(true)
+    const [suppliers, setSuppliers] = useState<{ id: string, name: string }[]>([])
     const [selectedItems, setSelectedItems] = useState<string[]>([])
 
     useEffect(() => {
@@ -80,11 +81,41 @@ export default function ProcurementManagementPage() {
                 const data = await res.json()
                 setRequests(data)
             }
+
+            // Always load suppliers for assignment
+            try {
+                const sRes = await fetch('/api/suppliers?limit=100')
+                const sData = await sRes.json()
+                // API returns { data: [], pagination: {} }
+                if (sData.data && Array.isArray(sData.data)) {
+                    setSuppliers(sData.data)
+                }
+            } catch (err) {
+                console.error('Failed to fetch suppliers', err)
+            }
         } catch (error) {
             console.error('Error loading data:', error)
         }
         setLoading(false)
     }
+
+    const handleAssignSupplier = async (requestId: string, supplierId: string) => {
+        try {
+            await fetch('/api/procurement', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'assign-supplier',
+                    requestId,
+                    supplierId
+                })
+            })
+            loadData()
+        } catch (error) {
+            console.error('Error assigning supplier:', error)
+        }
+    }
+
 
     const handleCreateRequest = async (suggestion: PurchaseSuggestion) => {
         try {
@@ -137,7 +168,32 @@ export default function ProcurementManagementPage() {
         }
     }
 
-    const formatCurrency = (amount: number) => {
+    const handleConvertToPO = async (requestId: string) => {
+        try {
+            const res = await fetch('/api/procurement', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'convert-to-po',
+                    requestId,
+                    approvedBy: 'admin'
+                })
+            })
+            const data = await res.json()
+            if (data.error) {
+                alert(data.error)
+            } else {
+                alert(`Đã tạo Đơn đặt hàng: ${data.orderNumber}`)
+                loadData()
+            }
+        } catch (error) {
+            console.error('Error converting to PO:', error)
+            alert('Lỗi khi tạo đơn đặt hàng')
+        }
+    }
+
+    const formatCurrency = (amount: number | undefined | null) => {
+        if (amount === undefined || amount === null) return '-'
         return new Intl.NumberFormat('vi-VN', {
             style: 'currency',
             currency: 'VND'
@@ -154,6 +210,16 @@ export default function ProcurementManagementPage() {
         }
     }
 
+    const getPriorityLabel = (priority: string) => {
+        switch (priority) {
+            case 'URGENT': return 'Khẩn cấp'
+            case 'HIGH': return 'Cao'
+            case 'MEDIUM': return 'Trung bình'
+            case 'LOW': return 'Thấp'
+            default: return priority
+        }
+    }
+
     const getStatusColor = (status: string) => {
         switch (status) {
             case 'PENDING': return 'bg-yellow-100 text-yellow-700'
@@ -161,6 +227,16 @@ export default function ProcurementManagementPage() {
             case 'REJECTED': return 'bg-red-100 text-red-700'
             case 'CONVERTED': return 'bg-blue-100 text-blue-700'
             default: return 'bg-gray-100 text-gray-700'
+        }
+    }
+
+    const getStatusLabel = (status: string) => {
+        switch (status) {
+            case 'PENDING': return 'Chờ duyệt'
+            case 'APPROVED': return 'Đã duyệt'
+            case 'REJECTED': return 'Từ chối'
+            case 'CONVERTED': return 'Đã đặt hàng'
+            default: return status
         }
     }
 
@@ -253,8 +329,8 @@ export default function ProcurementManagementPage() {
                     <button
                         onClick={() => setActiveTab('suggestions')}
                         className={`pb-3 px-1 border-b-2 font-medium ${activeTab === 'suggestions'
-                                ? 'border-blue-600 text-blue-600'
-                                : 'border-transparent text-gray-500 hover:text-gray-700'
+                            ? 'border-blue-600 text-blue-600'
+                            : 'border-transparent text-gray-500 hover:text-gray-700'
                             }`}
                     >
                         Gợi ý nhập hàng
@@ -262,8 +338,8 @@ export default function ProcurementManagementPage() {
                     <button
                         onClick={() => setActiveTab('requests')}
                         className={`pb-3 px-1 border-b-2 font-medium flex items-center gap-2 ${activeTab === 'requests'
-                                ? 'border-blue-600 text-blue-600'
-                                : 'border-transparent text-gray-500 hover:text-gray-700'
+                            ? 'border-blue-600 text-blue-600'
+                            : 'border-transparent text-gray-500 hover:text-gray-700'
                             }`}
                     >
                         Yêu cầu nhập hàng
@@ -386,7 +462,22 @@ export default function ProcurementManagementPage() {
                                                         <p className="text-sm text-gray-500">{request.productSku}</p>
                                                     </div>
                                                 </td>
-                                                <td className="px-4 py-3">{request.supplierName || '-'}</td>
+                                                <td className="px-4 py-3 min-w-[150px]">
+                                                    {request.supplierName ? (
+                                                        request.supplierName
+                                                    ) : (
+                                                        <select
+                                                            className="text-xs border rounded px-1 py-0.5 w-full"
+                                                            onChange={(e) => handleAssignSupplier(request.id, e.target.value)}
+                                                            value=""
+                                                        >
+                                                            <option value="" disabled>Chọn NCC...</option>
+                                                            {suppliers.map(s => (
+                                                                <option key={s.id} value={s.id}>{s.name}</option>
+                                                            ))}
+                                                        </select>
+                                                    )}
+                                                </td>
                                                 <td className="px-4 py-3 text-right">{request.requestedQty}</td>
                                                 <td className="px-4 py-3 text-right">
                                                     {request.estimatedCost ? formatCurrency(request.estimatedCost) : '-'}
@@ -399,12 +490,12 @@ export default function ProcurementManagementPage() {
                                                 </td>
                                                 <td className="px-4 py-3 text-center">
                                                     <span className={`px-2 py-1 rounded-full text-xs ${getPriorityColor(request.priority)}`}>
-                                                        {request.priority}
+                                                        {getPriorityLabel(request.priority)}
                                                     </span>
                                                 </td>
                                                 <td className="px-4 py-3 text-center">
                                                     <span className={`px-2 py-1 rounded-full text-xs ${getStatusColor(request.status)}`}>
-                                                        {request.status}
+                                                        {getStatusLabel(request.status)}
                                                     </span>
                                                 </td>
                                                 <td className="px-4 py-3 text-center">
@@ -427,7 +518,10 @@ export default function ProcurementManagementPage() {
                                                     )}
                                                     {request.status === 'APPROVED' && (
                                                         <button
-                                                            className="flex items-center gap-1 px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700"
+                                                            onClick={() => handleConvertToPO(request.id)}
+                                                            className={`flex items-center gap-1 px-2 py-1 text-xs rounded text-white transition-colors ${!request.supplierId ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'
+                                                                }`}
+                                                            title={!request.supplierId ? 'Chưa chọn nhà cung cấp' : 'Tạo đơn đặt hàng'}
                                                         >
                                                             Tạo PO <ArrowRight className="w-3 h-3" />
                                                         </button>

@@ -70,3 +70,7 @@ scripts/ml-service/models/*.json
 # OS files
 Thumbs.db
 .DS_Store
+
+# Uploads (prevent bloating the repo with local files)
+/private_uploads/
+/product-images/

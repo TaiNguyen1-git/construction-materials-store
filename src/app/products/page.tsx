@@ -11,6 +11,7 @@ import ProductFilters from '@/components/ProductFilters'
 import WishlistButton from '@/components/WishlistButton'
 import ComparisonButton from '@/components/ComparisonButton'
 import ComparisonBar from '@/components/ComparisonBar'
+import SmartNudge from '@/components/SmartNudge'
 import { useCartStore } from '@/stores/cartStore'
 import toast, { Toaster } from 'react-hot-toast'
 
@@ -427,6 +428,15 @@ function ProductsPageContent() {
 
       {/* Comparison Bar */}
       <ComparisonBar />
+
+      {/* Smart AI Nudge */}
+      <SmartNudge
+        pageType="products"
+        contextData={{
+          category: searchParams.get('category') || undefined,
+          searchQuery: searchParams.get('search') || undefined
+        }}
+      />
     </div>
   )
 }

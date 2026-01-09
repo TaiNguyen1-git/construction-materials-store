@@ -4,10 +4,11 @@
 import { useState, useEffect } from 'react'
 import { toast } from 'react-hot-toast'
 import { fetchWithAuth } from '@/lib/api-client'
-import { RefreshCw, AlertTriangle, CheckCircle, Package, ShoppingCart, ChevronDown, ChevronUp } from 'lucide-react'
+import { RefreshCw, AlertTriangle, CheckCircle, Package, ShoppingCart, ChevronDown, ChevronUp, Sparkles } from 'lucide-react'
 import Pagination from '@/components/Pagination'
 import InventoryAnalytics from '@/components/admin/InventoryAnalytics'
 import InventoryManagement from '@/components/admin/InventoryManagement'
+import SmartInventoryAlerts from '@/components/admin/SmartInventoryAlerts'
 
 interface Product {
   id: string
@@ -65,7 +66,7 @@ export default function InventoryPage() {
   const [refreshing, setRefreshing] = useState(false)
   const [showAdjustModal, setShowAdjustModal] = useState(false)
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
-  const [activeTab, setActiveTab] = useState<'stock' | 'analytics' | 'management'>('stock')
+  const [activeTab, setActiveTab] = useState<'stock' | 'alerts' | 'analytics' | 'management'>('stock')
 
   const [filters, setFilters] = useState({ category: '', status: '', lowStock: false, timeframe: 'MONTH' })
   const pageSize = 20
@@ -177,9 +178,12 @@ export default function InventoryPage() {
       {/* Tab Navigation */}
       <div className="border-b border-gray-200 mb-6">
         <nav className="flex space-x-8">
-          <button onClick={() => setActiveTab('stock')} className={activeTab === 'stock' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-600'}>Tồn Kho</button>
-          <button onClick={() => setActiveTab('analytics')} className={activeTab === 'analytics' ? 'border-b-2 border-purple-600 text-purple-600' : 'text-gray-600'}>Phân Tích & Dự Báo Nhập Hàng</button>
-          <button onClick={() => setActiveTab('management')} className={activeTab === 'management' ? 'border-b-2 border-orange-600 text-orange-600' : 'text-gray-600'}>Quản Lý</button>
+          <button onClick={() => setActiveTab('stock')} className={`py-2 px-1 font-bold ${activeTab === 'stock' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-600'}`}>Tồn Kho</button>
+          <button onClick={() => setActiveTab('alerts')} className={`py-2 px-1 font-bold flex items-center gap-1.5 ${activeTab === 'alerts' ? 'border-b-2 border-red-600 text-red-600' : 'text-gray-600'}`}>
+            Nhắc Nhập Hàng
+          </button>
+          <button onClick={() => setActiveTab('analytics')} className={`py-2 px-1 font-bold ${activeTab === 'analytics' ? 'border-b-2 border-purple-600 text-purple-600' : 'text-gray-600'}`}>Số Liệu Nhập Hàng</button>
+          <button onClick={() => setActiveTab('management')} className={`py-2 px-1 font-bold ${activeTab === 'management' ? 'border-b-2 border-orange-600 text-orange-600' : 'text-gray-600'}`}>Cài Đặt Kho</button>
         </nav>
       </div>
 
@@ -187,7 +191,7 @@ export default function InventoryPage() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Quản Lý Kho Hàng</h1>
-          <p className="text-sm text-gray-500 mt-1">Quản lý tồn kho với dự báo nhập hàng & đề xuất thông minh</p>
+          <p className="text-sm text-gray-500 mt-1">Theo dõi hàng tồn kho và gợi ý đặt hàng tự động</p>
         </div>
         <div className="flex space-x-2">
           <select value={filters.timeframe} onChange={e => setFilters({ ...filters, timeframe: e.target.value })} className="px-3 py-2 border border-gray-300 rounded-md text-sm text-gray-900 bg-white">
@@ -339,6 +343,10 @@ export default function InventoryPage() {
             )}
           </div>
         </div>
+      )}
+
+      {activeTab === 'alerts' && (
+        <SmartInventoryAlerts />
       )}
 
       {activeTab === 'analytics' && (
