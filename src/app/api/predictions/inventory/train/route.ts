@@ -7,7 +7,7 @@ export async function POST(request: NextRequest) {
     try {
         const scriptPath = path.join(process.cwd(), 'scripts', 'ml-service', 'train_prophet.py')
 
-        return new Promise((resolve) => {
+        return new Promise<NextResponse>((resolve) => {
             const pythonProcess = spawn('python', [scriptPath])
 
             let output = ''

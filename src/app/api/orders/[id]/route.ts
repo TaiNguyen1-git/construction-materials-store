@@ -56,12 +56,11 @@ export async function GET(
     )
 
   } catch (error: any) {
-    logger.error('Get order error', { 
-      error: error.message, 
-      stack: error.stack,
-      orderId: params.id
+    logger.error('Get order error', {
+      error: error.message,
+      stack: error.stack
     })
-    
+
     return NextResponse.json(
       createErrorResponse('Internal server error', 'INTERNAL_ERROR'),
       { status: 500 }
@@ -72,11 +71,11 @@ export async function GET(
 // DELETE /api/orders/[id] - Delete order (admin only)
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const orderId = params.id
-    
+    const { id: orderId } = await params
+
     // Check if order exists
     const existingOrder = await prisma.order.findUnique({
       where: { id: orderId },
@@ -116,12 +115,11 @@ export async function DELETE(
     )
 
   } catch (error: any) {
-    logger.error('Delete order error', { 
-      error: error.message, 
-      stack: error.stack,
-      orderId: params.id
+    logger.error('Delete order error', {
+      error: error.message,
+      stack: error.stack
     })
-    
+
     return NextResponse.json(
       createErrorResponse('Internal server error', 'INTERNAL_ERROR'),
       { status: 500 }

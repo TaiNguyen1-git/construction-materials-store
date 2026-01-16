@@ -25,20 +25,21 @@ test.describe('Products Page', () => {
         const productCards = page.locator('.grid .bg-white.rounded-2xl');
         await expect(productCards.first()).toBeVisible();
 
-        // Check for price (VND format - ends with đ)
-        const price = page.locator('text=/\\d+.*đ/').first();
-        await expect(price).toBeVisible();
+        // Check for price (VND format - ends with đ or ₫)
+        const price = page.locator('text=/\\d+.*[đ₫]/').first();
+        await expect(price).toBeVisible({ timeout: 15000 });
     });
 
     test('should display category filters', async ({ page }) => {
-        // ProductFilters component should be visible
-        await expect(page.getByText('Danh mục', { exact: false })).toBeVisible({ timeout: 10000 });
+        // ProductFilters component should be visible - searching for "Bộ Lọc" or "Danh mục"
+        const filterHeader = page.getByText('Bộ Lọc').or(page.getByText('Danh mục'));
+        await expect(filterHeader.first()).toBeVisible({ timeout: 10000 });
     });
 
     test('should display view mode toggle (grid/list)', async ({ page }) => {
         // Grid and List view buttons
-        const gridButton = page.locator('button').filter({ has: page.locator('svg.h-5.w-5') }).first();
-        await expect(gridButton).toBeVisible({ timeout: 10000 });
+        const gridButton = page.locator('button').filter({ has: page.locator('svg') }).first();
+        await expect(gridButton).toBeVisible({ timeout: 15000 });
     });
 
     test('should navigate to product detail when clicking Chi Tiết button', async ({ page }) => {

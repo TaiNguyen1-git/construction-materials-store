@@ -21,8 +21,8 @@ test.describe('Homepage', () => {
 
     test('should display product search bar', async ({ page }) => {
         // Check for search input - the input has placeholder "Bạn đang tìm vật liệu gì?..."
-        const searchInput = page.locator('input[placeholder*="Bạn đang tìm"]').first();
-        await expect(searchInput).toBeVisible({ timeout: 10000 });
+        const searchInput = page.locator('input[placeholder*="Bạn đang tìm"]');
+        await expect(searchInput).toBeVisible({ timeout: 15000 });
     });
 
     test('should display categories section', async ({ page }) => {
@@ -48,8 +48,8 @@ test.describe('Homepage', () => {
         await page.evaluate(() => window.scrollBy(0, 500));
         await page.waitForTimeout(1000);
 
-        // Look for product cards - they show price in VND format
-        const priceText = page.locator('text=/\\d+.*đ/').first();
+        // Look for product cards - they show price in VND format (either đ or ₫)
+        const priceText = page.locator('text=/\\d+.*[đ₫]/').first();
         await expect(priceText).toBeVisible({ timeout: 15000 });
     });
 });

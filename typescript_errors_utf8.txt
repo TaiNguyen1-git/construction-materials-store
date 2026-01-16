@@ -1,0 +1,95 @@
+﻿.next/types/app/api/contractors/[id]/reviews/route.ts(166,7): error TS2344: Type '{ __tag__: "POST"; __param_position__: "second"; __param_type__: { params: { id: string; }; }; }' does not satisfy the constraint 'ParamCheck<RouteContext>'.
+  The types of '__param_type__.params' are incompatible between these types.
+    Type '{ id: string; }' is missing the following properties from type 'Promise<any>': then, catch, finally, [Symbol.toStringTag]
+.next/types/app/api/quotes/[id]/route.ts(283,7): error TS2344: Type '{ __tag__: "PATCH"; __param_position__: "second"; __param_type__: { params: { id: string; }; }; }' does not satisfy the constraint 'ParamCheck<RouteContext>'.
+  The types of '__param_type__.params' are incompatible between these types.
+    Type '{ id: string; }' is missing the following properties from type 'Promise<any>': then, catch, finally, [Symbol.toStringTag]
+.next/types/app/api/quotes/[id]/verify/route.ts(166,7): error TS2344: Type '{ __tag__: "POST"; __param_position__: "second"; __param_type__: { params: { id: string; }; }; }' does not satisfy the constraint 'ParamCheck<RouteContext>'.
+  The types of '__param_type__.params' are incompatible between these types.
+    Type '{ id: string; }' is missing the following properties from type 'Promise<any>': then, catch, finally, [Symbol.toStringTag]
+.next/types/app/api/quotes/pay/route.ts(166,7): error TS2344: Type '{ __tag__: "POST"; __param_position__: "second"; __param_type__: { params: { id: string; }; }; }' does not satisfy the constraint 'ParamCheck<RouteContext>'.
+  The types of '__param_type__.params' are incompatible between these types.
+    Type '{ id: string; }' is missing the following properties from type 'Promise<any>': then, catch, finally, [Symbol.toStringTag]
+.next/types/validator.ts(963,31): error TS2344: Type 'typeof import("D:/construction-materials-store/src/app/api/contractors/[id]/reviews/route")' does not satisfy the constraint 'RouteHandlerConfig<"/api/contractors/[id]/reviews">'.
+  Types of property 'POST' are incompatible.
+    Type '(request: NextRequest, { params }: { params: { id: string; }; }) => Promise<NextResponse<ApiResponse<any>>>' is not assignable to type '(request: NextRequest, context: { params: Promise<{ id: string; }>; }) => void | Response | Promise<void | Response>'.
+      Types of parameters '__1' and 'context' are incompatible.
+        Type '{ params: Promise<{ id: string; }>; }' is not assignable to type '{ params: { id: string; }; }'.
+          Types of property 'params' are incompatible.
+            Property 'id' is missing in type 'Promise<{ id: string; }>' but required in type '{ id: string; }'.
+.next/types/validator.ts(1233,31): error TS2344: Type 'typeof import("D:/construction-materials-store/src/app/api/inventory/route")' does not satisfy the constraint 'RouteHandlerConfig<"/api/inventory">'.
+  Types of property 'PUT' are incompatible.
+    Type '(request: NextRequest, { params }: { params: Promise<{ productId: string; }>; }) => Promise<NextResponse<ApiResponse<any>>>' is not assignable to type '(request: NextRequest, context: { params: Promise<{}>; }) => void | Response | Promise<void | Response>'.
+      Types of parameters '__1' and 'context' are incompatible.
+        Type '{ params: Promise<{}>; }' is not assignable to type '{ params: Promise<{ productId: string; }>; }'.
+          Types of property 'params' are incompatible.
+            Type 'Promise<{}>' is not assignable to type 'Promise<{ productId: string; }>'.
+              Property 'productId' is missing in type '{}' but required in type '{ productId: string; }'.
+.next/types/validator.ts(1674,31): error TS2344: Type 'typeof import("D:/construction-materials-store/src/app/api/quotes/[id]/route")' does not satisfy the constraint 'RouteHandlerConfig<"/api/quotes/[id]">'.
+  Types of property 'PATCH' are incompatible.
+    Type '(request: NextRequest, { params }: { params: { id: string; }; }) => Promise<NextResponse<ApiResponse<any>>>' is not assignable to type '(request: NextRequest, context: { params: Promise<{ id: string; }>; }) => void | Response | Promise<void | Response>'.
+      Types of parameters '__1' and 'context' are incompatible.
+        Type '{ params: Promise<{ id: string; }>; }' is not assignable to type '{ params: { id: string; }; }'.
+          Types of property 'params' are incompatible.
+            Property 'id' is missing in type 'Promise<{ id: string; }>' but required in type '{ id: string; }'.
+.next/types/validator.ts(1683,31): error TS2344: Type 'typeof import("D:/construction-materials-store/src/app/api/quotes/[id]/verify/route")' does not satisfy the constraint 'RouteHandlerConfig<"/api/quotes/[id]/verify">'.
+  Types of property 'POST' are incompatible.
+    Type '(request: NextRequest, { params }: { params: { id: string; }; }) => Promise<NextResponse<ApiResponse<any>>>' is not assignable to type '(request: NextRequest, context: { params: Promise<{ id: string; }>; }) => void | Response | Promise<void | Response>'.
+      Types of parameters '__1' and 'context' are incompatible.
+        Type '{ params: Promise<{ id: string; }>; }' is not assignable to type '{ params: { id: string; }; }'.
+          Types of property 'params' are incompatible.
+            Property 'id' is missing in type 'Promise<{ id: string; }>' but required in type '{ id: string; }'.
+.next/types/validator.ts(1710,31): error TS2344: Type 'typeof import("D:/construction-materials-store/src/app/api/quotes/pay/route")' does not satisfy the constraint 'RouteHandlerConfig<"/api/quotes/pay">'.
+  Types of property 'POST' are incompatible.
+    Type '(request: NextRequest, { params }: { params: { id: string; }; }) => Promise<NextResponse<ApiResponse<any>>>' is not assignable to type '(request: NextRequest, context: { params: Promise<{}>; }) => void | Response | Promise<void | Response>'.
+      Types of parameters '__1' and 'context' are incompatible.
+        Type '{ params: Promise<{}>; }' is not assignable to type '{ params: { id: string; }; }'.
+          Types of property 'params' are incompatible.
+            Property 'id' is missing in type 'Promise<{}>' but required in type '{ id: string; }'.
+prisma/seed-contractor.ts(25,13): error TS2322: Type '"USER"' is not assignable to type 'UserRole | undefined'.
+src/app/admin/ml-training/page.tsx(121,16): error TS2322: Type '{ children: Element; variant: string; }' is not assignable to type 'IntrinsicAttributes & HTMLAttributes<HTMLDivElement> & RefAttributes<HTMLDivElement>'.
+  Property 'variant' does not exist on type 'IntrinsicAttributes & HTMLAttributes<HTMLDivElement> & RefAttributes<HTMLDivElement>'.
+src/app/api/admin/reviews/route.ts(53,11): error TS2741: Property 'mode' is missing in type '{ contains: string; }' but required in type '{ contains: string; mode: "insensitive"; }'.
+src/app/api/admin/reviews/route.ts(54,11): error TS2741: Property 'mode' is missing in type '{ contains: string; }' but required in type '{ contains: string; mode: "insensitive"; }'.
+src/app/api/admin/reviews/route.ts(55,11): error TS2741: Property 'mode' is missing in type '{ contains: string; }' but required in type '{ contains: string; mode: "insensitive"; }'.
+src/app/api/admin/reviews/route.ts(56,11): error TS2741: Property 'mode' is missing in type '{ contains: string; }' but required in type '{ contains: string; mode: "insensitive"; }'.
+src/app/api/admin/reviews/route.ts(57,22): error TS2741: Property 'mode' is missing in type '{ contains: string; }' but required in type '{ contains: string; mode: "insensitive"; }'.
+src/app/api/admin/reviews/route.ts(58,22): error TS2741: Property 'mode' is missing in type '{ contains: string; }' but required in type '{ contains: string; mode: "insensitive"; }'.
+src/app/api/attendance/reports/route.ts(52,18): error TS2322: Type 'string | null' is not assignable to type 'string | undefined'.
+  Type 'null' is not assignable to type 'string | undefined'.
+src/app/api/loyalty/route.ts(135,55): error TS2339: Property 'adjustPoints' does not exist on type 'typeof LoyaltyService'.
+src/app/api/loyalty/vouchers/route.ts(8,47): error TS2339: Property 'getVoucherOptions' does not exist on type 'typeof LoyaltyService'.
+src/app/api/loyalty/vouchers/route.ts(57,45): error TS2339: Property 'redeemPointsForVoucher' does not exist on type 'typeof LoyaltyService'.
+src/app/api/marketplace/projects/[id]/apply/route.ts(70,17): error TS2353: Object literal may only specify known properties, and 'portfolio' does not exist in type 'Without<ProjectApplicationCreateInput, ProjectApplicationUncheckedCreateInput> & ProjectApplicationUncheckedCreateInput'.
+src/app/api/marketplace/projects/[id]/matches/route.ts(32,22): error TS2353: Object literal may only specify known properties, and 'isAvailable' does not exist in type 'ContractorProfileWhereInput'.
+src/app/api/marketplace/projects/[id]/matches/route.ts(37,13): error TS2345: Argument of type '{ id: string; displayName: string; skills: string[]; city: string | null; district: string | null; experienceYears: number | null; teamSize: number; isVerified: boolean; avgRating: number; totalReviews: any; completedJobs: any; isAvailable: any; }[]' is not assignable to parameter of type 'ContractorData[]'.
+  Type '{ id: string; displayName: string; skills: string[]; city: string | null; district: string | null; experienceYears: number | null; teamSize: number; isVerified: boolean; avgRating: number; totalReviews: any; completedJobs: any; isAvailable: any; }' is not assignable to type 'ContractorData'.
+    Types of property 'city' are incompatible.
+      Type 'string | null' is not assignable to type 'string'.
+        Type 'null' is not assignable to type 'string'.
+src/app/api/marketplace/projects/[id]/matches/route.ts(47,33): error TS2339: Property 'totalReviews' does not exist on type '{ address: string | null; id: string; createdAt: Date; updatedAt: Date; customerId: string; displayName: string; bio: string | null; phone: string | null; email: string | null; ... 14 more ...; documents: string[]; }'.
+src/app/api/marketplace/projects/[id]/matches/route.ts(48,34): error TS2339: Property 'completedJobs' does not exist on type '{ address: string | null; id: string; createdAt: Date; updatedAt: Date; customerId: string; displayName: string; bio: string | null; phone: string | null; email: string | null; ... 14 more ...; documents: string[]; }'.
+src/app/api/marketplace/projects/[id]/matches/route.ts(49,32): error TS2339: Property 'isAvailable' does not exist on type '{ address: string | null; id: string; createdAt: Date; updatedAt: Date; customerId: string; displayName: string; bio: string | null; phone: string | null; email: string | null; ... 14 more ...; documents: string[]; }'.
+src/app/api/material-calculator/route.ts(5,37): error TS2305: Module '"@/lib/material-calculator-service"' has no exported member 'ConstructionProject'.
+src/app/api/material-calculator/route.ts(40,52): error TS2339: Property 'calculateMaterials' does not exist on type 'typeof MaterialCalculatorService'.
+src/app/api/payroll/route.ts(71,24): error TS2304: Cannot find name 'verifyToken'.
+src/app/api/seed/marketplace/route.ts(59,17): error TS2353: Object literal may only specify known properties, and 'totalReviews' does not exist in type '(Without<ContractorProfileCreateInput, ContractorProfileUncheckedCreateInput> & ContractorProfileUncheckedCreateInput) | (Without<...> & ContractorProfileCreateInput)'.
+src/app/api/seed/marketplace/route.ts(82,17): error TS2353: Object literal may only specify known properties, and 'totalReviews' does not exist in type '(Without<ContractorProfileCreateInput, ContractorProfileUncheckedCreateInput> & ContractorProfileUncheckedCreateInput) | (Without<...> & ContractorProfileCreateInput)'.
+src/app/api/seed/marketplace/route.ts(105,17): error TS2353: Object literal may only specify known properties, and 'totalReviews' does not exist in type '(Without<ContractorProfileCreateInput, ContractorProfileUncheckedCreateInput> & ContractorProfileUncheckedCreateInput) | (Without<...> & ContractorProfileCreateInput)'.
+src/app/api/supplier/dashboard/route.ts(37,17): error TS2353: Object literal may only specify known properties, and 'items' does not exist in type 'PurchaseOrderInclude<DefaultArgs>'.
+src/app/api/supplier/dashboard/route.ts(52,50): error TS2367: This comparison appears to be unintentional because the types 'PurchaseOrderStatus' and '"PENDING"' have no overlap.
+src/app/api/supplier/dashboard/route.ts(52,76): error TS2367: This comparison appears to be unintentional because the types 'PurchaseOrderStatus' and '"ORDERED"' have no overlap.
+src/app/api/supplier/dashboard/route.ts(57,32): error TS2339: Property 'paymentStatus' does not exist on type '{ status: PurchaseOrderStatus; id: string; createdAt: Date; updatedAt: Date; notes: string | null; supplierId: string; orderNumber: string; totalAmount: number; ... 9 more ...; createdBy: string; }'.
+src/app/api/supplier/dashboard/route.ts(63,16): error TS2339: Property 'items' does not exist on type '{ status: PurchaseOrderStatus; id: string; createdAt: Date; updatedAt: Date; notes: string | null; supplierId: string; orderNumber: string; totalAmount: number; ... 9 more ...; createdBy: string; }'.
+src/app/api/supplier/dashboard/route.ts(63,26): error TS7006: Parameter 'item' implicitly has an 'any' type.
+src/app/api/tasks/my-tasks/route.ts(5,10): error TS2459: Module '"@/app/api/notifications/route"' declares 'getUserIdFromRequest' locally, but it is not exported.
+src/components/AdvancedSearch.tsx(30,28): error TS2554: Expected 1 arguments, but got 0.
+src/hooks/useAuth.ts(2,26): error TS2307: Cannot find module '@react-native-async-storage/async-storage' or its corresponding type declarations.
+src/lib/input-sanitizer.ts(139,7): error TS2322: Type 'string | null | undefined' is not assignable to type 'string | undefined'.
+  Type 'null' is not assignable to type 'string | undefined'.
+src/lib/procurement-service.ts(324,13): error TS2322: Type '{}' is not assignable to type 'never'.
+src/lib/review-recommendations.ts(328,11): error TS2322: Type '{ category: { name: string; id: string; description: string | null; isActive: boolean; createdAt: Date; updatedAt: Date; sortOrder: number; parentId: string | null; }; inventoryItem: { ...; } | null; } & { ...; }' is not assignable to type '{ id: string; name: string; price: number; images: string[]; unit: string; category: { name: string; }; inventoryItem?: { availableQuantity: number; } | undefined; }'.
+  Types of property 'inventoryItem' are incompatible.
+    Type '{ id: string; createdAt: Date; updatedAt: Date; productId: string; quantity: number; reservedQuantity: number; availableQuantity: number; minStockLevel: number; maxStockLevel: number | null; ... 4 more ...; notes: string | null; } | null' is not assignable to type '{ availableQuantity: number; } | undefined'.
+      Type 'null' is not assignable to type '{ availableQuantity: number; } | undefined'.
+src/utils/api.ts(2,26): error TS2307: Cannot find module '@react-native-async-storage/async-storage' or its corresponding type declarations.

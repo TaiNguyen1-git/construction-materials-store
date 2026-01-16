@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
             orderBy: [
                 { isVerified: 'desc' },
                 { avgRating: 'desc' },
-                { completedJobs: 'desc' }
+                { totalProjectsCompleted: 'desc' }
             ],
             skip,
             take: limit

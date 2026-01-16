@@ -370,6 +370,7 @@ export default function NotificationBell() {
       case 'STOCK_ALERT':
       case 'LOW_STOCK':
       case 'REORDER_NEEDED':
+      case 'STOCK_UPDATE':
         return <AlertTriangle className="w-5 h-5 text-red-500" />
       case 'ORDER_UPDATE':
       case 'ORDER_NEW':

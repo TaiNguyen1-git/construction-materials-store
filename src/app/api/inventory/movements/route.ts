@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { createSuccessResponse, createErrorResponse } from '@/lib/api-types'
-import { requireAuth } from '@/lib/auth-middleware-api'
+import { requireAuth, requireEmployee } from '@/lib/auth-middleware-api'
 
 // GET /api/inventory/movements - Get inventory movements history
 export async function GET(request: NextRequest) {
@@ -53,6 +53,11 @@ export async function GET(request: NextRequest) {
 // POST /api/inventory/movements - Create new inventory movement
 export async function POST(request: NextRequest) {
   try {
+    const authError = requireEmployee(request)
+    if (authError) {
+      return authError
+    }
+
     const body = await request.json()
     const { productId, type, quantity, reason } = body
 

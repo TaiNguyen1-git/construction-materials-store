@@ -12,7 +12,7 @@ import { prisma } from './prisma'
 import { pushSystemNotification, pushNotificationToFirebase } from './firebase-notifications'
 
 export interface Notification {
-  type: 'LOW_STOCK' | 'REORDER_NEEDED' | 'PREDICTION_ALERT' | 'MONTHLY_REMINDER' | 'ORDER_NEW' | 'ORDER_UPDATE' | 'QUOTE_NEW' | 'QUOTE_UPDATE' | 'KYC_PENDING' | 'SMART_REORDER'
+  type: 'LOW_STOCK' | 'REORDER_NEEDED' | 'PREDICTION_ALERT' | 'MONTHLY_REMINDER' | 'ORDER_NEW' | 'ORDER_UPDATE' | 'QUOTE_NEW' | 'QUOTE_UPDATE' | 'KYC_PENDING' | 'SMART_REORDER' | 'STOCK_UPDATE'
   priority: 'HIGH' | 'MEDIUM' | 'LOW'
   title: string
   message: string
@@ -465,4 +465,62 @@ export async function createOrderStatusNotificationForCustomer(order: {
   }
 
   await saveNotificationForUser(notification, order.customer.userId)
+}
+
+/**
+ * Create notification for stock update (formerly via WebSocket)
+ */
+export async function createStockUpdateNotification(data: {
+  productId: string
+  productName: string
+  sku?: string
+  currentStock: number
+  previousStock: number
+}) {
+  const notification: Notification = {
+    type: 'STOCK_UPDATE',
+    priority: 'LOW',
+    title: `🔄 Cập nhật tồn kho: ${data.productName}`,
+    message: `Số lượng thay đổi: ${data.previousStock} -> ${data.currentStock}`,
+    productId: data.productId,
+    productName: data.productName,
+    data: {
+      ...data,
+      timestamp: new Date().toISOString()
+    }
+  }
+
+  // Stock updates are primarily for managers and employees to see live changes
+  await saveNotificationForAllManagers(notification)
+}
+
+/**
+ * Create notification for low stock alert (formerly via WebSocket)
+ */
+export async function createLowStockAlertNotification(data: {
+  productId: string
+  productName: string
+  sku?: string
+  currentStock: number
+  minStockLevel: number
+}) {
+  const isOutOfStock = data.currentStock <= 0
+
+  const notification: Notification = {
+    type: 'LOW_STOCK',
+    priority: isOutOfStock ? 'HIGH' : 'MEDIUM',
+    title: isOutOfStock ? `🚫 Hết hàng: ${data.productName}` : `⚠️ Sắp hết hàng: ${data.productName}`,
+    message: isOutOfStock
+      ? `Sản phẩm ${data.productName} đã hết hàng trong kho!`
+      : `Sản phẩm ${data.productName} còn ${data.currentStock} cái. Mức tối thiểu: ${data.minStockLevel}`,
+    productId: data.productId,
+    productName: data.productName,
+    data: {
+      ...data,
+      alertType: isOutOfStock ? 'out_of_stock' : 'low_stock',
+      timestamp: new Date().toISOString()
+    }
+  }
+
+  await saveNotificationForAllManagers(notification)
 }

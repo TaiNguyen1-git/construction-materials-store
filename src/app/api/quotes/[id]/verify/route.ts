@@ -11,15 +11,14 @@ const verifyOtpSchema = z.object({
 
 export async function POST(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const { id: quoteId } = await params
         const userId = request.headers.get('x-user-id')
         if (!userId) {
             return NextResponse.json(createErrorResponse('Unauthorized', 'UNAUTHORIZED'), { status: 401 })
         }
-
-        const quoteId = params.id
         const body = await request.json()
         const validation = verifyOtpSchema.safeParse(body)
 

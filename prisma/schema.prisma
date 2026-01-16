@@ -1489,15 +1489,24 @@ model ContractorProfile {
   experienceYears Int?
   skills          String[]  // List of skills/specialties
   isVerified      Boolean  @default(false)
+  isAvailable     Boolean  @default(true)
   
   // Market filters
   city            String?
+  district        String?
+  address         String?
   avgRating       Float    @default(0)
   reviewCount     Int      @default(0)
   
   // Flow 5: Trust Score
   trustScore      Float    @default(100) // Điểm tín nhiệm (0-100)
   totalProjectsCompleted Int @default(0) // Tổng số dự án đã hoàn thành
+  
+  // Additional profile details
+  teamSize        Int      @default(1)
+  portfolioImages String[]
+  portfolioDesc   String[]
+  documents       String[]
   
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt

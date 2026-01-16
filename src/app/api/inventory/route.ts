@@ -3,8 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { createSuccessResponse, createErrorResponse, createPaginatedResponse } from '@/lib/api-types'
 import { requireAuth } from '@/lib/auth-middleware-api'
 import { z } from 'zod'
-import { sendNotification } from '@/lib/notification-service'
-import { notificationWebSocketServer } from '@/lib/websocket-server'
+import { sendNotification, createStockUpdateNotification, createLowStockAlertNotification } from '@/lib/notification-service'
 import { logger, logAPI } from '@/lib/logger'
 
 const querySchema = z.object({
@@ -330,24 +329,30 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Send real-time WebSocket notification
+    // Send real-time notification via Firebase (formerly WebSocket)
     try {
-      await notificationWebSocketServer.sendStockUpdate(
-        productId,
-        newQuantity,
-        previousStock
-      )
-
-      // Send low stock alert if applicable
-      if (newQuantity <= 0 || newQuantity <= inventoryItem.minStockLevel) {
-        await notificationWebSocketServer.sendLowStockAlert(
+      if (result.product) {
+        await createStockUpdateNotification({
           productId,
-          newQuantity,
-          inventoryItem.minStockLevel
-        )
+          productName: result.product.name,
+          sku: result.product.sku || undefined,
+          currentStock: newQuantity,
+          previousStock: previousStock
+        })
+
+        // Send low stock alert if applicable
+        if (newQuantity <= 0 || newQuantity <= inventoryItem.minStockLevel) {
+          await createLowStockAlertNotification({
+            productId,
+            productName: result.product.name,
+            sku: result.product.sku || undefined,
+            currentStock: newQuantity,
+            minStockLevel: inventoryItem.minStockLevel
+          })
+        }
       }
-    } catch (websocketError) {
-      console.error('Failed to send WebSocket notification:', websocketError)
+    } catch (notificationError) {
+      console.error('Failed to send Firebase notification:', notificationError)
     }
 
     return NextResponse.json(
@@ -365,7 +370,7 @@ export async function POST(request: NextRequest) {
 }
 
 // PUT /api/inventory/[productId] - Update inventory settings
-export async function PUT(request: NextRequest, { params }: { params: { productId: string } }) {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ productId: string }> }) {
   try {
     // Check user role from middleware
     const userRole = request.headers.get('x-user-role')
@@ -376,7 +381,7 @@ export async function PUT(request: NextRequest, { params }: { params: { productI
       )
     }
 
-    const productId = params.productId
+    const { productId } = await params
     const body = await request.json()
 
     // Validate input

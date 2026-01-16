@@ -5,9 +5,10 @@ import { getUser } from '@/lib/auth'
 // PUT /api/banners/[id] - Update banner
 export async function PUT(
     request: Request,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const { id } = await params
         const user = await getUser()
         if (!user || !['MANAGER', 'EMPLOYEE'].includes(user.role)) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -17,7 +18,7 @@ export async function PUT(
         const { title, description, imageUrl, tag, link, order, isActive } = body
 
         const banner = await prisma.banner.update({
-            where: { id: params.id },
+            where: { id },
             data: {
                 title,
                 description,
@@ -42,16 +43,17 @@ export async function PUT(
 // DELETE /api/banners/[id] - Delete banner
 export async function DELETE(
     request: Request,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const { id: bannerId } = await params
         const user = await getUser()
         if (!user || !['MANAGER', 'EMPLOYEE'].includes(user.role)) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
         await prisma.banner.delete({
-            where: { id: params.id },
+            where: { id: bannerId },
         })
 
         return NextResponse.json({ success: true })

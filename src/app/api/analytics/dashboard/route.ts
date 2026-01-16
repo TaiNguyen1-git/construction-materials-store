@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { requireEmployee } from '@/lib/auth-middleware-api'
 
 export async function GET(request: NextRequest) {
   try {
+    const authError = requireEmployee(request)
+    if (authError) return authError
+
     const { searchParams } = new URL(request.url)
     const days = parseInt(searchParams.get('days') || '30')
 

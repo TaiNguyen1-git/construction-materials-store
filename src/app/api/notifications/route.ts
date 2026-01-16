@@ -4,7 +4,7 @@ import { createSuccessResponse, createErrorResponse } from '@/lib/api-types'
 import { verifyTokenFromRequest } from '@/lib/auth-middleware-api'
 
 // Helper to get real userId from either JWT or headers
-export async function getUserIdFromRequest(request: NextRequest): Promise<string | null> {
+async function getUserIdFromRequest(request: NextRequest): Promise<string | null> {
   // 1. Try to get from JWT payload (most reliable)
   const payload = verifyTokenFromRequest(request)
   if (payload && payload.userId) {

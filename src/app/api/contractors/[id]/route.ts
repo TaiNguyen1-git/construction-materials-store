@@ -45,8 +45,8 @@ export async function GET(
                     documents: contractor.documents,
                     isVerified: contractor.isVerified,
                     avgRating: contractor.avgRating,
-                    totalReviews: contractor.totalReviews,
-                    completedJobs: contractor.completedJobs,
+                    totalReviews: contractor.reviewCount,
+                    completedJobs: contractor.totalProjectsCompleted,
                     createdAt: contractor.createdAt
                 },
                 reviews: [] // Reviews will be loaded separately if needed

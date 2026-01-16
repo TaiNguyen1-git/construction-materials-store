@@ -7,14 +7,13 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { createSuccessResponse, createErrorResponse } from '@/lib/api-types'
 
+import { requireEmployee } from '@/lib/auth-middleware-api'
+
 // GET /api/dashboard/predictions - Get predictions summary for dashboard
 export async function GET(request: NextRequest) {
     try {
-        const userRole = request.headers.get('x-user-role')
-
-        if (userRole !== 'MANAGER') {
-            return NextResponse.json(createErrorResponse('Unauthorized', 'UNAUTHORIZED'), { status: 401 })
-        }
+        const authError = requireEmployee(request)
+        if (authError) return authError
 
         const now = new Date()
         const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
