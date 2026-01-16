@@ -5,7 +5,7 @@
  * Dedicated cart for B2B contractors with project info and bulk ordering
  */
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
@@ -34,6 +34,13 @@ export default function ContractorCartPage() {
     const router = useRouter()
     const [sidebarOpen, setSidebarOpen] = useState(false)
     const [isProcessing, setIsProcessing] = useState(false)
+    const [loading, setLoading] = useState(true)
+    const [contractorInfo, setContractorInfo] = useState({
+        creditLimit: 0,
+        currentDebt: 0,
+        discountPercent: 0,
+        availableCredit: 0
+    })
 
     const {
         items,
@@ -53,14 +60,45 @@ export default function ContractorCartPage() {
     const totalPrice = getTotalPrice()
     const totalItems = getTotalItems()
 
-    // Mock contractor info
-    const contractorInfo = {
-        creditLimit: 150000000,
-        currentDebt: 45000000,
-        discountPercent: 15
+    // Fetch contractor profile with credit info
+    useEffect(() => {
+        fetchContractorProfile()
+    }, [])
+
+    const fetchContractorProfile = async () => {
+        try {
+            const token = localStorage.getItem('access_token')
+            const user = localStorage.getItem('user')
+            const userId = user ? JSON.parse(user).id : null
+
+            const response = await fetch('/api/contractors/profile', {
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(token && { 'Authorization': `Bearer ${token}` }),
+                    ...(userId && { 'x-user-id': userId })
+                }
+            })
+
+            if (response.ok) {
+                const data = await response.json()
+                if (data.success && data.data) {
+                    const profile = data.data
+                    setContractorInfo({
+                        creditLimit: profile.creditLimit || 0,
+                        currentDebt: profile.debtSummary?.totalDebt || 0,
+                        discountPercent: profile.discountPercent || 0,
+                        availableCredit: profile.availableCredit || 0
+                    })
+                }
+            }
+        } catch (error) {
+            console.error('Error fetching contractor profile:', error)
+        } finally {
+            setLoading(false)
+        }
     }
 
-    const availableCredit = contractorInfo.creditLimit - contractorInfo.currentDebt
+    const availableCredit = contractorInfo.availableCredit
     const discountAmount = totalPrice * (contractorInfo.discountPercent / 100)
     const finalTotal = totalPrice - discountAmount
 
@@ -77,13 +115,39 @@ export default function ContractorCartPage() {
 
         setIsProcessing(true)
         try {
-            // TODO: Call API to create order
-            await new Promise(resolve => setTimeout(resolve, 1500))
+            const token = localStorage.getItem('access_token')
+            const user = localStorage.getItem('user')
+            const userId = user ? JSON.parse(user).id : null
 
-            toast.success('Đặt hàng thành công!')
-            clearCart()
-            router.push('/contractor/orders')
+            const response = await fetch('/api/contractors/orders', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(token && { 'Authorization': `Bearer ${token}` }),
+                    ...(userId && { 'x-user-id': userId })
+                },
+                body: JSON.stringify({
+                    items: items.map(item => ({
+                        productId: item.productId,
+                        quantity: item.quantity
+                    })),
+                    projectName,
+                    poNumber,
+                    notes
+                })
+            })
+
+            const data = await response.json()
+
+            if (response.ok && data.success) {
+                toast.success('Đặt hàng thành công!')
+                clearCart()
+                router.push('/contractor/orders')
+            } else {
+                toast.error(data.message || 'Có lỗi xảy ra. Vui lòng thử lại.')
+            }
         } catch (error) {
+            console.error('Checkout error:', error)
             toast.error('Có lỗi xảy ra. Vui lòng thử lại.')
         } finally {
             setIsProcessing(false)

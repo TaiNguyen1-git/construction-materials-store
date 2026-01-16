@@ -143,6 +143,77 @@ async function predictWithProphetML(
   }
 }
 
+// Calculate seasonal factors from REAL historical sales data
+async function calculateSeasonalFactorsFromData(productId?: string): Promise<number[]> {
+  try {
+    // Get 2 years of historical data to analyze seasonality
+    const twoYearsAgo = new Date()
+    twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2)
+
+    // Build where clause for order items
+    const orderItemsWhere: any = {}
+    if (productId) {
+      orderItemsWhere.productId = productId
+    }
+
+    // Get orders from the last 2 years
+    const orders = await prisma.order.findMany({
+      where: {
+        createdAt: { gte: twoYearsAgo },
+        status: { in: ['DELIVERED', 'PROCESSING', 'SHIPPED'] }
+      },
+      include: {
+        orderItems: {
+          where: orderItemsWhere,
+          select: {
+            quantity: true,
+            productId: true
+          }
+        }
+      }
+    })
+
+    // Group sales by month
+    const monthlySales: number[] = Array(12).fill(0)
+    const monthCounts: number[] = Array(12).fill(0)
+
+    orders.forEach(order => {
+      const month = order.createdAt.getMonth()
+      const totalQuantity = order.orderItems.reduce((sum, item) => sum + item.quantity, 0)
+      monthlySales[month] += totalQuantity
+      monthCounts[month]++
+    })
+
+    // Calculate average sales per month
+    const avgPerMonth = monthlySales.map((total, i) =>
+      monthCounts[i] > 0 ? total / monthCounts[i] : 0
+    )
+
+    // Calculate overall average
+    const nonZeroMonths = avgPerMonth.filter(v => v > 0)
+    if (nonZeroMonths.length < 6) {
+      // Not enough data, return empty to use defaults
+      return []
+    }
+
+    const overallAvg = nonZeroMonths.reduce((a, b) => a + b, 0) / nonZeroMonths.length
+
+    // Calculate seasonal factor for each month (ratio to overall average)
+    const seasonalFactors = avgPerMonth.map(monthAvg => {
+      if (monthAvg === 0 || overallAvg === 0) return 1.0
+      // Clamp between 0.5 and 2.0 to avoid extreme values
+      return Math.max(0.5, Math.min(2.0, monthAvg / overallAvg))
+    })
+
+    console.log('📊 Calculated seasonal factors from real data:', seasonalFactors)
+    return seasonalFactors
+
+  } catch (error) {
+    console.error('Error calculating seasonal factors:', error)
+    return [] // Return empty to use defaults
+  }
+}
+
 async function predictInventoryDemand(
   productId: string,
   timeframe: string,
@@ -231,13 +302,24 @@ async function predictInventoryDemand(
     trend = denominator !== 0 ? (n * sumXY - sumX * sumY) / denominator : 0
   }
 
-  // Seasonal factors (mock - in production would use more sophisticated analysis)
+  // Calculate seasonal factors from REAL historical data
   const currentMonth = new Date().getMonth()
-  const seasonalFactors = [
-    0.8, 0.85, 1.1, 1.2, 1.3, 1.25, // Jan-Jun (winter/spring construction season)
-    1.4, 1.35, 1.2, 1.1, 0.9, 0.8   // Jul-Dec (summer peak, winter decline)
-  ]
-  const seasonalMultiplier = includeSeasonality ? seasonalFactors[currentMonth] : 1.0
+  let seasonalMultiplier = 1.0
+
+  if (includeSeasonality) {
+    // Try to calculate from actual sales data
+    const seasonalFactors = await calculateSeasonalFactorsFromData(productId)
+    if (seasonalFactors[currentMonth] !== undefined) {
+      seasonalMultiplier = seasonalFactors[currentMonth]
+    } else {
+      // Fallback to Vietnam construction industry defaults only if no data
+      const defaultSeasonalFactors = [
+        0.8, 0.85, 1.1, 1.2, 1.3, 1.25, // Jan-Jun (Tết slow, then construction season)
+        1.4, 1.35, 1.2, 1.1, 0.9, 0.8   // Jul-Dec (rainy season affects)
+      ]
+      seasonalMultiplier = defaultSeasonalFactors[currentMonth]
+    }
+  }
 
   // Calculate prediction based on timeframe
   let basePrediction = averageMonthlyDemand

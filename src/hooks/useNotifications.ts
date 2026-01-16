@@ -1,6 +1,4 @@
 import { useState, useEffect } from 'react';
-import { AppState, AppStateStatus } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export interface Notification {
   id: string;
@@ -17,66 +15,75 @@ export const useNotifications = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [appState, setAppState] = useState<AppStateStatus>(AppState.currentState);
 
-  // Load notifications from storage on app start
+  // Load notifications from API on component mount
   useEffect(() => {
     loadNotifications();
-    
-    // Listen for app state changes
-    const subscription = AppState.addEventListener('change', handleAppStateChange);
-    
+
+    // Set up polling for new notifications every 30 seconds
+    const interval = setInterval(() => {
+      loadNotifications();
+    }, 30000);
+
     return () => {
-      subscription.remove();
+      clearInterval(interval);
     };
   }, []);
-
-  const handleAppStateChange = (nextAppState: AppStateStatus) => {
-    if (appState.match(/inactive|background/) && nextAppState === 'active') {
-      // App has come to the foreground, refresh notifications
-      loadNotifications();
-    }
-    setAppState(nextAppState);
-  };
 
   const loadNotifications = async () => {
     try {
       setLoading(true);
-      
-      // In a real app, you would fetch from an API
-      // For now, we'll load from local storage
-      const storedNotifications = await AsyncStorage.getItem('notifications');
-      
-      if (storedNotifications) {
-        const parsedNotifications: Notification[] = JSON.parse(storedNotifications);
-        setNotifications(parsedNotifications);
-        setUnreadCount(parsedNotifications.filter(n => !n.read).length);
-      } else {
-        // Load mock notifications if none exist
-        const mockNotifications: Notification[] = [
-          {
-            id: '1',
-            title: 'Low Stock Alert',
-            message: 'Cement (SKU: CEM-001) is running low. Current stock: 5 units.',
-            type: 'stock',
-            priority: 'high',
-            read: false,
-            createdAt: new Date().toISOString(),
-          },
-          {
-            id: '2',
-            title: 'New Order',
-            message: 'Order #ORD-2023-0012 has been placed.',
-            type: 'order',
-            priority: 'medium',
-            read: false,
-            createdAt: new Date(Date.now() - 3600000).toISOString(), // 1 hour ago
-          },
-        ];
-        
-        setNotifications(mockNotifications);
-        setUnreadCount(mockNotifications.filter(n => !n.read).length);
-        await AsyncStorage.setItem('notifications', JSON.stringify(mockNotifications));
+
+      // Try to fetch from API
+      const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+      const user = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
+      const userId = user ? JSON.parse(user).id : null;
+
+      if (userId || token) {
+        try {
+          const response = await fetch('/api/notifications?limit=20', {
+            headers: {
+              'Content-Type': 'application/json',
+              ...(token && { 'Authorization': `Bearer ${token}` }),
+              ...(userId && { 'x-user-id': userId })
+            }
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            if (data.success && data.data?.notifications) {
+              const apiNotifications: Notification[] = data.data.notifications.map((n: any) => ({
+                id: n.id,
+                title: n.title,
+                message: n.message,
+                type: mapNotificationType(n.type),
+                priority: mapPriority(n.priority),
+                read: n.isRead,
+                createdAt: n.createdAt,
+                data: n.data
+              }));
+              setNotifications(apiNotifications);
+              setUnreadCount(apiNotifications.filter(n => !n.read).length);
+              return;
+            }
+          }
+        } catch (apiError) {
+          console.warn('Could not fetch notifications from API, using local storage:', apiError);
+        }
+      }
+
+      // Fallback to local storage for guests or when API fails
+      if (typeof window !== 'undefined') {
+        const storedNotifications = localStorage.getItem('notifications');
+        if (storedNotifications) {
+          const parsedNotifications: Notification[] = JSON.parse(storedNotifications);
+          setNotifications(parsedNotifications);
+          setUnreadCount(parsedNotifications.filter(n => !n.read).length);
+        } else {
+          // Empty state for new users - no mock data
+          setNotifications([]);
+          setUnreadCount(0);
+        }
       }
     } catch (error) {
       console.error('Error loading notifications:', error);
@@ -85,18 +92,66 @@ export const useNotifications = () => {
     }
   };
 
+  // Helper functions to map API types to hook types
+  function mapNotificationType(type: string): Notification['type'] {
+    const typeMap: Record<string, Notification['type']> = {
+      'ORDER_NEW': 'order',
+      'ORDER_UPDATE': 'order',
+      'STOCK_LOW': 'stock',
+      'STOCK_CRITICAL': 'stock',
+      'LOYALTY_POINTS': 'loyalty',
+      'LOYALTY_TIER_UP': 'loyalty',
+      'SYSTEM': 'info',
+      'PROMOTION': 'info'
+    };
+    return typeMap[type] || 'info';
+  }
+
+  function mapPriority(priority: string): Notification['priority'] {
+    const priorityMap: Record<string, Notification['priority']> = {
+      'CRITICAL': 'high',
+      'HIGH': 'high',
+      'MEDIUM': 'medium',
+      'LOW': 'low'
+    };
+    return priorityMap[priority] || 'medium';
+  }
+
   const markAsRead = async (id: string) => {
     try {
       const updatedNotifications = notifications.map(notification =>
         notification.id === id ? { ...notification, read: true } : notification
       );
-      
+
       setNotifications(updatedNotifications);
       setUnreadCount(updatedNotifications.filter(n => !n.read).length);
-      
-      // Save to storage
-      await AsyncStorage.setItem('notifications', JSON.stringify(updatedNotifications));
-      
+
+      // Try to call API first
+      const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+      const user = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
+      const userId = user ? JSON.parse(user).id : null;
+
+      if (token || userId) {
+        try {
+          await fetch('/api/notifications', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(token && { 'Authorization': `Bearer ${token}` }),
+              ...(userId && { 'x-user-id': userId })
+            },
+            body: JSON.stringify({ action: 'markAsRead', notificationId: id })
+          });
+        } catch (e) {
+          console.warn('Could not mark notification as read via API');
+        }
+      }
+
+      // Also save to localStorage as backup
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('notifications', JSON.stringify(updatedNotifications));
+      }
+
       return { success: true };
     } catch (error) {
       console.error('Error marking notification as read:', error);
@@ -110,13 +165,36 @@ export const useNotifications = () => {
         ...notification,
         read: true,
       }));
-      
+
       setNotifications(updatedNotifications);
       setUnreadCount(0);
-      
-      // Save to storage
-      await AsyncStorage.setItem('notifications', JSON.stringify(updatedNotifications));
-      
+
+      // Try to call API first
+      const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+      const user = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
+      const userId = user ? JSON.parse(user).id : null;
+
+      if (token || userId) {
+        try {
+          await fetch('/api/notifications', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(token && { 'Authorization': `Bearer ${token}` }),
+              ...(userId && { 'x-user-id': userId })
+            },
+            body: JSON.stringify({ action: 'markAllAsRead' })
+          });
+        } catch (e) {
+          console.warn('Could not mark all notifications as read via API');
+        }
+      }
+
+      // Also save to localStorage
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('notifications', JSON.stringify(updatedNotifications));
+      }
+
       return { success: true };
     } catch (error) {
       console.error('Error marking all notifications as read:', error);
@@ -130,13 +208,35 @@ export const useNotifications = () => {
       if (notification && !notification.read) {
         setUnreadCount(unreadCount - 1);
       }
-      
+
       const updatedNotifications = notifications.filter(n => n.id !== id);
       setNotifications(updatedNotifications);
-      
-      // Save to storage
-      await AsyncStorage.setItem('notifications', JSON.stringify(updatedNotifications));
-      
+
+      // Try to delete via API
+      const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+      const user = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
+      const userId = user ? JSON.parse(user).id : null;
+
+      if (token || userId) {
+        try {
+          await fetch(`/api/notifications/${id}`, {
+            method: 'DELETE',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(token && { 'Authorization': `Bearer ${token}` }),
+              ...(userId && { 'x-user-id': userId })
+            }
+          });
+        } catch (e) {
+          console.warn('Could not delete notification via API');
+        }
+      }
+
+      // Also save to localStorage
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('notifications', JSON.stringify(updatedNotifications));
+      }
+
       return { success: true };
     } catch (error) {
       console.error('Error deleting notification:', error);
@@ -151,17 +251,19 @@ export const useNotifications = () => {
         id: Date.now().toString(),
         createdAt: new Date().toISOString(),
       };
-      
+
       const updatedNotifications = [newNotification, ...notifications];
       setNotifications(updatedNotifications);
-      
+
       if (!newNotification.read) {
         setUnreadCount(unreadCount + 1);
       }
-      
-      // Save to storage
-      await AsyncStorage.setItem('notifications', JSON.stringify(updatedNotifications));
-      
+
+      // Save to localStorage
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('notifications', JSON.stringify(updatedNotifications));
+      }
+
       return { success: true, notification: newNotification };
     } catch (error) {
       console.error('Error adding notification:', error);

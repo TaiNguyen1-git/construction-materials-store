@@ -39,23 +39,61 @@ interface Order {
     status: string
     items: number
     project: string
+    paymentStatus?: string
+    paymentMethod?: string
 }
 
 export default function ContractorOrdersPage() {
     const [sidebarOpen, setSidebarOpen] = useState(false)
     const [orders, setOrders] = useState<Order[]>([])
     const [statusFilter, setStatusFilter] = useState('all')
+    const [loading, setLoading] = useState(true)
+    const [error, setError] = useState<string | null>(null)
+    const [page, setPage] = useState(1)
+    const [totalPages, setTotalPages] = useState(1)
 
     useEffect(() => {
-        // Mock data
-        setOrders([
-            { id: '1', orderNumber: 'ORD-2024-001', date: '2025-12-15', total: 15000000, status: 'DELIVERED', items: 5, project: 'Dự án Biên Hòa' },
-            { id: '2', orderNumber: 'ORD-2024-002', date: '2025-12-14', total: 8500000, status: 'PROCESSING', items: 3, project: 'Dự án Biên Hòa' },
-            { id: '3', orderNumber: 'ORD-2024-003', date: '2025-12-13', total: 22000000, status: 'SHIPPED', items: 8, project: 'Dự án Long Thành' },
-            { id: '4', orderNumber: 'ORD-2024-004', date: '2025-12-12', total: 45000000, status: 'DELIVERED', items: 15, project: 'Dự án Long Thành' },
-            { id: '5', orderNumber: 'ORD-2024-005', date: '2025-12-10', total: 12500000, status: 'DELIVERED', items: 6, project: 'Dự án Biên Hòa' },
-        ])
-    }, [])
+        fetchOrders()
+    }, [statusFilter, page])
+
+    const fetchOrders = async () => {
+        setLoading(true)
+        setError(null)
+        try {
+            const token = localStorage.getItem('access_token')
+            const user = localStorage.getItem('user')
+            const userId = user ? JSON.parse(user).id : null
+
+            const params = new URLSearchParams({
+                page: page.toString(),
+                limit: '20',
+                ...(statusFilter !== 'all' && { status: statusFilter })
+            })
+
+            const response = await fetch(`/api/contractors/orders?${params}`, {
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(token && { 'Authorization': `Bearer ${token}` }),
+                    ...(userId && { 'x-user-id': userId })
+                }
+            })
+
+            if (!response.ok) {
+                throw new Error('Failed to fetch orders')
+            }
+
+            const data = await response.json()
+            if (data.success && data.data) {
+                setOrders(data.data.orders || [])
+                setTotalPages(data.data.pagination?.pages || 1)
+            }
+        } catch (err: any) {
+            console.error('Error fetching orders:', err)
+            setError(err.message || 'Không thể tải đơn hàng')
+        } finally {
+            setLoading(false)
+        }
+    }
 
     const formatCurrency = (amount: number) => {
         return new Intl.NumberFormat('vi-VN', {

@@ -44,11 +44,12 @@ interface Invoice {
 export default function ContractorDebtPage() {
     const [sidebarOpen, setSidebarOpen] = useState(false)
     const [invoices, setInvoices] = useState<Invoice[]>([])
+    const [loading, setLoading] = useState(true)
     const [stats, setStats] = useState({
-        totalDebt: 45000000,
-        creditLimit: 100000000,
+        totalDebt: 0,
+        creditLimit: 0,
         overdue: 0,
-        dueThisWeek: 15000000
+        dueThisWeek: 0
     })
 
     // QR Payment Modal State
@@ -56,13 +57,56 @@ export default function ContractorDebtPage() {
     const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null)
 
     useEffect(() => {
-        setInvoices([
-            { id: '1', invoiceNumber: 'INV-2024-001', date: '2025-12-01', dueDate: '2025-12-31', amount: 15000000, paid: 0, status: 'PENDING' },
-            { id: '2', invoiceNumber: 'INV-2024-002', date: '2025-11-15', dueDate: '2025-12-15', amount: 8500000, paid: 0, status: 'PENDING' },
-            { id: '3', invoiceNumber: 'INV-2024-003', date: '2025-11-01', dueDate: '2025-12-01', amount: 22000000, paid: 22000000, status: 'PAID' },
-            { id: '4', invoiceNumber: 'INV-2024-004', date: '2025-10-15', dueDate: '2025-11-15', amount: 12500000, paid: 12500000, status: 'PAID' },
-        ])
+        fetchContractorProfile()
     }, [])
+
+    const fetchContractorProfile = async () => {
+        try {
+            const token = localStorage.getItem('access_token')
+            const user = localStorage.getItem('user')
+            const userId = user ? JSON.parse(user).id : null
+
+            const response = await fetch('/api/contractors/profile', {
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(token && { 'Authorization': `Bearer ${token}` }),
+                    ...(userId && { 'x-user-id': userId })
+                }
+            })
+
+            if (response.ok) {
+                const data = await response.json()
+                if (data.success && data.data) {
+                    const profile = data.data
+
+                    // Set stats from debtSummary
+                    setStats({
+                        totalDebt: profile.debtSummary?.totalDebt || 0,
+                        creditLimit: profile.creditLimit || 0,
+                        overdue: profile.debtSummary?.overdueAmount || 0,
+                        dueThisWeek: profile.debtSummary?.dueThisWeek || 0
+                    })
+
+                    // Set invoices from unpaidInvoices
+                    if (profile.unpaidInvoices && Array.isArray(profile.unpaidInvoices)) {
+                        setInvoices(profile.unpaidInvoices.map((inv: any) => ({
+                            id: inv.id,
+                            invoiceNumber: inv.invoiceNumber,
+                            date: new Date(inv.date).toISOString().split('T')[0],
+                            dueDate: inv.dueDate ? new Date(inv.dueDate).toISOString().split('T')[0] : '',
+                            amount: inv.amount,
+                            paid: inv.paid || 0,
+                            status: inv.status
+                        })))
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Error fetching contractor profile:', error)
+        } finally {
+            setLoading(false)
+        }
+    }
 
     const formatCurrency = (amount: number) => {
         return new Intl.NumberFormat('vi-VN', {

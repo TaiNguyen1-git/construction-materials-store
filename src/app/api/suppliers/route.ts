@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireEmployee } from '@/lib/auth-middleware-api'
+import type { SupplierDeliveryRating } from '@prisma/client'
 
 // GET /api/suppliers - Get all suppliers with performance metrics
 export async function GET(request: NextRequest) {
@@ -80,6 +81,13 @@ export async function GET(request: NextRequest) {
           }
         })
 
+        // Get delivery ratings (REAL DATA from SupplierDeliveryRating model)
+        const deliveryRatings = await prisma.supplierDeliveryRating.findMany({
+          where: { supplierId: supplier.id },
+          orderBy: { ratedAt: 'desc' },
+          take: 50 // Last 50 ratings for calculation
+        })
+
         // Calculate metrics
         const totalOrders = purchaseOrders.length
         const totalSpent = purchaseOrders.reduce((sum, order) => sum + order.totalAmount, 0)
@@ -94,25 +102,51 @@ export async function GET(request: NextRequest) {
           ? Math.round((onTimeDeliveries / completedOrders.length) * 100)
           : 0
 
-        // Calculate average quality rating from purchase items
-        let qualityRatingSum = 0
-        let qualityRatingCount = 0
+        // Calculate quality rating from REAL delivery ratings
+        let qualityRating = 0
+        let responseTime = 24 // Default 24 hours
 
-        for (const order of purchaseOrders) {
-          for (const item of order.purchaseItems) {
-            // In a real implementation, we might have quality ratings for items
-            // For now, we'll mock this data
-            qualityRatingSum += Math.floor(Math.random() * 20) + 30 // 30-50 out of 50
-            qualityRatingCount++
+        if (deliveryRatings.length > 0) {
+          // Calculate average quality from real ratings (convert 1-5 scale to 0-50 scale)
+          const avgQuality = deliveryRatings.reduce((sum, r) => sum + r.qualityRating, 0) / deliveryRatings.length
+          const avgPackaging = deliveryRatings.reduce((sum, r) => sum + r.packagingRating, 0) / deliveryRatings.length
+          const avgAccuracy = deliveryRatings.reduce((sum, r) => sum + r.accuracyRating, 0) / deliveryRatings.length
+
+          // Weighted average: Quality 50%, Accuracy 30%, Packaging 20%
+          const weightedAvg = (avgQuality * 0.5 + avgAccuracy * 0.3 + avgPackaging * 0.2)
+          qualityRating = Math.round(weightedAvg * 10) // Convert 1-5 scale to 0-50
+
+          // Calculate response time from real data
+          const ratingsWithResponse = deliveryRatings.filter(r => r.responseHours != null)
+          if (ratingsWithResponse.length > 0) {
+            responseTime = Math.round(
+              ratingsWithResponse.reduce((sum, r) => sum + (r.responseHours || 0), 0) / ratingsWithResponse.length
+            )
           }
+        } else if (supplier.rating && supplier.rating > 0) {
+          // Fallback to supplier's overall rating field
+          qualityRating = supplier.rating
+        } else if (completedOrders.length > 0) {
+          // Estimate from on-time delivery if no ratings exist
+          qualityRating = Math.round((onTimeDeliveryRate / 100) * 50)
+        } else {
+          // Default for new suppliers
+          qualityRating = 35
         }
 
-        const qualityRating = qualityRatingCount > 0
-          ? Math.round(qualityRatingSum / qualityRatingCount)
-          : 0
-
-        // Calculate average response time (mock data for now)
-        const responseTime = Math.floor(Math.random() * 48) + 1 // 1-48 hours
+        // If no rating data, calculate response time from order dates
+        if (deliveryRatings.length === 0) {
+          const ordersWithDates = completedOrders.filter(o => o.receivedDate && o.orderDate)
+          if (ordersWithDates.length > 0) {
+            const totalHours = ordersWithDates.reduce((sum, order) => {
+              const orderDate = new Date(order.orderDate)
+              const receivedDate = new Date(order.receivedDate!)
+              const hours = (receivedDate.getTime() - orderDate.getTime()) / (1000 * 60 * 60)
+              return sum + Math.min(hours, 168) // Cap at 7 days
+            }, 0)
+            responseTime = Math.round(totalHours / ordersWithDates.length)
+          }
+        }
 
         // Get last order date
         const lastOrder = purchaseOrders.length > 0
@@ -129,7 +163,8 @@ export async function GET(request: NextRequest) {
           onTimeDeliveryRate,
           qualityRating,
           responseTime,
-          lastOrderDate
+          lastOrderDate,
+          ratingsCount: deliveryRatings.length // Show how many ratings exist
         }
       })
     )

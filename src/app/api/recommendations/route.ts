@@ -11,10 +11,10 @@ const recommendationQuerySchema = z.object({
   type: z.enum(['RELATED', 'FREQUENTLY_BOUGHT_TOGETHER', 'CUSTOMER_BASED', 'REORDER', 'ML_HYBRID']).default('RELATED'),
   limit: z.string().optional().default('10').transform(val => parseInt(val)),
   includeOutOfStock: z.string().optional().transform(val => val !== 'false'),
-  useML: z.string().optional().transform(val => val === 'true').default(true), // Enable ML by default
+  useML: z.string().optional().default('true').transform(val => val === 'true'),
 })
 
-// Mock recommendation algorithms (in production, these would use ML models)
+// Rule-based recommendation algorithms (fallback when ML is not available)
 async function getRelatedProducts(productId: string, limit: number): Promise<any[]> {
   // Get the product and its category
   const product = await prisma.product.findUnique({
@@ -34,33 +34,37 @@ async function getRelatedProducts(productId: string, limit: number): Promise<any
     include: {
       category: true,
       inventoryItem: true,
-      _count: {
-        select: { orderItems: true }
-      }
+      orderItems: true
     },
     orderBy: [
-      { _count: { orderItems: 'desc' } }, // Most ordered first
-      { price: 'asc' } // Then by price
+      { isFeatured: 'desc' },
+      { price: 'asc' }
     ],
-    take: limit
+    take: limit * 2 // Get more to sort by order count
   })
 
-  return relatedProducts.map(p => ({
+  // Sort by order count manually (MongoDB doesn't support _count in orderBy)
+  const sortedProducts = relatedProducts
+    .map(p => ({ ...p, orderCount: p.orderItems?.length || 0 }))
+    .sort((a, b) => b.orderCount - a.orderCount)
+    .slice(0, limit)
+
+  return sortedProducts.map(p => ({
     id: p.id,
     name: p.name,
     price: p.price,
     unit: p.unit,
     images: p.images,
-    category: p.category.name,
+    category: p.category?.name || 'Unknown',
     inStock: p.inventoryItem ? p.inventoryItem.availableQuantity > 0 : false,
-    orderCount: p._count.orderItems,
+    orderCount: p.orderCount,
     recommendationScore: 0.9,
     reason: 'Related product'
   }))
 }
 
 async function getFrequentlyBoughtTogether(productId: string, limit: number): Promise<any[]> {
-  // Find orders that contain this product
+  // Find orders that contain this product (use DELIVERED instead of COMPLETED)
   const orders = await prisma.order.findMany({
     where: {
       orderItems: {
@@ -68,7 +72,7 @@ async function getFrequentlyBoughtTogether(productId: string, limit: number): Pr
           productId: productId
         }
       },
-      status: 'COMPLETED'
+      status: 'DELIVERED' // DELIVERED is the completed state in this schema
     },
     include: {
       orderItems: {
@@ -82,14 +86,14 @@ async function getFrequentlyBoughtTogether(productId: string, limit: number): Pr
         }
       }
     },
-    take: 50 // Limit to recent 50 orders for performance
+    take: 50
   })
 
   // Count how often other products appear with this product
   const productCounts = new Map<string, { count: number, product: any }>()
-  
+
   orders.forEach(order => {
-    order.orderItems.forEach(item => {
+    order.orderItems.forEach((item: any) => {
       if (item.productId !== productId) {
         const current = productCounts.get(item.productId)
         if (current) {
@@ -131,7 +135,7 @@ async function getCustomerBasedRecommendations(customerId: string, limit: number
   const orders = await prisma.order.findMany({
     where: {
       customerId: customerId,
-      status: 'COMPLETED'
+      status: 'DELIVERED' // Use DELIVERED instead of COMPLETED
     },
     include: {
       orderItems: {
@@ -146,13 +150,13 @@ async function getCustomerBasedRecommendations(customerId: string, limit: number
       }
     },
     orderBy: { createdAt: 'desc' },
-    take: 10 // Last 10 orders
+    take: 10
   })
 
   // Get all products the customer has bought
   const customerProducts = new Set<string>()
   orders.forEach(order => {
-    order.orderItems.forEach(item => {
+    order.orderItems.forEach((item: any) => {
       customerProducts.add(item.productId)
     })
   })
@@ -166,7 +170,7 @@ async function getCustomerBasedRecommendations(customerId: string, limit: number
           productId: { in: Array.from(customerProducts) }
         }
       },
-      status: 'COMPLETED'
+      status: 'DELIVERED' // Use DELIVERED instead of COMPLETED
     },
     include: {
       customer: {
@@ -183,23 +187,23 @@ async function getCustomerBasedRecommendations(customerId: string, limit: number
         }
       }
     },
-    take: 50 // Limit for performance
+    take: 50
   })
 
   // Count products bought by similar customers (excluding ones the customer already bought)
-  const productCounts = new Map<string, { count: number, product: any }>()
-  
+  const productCounts2 = new Map<string, { count: number, product: any }>()
+
   similarCustomers.forEach(order => {
-    order.orderItems.forEach(item => {
+    order.orderItems.forEach((item: any) => {
       if (!customerProducts.has(item.productId)) {
-        const current = productCounts.get(item.productId)
+        const current = productCounts2.get(item.productId)
         if (current) {
-          productCounts.set(item.productId, {
+          productCounts2.set(item.productId, {
             count: current.count + 1,
             product: item.product
           })
         } else {
-          productCounts.set(item.productId, {
+          productCounts2.set(item.productId, {
             count: 1,
             product: item.product
           })
@@ -209,7 +213,7 @@ async function getCustomerBasedRecommendations(customerId: string, limit: number
   })
 
   // Convert to array and sort by frequency
-  const sortedProducts = Array.from(productCounts.values())
+  const sortedProducts = Array.from(productCounts2.values())
     .sort((a, b) => b.count - a.count)
     .slice(0, limit)
 
@@ -228,41 +232,42 @@ async function getCustomerBasedRecommendations(customerId: string, limit: number
 }
 
 async function getReorderRecommendations(limit: number): Promise<any[]> {
-  // Find products that are low in stock but frequently ordered
+  // Find products that are low in stock
   const products = await prisma.product.findMany({
     where: {
-      isActive: true,
-      inventoryItem: {
-        availableQuantity: {
-          lte: prisma.inventoryItem.fields.reorderPoint
-        }
-      }
+      isActive: true
     },
     include: {
       category: true,
       inventoryItem: true,
-      _count: {
-        select: { orderItems: true }
-      }
+      orderItems: true
     },
-    orderBy: [
-      { inventoryItem: { availableQuantity: 'asc' } }, // Lowest stock first
-      { _count: { orderItems: 'desc' } } // Most ordered first
-    ],
-    take: limit
+    take: 100 // Get more to filter and sort
   })
 
-  return products.map(p => ({
+  // Filter products below reorder point and sort by availability
+  const lowStockProducts = products
+    .filter(p => p.inventoryItem && p.inventoryItem.availableQuantity <= p.inventoryItem.reorderPoint)
+    .map(p => ({ ...p, orderCount: p.orderItems?.length || 0 }))
+    .sort((a, b) => {
+      // Sort by stock level (ascending), then by order count (descending)
+      const stockDiff = (a.inventoryItem?.availableQuantity || 0) - (b.inventoryItem?.availableQuantity || 0)
+      if (stockDiff !== 0) return stockDiff
+      return b.orderCount - a.orderCount
+    })
+    .slice(0, limit)
+
+  return lowStockProducts.map(p => ({
     id: p.id,
     name: p.name,
     price: p.price,
     unit: p.unit,
     images: p.images,
-    category: p.category.name,
+    category: p.category?.name || 'Unknown',
     inStock: p.inventoryItem ? p.inventoryItem.availableQuantity > 0 : false,
     availableQuantity: p.inventoryItem?.availableQuantity || 0,
     reorderPoint: p.inventoryItem?.reorderPoint || 0,
-    orderCount: p._count.orderItems,
+    orderCount: p.orderCount,
     recommendationScore: 0.95,
     reason: 'Low stock - needs reordering'
   }))
@@ -274,26 +279,26 @@ async function getPopularProducts(limit: number): Promise<any[]> {
     include: {
       category: true,
       inventoryItem: true,
-      _count: {
-        select: { orderItems: true }
-      }
+      orderItems: true
     },
-    orderBy: [
-      { _count: { orderItems: 'desc' } },
-      { price: 'asc' }
-    ],
-    take: limit
+    take: limit * 3 // Get more to sort manually
   })
 
-  return products.map(p => ({
+  // Sort by order count manually (MongoDB doesn't support _count in orderBy)
+  const sortedProducts = products
+    .map(p => ({ ...p, orderCount: p.orderItems?.length || 0 }))
+    .sort((a, b) => b.orderCount - a.orderCount || a.price - b.price)
+    .slice(0, limit)
+
+  return sortedProducts.map(p => ({
     id: p.id,
     name: p.name,
     price: p.price,
     unit: p.unit,
     images: p.images,
-    category: p.category.name,
+    category: p.category?.name || 'Unknown',
     inStock: p.inventoryItem ? p.inventoryItem.availableQuantity > 0 : false,
-    orderCount: p._count.orderItems,
+    orderCount: p.orderCount,
     recommendationScore: 0.8,
     reason: 'Popular product'
   }))
@@ -304,7 +309,7 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const params = Object.fromEntries(searchParams.entries())
-    
+
     const validation = recommendationQuerySchema.safeParse(params)
     if (!validation.success) {
       return NextResponse.json(
@@ -317,7 +322,7 @@ export async function GET(request: NextRequest) {
 
     // Create cache key based on parameters
     const cacheKey = `recommendations:${type}:${customerId || 'none'}:${productId || 'none'}:${limit}:${includeOutOfStock}:${useML ? 'ml' : 'rule'}`
-    
+
     // Try to get from cache first
     const cachedResult = await CacheService.get(cacheKey)
     if (cachedResult) {
@@ -334,7 +339,7 @@ export async function GET(request: NextRequest) {
     if (useML && (type === 'RELATED' || type === 'CUSTOMER_BASED' || type === 'ML_HYBRID')) {
       try {
         console.log(`🤖 Using ML-enhanced recommendations for type: ${type}`)
-        
+
         // Get ML hybrid recommendations
         const mlScores = await mlRecommendations.getHybridRecommendations(
           productId,
@@ -346,7 +351,7 @@ export async function GET(request: NextRequest) {
         // Enrich with product details
         recommendations = await mlRecommendations.enrichRecommendations(mlScores)
         method = 'ml-hybrid'
-        
+
         console.log(`✅ ML recommendations: ${recommendations.length} products`)
       } catch (mlError) {
         console.error('ML recommendations failed, falling back to rule-based:', mlError)
