@@ -54,7 +54,7 @@ export default function Footer() {
                     </div>
                 </div>
                 <div className="border-t border-gray-800 mt-8 pt-8 text-center text-gray-400">
-                    <p>&copy; 2025 SmartBuild. Bản quyền thuộc về SmartBuild.</p>
+                    <p>&copy; 2026 SmartBuild. Bản quyền thuộc về SmartBuild.</p>
                 </div>
             </div>
         </footer>

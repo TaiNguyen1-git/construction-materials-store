@@ -318,8 +318,8 @@ export default function ContractorLandingPage() {
                                     <div
                                         key={testimonial.id}
                                         className={`absolute inset-0 transition-all duration-500 ${index === currentTestimonial
-                                                ? 'opacity-100 translate-x-0'
-                                                : 'opacity-0 translate-x-8'
+                                            ? 'opacity-100 translate-x-0'
+                                            : 'opacity-0 translate-x-8'
                                             }`}
                                     >
                                         <p className="text-lg text-gray-700 mb-6 italic leading-relaxed">
@@ -345,8 +345,8 @@ export default function ContractorLandingPage() {
                                         key={index}
                                         onClick={() => setCurrentTestimonial(index)}
                                         className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${index === currentTestimonial
-                                                ? 'bg-blue-600 w-6'
-                                                : 'bg-gray-300 hover:bg-gray-400'
+                                            ? 'bg-blue-600 w-6'
+                                            : 'bg-gray-300 hover:bg-gray-400'
                                             }`}
                                     />
                                 ))}
@@ -574,7 +574,7 @@ export default function ContractorLandingPage() {
                             <Link href="/contact" className="hover:text-blue-600 transition-colors">Liên hệ</Link>
                         </div>
                         <div className="text-gray-500 text-sm">
-                            © 2025 SmartBuild. All rights reserved.
+                            © 2026 SmartBuild. All rights reserved.
                         </div>
                     </div>
                 </div>

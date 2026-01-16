@@ -2,7 +2,6 @@
 
 import React, { useState } from 'react'
 import Header from '@/components/Header'
-import Footer from '@/components/Footer'
 import {
     LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area,
     BarChart, Bar, Legend
@@ -280,8 +279,6 @@ export default function MarketPage() {
                     </div>
                 </div>
             </main>
-
-            <Footer />
         </div>
     )
 }

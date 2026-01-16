@@ -226,7 +226,7 @@ export default function SupportWidget() {
     if (pathname?.startsWith('/admin')) return null
 
     return (
-        <div className="fixed bottom-6 left-6 z-[60]">
+        <div className="fixed bottom-24 right-6 z-[60]">
             {!isOpen ? (
                 <button
                     onClick={() => setIsOpen(true)}
