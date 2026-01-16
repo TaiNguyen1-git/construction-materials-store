@@ -80,8 +80,6 @@ export async function PUT(
     }
 
     const body = await request.json()
-    console.log('PUT /api/payroll/[id] - Request body:', JSON.stringify(body, null, 2))
-    console.log('PUT /api/payroll/[id] - Payroll ID:', id)
     const { baseSalary, overtimeHours, bonuses, deductions, status, isPaid } = body
 
     // Check if payroll record exists
@@ -108,7 +106,6 @@ export async function PUT(
     
     // Handle status update: convert status string to isPaid boolean
     if (status !== undefined) {
-      console.log('Status update requested:', status, 'Current isPaid:', existingPayroll.isPaid)
       if (status === 'PAID' || status === 'paid') {
         updateData.isPaid = true
         // Always set paidAt when marking as paid, even if already set (refresh the timestamp)
@@ -122,7 +119,6 @@ export async function PUT(
     
     // Also handle direct isPaid update (takes precedence over status)
     if (isPaid !== undefined) {
-      console.log('isPaid update requested:', isPaid, 'Current isPaid:', existingPayroll.isPaid)
       updateData.isPaid = isPaid
       if (isPaid) {
         // Always set paidAt when marking as paid
@@ -160,12 +156,10 @@ export async function PUT(
 
     // Check if there's anything to update
     if (Object.keys(updateData).length === 0) {
-      console.log('No fields to update - updateData is empty')
       return NextResponse.json({ error: 'No fields to update' }, { status: 400 })
     }
 
     // Validate updateData before sending to Prisma
-    console.log('Updating payroll with data:', JSON.stringify(updateData, null, 2))
     console.log('Existing payroll:', { 
       isPaid: existingPayroll.isPaid, 
       paidAt: existingPayroll.paidAt,
@@ -222,7 +216,6 @@ export async function DELETE(
 ) {
   const { id } = await params
   try {
-    console.log('DELETE /api/payroll/[id] - Payroll ID:', id)
     const user = await verifyToken(request)
     // Skip authentication in development mode
     if (process.env.NODE_ENV === 'production' && (!user || user.role !== 'MANAGER')) {
@@ -234,11 +227,9 @@ export async function DELETE(
     })
 
     if (!payroll) {
-      console.log('DELETE /api/payroll/[id] - Payroll not found:', id)
       return NextResponse.json({ error: 'Payroll record not found' }, { status: 404 })
     }
 
-    console.log('DELETE /api/payroll/[id] - Payroll found:', { id, isPaid: payroll.isPaid })
 
     // Allow deletion of payroll records (including paid ones)
     // If user wants to restrict deletion, they can add validation in the frontend
@@ -246,7 +237,6 @@ export async function DELETE(
       where: { id }
     })
 
-    console.log('DELETE /api/payroll/[id] - Payroll deleted successfully:', id)
     return NextResponse.json({ message: 'Payroll record deleted successfully' })
   } catch (error: any) {
     console.error('Error deleting payroll record:', error)

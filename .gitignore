@@ -74,13 +74,7 @@ Thumbs.db
 # Uploads (prevent bloating the repo with local files)
 /private_uploads/
 /product-images/
-
-# Sensitive/Protected Folders
-docs/
-.agent/
-.github/
-logs/
-
-
-
+# Playwright
+/playwright-report/
+/test-results/
 

@@ -338,7 +338,6 @@ export async function GET(request: NextRequest) {
     // Use ML hybrid approach if enabled
     if (useML && (type === 'RELATED' || type === 'CUSTOMER_BASED' || type === 'ML_HYBRID')) {
       try {
-        console.log(`🤖 Using ML-enhanced recommendations for type: ${type}`)
 
         // Get ML hybrid recommendations
         const mlScores = await mlRecommendations.getHybridRecommendations(
@@ -352,7 +351,6 @@ export async function GET(request: NextRequest) {
         recommendations = await mlRecommendations.enrichRecommendations(mlScores)
         method = 'ml-hybrid'
 
-        console.log(`✅ ML recommendations: ${recommendations.length} products`)
       } catch (mlError) {
         console.error('ML recommendations failed, falling back to rule-based:', mlError)
         // Will fallback to rule-based below
@@ -361,7 +359,6 @@ export async function GET(request: NextRequest) {
 
     // Fallback to rule-based or if ML not applicable
     if (recommendations.length === 0) {
-      console.log(`📊 Using rule-based recommendations for type: ${type}`)
 
       switch (type) {
         case 'RELATED':

@@ -30,7 +30,6 @@ async function withRetry<T>(
             }
             // Exponential backoff: 1s, 2s, 4s
             const delay = baseDelayMs * Math.pow(2, attempt - 1)
-            console.log(`API call failed (attempt ${attempt}/${maxRetries}), retrying in ${delay}ms...`)
             await new Promise(resolve => setTimeout(resolve, delay))
         }
     }

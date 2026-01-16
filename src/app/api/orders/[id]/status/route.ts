@@ -191,7 +191,6 @@ export async function PUT(
 
       if (customerEmail) {
         import('@/lib/email-service').then(({ EmailService }) => {
-          console.log('📧 Sending confirmation email to:', customerEmail)
           EmailService.sendOrderApprovedWithPayment({
             email: customerEmail,
             name: customerName,
@@ -207,11 +206,9 @@ export async function PUT(
               price: item.unitPrice
             }))
           }).then(result => {
-            console.log('📧 Email sent result:', result)
           }).catch(err => console.error('❌ Email to customer error:', err))
         }).catch(err => console.error('❌ Email import error:', err))
       } else {
-        console.log('⚠️ No customer email found, skipping email')
       }
     }
 

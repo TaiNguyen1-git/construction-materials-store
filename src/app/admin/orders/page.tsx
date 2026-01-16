@@ -133,7 +133,6 @@ export default function OrdersPage() {
         const ordersArray = Array.isArray(ordersData) ? ordersData : []
         const paginationData = data.data?.pagination || data.pagination || {}
 
-        console.log('Fetched orders:', ordersArray.length)
 
         // Update pagination
         if (paginationData.total !== undefined) {
@@ -176,7 +175,6 @@ export default function OrdersPage() {
         // Handle nested data structure
         const customersData = data.data?.data || data.data || []
         const customersArray = Array.isArray(customersData) ? customersData : []
-        console.log('Fetched customers:', customersArray.length)
         setCustomers(customersArray)
       }
     } catch (error) {

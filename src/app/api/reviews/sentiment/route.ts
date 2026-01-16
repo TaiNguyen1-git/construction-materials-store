@@ -41,7 +41,6 @@ export async function POST(request: NextRequest) {
         if (reviewId) {
             // ProductReview doesn't have sentimentScore field in current schema
             // Just log for now
-            console.log(`Sentiment analyzed for review ${reviewId}: ${sentiment.sentiment}`)
         }
 
         return NextResponse.json(createSuccessResponse({

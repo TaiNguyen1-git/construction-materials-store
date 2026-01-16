@@ -100,7 +100,6 @@ async function predictWithProphetML(
     const hasModel = await mlPredictionService.hasTrainedModel(productId)
 
     if (!hasModel) {
-      console.log(`⚠️  No Prophet model for ${productId}, falling back to statistical`)
       return null
     }
 
@@ -205,7 +204,6 @@ async function calculateSeasonalFactorsFromData(productId?: string): Promise<num
       return Math.max(0.5, Math.min(2.0, monthAvg / overallAvg))
     })
 
-    console.log('📊 Calculated seasonal factors from real data:', seasonalFactors)
     return seasonalFactors
 
   } catch (error) {
@@ -379,11 +377,10 @@ function calculateVariability(values: number[]): number {
 // GET /api/predictions/inventory - Get inventory predictions
 export async function GET(request: NextRequest) {
   try {
-    // TEMPORARY: Auth disabled for testing - TODO: Fix JWT verification
-    // const authError = requireEmployee(request)
-    // if (authError) {
-    //   return authError
-    // }
+    const authError = requireEmployee(request)
+    if (authError) {
+      return authError
+    }
 
     const { searchParams } = new URL(request.url)
     const params = Object.fromEntries(searchParams.entries())

@@ -63,7 +63,6 @@ export async function PUT(request: NextRequest) {
             data: { password: hashedPassword }
         })
 
-        console.log('Password changed for user:', auth.userId)
 
         return NextResponse.json({
             success: true,

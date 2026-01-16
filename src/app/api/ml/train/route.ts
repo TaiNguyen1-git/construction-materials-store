@@ -63,7 +63,6 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    console.log(`🚀 Starting training for ${products.length} products...`)
 
     // Train models sequentially to avoid overwhelming the system
     const results = []
@@ -71,7 +70,6 @@ export async function POST(request: NextRequest) {
     // With Gemini, we don't need to "train" in the traditional sense,
     // but we'll simulate the process for API compatibility
     for (const product of products) {
-      console.log(`\n📦 Checking AI model availability for: ${product.name} (${product.id})`)
 
       // Call the service (which is now just a check)
       const result = await mlPredictionService.trainModel(product.id)
@@ -102,7 +100,6 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    console.log(`\n✅ Training complete: ${successful}/${products.length} successful`)
 
     return NextResponse.json(
       createSuccessResponse(response, 'Model training completed'),

@@ -35,10 +35,8 @@ export const getWorkingModelConfig = async () => {
       });
 
       workingModelName = AI_CONFIG.GEMINI.MODEL;
-      console.log(`✅ Using configured Gemini model: ${workingModelName}`);
       return { client, modelName: workingModelName };
     } catch (error: any) {
-      console.log(`⚠️ Configured model ${AI_CONFIG.GEMINI.MODEL} failed (Status ${error.status || 'unknown'}), trying fallbacks...`);
       // If 429, we might accept it as "working" but rate limited, but better to find one that works now?
       // Actually, if 2.5 returns 429, it exists. We should probably stick with it if it's the user preference, 
       // but if we want reliability, maybe fallback.
@@ -49,7 +47,6 @@ export const getWorkingModelConfig = async () => {
   // If the configured model fails, try the fallback models
   for (const modelName of modelNames) {
     try {
-      console.log(`Testing connection to ${modelName}...`);
       await client.models.generateContent({
         model: modelName,
         contents: [{ role: 'user', parts: [{ text: 'Test' }] }],
@@ -59,10 +56,8 @@ export const getWorkingModelConfig = async () => {
       });
 
       workingModelName = modelName;
-      console.log(`✅ Using Gemini model: ${modelName}`);
       return { client, modelName };
     } catch (error: any) {
-      console.log(`❌ Failed to initialize Gemini model ${modelName}:`, error.message || error.status);
       // Special case: 429 means it exists but we are out of quota. 
       // We might want to use it anyway if it is the best model? 
       // No, for reliability we should keep searching for a 200 OK one.
@@ -181,7 +176,6 @@ export class AIService {
 
           // Fallback Strategy: If primary model fails, try stable model next
           if (currentModel !== 'models/gemini-1.5-flash' && attempts < maxAttempts) {
-            console.log('⚠️ Primary model failed, switching to fallback: gemini-1.5-flash')
             currentModel = 'models/gemini-1.5-flash'
             continue
           }

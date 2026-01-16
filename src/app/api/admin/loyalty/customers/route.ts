@@ -22,7 +22,6 @@ export async function GET(request: NextRequest) {
             }
         })
 
-        console.log(`[Admin Loyalty] Found ${customers.length} customers`)
 
         const formattedCustomers = customers.map(c => ({
             id: c.id,
@@ -33,7 +32,6 @@ export async function GET(request: NextRequest) {
             totalSpent: c.totalPurchases
         }))
 
-        console.log('[Admin Loyalty] Returning formatted data:', formattedCustomers.length)
 
         return NextResponse.json(
             createSuccessResponse(formattedCustomers, 'Customers retrieved successfully'),

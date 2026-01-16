@@ -103,7 +103,6 @@ export class MLPredictionService {
       const data = await response.json()
       return data.success ? data : null
     } catch (error) {
-      console.log(`⚠️ Prophet server not available, using statistical fallback`)
       return null
     }
   }
@@ -160,7 +159,6 @@ export class MLPredictionService {
       const prophetResult = await this.getProphetPrediction(productId, periodsAhead)
 
       if (prophetResult && prophetResult.success) {
-        console.log(`✅ Using Prophet ML for product ${productId}`)
         return {
           predictedDemand: prophetResult.totalPredicted,
           confidence: prophetResult.metrics?.accuracy ? prophetResult.metrics.accuracy / 100 : 0.85,
@@ -179,13 +177,11 @@ export class MLPredictionService {
       }
 
       // Fallback to Statistical Forecasting
-      console.log(`📊 Using Statistical Ensemble for product ${productId}`)
 
       // Fetch historical sales data
       const history = await this.getHistoricalData(productId, 90)
 
       if (history.length < 3) {
-        console.log(`⚠️ Not enough history for product ${productId}`)
         return {
           predictedDemand: 0,
           confidence: 0.3,

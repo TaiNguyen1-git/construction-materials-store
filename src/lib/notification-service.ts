@@ -373,7 +373,6 @@ export async function sendNotification(notification: Notification) {
   // TODO: Send push notification
   // TODO: Send SMS (if critical)
 
-  console.log(`📬 Notification sent: ${notification.title}`)
 }
 
 /**
@@ -414,7 +413,6 @@ export async function createOrderNotification(order: {
   }
 
   await saveNotificationForAllManagers(notification)
-  console.log(`📬 Order notification created: ${order.orderNumber}`)
 
   // Send email to employee (non-blocking)
   import('@/lib/email-service').then(({ EmailService }) => {
@@ -467,5 +465,4 @@ export async function createOrderStatusNotificationForCustomer(order: {
   }
 
   await saveNotificationForUser(notification, order.customer.userId)
-  console.log(`📬 Order status notification created for customer: ${order.orderNumber}`)
 }

@@ -206,7 +206,6 @@ export async function deleteNotificationFromFirebase(userId: string, notificatio
  * Push order status update to Firebase for real-time tracking
  */
 export async function pushOrderStatusUpdate(orderId: string, status: string, orderNumber: string): Promise<boolean> {
-    console.log(`[Firebase Push] Starting push for order ${orderId} → ${status}`)
 
     try {
         const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY
@@ -220,7 +219,6 @@ export async function pushOrderStatusUpdate(orderId: string, status: string, ord
             return false
         }
 
-        console.log(`[Firebase Push] Getting database reference for orders/${orderId}`)
         const db = getFirebaseDatabase()
         const orderRef = ref(db, `orders/${orderId}`)
 
@@ -230,10 +228,8 @@ export async function pushOrderStatusUpdate(orderId: string, status: string, ord
             updatedAt: new Date().toISOString()
         }
 
-        console.log(`[Firebase Push] Setting data:`, data)
         await set(orderRef, data)
 
-        console.log(`✅ [Firebase Push] Success: ${orderId} → ${status}`)
         return true
     } catch (error) {
         console.error('❌ [Firebase Push] Error:', error)
@@ -250,33 +246,26 @@ export function subscribeToOrderStatus(
     onStatusChange: (status: string) => void
 ): () => void {
     try {
-        console.log(`[Firebase] 📡 Subscribing to order status: orders/${orderId}`)
 
         const db = getFirebaseDatabase()
         const orderRef = ref(db, `orders/${orderId}`)
 
         const callback = (snapshot: DataSnapshot) => {
-            console.log(`[Firebase] 📥 Received data for orders/${orderId}:`, snapshot.exists() ? snapshot.val() : 'NO DATA')
 
             if (snapshot.exists()) {
                 const data = snapshot.val()
                 if (data.status) {
-                    console.log(`[Firebase] ✅ Status found: ${data.status}`)
                     onStatusChange(data.status)
                 } else {
-                    console.log(`[Firebase] ⚠️ No status field in data`)
                 }
             } else {
-                console.log(`[Firebase] ⚠️ No data exists at orders/${orderId}`)
             }
         }
 
         onValue(orderRef, callback)
-        console.log(`[Firebase] 🎧 Listener attached for orders/${orderId}`)
 
         return () => {
             off(orderRef, 'value', callback)
-            console.log(`[Firebase] 🔌 Listener removed for orders/${orderId}`)
         }
     } catch (error) {
         console.error('[Firebase] ❌ Error subscribing to order status:', error)

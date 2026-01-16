@@ -15,7 +15,6 @@ export async function POST(request: NextRequest) {
 
             pythonProcess.stdout.on('data', (data) => {
                 output += data.toString()
-                console.log(`Prophet Training: ${data}`)
             })
 
             pythonProcess.stderr.on('data', (data) => {

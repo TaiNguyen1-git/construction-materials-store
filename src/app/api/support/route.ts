@@ -80,9 +80,7 @@ export async function POST(request: NextRequest) {
             priority: 'MEDIUM'
         }).then(sent => {
             if (sent) {
-                console.log('✅ Support request email sent successfully')
             } else {
-                console.log('⚠️ No support request email was sent (check email config)')
             }
         }).catch(err => {
             console.error('❌ Failed to send support request email:', err)

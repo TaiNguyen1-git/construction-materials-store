@@ -36,10 +36,8 @@ export default function AdminLoyaltyPage() {
 
     // Fetch customers from API
     useEffect(() => {
-        console.log('Loyalty Page Effect Triggered', { user: user?.id, authLoading })
 
         const fetchCustomers = async () => {
-            console.log('Fetching customers...')
             try {
                 const response = await fetch('/api/admin/loyalty/customers', {
                     headers: {
@@ -48,9 +46,7 @@ export default function AdminLoyaltyPage() {
                 })
                 if (response.ok) {
                     const data = await response.json()
-                    console.log('Admin Loyalty API Response:', data)
                     if (data.success && Array.isArray(data.data)) {
-                        console.log('Setting customers:', data.data.length)
                         setCustomers(data.data)
                     } else {
                         console.error('Invalid data format:', data)
@@ -71,7 +67,6 @@ export default function AdminLoyaltyPage() {
         if (user) {
             fetchCustomers()
         } else if (!authLoading) {
-            console.log('No user and not loading, stopping loading state')
             setLoading(false)
         }
     }, [user, authLoading])

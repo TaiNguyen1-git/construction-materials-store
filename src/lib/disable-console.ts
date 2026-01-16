@@ -41,7 +41,6 @@ export function disableConsoleInProduction() {
             console.error = originalConsole.error
             console.info = originalConsole.info
             console.debug = originalConsole.debug
-            console.log('Console restored for debugging')
         }
     }
 }

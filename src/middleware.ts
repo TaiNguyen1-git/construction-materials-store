@@ -187,7 +187,6 @@ export async function middleware(request: NextRequest) {
 
     // Handle 401 for API
     if (isProtectedAPI) {
-      console.log('[Middleware] Protected API requires auth:', pathname)
       return NextResponse.json(
         { success: false, error: { code: 'UNAUTHORIZED', message: 'Access token required' } },
         { status: 401 }

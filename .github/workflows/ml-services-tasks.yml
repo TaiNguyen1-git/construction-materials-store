@@ -1,0 +1,75 @@
+name: ML Services Tasks
+
+on:
+  schedule:
+    # Keep Render Warm: Mỗi 14 phút (Render Free tier tắt sau 15p)
+    - cron: '*/14 * * * *'
+    
+    # Market Trend & Price Scraping: 00:00 (7:00 AM VN) hàng ngày
+    - cron: '0 0 * * *'
+    
+    # Customer Churn Analysis: 01:00 Chủ Nhật hàng tuần
+    - cron: '0 1 * * 0'
+    
+  workflow_dispatch: # Cho phép chạy thủ công
+
+jobs:
+  keep-warm:
+    name: Keep ML Services Warm
+    runs-on: ubuntu-latest
+    if: github.event.schedule == '*/14 * * * *' || github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Ping ML Health Endpoint
+        run: |
+          URL="${{ secrets.ML_SERVICES_URL }}"
+          if [ -z "$URL" ]; then
+            echo "⚠️ ML_SERVICES_URL not set, skipping..."
+            exit 0
+          fi
+          echo "🚀 Pinging $URL/health"
+          curl -f -s "$URL/health" || echo "⚠️ Service might be starting up..."
+
+  market-updates:
+    name: Market Trend Updates
+    runs-on: ubuntu-latest
+    if: github.event.schedule == '0 0 * * *' || github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Trigger Market Scraping
+        run: |
+          URL="${{ secrets.ML_SERVICES_URL }}"
+          if [ -z "$URL" ]; then echo "❌ ML_SERVICES_URL not set"; exit 1; fi
+          
+          echo "📊 Triggering Market Trends Update..."
+          curl -X POST "$URL/market/trends" \
+            -H "Content-Type: application/json" \
+            -d '{"category": "all", "period": 30}'
+
+  pricing-optimization:
+    name: Daily Dynamic Pricing
+    runs-on: ubuntu-latest
+    if: github.event.schedule == '0 0 * * *' || github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Trigger Price Recommendations
+        run: |
+          URL="${{ secrets.ML_SERVICES_URL }}"
+          if [ -z "$URL" ]; then echo "❌ ML_SERVICES_URL not set"; exit 1; fi
+          
+          echo "💰 Triggering Batch Price Optimization..."
+          # Note: In a real system, you'd fetch product IDs first
+          # This triggers the internal recommendation logic
+          curl -X POST "$URL/pricing/batch-update" \
+            -H "Content-Type: application/json" \
+            -d '{"products": []}'
+
+  churn-analysis:
+    name: Weekly Churn Analysis
+    runs-on: ubuntu-latest
+    if: github.event.schedule == '0 1 * * 0' || github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Trigger Customer Churn Prediction
+        run: |
+          URL="${{ secrets.ML_SERVICES_URL }}"
+          if [ -z "$URL" ]; then echo "❌ ML_SERVICES_URL not set"; exit 1; fi
+          
+          echo "👥 Triggering At-Risk Customer Analysis..."
+          curl -X GET "$URL/churn/at-risk?minProbability=0.7&limit=100"

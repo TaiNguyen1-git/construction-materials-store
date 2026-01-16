@@ -92,13 +92,11 @@ async function getProductPrice(
           productName: product.name
         }
         priceCache[materialName] = result
-        console.log(`[PRICE_LOOKUP] ${materialName} -> ${product.name}: ${product.price}đ/${product.unit}`)
         return result
       }
     }
 
     // Not found in DB - use default
-    console.log(`[PRICE_LOOKUP] ${materialName} not found in DB, using default`)
     priceCache[materialName] = null
     return {
       price: getDefaultPrice(materialName),
@@ -717,7 +715,6 @@ export class MaterialCalculatorService {
         lowerQuery.includes('ốp gạch') || lowerQuery.includes('ốp tường')) &&
       !lowerQuery.includes('xây nhà') && !lowerQuery.includes('xây dựng nhà')
     ) {
-      console.log('[MATERIAL_CALC] Overriding projectType to TILING for tiling query')
       merged.projectType = 'TILING'
     }
 

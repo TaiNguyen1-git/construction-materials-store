@@ -59,7 +59,6 @@ export async function POST(request: NextRequest) {
             }
         }
 
-        console.log('🧹 Cleanup completed:', results)
 
         return NextResponse.json(
             createSuccessResponse(results, `Cleanup complete: ${results.deletedProducts} products deleted, ${results.skippedProducts} skipped`),

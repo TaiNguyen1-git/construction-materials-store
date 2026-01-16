@@ -52,7 +52,6 @@ export default function ContractorRedirect() {
             // Check if user is a contractor (has contractorVerified flag set)
             // Contractors have this field from registration/seed
             if (user.contractorVerified === true || user.contractorVerified === false) {
-                console.log('[ContractorRedirect] Contractor detected on user page, redirecting to portal')
                 router.replace('/contractor/dashboard')
                 return
             }

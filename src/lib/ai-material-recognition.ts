@@ -122,9 +122,6 @@ export class AIRecognitionService {
 
     try {
       const aiResponse = await AIService.analyzeImage(imageData, prompt)
-      console.log('--- Raw AI Vision Response ---')
-      console.log(aiResponse)
-      console.log('------------------------------')
 
       let features: any = {}
 
@@ -137,9 +134,6 @@ export class AIRecognitionService {
       }
 
       if (features.visualScaleReasoning) {
-        console.log('--- AI Vision Reasoning ---')
-        console.log(features.visualScaleReasoning)
-        console.log('---------------------------')
       }
 
       return {

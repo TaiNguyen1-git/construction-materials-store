@@ -97,7 +97,6 @@ export async function GET(request: NextRequest) {
       prisma.employee.count({ where })
     ])
 
-    console.log('✅ Found employees:', employees.length, 'of', total)
 
     const response = createPaginatedResponse(employees, total, page, limit)
 

@@ -177,7 +177,6 @@ export default function ProductsSuppliersPage() {
         // Handle nested data structure from API
         const productsData = data.data?.data || data.data || []
         const productsArray = Array.isArray(productsData) ? productsData : []
-        console.log('Fetched products:', productsArray.length)
         setProducts(productsArray)
       }
     } catch (error) {

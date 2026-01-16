@@ -359,7 +359,6 @@ async function processOrderCreationResponse(
   // EARLY HANDLING: If message is exactly "xác nhận đặt hàng" (from ChatOrderSummary button)
   // Treat as confirmation regardless of current step
   if (lowerMessage === 'xác nhận đặt hàng' || lowerMessage === 'xác nhận') {
-    console.log('[ORDER_FLOW] Early confirmation detected:', lowerMessage)
     if (state.data.needsGuestInfo && !state.data.guestInfo?.phone) {
       // Need guest info first
       await setOrderCreationStep(sessionId, 'guest_info')
@@ -461,13 +460,6 @@ async function processOrderCreationResponse(
       const guestInfo = parseGuestInfo(userMessage)
 
       // Debug: log parsed info
-      console.log('=== GUEST INFO PARSING ===')
-      console.log('Original message:', userMessage)
-      console.log('Parsed guest info:', JSON.stringify(guestInfo, null, 2))
-      console.log('Has name:', !!guestInfo.name, guestInfo.name)
-      console.log('Has phone:', !!guestInfo.phone, guestInfo.phone)
-      console.log('Has address:', !!guestInfo.address, guestInfo.address)
-      console.log('=========================')
 
       if (!guestInfo.name || !guestInfo.phone || !guestInfo.address) {
         return {
@@ -485,17 +477,11 @@ async function processOrderCreationResponse(
       }
 
       // Save guest info to flow data
-      console.log('=== SAVING GUEST INFO ===')
-      console.log('SessionId:', sessionId)
-      console.log('GuestInfo to save:', JSON.stringify(guestInfo, null, 2))
 
       await updateFlowData(sessionId, { guestInfo })
 
       // Verify it was saved
       const verifyData = await getFlowData(sessionId)
-      console.log('=== VERIFIED SAVED DATA ===')
-      console.log('Saved guestInfo:', JSON.stringify(verifyData?.guestInfo, null, 2))
-      console.log('===========================')
 
       // Proceed to payment method selection
       await setOrderCreationStep(sessionId, 'payment_method')
@@ -657,19 +643,14 @@ function parseGuestInfo(message: string): {
     .trim()
 
   if (!cleaned) {
-    console.log('parseGuestInfo - Empty message')
     return {}
   }
 
-  console.log('parseGuestInfo - Input:', cleaned)
 
   // Split by comma
   const parts = cleaned.split(',').map(p => p.trim()).filter(p => p.length > 0)
-  console.log('parseGuestInfo - Parts after split:', parts)
-  console.log('parseGuestInfo - Number of parts:', parts.length)
 
   if (parts.length < 2) {
-    console.log('parseGuestInfo - Not enough parts')
     return {}
   }
 
@@ -693,7 +674,6 @@ function parseGuestInfo(message: string): {
     if (digitsOnly.length >= 10 && digitsOnly.length <= 11 && digitsOnly.startsWith('0')) {
       phone = digitsOnly
       phoneIndex = i
-      console.log('parseGuestInfo - Found phone (digits only):', phone, 'at index:', phoneIndex, 'from part:', part)
       break
     }
 
@@ -703,7 +683,6 @@ function parseGuestInfo(message: string): {
       if (plus84Match) {
         phone = '0' + plus84Match[1]
         phoneIndex = i
-        console.log('parseGuestInfo - Found phone (+84 format):', phone, 'at index:', phoneIndex)
         break
       }
     }
@@ -720,7 +699,6 @@ function parseGuestInfo(message: string): {
         if (candidate.length >= 10 && candidate.length <= 11 && candidate.startsWith('0')) {
           phone = candidate
           phoneIndex = i
-          console.log('parseGuestInfo - Found phone (pattern match):', phone, 'at index:', phoneIndex)
           break
         }
       }
@@ -735,13 +713,11 @@ function parseGuestInfo(message: string): {
     // Name is everything before phone
     if (phoneIndex > 0) {
       name = parts.slice(0, phoneIndex).join(' ').trim()
-      console.log('parseGuestInfo - Name (before phone):', name)
     }
 
     // Address is everything after phone
     if (phoneIndex < parts.length - 1) {
       address = parts.slice(phoneIndex + 1).join(', ').trim()
-      console.log('parseGuestInfo - Address (after phone):', address)
     }
   } else {
     // No phone found yet - try simple heuristic
@@ -750,7 +726,6 @@ function parseGuestInfo(message: string): {
     // First part is usually name
     if (parts.length >= 1 && parts[0]) {
       name = parts[0].trim()
-      console.log('parseGuestInfo - Name (first part, no phone found yet):', name)
     }
 
     // Try to find phone in second part by extracting digits
@@ -759,16 +734,13 @@ function parseGuestInfo(message: string): {
       if (secondPartDigits.length >= 10 && secondPartDigits.length <= 11 && secondPartDigits.startsWith('0')) {
         phone = secondPartDigits
         phoneIndex = 1
-        console.log('parseGuestInfo - Phone (found in second part):', phone)
         // Address is everything after phone
         if (parts.length > 2) {
           address = parts.slice(2).join(', ').trim()
-          console.log('parseGuestInfo - Address (after phone in second part):', address)
         }
       } else {
         // Second part is not phone - assume it's start of address
         address = parts.slice(1).join(', ').trim()
-        console.log('parseGuestInfo - Address (all after first, no phone):', address)
       }
     }
   }
@@ -779,7 +751,6 @@ function parseGuestInfo(message: string): {
     // Ensure we have name
     if (!name && parts[0]) {
       name = parts[0].trim()
-      console.log('parseGuestInfo - Name (fallback):', name)
     }
 
     // Ensure we have phone - try parts[1] if not found yet
@@ -788,7 +759,6 @@ function parseGuestInfo(message: string): {
       if (part1Digits.length >= 10 && part1Digits.length <= 11 && part1Digits.startsWith('0')) {
         phone = part1Digits
         phoneIndex = 1
-        console.log('parseGuestInfo - Phone (fallback from parts[1]):', phone)
       }
     }
 
@@ -797,13 +767,11 @@ function parseGuestInfo(message: string): {
       if (phoneIndex >= 0 && phoneIndex < parts.length - 1) {
         // Address is after phone
         address = parts.slice(phoneIndex + 1).join(', ').trim()
-        console.log('parseGuestInfo - Address (fallback, after phone):', address)
       } else if (parts.length >= 2) {
         // Address is everything after name/phone
         const addressStart = phone ? 2 : (name ? 1 : 1)
         if (parts.length > addressStart) {
           address = parts.slice(addressStart).join(', ').trim()
-          console.log('parseGuestInfo - Address (fallback, start from index', addressStart, '):', address)
         }
       }
     }
@@ -820,7 +788,6 @@ function parseGuestInfo(message: string): {
     address: address || undefined
   }
 
-  console.log('parseGuestInfo - Final result:', JSON.stringify(result, null, 2))
 
   return result
 }

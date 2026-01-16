@@ -416,7 +416,6 @@ export function detectComparisonRequest(message: string): { isComparison: boolea
                 }
             }
             if (products.length >= 2) {
-                console.log(`[COMPARISON] Detected comparison request: ${products.join(' vs ')}`)
                 return { isComparison: true, products }
             }
         }
@@ -521,7 +520,6 @@ export function checkRuleBasedResponse(message: string): RuleBasedResult {
     for (const rule of sortedPatterns) {
         for (const pattern of rule.patterns) {
             if (pattern.test(normalizedMessage)) {
-                console.log(`[RULE-BASED] Matched pattern: ${pattern.source}`)
                 return {
                     matched: true,
                     response: rule.response,
@@ -534,7 +532,6 @@ export function checkRuleBasedResponse(message: string): RuleBasedResult {
     // Check quick price patterns
     for (const pricePattern of QUICK_PRICE_PATTERNS) {
         if (pricePattern.pattern.test(normalizedMessage)) {
-            console.log(`[RULE-BASED] Matched price pattern for: ${pricePattern.productKeyword}`)
             return {
                 matched: true,
                 requiresProductLookup: true,

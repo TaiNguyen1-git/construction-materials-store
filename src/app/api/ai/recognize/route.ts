@@ -34,11 +34,9 @@ export async function POST(request: NextRequest) {
 
     if (query) {
       // Text-based recognition
-      console.log('🔍 Text-based material recognition:', query)
       result = await aiRecognition.identifyFromText(query)
     } else if (image) {
       // Image-based recognition
-      console.log('📸 Image-based material recognition')
       result = await aiRecognition.recognizeMaterial(image)
     }
 
@@ -68,7 +66,6 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    console.log('🔍 Quick material search:', query)
     const result = await aiRecognition.identifyFromText(query)
 
     return NextResponse.json(

@@ -294,7 +294,6 @@ export async function POST(request: NextRequest) {
     const isLowStock = newQuantity <= inventoryItem.minStockLevel
     const isCriticalStock = newQuantity <= inventoryItem.minStockLevel * 0.2 || newQuantity <= 0
 
-    console.log(`📊 Stock check: newQuantity=${newQuantity}, minStockLevel=${inventoryItem.minStockLevel}, isLowStock=${isLowStock}, isCritical=${isCriticalStock}`)
 
     if (isLowStock) {
       // Get product info for email
@@ -304,10 +303,8 @@ export async function POST(request: NextRequest) {
       })
 
       if (product) {
-        console.log(`📧 Preparing to send stock alert emails for: ${product.name}`)
 
         import('@/lib/email-service').then(({ EmailService }) => {
-          console.log(`📧 EmailService imported successfully`)
 
           // Send to employee for all low stock
           EmailService.sendStockAlertToEmployee({
@@ -316,24 +313,20 @@ export async function POST(request: NextRequest) {
             currentStock: newQuantity,
             minStock: inventoryItem.minStockLevel
           }).then(sent => {
-            console.log(`📧 Employee email result: ${sent ? 'SENT' : 'NOT SENT (check EMPLOYEE_NOTIFICATION_EMAIL env)'}`)
           }).catch(err => console.error('Stock alert email to employee error:', err))
 
           // Send critical stock alert to admin only for critical levels
           if (isCriticalStock) {
-            console.log(`🚨 Critical stock detected! Sending email to admin...`)
             EmailService.sendCriticalStockAlertToAdmin({
               productName: product.name,
               sku: product.sku || productId,
               currentStock: newQuantity,
               minStock: inventoryItem.minStockLevel
             }).then(sent => {
-              console.log(`📧 Admin critical email result: ${sent ? 'SENT' : 'NOT SENT (check ADMIN_NOTIFICATION_EMAIL env or stock > 20% of minStock)'}`)
             }).catch(err => console.error('Critical stock alert email error:', err))
           }
         }).catch(err => console.error('Email import error:', err))
       } else {
-        console.log(`⚠️ Product not found for email: ${productId}`)
       }
     }
 

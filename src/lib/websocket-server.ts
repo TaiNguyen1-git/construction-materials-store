@@ -23,7 +23,6 @@ class NotificationWebSocketServer {
     this.wss = new WebSocketServer({ port })
     
     this.wss.on('connection', (ws: WebSocketWithUserId) => {
-      console.log('New WebSocket connection established')
       this.clients.add(ws)
       
       ws.on('message', async (message: string) => {
@@ -33,7 +32,6 @@ class NotificationWebSocketServer {
           // Handle authentication
           if (data.type === 'authenticate') {
             ws.userId = data.userId
-            console.log(`User ${data.userId} authenticated`)
             ws.send(JSON.stringify({ type: 'authenticated', success: true }))
           }
           
@@ -46,7 +44,6 @@ class NotificationWebSocketServer {
       })
       
       ws.on('close', () => {
-        console.log('WebSocket connection closed')
         this.clients.delete(ws)
       })
       
@@ -56,7 +53,6 @@ class NotificationWebSocketServer {
       })
     })
     
-    console.log(`WebSocket server started on port ${port}`)
   }
   
   // Stop the WebSocket server
@@ -65,7 +61,6 @@ class NotificationWebSocketServer {
       this.wss.close()
       this.wss = null
       this.clients.clear()
-      console.log('WebSocket server stopped')
     }
   }
   
@@ -74,13 +69,11 @@ class NotificationWebSocketServer {
     switch (data.type) {
       case 'subscribe':
         // Handle subscription requests
-        console.log(`Client subscribed to ${data.channel}`)
         ws.send(JSON.stringify({ type: 'subscribed', channel: data.channel }))
         break
         
       case 'unsubscribe':
         // Handle unsubscribe requests
-        console.log(`Client unsubscribed from ${data.channel}`)
         ws.send(JSON.stringify({ type: 'unsubscribed', channel: data.channel }))
         break
         

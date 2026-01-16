@@ -262,7 +262,6 @@ export default function SalesManagementPage() {
   }
 
   const updateInvoiceStatus = async (invoiceId: string, status: string) => {
-    console.log('Updating invoice:', invoiceId, 'to status:', status)
     try {
       const response = await fetchWithAuth(`/api/invoices/${invoiceId}`, {
         method: 'PUT',
@@ -270,9 +269,7 @@ export default function SalesManagementPage() {
         body: JSON.stringify({ status })
       })
 
-      console.log('Response status:', response.status)
       const data = await response.json()
-      console.log('Response data:', data)
 
       if (response.ok) {
         toast.success('Cập nhật trạng thái thành công')

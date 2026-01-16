@@ -195,7 +195,6 @@ class GeminiVectorStore {
         .filter(item => item.score > 0.35) // Lowered from 0.5
         .map(item => item.metadata)
 
-      console.log(`[RAG] Query: "${query}" -> Found ${results.length} results (threshold: 0.35)`)
       return results
     } catch (error) {
       console.error('Error searching vector store:', error)
@@ -229,14 +228,12 @@ async function initializeVectorStore() {
   // Check if needs refresh
   if (isInitialized && Date.now() - lastInitialization < REFRESH_INTERVAL) return
 
-  console.log('🔄 Initializing RAG Vector Store...')
   vectorStore.clear()
 
   // 1. Load static knowledge base
   for (const doc of KNOWLEDGE_BASE) {
     await vectorStore.addDocument(doc)
   }
-  console.log(`✅ Loaded ${KNOWLEDGE_BASE.length} static docs into Vector Store`)
 
   // 2. Load dynamic products from database
   try {
@@ -288,14 +285,12 @@ async function initializeVectorStore() {
 
       await vectorStore.addDocument(doc)
     }
-    console.log(`✅ Loaded ${products.length} products from DB into Vector Store`)
   } catch (error) {
     console.error('Failed to load products from DB:', error)
   }
 
   isInitialized = true
   lastInitialization = Date.now()
-  console.log('✅ RAG Vector Store initialized complete')
 }
 
 // RAG Service
@@ -379,7 +374,6 @@ export class RAGService {
     for (const { pattern, expansion } of useCasePatterns) {
       if (pattern.test(normalizedQuery)) {
         expandedQuery = expansion
-        console.log(`Query expanded: "${userQuery}" → "${expandedQuery}"`)
         break
       }
     }
@@ -602,7 +596,6 @@ Trả lời: "Chào bạn! Để trát tường, bạn nên dùng xi măng PC30:
     // 2. Find related products based on common combinations of the top result
     const topProduct = primaryProducts[0]
     if (topProduct.commonCombinations && topProduct.commonCombinations.length > 0) {
-      console.log(`Found common combinations for ${topProduct.name}: `, topProduct.commonCombinations)
 
       for (const comboKeyword of topProduct.commonCombinations) {
         if (recommendations.length >= limit) break

@@ -21,7 +21,6 @@ export async function GET(request: NextRequest) {
     let customerId = request.headers.get('x-customer-id')
     const userId = request.headers.get('x-user-id')
 
-    console.log(`[Loyalty API] Request received. customerId: ${customerId}, userId: ${userId}`)
 
     if (!customerId && userId) {
       // Try to find customer by userId
@@ -30,14 +29,11 @@ export async function GET(request: NextRequest) {
       })
       if (customer) {
         customerId = customer.id
-        console.log(`[Loyalty API] Found customer ${customerId} for user ${userId}`)
       } else {
-        console.log(`[Loyalty API] No customer found for user ${userId}`)
       }
     }
 
     if (!customerId) {
-      console.log('[Loyalty API] Missing customer ID')
       return NextResponse.json(
         createErrorResponse('Customer ID required', 'MISSING_CUSTOMER_ID', { receivedUserId: userId, receivedCustomerId: customerId }),
         { status: 400 }
@@ -45,7 +41,6 @@ export async function GET(request: NextRequest) {
     }
 
     const loyaltyData = await LoyaltyService.getCustomerLoyaltyData(customerId)
-    console.log('[Loyalty API] Returning data for customer:', customerId)
 
     return NextResponse.json(
       createSuccessResponse(loyaltyData, 'Loyalty dashboard retrieved successfully'),

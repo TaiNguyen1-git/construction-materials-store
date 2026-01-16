@@ -30,7 +30,6 @@ export default function SupplierLoginPage() {
             // Also clear the auth cookie
             document.cookie = 'auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT'
 
-            console.log('[SUPPLIER LOGIN] Cleared stale auth data before navigating back')
         }
 
         // Use replace() instead of href to prevent back button from returning to login loop

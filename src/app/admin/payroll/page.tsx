@@ -68,7 +68,6 @@ export default function PayrollPage() {
         const data = await payrollRes.json()
         const payrollData = data.data?.data || data.data || []
         const payrollArray = Array.isArray(payrollData) ? payrollData : []
-        console.log('Fetched payrolls:', payrollArray.length)
         setPayrolls(payrollArray)
       }
 
@@ -76,7 +75,6 @@ export default function PayrollPage() {
         const data = await employeesRes.json()
         const employeesData = data.data?.data || data.data || []
         const employeesArray = Array.isArray(employeesData) ? employeesData : []
-        console.log('Fetched employees for payroll:', employeesArray.length)
         setEmployees(employeesArray)
       }
     } catch (error) {
@@ -141,7 +139,6 @@ export default function PayrollPage() {
     if (!deletingPayroll) return
 
     try {
-      console.log('Deleting payroll:', deletingPayroll.id)
       const response = await fetchWithAuth(`/api/payroll/${deletingPayroll.id}`, {
         method: 'DELETE'
       })
@@ -164,7 +161,6 @@ export default function PayrollPage() {
 
   const updateStatus = async (payrollId: string, status: string) => {
     try {
-      console.log('Updating payroll status:', { payrollId, status })
       const response = await fetchWithAuth(`/api/payroll/${payrollId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },

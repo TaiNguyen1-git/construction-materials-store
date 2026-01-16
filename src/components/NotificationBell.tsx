@@ -239,7 +239,6 @@ export default function NotificationBell() {
         // Wait a bit to see if Firebase delivers data
         setTimeout(() => {
           if (!firebaseWorking) {
-            console.log('[NotificationBell] Firebase not responding, starting API polling')
             pollInterval = setInterval(pollNotifications, 10000) // Poll every 10s for snappier feel
           }
         }, 3000)
@@ -428,10 +427,8 @@ export default function NotificationBell() {
         }
       } else {
         // Default: just close dropdown, notification is marked as read
-        console.log('[NotificationBell] Unknown referenceType, no navigation')
       }
     } else {
-      console.log('[NotificationBell] No referenceId, no navigation')
     }
   }
 

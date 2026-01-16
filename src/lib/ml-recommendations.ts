@@ -22,7 +22,6 @@ export class MLRecommendationsService {
    */
   static async initialize(): Promise<void> {
     const result = await collaborativeFiltering.train()
-    console.log('📊 ML Recommendations initialized:', result.stats)
   }
 
   /**

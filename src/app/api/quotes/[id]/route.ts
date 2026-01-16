@@ -92,7 +92,6 @@ export async function PATCH(
             })
 
             // Mock Email Sending
-            console.log(`[SYSTEM] OTP verification for Quote ${quoteId}: ${otpCode} (Sent to ${customerProfile.user.email})`)
 
             return NextResponse.json(createSuccessResponse({ expiresAt: otpExpiresAt }, 'Mã xác thực đã được gửi đến email của bạn'))
         }

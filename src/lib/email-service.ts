@@ -83,7 +83,6 @@ export class EmailService {
   }) {
     const employeeEmail = process.env.EMPLOYEE_NOTIFICATION_EMAIL
     if (!employeeEmail) {
-      console.log('⚠️ EMPLOYEE_NOTIFICATION_EMAIL not configured')
       return false
     }
 
@@ -106,7 +105,6 @@ export class EmailService {
   }) {
     const employeeEmail = process.env.EMPLOYEE_NOTIFICATION_EMAIL
     if (!employeeEmail) {
-      console.log('⚠️ EMPLOYEE_NOTIFICATION_EMAIL not configured')
       return false
     }
 
@@ -128,11 +126,8 @@ export class EmailService {
     minStock: number
   }) {
     const adminEmail = process.env.ADMIN_NOTIFICATION_EMAIL
-    console.log(`📧 sendCriticalStockAlertToAdmin called - adminEmail: ${adminEmail ? 'configured' : 'NOT configured'}`)
-    console.log(`📧 Stock data: currentStock=${data.currentStock}, minStock=${data.minStock}, threshold=${data.minStock * 0.2}`)
 
     if (!adminEmail) {
-      console.log('⚠️ ADMIN_NOTIFICATION_EMAIL not configured in environment variables')
       return false
     }
 
@@ -208,7 +203,6 @@ export class EmailService {
         text: template.text
       })
 
-      console.log('✅ Email sent successfully to:', template.to)
       return true
     } catch (error) {
       console.error('❌ Email sending failed:', error)
@@ -423,7 +417,6 @@ export class EmailService {
   // Stock Alert HTML - Enhanced with more details
   private static getStockAlertHTML(data: any, level: 'warning' | 'critical'): string {
     const baseUrl = getBaseUrl()
-    console.log('📧 Stock Alert Email baseUrl:', baseUrl)
     const bgColor = level === 'critical' ? '#dc2626' : '#f59e0b'
     const emoji = level === 'critical' ? '🚨' : '⚠️'
     const title = level === 'critical' ? 'KHẨN CẤP: Tồn Kho Nguy Cấp' : 'Cảnh Báo Tồn Kho'
@@ -599,7 +592,6 @@ export class EmailService {
   }) {
     const adminEmail = process.env.ADMIN_NOTIFICATION_EMAIL
     if (!adminEmail) {
-      console.log('⚠️ ADMIN_NOTIFICATION_EMAIL not configured')
       return false
     }
 
@@ -1021,7 +1013,6 @@ Hotline: 1900-xxxx
       }
       results.push(await this.sendEmail(template))
     } else {
-      console.log('⚠️ EMPLOYEE_NOTIFICATION_EMAIL not configured for support requests')
     }
 
     // Send to admin
@@ -1033,7 +1024,6 @@ Hotline: 1900-xxxx
       }
       results.push(await this.sendEmail(template))
     } else {
-      console.log('⚠️ ADMIN_NOTIFICATION_EMAIL not configured for support requests')
     }
 
     return results.some(r => r === true) // Return true if at least one email was sent

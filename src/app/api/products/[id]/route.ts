@@ -17,7 +17,6 @@ export async function GET(
   try {
     const { id } = await context.params
 
-    console.log('Fetching product with ID:', id)
 
     if (!id) {
       return NextResponse.json(
@@ -50,7 +49,6 @@ export async function GET(
       }
     })
 
-    console.log('Product found:', product ? 'Yes' : 'No')
 
     if (!product) {
       return NextResponse.json(
@@ -97,7 +95,6 @@ export async function PUT(
     const { id } = await context.params
     const body = await request.json()
 
-    console.log('Updating product:', id, body)
 
     if (!id) {
       return NextResponse.json(
@@ -181,7 +178,6 @@ export async function DELETE(
 
     const { id } = await context.params
 
-    console.log('Deactivating product:', id)
 
     if (!id) {
       return NextResponse.json(

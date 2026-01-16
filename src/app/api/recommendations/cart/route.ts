@@ -45,7 +45,6 @@ export async function POST(request: NextRequest) {
     // This is crucial when we don't have enough order history or strict KB matches
     let aiRecommendations: any[] = []
     if (frequentlyBoughtTogether.length < 2 && complementaryProducts.length < 2) {
-      console.log('📉 Not enough rule-based recommendations. Calling Gemini...')
       try {
         const { default: AIService } = await import('@/lib/ai-service')
         const aiResults = await AIService.getSmartRecommendations({
@@ -252,14 +251,12 @@ async function getComplementaryProducts(
     })
 
     if (kbProduct && kbProduct.commonCombinations && kbProduct.commonCombinations.length > 0) {
-      console.log(`📚 KB Match: "${cartProduct.name}" -> KB: "${kbProduct.name}" with ${kbProduct.commonCombinations.length} combinations`)
       allCombinations.push(...kbProduct.commonCombinations)
     }
   }
 
   // Remove duplicates
   const uniqueCombinations = [...new Set(allCombinations)]
-  console.log(`🔗 Total unique combinations to search: ${uniqueCombinations.length}`)
 
   if (uniqueCombinations.length > 0) {
     // Search for products matching these combinations
@@ -291,7 +288,6 @@ async function getComplementaryProducts(
     })
 
     if (products.length > 0) {
-      console.log(`✅ Found ${products.length} complementary products from KB combinations`)
 
       // Sort by stock availability and rating
       const sorted = products
@@ -329,7 +325,6 @@ async function getComplementaryProducts(
   }
 
   // FALLBACK: If no KB match, get related products from same or related categories
-  console.log('📦 Fallback: Fetching related products by category')
 
   const relatedProducts = await prisma.product.findMany({
     where: {

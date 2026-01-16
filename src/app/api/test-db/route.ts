@@ -3,15 +3,12 @@ import { prisma } from '@/lib/prisma'
 
 export async function GET() {
   try {
-    console.log('🔍 Testing Prisma in API route...')
     
     // Test 1: Simple count
     const productCount = await prisma.product.count()
-    console.log('✅ Product count:', productCount)
     
     // Test 2: Find all products
     const allProducts = await prisma.product.findMany()
-    console.log('✅ Products found:', allProducts.length)
     
     // Test 3: Find with relations
     const productsWithRelations = await prisma.product.findMany({
@@ -21,7 +18,6 @@ export async function GET() {
       },
       take: 5
     })
-    console.log('✅ Products with relations:', productsWithRelations.length)
     
     return NextResponse.json({
       success: true,

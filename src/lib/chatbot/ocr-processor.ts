@@ -43,7 +43,6 @@ async function getWorker() {
     worker = await createWorker('vie+eng', 1, {
       logger: (m: any) => {
         if (m.status === 'recognizing text') {
-          console.log(`OCR Progress: ${Math.round(m.progress * 100)}%`)
         }
       }
     })

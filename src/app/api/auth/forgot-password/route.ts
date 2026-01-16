@@ -22,7 +22,6 @@ export async function POST(request: NextRequest) {
 
         // Always return success to prevent email enumeration
         if (!user) {
-            console.log('Password reset requested for non-existent email:', email)
             return NextResponse.json({
                 success: true,
                 message: 'Nếu email tồn tại trong hệ thống, bạn sẽ nhận được hướng dẫn đặt lại mật khẩu.'

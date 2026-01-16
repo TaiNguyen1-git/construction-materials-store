@@ -54,7 +54,6 @@ export default function CustomersPage() {
         // Handle nested data structure
         const customersData = data.data?.data || data.data || []
         const customersArray = Array.isArray(customersData) ? customersData : []
-        console.log('Fetched customers:', customersArray.length)
         setCustomers(customersArray)
       } else {
         toast.error('Không thể tải danh sách khách hàng')

@@ -224,7 +224,6 @@ export class AITrainingCollector {
   async saveTrainingData(filePath: string, format: 'JSON' | 'CSV' | 'JSONL' = 'JSON') {
     const data = await this.exportFormatted(format)
     // Trong production sẽ save vào cloud storage
-    console.log(`Training data saved to ${filePath}`)
     return data
   }
 

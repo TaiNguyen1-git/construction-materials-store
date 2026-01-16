@@ -235,7 +235,6 @@ export async function POST(request: NextRequest) {
                         subject: `[SmartBuild] Đơn đặt hàng #${purchaseOrder.orderNumber}`,
                         html: emailHtml
                     })
-                    console.log('✅ Purchase order email sent to:', supplier.email)
                 } catch (emailError) {
                     console.error('Failed to send email to supplier:', emailError)
                     // Don't fail the whole request if email fails

@@ -40,7 +40,6 @@ export class CollaborativeFilteringService {
      * Should be called periodically (e.g., daily) or on-demand
      */
     async train(): Promise<{ success: boolean; stats: any }> {
-        console.log('🔄 Training Collaborative Filtering model...')
 
         try {
             // 1. Build co-purchase matrix
@@ -54,7 +53,6 @@ export class CollaborativeFilteringService {
 
             this.lastTrainedAt = new Date()
 
-            console.log('✅ CF Model trained successfully')
 
             return {
                 success: true,

@@ -80,7 +80,6 @@ function OrderTrackingContent() {
     // Subscribe for all non-completed statuses
     const activeStatuses = ['PENDING', 'PENDING_CONFIRMATION', 'CONFIRMED', 'CONFIRMED_AWAITING_DEPOSIT', 'DEPOSIT_PAID', 'PROCESSING', 'SHIPPED']
     if (!activeStatuses.includes(order.status)) {
-      console.log(`[Order Tracking] Status ${order.status} is final, not subscribing`)
       return
     }
 
@@ -94,20 +93,16 @@ function OrderTrackingContent() {
         const { subscribeToOrderStatus } = await import('@/lib/firebase-notifications')
 
         setIsListening(true)
-        console.log(`[Order Tracking] 🔥 Firebase subscription started for order ${currentOrderId}`)
 
         unsubscribe = subscribeToOrderStatus(currentOrderId, (newStatus) => {
-          console.log(`[Order Tracking] 🔥 Firebase callback: status=${newStatus}, lastFirebaseStatus=${lastFirebaseStatus}, isFirst=${isFirstCallback}`)
 
           // On first callback, just record the status
           if (isFirstCallback) {
             isFirstCallback = false
             lastFirebaseStatus = newStatus
-            console.log(`[Order Tracking] 🔥 Initial Firebase status: ${newStatus}`)
 
             // If Firebase status is different from current order status, refetch
             if (newStatus && newStatus !== order.status) {
-              console.log(`[Order Tracking] 🔥 Firebase has newer status! Current: ${order.status}, Firebase: ${newStatus}. Refetching...`)
               fetchOrderSilent()
             }
             return
@@ -115,7 +110,6 @@ function OrderTrackingContent() {
 
           // On subsequent callbacks, check if status changed
           if (newStatus && newStatus !== lastFirebaseStatus) {
-            console.log(`[Order Tracking] 🔥 Status CHANGED from ${lastFirebaseStatus} to ${newStatus}. Refetching...`)
             lastFirebaseStatus = newStatus
             fetchOrderSilent()
           }
@@ -132,7 +126,6 @@ function OrderTrackingContent() {
     return () => {
       if (unsubscribe) {
         unsubscribe()
-        console.log(`[Order Tracking] 🔥 Firebase subscription ended for order ${currentOrderId}`)
       }
       setIsListening(false)
     }
@@ -157,7 +150,6 @@ function OrderTrackingContent() {
         setOrder((prevOrder) => {
           // Check if status changed and log it
           if (prevOrder && newOrder.status !== prevOrder.status) {
-            console.log(`[Order Tracking] Status updated: ${prevOrder.status} → ${newOrder.status}`)
           }
           return newOrder
         })

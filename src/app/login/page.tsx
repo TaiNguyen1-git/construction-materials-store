@@ -24,7 +24,6 @@ export default function LoginPage() {
     onSuccess: async (tokenResponse) => {
       try {
         setGoogleLoading(true)
-        console.log('[GOOGLE LOGIN] Success! Fetching user info with token:', tokenResponse.access_token)
 
         // Call our backend to verify and log in
         const res = await fetch('/api/auth/google', {
@@ -40,7 +39,6 @@ export default function LoginPage() {
         const data = await res.json()
 
         if (data.success) {
-          console.log('[GOOGLE LOGIN] Backend verified success, storing data...')
 
           // Store data just like normal login
           if (typeof window !== 'undefined') {
@@ -77,7 +75,6 @@ export default function LoginPage() {
     try {
       setFbLoading(true)
       const authResponse = await loginWithFacebook()
-      console.log('[FB LOGIN] Auth success, verifying with backend...', authResponse)
 
       const res = await fetch('/api/auth/facebook', {
         method: 'POST',
@@ -134,7 +131,6 @@ export default function LoginPage() {
       // Also clear the auth cookie by setting it to expire
       document.cookie = 'auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT'
 
-      console.log('[LOGIN] Cleared stale auth data before navigating home')
     }
 
     // Use replace() instead of href to prevent back button from returning to login
@@ -153,20 +149,17 @@ export default function LoginPage() {
     setLocalErrors({})
 
     try {
-      console.log('[LOGIN] Starting login process... rememberMe:', rememberMe)
       await login({
         email: formData.email,
         password: formData.password
       }, rememberMe)
 
-      console.log('[LOGIN] Login successful, checking user data...')
 
       // Get user data from storage (check both localStorage and sessionStorage)
       // Wait a tick to ensure storage is written
       await new Promise(resolve => setTimeout(resolve, 100))
 
       const userData = localStorage.getItem('user') || sessionStorage.getItem('user')
-      console.log('[LOGIN] Retrieved user data from storage:', userData)
 
       if (userData) {
         const user = JSON.parse(userData)
@@ -179,12 +172,10 @@ export default function LoginPage() {
 
         // Redirect based on role - using window.location for FORCE redirect
         if (user.role === 'MANAGER' || user.role === 'EMPLOYEE') {
-          console.log('[LOGIN] User is admin, FORCING redirect to /admin...')
           // Use window.location.href for a hard redirect that bypasses Next.js routing
           window.location.href = '/admin'
         } else {
           // Customer redirect to home page
-          console.log('[LOGIN] User is customer, FORCING redirect to /')
           window.location.href = '/'
         }
       } else {

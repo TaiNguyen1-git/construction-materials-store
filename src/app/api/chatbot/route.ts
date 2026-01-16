@@ -52,12 +52,10 @@ function isPlaceholderGuestInfo(info: { name?: string; phone?: string; address?:
 
   // Check for placeholder names
   if (PLACEHOLDER_NAMES.some(p => nameLower === p || nameLower.includes(p))) {
-    console.log('[GUEST_INFO] Detected placeholder name:', info.name)
     return true
   }
   // Check for placeholder phones
   if (PLACEHOLDER_PHONES.includes(phoneTrimmed)) {
-    console.log('[GUEST_INFO] Detected placeholder phone:', info.phone)
     return true
   }
   return false
@@ -444,7 +442,6 @@ export async function POST(request: NextRequest) {
       if (ruleBasedResult.matched) {
         // Handle comparison request (RAG + template-based)
         if (ruleBasedResult.requiresComparison && ruleBasedResult.comparisonProducts) {
-          console.log(`[RULE-BASED] Comparison request for: ${ruleBasedResult.comparisonProducts.join(' vs ')}`)
 
           // Import comparison generator
           const { generateComparisonResponse } = await import('@/lib/chatbot/rule-based-responses')
@@ -509,11 +506,9 @@ export async function POST(request: NextRequest) {
             )
           }
           // If not enough products found, fall through to AI
-          console.log(`[RULE-BASED] Comparison failed - only found ${comparisonData.length} products, falling through to AI`)
         }
         // Handle quick price lookup that needs DB data
         else if (ruleBasedResult.requiresProductLookup && ruleBasedResult.productKeyword) {
-          console.log(`[RULE-BASED] Quick price lookup for: ${ruleBasedResult.productKeyword}`)
 
           // Fetch products matching the keyword
           const products = await prisma.product.findMany({
@@ -552,7 +547,6 @@ export async function POST(request: NextRequest) {
           // If no products found, fall through to AI handling
         } else {
           // Direct rule-based response (no DB lookup needed)
-          console.log(`[RULE-BASED] Matched! Returning direct response.`)
           return NextResponse.json(
             createSuccessResponse({
               message: ruleBasedResult.response!,
@@ -574,7 +568,6 @@ export async function POST(request: NextRequest) {
       currentPage: context?.currentPage
     })
 
-    console.log(`[CHATBOT] Message: "${message}" | isAdmin: ${isAdmin} | Role: ${userRole} | Intent: ${intentResult.intent}`)
 
     // ===== SECURITY: Prevent customer from accessing admin intents =====
     if (!isAdmin && intentResult.intent.startsWith('ADMIN_')) {
@@ -748,7 +741,6 @@ export async function POST(request: NextRequest) {
       const aiOrderRequest = await AIService.parseOrderRequest(message)
 
       if (aiOrderRequest && aiOrderRequest.items && aiOrderRequest.items.length > 0) {
-        console.log('AI Parsed Order:', aiOrderRequest)
 
         // Validate and enrich items with DB data
         const enrichedItems: any[] = []
@@ -757,7 +749,6 @@ export async function POST(request: NextRequest) {
         for (const item of aiOrderRequest.items) {
           // Extract searchable keywords from colloquial product name
           const keywords = extractProductKeywords(item.productName)
-          console.log(`[ORDER_CREATE] Searching for "${item.productName}" with keywords:`, keywords)
 
           // Build OR conditions for all keywords
           const orConditions = keywords.flatMap(kw => [
@@ -1164,8 +1155,6 @@ export async function POST(request: NextRequest) {
         // Use stored calculation items directly
         const items = currentState.data.lastCalculation
         const storedGuestInfo = currentState.data.guestInfo
-        console.log('[ORDER_CREATE] Button click - Using stored calculation items:', items)
-        console.log('[ORDER_CREATE] Using stored guestInfo:', storedGuestInfo)
 
         // Pass stored guest info to order flow
         startOrderCreationFlow(sessionId, items, !!customerId, storedGuestInfo)
@@ -1200,7 +1189,6 @@ export async function POST(request: NextRequest) {
 
       // Clear old calculation state if this is a fresh order (not button click)
       if (!isButtonClick && currentState?.data?.lastCalculation) {
-        console.log('[ORDER_CREATE] Fresh order detected - clearing old calculation state')
         await clearConversationState(sessionId)
       }
 
@@ -1388,10 +1376,8 @@ export async function POST(request: NextRequest) {
                 phone: parsedInfo.phone || '',
                 address: parsedInfo.deliveryAddress || ''
               }
-              console.log('[MATERIAL_CALCULATE] Extracted guest info:', guestInfoFromMessage)
             }
           } catch (e) {
-            console.log('[MATERIAL_CALCULATE] Could not extract guest info:', e)
           }
 
           if (calcItems.length > 0) {
@@ -1475,7 +1461,6 @@ export async function POST(request: NextRequest) {
         } else {
           // If not found in DB, try RAG via fallback
           // Don't return error here, let it fall through to RAG
-          console.log('Product not found in DB for price inquiry, falling back to RAG')
         }
       } catch (error) {
         console.error('Price inquiry error:', error)
@@ -2274,7 +2259,6 @@ async function handleOrderCreation(sessionId: string, customerId: string | undef
 
     if (isGuest) {
       // Guest order - use provided info
-      console.log('Guest order - flowData.guestInfo:', JSON.stringify(flowData.guestInfo, null, 2))
 
       if (!flowData.guestInfo) {
         return NextResponse.json(
@@ -2293,13 +2277,6 @@ async function handleOrderCreation(sessionId: string, customerId: string | undef
       }
 
       const guestInfo = flowData.guestInfo
-      console.log('=== CHECKING GUEST INFO IN ORDER CREATION ===')
-      console.log('flowData:', JSON.stringify(flowData, null, 2))
-      console.log('guestInfo:', JSON.stringify(guestInfo, null, 2))
-      console.log('Has name:', !!guestInfo?.name, guestInfo?.name)
-      console.log('Has phone:', !!guestInfo?.phone, guestInfo?.phone)
-      console.log('Has address:', !!guestInfo?.address, guestInfo?.address)
-      console.log('=============================================')
 
       if (!guestInfo || !guestInfo.name || !guestInfo.phone || !guestInfo.address) {
         return NextResponse.json(
@@ -2359,7 +2336,6 @@ async function handleOrderCreation(sessionId: string, customerId: string | undef
       // Match products and calculate totals using fuzzy keyword search
       for (const item of items) {
         const keywords = extractProductKeywords(item.productName)
-        console.log(`[ORDER] Searching for: "${item.productName}" with keywords:`, keywords)
 
         // Search for matching product in DB using fuzzy matching
         let product = null
