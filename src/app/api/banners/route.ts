@@ -13,7 +13,11 @@ export async function GET() {
                 order: 'asc',
             },
         })
-        return NextResponse.json(banners)
+        return NextResponse.json(banners, {
+            headers: {
+                'Cache-Control': 'public, s-maxage=600, stale-while-revalidate=60',
+            }
+        })
     } catch (error) {
         console.error('Error fetching banners:', error)
         return NextResponse.json(

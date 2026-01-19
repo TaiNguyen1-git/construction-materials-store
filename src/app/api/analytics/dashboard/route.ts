@@ -270,8 +270,8 @@ export async function GET(request: NextRequest) {
       }
     }, {
       headers: {
-        'Cache-Control': 'no-store, no-cache, must-revalidate',
-        'Pragma': 'no-cache'
+        // Allow 60-second edge caching with stale-while-revalidate for performance
+        'Cache-Control': 'private, s-maxage=60, stale-while-revalidate=30',
       }
     })
   } catch (error) {

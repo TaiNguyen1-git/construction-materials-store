@@ -66,15 +66,14 @@ export async function GET(request: NextRequest) {
     // Create cache key based on query parameters
     const cacheKey = `products:${page}:${limit}:${searchQuery || 'all'}:${category || 'all'}:${minPrice || 'min'}:${maxPrice || 'max'}:${sort || sortBy}:${sortOrder}:${isActive !== undefined ? isActive : 'all'}:${featured !== undefined ? featured : 'all'}`
 
-    // TEMPORARILY DISABLE CACHE FOR DEBUGGING
     // Try to get from cache first
-    // const cachedResult = await CacheService.get(cacheKey)
-    // if (cachedResult) {
-    //   return NextResponse.json(
-    //     createSuccessResponse(cachedResult, 'Products retrieved successfully from cache'),
-    //     { status: 200 }
-    //   )
-    // }
+    const cachedResult = await CacheService.get(cacheKey)
+    if (cachedResult) {
+      return NextResponse.json(
+        createSuccessResponse(cachedResult, 'Products retrieved successfully from cache'),
+        { status: 200, headers: { 'X-Cache': 'HIT' } }
+      )
+    }
 
     // Build where clause
     const where: any = {}
@@ -248,9 +247,8 @@ export async function GET(request: NextRequest) {
 
     const response = createPaginatedResponse(products, total, page, limit)
 
-    // TEMPORARILY DISABLE CACHE FOR DEBUGGING
     // Cache the result for 5 minutes
-    // await CacheService.set(cacheKey, response, 300)
+    await CacheService.set(cacheKey, response, 300)
 
     const duration = Date.now() - startTime
     logAPI.response('GET', '/api/products', 200, duration, { total, page, limit })

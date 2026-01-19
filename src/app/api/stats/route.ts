@@ -1,31 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
-export const dynamic = 'force-dynamic'
+// Allow caching for 5 minutes
+export const revalidate = 300
 
 export async function GET(request: NextRequest) {
     try {
-        // Count products
-        const totalProducts = await prisma.product.count({
-            where: { isActive: true }
-        })
-
-        // Count categories
-        const totalCategories = await prisma.category.count({
-            where: { isActive: true }
-        })
-
-        // Count active orders (not completed or cancelled)
-        const activeOrders = await prisma.order.count({
-            where: {
-                status: {
-                    notIn: ['DELIVERED', 'CANCELLED']
+        // Run all counts in parallel for better performance
+        const [totalProducts, totalCategories, activeOrders, totalCustomers] = await Promise.all([
+            prisma.product.count({
+                where: { isActive: true }
+            }),
+            prisma.category.count({
+                where: { isActive: true }
+            }),
+            prisma.order.count({
+                where: {
+                    status: {
+                        notIn: ['DELIVERED', 'CANCELLED']
+                    }
                 }
-            }
-        })
-
-        // Count customers
-        const totalCustomers = await prisma.customer.count()
+            }),
+            prisma.customer.count()
+        ])
 
         return NextResponse.json({
             success: true,
@@ -34,6 +31,10 @@ export async function GET(request: NextRequest) {
                 totalCategories,
                 activeOrders,
                 totalCustomers
+            }
+        }, {
+            headers: {
+                'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=60'
             }
         })
     } catch (error: any) {
