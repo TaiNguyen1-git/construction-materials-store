@@ -6,7 +6,7 @@ import { createSuccessResponse, createErrorResponse } from '@/lib/api-types'
 export async function GET(request: NextRequest) {
     try {
         // 1. Get orders ready for delivery (e.g. PROCESSING, CONFIRMED) that don't have a delivery record yet
-        const readyOrders = await prisma.order.findMany({
+        const readyOrders = await (prisma as any).order.findMany({
             where: {
                 status: { in: ['PROCESSING', 'CONFIRMED'] },
                 delivery: { is: null }
@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
         })
 
         return NextResponse.json(createSuccessResponse({
-            readyOrders: readyOrders.map(o => ({
+            readyOrders: readyOrders.map((o: any) => ({
                 id: o.id,
                 orderNumber: o.orderNumber,
                 customerName: o.customer?.name || o.guestName || 'Khách lẻ',
