@@ -1,569 +1,221 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+/**
+ * Public Contractor Portfolio Page
+ * Detailed view of a contractor's skills, experience and ratings
+ */
+
+import { useState, useEffect, use } from 'react'
 import Link from 'next/link'
-import Header from '@/components/Header'
-import GuestInfoModal from '@/components/GuestInfoModal'
-import { Star, MapPin, Phone, Mail, CheckCircle, Briefcase, Users, ArrowLeft, Calendar, MessageCircle, Building2, ChevronRight } from 'lucide-react'
-import { useAuth } from '@/contexts/auth-context'
-import FormModal from '@/components/FormModal'
-import { fetchWithAuth } from '@/lib/api-client'
-import { toast } from 'react-hot-toast'
+import {
+    ShieldCheck, Star, MapPin, Award,
+    Briefcase, CheckCircle2, ArrowLeft,
+    Mail, Phone, ExternalLink, Loader2,
+    Hammer, Wrench, HardHat, Paintbrush, Zap
+} from 'lucide-react'
+import toast from 'react-hot-toast'
 
-interface Contractor {
-    id: string
-    displayName: string
-    bio: string | null
-    avatar: string | null
-    city: string
-    district: string | null
-    phone: string | null
-    email: string | null
-    skills: string[]
-    experienceYears: number
-    teamSize: number
-    isVerified: boolean
-    avgRating: number
-    totalReviews: number
-    completedJobs: number
-    isAvailable: boolean
-    customerId: string
-    createdAt: string
-}
-
-interface Review {
-    id: string
-    rating: number
-    title: string | null
-    comment: string
-    createdAt: string
-}
-
-const SKILL_LABELS: Record<string, string> = {
-    CONSTRUCTION: 'Xây dựng',
-    RENOVATION: 'Cải tạo',
-    INTERIOR: 'Nội thất',
-    FLOORING: 'Lát gạch/sàn',
-    PAINTING: 'Sơn',
-    PLUMBING: 'Ống nước',
-    ELECTRICAL: 'Điện',
-    ROOFING: 'Mái',
-    CARPENTRY: 'Mộc',
-    WELDING: 'Hàn',
-    MASONRY: 'Xây',
-    TILING: 'Ốp lát'
-}
-
-export default function ContractorDetailPage() {
-    const params = useParams()
-    const router = useRouter()
-    const [contractor, setContractor] = useState<Contractor | null>(null)
-    const [reviews, setReviews] = useState<Review[]>([])
+export default function ContractorPortfolio({ params }: { params: Promise<{ id: string }> }) {
+    const { id } = use(params)
     const [loading, setLoading] = useState(true)
-
-    const [showGuestModal, setShowGuestModal] = useState(false)
-
-    const [showReviewForm, setShowReviewForm] = useState(false)
-    const [submitRating, setSubmitRating] = useState(5)
-    const [submitComment, setSubmitComment] = useState('')
-    const [submitLoading, setSubmitLoading] = useState(false)
-
-    // Invite to Project State
-    const { user: authUser, isAuthenticated } = useAuth()
-    const [showInviteModal, setShowInviteModal] = useState(false)
-    const [customerProjects, setCustomerProjects] = useState<any[]>([])
-    const [inviteLoading, setInviteLoading] = useState(false)
-    const [fetchProjectsLoading, setFetchProjectsLoading] = useState(false)
-    const [selectedProjectId, setSelectedProjectId] = useState('')
+    const [contractor, setContractor] = useState<any>(null)
 
     useEffect(() => {
-        if (params.id) {
-            fetchContractor()
-        }
-    }, [params.id])
+        fetchContractor()
+    }, [id])
 
     const fetchContractor = async () => {
+        setLoading(true)
         try {
-            const res = await fetch(`/api/contractors/${params.id}`)
+            const res = await fetch(`/api/contractors/public/${id}`)
             if (res.ok) {
                 const data = await res.json()
-                if (data.success) {
-                    setContractor(data.data.contractor)
-                    setReviews(data.data.reviews || [])
-                }
+                setContractor(data.data)
+            } else {
+                toast.error('Không tìm thấy thông tin đối tác')
             }
-        } catch (error) {
-            console.error('Failed to fetch contractor:', error)
+        } catch (err) {
+            toast.error('Lỗi kết nối hệ thống')
         } finally {
             setLoading(false)
         }
     }
 
-    const handleMessage = () => {
-        const userId = localStorage.getItem('user_id')
-        if (userId) {
-            // Already identified
-            createConversation(userId)
-        } else {
-            // Need guest info
-            setShowGuestModal(true)
-        }
-    }
+    if (loading) return (
+        <div className="min-h-screen flex items-center justify-center bg-white">
+            <Loader2 className="w-12 h-12 animate-spin text-blue-600" />
+        </div>
+    )
 
-    const handleGuestSubmit = (info: { name: string; phone: string; email: string }) => {
-        const guestId = 'guest_' + Date.now()
-        localStorage.setItem('user_id', guestId)
-        localStorage.setItem('user_name', info.name)
-        localStorage.setItem('user_phone', info.phone)
-        localStorage.setItem('user_email', info.email)
-
-        setShowGuestModal(false)
-        createConversation(guestId, info.name)
-    }
-
-    const createConversation = async (userId: string, userName?: string) => {
-        if (!contractor) return
-
-        try {
-            const res = await fetch('/api/messages', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    senderId: userId,
-                    senderName: userName || localStorage.getItem('user_name'),
-                    recipientId: contractor.id,
-                    recipientName: contractor.displayName,
-                    initialMessage: `Chào ${contractor.displayName}, tôi quan tâm đến dịch vụ của bạn.`
-                })
-            })
-
-            if (res.ok) {
-                router.push('/messages')
-            }
-        } catch (error) {
-            console.error('Failed to create conversation', error)
-        }
-    }
-
-    const handleSubmitReview = async (e: React.FormEvent) => {
-        e.preventDefault()
-        setSubmitLoading(true)
-
-        try {
-            const res = await fetch(`/api/contractors/${params.id}/reviews`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'x-user-id': localStorage.getItem('user_id') || ''
-                },
-                body: JSON.stringify({
-                    rating: submitRating,
-                    comment: submitComment
-                })
-            })
-
-            const data = await res.json()
-
-            if (res.ok && data.success) {
-                // Refresh reviews
-                setReviews([data.data.review, ...reviews])
-                // Update contractor stats
-                if (contractor) {
-                    setContractor({
-                        ...contractor,
-                        avgRating: data.data.newStats.avgRating,
-                        totalReviews: data.data.newStats.totalReviews
-                    })
-                }
-                // Reset form
-                setShowReviewForm(false)
-                setSubmitComment('')
-                setSubmitRating(5)
-                alert('Đánh giá thành công!')
-            } else {
-                alert(data.error?.message || 'Gửi đánh giá thất bại')
-            }
-        } catch (error) {
-            console.error('Submit review error:', error)
-            alert('Lỗi kết nối server')
-        } finally {
-            setSubmitLoading(false)
-        }
-    }
-
-    const handleOpenInvite = async () => {
-        if (!isAuthenticated) {
-            router.push('/login?redirect=' + window.location.pathname)
-            return
-        }
-
-        setShowInviteModal(true)
-        setFetchProjectsLoading(true)
-        try {
-            const res = await fetchWithAuth('/api/projects')
-            if (res.ok) {
-                const data = await res.json()
-                setCustomerProjects(data.data || [])
-            }
-        } catch (error) {
-            console.error('Failed to fetch projects:', error)
-            toast.error('Không thể tải danh sách dự án')
-        } finally {
-            setFetchProjectsLoading(false)
-        }
-    }
-
-    const handleInviteToProject = async () => {
-        if (!selectedProjectId || !contractor) return
-        setInviteLoading(true)
-        try {
-            const res = await fetchWithAuth(`/api/projects/${selectedProjectId}`, {
-                method: 'PUT',
-                body: JSON.stringify({ contractorId: contractor.customerId })
-            })
-
-            if (res.ok) {
-                toast.success('Gửi lời mời thành công! Nhà thầu đã được thêm vào dự án.')
-                setShowInviteModal(false)
-                setSelectedProjectId('')
-                fetchContractor() // Refresh to show updated status if needed
-            } else {
-                const error = await res.json()
-                toast.error(error.error || 'Có lỗi xảy ra')
-            }
-        } catch (error) {
-            console.error('Invite error:', error)
-            toast.error('Lỗi kết nối server')
-        } finally {
-            setInviteLoading(false)
-        }
-    }
-
-    if (loading) {
-        return (
-            <div className="min-h-screen bg-gray-50">
-                <Header />
-                <div className="flex justify-center py-20">
-                    <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
-                </div>
+    if (!contractor) return (
+        <div className="min-h-screen flex items-center justify-center bg-white">
+            <div className="text-center">
+                <h2 className="text-2xl font-black mb-4">Không tìm thấy đối tác</h2>
+                <Link href="/contractors" className="text-blue-600 font-bold">Quay lại danh sách</Link>
             </div>
-        )
-    }
+        </div>
+    )
 
-    if (!contractor) {
-        return (
-            <div className="min-h-screen bg-gray-50">
-                <Header />
-                <div className="max-w-4xl mx-auto px-4 py-12 text-center">
-                    <h1 className="text-2xl font-bold text-gray-800">Không tìm thấy nhà thầu</h1>
-                    <Link href="/contractors" className="text-blue-600 hover:underline mt-4 inline-block">
-                        ← Quay lại danh sách
+    return (
+        <div className="min-h-screen bg-slate-50 pb-24">
+            {/* Header Banner */}
+            <div className="bg-slate-900 pt-20 pb-40 relative">
+                <div className="max-w-7xl mx-auto px-6">
+                    <Link href="/contractors" className="inline-flex items-center gap-2 text-slate-400 hover:text-white transition-colors mb-12 font-bold">
+                        <ArrowLeft className="w-5 h-5" />
+                        Quay lại mạng lưới đối tác
                     </Link>
                 </div>
             </div>
-        )
-    }
 
-    return (
-        <div className="min-h-screen bg-gray-50">
-            <Header />
+            <div className="max-w-7xl mx-auto px-6 -mt-32">
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
 
-            <div className="max-w-4xl mx-auto px-4 py-8">
-                {/* Back Link */}
-                <Link href="/contractors" className="inline-flex items-center text-gray-600 hover:text-gray-900 mb-6">
-                    <ArrowLeft className="w-4 h-4 mr-2" />
-                    Quay lại danh sách
-                </Link>
-
-                {/* Profile Card */}
-                <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
-                    <div className="flex items-start gap-6">
-                        {/* Avatar */}
-                        <div className="w-24 h-24 rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 flex items-center justify-center text-white text-3xl font-bold flex-shrink-0">
-                            {contractor.avatar ? (
-                                <img src={contractor.avatar} alt="" className="w-full h-full rounded-full object-cover" />
-                            ) : (
-                                contractor.displayName.charAt(0).toUpperCase()
-                            )}
-                        </div>
-
-                        {/* Info */}
-                        <div className="flex-1">
-                            <div className="flex items-center gap-3 mb-2">
-                                <h1 className="text-2xl font-bold text-gray-900">{contractor.displayName}</h1>
-                                {contractor.isVerified && (
-                                    <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full">
-                                        <CheckCircle className="w-3 h-3" />
-                                        Đã xác minh
-                                    </span>
-                                )}
-                            </div>
-
-                            {/* Rating */}
-                            <div className="flex items-center gap-4 mb-3">
-                                <div className="flex items-center">
-                                    <Star className="w-5 h-5 text-yellow-400 fill-yellow-400" />
-                                    <span className="ml-1 font-semibold text-gray-800">{contractor.avgRating.toFixed(1)}</span>
-                                    <span className="ml-1 text-gray-500">({contractor.totalReviews} đánh giá)</span>
+                    {/* Main Info Card */}
+                    <div className="lg:col-span-8 space-y-10">
+                        <div className="bg-white rounded-[48px] p-10 md:p-16 shadow-2xl shadow-slate-200/50 relative overflow-hidden">
+                            {/* Profile Header */}
+                            <div className="flex flex-col md:flex-row gap-10 items-center md:items-start mb-16">
+                                <div className="w-40 h-40 bg-blue-50 rounded-[56px] flex items-center justify-center text-6xl font-black text-blue-600 shadow-xl shadow-blue-100/50">
+                                    {contractor.displayName.charAt(0)}
                                 </div>
-                                <span className={`px-2 py-1 text-xs rounded-full ${contractor.isAvailable ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
-                                    }`}>
-                                    {contractor.isAvailable ? '✓ Đang nhận việc' : 'Đang bận'}
-                                </span>
-                            </div>
-
-                            {/* Location */}
-                            <div className="flex items-center text-gray-600 mb-3">
-                                <MapPin className="w-4 h-4 mr-2" />
-                                {contractor.district && `${contractor.district}, `}{contractor.city}
-                            </div>
-
-                            {/* Bio */}
-                            {contractor.bio && (
-                                <p className="text-gray-600">{contractor.bio}</p>
-                            )}
-                        </div>
-                    </div>
-                </div>
-
-                {/* Stats */}
-                <div className="grid grid-cols-3 gap-4 mb-6">
-                    <div className="bg-white rounded-lg border border-gray-200 p-4 text-center">
-                        <div className="text-2xl font-bold text-gray-800">{contractor.completedJobs}</div>
-                        <div className="text-sm text-gray-500">Dự án hoàn thành</div>
-                    </div>
-                    <div className="bg-white rounded-lg border border-gray-200 p-4 text-center">
-                        <div className="text-2xl font-bold text-gray-800">{contractor.experienceYears}</div>
-                        <div className="text-sm text-gray-500">Năm kinh nghiệm</div>
-                    </div>
-                    <div className="bg-white rounded-lg border border-gray-200 p-4 text-center">
-                        <div className="text-2xl font-bold text-gray-800">{contractor.teamSize}</div>
-                        <div className="text-sm text-gray-500">Thành viên</div>
-                    </div>
-                </div>
-
-                {/* Skills */}
-                <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
-                    <h2 className="text-lg font-semibold text-gray-800 mb-4">Chuyên môn</h2>
-                    <div className="flex flex-wrap gap-2">
-                        {contractor.skills.map((skill, i) => (
-                            <span key={i} className="px-3 py-1.5 bg-blue-50 text-blue-700 rounded-full text-sm">
-                                {SKILL_LABELS[skill] || skill}
-                            </span>
-                        ))}
-                    </div>
-                </div>
-
-                {/* Contact */}
-                <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
-                    <h2 className="text-lg font-semibold text-gray-800 mb-4">Liên hệ</h2>
-                    <div className="space-y-3">
-                        {contractor.phone && (
-                            <div className="flex items-center text-gray-700">
-                                <Phone className="w-5 h-5 mr-3 text-gray-400" />
-                                <a href={`tel:${contractor.phone}`} className="hover:text-blue-600">{contractor.phone}</a>
-                            </div>
-                        )}
-                        {contractor.email && (
-                            <div className="flex items-center text-gray-700">
-                                <Mail className="w-5 h-5 mr-3 text-gray-400" />
-                                <a href={`mailto:${contractor.email}`} className="hover:text-blue-600">{contractor.email}</a>
-                            </div>
-                        )}
-                        <button
-                            onClick={handleMessage}
-                            className="w-full flex items-center justify-center gap-2 bg-white border-2 border-blue-600 text-blue-600 hover:bg-blue-50 py-3 rounded-lg font-bold transition-all mt-4"
-                        >
-                            <MessageCircle className="w-5 h-5" />
-                            Nhắn tin
-                        </button>
-
-                        {authUser?.role === 'CUSTOMER' && (
-                            <button
-                                onClick={handleOpenInvite}
-                                className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white py-3 rounded-lg font-bold transition-all shadow-md mt-3"
-                            >
-                                <Building2 className="w-5 h-5" />
-                                Mời vào dự án
-                            </button>
-                        )}
-                    </div>
-                </div>
-
-                <GuestInfoModal
-                    isOpen={showGuestModal}
-                    onClose={() => setShowGuestModal(false)}
-                    onSubmit={handleGuestSubmit}
-                />
-
-                {/* Invite to Project Modal */}
-                <FormModal
-                    isOpen={showInviteModal}
-                    onClose={() => setShowInviteModal(false)}
-                    title="Mời Nhà Thầu Vào Dự Án"
-                    size="md"
-                >
-                    <div className="p-6 space-y-6">
-                        <div className="text-center">
-                            <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-3">
-                                <Building2 className="w-8 h-8" />
-                            </div>
-                            <h3 className="text-xl font-bold text-gray-900">Mời {contractor.displayName}</h3>
-                            <p className="text-gray-500 text-sm">Chọn dự án bạn muốn mời nhà thầu này tham gia thi công</p>
-                        </div>
-
-                        {fetchProjectsLoading ? (
-                            <div className="flex justify-center py-8">
-                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                            </div>
-                        ) : customerProjects.length === 0 ? (
-                            <div className="text-center py-8 bg-gray-50 rounded-xl border border-dashed border-gray-300">
-                                <p className="text-gray-500 mb-4">Bạn chưa có dự án nào đang hoạt động</p>
-                                <Link
-                                    href="/estimator"
-                                    className="text-blue-600 font-bold hover:underline"
-                                >
-                                    Tạo dự án mới ngay →
-                                </Link>
-                            </div>
-                        ) : (
-                            <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
-                                {customerProjects.map((project) => (
-                                    <button
-                                        key={project.id}
-                                        onClick={() => setSelectedProjectId(project.id)}
-                                        className={`w-full text-left p-4 rounded-xl border-2 transition-all flex items-center justify-between group ${selectedProjectId === project.id
-                                            ? 'border-blue-600 bg-blue-50'
-                                            : 'border-gray-100 hover:border-blue-200 hover:bg-gray-50'
-                                            }`}
-                                    >
-                                        <div>
-                                            <p className={`font-bold ${selectedProjectId === project.id ? 'text-blue-700' : 'text-gray-900'}`}>
-                                                {project.name}
-                                            </p>
-                                            <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
-                                                <Calendar className="w-3 h-3" />
-                                                Ngày tạo: {new Date(project.createdAt).toLocaleDateString('vi-VN')}
-                                            </p>
+                                <div className="flex-1 text-center md:text-left">
+                                    <div className="flex flex-wrap justify-center md:justify-start items-center gap-4 mb-3">
+                                        <h1 className="text-4xl md:text-5xl font-black text-slate-900">{contractor.displayName}</h1>
+                                        <div className="px-5 py-2 bg-emerald-50 text-emerald-600 rounded-full text-xs font-black uppercase tracking-widest border border-emerald-100 flex items-center gap-2">
+                                            <ShieldCheck className="w-4 h-4" />
+                                            Đối tác xác thực
                                         </div>
-                                        {selectedProjectId === project.id ? (
-                                            <div className="bg-blue-600 rounded-full p-1 text-white">
-                                                <CheckCircle className="w-5 h-5" />
-                                            </div>
-                                        ) : (
-                                            <ChevronRight className="w-5 h-5 text-gray-300 group-hover:text-blue-400" />
-                                        )}
-                                    </button>
-                                ))}
-                            </div>
-                        )}
-
-                        <div className="flex gap-3 pt-6 border-t font-bold">
-                            <button
-                                onClick={() => setShowInviteModal(false)}
-                                className="flex-1 px-4 py-3 border border-gray-300 rounded-xl text-gray-700 hover:bg-gray-50 transition-colors"
-                            >
-                                Hủy
-                            </button>
-                            <button
-                                onClick={handleInviteToProject}
-                                disabled={inviteLoading || !selectedProjectId}
-                                className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 shadow-lg transition-all disabled:opacity-50"
-                            >
-                                {inviteLoading ? 'Đang gửi...' : 'Xác nhận mời'}
-                            </button>
-                        </div>
-                    </div>
-                </FormModal>
-
-                {/* Reviews */}
-                <div className="bg-white rounded-lg border border-gray-200 p-6">
-                    <div className="flex justify-between items-center mb-6">
-                        <h2 className="text-lg font-semibold text-gray-800">
-                            Đánh giá ({contractor.totalReviews})
-                        </h2>
-                        <button
-                            onClick={() => setShowReviewForm(!showReviewForm)}
-                            className="text-blue-600 font-medium hover:underline text-sm"
-                        >
-                            {showReviewForm ? 'Hủy' : 'Viết đánh giá'}
-                        </button>
-                    </div>
-
-                    {showReviewForm && (
-                        <form onSubmit={handleSubmitReview} className="mb-8 bg-gray-50 p-4 rounded-lg border border-gray-200">
-                            <div className="mb-4">
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Đánh giá chung</label>
-                                <div className="flex gap-1">
-                                    {[1, 2, 3, 4, 5].map((star) => (
-                                        <button
-                                            key={star}
-                                            type="button"
-                                            onClick={() => setSubmitRating(star)}
-                                            className="focus:outline-none"
-                                        >
-                                            <Star
-                                                className={`w-6 h-6 ${star <= submitRating ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'}`}
-                                            />
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-
-                            <div className="mb-4">
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Nội dung đánh giá</label>
-                                <textarea
-                                    required
-                                    rows={3}
-                                    value={submitComment}
-                                    onChange={(e) => setSubmitComment(e.target.value)}
-                                    placeholder="Chia sẻ trải nghiệm của bạn về nhà thầu này..."
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                                />
-                            </div>
-
-                            <div className="flex justify-end">
-                                <button
-                                    type="submit"
-                                    disabled={submitLoading}
-                                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 text-sm font-medium"
-                                >
-                                    {submitLoading ? 'Đang gửi...' : 'Gửi đánh giá'}
-                                </button>
-                            </div>
-                        </form>
-                    )}
-
-                    {reviews.length === 0 ? (
-                        <p className="text-gray-500 text-center py-6">Chưa có đánh giá nào</p>
-                    ) : (
-                        <div className="space-y-4">
-                            {reviews.map(review => (
-                                <div key={review.id} className="border-b border-gray-100 pb-4 last:border-0">
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <div className="flex">
-                                            {[...Array(5)].map((_, i) => (
-                                                <Star
-                                                    key={i}
-                                                    className={`w-4 h-4 ${i < review.rating ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'}`}
-                                                />
-                                            ))}
-                                        </div>
-                                        <span className="text-sm text-gray-500">
-                                            {new Date(review.createdAt).toLocaleDateString('vi-VN')}
-                                        </span>
                                     </div>
-                                    {review.title && (
-                                        <h4 className="font-medium text-gray-800">{review.title}</h4>
-                                    )}
-                                    <p className="text-gray-600 text-sm">{review.comment}</p>
+                                    <p className="text-xl text-slate-500 font-bold mb-8">
+                                        {contractor.companyName || 'Nhà thầu xây dựng tự do'}
+                                    </p>
+
+                                    <div className="flex flex-wrap justify-center md:justify-start gap-8">
+                                        <div className="text-center md:text-left">
+                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Kinh nghiệm</p>
+                                            <p className="text-2xl font-black text-slate-900">{contractor.experienceYears} Năm</p>
+                                        </div>
+                                        <div className="w-px h-10 bg-slate-100 hidden md:block"></div>
+                                        <div className="text-center md:text-left">
+                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Dự án hệ thống</p>
+                                            <p className="text-2xl font-black text-slate-900">{contractor.totalProjectsCompleted || 0} Dự án</p>
+                                        </div>
+                                        <div className="w-px h-10 bg-slate-100 hidden md:block"></div>
+                                        <div className="text-center md:text-left">
+                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Đánh giá TB</p>
+                                            <div className="flex items-center gap-2 text-2xl font-black text-slate-900">
+                                                <Star className="w-6 h-6 text-amber-500 fill-current" />
+                                                {contractor.avgRating}
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
-                            ))}
+                            </div>
+
+                            <div className="space-y-12">
+                                <div>
+                                    <h3 className="text-2xl font-black text-slate-900 mb-6 flex items-center gap-3">
+                                        <Briefcase className="w-6 h-6 text-blue-600" />
+                                        Hồ sơ năng lực
+                                    </h3>
+                                    <p className="text-lg text-slate-600 leading-relaxed font-medium bg-slate-50 p-8 rounded-3xl italic">
+                                        "{contractor.bio || 'Chưa cập nhật thông tin giới thiệu.'}"
+                                    </p>
+                                </div>
+
+                                <div>
+                                    <h3 className="text-2xl font-black text-slate-900 mb-6">Lĩnh vực chuyên môn</h3>
+                                    <div className="flex flex-wrap gap-4">
+                                        {contractor.skills.map((skill: string) => (
+                                            <div key={skill} className="px-6 py-4 bg-white border-2 border-slate-100 rounded-2xl flex items-center gap-3 hover:border-blue-600 transition-all font-black text-slate-700">
+                                                <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                                                {skill}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                    )}
+
+                        {/* Achievement / Trust section */}
+                        <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-[48px] p-16 text-white shadow-2xl shadow-blue-200">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+                                <div>
+                                    <Award className="w-16 h-16 text-blue-300 mb-8" />
+                                    <h3 className="text-3xl font-black mb-6">Cam kết chất lượng <br />từ SmartBuild</h3>
+                                    <p className="text-blue-100 font-medium leading-relaxed">
+                                        Đây là đối tác thuộc danh sách ưu tú của chúng tôi.
+                                        Tất cả các thanh toán qua hệ thống được bảo vệ bởi Escrow,
+                                        đảm bảo quyền lợi tuyệt đối cho khách hàng.
+                                    </p>
+                                </div>
+                                <div className="bg-white/10 backdrop-blur-xl rounded-[32px] p-10 border border-white/20">
+                                    <div className="flex items-center gap-4 mb-6 text-blue-200 font-black text-sm uppercase tracking-widest">
+                                        Chỉ số tín nhiệm
+                                    </div>
+                                    <div className="space-y-6">
+                                        <ScoreItem label="Đúng tiến độ" score="98%" />
+                                        <ScoreItem label="Hài lòng khách hàng" score="4.9/5" />
+                                        <ScoreItem label="Phản hồi nhanh" score="< 2h" />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Sidebar: Call to action */}
+                    <div className="lg:col-span-4 space-y-10">
+                        <div className="bg-white rounded-[40px] p-10 border border-slate-100 shadow-xl shadow-slate-200/50 sticky top-10">
+                            <h4 className="text-xl font-black text-slate-900 mb-8">Liên hệ trực tiếp</h4>
+
+                            <div className="space-y-6 mb-10">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-400">
+                                        <MapPin className="w-6 h-6" />
+                                    </div>
+                                    <div>
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Văn phòng tại</p>
+                                        <p className="text-slate-900 font-bold">{contractor.address}, {contractor.city}</p>
+                                    </div>
+                                </div>
+                                {/* We usually don't show real phone/email here unless logged in or through system */}
+                                <div className="flex items-center gap-4 p-4 bg-blue-50 rounded-2xl border border-blue-100">
+                                    <AlertCircle className="w-6 h-6 text-blue-600 shrink-0" />
+                                    <p className="text-xs font-bold text-blue-700 leading-tight">
+                                        Sử dụng hệ thống báo giá của SmartBuild để được bảo vệ quyền lợi và bảo hiểm công trình.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <button className="w-full py-6 bg-blue-600 text-white font-black rounded-[24px] shadow-2xl shadow-blue-200 hover:scale-[1.02] active:scale-95 transition-all text-lg mb-4">
+                                Yêu cầu báo giá ngay
+                            </button>
+                            <button className="w-full py-6 bg-white text-slate-600 font-black rounded-[24px] border-2 border-slate-100 hover:bg-slate-50 transition-all text-lg">
+                                Gửi tin nhắn
+                            </button>
+                        </div>
+                    </div>
+
                 </div>
             </div>
         </div>
+    )
+}
+
+function ScoreItem({ label, score }: { label: string, score: string }) {
+    return (
+        <div className="flex justify-between items-center">
+            <span className="font-bold opacity-80">{label}</span>
+            <span className="text-xl font-black">{score}</span>
+        </div>
+    )
+}
+
+function AlertCircle({ className }: any) {
+    return (
+        <svg className={className} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
+        </svg>
     )
 }

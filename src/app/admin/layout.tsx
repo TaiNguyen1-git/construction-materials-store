@@ -30,7 +30,9 @@ import {
   Receipt,
   LineChart,
   Star,
-  Headset
+  Headset,
+  ShieldCheck,
+  Sparkles
 } from 'lucide-react'
 import NotificationBell from '@/components/NotificationBell'
 import { useAuth } from '@/contexts/auth-context'
@@ -93,6 +95,15 @@ export default function AdminLayout({
       items: [
         { name: 'Danh Sách Nhân Viên', href: '/admin/hr-management', icon: Users },
         { name: 'Tính Lương', href: '/admin/payroll', icon: CreditCard },
+      ]
+    },
+    {
+      name: 'Quản Lý Đối Tác & AI',
+      icon: ShieldCheck,
+      items: [
+        { name: 'Quản Lý Nhà Thầu', href: '/admin/contractors', icon: Users },
+        { name: 'Xác Thực Đối Tác', href: '/admin/contractors/verify', icon: ShieldCheck },
+        { name: 'AI Smart Estimator', href: '/admin/procurement/ai-estimator', icon: Sparkles },
       ]
     },
     {
