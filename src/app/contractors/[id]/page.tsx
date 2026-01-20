@@ -1,8 +1,7 @@
 'use client'
 
 /**
- * Public Contractor Portfolio Page - Matching Project Design System
- * Light theme, includes Header, consistent with products page styling
+ * Public Contractor Portfolio Page - Standard Premium Design (Vietnamized)
  */
 
 import { useState, useEffect, use } from 'react'
@@ -11,7 +10,11 @@ import {
     ShieldCheck, Star, MapPin,
     Briefcase, CheckCircle2, ArrowLeft, ArrowRight,
     HardHat, MessageCircle, FileText,
-    Heart, Share2, Info, AlertCircle, X
+    Heart, Share2, Info, AlertCircle, X,
+    Camera, Image as ImageIcon, MessageSquare,
+    Clock, Trophy, BadgeCheck, Check,
+    Building2, Users, Calendar, ArrowUpRight,
+    Calculator
 } from 'lucide-react'
 import toast, { Toaster } from 'react-hot-toast'
 import Header from '@/components/Header'
@@ -21,6 +24,8 @@ export default function ContractorPortfolio({ params }: { params: Promise<{ id: 
     const [loading, setLoading] = useState(true)
     const [contractor, setContractor] = useState<any>(null)
     const [showLoginModal, setShowLoginModal] = useState(false)
+    const [showQuoteModal, setShowQuoteModal] = useState(false)
+    const [activeTab, setActiveTab] = useState('about')
 
     useEffect(() => {
         fetchContractor()
@@ -33,295 +38,381 @@ export default function ContractorPortfolio({ params }: { params: Promise<{ id: 
             if (res.ok) {
                 const data = await res.json()
                 setContractor(data.data)
-            } else {
-                toast.error('Không tìm thấy thông tin đối tác')
             }
         } catch (err) {
-            toast.error('Lỗi kết nối hệ thống')
+            toast.error('Lỗi khi tải hồ sơ đối tác')
         } finally {
             setLoading(false)
         }
     }
 
-    if (loading) return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
-            <Header />
-            <div className="max-w-7xl mx-auto px-4 py-20 text-center">
-                <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-primary-600 mx-auto"></div>
-                <p className="text-gray-600 mt-4">Đang tải hồ sơ nhà thầu...</p>
+    if (loading) {
+        return (
+            <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+                <div className="flex flex-col items-center gap-4">
+                    <div className="w-12 h-12 border-[4px] border-primary-100 border-t-primary-600 rounded-full animate-spin"></div>
+                    <p className="text-gray-500 font-bold animate-pulse">Đang tải hồ sơ chuyên gia...</p>
+                </div>
             </div>
-        </div>
-    )
+        )
+    }
 
-    if (!contractor) return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
-            <Header />
-            <div className="max-w-7xl mx-auto px-4 py-20">
-                <div className="bg-white rounded-2xl shadow-lg p-12 text-center max-w-lg mx-auto">
-                    <div className="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-6">
-                        <Info className="w-8 h-8" />
-                    </div>
-                    <h2 className="text-2xl font-bold text-gray-900 mb-3">Không tìm thấy đối tác</h2>
-                    <p className="text-gray-500 mb-6">Có thể đối tác này không còn hoạt động trên hệ thống.</p>
-                    <Link href="/contractors" className="inline-flex items-center gap-2 px-6 py-3 bg-primary-600 text-white font-bold rounded-xl hover:bg-primary-700 transition-colors">
-                        <ArrowLeft className="w-4 h-4" />
+    if (!contractor) {
+        return (
+            <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+                <div className="bg-white p-12 rounded-3xl shadow-xl text-center max-w-md border border-gray-100">
+                    <AlertCircle className="h-16 w-16 text-red-500 mx-auto mb-6" />
+                    <h2 className="text-2xl font-black text-gray-900 mb-2">Không tìm thấy hồ sơ</h2>
+                    <p className="text-gray-500 mb-8 font-medium">Hồ sơ này không tồn tại hoặc đã bị ẩn khỏi hệ thống.</p>
+                    <Link href="/contractors" className="inline-flex items-center gap-2 px-8 py-4 bg-primary-600 text-white font-black rounded-xl hover:bg-primary-700 transition-all shadow-lg shadow-primary-100">
+                        <ArrowLeft className="w-5 h-5" />
                         Quay lại danh sách
                     </Link>
                 </div>
             </div>
-        </div>
-    )
+        )
+    }
+
+    const isTopRated = (contractor.avgRating || 0) >= 4.8
+    const isExpert = (contractor.experienceYears || 0) >= 10
+    const isAvailable = contractor.isAvailable !== false
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+        <div className="min-h-screen bg-slate-50 pb-20 font-sans">
             <Toaster position="top-right" />
             <Header />
 
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                 {/* Breadcrumb */}
-                <div className="flex items-center mb-6">
-                    <Link href="/" className="text-gray-500 hover:text-primary-600 flex items-center">
-                        <ArrowLeft className="h-4 w-4 mr-1" />
-                        Trang chủ
-                    </Link>
-                    <span className="mx-2 text-gray-500">/</span>
-                    <Link href="/contractors" className="text-gray-500 hover:text-primary-600">Nhà Thầu</Link>
-                    <span className="mx-2 text-gray-500">/</span>
-                    <span className="text-gray-900 font-medium truncate max-w-[200px]">{contractor.displayName}</span>
+                <div className="flex items-center gap-2 mb-8 text-xs font-bold uppercase tracking-wider text-gray-400">
+                    <Link href="/" className="hover:text-primary-600 transition-colors">Trang chủ</Link>
+                    <ArrowRight className="w-3 h-3" />
+                    <Link href="/contractors" className="hover:text-primary-600 transition-colors">Nhà thầu</Link>
+                    <ArrowRight className="w-3 h-3" />
+                    <span className="text-gray-900 truncate max-w-[200px]">{contractor.displayName}</span>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    {/* Main Profile Section */}
-                    <div className="lg:col-span-2 space-y-6">
-                        {/* Profile Card */}
-                        <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 md:p-8">
-                            <div className="flex flex-col md:flex-row gap-6 items-start mb-6">
-                                <div className="w-24 h-24 bg-gradient-to-br from-primary-100 to-secondary-100 rounded-2xl flex items-center justify-center text-5xl font-black text-primary-600 shadow-lg">
-                                    {contractor.displayName?.charAt(0) || 'N'}
-                                </div>
-                                <div className="flex-1">
-                                    <div className="flex flex-wrap items-center gap-3 mb-2">
-                                        <h1 className="text-3xl font-black text-gray-900">{contractor.displayName}</h1>
-                                        <div className="flex items-center gap-1.5 px-3 py-1 bg-green-50 text-green-600 rounded-full text-xs font-bold uppercase tracking-wide border border-green-100">
-                                            <ShieldCheck className="w-3.5 h-3.5" />
-                                            Đã xác minh
-                                        </div>
-                                    </div>
-                                    <p className="text-lg text-gray-500 font-medium flex items-center gap-2">
-                                        <Briefcase className="w-5 h-5 text-primary-600" />
-                                        {contractor.companyName || 'Đối tác SmartBuild'}
-                                    </p>
-                                </div>
+                {/* Hero Header Card */}
+                <div className="bg-white rounded-[32px] shadow-xl border border-gray-100 p-8 md:p-10 mb-8 relative overflow-hidden">
+                    <div className="flex flex-col md:flex-row gap-10 items-center md:items-start relative z-10">
+                        {/* Avatar Section */}
+                        <div className="relative group">
+                            <div className="w-32 h-32 md:w-36 md:h-36 bg-gradient-to-br from-primary-600 to-indigo-600 rounded-[32px] flex items-center justify-center text-4xl font-black text-white shadow-2xl transition-transform duration-500">
+                                {contractor.displayName?.charAt(0) || 'N'}
                             </div>
+                            {isTopRated && (
+                                <div className="absolute -top-3 -right-3 w-10 h-10 bg-amber-500 text-white rounded-full flex items-center justify-center border-4 border-white shadow-xl">
+                                    <Trophy className="w-5 h-5" />
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Info Section */}
+                        <div className="flex-1 text-center md:text-left">
+                            <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 mb-3">
+                                <h1 className="text-3xl md:text-4xl font-black text-gray-900">{contractor.displayName}</h1>
+                                <div className="flex items-center gap-1.5 px-3 py-1 bg-blue-50 text-blue-600 rounded-lg text-[10px] font-black uppercase tracking-widest border border-blue-100 shadow-sm">
+                                    <ShieldCheck className="w-4 h-4" />
+                                    Đã xác thực
+                                </div>
+                                {isAvailable && (
+                                    <div className="flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-600 rounded-lg text-[10px] font-black uppercase tracking-widest border border-emerald-100 shadow-sm">
+                                        <div className="w-1.5 h-1.5 bg-emerald-600 rounded-full animate-pulse"></div>
+                                        Sẵn sàng làm việc
+                                    </div>
+                                )}
+                            </div>
+
+                            <p className="text-lg text-gray-400 font-bold mb-8 flex items-center justify-center md:justify-start gap-2">
+                                <Building2 className="w-5 h-5" />
+                                {contractor.companyName || 'Đối tác SmartBuild chuyên nghiệp'}
+                            </p>
 
                             {/* Stats Grid */}
-                            <div className="grid grid-cols-3 gap-4 mb-6 p-4 bg-gray-50 rounded-xl">
-                                <div className="text-center">
-                                    <div className="flex items-center justify-center gap-1 text-amber-500 mb-1">
-                                        <Star className="w-5 h-5 fill-current" />
-                                        <span className="text-2xl font-black text-gray-900">{contractor.avgRating || 0}</span>
-                                    </div>
-                                    <p className="text-xs font-semibold text-gray-500 uppercase">Đánh giá</p>
-                                </div>
-                                <div className="text-center border-x border-gray-200">
-                                    <p className="text-2xl font-black text-gray-900">{contractor.experienceYears || 0}</p>
-                                    <p className="text-xs font-semibold text-gray-500 uppercase">Năm KN</p>
-                                </div>
-                                <div className="text-center">
-                                    <p className="text-2xl font-black text-gray-900">{contractor.totalProjectsCompleted || 0}</p>
-                                    <p className="text-xs font-semibold text-gray-500 uppercase">Dự án</p>
-                                </div>
-                            </div>
-
-                            {/* Bio */}
-                            <div className="mb-6">
-                                <h3 className="text-lg font-bold text-gray-900 mb-3">Giới thiệu</h3>
-                                <p className="text-gray-600 leading-relaxed bg-blue-50/50 p-4 rounded-xl border-l-4 border-primary-600 italic">
-                                    "{contractor.bio || 'Chưa cập nhật thông tin giới thiệu chi tiết.'}"
-                                </p>
-                            </div>
-
-                            {/* Skills */}
-                            <div>
-                                <h3 className="text-lg font-bold text-gray-900 mb-3">Lĩnh vực chuyên môn</h3>
-                                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                                    {contractor.skills?.map((skill: string) => (
-                                        <div key={skill} className="flex items-center gap-2 px-4 py-3 bg-white border-2 border-gray-100 rounded-xl hover:border-primary-600 hover:shadow-md transition-all">
-                                            <div className="w-8 h-8 bg-primary-50 text-primary-600 rounded-lg flex items-center justify-center">
-                                                <HardHat className="w-4 h-4" />
-                                            </div>
-                                            <span className="font-bold text-gray-700 text-sm">{skill}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Trust Banner */}
-                        <div className="bg-gradient-to-r from-primary-600 to-secondary-600 rounded-2xl shadow-lg p-6 md:p-8 text-white">
-                            <div className="flex flex-col md:flex-row gap-6 items-center">
-                                <div className="flex-1">
-                                    <div className="flex items-center gap-2 mb-3">
-                                        <ShieldCheck className="w-5 h-5" />
-                                        <span className="text-xs font-bold uppercase tracking-widest opacity-80">SmartBuild Protection</span>
-                                    </div>
-                                    <h3 className="text-2xl font-black mb-4">Bảo vệ quyền lợi khách hàng</h3>
-                                    <ul className="space-y-2">
-                                        <li className="flex items-center gap-2 text-sm font-medium opacity-90">
-                                            <CheckCircle2 className="w-4 h-4" />
-                                            Thanh toán có bảo đảm - chỉ giải ngân khi bạn hài lòng
-                                        </li>
-                                        <li className="flex items-center gap-2 text-sm font-medium opacity-90">
-                                            <CheckCircle2 className="w-4 h-4" />
-                                            Chất lượng vật liệu được kiểm soát
-                                        </li>
-                                        <li className="flex items-center gap-2 text-sm font-medium opacity-90">
-                                            <CheckCircle2 className="w-4 h-4" />
-                                            Bảo hiểm cho mọi dự án
-                                        </li>
-                                    </ul>
-                                </div>
-                                <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 text-center border border-white/20">
-                                    <p className="text-xs font-bold uppercase tracking-widest opacity-70 mb-2">Điểm Tín Nhiệm</p>
-                                    <p className="text-5xl font-black">{contractor.trustScore || 100}</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Sidebar */}
-                    <div className="space-y-6">
-                        {/* Contact Card */}
-                        <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
-                            <div className="flex items-center justify-between mb-6">
-                                <h4 className="text-lg font-bold text-gray-900">Liên hệ</h4>
-                                <button
-                                    onClick={() => setShowLoginModal(true)}
-                                    className="p-2 bg-red-50 text-red-400 rounded-full hover:text-red-500 transition-all"
-                                >
-                                    <Heart className="w-5 h-5" />
-                                </button>
-                            </div>
-
-                            <div className="space-y-4 mb-6">
-                                <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl">
-                                    <div className="w-10 h-10 bg-white text-primary-600 rounded-lg flex items-center justify-center shadow-sm">
-                                        <MapPin className="w-5 h-5" />
-                                    </div>
-                                    <div>
-                                        <p className="text-xs font-semibold text-gray-500 uppercase">Khu vực</p>
-                                        <p className="text-gray-900 font-bold">{contractor.city || 'Việt Nam'}</p>
-                                    </div>
-                                </div>
-
-                                <div className="p-4 bg-blue-50 rounded-xl border border-blue-100">
-                                    <div className="flex gap-3 items-start">
-                                        <AlertCircle className="w-5 h-5 text-primary-600 shrink-0 mt-0.5" />
-                                        <p className="text-xs font-medium text-primary-700 leading-relaxed">
-                                            Hãy yêu cầu báo giá qua hệ thống để được bảo hiểm quyền lợi.
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="space-y-3">
-                                <button
-                                    onClick={() => {
-                                        toast.success('Đã gửi yêu cầu báo giá! Nhà thầu sẽ liên hệ lại trong 24h.')
-                                    }}
-                                    className="w-full py-3 bg-primary-600 text-white font-bold rounded-xl hover:bg-primary-700 transition-all flex items-center justify-center gap-2"
-                                >
-                                    <FileText className="w-5 h-5" />
-                                    Yêu cầu báo giá
-                                </button>
-                                <Link
-                                    href={`/contact?contractor=${contractor.displayName}`}
-                                    className="w-full py-3 bg-white text-gray-700 font-bold rounded-xl border-2 border-gray-200 hover:border-primary-600 hover:text-primary-600 transition-all flex items-center justify-center gap-2"
-                                >
-                                    <MessageCircle className="w-5 h-5" />
-                                    Gửi tin nhắn
-                                </Link>
-                                <button
-                                    onClick={async () => {
-                                        try {
-                                            if (navigator.clipboard && window.isSecureContext) {
-                                                await navigator.clipboard.writeText(window.location.href)
-                                                toast.success('Đã sao chép link hồ sơ vào clipboard!')
-                                            } else {
-                                                // Fallback for insecure context
-                                                const textArea = document.createElement('textarea')
-                                                textArea.value = window.location.href
-                                                document.body.appendChild(textArea)
-                                                textArea.select()
-                                                document.execCommand('copy')
-                                                document.body.removeChild(textArea)
-                                                toast.success('Đã sao chép link hồ sơ!')
-                                            }
-                                        } catch (err) {
-                                            toast.error('Không thể sao chép. Hãy copy thủ công từ thanh địa chỉ.')
-                                        }
-                                    }}
-                                    className="w-full py-2 text-gray-400 font-semibold text-sm hover:text-gray-700 transition-all flex items-center justify-center gap-2"
-                                >
-                                    <Share2 className="w-4 h-4" />
-                                    Chia sẻ hồ sơ
-                                </button>
+                            <div className="flex flex-wrap justify-center md:justify-start gap-8 border-t border-gray-50 pt-8">
+                                <SummaryStat label="Đánh giá" value={contractor.avgRating || 0} icon={<Star className="w-5 h-5 fill-amber-400 text-amber-400" />} />
+                                <SummaryStat label="Kinh nghiệm" value={`${contractor.experienceYears || 0} Năm`} icon={<Clock className="w-5 h-5 text-blue-500" />} />
+                                <SummaryStat label="Dự án" value={contractor.totalProjectsCompleted || 0} icon={<CheckCircle2 className="w-5 h-5 text-emerald-500" />} />
+                                <SummaryStat label="Tín nhiệm" value={contractor.trustScore || 100} icon={<ShieldCheck className="w-5 h-5 text-blue-600" />} />
                             </div>
                         </div>
                     </div>
                 </div>
 
-                {/* Bottom CTA */}
-                <div className="mt-12 bg-white rounded-2xl shadow-lg border border-gray-100 p-8 text-center">
-                    <h3 className="text-xl font-bold text-gray-900 mb-3">Bạn chưa thấy phù hợp?</h3>
-                    <p className="text-gray-600 mb-6">Chúng tôi còn nhiều đối tác khác trong cùng lĩnh vực.</p>
-                    <Link href="/contractors" className="inline-flex items-center gap-2 text-primary-600 font-bold text-lg hover:gap-3 transition-all">
-                        Khám phá thêm
-                        <ArrowRight className="w-5 h-5" />
-                    </Link>
+                {/* Content Layout */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                    {/* Main Content Column (8/12) */}
+                    <div className="lg:col-span-8 space-y-8">
+                        {/* Tabs Navigation */}
+                        <div className="flex bg-white rounded-2xl shadow-sm border border-gray-100 p-1.5 gap-2">
+                            <TabButton active={activeTab === 'about'} label="Giới thiệu hồ sơ" onClick={() => setActiveTab('about')} />
+                            <TabButton active={activeTab === 'projects'} label="Công trình thực tế" onClick={() => setActiveTab('projects')} />
+                            <TabButton active={activeTab === 'reviews'} label={`Nhận xét khách hàng (${contractor.reviewCount || 0})`} onClick={() => setActiveTab('reviews')} />
+                        </div>
+
+                        {/* About Content */}
+                        {activeTab === 'about' && (
+                            <div className="space-y-8 animate-in fade-in slide-in-from-left duration-500">
+                                <div className="bg-white rounded-[32px] shadow-sm border border-gray-100 p-8 md:p-10">
+                                    <h3 className="text-xl font-black text-gray-900 mb-6 flex items-center gap-3">
+                                        <Info className="w-6 h-6 text-blue-600" />
+                                        Tiểu sử chuyên môn
+                                    </h3>
+                                    <div className="text-gray-600 leading-relaxed space-y-4 font-medium whitespace-pre-line text-lg">
+                                        {contractor.bio || "Chúng tôi là đội ngũ thầu xây dựng chuyên nghiệp với cam kết cao về chất lượng và tiến độ thi công công trình."}
+                                    </div>
+
+                                    <div className="mt-10 pt-10 border-t border-gray-100 flex flex-wrap gap-2">
+                                        {contractor.skills?.map((skill: string) => (
+                                            <span key={skill} className="px-5 py-2.5 bg-blue-50 text-blue-600 rounded-2xl text-xs font-black whitespace-nowrap shadow-sm border border-blue-100">
+                                                {skill}
+                                            </span>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Trust Banner */}
+                                <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-[32px] shadow-2xl p-10 text-white relative overflow-hidden group">
+                                    <div className="absolute -right-20 -bottom-20 w-80 h-80 bg-white/10 rounded-full group-hover:scale-110 transition-transform duration-700"></div>
+                                    <div className="relative z-10 flex flex-col md:flex-row items-center gap-10">
+                                        <div className="flex-1 text-center md:text-left">
+                                            <h3 className="text-2xl font-black mb-4 flex items-center justify-center md:justify-start gap-4">
+                                                <ShieldCheck className="w-8 h-8 text-blue-200" />
+                                                Bảo đảm quyền lợi khách hàng
+                                            </h3>
+                                            <p className="text-base opacity-90 font-medium max-w-xl mb-8 leading-relaxed">
+                                                Dịch vụ được SmartBuild bảo trợ 100%. Mọi tranh chấp về chất lượng và tiến độ sẽ được chúng tôi đứng ra xử lý và đền bù thỏa đáng.
+                                            </p>
+                                            <div className="flex flex-wrap justify-center md:justify-start gap-4">
+                                                <Bullet label="Thanh toàn bảo đảm" />
+                                                <Bullet label="Vật tư đúng cam kết" />
+                                                <Bullet label="Giám sát 24/7" />
+                                            </div>
+                                        </div>
+                                        <div className="bg-white/10 backdrop-blur-md rounded-2xl p-8 text-center border border-white/20 min-w-[160px]">
+                                            <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-80 mb-2">Điểm uy tín</p>
+                                            <div className="text-5xl font-black text-white">{contractor.trustScore || 100}</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Projects Content */}
+                        {activeTab === 'projects' && (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in fade-in slide-in-from-right duration-500">
+                                {contractor.portfolioImages?.length > 0 ? (
+                                    contractor.portfolioImages.map((img: string, idx: number) => (
+                                        <div key={idx} className="relative aspect-video rounded-[32px] overflow-hidden group shadow-lg border border-gray-100 bg-gray-50">
+                                            <img src={img} alt="Dự án mẫu" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
+                                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 flex flex-col justify-end p-6">
+                                                <h4 className="text-white font-black text-lg mb-1">
+                                                    {contractor.portfolioDesc?.[idx] || "Dự án thi công thực tế"}
+                                                </h4>
+                                                <p className="text-white/60 text-xs font-bold uppercase tracking-widest">Xem chi tiết</p>
+                                            </div>
+                                        </div>
+                                    ))
+                                ) : (
+                                    <div className="col-span-full py-24 text-center bg-white rounded-[32px] border-2 border-dashed border-gray-100">
+                                        <ImageIcon className="w-16 h-16 text-gray-200 mx-auto mb-4" />
+                                        <h4 className="text-xl font-black text-gray-400 uppercase tracking-widest">Đang cập nhật hình ảnh dự án</h4>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* Reviews Content */}
+                        {activeTab === 'reviews' && (
+                            <div className="space-y-6 animate-in fade-in slide-in-from-bottom duration-500">
+                                {contractor.reviews?.length > 0 ? (
+                                    contractor.reviews.map((review: any) => (
+                                        <div key={review.id} className="p-8 bg-white rounded-[32px] border border-gray-100 shadow-sm hover:shadow-md transition-all">
+                                            <div className="flex justify-between items-start mb-6">
+                                                <div className="flex items-center gap-4">
+                                                    <div className="w-12 h-12 bg-slate-900 text-white rounded-xl flex items-center justify-center font-black shadow-lg">KH</div>
+                                                    <div>
+                                                        <h5 className="font-black text-gray-900">Khách hàng ẩn danh</h5>
+                                                        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">
+                                                            Ngày: {new Date(review.createdAt).toLocaleDateString('vi-VN')}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <div className="flex gap-1 text-amber-500">
+                                                    {[...Array(5)].map((_, i) => (
+                                                        <Star key={i} className={`w-4 h-4 ${i < review.rating ? 'fill-current' : 'opacity-20'}`} />
+                                                    ))}
+                                                </div>
+                                            </div>
+                                            <p className="text-gray-600 font-medium leading-relaxed italic text-lg border-l-4 border-blue-100 pl-6">
+                                                "{review.comment}"
+                                            </p>
+                                        </div>
+                                    ))
+                                ) : (
+                                    <div className="py-24 bg-white rounded-[32px] text-center border border-gray-100">
+                                        <Users className="w-16 h-16 text-gray-200 mx-auto mb-4" />
+                                        <h4 className="text-xl font-black text-gray-300 uppercase tracking-widest">Chưa có đánh giá nào</h4>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Sidebar Column (4/12) */}
+                    <div className="lg:col-span-4">
+                        <div className="sticky top-8 space-y-8">
+                            {/* Sidebar Action Center */}
+                            <div className="bg-white rounded-[32px] shadow-2xl border border-gray-100 p-8">
+                                <h4 className="text-lg font-black text-gray-900 uppercase tracking-widest mb-8 border-b border-gray-50 pb-4">Liên kết nhanh</h4>
+
+                                <div className="space-y-4 mb-8">
+                                    <button
+                                        onClick={() => setShowQuoteModal(true)}
+                                        className="w-full py-5 bg-primary-600 text-white font-black rounded-2xl hover:bg-primary-700 transition-all shadow-xl shadow-primary-100 flex items-center justify-center gap-3 group"
+                                    >
+                                        <Calculator className="w-6 h-6" />
+                                        Yêu cầu báo giá
+                                        <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                                    </button>
+                                    <Link
+                                        href={`/contact?contractor=${contractor.displayName}`}
+                                        className="w-full py-5 bg-white text-slate-700 font-black rounded-2xl border-2 border-gray-100 hover:border-primary-600 hover:text-primary-600 transition-all flex items-center justify-center gap-3 shadow-md"
+                                    >
+                                        <MessageSquare className="w-6 h-6" />
+                                        Gửi tin nhắn trực tiếp
+                                    </Link>
+                                </div>
+
+                                <div className="space-y-5 mb-8">
+                                    <SideInfoItem icon={<MapPin className="w-5 h-5 text-primary-600" />} label="Khu vực thi công" val={contractor.city || 'Toàn quốc'} />
+                                    <SideInfoItem icon={<Users className="w-5 h-5 text-primary-600" />} label="Quy mô nhân lực" val={`${contractor.teamSize || 1} Thành viên`} />
+                                    <SideInfoItem icon={<Calendar className="w-5 h-5 text-primary-600" />} label="Tham gia từ năm" val={new Date(contractor.createdAt).getFullYear().toString()} />
+                                </div>
+
+                                <div className="flex gap-3 pt-6 border-t border-gray-50">
+                                    <button
+                                        onClick={() => setShowLoginModal(true)}
+                                        className="flex-1 py-4 bg-red-50 text-red-500 rounded-2xl hover:bg-red-500 hover:text-white transition-all flex items-center justify-center shadow-sm"
+                                    >
+                                        <Heart className="w-6 h-6" />
+                                    </button>
+                                    <button
+                                        onClick={async () => {
+                                            await navigator.clipboard.writeText(window.location.href)
+                                            toast.success('Đã sao chép link hồ sơ!')
+                                        }}
+                                        className="flex-1 py-4 bg-slate-50 text-slate-900 rounded-2xl hover:bg-primary-600 hover:text-white transition-all flex items-center justify-center shadow-sm"
+                                    >
+                                        <Share2 className="w-6 h-6" />
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Trust Badge Card */}
+                            <div className="bg-emerald-600 rounded-[32px] p-10 text-white text-center shadow-xl relative overflow-hidden group">
+                                <div className="absolute -top-10 -left-10 w-32 h-32 bg-white/20 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700"></div>
+                                <BadgeCheck className="w-20 h-20 mx-auto mb-4" />
+                                <h5 className="text-xl font-black uppercase tracking-widest mb-2">SmartBuild Certified</h5>
+                                <p className="text-sm font-bold opacity-80 italic leading-relaxed">Đối tác hạng Bạch kim đã qua các bước thẩm định khắt khe của hệ thống SmartBuild.</p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            {/* Login Modal */}
-            {showLoginModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-                    <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 animate-in fade-in zoom-in duration-300">
-                        <div className="flex items-center justify-between mb-6">
-                            <h3 className="text-xl font-bold text-gray-900">Đăng nhập để tiếp tục</h3>
-                            <button
-                                onClick={() => setShowLoginModal(false)}
-                                className="p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-all"
-                            >
-                                <X className="w-5 h-5" />
+            {/* Modals */}
+            {showQuoteModal && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+                    <div className="bg-white rounded-[32px] shadow-2xl max-w-2xl w-full p-10 md:p-12 animate-in fade-in zoom-in duration-300 relative overflow-hidden">
+                        <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-primary-600 to-indigo-600"></div>
+                        <button onClick={() => setShowQuoteModal(false)} className="absolute top-8 right-8 p-3 text-gray-400 hover:text-gray-900 rounded-2xl hover:bg-gray-100 transition-all z-10"><X className="w-6 h-6" /></button>
+                        <h3 className="text-3xl font-black text-gray-900 mb-2">Gửi yêu cầu báo giá</h3>
+                        <p className="text-gray-500 font-bold mb-10 italic">Nhà thầu sẽ phản hồi trong vòng 24 giờ làm việc.</p>
+                        <form className="space-y-8" onSubmit={(e) => { e.preventDefault(); toast.success('Đã gửi yêu cầu báo giá!'); setShowQuoteModal(false); }}>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="space-y-2">
+                                    <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Hạng mục xây dựng</label>
+                                    <select className="w-full p-4 bg-gray-50 rounded-2xl border border-gray-100 font-bold text-gray-700 outline-none"><option>Xây thô & Nhân công</option><option>Hoàn thiện nội thất</option><option>Sửa chữa & Cải tạo</option></select>
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Diện tích công trình (m²)</label>
+                                    <input type="number" placeholder="Nhập diện tích..." className="w-full p-4 bg-gray-50 rounded-2xl border border-gray-100 font-bold text-gray-700 outline-none" />
+                                </div>
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Chi tiết yêu cầu bổ sung</label>
+                                <textarea className="w-full p-6 bg-gray-50 rounded-[28px] border border-gray-100 font-bold text-gray-700 outline-none resize-none" rows={4} placeholder="Ví dụ: Cần thi công gấp trong tháng sau, có kèm vật tư..."></textarea>
+                            </div>
+                            <button type="submit" className="w-full py-5 bg-primary-600 text-white font-black rounded-2xl hover:bg-primary-700 transition-all shadow-2xl flex items-center justify-center gap-3">
+                                <Check className="w-6 h-6" />
+                                Xác nhận gửi yêu cầu
                             </button>
-                        </div>
-
-                        <div className="text-center mb-6">
-                            <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                                <Heart className="w-8 h-8 text-red-500" />
-                            </div>
-                            <p className="text-gray-600">
-                                Bạn cần đăng nhập để lưu nhà thầu yêu thích và nhận thông báo khi có ưu đãi mới.
-                            </p>
-                        </div>
-
-                        <div className="space-y-3">
-                            <Link
-                                href="/login"
-                                className="w-full py-3 bg-primary-600 text-white font-bold rounded-xl hover:bg-primary-700 transition-all flex items-center justify-center gap-2"
-                            >
-                                Đăng nhập ngay
-                            </Link>
-                            <div className="text-center text-sm text-gray-500 py-2">
-                                Chưa có tài khoản?{' '}
-                                <Link href="/register" className="text-primary-600 font-bold hover:underline">
-                                    Đăng ký ngay
-                                </Link>
-                            </div>
-                        </div>
+                        </form>
                     </div>
                 </div>
             )}
+
+            {showLoginModal && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+                    <div className="bg-white rounded-[40px] shadow-2xl max-w-md w-full p-12 text-center animate-in scale-95 duration-200">
+                        <div className="w-24 h-24 bg-red-50 rounded-[32px] flex items-center justify-center mx-auto mb-8"><Heart className="w-12 h-12 text-red-500 fill-red-500" /></div>
+                        <h3 className="text-3xl font-black text-gray-900 mb-4">Đăng nhập tài khoản</h3>
+                        <p className="text-lg text-gray-500 font-medium mb-10 leading-relaxed">Bạn cần đăng nhập để lưu nhà thầu vào danh sách yêu thích và theo dõi tiến độ công trình.</p>
+                        <Link href="/login" className="block w-full py-5 bg-primary-600 text-white font-black rounded-2xl mb-4 shadow-xl shadow-primary-100 hover:bg-primary-700 transition-colors">Đăng nhập ngay</Link>
+                        <button onClick={() => setShowLoginModal(false)} className="text-sm font-black text-gray-400 hover:text-gray-900 border-b-2 border-transparent hover:border-gray-900 transition-all">Đóng lại</button>
+                    </div>
+                </div>
+            )}
+        </div>
+    )
+}
+
+function SummaryStat({ label, value, icon }: { label: string, value: any, icon: any }) {
+    return (
+        <div className="flex flex-col items-center md:items-start group">
+            <div className="flex items-center gap-3 mb-1">
+                <div className="p-2.5 bg-gray-50 rounded-xl group-hover:bg-white group-hover:shadow-md transition-all">
+                    {icon}
+                </div>
+                <span className="text-2xl font-black text-gray-900">{value}</span>
+            </div>
+            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-1">{label}</p>
+        </div>
+    )
+}
+
+function TabButton({ active, label, onClick }: { active: boolean, label: string, onClick: () => void }) {
+    return (
+        <button
+            onClick={onClick}
+            className={`flex-1 py-4 text-xs font-black uppercase tracking-widest rounded-xl transition-all ${active ? 'bg-blue-600 text-white shadow-xl scale-[1.02]' : 'text-gray-400 hover:text-blue-600 hover:bg-blue-50'
+                }`}
+        >
+            {label}
+        </button>
+    )
+}
+
+function Bullet({ label }: { label: string }) {
+    return (
+        <div className="flex items-center gap-2 text-xs font-black bg-white/5 px-4 py-2 rounded-xl border border-white/5">
+            <Check className="w-4 h-4 text-emerald-400" />
+            {label}
+        </div>
+    )
+}
+
+function SideInfoItem({ icon, label, val }: { icon: any, label: string, val: string }) {
+    return (
+        <div className="flex items-center gap-5 p-5 bg-gray-50 rounded-2xl border border-gray-100 group hover:bg-white hover:shadow-lg transition-all">
+            <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform">
+                {icon}
+            </div>
+            <div>
+                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest leading-none mb-1.5">{label}</p>
+                <p className="text-base font-black text-gray-900 truncate">{val}</p>
+            </div>
         </div>
     )
 }

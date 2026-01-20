@@ -16,6 +16,11 @@ export async function GET(
         const contractor = await prisma.contractorProfile.findUnique({
             where: { id },
             include: {
+                reviews: {
+                    where: { isApproved: true },
+                    orderBy: { createdAt: 'desc' },
+                    take: 10
+                },
                 customer: {
                     include: {
                         user: {
