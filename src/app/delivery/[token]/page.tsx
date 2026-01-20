@@ -34,6 +34,23 @@ export default function DriverDeliveryPage() {
             }
         }
         fetchDeliveryInfo()
+
+        // Flow 3: Start real-time tracking pings
+        let interval: NodeJS.Timeout
+        if (navigator.geolocation) {
+            interval = setInterval(() => {
+                navigator.geolocation.getCurrentPosition(async (pos) => {
+                    await fetch(`/api/public/delivery/${token}/ping`, {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            lat: pos.coords.latitude,
+                            lng: pos.coords.longitude
+                        })
+                    })
+                })
+            }, 15000) // Ping every 15s to save battery but keep UX smooth
+        }
+        return () => clearInterval(interval)
     }, [token])
 
     const handlePhoto = (e: React.ChangeEvent<HTMLInputElement>) => {

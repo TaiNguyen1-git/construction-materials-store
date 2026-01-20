@@ -87,7 +87,7 @@ export async function PUT(
       updateData.paymentStatus = 'CANCELLED' // Use CANCELLED instead of FAILED (not in enum)
     }
 
-    const updatedOrder = await prisma.$transaction(async (tx) => {
+    const updatedOrder = await (prisma as any).$transaction(async (tx: any) => {
       // If cancelling, restore inventory
       if (status === 'CANCELLED' && existingOrder.status !== 'CANCELLED') {
         const orderItems = await tx.orderItem.findMany({
@@ -173,18 +173,18 @@ export async function PUT(
     })
 
     // Push status update to Firebase for real-time tracking (non-blocking)
-    pushOrderStatusUpdate(orderId, status, updatedOrder.orderNumber)
+    pushOrderStatusUpdate(orderId, status, (updatedOrder as any).orderNumber)
       .catch(err => console.error('Firebase push error:', err))
 
     // Send notification to customer
     try {
       const { createOrderStatusNotificationForCustomer } = await import('@/lib/notification-service')
       await createOrderStatusNotificationForCustomer({
-        id: updatedOrder.id,
-        orderNumber: updatedOrder.orderNumber,
-        status: updatedOrder.status,
-        customer: updatedOrder.customer ? {
-          userId: updatedOrder.customer.userId
+        id: (updatedOrder as any).id,
+        orderNumber: (updatedOrder as any).orderNumber,
+        status: (updatedOrder as any).status,
+        customer: (updatedOrder as any).customer ? {
+          userId: (updatedOrder as any).customer.userId
         } : null
       })
     } catch (notifError: any) {
@@ -196,15 +196,15 @@ export async function PUT(
 
     // Send email to customer when order is confirmed
     if (status === 'CONFIRMED' || status === 'CONFIRMED_AWAITING_DEPOSIT') {
-      const customerEmail = updatedOrder.customer?.user?.email || updatedOrder.guestEmail
-      const customerName = updatedOrder.customer?.user?.name || updatedOrder.guestName || 'Quý khách'
+      const customerEmail = (updatedOrder as any).customer?.user?.email || (updatedOrder as any).guestEmail
+      const customerName = (updatedOrder as any).customer?.user?.name || (updatedOrder as any).guestName || 'Quý khách'
 
       console.log('📧 Email Debug (status route):', {
         customerEmail,
         customerName,
-        guestEmail: updatedOrder.guestEmail,
+        guestEmail: (updatedOrder as any).guestEmail,
         status,
-        orderNumber: updatedOrder.orderNumber
+        orderNumber: (updatedOrder as any).orderNumber
       })
 
       if (customerEmail) {
@@ -212,13 +212,13 @@ export async function PUT(
           EmailService.sendOrderApprovedWithPayment({
             email: customerEmail,
             name: customerName,
-            orderNumber: updatedOrder.orderNumber,
-            orderId: updatedOrder.id,
-            totalAmount: updatedOrder.netAmount,
-            depositAmount: updatedOrder.depositAmount || undefined,
-            paymentMethod: updatedOrder.paymentMethod || 'BANK_TRANSFER',
-            paymentType: updatedOrder.paymentType || 'FULL',
-            items: updatedOrder.orderItems.map(item => ({
+            orderNumber: (updatedOrder as any).orderNumber,
+            orderId: (updatedOrder as any).id,
+            totalAmount: (updatedOrder as any).netAmount,
+            depositAmount: (updatedOrder as any).depositAmount || undefined,
+            paymentMethod: (updatedOrder as any).paymentMethod || 'BANK_TRANSFER',
+            paymentType: (updatedOrder as any).paymentType || 'FULL',
+            items: (updatedOrder as any).orderItems.map((item: any) => ({
               name: item.product.name,
               quantity: item.quantity,
               price: item.unitPrice

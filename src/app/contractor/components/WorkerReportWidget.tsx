@@ -6,8 +6,9 @@
  */
 
 import { useState, useEffect } from 'react'
-import { Link2, Copy, CheckCircle2, Clock, Eye, Trash2, Camera, QrCode, ExternalLink, Loader2 } from 'lucide-react'
+import { Link2, Copy, CheckCircle2, Clock, Eye, Trash2, Camera, QrCode, ExternalLink, Loader2, AlertTriangle } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { Badge } from '@/components/ui/badge'
 
 interface WorkerReportWidgetProps {
     projectId: string
@@ -135,21 +136,36 @@ export default function WorkerReportWidget({ projectId }: WorkerReportWidgetProp
                             </div>
                         ) : (
                             reports.map(r => (
-                                <div key={r.id} className="bg-gray-50 rounded-2xl p-4 border border-gray-100 group animate-in slide-in-from-right-2">
+                                <div key={r.id} className={`bg-gray-50 rounded-2xl p-4 border group animate-in slide-in-from-right-2 ${r.customerStatus === 'DISPUTED' ? 'border-red-200 bg-red-50/30' : 'border-gray-100'}`}>
                                     <div className="flex gap-4">
-                                        <div className="w-20 h-20 rounded-xl overflow-hidden border border-gray-200 flex-shrink-0">
+                                        <div className="relative w-24 h-24 rounded-xl overflow-hidden border border-gray-200 flex-shrink-0">
                                             <img src={r.photoUrl} className="w-full h-full object-cover" />
+                                            {r.imageHash && reports.filter(other => other.imageHash === r.imageHash && other.id !== r.id).length > 0 && (
+                                                <div className="absolute inset-0 bg-red-500/80 backdrop-blur-sm flex flex-col items-center justify-center text-white p-2">
+                                                    <AlertTriangle className="w-5 h-5 mb-1" />
+                                                    <span className="text-[8px] font-black text-center leading-tight uppercase">Ảnh trùng lặp (Cẩn thận!)</span>
+                                                </div>
+                                            )}
                                         </div>
                                         <div className="flex-1 min-w-0">
                                             <div className="flex items-center justify-between mb-1">
                                                 <h4 className="font-bold text-gray-900 truncate">Thợ: {r.workerName}</h4>
                                                 <span className="text-[10px] text-gray-400 font-bold">{new Date(r.createdAt).toLocaleTimeString('vi-VN')}</span>
                                             </div>
-                                            <p className="text-xs text-gray-600 line-clamp-2 italic mb-3">"{r.notes || 'Không có ghi chú'}"</p>
+
+                                            {r.customerStatus === 'DISPUTED' ? (
+                                                <div className="mb-3">
+                                                    <Badge className="bg-red-500 text-white mb-1">KHÁCH KHIẾU NẠI</Badge>
+                                                    <p className="text-[10px] text-red-600 font-bold italic">Lý do: {r.rejectionReason}</p>
+                                                </div>
+                                            ) : (
+                                                <p className="text-xs text-gray-600 line-clamp-2 italic mb-3">"{r.notes || 'Không có ghi chú'}"</p>
+                                            )}
+
                                             <div className="flex gap-2">
                                                 <button
                                                     onClick={() => handleReportAction(r.id, 'APPROVED')}
-                                                    className="flex-1 py-1.5 bg-blue-600 text-white text-[10px] font-bold rounded-lg hover:bg-blue-700 font-black"
+                                                    className="flex-1 py-1.5 bg-blue-600 text-white text-[10px] font-bold rounded-lg hover:bg-blue-700 font-black shadow-lg shadow-blue-100"
                                                 >
                                                     Duyệt
                                                 </button>

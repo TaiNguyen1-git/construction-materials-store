@@ -37,6 +37,20 @@ export async function POST(request: NextRequest) {
         }
 
         // Create the worker report
+        // Check for duplicates (Simple Hash check for fraud prevention)
+        const imageHash = photoUrl; // In real app, this would be a hash of the image binary
+        const existingReport = await (prisma as any).workerReport.findFirst({
+            where: {
+                projectId: reportToken.projectId,
+                imageHash
+            }
+        })
+
+        if (existingReport) {
+            // We still allow it but mark it for contractor/customer review
+            console.warn('Duplicate image detected for project:', reportToken.projectId)
+        }
+
         const report = await (prisma as any).workerReport.create({
             data: {
                 projectId: reportToken.projectId,
@@ -44,6 +58,7 @@ export async function POST(request: NextRequest) {
                 milestoneId: milestoneId || null,
                 workerName,
                 photoUrl,
+                imageHash, // Store the hash
                 notes,
                 status: 'PENDING'
             }

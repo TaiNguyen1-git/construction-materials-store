@@ -1,7 +1,9 @@
+'use client'
+
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import Sidebar from '@/app/contractor/components/Sidebar'
+import Sidebar from '../../components/Sidebar'
 import {
     Calendar,
     Clock,
@@ -21,15 +23,16 @@ import {
     QrCode,
     Camera,
     HardHat,
-    ExternalLink
+    ExternalLink,
+    FileText,
+    Download
 } from 'lucide-react'
+import { exportProjectLogToPDF } from '../../utils/projectExporter'
 import { fetchWithAuth } from '@/lib/api-client'
 import { toast } from 'react-hot-toast'
 import { Badge } from '@/components/ui/badge'
 import WorkerReportWidget from '@/app/contractor/components/WorkerReportWidget'
 import SiteMaterialRequestWidget from '@/app/contractor/components/SiteMaterialRequestWidget'
-
-// ... interfaces as before
 
 export default function ContractorProjectDetailPage() {
     const params = useParams()
@@ -38,6 +41,22 @@ export default function ContractorProjectDetailPage() {
     const [loading, setLoading] = useState(true)
     const [sidebarOpen, setSidebarOpen] = useState(false)
     const [activeTab, setActiveTab] = useState('tasks')
+    const [reports, setReports] = useState([])
+    const [materialRequests, setMaterialRequests] = useState([])
+
+    // Fetch reports/requests for export
+    useEffect(() => {
+        const fetchExportData = async () => {
+            const token = localStorage.getItem('access_token')
+            const [repRes, matRes] = await Promise.all([
+                fetch(`/api/contractors/projects/${projectId}/reports`, { headers: { 'Authorization': `Bearer ${token}` } }),
+                fetch(`/api/contractors/projects/${projectId}/material-requests`, { headers: { 'Authorization': `Bearer ${token}` } })
+            ])
+            if (repRes.ok) setReports((await repRes.json()).data || [])
+            if (matRes.ok) setMaterialRequests((await matRes.json()).data || [])
+        }
+        if (projectId) fetchExportData()
+    }, [projectId])
     const [taskUpdating, setTaskUpdating] = useState<string | null>(null)
     const [magicToken, setMagicToken] = useState<string | null>(null)
 
@@ -200,6 +219,12 @@ export default function ContractorProjectDetailPage() {
                                         >
                                             <ExternalLink className="w-4 h-4" /> TRUY CẬP THỬ
                                         </a>
+                                        <button
+                                            onClick={() => exportProjectLogToPDF(project, reports, materialRequests)}
+                                            className="bg-slate-800 text-white px-6 py-3 rounded-xl text-sm font-black shadow-lg flex items-center gap-2 hover:bg-slate-700 transition-all border border-slate-700"
+                                        >
+                                            <Download className="w-4 h-4" /> XUẤT NHẬT KÝ PDF
+                                        </button>
                                     </div>
                                 )}
                             </div>
