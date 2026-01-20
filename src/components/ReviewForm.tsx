@@ -27,8 +27,8 @@ export default function ReviewForm({ productId, productName, orderId, customerId
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (review.length < 10) {
-      setError('Đánh giá phải có ít nhất 10 ký tự')
+    if (review.length < 5) {
+      setError('Đánh giá phải có ít nhất 5 ký tự')
       return
     }
 
@@ -223,14 +223,15 @@ export default function ReviewForm({ productId, productName, orderId, customerId
                 rows={4}
                 className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all outline-none resize-none"
                 required
-                minLength={10}
+                minLength={5}
+                maxLength={1000}
               />
               <div className="flex justify-between mt-2 ml-1">
                 <p className="text-xs text-gray-500">
-                  Tối thiểu 10 ký tự
+                  Tối thiểu 5 ký tự
                 </p>
-                <p className={`text-xs font-bold ${review.length >= 10 ? 'text-green-500' : 'text-gray-400'}`}>
-                  {review.length}/10
+                <p className={`text-xs font-bold ${review.length >= 5 ? 'text-green-500' : 'text-gray-400'}`}>
+                  {review.length}/1000 ký tự
                 </p>
               </div>
             </div>
@@ -252,7 +253,7 @@ export default function ReviewForm({ productId, productName, orderId, customerId
         {/* Submit Button */}
         <button
           type="submit"
-          disabled={submitting || review.length < 10 || (!customerId && (!guestName || !guestEmail))}
+          disabled={submitting || review.length < 5 || (!customerId && (!guestName || !guestEmail))}
           className="w-full bg-gradient-to-r from-primary-600 to-secondary-600 text-white py-4 rounded-xl font-black text-lg hover:from-primary-700 hover:to-secondary-700 transition-all transform hover:scale-[1.02] active:scale-98 disabled:opacity-50 disabled:cursor-not-allowed shadow-xl shadow-primary-200 flex items-center justify-center gap-3"
         >
           {submitting ? (

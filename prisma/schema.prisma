@@ -851,6 +851,7 @@ enum UserRole {
   MANAGER
   EMPLOYEE
   CUSTOMER
+  CONTRACTOR
 }
 
 enum CustomerType {

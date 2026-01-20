@@ -1,19 +1,21 @@
 'use client'
 
 /**
- * Public Contractor Marketplace
- * List all verified contractors for customers to browse
+ * Public Contractor Marketplace - Matching Project Design System
+ * Light theme with project colors, includes Header
  */
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import {
     Users, MapPin, Star, ShieldCheck,
-    Search, Filter, ArrowRight, Loader2,
-    Briefcase, Award, Hammer, Wrench, Paintbrush,
-    Zap, Droplets, HardHat
+    Search, ArrowRight, ArrowLeft,
+    Briefcase, Wrench, Paintbrush,
+    Zap, HardHat, Building2,
+    Heart, CheckCircle2, X
 } from 'lucide-react'
-import toast from 'react-hot-toast'
+import toast, { Toaster } from 'react-hot-toast'
+import Header from '@/components/Header'
 
 const CATEGORIES = [
     { id: 'all', name: 'Tất cả', icon: Users },
@@ -29,6 +31,7 @@ export default function ContractorMarketplace() {
     const [contractors, setContractors] = useState<any[]>([])
     const [filter, setFilter] = useState('all')
     const [searchTerm, setSearchTerm] = useState('')
+    const [showLoginModal, setShowLoginModal] = useState(false)
 
     useEffect(() => {
         fetchContractors()
@@ -43,7 +46,7 @@ export default function ContractorMarketplace() {
             const res = await fetch(url)
             if (res.ok) {
                 const data = await res.json()
-                setContractors(data.data)
+                setContractors(data.data || [])
             }
         } catch (err) {
             toast.error('Lỗi khi tải danh sách đối tác')
@@ -53,158 +56,247 @@ export default function ContractorMarketplace() {
     }
 
     const filteredContractors = contractors.filter(c =>
-        c.displayName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        c.displayName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         c.companyName?.toLowerCase().includes(searchTerm.toLowerCase())
     )
 
     return (
-        <div className="min-h-screen bg-[#FDFDFD]">
-            {/* Hero Section */}
-            <div className="bg-slate-900 pt-32 pb-24 relative overflow-hidden">
-                <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-10"></div>
-                <div className="max-w-7xl mx-auto px-6 relative z-10 text-center">
-                    <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-500/10 border border-blue-500/20 rounded-full text-blue-400 text-sm font-bold mb-6">
-                        <Award className="w-4 h-4" />
-                        Hệ thống đối tác chiến lược
-                    </div>
-                    <h1 className="text-4xl md:text-6xl font-black text-white mb-6 leading-tight">
-                        Kết nối <span className="text-blue-500">Nhà thầu</span> <br />
-                        Uy tín nhất cho công trình
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+            <Toaster position="top-right" />
+            <Header />
+
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                {/* Breadcrumb */}
+                <div className="flex items-center mb-6">
+                    <Link href="/" className="text-gray-500 hover:text-primary-600 flex items-center">
+                        <ArrowLeft className="h-4 w-4 mr-1" />
+                        Trang chủ
+                    </Link>
+                    <span className="mx-2 text-gray-500">/</span>
+                    <span className="text-gray-900 font-medium">Nhà Thầu</span>
+                </div>
+
+                {/* Page Header */}
+                <div className="mb-8">
+                    <h1 className="text-4xl font-black text-gray-900 mb-4">
+                        👷 Mạng Lưới Nhà Thầu
                     </h1>
-                    <p className="text-slate-400 text-lg max-w-2xl mx-auto mb-10 font-medium">
-                        Tất cả đối tác đều được đội ngũ chuyên môn kiểm tra hồ sơ năng lực
-                        và chứng chỉ hành nghề trước khi gia nhập hệ thống.
+                    <p className="text-gray-600 mb-6 text-lg">
+                        Tìm kiếm và kết nối với các nhà thầu xây dựng uy tín, được xác minh bởi SmartBuild
                     </p>
 
-                    <div className="max-w-3xl mx-auto relative group">
-                        <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-3xl blur opacity-30 group-hover:opacity-50 transition duration-1000"></div>
-                        <div className="relative flex items-center bg-white rounded-2xl md:rounded-[32px] p-2 shadow-2xl">
-                            <div className="flex-1 flex items-center px-4">
-                                <Search className="w-6 h-6 text-slate-400" />
-                                <input
-                                    type="text"
-                                    placeholder="Tìm nhà thầu, công ty xây dựng..."
-                                    value={searchTerm}
-                                    onChange={(e) => setSearchTerm(e.target.value)}
-                                    className="w-full px-4 py-4 md:py-6 outline-none text-slate-900 font-bold text-lg"
-                                />
-                            </div>
-                            <button className="hidden md:block px-8 py-4 md:py-6 bg-blue-600 text-white font-black rounded-[24px] hover:bg-blue-700 transition-all">
-                                Tìm ngay
-                            </button>
+                    {/* Search Bar */}
+                    <div className="flex justify-center mb-6">
+                        <div className="relative w-full max-w-2xl">
+                            <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                            <input
+                                type="text"
+                                placeholder="Tìm nhà thầu theo tên hoặc công ty..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="w-full pl-12 pr-4 py-3 bg-white border border-gray-200 rounded-xl shadow-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition-all"
+                            />
                         </div>
                     </div>
                 </div>
-            </div>
 
-            <div className="max-w-7xl mx-auto px-6 -mt-10 mb-20 relative z-20">
                 {/* Category Filters */}
-                <div className="flex flex-wrap gap-4 mb-12">
-                    {CATEGORIES.map((cat) => {
-                        const Icon = cat.icon
-                        return (
-                            <button
-                                key={cat.id}
-                                onClick={() => setFilter(cat.id)}
-                                className={`flex items-center gap-3 px-8 py-5 rounded-[24px] transition-all font-black border-2 ${filter === cat.id
-                                        ? 'bg-white border-blue-600 text-blue-600 shadow-xl shadow-blue-50'
-                                        : 'bg-white border-slate-100 text-slate-400 hover:border-slate-200 hover:text-slate-600 shadow-sm'
-                                    }`}
-                            >
-                                <Icon className={`w-5 h-5 ${filter === cat.id ? 'text-blue-600' : 'text-slate-400'}`} />
-                                {cat.name}
-                            </button>
-                        )
-                    })}
+                <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-4 mb-8">
+                    <div className="flex flex-wrap gap-2">
+                        {CATEGORIES.map((cat) => {
+                            const Icon = cat.icon
+                            const isActive = filter === cat.id
+                            return (
+                                <button
+                                    key={cat.id}
+                                    onClick={() => setFilter(cat.id)}
+                                    className={`
+                                        flex items-center gap-2 px-4 py-2 rounded-lg transition-all font-semibold text-sm
+                                        ${isActive
+                                            ? 'bg-primary-600 text-white shadow-md'
+                                            : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
+                                        }
+                                    `}
+                                >
+                                    <Icon className="w-4 h-4" />
+                                    {cat.name}
+                                </button>
+                            )
+                        })}
+                    </div>
                 </div>
 
-                {/* Listing Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                    {loading ? (
-                        Array(6).fill(0).map((_, i) => (
-                            <div key={i} className="bg-white rounded-[40px] h-96 animate-pulse border border-slate-100"></div>
-                        ))
-                    ) : filteredContractors.length === 0 ? (
-                        <div className="col-span-full py-32 text-center bg-white rounded-[40px] border border-dashed border-slate-200">
-                            <Users className="w-16 h-16 text-slate-200 mx-auto mb-4" />
-                            <h3 className="text-2xl font-black text-slate-900">Không tìm thấy nhà thầu</h3>
-                            <p className="text-slate-400 mt-2">Vui lòng thử lại với từ khóa hoặc danh mục khác.</p>
-                        </div>
-                    ) : (
-                        filteredContractors.map((c) => (
-                            <Link
-                                href={`/contractors/${c.id}`}
-                                key={c.id}
-                                className="group bg-white rounded-[40px] border border-slate-100 p-8 shadow-sm hover:shadow-2xl hover:shadow-blue-900/5 transition-all hover:-translate-y-2 overflow-hidden relative"
-                            >
-                                {/* ID Badge */}
-                                <div className="absolute top-8 right-8 flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-600 rounded-full text-[10px] font-black uppercase tracking-widest border border-emerald-100">
-                                    <ShieldCheck className="w-3 h-3" />
-                                    Verified
-                                </div>
-
-                                <div className="flex flex-col items-center text-center">
-                                    <div className="w-24 h-24 bg-blue-50 rounded-[32px] flex items-center justify-center text-3xl font-black text-blue-600 mb-6 group-hover:scale-110 transition-transform">
-                                        {c.displayName.charAt(0)}
+                {/* Contractor Grid */}
+                {loading ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {[1, 2, 3, 4, 5, 6].map((i) => (
+                            <div key={i} className="bg-white rounded-2xl shadow-lg p-6 animate-pulse">
+                                <div className="bg-gray-200 h-16 w-16 rounded-xl mb-4"></div>
+                                <div className="bg-gray-200 h-4 rounded mb-2"></div>
+                                <div className="bg-gray-200 h-4 rounded w-3/4 mb-4"></div>
+                                <div className="bg-gray-200 h-8 rounded w-1/2"></div>
+                            </div>
+                        ))}
+                    </div>
+                ) : filteredContractors.length === 0 ? (
+                    <div className="bg-white rounded-2xl shadow-lg p-12 text-center">
+                        <Users className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+                        <h3 className="text-xl font-bold text-gray-900 mb-2">Không tìm thấy nhà thầu</h3>
+                        <p className="text-gray-600 mb-6">Thử đổi từ khóa hoặc danh mục tìm kiếm</p>
+                        <button
+                            onClick={() => { setFilter('all'); setSearchTerm(''); }}
+                            className="inline-block bg-primary-600 text-white px-6 py-3 rounded-xl hover:bg-primary-700 font-bold transition-colors"
+                        >
+                            Xem Tất Cả
+                        </button>
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {filteredContractors.map((c) => (
+                            <div key={c.id} className="bg-white rounded-2xl shadow-lg border border-gray-100 hover:shadow-xl transition-all duration-300 overflow-hidden group hover:scale-[1.02]">
+                                <div className="p-6">
+                                    {/* Header with badge */}
+                                    <div className="flex items-center justify-between mb-4">
+                                        <div className="flex items-center gap-1.5 px-2 py-1 bg-green-50 text-green-600 rounded-full text-[10px] font-bold uppercase tracking-wide border border-green-100">
+                                            <ShieldCheck className="w-3 h-3" />
+                                            Đã xác minh
+                                        </div>
+                                        <button
+                                            onClick={(e) => {
+                                                e.preventDefault()
+                                                e.stopPropagation()
+                                                setShowLoginModal(true)
+                                            }}
+                                            className="p-2 bg-gray-50 text-gray-400 rounded-full hover:text-red-500 transition-all"
+                                        >
+                                            <Heart className="w-4 h-4" />
+                                        </button>
                                     </div>
 
-                                    <h3 className="text-2xl font-black text-slate-900 group-hover:text-blue-600 transition-colors mb-2">
-                                        {c.displayName}
-                                    </h3>
-                                    <p className="text-slate-500 font-bold mb-6">
-                                        {c.companyName || 'Đối tác Xây dựng'}
-                                    </p>
+                                    {/* Avatar & Name */}
+                                    <div className="flex items-center gap-4 mb-4">
+                                        <div className="w-14 h-14 bg-gradient-to-br from-primary-100 to-secondary-100 rounded-xl flex items-center justify-center text-2xl font-black text-primary-600 group-hover:scale-105 transition-transform">
+                                            {c.displayName?.charAt(0) || 'N'}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <h3 className="text-lg font-bold text-gray-900 truncate group-hover:text-primary-600 transition-colors">
+                                                {c.displayName}
+                                            </h3>
+                                            <p className="text-sm text-gray-500 truncate flex items-center gap-1">
+                                                <Building2 className="w-3 h-3" />
+                                                {c.companyName || 'Đối tác SmartBuild'}
+                                            </p>
+                                        </div>
+                                    </div>
 
-                                    <div className="grid grid-cols-3 w-full gap-4 mb-8">
-                                        <div className="bg-slate-50 p-3 rounded-2xl">
-                                            <p className="text-xs font-black text-slate-400 uppercase tracking-tighter mb-1">Rating</p>
+                                    {/* Stats */}
+                                    <div className="grid grid-cols-3 gap-2 mb-4">
+                                        <div className="bg-gray-50 p-2 rounded-lg text-center">
                                             <div className="flex items-center justify-center gap-1 text-amber-500">
                                                 <Star className="w-3 h-3 fill-current" />
-                                                <span className="font-black text-slate-900 leading-none">{c.avgRating}</span>
+                                                <span className="text-sm font-bold text-gray-900">{c.avgRating || 0}</span>
                                             </div>
+                                            <p className="text-[10px] font-semibold text-gray-500 uppercase">Rating</p>
                                         </div>
-                                        <div className="bg-slate-50 p-3 rounded-2xl">
-                                            <p className="text-xs font-black text-slate-400 uppercase tracking-tighter mb-1">KN</p>
-                                            <p className="font-black text-slate-900 leading-none">{c.experienceYears}y</p>
+                                        <div className="bg-gray-50 p-2 rounded-lg text-center">
+                                            <p className="text-sm font-bold text-gray-900">{c.experienceYears || 0}y</p>
+                                            <p className="text-[10px] font-semibold text-gray-500 uppercase">K.Nghiệm</p>
                                         </div>
-                                        <div className="bg-slate-50 p-3 rounded-2xl">
-                                            <p className="text-xs font-black text-slate-400 uppercase tracking-tighter mb-1">Dự án</p>
-                                            <p className="font-black text-slate-900 leading-none">{c.totalProjectsCompleted || 0}</p>
+                                        <div className="bg-gray-50 p-2 rounded-lg text-center">
+                                            <p className="text-sm font-bold text-gray-900">{c.totalProjectsCompleted || 0}</p>
+                                            <p className="text-[10px] font-semibold text-gray-500 uppercase">Dự án</p>
                                         </div>
                                     </div>
 
-                                    <div className="flex flex-wrap justify-center gap-2 mb-8">
-                                        {c.skills.slice(0, 3).map((skill: string) => (
-                                            <span key={skill} className="px-3 py-1 bg-slate-100 text-slate-600 rounded-lg text-[10px] font-black">
+                                    {/* Skills */}
+                                    <div className="flex flex-wrap gap-1 mb-4 h-8 overflow-hidden">
+                                        {c.skills?.slice(0, 3).map((skill: string) => (
+                                            <span key={skill} className="px-2 py-1 bg-primary-50 text-primary-600 rounded-md text-[10px] font-bold">
                                                 {skill}
                                             </span>
                                         ))}
-                                        {c.skills.length > 3 && (
-                                            <span className="px-3 py-1 bg-slate-100 text-slate-400 rounded-lg text-[10px] font-black">
-                                                +{c.skills.length - 3}
-                                            </span>
-                                        )}
                                     </div>
 
-                                    <div className="w-full flex items-center gap-2 text-slate-500 font-bold mb-8">
-                                        <MapPin className="w-5 h-5 text-blue-600 shrink-0" />
-                                        <span className="text-sm truncate">{c.district || 'Toàn quốc'}, {c.city || 'Việt Nam'}</span>
+                                    {/* Location */}
+                                    <div className="flex items-center gap-2 text-sm text-gray-500 mb-4 pb-4 border-b border-gray-100">
+                                        <MapPin className="w-4 h-4 text-primary-600" />
+                                        <span>{c.district || 'Hỗ trợ'}, {c.city || 'Toàn quốc'}</span>
                                     </div>
 
-                                    <div className="w-full h-px bg-slate-100 mb-8"></div>
-
-                                    <div className="w-full flex items-center justify-between group-hover:text-blue-600 transition-colors">
-                                        <span className="font-black text-sm text-slate-400 group-hover:text-blue-400">Xem hồ sơ năng lực</span>
-                                        <div className="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-all">
-                                            <ArrowRight className="w-5 h-5" />
-                                        </div>
+                                    {/* CTA */}
+                                    <div className="flex gap-2">
+                                        <Link
+                                            href={`/contractors/${c.id}`}
+                                            className="flex-1 bg-primary-600 text-white px-4 py-2 rounded-xl hover:bg-primary-700 text-sm font-bold text-center transition-colors"
+                                        >
+                                            Xem hồ sơ
+                                        </Link>
+                                        <Link
+                                            href={`/contractors/${c.id}`}
+                                            className="px-4 py-2 border-2 border-primary-600 text-primary-600 rounded-xl hover:bg-primary-50 text-sm font-bold transition-colors flex items-center justify-center"
+                                        >
+                                            <ArrowRight className="h-4 w-4" />
+                                        </Link>
                                     </div>
                                 </div>
-                            </Link>
-                        ))
-                    )}
+                            </div>
+                        ))}
+                    </div>
+                )}
+
+                {/* CTA Section */}
+                <div className="mt-12 bg-white rounded-2xl shadow-lg border border-gray-100 p-8 text-center">
+                    <h2 className="text-2xl font-black text-gray-900 mb-4">Bạn là nhà thầu chuyên nghiệp?</h2>
+                    <p className="text-gray-600 mb-6 max-w-xl mx-auto">
+                        Gia nhập mạng lưới của SmartBuild để tiếp cận dự án chất lượng và nhận hỗ trợ tài chính từ chúng tôi.
+                    </p>
+                    <Link href="/contractor/login" className="inline-flex items-center gap-2 px-6 py-3 bg-primary-600 text-white font-bold rounded-xl hover:bg-primary-700 transition-colors">
+                        Đăng ký đối tác
+                        <ArrowRight className="w-4 h-4" />
+                    </Link>
                 </div>
             </div>
+
+            {/* Login Modal */}
+            {showLoginModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+                    <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 animate-in fade-in zoom-in duration-300">
+                        <div className="flex items-center justify-between mb-6">
+                            <h3 className="text-xl font-bold text-gray-900">Đăng nhập để tiếp tục</h3>
+                            <button
+                                onClick={() => setShowLoginModal(false)}
+                                className="p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-all"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        <div className="text-center mb-6">
+                            <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <Heart className="w-8 h-8 text-red-500" />
+                            </div>
+                            <p className="text-gray-600">
+                                Bạn cần đăng nhập để lưu nhà thầu yêu thích và nhận thông báo khi có ưu đãi mới.
+                            </p>
+                        </div>
+
+                        <div className="space-y-3">
+                            <Link
+                                href="/login"
+                                className="w-full py-3 bg-primary-600 text-white font-bold rounded-xl hover:bg-primary-700 transition-all flex items-center justify-center gap-2"
+                            >
+                                Đăng nhập ngay
+                            </Link>
+                            <div className="text-center text-sm text-gray-500 py-2">
+                                Chưa có tài khoản?{' '}
+                                <Link href="/register" className="text-primary-600 font-bold hover:underline">
+                                    Đăng ký ngay
+                                </Link>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     )
 }
