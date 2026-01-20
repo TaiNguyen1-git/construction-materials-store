@@ -1,18 +1,31 @@
 'use client'
 
-import { useState, useEffect, use } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import {
     ArrowLeft, Scale, Star, Clock,
-    CheckCircle2, ShieldCheck, Trophy,
-    X, Check, AlertCircle, Building2, MapPin,
-    ArrowRight, MessageSquare, Zap
+    CheckCircle2, ShieldCheck, MapPin,
+    ArrowRight, Zap
 } from 'lucide-react'
 import Header from '@/components/Header'
 import toast, { Toaster } from 'react-hot-toast'
 
-export default function ContractorCompare() {
+// Loading component for Suspense fallback
+function CompareLoading() {
+    return (
+        <div className="min-h-screen bg-slate-50">
+            <Header />
+            <div className="flex flex-col items-center justify-center pt-32 gap-4">
+                <div className="w-12 h-12 border-4 border-blue-100 border-t-blue-600 rounded-full animate-spin"></div>
+                <p className="text-gray-500 font-bold animate-pulse">Đang tải dữ liệu...</p>
+            </div>
+        </div>
+    )
+}
+
+// Main component that uses useSearchParams
+function ContractorCompareContent() {
     const searchParams = useSearchParams()
     const idsString = searchParams.get('ids') || ''
     const ids = idsString.split(',').filter(id => id.length > 0)
@@ -262,5 +275,14 @@ function CompareCell({ children, mobileLabel }: { children: React.ReactNode, mob
             <span className="lg:hidden absolute top-4 text-[8px] font-black text-gray-300 uppercase tracking-widest">{mobileLabel}</span>
             {children}
         </div>
+    )
+}
+
+// Default export with Suspense boundary
+export default function ContractorCompare() {
+    return (
+        <Suspense fallback={<CompareLoading />}>
+            <ContractorCompareContent />
+        </Suspense>
     )
 }
