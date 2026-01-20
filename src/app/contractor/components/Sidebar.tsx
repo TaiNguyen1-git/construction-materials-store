@@ -17,7 +17,8 @@ import {
     Building2,
     X,
     User,
-    PenTool
+    PenTool,
+    Briefcase
 } from 'lucide-react'
 import { useContractorCartStore } from '@/stores/contractorCartStore'
 
@@ -33,6 +34,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 
     const navItems = [
         { href: '/contractor/dashboard', icon: Home, label: 'Tổng quan' },
+        { href: '/projects', icon: Briefcase, label: 'Tìm việc' },
         { href: '/contractor/quick-order', icon: ClipboardList, label: 'Đặt hàng nhanh' },
         { href: '/contractor/cart', icon: ShoppingCart, label: 'Giỏ hàng', badge: cartItemCount },
         { href: '/contractor/orders', icon: Package, label: 'Đơn hàng' },

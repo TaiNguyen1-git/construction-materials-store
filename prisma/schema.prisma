@@ -133,6 +133,9 @@ model Customer {
   // Brokerage
   quoteRequests   QuoteRequest[] @relation("CustomerOutboundQuotes")
   receivedQuotes  QuoteRequest[] @relation("ContractorInboundQuotes")
+  cart            Cart?
+  reportTokensCreated ProjectReportToken[]
+  workerReportsManaged WorkerReport[]
   
   @@map("customers")
   @@index([customerType])
@@ -320,6 +323,7 @@ model Product {
   projectTaskMaterials ProjectTaskMaterial[]
   inventoryPredictions InventoryPrediction[]
   inventoryHistory InventoryHistory[]
+  cartItems        CartItem[]
 
   @@map("products")
   @@index([categoryId])
@@ -975,6 +979,7 @@ enum NotificationType {
   ORDER_NEW
   ORDER_UPDATE
   PAYMENT_UPDATE
+  PROJECT_MATCH
 }
 
 // Project Management
@@ -1336,6 +1341,9 @@ model QuoteRequest {
   
   // Flow 3: Staged Payments
   milestones   PaymentMilestone[]
+  // Staged Payments & Contract
+  amount       Float?      // Total contract amount
+  metadata     Json?       // Extra metadata (projectId, applicationId, etc.)
   
   history      QuoteStatusHistory[]
 
@@ -1371,8 +1379,13 @@ model PaymentMilestone {
   percentage     Float
   amount         Float
   order          Int           @default(1)
-  status         String        @default("PENDING") // PENDING, ESCROW_PAID, RELEASED
+  status         String        @default("PENDING") // PENDING, ESCROW_PAID, COMPLETED, RELEASED
   paidAt         DateTime?
+  
+  // Evidence of completion
+  evidenceUrl   String?
+  evidenceNotes String?
+  
   createdAt      DateTime      @default(now())
 
   @@map("payment_milestones")
@@ -1508,6 +1521,11 @@ model ContractorProfile {
   portfolioDesc   String[]
   documents       String[]
   
+  // Showcase / Spotlight (Flow 4)
+  highlightBio    String?   // Short slogan or highlight
+  awards          String[]  // Notable awards or certifications
+  featuredProjects Json?    // Structured featured work: [{title, year, image, desc}]
+  
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -1519,6 +1537,42 @@ model ContractorProfile {
   @@index([city])
   @@index([avgRating])
   @@index([trustScore])
+}
+
+model Cart {
+  id          String     @id @default(auto()) @map("_id") @db.ObjectId
+  customerId  String     @unique @db.ObjectId
+  items       CartItem[]
+  totalItems  Float      @default(0)
+  subtotal    Float      @default(0)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  customer    Customer   @relation(fields: [customerId], references: [id])
+
+  @@map("carts")
+}
+
+model CartItem {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  cartId      String   @db.ObjectId
+  productId   String   @db.ObjectId
+  productName String
+  quantity    Float
+  unit        String
+  unitPrice   Float
+  originalPrice Float?
+  discountPercent Float? @default(0)
+  subtotal    Float
+  source      String?  // BOQ, DIRECT
+  sourceApplicationId String? @db.ObjectId
+  sourceProjectTitle String?
+  createdAt   DateTime @default(now())
+
+  cart        Cart     @relation(fields: [cartId], references: [id])
+  product     Product  @relation(fields: [productId], references: [id])
+
+  @@map("cart_items")
 }
 
 model ContractorReview {
@@ -1538,6 +1592,7 @@ model ContractorReview {
   isHidden      Boolean  @default(false)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+  metadata      Json?
 
   // Relationships
   contractor    ContractorProfile @relation(fields: [contractorId], references: [id])
@@ -1547,6 +1602,43 @@ model ContractorReview {
   @@index([reviewerId])
   @@index([rating])
   @@index([isApproved])
+}
+
+model ProjectReportToken {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  token        String   @unique
+  projectId    String   @db.ObjectId
+  contractorId String   @db.ObjectId // The contractor who generated it
+  milestoneId  String?  @db.ObjectId // Optional: specific milestone this report is for
+  
+  expiresAt    DateTime?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  // Relationships
+  project    ConstructionProject @relation(fields: [projectId], references: [id])
+  contractor Customer            @relation(fields: [contractorId], references: [id])
+
+  @@map("project_report_tokens")
+}
+
+model WorkerReport {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  projectId    String   @db.ObjectId
+  contractorId String   @db.ObjectId
+  workerName   String
+  photoUrl     String
+  notes        String?
+  status       String   @default("PENDING") // PENDING, APPROVED, REJECTED
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  project    ConstructionProject @relation(fields: [projectId], references: [id])
+  contractor Customer            @relation(fields: [contractorId], references: [id])
+
+  @@map("worker_reports")
+  @@index([projectId])
+  @@index([status])
 }
 
 // ============================================
@@ -1639,7 +1731,9 @@ model ConstructionProject {
   updatedAt       DateTime @updatedAt
 
   applications    ProjectApplication[]
-
+  reportTokens    ProjectReportToken[]
+  workerReports   WorkerReport[]
+  
   @@map("construction_projects")
   @@index([status])
   @@index([projectType])
@@ -1650,11 +1744,28 @@ model ConstructionProject {
 model ProjectApplication {
   id              String   @id @default(auto()) @map("_id") @db.ObjectId
   projectId       String   @db.ObjectId
-  contractorId    String   // Contractor's customerId
+  contractorId    String?  // Null if guest
+  
+  // Guest Support (Provisional Profile)
+  isGuest         Boolean  @default(false)
+  guestName       String?
+  guestPhone      String?
+  guestEmail      String?
+  
   message         String
   proposedBudget  Float?
   proposedDays    Int?
-  status          String   @default("PENDING") // PENDING, ACCEPTED, REJECTED
+  status          String   @default("PENDING") // PENDING, NEGOTIATING, SHORTLISTED, SELECTED, REJECTED, CLOSED
+  
+  // Flow 3: BoQ (Materials)
+  materials       Json?    // [{id, name, quantity, unit, price}]
+  
+  // Flow 1: Attachments
+  attachments     String[] // URLs to PDF/Images
+  
+  // Flow 2: Privacy
+  isContactUnlocked Boolean @default(false)
+  
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -1663,6 +1774,7 @@ model ProjectApplication {
   @@map("project_applications")
   @@index([projectId])
   @@index([contractorId])
+  @@index([status])
 }
 
 

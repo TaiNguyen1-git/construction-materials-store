@@ -123,6 +123,19 @@ export async function POST(request: NextRequest) {
             }
         })
 
+        // Notify matching contractors (non-blocking)
+        import('@/lib/notification-service').then(({ notifyMatchingContractors }) => {
+            notifyMatchingContractors({
+                id: project.id,
+                title: project.title,
+                projectType: project.projectType,
+                city: project.city,
+                district: project.district,
+                estimatedBudget: project.estimatedBudget,
+                isUrgent: project.isUrgent
+            }).catch(err => console.error('Notify contractors error:', err))
+        }).catch(err => console.error('Import notification service error:', err))
+
         return NextResponse.json(
             createSuccessResponse({ project }, 'Project created successfully'),
             { status: 201 }

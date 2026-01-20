@@ -12,7 +12,7 @@ import { prisma } from './prisma'
 import { pushSystemNotification, pushNotificationToFirebase } from './firebase-notifications'
 
 export interface Notification {
-  type: 'LOW_STOCK' | 'REORDER_NEEDED' | 'PREDICTION_ALERT' | 'MONTHLY_REMINDER' | 'ORDER_NEW' | 'ORDER_UPDATE' | 'QUOTE_NEW' | 'QUOTE_UPDATE' | 'KYC_PENDING' | 'SMART_REORDER' | 'STOCK_UPDATE'
+  type: 'LOW_STOCK' | 'REORDER_NEEDED' | 'PREDICTION_ALERT' | 'MONTHLY_REMINDER' | 'ORDER_NEW' | 'ORDER_UPDATE' | 'QUOTE_NEW' | 'QUOTE_UPDATE' | 'KYC_PENDING' | 'SMART_REORDER' | 'STOCK_UPDATE' | 'PROJECT_MATCH'
   priority: 'HIGH' | 'MEDIUM' | 'LOW'
   title: string
   message: string
@@ -523,4 +523,107 @@ export async function createLowStockAlertNotification(data: {
   }
 
   await saveNotificationForAllManagers(notification)
+}
+
+/**
+ * Notify matching contractors when a new marketplace project is posted
+ */
+export async function notifyMatchingContractors(project: {
+  id: string
+  title: string
+  projectType: string
+  city: string
+  district?: string | null
+  estimatedBudget?: number | null
+  isUrgent?: boolean
+}) {
+  // Mapping project types to contractor skills
+  const PROJECT_TYPE_TO_SKILLS: Record<string, string[]> = {
+    'NEW_CONSTRUCTION': ['CONSTRUCTION', 'MASONRY'],
+    'RENOVATION': ['RENOVATION', 'CONSTRUCTION'],
+    'INTERIOR': ['INTERIOR', 'CARPENTRY'],
+    'EXTERIOR': ['CONSTRUCTION', 'PAINTING', 'ROOFING'],
+    'FLOORING': ['FLOORING', 'TILING'],
+    'PAINTING': ['PAINTING'],
+    'PLUMBING': ['PLUMBING'],
+    'ELECTRICAL': ['ELECTRICAL'],
+    'ROOFING': ['ROOFING'],
+    'OTHER': []
+  }
+
+  const requiredSkills = PROJECT_TYPE_TO_SKILLS[project.projectType] || []
+
+  // Find contractors with matching skills or in same city
+  const contractorProfiles = await prisma.contractorProfile.findMany({
+    where: {
+      isVerified: true,
+      isAvailable: true,
+      OR: [
+        // Match by skills
+        ...(requiredSkills.length > 0 ? [{
+          skills: { hasSome: requiredSkills }
+        }] : []),
+        // Match by city
+        ...(project.city ? [{
+          city: { equals: project.city, mode: 'insensitive' as const }
+        }] : [])
+      ]
+    },
+    select: {
+      customerId: true,
+      displayName: true,
+      skills: true,
+      city: true
+    }
+  })
+
+  if (contractorProfiles.length === 0) return
+
+  // Get user IDs for the matching contractors
+  const customerIds = contractorProfiles.map(p => p.customerId)
+  const customers = await prisma.customer.findMany({
+    where: { id: { in: customerIds } },
+    select: { id: true, userId: true }
+  })
+
+  const customerUserMap = new Map(customers.map(c => [c.id, c.userId]))
+
+  // Create notifications for each matching contractor
+  for (const profile of contractorProfiles) {
+    const userId = customerUserMap.get(profile.customerId)
+    if (!userId) continue
+
+    // Determine match reason
+    const matchedSkills = requiredSkills.filter(s => profile.skills.includes(s))
+    const sameCity = profile.city?.toLowerCase() === project.city?.toLowerCase()
+
+    let matchReason = ''
+    if (matchedSkills.length > 0 && sameCity) {
+      matchReason = 'Khớp chuyên môn và vị trí'
+    } else if (matchedSkills.length > 0) {
+      matchReason = 'Khớp chuyên môn của bạn'
+    } else if (sameCity) {
+      matchReason = 'Trong khu vực của bạn'
+    }
+
+    const notification: Notification = {
+      type: 'PROJECT_MATCH',
+      priority: project.isUrgent ? 'HIGH' : 'MEDIUM',
+      title: project.isUrgent
+        ? `Dự án gấp: ${project.title}`
+        : `Dự án mới phù hợp: ${project.title}`,
+      message: `${matchReason}. ${project.city}${project.estimatedBudget ? ` - ${(project.estimatedBudget / 1000000).toFixed(0)} triệu` : ''}`,
+      data: {
+        projectId: project.id,
+        projectTitle: project.title,
+        projectType: project.projectType,
+        city: project.city,
+        estimatedBudget: project.estimatedBudget,
+        isUrgent: project.isUrgent,
+        matchReason
+      }
+    }
+
+    await saveNotificationForUser(notification, userId, 'CUSTOMER')
+  }
 }

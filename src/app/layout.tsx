@@ -8,6 +8,7 @@ import AdminRedirect from '@/components/AdminRedirect'
 import ConsoleGuard from '@/components/ConsoleGuard'
 import { AuthProvider } from '@/contexts/auth-context'
 import { GoogleProvider } from '@/components/GoogleProvider'
+import RealtimeNotificationWatcher from '@/components/RealtimeNotificationWatcher'
 import Footer from '@/components/Footer'
 // import { ErrorBoundary } from '@/components/ErrorBoundary' // Temporarily disabled
 
@@ -76,6 +77,7 @@ export default function RootLayout({
                 },
               }}
             />
+            <RealtimeNotificationWatcher />
           </AuthProvider>
         </GoogleProvider>
       </body>

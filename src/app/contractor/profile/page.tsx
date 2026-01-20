@@ -24,7 +24,11 @@ import {
     Trash2,
     Eye,
     Download,
-    X
+    X,
+    Star,
+    Award,
+    Briefcase,
+    Zap
 } from 'lucide-react'
 import Sidebar from '../components/Sidebar'
 import toast, { Toaster } from 'react-hot-toast'
@@ -56,8 +60,15 @@ export default function ContractorProfilePage() {
         district: '',
         ward: '',
         businessType: '',
-        website: ''
+        website: '',
+        // Spotlight fields
+        highlightBio: '',
+        detailedBio: '',
+        skills: [] as string[],
+        yearsExperience: '0'
     })
+
+    const [featuredProjects, setFeaturedProjects] = useState<any[]>([])
 
     // Documents state
     const [documents, setDocuments] = useState<BusinessDocument[]>([])
@@ -386,6 +397,143 @@ export default function ContractorProfilePage() {
                                                 Lưu Thông Tin
                                             </>
                                         )}
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Profile Spotlight (Flow 4) */}
+                            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                                <h2 className="font-semibold text-gray-900 mb-6 flex items-center gap-2">
+                                    <Zap className="w-5 h-5 text-yellow-500" />
+                                    Tâm Điểm Hồ Sơ (Spotlight)
+                                </h2>
+
+                                <div className="space-y-6">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                            Khẩu hiệu/Tâm điểm (Ngắn gọn)
+                                        </label>
+                                        <input
+                                            type="text"
+                                            name="highlightBio"
+                                            value={profile.highlightBio}
+                                            onChange={handleChange}
+                                            placeholder="VD: Chuyên thầu xây trọn gói uy tín tại Đồng Nai"
+                                            className="w-full border border-gray-200 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                            Giới thiệu chi tiết
+                                        </label>
+                                        <textarea
+                                            name="detailedBio"
+                                            value={profile.detailedBio}
+                                            onChange={handleChange}
+                                            rows={4}
+                                            placeholder="Mô tả kỹ năng, thế mạnh và những giá trị bạn mang lại cho khách hàng..."
+                                            className="w-full border border-gray-200 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500"
+                                        />
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                Số năm kinh nghiệm
+                                            </label>
+                                            <input
+                                                type="number"
+                                                name="yearsExperience"
+                                                value={profile.yearsExperience}
+                                                onChange={handleChange}
+                                                className="w-full border border-gray-200 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                Chuyên môn chính (ngăn cách bởi dấu phẩy)
+                                            </label>
+                                            <input
+                                                type="text"
+                                                placeholder="VD: Xây nhà phố, Biệt thự, Sửa chữa..."
+                                                className="w-full border border-gray-200 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500"
+                                                onBlur={(e) => {
+                                                    const skills = e.target.value.split(',').map(s => s.trim()).filter(s => s)
+                                                    setProfile(prev => ({ ...prev, skills }))
+                                                }}
+                                                defaultValue={profile.skills?.join(', ')}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Featured Projects Showcase */}
+                                    <div>
+                                        <div className="flex items-center justify-between mb-4">
+                                            <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+                                                <Briefcase className="w-4 h-4 text-gray-500" />
+                                                Công trình tiêu biểu
+                                            </h3>
+                                            <button
+                                                onClick={() => setFeaturedProjects([...featuredProjects, { id: Date.now(), title: '', image: '', year: '' }])}
+                                                className="text-xs font-medium text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                                            >
+                                                <Zap className="w-3 h-3" /> Thêm công trình
+                                            </button>
+                                        </div>
+
+                                        <div className="grid grid-cols-1 gap-4">
+                                            {featuredProjects.map((proj, idx) => (
+                                                <div key={proj.id} className="p-4 bg-gray-50 rounded-xl border border-gray-200 relative group">
+                                                    <button
+                                                        onClick={() => setFeaturedProjects(featuredProjects.filter(p => p.id !== proj.id))}
+                                                        className="absolute top-2 right-2 p-1 text-gray-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
+                                                    <div className="grid md:grid-cols-12 gap-4">
+                                                        <div className="md:col-span-4 aspect-video bg-gray-200 rounded-lg flex items-center justify-center border border-gray-300">
+                                                            <Camera className="w-8 h-8 text-gray-400" />
+                                                        </div>
+                                                        <div className="md:col-span-8 space-y-3">
+                                                            <input
+                                                                type="text"
+                                                                placeholder="Tên công trình/dự án"
+                                                                className="w-full bg-transparent border-0 border-b border-gray-200 focus:ring-0 focus:border-blue-500 text-sm font-medium"
+                                                                value={proj.title}
+                                                                onChange={(e) => {
+                                                                    const next = [...featuredProjects]
+                                                                    next[idx].title = e.target.value
+                                                                    setFeaturedProjects(next)
+                                                                }}
+                                                            />
+                                                            <input
+                                                                type="text"
+                                                                placeholder="Năm hoàn thành & địa điểm"
+                                                                className="w-full bg-transparent border-0 border-b border-gray-200 focus:ring-0 focus:border-blue-500 text-xs"
+                                                                value={proj.year}
+                                                                onChange={(e) => {
+                                                                    const next = [...featuredProjects]
+                                                                    next[idx].year = e.target.value
+                                                                    setFeaturedProjects(next)
+                                                                }}
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="mt-6 flex justify-end">
+                                    <button
+                                        onClick={handleSave}
+                                        disabled={saving}
+                                        className="flex items-center gap-2 bg-blue-600 text-white px-6 py-2.5 rounded-lg hover:bg-blue-700 font-medium"
+                                    >
+                                        {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
+                                        Cập Nhật Spotlight
                                     </button>
                                 </div>
                             </div>
