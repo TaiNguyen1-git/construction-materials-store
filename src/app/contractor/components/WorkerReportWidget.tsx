@@ -9,34 +9,37 @@ import { useState, useEffect } from 'react'
 import { Link2, Copy, CheckCircle2, Clock, Eye, Trash2, Camera, QrCode, ExternalLink, Loader2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
-export default function WorkerReportWidget() {
+interface WorkerReportWidgetProps {
+    projectId: string
+}
+
+export default function WorkerReportWidget({ projectId }: WorkerReportWidgetProps) {
     const [tokens, setTokens] = useState<any[]>([])
     const [reports, setReports] = useState<any[]>([])
     const [loading, setLoading] = useState(true)
     const [generating, setGenerating] = useState(false)
     const [activeTab, setActiveTab] = useState<'LINKS' | 'REPORTS'>('REPORTS')
 
-    // Mock project ID for demo since we haven't linked it to a specific project filter yet
-    // In real app, this would be part of a project detail page
-    const projectId = 'demo-project-id'
-
     const fetchData = async () => {
         setLoading(true)
         try {
             const token = localStorage.getItem('access_token')
-            // Fetch reports waiting for approval
-            const repRes = await fetch('/api/contractors/reports/pending', {
+            // Fetch reports waiting for approval for this project
+            const repRes = await fetch(`/api/contractors/projects/${projectId}/reports`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             })
             const repData = await repRes.json()
             if (repRes.ok) setReports(repData.data || [])
 
-            // Fetch active links
+            // Fetch active links for this project
             const tokRes = await fetch(`/api/contractors/projects/${projectId}/report-token`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             })
             const tokData = await tokRes.json()
-            if (tokRes.ok) setTokens(tokData.data.tokens || [])
+            if (tokRes.ok) {
+                const tokensArr = Array.isArray(tokData.data?.tokens) ? tokData.data.tokens : (tokData.data?.token ? [tokData.data] : [])
+                setTokens(tokensArr)
+            }
         } catch (err) {
             console.error('Fetch error:', err)
         } finally {
@@ -45,9 +48,8 @@ export default function WorkerReportWidget() {
     }
 
     useEffect(() => {
-        // Initial fetch with fallback for the mock APIs we haven't built yet
         fetchData()
-    }, [])
+    }, [projectId])
 
     const generateLink = async () => {
         setGenerating(true)
@@ -99,9 +101,9 @@ export default function WorkerReportWidget() {
                 <div>
                     <h3 className="font-bold text-gray-900 flex items-center gap-2">
                         <Camera className="w-5 h-5 text-blue-600" />
-                        Quản lý Báo cáo Hiện trường
+                        Nghiệm thu báo cáo ảnh
                     </h3>
-                    <p className="text-[10px] text-gray-500 font-medium uppercase mt-1">Nghiệm thu nhanh từ công nhân</p>
+                    <p className="text-[10px] text-gray-500 font-medium uppercase mt-1">Từ thợ tại công trường</p>
                 </div>
                 <div className="flex bg-gray-200/50 p-1 rounded-xl">
                     <button
@@ -114,7 +116,7 @@ export default function WorkerReportWidget() {
                         onClick={() => setActiveTab('LINKS')}
                         className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${activeTab === 'LINKS' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500'}`}
                     >
-                        Gửi Đội Thợ
+                        Gửi thợ
                     </button>
                 </div>
             </div>
@@ -147,15 +149,15 @@ export default function WorkerReportWidget() {
                                             <div className="flex gap-2">
                                                 <button
                                                     onClick={() => handleReportAction(r.id, 'APPROVED')}
-                                                    className="flex-1 py-1.5 bg-blue-600 text-white text-[10px] font-bold rounded-lg hover:bg-blue-700"
+                                                    className="flex-1 py-1.5 bg-blue-600 text-white text-[10px] font-bold rounded-lg hover:bg-blue-700 font-black"
                                                 >
-                                                    Chấp nhận
+                                                    Duyệt
                                                 </button>
                                                 <button
                                                     onClick={() => handleReportAction(r.id, 'REJECTED')}
                                                     className="flex-1 py-1.5 bg-white text-red-500 border border-red-100 text-[10px] font-bold rounded-lg hover:bg-red-50"
                                                 >
-                                                    Từ chối
+                                                    Hủy
                                                 </button>
                                             </div>
                                         </div>
@@ -172,7 +174,7 @@ export default function WorkerReportWidget() {
                             className="w-full py-3 bg-blue-50 text-blue-600 border border-blue-100 border-dashed rounded-2xl flex items-center justify-center gap-2 text-xs font-bold hover:bg-blue-100 transition-all font-sans"
                         >
                             {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <QrCode className="w-4 h-4" />}
-                            Tạo Mã Báo Cáo Cho Công Trường
+                            Tạo Link/QR Cho Công Trường
                         </button>
 
                         <div className="space-y-3">
@@ -184,25 +186,17 @@ export default function WorkerReportWidget() {
                                         </div>
                                         <div>
                                             <p className="text-xs font-bold text-gray-900">Token: {t.token}</p>
-                                            <p className="text-[10px] text-gray-400">Tạo: {new Date(t.createdAt).toLocaleDateString('vi-VN')}</p>
+                                            <p className="text-[10px] text-gray-400">Hết hạn sau 7 ngày</p>
                                         </div>
                                     </div>
                                     <div className="flex gap-1">
                                         <button
-                                            onClick={() => copyLink(t.url)}
+                                            onClick={() => copyLink(`${window.location.protocol}//${window.location.host}/report/${t.token}`)}
                                             className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"
                                             title="Copy Link"
                                         >
                                             <Copy className="w-4 h-4" />
                                         </button>
-                                        <a
-                                            href={t.url}
-                                            target="_blank"
-                                            className="p-2 text-gray-400 hover:bg-gray-50 rounded-lg"
-                                            title="View Page"
-                                        >
-                                            <ExternalLink className="w-4 h-4" />
-                                        </a>
                                     </div>
                                 </div>
                             ))}
@@ -212,7 +206,7 @@ export default function WorkerReportWidget() {
             </div>
 
             <div className="p-4 bg-gray-50 border-t border-gray-100 text-[10px] text-center font-bold text-gray-400 uppercase tracking-widest">
-                Xây dựng niềm tin qua hình ảnh thực tế
+                Đảm bảo minh bạch cho khách hàng
             </div>
         </div>
     )

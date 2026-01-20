@@ -136,6 +136,7 @@ model Customer {
   cart            Cart?
   reportTokensCreated ProjectReportToken[]
   workerReportsManaged WorkerReport[]
+  siteMaterialRequests SiteMaterialRequest[]
   
   @@map("customers")
   @@index([customerType])
@@ -433,6 +434,7 @@ model Order {
   orderItems   OrderItem[]
   invoices     Invoice[]
   orderTracking OrderTracking[]
+  delivery      OrderDelivery?
 
   @@map("orders")
   @@index([customerId])
@@ -1346,6 +1348,7 @@ model QuoteRequest {
   metadata     Json?       // Extra metadata (projectId, applicationId, etc.)
   
   history      QuoteStatusHistory[]
+  milestoneReports WorkerReport[]
 
   @@map("quote_requests")
   @@index([customerId])
@@ -1387,6 +1390,7 @@ model PaymentMilestone {
   evidenceNotes String?
   
   createdAt      DateTime      @default(now())
+  workerReports  WorkerReport[]
 
   @@map("payment_milestones")
 }
@@ -1626,6 +1630,8 @@ model WorkerReport {
   id           String   @id @default(auto()) @map("_id") @db.ObjectId
   projectId    String   @db.ObjectId
   contractorId String   @db.ObjectId
+  milestoneId  String?  @db.ObjectId // Associated milestone
+  quoteId      String?  @db.ObjectId // Associated quote for milestones
   workerName   String
   photoUrl     String
   notes        String?
@@ -1635,10 +1641,13 @@ model WorkerReport {
 
   project    ConstructionProject @relation(fields: [projectId], references: [id])
   contractor Customer            @relation(fields: [contractorId], references: [id])
+  milestone  PaymentMilestone?   @relation(fields: [milestoneId], references: [id])
+  quote      QuoteRequest?       @relation(fields: [quoteId], references: [id])
 
   @@map("worker_reports")
   @@index([projectId])
   @@index([status])
+  @@index([milestoneId])
 }
 
 // ============================================
@@ -1733,6 +1742,7 @@ model ConstructionProject {
   applications    ProjectApplication[]
   reportTokens    ProjectReportToken[]
   workerReports   WorkerReport[]
+  siteMaterialRequests SiteMaterialRequest[]
   
   @@map("construction_projects")
   @@index([status])
@@ -2015,4 +2025,45 @@ model SupportRequest {
   @@index([status])
   @@index([createdAt])
   @@index([phone])
+}
+
+// ============================================
+// NEW FLOW MODELS
+// ============================================
+
+model SiteMaterialRequest {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  projectId    String   @db.ObjectId
+  contractorId String   @db.ObjectId
+  workerName   String
+  items        Json     // [{name, quantity, unit, notes}]
+  status       String   @default("PENDING") // PENDING, APPROVED, REJECTED, ORDERED
+  priority     Priority @default(MEDIUM)
+  notes        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  project    ConstructionProject @relation(fields: [projectId], references: [id])
+  contractor Customer            @relation(fields: [contractorId], references: [id])
+
+  @@map("site_material_requests")
+}
+
+model OrderDelivery {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  orderId         String   @unique @db.ObjectId
+  driverId        String?  @db.ObjectId // If assigned to a specific employee
+  deliveryToken   String   @unique // For the driver's public link
+  status          String   @default("ASSIGNED") // ASSIGNED, SHIPPED, DELIVERED, FAILED
+  shippedAt       DateTime?
+  deliveredAt     DateTime?
+  proofImageUrl   String?
+  evidenceNotes   String?
+  deliveryLat     Float?
+  deliveryLng     Float?
+  recipientName   String?
+  
+  order           Order    @relation(fields: [orderId], references: [id])
+
+  @@map("order_deliveries")
 }

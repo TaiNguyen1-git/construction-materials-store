@@ -10,7 +10,7 @@ import { createSuccessResponse, createErrorResponse } from '@/lib/api-types'
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json()
-        const { token, workerName, photoUrl, notes } = body
+        const { token, workerName, photoUrl, notes, milestoneId } = body
 
         if (!token || !workerName || !photoUrl) {
             return NextResponse.json(createErrorResponse('Thiếu thông tin báo cáo', 'VALIDATION_ERROR'), { status: 400 })
@@ -19,7 +19,17 @@ export async function POST(request: NextRequest) {
         // Validate token
         const reportToken = await (prisma as any).projectReportToken.findUnique({
             where: { token, isActive: true },
-            include: { project: true }
+            include: {
+                project: {
+                    include: {
+                        customer: {
+                            include: {
+                                user: true
+                            }
+                        }
+                    }
+                }
+            }
         })
 
         if (!reportToken) {
@@ -31,6 +41,7 @@ export async function POST(request: NextRequest) {
             data: {
                 projectId: reportToken.projectId,
                 contractorId: reportToken.contractorId,
+                milestoneId: milestoneId || null,
                 workerName,
                 photoUrl,
                 notes,
@@ -38,21 +49,55 @@ export async function POST(request: NextRequest) {
             }
         })
 
-        // Notify Contractor
-        await prisma.notification.create({
-            data: {
-                type: 'ORDER_UPDATE',
-                title: '👷 Báo cáo mới từ công trường!',
-                message: `Thợ ${workerName} vừa gửi ảnh báo cáo cho dự án "${reportToken.project.title}". Vui lòng kiểm tra và duyệt.`,
-                priority: 'MEDIUM',
-                userId: null, // We'll need to link this correctly or use metadata
-                metadata: {
-                    reportId: report.id,
-                    projectId: reportToken.projectId,
-                    contractorUserId: null // We should find the user ID linked to the contractor customer ID
-                }
-            } as any
+        // 1. Notify Contractor (as before)
+        // Find contractor's user ID (the one who generated the token)
+        const contractorCustomer = await prisma.customer.findUnique({
+            where: { id: reportToken.contractorId },
+            select: { userId: true }
         })
+
+        if (contractorCustomer?.userId) {
+            await prisma.notification.create({
+                data: {
+                    type: 'ORDER_UPDATE',
+                    title: '👷 Báo cáo mới từ công trường!',
+                    message: `Thợ ${workerName} vừa gửi ảnh báo cáo cho dự án "${reportToken.project.title}".`,
+                    priority: 'MEDIUM',
+                    userId: contractorCustomer.userId,
+                    metadata: {
+                        reportId: report.id,
+                        projectId: reportToken.projectId
+                    }
+                } as any
+            })
+        }
+
+        // 2. Notify Customer if milestone is associated (Smart Milestone Release flow)
+        if (milestoneId) {
+            const milestone = await (prisma as any).paymentMilestone.findUnique({
+                where: { id: milestoneId }
+            })
+
+            const customerUserId = reportToken.project.customer.userId
+
+            if (customerUserId) {
+                await prisma.notification.create({
+                    data: {
+                        type: 'SUCCESS',
+                        title: '🏗️ Giai đoạn thi công hoàn tất!',
+                        message: `Giai đoạn "${milestone?.name || 'mới'}" của dự án "${reportToken.project.title}" đã có báo cáo hoàn thành. Vui lòng kiểm tra và xác nhận giải ngân.`,
+                        priority: 'HIGH',
+                        userId: customerUserId,
+                        metadata: {
+                            reportId: report.id,
+                            projectId: reportToken.projectId,
+                            milestoneId: milestoneId,
+                            action: 'RELEASE_PAYMENT'
+                        }
+                    } as any
+                })
+            }
+        }
 
         return NextResponse.json(createSuccessResponse(report, 'Đã gửi báo cáo thành công!'))
     } catch (error) {

@@ -129,7 +129,7 @@ export async function PUT(
       }
 
       // Update order
-      return await tx.order.update({
+      const order = await tx.order.update({
         where: { id: orderId },
         data: updateData,
         include: {
@@ -142,9 +142,27 @@ export async function PUT(
             include: {
               product: true
             }
-          }
+          },
+          delivery: true
         }
       })
+
+      // NEW: Flow 2 - Driver App: If status is SHIPPED, generate a delivery link
+      if (status === 'SHIPPED' && !order.delivery) {
+        const { nanoid } = await import('nanoid')
+        const token = nanoid(12)
+        await (tx as any).orderDelivery.create({
+          data: {
+            orderId: order.id,
+            deliveryToken: token,
+            status: 'SHIPPED'
+          }
+        })
+          // Assign the delivery back to the order object for the return response
+          ; (order as any).delivery = { deliveryToken: token }
+      }
+
+      return order
     })
 
     logger.info('Order status updated', {
