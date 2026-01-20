@@ -10,6 +10,7 @@ import { AuthProvider } from '@/contexts/auth-context'
 import { GoogleProvider } from '@/components/GoogleProvider'
 import RealtimeNotificationWatcher from '@/components/RealtimeNotificationWatcher'
 import Footer from '@/components/Footer'
+import SystemInterceptor from '@/components/SystemInterceptor'
 // import { ErrorBoundary } from '@/components/ErrorBoundary' // Temporarily disabled
 
 const inter = Inter({ subsets: ['latin'] })
@@ -57,6 +58,7 @@ export default function RootLayout({
       <body className={inter.className}>
         <GoogleProvider>
           <AuthProvider>
+            <SystemInterceptor />
             <ConsoleGuard />
             <ContractorRedirect />
             <AdminRedirect />

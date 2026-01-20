@@ -13,6 +13,7 @@ import SuggestedProjectsWidget from '../components/SuggestedProjectsWidget'
 import NotificationPrefsWidget from '../components/NotificationPrefsWidget'
 import WorkerReportWidget from '../components/WorkerReportWidget'
 import FinancialDashboard from '@/components/contractor/FinancialDashboard'
+import ContractorOnboardingBanner from '@/components/ContractorOnboardingBanner'
 import {
     Building2,
     Bell,
@@ -25,16 +26,31 @@ import {
 export default function ContractorDashboardPage() {
     const [sidebarOpen, setSidebarOpen] = useState(false)
     const [user, setUser] = useState<any>(null)
+    const [profile, setProfile] = useState<any>(null)
     const router = useRouter()
 
     useEffect(() => {
         const userData = localStorage.getItem('user')
         if (userData) {
-            setUser(JSON.parse(userData))
+            const parsedUser = JSON.parse(userData)
+            setUser(parsedUser)
+            fetchProfile(parsedUser.id)
         } else {
             router.push('/login')
         }
     }, [router])
+
+    const fetchProfile = async (userId: string) => {
+        try {
+            const res = await fetch(`/api/contractor/profile?userId=${userId}`)
+            if (res.ok) {
+                const data = await res.json()
+                setProfile(data.data)
+            }
+        } catch (err) {
+            console.error('Error fetching profile')
+        }
+    }
 
     const handleLogout = () => {
         localStorage.clear()
@@ -103,6 +119,9 @@ export default function ContractorDashboardPage() {
             {/* Main Content */}
             <main className="lg:ml-64 pt-[73px]">
                 <div className="p-6 lg:p-8 max-w-7xl mx-auto">
+                    {/* Onboarding Banner */}
+                    <ContractorOnboardingBanner user={user} profile={profile} />
+
                     {/* Welcome Banner */}
                     <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-3xl p-8 mb-8 text-white relative overflow-hidden">
                         <div className="relative z-10">
@@ -126,7 +145,7 @@ export default function ContractorDashboardPage() {
 
                     {/* Preferences, Suggestions and Worker Reports */}
                     <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-8">
-                        <WorkerReportWidget />
+                        <WorkerReportWidget projectId="active" />
                         <NotificationPrefsWidget />
                         <SuggestedProjectsWidget />
                     </div>

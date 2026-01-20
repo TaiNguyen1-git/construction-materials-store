@@ -28,6 +28,57 @@ model Banner {
   @@index([order])
 }
 
+// System Announcements (Maintenance, Features, Alerts)
+model SystemAnnouncement {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  title       String
+  content     String
+  type        AnnouncementType @default(INFO) // MAINTENANCE, FEATURE, POLICY, INFO
+  targetRole  UserRole? // NULL = All, or specific role
+  targetPath  String?   // NULL = Global, or specific path like '/market', '/admin/orders'
+  displayMode DisplayMode @default(MODAL)
+  imageUrl    String?
+  actionLabel String?
+  actionUrl   String?
+  isActive    Boolean  @default(true)
+  startTime   DateTime @default(now())
+  endTime     DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("system_announcements")
+  @@index([isActive])
+  @@index([startTime, endTime])
+  announcementActions UserAnnouncementAction[]
+}
+
+enum DisplayMode {
+  MODAL
+  BANNER
+}
+
+model UserAnnouncementAction {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId          String   @db.ObjectId
+  announcementId  String   @db.ObjectId
+  action          String   // SEEN, ACCEPTED, DISMISSED
+  createdAt       DateTime @default(now())
+
+  user            User     @relation(fields: [userId], references: [id])
+  announcement    SystemAnnouncement @relation(fields: [announcementId], references: [id])
+
+  @@unique([userId, announcementId])
+  @@map("user_announcement_actions")
+}
+
+enum AnnouncementType {
+  MAINTENANCE
+  FEATURE
+  POLICY
+  INFO
+  DEBT_LOCK
+}
+
 // User Management
 model User {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
@@ -44,11 +95,13 @@ model User {
   // Password reset
   resetToken       String?
   resetTokenExpiry DateTime?
+  mustChangePassword Boolean @default(false)
 
   // Relationships
   employee Employee?
   customer Customer?
-  notifications Notification[]
+  announcementActions UserAnnouncementAction[]
+  notifications       Notification[]
 
   @@map("users")
   @@index([role])
@@ -137,6 +190,7 @@ model Customer {
   reportTokensCreated ProjectReportToken[]
   workerReportsManaged WorkerReport[]
   siteMaterialRequests SiteMaterialRequest[]
+  contractorProfile     ContractorProfile?
   
   @@map("customers")
   @@index([customerType])
@@ -1494,6 +1548,7 @@ enum ContractStatus {
 // MARKETPLACE: CONTRACTOR PROFILES
 // ============================================
 
+
 model ContractorProfile {
   id              String   @id @default(auto()) @map("_id") @db.ObjectId
   customerId      String   @unique
@@ -1503,9 +1558,11 @@ model ContractorProfile {
   email           String?
   website         String?
   companyName     String?
+  customer        Customer @relation(fields: [customerId], references: [id])
   experienceYears Int?
   skills          String[]  // List of skills/specialties
   isVerified      Boolean  @default(false)
+  onboardingStatus String   @default("INCOMPLETE") // INCOMPLETE, PENDING_REVIEW, VERIFIED, REJECTED
   isAvailable     Boolean  @default(true)
   
   // Market filters

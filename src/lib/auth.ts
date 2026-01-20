@@ -6,7 +6,8 @@ import { cookies } from 'next/headers'
 export enum UserRole {
   MANAGER = 'MANAGER',
   EMPLOYEE = 'EMPLOYEE',
-  CUSTOMER = 'CUSTOMER'
+  CUSTOMER = 'CUSTOMER',
+  CONTRACTOR = 'CONTRACTOR'
 }
 
 export interface JWTPayload extends JwtPayload {

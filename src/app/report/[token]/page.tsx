@@ -8,6 +8,7 @@
 import { useState, useEffect } from 'react'
 import { Camera, Send, CheckCircle2, Loader2, HardHat, MapPin, AlertCircle, Package, Plus, Trash2, ChevronRight } from 'lucide-react'
 import { useParams } from 'next/navigation'
+import Link from 'next/link'
 import toast from 'react-hot-toast'
 
 export default function WorkerReportPage() {
@@ -167,12 +168,33 @@ export default function WorkerReportPage() {
                 <h1 className="text-2xl font-black text-gray-900 mb-2">ĐÃ GỬI THÀNH CÔNG!</h1>
                 <p className="text-gray-600 mb-8">
                     {activeTab === 'PHOTO'
-                        ? 'Ảnh của bạn đã được gửi đến chủ thầu và khách hàng. Cảm ơn!'
+                        ? 'Ảnh chủa bạn đã được gửi đến chủ thầu và khách hàng. Cảm ơn!'
                         : 'Yêu cầu vật tư đã được gửi. Chúng tôi sẽ xử lý sớm nhất.'}
                 </p>
+
+                {/* Growth Hack: Claim Profile Widget */}
+                <div className="bg-white p-5 rounded-2xl shadow-xl w-full mb-6 relative overflow-hidden border border-blue-100">
+                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-purple-500"></div>
+                    <div className="flex items-start gap-3 text-left">
+                        <div className="bg-blue-100 p-2 rounded-lg">
+                            <HardHat className="w-6 h-6 text-blue-600" />
+                        </div>
+                        <div>
+                            <h3 className="font-bold text-gray-900 text-sm">Bạn là thợ chuyên nghiệp?</h3>
+                            <p className="text-xs text-gray-500 mt-1">Lưu lại lịch sử làm việc này vào hồ sơ để tăng uy tín và nhận thêm việc mới.</p>
+                        </div>
+                    </div>
+                    <Link
+                        href={`/worker/claim-profile?token=${token}&name=${workerName}`}
+                        className="mt-4 w-full py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold rounded-xl text-sm flex items-center justify-center gap-2 shadow-lg shadow-blue-200"
+                    >
+                        Tạo Hồ Sơ Thợ Ngay <ChevronRight className="w-4 h-4" />
+                    </Link>
+                </div>
+
                 <button
                     onClick={() => { setStep(1); setPreview(null); setNotes(''); }}
-                    className="w-full py-4 bg-blue-600 text-white font-bold rounded-2xl shadow-lg"
+                    className="w-full py-4 bg-white text-blue-600 font-bold rounded-2xl shadow-md border border-blue-100"
                 >
                     Gửi thêm nội dung khác
                 </button>
