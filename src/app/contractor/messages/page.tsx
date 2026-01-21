@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import {
     Send, Paperclip, MessageCircle,
@@ -12,7 +12,7 @@ import ContractorHeader from '../components/ContractorHeader'
 import { getAuthHeaders } from '@/lib/api-client'
 import toast, { Toaster } from 'react-hot-toast'
 
-export default function MessagesPage() {
+function MessagesContent() {
     const searchParams = useSearchParams()
     const [sidebarOpen, setSidebarOpen] = useState(true)
     const [user, setUser] = useState<any>(null)
@@ -173,5 +173,17 @@ export default function MessagesPage() {
                 </div>
             </main>
         </div>
+    )
+}
+
+export default function MessagesPage() {
+    return (
+        <Suspense fallback={
+            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+                <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+            </div>
+        }>
+            <MessagesContent />
+        </Suspense>
     )
 }
