@@ -2,9 +2,10 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Megaphone, Plus, Trash2, Power, Calendar, AlignLeft, Tag, X, Image as ImageIcon, Link as LinkIcon, Monitor, MapPin, ChevronDown, Search } from 'lucide-react'
+import { Megaphone, Plus, Trash2, Power, Calendar, AlignLeft, Tag, X, Image as ImageIcon, Link as LinkIcon, Monitor, MapPin, ChevronDown, Search, Upload, Loader2 } from 'lucide-react'
 import toast, { Toaster } from 'react-hot-toast'
 import { getGroupedTargets, getTargetLabel, MAINTENANCE_TARGETS } from '@/lib/maintenance-targets'
+import { getAuthHeaders } from '@/lib/api-client'
 
 export default function AdminAnnouncementsPage() {
     const [announcements, setAnnouncements] = useState<any[]>([])
@@ -12,8 +13,10 @@ export default function AdminAnnouncementsPage() {
     const [showForm, setShowForm] = useState(false)
     const [showTargetPicker, setShowTargetPicker] = useState(false)
     const [searchTarget, setSearchTarget] = useState('')
+    const [uploading, setUploading] = useState(false)
+    const [editingId, setEditingId] = useState<string | null>(null)
 
-    // Form State
+    // State
     const [formData, setFormData] = useState({
         title: '',
         content: '',
@@ -22,18 +25,37 @@ export default function AdminAnnouncementsPage() {
         imageUrl: '',
         actionLabel: '',
         actionUrl: '',
-        targetPath: '', // Will store the KEY like 'FEATURE_CHATBOT'
+        targetPath: '',
         startTime: new Date().toISOString().slice(0, 16),
         endTime: '',
         isActive: true
     })
+
+    const resetForm = () => {
+        setFormData({
+            title: '',
+            content: '',
+            type: 'INFO',
+            displayMode: 'MODAL',
+            imageUrl: '',
+            actionLabel: '',
+            actionUrl: '',
+            targetPath: '',
+            startTime: new Date().toISOString().slice(0, 16),
+            endTime: '',
+            isActive: true
+        })
+        setEditingId(null)
+    }
 
     const groupedTargets = getGroupedTargets()
 
     const fetchAnnouncements = async () => {
         setLoading(true)
         try {
-            const res = await fetch('/api/admin/announcements')
+            const res = await fetch('/api/admin/announcements', {
+                headers: getAuthHeaders()
+            })
             const json = await res.json()
             if (res.ok) setAnnouncements(json.data || [])
         } catch (err) {
@@ -50,33 +72,60 @@ export default function AdminAnnouncementsPage() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
         try {
-            const res = await fetch('/api/admin/announcements', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(formData)
+            const isEditing = !!editingId
+            const url = '/api/admin/announcements'
+            const method = isEditing ? 'PUT' : 'POST'
+            const body = isEditing ? { ...formData, id: editingId } : formData
+
+            const res = await fetch(url, {
+                method,
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...getAuthHeaders()
+                },
+                body: JSON.stringify(body)
             })
+
             if (res.ok) {
-                toast.success('Đã tạo thông báo mới')
+                toast.success(isEditing ? 'Đã cập nhật thông báo' : 'Đã tạo thông báo mới')
                 setShowForm(false)
                 fetchAnnouncements()
-                setFormData({
-                    title: '', content: '', type: 'INFO', displayMode: 'MODAL',
-                    imageUrl: '', actionLabel: '', actionUrl: '', targetPath: '',
-                    startTime: new Date().toISOString().slice(0, 16), endTime: '', isActive: true
-                })
+                resetForm()
             } else {
-                toast.error('Lỗi khi tạo')
+                const error = await res.json()
+                toast.error(error.message || `Lỗi khi ${isEditing ? 'cập nhật' : 'tạo'}`)
             }
         } catch (e) {
             toast.error('Lỗi kết nối')
         }
     }
 
+    const startEdit = (ann: any) => {
+        setFormData({
+            title: ann.title || '',
+            content: ann.content || '',
+            type: ann.type || 'INFO',
+            displayMode: ann.displayMode || 'MODAL',
+            imageUrl: ann.imageUrl || '',
+            actionLabel: ann.actionLabel || '',
+            actionUrl: ann.actionUrl || '',
+            targetPath: ann.targetPath || '',
+            startTime: ann.startTime ? new Date(ann.startTime).toISOString().slice(0, 16) : new Date().toISOString().slice(0, 16),
+            endTime: ann.endTime ? new Date(ann.endTime).toISOString().slice(0, 16) : '',
+            isActive: ann.isActive ?? true
+        })
+        setEditingId(ann.id)
+        setShowForm(true)
+    }
+
     const toggleStatus = async (id: string, currentStatus: boolean) => {
         try {
             const res = await fetch('/api/admin/announcements', {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...getAuthHeaders()
+                },
                 body: JSON.stringify({ id, isActive: !currentStatus })
             })
             if (res.ok) {
@@ -88,10 +137,44 @@ export default function AdminAnnouncementsPage() {
         }
     }
 
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0]
+        if (!file) return
+
+        setUploading(true)
+        const toastId = toast.loading('Đang tải ảnh lên...')
+
+        try {
+            const uploadData = new FormData()
+            uploadData.append('file', file)
+
+            const res = await fetch('/api/upload/secure', {
+                method: 'POST',
+                headers: getAuthHeaders(),
+                body: uploadData
+            })
+
+            const result = await res.json()
+            if (res.ok) {
+                setFormData(prev => ({ ...prev, imageUrl: `/api/files/${result.fileId}` }))
+                toast.success('Đã tải ảnh thành công', { id: toastId })
+            } else {
+                toast.error(result.error || 'Lỗi khi tải ảnh', { id: toastId })
+            }
+        } catch (error) {
+            toast.error('Lỗi kết nối khi tải ảnh', { id: toastId })
+        } finally {
+            setUploading(false)
+        }
+    }
+
     const handleDelete = async (id: string) => {
         if (!confirm('Bạn chắc chắn muốn xóa?')) return
         try {
-            const res = await fetch(`/api/admin/announcements?id=${id}`, { method: 'DELETE' })
+            const res = await fetch(`/api/admin/announcements?id=${id}`, {
+                method: 'DELETE',
+                headers: getAuthHeaders()
+            })
             if (res.ok) {
                 toast.success('Đã xóa')
                 fetchAnnouncements()
@@ -122,7 +205,7 @@ export default function AdminAnnouncementsPage() {
                     <p className="text-gray-500 mt-2">Tạo thông báo bảo trì, tin tức, hoặc giới thiệu tính năng mới.</p>
                 </div>
                 <button
-                    onClick={() => setShowForm(true)}
+                    onClick={() => { resetForm(); setShowForm(true); }}
                     className="bg-black text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-gray-800 transition-all shadow-lg"
                 >
                     <Plus className="w-5 h-5" /> Tạo Thông Báo
@@ -133,10 +216,12 @@ export default function AdminAnnouncementsPage() {
             {showForm && (
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
                     <div className="bg-white rounded-3xl w-full max-w-2xl p-8 shadow-2xl relative max-h-[90vh] overflow-y-auto">
-                        <button onClick={() => setShowForm(false)} className="absolute top-6 right-6 text-gray-400 hover:text-black bg-gray-100 p-2 rounded-full">
+                        <button onClick={() => { setShowForm(false); resetForm(); }} className="absolute top-6 right-6 text-gray-400 hover:text-black bg-gray-100 p-2 rounded-full">
                             <X className="w-5 h-5" />
                         </button>
-                        <h2 className="text-2xl font-black mb-6">Cấu hình thông báo mới</h2>
+                        <h2 className="text-2xl font-black mb-6">
+                            {editingId ? 'Chỉnh sửa thông báo' : 'Cấu hình thông báo mới'}
+                        </h2>
 
                         <form onSubmit={handleSubmit} className="space-y-6">
                             {/* Title */}
@@ -267,31 +352,58 @@ export default function AdminAnnouncementsPage() {
                             </div>
 
                             {/* Image & CTA */}
-                            <div className="grid grid-cols-2 gap-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div>
-                                    <label className="block text-xs font-black text-gray-400 uppercase mb-2 tracking-widest">Hình ảnh (URL)</label>
-                                    <input
-                                        className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium outline-none"
-                                        placeholder="https://..."
-                                        value={formData.imageUrl}
-                                        onChange={e => setFormData({ ...formData, imageUrl: e.target.value })}
-                                    />
+                                    <label className="block text-xs font-black text-gray-400 uppercase mb-2 tracking-widest flex justify-between items-center">
+                                        <span>Hình ảnh</span>
+                                        <span className="text-[10px] lowercase font-medium">URL hoặc tải file</span>
+                                    </label>
+                                    <div className="space-y-2">
+                                        <input
+                                            className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500/20"
+                                            placeholder="URL hình ảnh (https://...)"
+                                            value={formData.imageUrl}
+                                            onChange={e => setFormData({ ...formData, imageUrl: e.target.value })}
+                                        />
+                                        <div className="flex items-center gap-2">
+                                            <label className={`flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-xl border-2 border-dashed cursor-pointer transition-all ${uploading ? 'bg-gray-50 border-gray-200' : 'bg-blue-50/30 border-blue-200 hover:bg-blue-50 hover:border-blue-400'}`}>
+                                                {uploading ? <Loader2 className="w-4 h-4 animate-spin text-blue-600" /> : <Upload className="w-4 h-4 text-blue-600" />}
+                                                <span className="text-xs font-bold text-blue-700">{uploading ? 'Đang tải...' : 'Tải lên từ máy'}</span>
+                                                <input type="file" className="hidden" onChange={handleFileUpload} accept="image/*" disabled={uploading} />
+                                            </label>
+                                            {formData.imageUrl && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setFormData({ ...formData, imageUrl: '' })}
+                                                    className="px-3 py-2 text-xs font-bold text-red-600 bg-red-50 rounded-xl hover:bg-red-100"
+                                                >
+                                                    Xóa
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
                                 </div>
-                                <div>
-                                    <label className="block text-xs font-black text-gray-400 uppercase mb-2 tracking-widest">Nút hành động</label>
-                                    <div className="flex gap-2">
-                                        <input
-                                            className="flex-1 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm font-bold outline-none"
-                                            placeholder="Nhãn nút"
-                                            value={formData.actionLabel}
-                                            onChange={e => setFormData({ ...formData, actionLabel: e.target.value })}
-                                        />
-                                        <input
-                                            className="flex-1 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm font-medium outline-none"
-                                            placeholder="Link"
-                                            value={formData.actionUrl}
-                                            onChange={e => setFormData({ ...formData, actionUrl: e.target.value })}
-                                        />
+                                <div className="space-y-4">
+                                    <label className="block text-xs font-black text-gray-400 uppercase tracking-widest">Nút hành động (CTA)</label>
+                                    <div className="grid grid-cols-1 gap-2">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-[10px] font-black text-gray-400 w-12 shrink-0">Nhãn:</span>
+                                            <input
+                                                className="flex-1 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm font-bold outline-none focus:border-blue-500"
+                                                placeholder="Vd: Xem chi tiết"
+                                                value={formData.actionLabel}
+                                                onChange={e => setFormData({ ...formData, actionLabel: e.target.value })}
+                                            />
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-[10px] font-black text-gray-400 w-12 shrink-0">Link:</span>
+                                            <input
+                                                className="flex-1 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm font-medium outline-none focus:border-blue-500"
+                                                placeholder="/products..."
+                                                value={formData.actionUrl}
+                                                onChange={e => setFormData({ ...formData, actionUrl: e.target.value })}
+                                            />
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -312,7 +424,7 @@ export default function AdminAnnouncementsPage() {
                                     <input
                                         type="datetime-local"
                                         className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-sm font-bold outline-none"
-                                        value={formData.endTime}
+                                        value={formData.endTime || ''}
                                         onChange={e => setFormData({ ...formData, endTime: e.target.value })}
                                     />
                                 </div>
@@ -332,8 +444,8 @@ export default function AdminAnnouncementsPage() {
                                 <span className="font-bold text-sm text-gray-700">Kích hoạt ngay</span>
                             </label>
 
-                            <button type="submit" className="w-full bg-blue-600 text-white font-black py-4 rounded-2xl hover:bg-blue-700 shadow-xl shadow-blue-200 transition-all">
-                                ĐĂNG THÔNG BÁO
+                            <button type="submit" className="w-full bg-blue-600 text-white font-black py-4 rounded-2xl hover:bg-blue-700 shadow-xl shadow-blue-200 transition-all uppercase tracking-widest">
+                                {editingId ? 'Cập nhật thay đổi' : 'Đăng thông báo ngay'}
                             </button>
                         </form>
                     </div>
@@ -347,9 +459,9 @@ export default function AdminAnnouncementsPage() {
                         <div className="flex justify-between items-start">
                             <div className="flex gap-6 w-full">
                                 <div className={`w-16 h-16 rounded-2xl flex items-center justify-center shrink-0 ${ann.type === 'MAINTENANCE' ? 'bg-yellow-100 text-yellow-600' :
-                                        ann.type === 'FEATURE' ? 'bg-purple-100 text-purple-600' :
-                                            ann.type === 'POLICY' ? 'bg-blue-100 text-blue-600' :
-                                                'bg-gray-100 text-gray-500'
+                                    ann.type === 'FEATURE' ? 'bg-purple-100 text-purple-600' :
+                                        ann.type === 'POLICY' ? 'bg-blue-100 text-blue-600' :
+                                            'bg-gray-100 text-gray-500'
                                     }`}>
                                     <Megaphone className="w-7 h-7" />
                                 </div>
@@ -386,9 +498,17 @@ export default function AdminAnnouncementsPage() {
                             <div className="flex flex-col gap-2 ml-4">
                                 <button
                                     onClick={() => toggleStatus(ann.id, ann.isActive)}
-                                    className={`p-3 rounded-2xl transition-all ${ann.isActive ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-500'}`}
+                                    className={`p-3 rounded-2xl transition-all shadow-sm ${ann.isActive ? 'bg-green-500 text-white' : 'bg-white text-gray-400 border border-gray-100 hover:border-gray-200'}`}
+                                    title={ann.isActive ? 'Tắt hiển thị' : 'Bật hiển thị'}
                                 >
                                     <Power className="w-5 h-5" />
+                                </button>
+                                <button
+                                    onClick={() => startEdit(ann)}
+                                    className="p-3 bg-white text-blue-600 rounded-2xl border border-blue-50 hover:bg-blue-50 transition-all shadow-sm"
+                                    title="Chỉnh sửa"
+                                >
+                                    <AlignLeft className="w-5 h-5" />
                                 </button>
                                 <button
                                     onClick={() => handleDelete(ann.id)}

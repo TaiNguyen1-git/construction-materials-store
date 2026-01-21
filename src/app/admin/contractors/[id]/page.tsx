@@ -15,6 +15,8 @@ import {
     Calendar, FileText, TrendingUp, Wallet
 } from 'lucide-react'
 import toast from 'react-hot-toast'
+import jsPDF from 'jspdf'
+import html2canvas from 'html2canvas-pro'
 
 export default function AdminContractorDetail({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params)
@@ -59,6 +61,118 @@ export default function AdminContractorDetail({ params }: { params: Promise<{ id
                 toast.error('Lỗi khi cập nhật')
             }
         } catch (err) {
+            toast.error('Lỗi kết nối')
+        } finally {
+            setActionLoading(false)
+        }
+    }
+
+    const handleExportPDF = async () => {
+        const element = document.getElementById('contractor-profile-report')
+        if (!element) {
+            toast.error('Không tìm thấy vùng dữ liệu để xuất PDF')
+            return
+        }
+
+        toast.loading('Đang khởi tạo bản trình bày hồ sơ...', { id: 'pdf' })
+
+        try {
+            const canvas = await html2canvas(element, {
+                scale: 2,
+                useCORS: true,
+                logging: false,
+                backgroundColor: '#F8FAFC'
+            })
+
+            const imgData = canvas.toDataURL('image/png')
+            const pdf = new jsPDF({
+                orientation: 'portrait',
+                unit: 'px',
+                format: [canvas.width / 2, canvas.height / 2]
+            })
+
+            const imgProps = pdf.getImageProperties(imgData)
+            const pdfWidth = pdf.internal.pageSize.getWidth()
+            const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width
+
+            pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight)
+            const sanitizedName = profile.displayName
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '')
+                .replace(/đ/g, 'd')
+                .replace(/Đ/g, 'D')
+                .replace(/\s+/g, '-');
+
+            pdf.save(`Ho-So-Nha-Thau-${sanitizedName}.pdf`)
+
+            toast.success('Hồ sơ năng lực đã được xuất thành công!', { id: 'pdf' })
+        } catch (error) {
+            console.error('PDF Export Error:', error)
+            toast.error('Lỗi khi xuất PDF', { id: 'pdf' })
+        }
+    }
+
+    const handleAdjustCredit = async () => {
+        const currentLimit = profile.customer.creditLimit || 0
+        const input = prompt(`Nhập hạn mức nợ mới (Hiện tại: ${currentLimit.toLocaleString('vi-VN')} VNĐ):`, currentLimit.toString())
+
+        if (input === null) return
+
+        const newLimit = parseFloat(input)
+        if (isNaN(newLimit)) {
+            toast.error('Vui lòng nhập số hợp lệ')
+            return
+        }
+
+        setActionLoading(true)
+        try {
+            const res = await fetch(`/api/admin/contractors/${id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ creditLimit: newLimit })
+            })
+
+            if (res.ok) {
+                toast.success('Đã cập nhật hạn mức nợ')
+                fetchContractorDetails() // Refresh data
+            } else {
+                toast.error('Lỗi khi cập nhật hạn mức')
+            }
+        } catch (err) {
+            toast.error('Lỗi kết nối')
+        } finally {
+            setActionLoading(false)
+        }
+    }
+
+    const handleReportViolation = async () => {
+        const reason = prompt('Lý do gửi thông báo vi phạm:')
+        if (!reason) return
+
+        setActionLoading(true)
+        try {
+            const res = await fetch('/api/admin/notifications', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    userId: profile.user.id,
+                    title: '⚠️ Thông báo vi phạm quy tắc hệ thống',
+                    message: `Admin đã gửi cảnh báo vi phạm cho hồ sơ của bạn. Lý do: ${reason}. Vui lòng kiểm tra lại thông tin và tuân thủ các quy định của sàn.`,
+                    type: 'WARNING',
+                    priority: 'URGENT',
+                    metadata: {
+                        action: 'RE-VERIFY',
+                        reason: reason
+                    }
+                })
+            })
+
+            if (res.ok) {
+                toast.success(`Đã gửi thông báo vi phạm tới ${profile.displayName}.`)
+            } else {
+                toast.error('Lỗi khi gửi thông báo')
+            }
+        } catch (error) {
             toast.error('Lỗi kết nối')
         } finally {
             setActionLoading(false)
@@ -124,7 +238,7 @@ export default function AdminContractorDetail({ params }: { params: Promise<{ id
                 </div>
             </div>
 
-            <div className="max-w-7xl mx-auto px-6 mt-10">
+            <div className="max-w-7xl mx-auto px-6 mt-10" id="contractor-profile-report">
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
 
                     {/* Left Column: Profile Card */}
@@ -176,9 +290,9 @@ export default function AdminContractorDetail({ params }: { params: Promise<{ id
                                 Thao tác nhanh
                             </h4>
                             <div className="grid grid-cols-1 gap-3">
-                                <ActionButton icon={FileText} label="Xuất hồ sơ năng lực (PDF)" />
-                                <ActionButton icon={DollarSign} label="Điều chỉnh hạn mức nợ" />
-                                <ActionButton icon={AlertCircle} label="Gửi thông báo vi phạm" color="red" />
+                                <ActionButton icon={FileText} label="Xuất hồ sơ năng lực (PDF)" onClick={handleExportPDF} />
+                                <ActionButton icon={DollarSign} label="Điều chỉnh hạn mức nợ" onClick={handleAdjustCredit} disabled={actionLoading} />
+                                <ActionButton icon={AlertCircle} label="Gửi thông báo vi phạm" color="red" onClick={handleReportViolation} disabled={actionLoading} />
                             </div>
                         </div>
                     </div>
@@ -247,8 +361,8 @@ export default function AdminContractorDetail({ params }: { params: Promise<{ id
                                                     </p>
                                                 </div>
                                                 <div className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-tighter border ${p.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
-                                                        p.status === 'ACCEPTED' ? 'bg-blue-50 text-blue-600 border-blue-100' :
-                                                            'bg-slate-50 text-slate-500 border-slate-100'
+                                                    p.status === 'ACCEPTED' ? 'bg-blue-50 text-blue-600 border-blue-100' :
+                                                        'bg-slate-50 text-slate-500 border-slate-100'
                                                     }`}>
                                                     {p.status}
                                                 </div>
@@ -313,13 +427,17 @@ function HighlightCard({ icon: Icon, label, value, sub, color }: any) {
     )
 }
 
-function ActionButton({ icon: Icon, label, color = 'blue' }: { icon: LucideIcon, label: string, color?: string }) {
+function ActionButton({ icon: Icon, label, color = 'blue', onClick, disabled }: { icon: LucideIcon, label: string, color?: string, onClick?: () => void, disabled?: boolean }) {
     const colors: any = {
         blue: 'text-blue-600 bg-blue-50 border-blue-100 hover:bg-blue-100',
         red: 'text-red-600 bg-red-50 border-red-100 hover:bg-red-100'
     }
     return (
-        <button className={`flex items-center gap-3 p-4 rounded-2xl border transition-all text-sm font-bold ${colors[color]}`}>
+        <button
+            onClick={onClick}
+            disabled={disabled}
+            className={`flex items-center gap-3 p-4 rounded-2xl border transition-all text-sm font-bold ${colors[color]} ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+        >
             <Icon className="w-5 h-5" />
             {label}
         </button>

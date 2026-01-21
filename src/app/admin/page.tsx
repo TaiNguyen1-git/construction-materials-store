@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { fetchWithAuth } from '@/lib/api-client'
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, AreaChart, Area, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
-import { Package, ShoppingCart, ClipboardList, FileText, AlertTriangle, Users, DollarSign, Clock, Star, RefreshCw, Brain, TrendingUp } from 'lucide-react'
+import { Package, ShoppingCart, ClipboardList, FileText, AlertTriangle, Users, DollarSign, Clock, Star, RefreshCw } from 'lucide-react'
 
 interface DashboardStats {
   totalProducts: number
@@ -32,12 +32,9 @@ export default function AdminDashboard() {
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
   const [isSendingReport, setIsSendingReport] = useState(false)
-  const [predictions, setPredictions] = useState<any>(null)
-  const [showReorderModal, setShowReorderModal] = useState(false)
 
   useEffect(() => {
     fetchDashboardData(true)
-    fetchPredictions()
 
     // Auto-refresh every 30 seconds (without showing loading spinner)
     const interval = setInterval(() => {
@@ -47,17 +44,6 @@ export default function AdminDashboard() {
     return () => clearInterval(interval)
   }, [])
 
-  const fetchPredictions = async () => {
-    try {
-      const response = await fetchWithAuth('/api/dashboard/predictions')
-      if (response.ok) {
-        const result = await response.json()
-        setPredictions(result.data)
-      }
-    } catch (error) {
-      console.error('Failed to fetch predictions:', error)
-    }
-  }
 
   const handleSendReport = async () => {
     try {
@@ -314,113 +300,6 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* AI Predictions Widget */}
-      {predictions && (
-        <div className="bg-gradient-to-r from-purple-600 to-indigo-600 rounded-lg shadow-lg p-6 text-white">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
-                <Brain className="w-6 h-6" />
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold">AI Predictions Dashboard</h3>
-                <p className="text-purple-200 text-sm">Dự đoán thông minh bằng Prophet ML</p>
-              </div>
-            </div>
-            <Link href="/admin/ml-training" className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg text-sm transition-colors">
-              Quản lý Model
-            </Link>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-            <div className="bg-white/10 rounded-lg p-4">
-              <p className="text-purple-200 text-sm">Sản phẩm dự đoán</p>
-              <p className="text-2xl font-bold">{predictions.summary?.totalProducts || 0}</p>
-            </div>
-            <div className="bg-white/10 rounded-lg p-4">
-              <p className="text-purple-200 text-sm">Độ tin cậy TB</p>
-              <p className="text-2xl font-bold">{predictions.summary?.avgConfidence || 0}%</p>
-            </div>
-            <div className="bg-white/10 rounded-lg p-4">
-              <p className="text-purple-200 text-sm">Độ chính xác TB</p>
-              <p className="text-2xl font-bold">{predictions.summary?.avgAccuracy || 'N/A'}%</p>
-            </div>
-            <div className="bg-white/10 rounded-lg p-4">
-              <p className="text-purple-200 text-sm">Cần nhập hàng</p>
-              <p className="text-2xl font-bold">{predictions.summary?.productsNeedingReorder || 0}</p>
-            </div>
-          </div>
-
-          {predictions.needReorder?.length > 0 && (
-            <div className="bg-white/10 rounded-lg p-4">
-              <div className="flex items-center justify-between mb-3">
-                <h4 className="font-semibold flex items-center gap-2">
-                  <TrendingUp className="w-4 h-4" />
-                  Gợi ý Nhập Hàng Thông Minh
-                </h4>
-                <button
-                  onClick={() => setShowReorderModal(true)}
-                  className="text-sm underline hover:no-underline"
-                >
-                  Xem tất cả
-                </button>
-              </div>
-              <div className="space-y-2">
-                {predictions.needReorder.slice(0, 3).map((item: any, idx: number) => (
-                  <div key={idx} className="flex items-center justify-between py-2 border-b border-white/10 last:border-0">
-                    <div>
-                      <p className="font-medium">{item.productName}</p>
-                      <p className="text-sm text-purple-200">Tồn: {item.currentStock} | Dự đoán: {item.predictedDemand} {item.unit}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-bold text-yellow-300">+{item.recommendedOrder} {item.unit}</p>
-                      <p className="text-xs text-purple-200">{item.confidence}% tin cậy</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Reorder Modal */}
-      {showReorderModal && predictions?.needReorder && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[80vh] overflow-hidden">
-            <div className="p-4 border-b flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-gray-900">Gợi ý Nhập Hàng Thông Minh</h3>
-              <button onClick={() => setShowReorderModal(false)} className="text-gray-500 hover:text-gray-700">✕</button>
-            </div>
-            <div className="p-4 overflow-y-auto max-h-96">
-              <table className="min-w-full text-sm">
-                <thead>
-                  <tr className="border-b">
-                    <th className="text-left py-2">Sản phẩm</th>
-                    <th className="text-right py-2">Tồn kho</th>
-                    <th className="text-right py-2">Dự đoán</th>
-                    <th className="text-right py-2">Đề xuất</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {predictions.needReorder.map((item: any, idx: number) => (
-                    <tr key={idx} className="border-b">
-                      <td className="py-2">{item.productName}</td>
-                      <td className="text-right py-2">{item.currentStock} {item.unit}</td>
-                      <td className="text-right py-2">{item.predictedDemand} {item.unit}</td>
-                      <td className="text-right py-2 font-bold text-green-600">+{item.recommendedOrder}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <div className="p-4 border-t bg-gray-50 flex justify-end gap-2">
-              <button onClick={() => setShowReorderModal(false)} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg">Đóng</button>
-              <Link href="/admin/inventory" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Quản lý Kho</Link>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Quick Actions */}
       <div className="bg-white rounded-lg shadow">

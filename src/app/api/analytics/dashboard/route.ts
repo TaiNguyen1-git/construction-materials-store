@@ -14,6 +14,8 @@ export async function GET(request: NextRequest) {
     startDate.setDate(startDate.getDate() - days)
     startDate.setHours(0, 0, 0, 0)
 
+    const activeStatuses = ['CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'DEPOSIT_PAID', 'PENDING']
+
     // 1. KPI Stats
     const [
       totalProducts,
@@ -35,12 +37,12 @@ export async function GET(request: NextRequest) {
         where: { createdAt: { gte: startDate } }
       }),
       prisma.order.count({
-        where: { status: { in: ['PENDING', 'CONFIRMED'] } }
+        where: { status: { in: ['PENDING', 'CONFIRMED', 'PENDING_CONFIRMATION', 'PROCESSING'] } }
       }),
       prisma.order.aggregate({
         where: {
           createdAt: { gte: startDate },
-          status: { in: ['DELIVERED', 'SHIPPED'] }
+          status: { in: activeStatuses }
         },
         _sum: { totalAmount: true }
       })
@@ -50,7 +52,7 @@ export async function GET(request: NextRequest) {
     const orders = await prisma.order.findMany({
       where: {
         createdAt: { gte: startDate },
-        status: { in: ['DELIVERED', 'SHIPPED'] }
+        status: { in: activeStatuses }
       },
       select: {
         createdAt: true,
@@ -77,7 +79,7 @@ export async function GET(request: NextRequest) {
     const ordersInRange = await prisma.order.findMany({
       where: {
         createdAt: { gte: startDate },
-        status: { in: ['DELIVERED', 'SHIPPED'] }
+        status: { in: activeStatuses }
       },
       select: { id: true }
     })

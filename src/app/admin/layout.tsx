@@ -24,15 +24,16 @@ import {
   FolderOpen,
   PieChart,
   ChevronDown,
-  ChevronRight,
+  PanelLeftClose,
+  PanelLeftOpen,
+  ChevronLeft,
+  Headset,
+  LineChart,
   Box,
   Briefcase,
-  Receipt,
-  LineChart,
-  Star,
-  Headset,
   ShieldCheck,
-  Sparkles
+  Star,
+  ChevronRight
 } from 'lucide-react'
 import NotificationBell from '@/components/NotificationBell'
 import { useAuth } from '@/contexts/auth-context'
@@ -44,6 +45,7 @@ export default function AdminLayout({
   children: React.ReactNode
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [isCollapsed, setIsCollapsed] = useState(false)
   const pathname = usePathname()
   const router = useRouter()
   const { user, logout } = useAuth()
@@ -51,67 +53,64 @@ export default function AdminLayout({
   // Define full navigation items
   const allGroups = [
     {
-      name: 'Tổng Quan',
+      name: 'Điều Hành',
       items: [
         { name: 'Bảng Điều Khiển', href: '/admin', icon: BarChart3 },
         { name: 'Công Việc Của Tôi', href: '/admin/my-tasks', icon: ClipboardList, roles: ['EMPLOYEE'] },
         { name: 'Hỗ Trợ Khách Hàng', href: '/admin/support', icon: Headset },
-        { name: 'Quản Lý Hình Ảnh (Banner)', href: '/admin/banners', icon: Star },
-        { name: 'Hồ Sơ Cá Nhân', href: '/admin/profile', icon: User },
       ]
     },
     {
-      name: 'Kho & Hàng Hóa',
+      name: 'Kho Hàng',
       icon: Box,
       items: [
+        { name: 'Tồn Kho & Sản Phẩm', href: '/admin/inventory', icon: Package },
         { name: 'Hàng Hóa & Đại Lý', href: '/admin/products', icon: Package },
-        { name: 'Hàng Trong Kho', href: '/admin/inventory', icon: Package },
       ]
     },
     {
-      name: 'Bán Hàng',
+      name: 'Kinh Doanh',
       icon: ShoppingCart,
       items: [
-        { name: 'Đơn Hàng Khách', href: '/admin/orders', icon: ShoppingCart },
-        { name: 'Khách Hàng', href: '/admin/customers', icon: Users },
-        { name: 'Theo Dõi Dự Án', href: '/admin/projects', icon: FolderOpen },
-        { name: 'Số Liệu Bán Hàng', href: '/admin/sales-management', icon: Receipt },
-        { name: 'Đánh Giá Của Khách', href: '/admin/reviews', icon: Star },
+        { name: 'Đơn Hàng & Dự Án', href: '/admin/orders', icon: ShoppingCart },
+        { name: 'Khách Hàng & Đánh Giá', href: '/admin/customers', icon: Users },
+        { name: 'Phân Tích Bán Hàng', href: '/admin/sales-management', icon: LineChart },
       ]
     },
     {
-      name: 'Quản Lý Kinh Doanh',
+      name: 'Tài Chính & Hợp Đồng',
       icon: CreditCard,
       items: [
-        { name: 'Theo Dõi Công Nợ', href: '/admin/credit-management', icon: CreditCard },
-        { name: 'Đặt Hàng Phụ Tùng/Vật Liệu', href: '/admin/procurement-management', icon: Truck },
-        { name: 'Hợp Đồng & Đại Lý', href: '/admin/contract-management', icon: FileText },
+        { name: 'Quản Lý Công Nợ', href: '/admin/credit-management', icon: CreditCard },
+        { name: 'Thu Mua & Nhập Hàng', href: '/admin/procurement-management', icon: Truck },
+        { name: 'Hợp Đồng & Pháp Lý', href: '/admin/contract-management', icon: FileText },
       ]
     },
     {
-      name: 'Vấn Đề Nhân Sự',
+      name: 'Nhân Sự',
       icon: Briefcase,
       roles: ['MANAGER'],
       items: [
         { name: 'Danh Sách Nhân Viên', href: '/admin/hr-management', icon: Users },
-        { name: 'Tính Lương', href: '/admin/payroll', icon: CreditCard },
+        { name: 'Bảng Lương & Phúc Lợi', href: '/admin/payroll', icon: CreditCard },
       ]
     },
     {
-      name: 'Quản Lý Đối Tác & AI',
+      name: 'Đối Tác',
       icon: ShieldCheck,
       items: [
         { name: 'Quản Lý Nhà Thầu', href: '/admin/contractors', icon: Users },
         { name: 'Xác Thực Đối Tác', href: '/admin/contractors/verify', icon: ShieldCheck },
-        { name: 'AI Smart Estimator', href: '/admin/procurement/ai-estimator', icon: Sparkles },
       ]
     },
     {
-      name: 'Báo Cáo Tài Chính',
-      icon: LineChart,
+      name: 'Hệ Thống',
+      icon: Settings,
       roles: ['MANAGER'],
       items: [
-        { name: 'Báo Cáo Lợi Nhuận', href: '/admin/financial-reports', icon: LineChart },
+        { name: 'Thông Báo Hệ Thống', href: '/admin/announcements', icon: Bell },
+        { name: 'Quản Lý Banner', href: '/admin/banners', icon: Star },
+        { name: 'Báo Cáo Lợi Nhuận', href: '/admin/financial-reports', icon: PieChart },
       ]
     },
   ]
@@ -236,18 +235,18 @@ export default function AdminLayout({
       )}
 
       {/* Desktop sidebar */}
-      <div className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0">
+      <div className={`hidden md:flex md:flex-col md:fixed md:inset-y-0 transition-all duration-300 ease-in-out z-30 ${isCollapsed ? 'md:w-20' : 'md:w-64'}`}>
         <div className="flex-1 flex flex-col min-h-0 border-r border-gray-200 bg-white">
           <div className="flex-1 flex flex-col pt-5 pb-4 overflow-y-auto">
-            <div className="flex items-center flex-shrink-0 px-4">
+            <div className={`flex items-center flex-shrink-0 px-4 transition-all ${isCollapsed ? 'justify-center' : ''}`}>
               <Package className="h-8 w-8 text-blue-600" />
-              <span className="ml-2 text-xl font-bold text-gray-900">Bảng Quản Trị</span>
+              {!isCollapsed && <span className="ml-2 text-xl font-bold text-gray-900 truncate">Bảng Quản Trị</span>}
             </div>
             <nav className="mt-5 flex-1 px-2 bg-white space-y-2">
               {navigationGroups.map((group) => (
                 <div key={group.name} className="space-y-1">
                   {/* Group Header */}
-                  {group.items.length > 1 && (
+                  {group.items.length > 1 && !isCollapsed && (
                     <button
                       onClick={() => toggleGroup(group.name)}
                       className="w-full flex items-center justify-between px-2 py-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider hover:bg-gray-50 rounded-md transition-colors"
@@ -263,24 +262,28 @@ export default function AdminLayout({
                       )}
                     </button>
                   )}
+                  {isCollapsed && group.items.length > 1 && (
+                    <div className="h-px bg-gray-100 mx-2 my-2" />
+                  )}
 
                   {/* Group Items */}
-                  {expandedGroups.includes(group.name) && group.items.map((item) => {
+                  {(expandedGroups.includes(group.name) || isCollapsed) && group.items.map((item) => {
                     const isActive = pathname === item.href
                     return (
                       <Link
                         key={item.name}
                         href={item.href}
+                        title={isCollapsed ? item.name : ''}
                         className={`${isActive
                           ? 'bg-blue-50 text-blue-600 border-l-4 border-blue-600'
                           : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900 border-l-4 border-transparent'
-                          } group flex items-center px-3 py-2 text-sm font-medium rounded-r-md transition-all ${group.items.length > 1 ? 'ml-2' : ''}`}
+                          } group flex items-center ${isCollapsed ? 'justify-center px-2' : 'px-3'} py-2.5 text-sm font-medium rounded-r-md transition-all ${group.items.length > 1 && !isCollapsed ? 'ml-2' : ''}`}
                       >
                         <item.icon
                           className={`${isActive ? 'text-blue-600' : 'text-gray-400 group-hover:text-gray-500'
-                            } mr-3 flex-shrink-0 h-5 w-5`}
+                            } flex-shrink-0 h-5 w-5 ${!isCollapsed ? 'mr-3' : ''}`}
                         />
-                        {item.name}
+                        {!isCollapsed && <span className="truncate">{item.name}</span>}
                       </Link>
                     )
                   })}
@@ -288,11 +291,28 @@ export default function AdminLayout({
               ))}
             </nav>
           </div>
+
+          {/* Bottom Toggle Button */}
+          <div className="p-4 border-t border-gray-200">
+            <button
+              onClick={() => setIsCollapsed(!isCollapsed)}
+              className="w-full flex items-center justify-center p-2 rounded-lg bg-gray-50 text-gray-500 hover:bg-blue-50 hover:text-blue-600 transition-all group"
+            >
+              {isCollapsed ? (
+                <PanelLeftOpen className="h-5 w-5" />
+              ) : (
+                <div className="flex items-center">
+                  <PanelLeftClose className="h-5 w-5 mr-3" />
+                  <span className="text-sm font-bold">Thu gọn</span>
+                </div>
+              )}
+            </button>
+          </div>
         </div>
       </div>
 
       {/* Main content */}
-      <div className="md:pl-64 flex flex-col flex-1">
+      <div className={`flex flex-col flex-1 transition-all duration-300 ease-in-out ${isCollapsed ? 'md:pl-20' : 'md:pl-64'}`}>
         <div className="sticky top-0 z-10 md:hidden pl-1 pt-1 sm:pl-3 sm:pt-3">
           <button
             type="button"
@@ -315,10 +335,12 @@ export default function AdminLayout({
                 </h1>
                 <div className="flex items-center space-x-4">
                   <NotificationBell />
-                  <button className="flex items-center text-sm text-gray-700 hover:text-gray-900">
-                    <User className="h-5 w-5 mr-1" />
-                    Quản Trị
-                  </button>
+                  <Link href="/admin/profile" className="flex items-center text-sm text-gray-700 hover:text-blue-600 transition-colors">
+                    <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center mr-2">
+                      <User className="h-4 w-4 text-blue-600" />
+                    </div>
+                    <span className="font-bold hidden sm:inline">{user?.name || 'Quản Trị'}</span>
+                  </Link>
                   <button
                     onClick={handleLogout}
                     className="flex items-center text-sm text-gray-700 hover:text-gray-900 transition-colors"

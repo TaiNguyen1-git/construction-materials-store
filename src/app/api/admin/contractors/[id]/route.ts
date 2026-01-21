@@ -76,3 +76,46 @@ export async function GET(
         )
     }
 }
+
+export async function PATCH(
+    request: NextRequest,
+    { params }: { params: Promise<{ id: string }> }
+) {
+    try {
+        const { id } = await params
+        const body = await request.json()
+        const { creditLimit } = body
+
+        if (creditLimit === undefined) {
+            return NextResponse.json({ error: 'Thiếu thông tin hạn mức' }, { status: 400 })
+        }
+
+        const profile = await prisma.contractorProfile.findUnique({
+            where: { id },
+            select: { customerId: true }
+        })
+
+        if (!profile) {
+            return NextResponse.json({ error: 'Không tìm thấy hồ sơ' }, { status: 404 })
+        }
+
+        const updatedCustomer = await prisma.customer.update({
+            where: { id: profile.customerId },
+            data: {
+                creditLimit: parseFloat(creditLimit)
+            }
+        })
+
+        return NextResponse.json({
+            success: true,
+            data: updatedCustomer
+        })
+
+    } catch (error) {
+        console.error('Error updating credit limit:', error)
+        return NextResponse.json(
+            { error: { message: 'Lỗi khi cập nhật hạn mức nợ' } },
+            { status: 500 }
+        )
+    }
+}
