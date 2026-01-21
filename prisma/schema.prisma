@@ -1793,7 +1793,8 @@ model ConstructionProject {
   contactName     String
   contactPhone    String
   contactEmail    String?
-  customerId      String   @default("guest") // Note: guest projects might have this as a string
+  customerId      String   @default("guest")
+  actualCost      Float    @default(0)
   status          String   @default("OPEN")
   isUrgent        Boolean  @default(false)
   isFeatured      Boolean  @default(false)
@@ -1805,12 +1806,28 @@ model ConstructionProject {
   reportTokens    ProjectReportToken[]
   workerReports   WorkerReport[]
   siteMaterialRequests SiteMaterialRequest[]
+  expenses             ProjectExpense[]
   
   @@map("construction_projects")
   @@index([status])
   @@index([projectType])
   @@index([city])
   @@index([customerId])
+}
+
+model ProjectExpense {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  projectId    String?  @db.ObjectId
+  contractorId String?  @db.ObjectId
+  category     String   // MATERIALS, LABOR, TRANSPORT, OTHER
+  amount       Float
+  notes        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  project      ConstructionProject? @relation(fields: [projectId], references: [id])
+  
+  @@map("project_expenses")
 }
 
 model ProjectApplication {

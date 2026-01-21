@@ -49,10 +49,33 @@ export default function NotificationPrefsWidget() {
     })
     const [hasProfile, setHasProfile] = useState(false)
     const [expanded, setExpanded] = useState(false)
+    const [recentProjects, setRecentProjects] = useState<any[]>([])
+    const [matchCount, setMatchCount] = useState(0)
 
     useEffect(() => {
         fetchPrefs()
+        fetchRecentProjects()
     }, [])
+
+    const fetchRecentProjects = async () => {
+        try {
+            const res = await fetchWithAuth('/api/marketplace/projects/suggested')
+            if (res.ok) {
+                const data = await res.json()
+                if (data.success && data.data) {
+                    const combined = [
+                        ...(data.data.urgent || []),
+                        ...(data.data.matching || []),
+                        ...(data.data.recent || [])
+                    ]
+                    setMatchCount(combined.length)
+                    setRecentProjects(combined.slice(0, 5))
+                }
+            }
+        } catch (err) {
+            console.error('Failed to fetch recent projects')
+        }
+    }
 
     const fetchPrefs = async () => {
         try {
@@ -87,6 +110,8 @@ export default function NotificationPrefsWidget() {
                 if (data.success) {
                     toast.success('Đã lưu cài đặt thông báo!')
                     setHasProfile(true)
+                    fetchRecentProjects() // Refresh count after saving
+                    setExpanded(false) // Close settings after save
                 } else {
                     toast.error(data.error?.message || 'Lỗi lưu cài đặt')
                 }
@@ -108,8 +133,8 @@ export default function NotificationPrefsWidget() {
 
     if (loading) {
         return (
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
-                <div className="flex items-center justify-center py-8">
+            <div className="bg-white rounded-xl border border-gray-200 p-6 h-full">
+                <div className="flex items-center justify-center h-full">
                     <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
                 </div>
             </div>
@@ -117,112 +142,122 @@ export default function NotificationPrefsWidget() {
     }
 
     return (
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden h-full flex flex-col">
             {/* Header */}
-            <div
-                className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50"
-                onClick={() => setExpanded(!expanded)}
-            >
+            <div className="flex items-center justify-between p-4 border-b border-gray-50">
                 <div className="flex items-center gap-3">
-                    <div className="p-2 bg-blue-100 rounded-lg">
-                        <Bell className="w-5 h-5 text-blue-600" />
+                    <div className={`p-2 rounded-lg ${matchCount > 0 ? 'bg-red-100' : 'bg-blue-100'}`}>
+                        <Bell className={`w-5 h-5 ${matchCount > 0 ? 'text-red-600' : 'text-blue-600'}`} />
                     </div>
                     <div>
-                        <h3 className="font-semibold text-gray-900">Thông báo dự án mới</h3>
-                        <p className="text-sm text-gray-500">
+                        <h3 className="font-semibold text-gray-900">Thông báo dự án</h3>
+                        <p className={`text-xs ${matchCount > 0 ? 'text-blue-600 font-medium' : 'text-gray-500'}`}>
                             {prefs.isAvailable
-                                ? `Đang nhận thông báo ${prefs.city ? `tại ${prefs.city}` : 'toàn quốc'}`
-                                : 'Đã tắt thông báo'
+                                ? (matchCount > 0
+                                    ? `Có ${matchCount} dự án mới`
+                                    : 'Chưa có thông báo')
+                                : 'Đã tắt'
                             }
                         </p>
                     </div>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
                     <button
-                        onClick={(e) => {
-                            e.stopPropagation()
-                            setPrefs({ ...prefs, isAvailable: !prefs.isAvailable })
-                        }}
-                        className="p-1"
+                        onClick={() => setExpanded(!expanded)}
+                        className={`p-2 rounded-lg transition-colors ${expanded ? 'bg-blue-50 text-blue-600' : 'text-gray-400 hover:bg-gray-100'}`}
+                        title="Cài đặt thông báo"
                     >
-                        {prefs.isAvailable
-                            ? <ToggleRight className="w-8 h-8 text-green-600" />
-                            : <ToggleLeft className="w-8 h-8 text-gray-400" />
-                        }
+                        <Wrench className="w-5 h-5" />
                     </button>
-                    <ChevronDown className={`w-5 h-5 text-gray-400 transition-transform ${expanded ? 'rotate-180' : ''}`} />
+                    {prefs.isAvailable ? (
+                        <button onClick={() => setPrefs({ ...prefs, isAvailable: false })} className="text-green-600"><ToggleRight className="w-8 h-8" /></button>
+                    ) : (
+                        <button onClick={() => setPrefs({ ...prefs, isAvailable: true })} className="text-gray-400"><ToggleLeft className="w-8 h-8" /></button>
+                    )}
                 </div>
             </div>
 
-            {/* Expanded content */}
-            {expanded && (
-                <div className="p-4 pt-0 border-t border-gray-100">
-                    {/* Skills */}
-                    <div className="mb-4">
-                        <label className="text-sm font-medium text-gray-700 flex items-center gap-2 mb-2">
-                            <Wrench className="w-4 h-4" />
-                            Nhận thông báo dự án loại
-                        </label>
-                        <div className="flex flex-wrap gap-2">
-                            {SKILL_OPTIONS.map(skill => (
-                                <button
-                                    key={skill}
-                                    onClick={() => toggleSkill(skill)}
-                                    className={`px-3 py-1.5 text-sm rounded-full border transition-colors ${prefs.skills.includes(skill)
-                                        ? 'bg-blue-100 border-blue-300 text-blue-700'
-                                        : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
-                                        }`}
-                                >
-                                    {prefs.skills.includes(skill) && <Check className="w-3 h-3 inline mr-1" />}
-                                    {skill}
-                                </button>
-                            ))}
+            {/* Content Area */}
+            <div className="flex-1 p-4 overflow-y-auto min-h-[200px]">
+                {expanded ? (
+                    <div className="animate-in slide-in-from-top-2">
+                        {/* Settings Form */}
+                        <div className="mb-4">
+                            <label className="text-sm font-medium text-gray-700 block mb-2">Loại công trình nhận tin</label>
+                            <div className="flex flex-wrap gap-2">
+                                {SKILL_OPTIONS.map(skill => (
+                                    <button
+                                        key={skill}
+                                        onClick={() => toggleSkill(skill)}
+                                        className={`px-3 py-1.5 text-xs font-bold rounded-lg border transition-all ${prefs.skills.includes(skill)
+                                            ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-200'
+                                            : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'
+                                            }`}
+                                    >
+                                        {skill}
+                                    </button>
+                                ))}
+                            </div>
                         </div>
-                    </div>
 
-                    {/* Location */}
-                    <div className="mb-4">
-                        <label className="text-sm font-medium text-gray-700 flex items-center gap-2 mb-2">
-                            <MapPin className="w-4 h-4" />
-                            Khu vực hoạt động
-                        </label>
-                        <select
-                            value={prefs.city || ''}
-                            onChange={(e) => setPrefs({ ...prefs, city: e.target.value || null })}
-                            className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500"
+                        <div className="mb-5">
+                            <label className="text-sm font-medium text-gray-700 block mb-2">Khu vực hoạt động</label>
+                            <select
+                                value={prefs.city || ''}
+                                onChange={(e) => setPrefs({ ...prefs, city: e.target.value || null })}
+                                className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium outline-none focus:border-blue-500 transition-colors"
+                            >
+                                <option value="">Toàn quốc</option>
+                                {CITY_OPTIONS.map(city => (
+                                    <option key={city} value={city}>{city}</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <button
+                            onClick={savePrefs}
+                            disabled={saving}
+                            className="w-full py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-blue-200"
                         >
-                            <option value="">Toàn quốc</option>
-                            {CITY_OPTIONS.map(city => (
-                                <option key={city} value={city}>{city}</option>
-                            ))}
-                        </select>
+                            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                            Lưu Cài Đặt
+                        </button>
                     </div>
-
-                    {/* Save button */}
-                    <button
-                        onClick={savePrefs}
-                        disabled={saving}
-                        className="w-full py-2.5 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2"
-                    >
-                        {saving ? (
-                            <>
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                                Đang lưu...
-                            </>
+                ) : (
+                    <div className="space-y-3 h-full">
+                        {/* Notifications List */}
+                        {recentProjects.length > 0 ? (
+                            recentProjects.map((project) => (
+                                <a
+                                    key={project.id}
+                                    href={`/projects/${project.id}`}
+                                    className="block p-3 bg-gray-50 hover:bg-blue-50 border border-gray-100 rounded-xl transition-all group"
+                                >
+                                    <div className="flex justify-between items-start mb-1">
+                                        <span className="px-2 py-0.5 text-[10px] font-bold bg-white text-blue-600 rounded border border-blue-100 shadow-sm">
+                                            {project.projectType === 'NEW_CONSTRUCTION' ? 'Xây mới' : 'Cải tạo'}
+                                        </span>
+                                        {project.isUrgent && <span className="text-[10px] font-black text-red-500 animate-pulse">GẤP</span>}
+                                    </div>
+                                    <h4 className="text-sm font-bold text-gray-900 line-clamp-1 group-hover:text-blue-700">{project.title}</h4>
+                                    <div className="flex items-center gap-1 mt-1 text-[10px] text-gray-500 font-medium">
+                                        <MapPin className="w-3 h-3" />
+                                        {project.location}, {project.city}
+                                    </div>
+                                </a>
+                            ))
                         ) : (
-                            <>
-                                <Check className="w-4 h-4" />
-                                Lưu cài đặt
-                            </>
+                            <div className="h-full flex flex-col items-center justify-center text-center text-gray-400 p-4">
+                                <div className="p-4 bg-gray-50 rounded-full mb-3">
+                                    <Bell className="w-8 h-8 text-gray-300" />
+                                </div>
+                                <p className="text-sm font-medium">Chưa có thông báo nào</p>
+                                <p className="text-xs mt-1">Hệ thống sẽ báo khi có dự án phù hợp với cài đặt của bạn</p>
+                            </div>
                         )}
-                    </button>
-
-                    {/* Note */}
-                    <p className="text-xs text-gray-500 text-center mt-3">
-                        Bạn sẽ nhận thông báo khi có dự án phù hợp với cài đặt trên
-                    </p>
-                </div>
-            )}
+                    </div>
+                )}
+            </div>
         </div>
     )
 }

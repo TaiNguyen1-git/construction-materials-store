@@ -37,7 +37,8 @@ export async function GET(request: NextRequest) {
                         phone: true,
                         address: true
                     }
-                }
+                },
+                contractorProfile: true // Include the linked profile
             }
         })
 
@@ -57,11 +58,10 @@ export async function GET(request: NextRequest) {
         }
 
         // Calculate current debt from unpaid invoices
-        // InvoiceStatus enum: DRAFT, SENT, PAID, OVERDUE, CANCELLED
         const unpaidInvoices = await prisma.invoice.findMany({
             where: {
                 customerId: customer.id,
-                status: { in: ['SENT', 'OVERDUE'] } // Only valid InvoiceStatus values
+                status: { in: ['SENT', 'OVERDUE'] }
             },
             select: {
                 id: true,
@@ -98,20 +98,29 @@ export async function GET(request: NextRequest) {
         const discountPercent = getDiscountByTier(customer.loyaltyTier)
 
         // Build response
+        const profile = customer.contractorProfile
         const contractorProfile = {
             id: customer.id,
             userId: customer.userId,
             name: customer.user.name,
             email: customer.user.email,
-            phone: customer.user.phone,
-            address: customer.user.address,
-            companyName: customer.companyName,
+            phone: profile?.phone || customer.user.phone,
+            address: profile?.address || customer.user.address,
+            companyName: profile?.companyName || customer.companyName,
             companyAddress: customer.companyAddress,
             taxId: customer.taxId,
             customerType: customer.customerType,
             loyaltyTier: customer.loyaltyTier,
             loyaltyPoints: customer.loyaltyPoints,
             contractorVerified: customer.contractorVerified,
+
+            // Profile fields
+            skills: profile?.skills || [],
+            highlightBio: profile?.highlightBio || '',
+            detailedBio: profile?.bio || '',
+            yearsExperience: profile?.experienceYears || 0,
+            trustScore: profile?.trustScore || 100,
+            totalProjectsCompleted: profile?.totalProjectsCompleted || 0,
 
             // Credit Info
             creditLimit: customer.creditLimit,
@@ -153,6 +162,94 @@ export async function GET(request: NextRequest) {
 
     } catch (error) {
         console.error('Error fetching contractor profile:', error)
+        return NextResponse.json(
+            createErrorResponse('Internal server error', 'INTERNAL_ERROR'),
+            { status: 500 }
+        )
+    }
+}
+
+
+// PATCH /api/contractors/profile - Update contractor profile
+export async function PATCH(request: NextRequest) {
+    try {
+        const payload = verifyTokenFromRequest(request)
+        const userId = request.headers.get('x-user-id')
+        const currentUserId = payload?.userId || userId
+
+        if (!currentUserId) {
+            return NextResponse.json(createErrorResponse('Unauthorized', 'UNAUTHORIZED'), { status: 401 })
+        }
+
+        const body = await request.json()
+        const {
+            companyName,
+            taxId,
+            phone,
+            address,
+            website,
+            businessType,
+            yearsExperience,
+            skills,
+            highlightBio,
+            detailedBio
+        } = body
+
+        // Find customer
+        const customer = await prisma.customer.findFirst({
+            where: { userId: currentUserId }
+        })
+
+        if (!customer) {
+            return NextResponse.json(createErrorResponse('Customer record not found', 'NOT_FOUND'), { status: 404 })
+        }
+
+        // Update customer fields
+        const updatedCustomer = await prisma.customer.update({
+            where: { id: customer.id },
+            data: {
+                companyName,
+                taxId,
+                companyAddress: address, // Map address to companyAddress
+                customerType: businessType === 'company' ? 'CONTRACTOR' : 'CONTRACTOR' // Ensure it's contractor
+            }
+        })
+
+        // Upsert contractor profile
+        const contractorProfile = await prisma.contractorProfile.upsert({
+            where: { customerId: customer.id },
+            update: {
+                displayName: companyName || updatedCustomer.companyName || 'Nhà thầu',
+                bio: detailedBio,
+                highlightBio: highlightBio,
+                phone: phone,
+                website: website,
+                experienceYears: yearsExperience,
+                skills: skills || [],
+                companyName: companyName,
+                address: address
+            },
+            create: {
+                customerId: customer.id,
+                displayName: companyName || 'Nhà thầu',
+                bio: detailedBio,
+                highlightBio: highlightBio,
+                phone: phone,
+                website: website,
+                experienceYears: yearsExperience,
+                skills: skills || [],
+                companyName: companyName,
+                address: address
+            }
+        })
+
+        return NextResponse.json(
+            createSuccessResponse(contractorProfile, 'Cập nhật hồ sơ thành công'),
+            { status: 200 }
+        )
+
+    } catch (error) {
+        console.error('Error updating contractor profile:', error)
         return NextResponse.json(
             createErrorResponse('Internal server error', 'INTERNAL_ERROR'),
             { status: 500 }

@@ -8,6 +8,9 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Sidebar from '../components/Sidebar'
+import FormModal from '@/components/FormModal'
+import { Toaster } from 'react-hot-toast'
+import ContractorHeader from '../components/ContractorHeader'
 import {
     Building2,
     Package,
@@ -41,10 +44,16 @@ interface Contract {
 }
 
 export default function ContractorContractsPage() {
-    const [sidebarOpen, setSidebarOpen] = useState(false)
+    const [sidebarOpen, setSidebarOpen] = useState(true)
+    const [user, setUser] = useState<any>(null)
     const [contracts, setContracts] = useState<Contract[]>([])
+    const [selectedContract, setSelectedContract] = useState<Contract | null>(null)
 
     useEffect(() => {
+        const userData = localStorage.getItem('user')
+        if (userData) {
+            setUser(JSON.parse(userData))
+        }
         setContracts([
             {
                 id: '1',
@@ -85,54 +94,14 @@ export default function ContractorContractsPage() {
         }
     }
 
-    const handleLogout = () => {
-        localStorage.removeItem('access_token')
-        localStorage.removeItem('user')
-        window.location.href = '/contractor'
-    }
-
     return (
-        <div className="min-h-screen bg-gray-50">
-            {/* Top Navigation */}
-            <nav className="fixed top-0 left-0 right-0 z-30 bg-white border-b border-gray-200 shadow-sm">
-                <div className="px-4 lg:px-6 py-4">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                            <button
-                                onClick={() => setSidebarOpen(true)}
-                                className="lg:hidden p-2 text-gray-600 hover:bg-gray-100 rounded-lg"
-                            >
-                                <Menu className="w-6 h-6" />
-                            </button>
-                            <Link href="/contractor/dashboard" className="flex items-center gap-3">
-                                <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
-                                    <Building2 className="w-6 h-6 text-white" />
-                                </div>
-                                <div className="hidden sm:block">
-                                    <span className="text-xl font-bold text-gray-900">SmartBuild</span>
-                                    <span className="text-blue-600 font-semibold ml-1">PRO</span>
-                                </div>
-                            </Link>
-                        </div>
-
-                        <div className="flex items-center gap-3">
-                            <button className="relative p-2 text-gray-500 hover:bg-gray-100 rounded-lg">
-                                <Bell className="w-6 h-6" />
-                            </button>
-                            <button
-                                onClick={handleLogout}
-                                className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg"
-                            >
-                                <LogOut className="w-5 h-5" />
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </nav>
-
+        <div className="min-h-screen bg-gray-50 flex flex-col">
+            <Toaster position="top-right" />
+            <ContractorHeader sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} user={user} />
             <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-            <main className="lg:ml-64 pt-[73px]">
+            {/* Main Content */}
+            <main className={`flex-1 pt-[73px] transition-all duration-300 ${sidebarOpen ? 'lg:ml-64' : 'ml-0'}`}>
                 <div className="p-6 lg:p-8 max-w-7xl mx-auto">
                     {/* Header */}
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
@@ -200,10 +169,22 @@ export default function ContractorContractsPage() {
                                     <p className="text-sm text-gray-500">
                                         Liên hệ <span className="text-blue-600 font-medium">0909 123 456</span> để gia hạn hoặc nâng cấp hợp đồng
                                     </p>
-                                    <button className="flex items-center gap-2 text-blue-600 hover:text-blue-700 font-medium text-sm">
-                                        <Download className="w-4 h-4" />
-                                        Tải hợp đồng PDF
-                                    </button>
+                                    <div className="flex items-center gap-3">
+                                        <button
+                                            onClick={() => setSelectedContract(contract)}
+                                            className="flex items-center gap-2 text-gray-600 hover:text-blue-600 font-medium text-sm transition-colors"
+                                        >
+                                            <Eye className="w-4 h-4" />
+                                            Xem chi tiết
+                                        </button>
+                                        <button
+                                            onClick={() => window.print()}
+                                            className="flex items-center gap-2 text-blue-600 hover:text-blue-700 font-medium text-sm transition-colors no-print"
+                                        >
+                                            <Download className="w-4 h-4" />
+                                            Tải hợp đồng PDF
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         ))}
@@ -268,6 +249,92 @@ export default function ContractorContractsPage() {
                     </Link>
                 </div>
             </nav>
+
+            <FormModal
+                isOpen={!!selectedContract}
+                onClose={() => setSelectedContract(null)}
+                title="Chi tiết hợp đồng"
+                size="lg"
+            >
+                {selectedContract && (
+                    <div className="p-6 space-y-6">
+                        {/* Header Info */}
+                        <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                            <div>
+                                <h3 className="text-lg font-bold text-blue-900">{selectedContract.name}</h3>
+                                <p className="text-blue-700">{selectedContract.contractNumber}</p>
+                            </div>
+                            <span className={`px-3 py-1 rounded-full text-sm font-bold ${getStatusColor(selectedContract.status)}`}>
+                                {getStatusText(selectedContract.status)}
+                            </span>
+                        </div>
+
+                        {/* Detailed Grid */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="space-y-4">
+                                <h4 className="font-semibold text-gray-900 border-b pb-2">Thông tin chung</h4>
+                                <div className="grid grid-cols-2 gap-4 text-sm">
+                                    <div className="text-gray-500">Ngày hiệu lực:</div>
+                                    <div className="font-medium">{selectedContract.validFrom}</div>
+                                    <div className="text-gray-500">Ngày hết hạn:</div>
+                                    <div className="font-medium">{selectedContract.validTo}</div>
+                                    <div className="text-gray-500">Người phụ trách:</div>
+                                    <div className="font-medium">Nguyễn Văn A (Sale Admin)</div>
+                                    <div className="text-gray-500">Phương thức thanh toán:</div>
+                                    <div className="font-medium">Công nợ 30 ngày</div>
+                                </div>
+                            </div>
+
+                            <div className="space-y-4">
+                                <h4 className="font-semibold text-gray-900 border-b pb-2">Chính sách ưu đãi</h4>
+                                <div className="bg-green-50 p-4 rounded-lg border border-green-100">
+                                    <div className="flex justify-between items-center mb-2">
+                                        <span className="text-green-800 font-medium">Chiết khấu thương mại</span>
+                                        <span className="text-xl font-bold text-green-600">{selectedContract.discountPercent}%</span>
+                                    </div>
+                                    <p className="text-xs text-green-700">
+                                        Áp dụng cho tất cả đơn hàng phát sinh trong thời gian hiệu lực của hợp đồng.
+                                    </p>
+                                </div>
+                                <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
+                                    <div className="flex justify-between items-center mb-2">
+                                        <span className="text-blue-800 font-medium">Hạn mức tín dụng</span>
+                                        <span className="text-xl font-bold text-blue-600">{formatCurrency(selectedContract.creditLimit)}</span>
+                                    </div>
+                                    <p className="text-xs text-blue-700">
+                                        Hạn mức quay vòng, được reset sau khi thanh toán công nợ.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Terms & Conditions */}
+                        <div className="space-y-4">
+                            <h4 className="font-semibold text-gray-900 border-b pb-2">Điều khoản & Điều kiện</h4>
+                            <div className="bg-gray-50 p-4 rounded-lg text-sm text-gray-600 space-y-2 max-h-48 overflow-y-auto">
+                                <p>1. <strong>Phạm vi cung cấp:</strong> SmartBuild cam kết cung cấp vật liệu xây dựng theo yêu cầu của Bên B với chất lượng đúng tiêu chuẩn nhà sản xuất.</p>
+                                <p>2. <strong>Giá cả:</strong> Đơn giá được tính theo bảng giá niêm yết tại thời điểm đặt hàng, đã trừ đi chiết khấu {selectedContract.discountPercent}%.</p>
+                                <p>3. <strong>Giao hàng:</strong> Hàng hóa được giao tận công trình theo yêu cầu của Bên B. Phí vận chuyển được miễn phí cho đơn hàng trên 50 triệu đồng.</p>
+                                <p>4. <strong>Thanh toán:</strong> Bên B có trách nhiệm thanh toán công nợ phát sinh trong tháng trước ngày 05 của tháng tiếp theo. Quá hạn thanh toán sẽ chịu lãi suất 1.5%/tháng.</p>
+                                <p>5. <strong>Bảo hành:</strong> Sản phẩm được bảo hành theo chính sách của nhà sản xuất.</p>
+                            </div>
+                        </div>
+
+                        <div className="flex justify-end gap-3 pt-4 border-t">
+                            <button
+                                onClick={() => setSelectedContract(null)}
+                                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium"
+                            >
+                                Đóng
+                            </button>
+                            <button className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium">
+                                <Download className="w-4 h-4" />
+                                Tải bản đầy đủ (PDF)
+                            </button>
+                        </div>
+                    </div>
+                )}
+            </FormModal>
         </div>
     )
 }

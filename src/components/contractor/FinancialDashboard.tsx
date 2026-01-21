@@ -118,7 +118,7 @@ export default function FinancialDashboard() {
                             {data.projects.map((p: any) => {
                                 const progress = Math.round((p.released / p.totalAmount) * 100) || 0
                                 return (
-                                    <tr key={p.projectId} className="hover:bg-gray-50 transition-colors">
+                                    <tr key={p.id} className="hover:bg-gray-50 transition-colors">
                                         <td className="px-6 py-4 font-medium text-gray-900">{p.title}</td>
                                         <td className="px-6 py-4 text-right font-bold">{formatCurrency(p.totalAmount)}</td>
                                         <td className="px-6 py-4 text-right text-green-600 font-medium">{formatCurrency(p.released)}</td>

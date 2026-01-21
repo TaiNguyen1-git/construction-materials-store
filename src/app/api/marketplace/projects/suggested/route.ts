@@ -97,6 +97,13 @@ export async function GET(request: NextRequest) {
             const alreadyApplied = project.applications.some(app => app.contractorId === customer.id)
             if (alreadyApplied) continue
 
+            // STRICT FILTER 1: City Match (If contractor has a preferred city)
+            if (contractorCity && project.city) {
+                if (project.city.toLowerCase() !== contractorCity.toLowerCase()) {
+                    continue // Skip projects in other cities
+                }
+            }
+
             // A. Skill Match (Weight: 50 points max)
             const requiredSkills = PROJECT_TYPE_TO_SKILLS[project.projectType] || []
             const matchedSkills = requiredSkills.filter(skill =>
@@ -109,18 +116,16 @@ export async function GET(request: NextRequest) {
                 reasons.push(`Khớp chuyên môn: ${Math.round(skillScore / 50 * 100)}%`)
             }
 
-            // B. Location Match (Weight: 30 points max)
-            if (contractorCity && project.city) {
-                if (project.city.toLowerCase() === contractorCity.toLowerCase()) {
-                    score += 20
-                    reasons.push('Cùng thành phố')
+            // B. Location Match (Weight: 20 points already guaranteed by strict filter, add bonus for District)
+            if (contractorCity) {
+                score += 20 // Base score for city match
+                reasons.push('Đúng khu vực')
 
-                    // Bonus for same district
-                    if (contractorDistrict && project.district) {
-                        if (project.district.toLowerCase() === contractorDistrict.toLowerCase()) {
-                            score += 10
-                            reasons.push('Cùng quận/huyện')
-                        }
+                // Bonus for same district
+                if (contractorDistrict && project.district) {
+                    if (project.district.toLowerCase() === contractorDistrict.toLowerCase()) {
+                        score += 10
+                        reasons.push('Cùng quận/huyện')
                     }
                 }
             }
@@ -146,7 +151,7 @@ export async function GET(request: NextRequest) {
             }
 
             // Only include if has at least some match
-            if (score > 0 || project.isUrgent || hoursAgo <= 48) {
+            if (score > 0) {
                 scoredProjects.push({
                     id: project.id,
                     title: project.title,

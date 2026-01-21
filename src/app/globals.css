@@ -206,8 +206,32 @@ body {
   animation: gradient-text 5s linear infinite;
 }
 
+
 .delay-100 { animation-delay: 100ms; }
 .delay-200 { animation-delay: 200ms; }
 .delay-300 { animation-delay: 300ms; }
 .delay-400 { animation-delay: 400ms; }
 .delay-700 { animation-delay: 700ms; }
+
+/* Print Utilities */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  
+  body {
+    background: white !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  main {
+    margin-left: 0 !important;
+    padding: 20px !important;
+  }
+
+  /* Hide navigation elements during print */
+  nav, aside, header {
+    display: none !important;
+  }
+}

@@ -28,13 +28,54 @@ export async function POST(
             return NextResponse.json(createErrorResponse('Customer not found', 'NOT_FOUND'), { status: 404 })
         }
 
+        // If projectId is 'active', find the most recent active project for this contractor
+        let resolvedProjectId = projectId
+
+        if (projectId === 'active') {
+            // Priority 1: Self-created projects
+            const ownedProject = await prisma.constructionProject.findFirst({
+                where: {
+                    customerId: customer.id,
+                    status: { not: 'CLOSED' }
+                },
+                orderBy: { updatedAt: 'desc' }
+            })
+
+            if (ownedProject) {
+                resolvedProjectId = ownedProject.id
+            } else {
+                // Priority 2: Assigned projects (via applications)
+                const assignedApp = await prisma.projectApplication.findFirst({
+                    where: {
+                        contractorId: customer.id,
+                        status: 'ACCEPTED',
+                        project: {
+                            status: { not: 'CLOSED' }
+                        }
+                    },
+                    include: { project: true },
+                    orderBy: { updatedAt: 'desc' }
+                })
+
+                if (assignedApp) {
+                    resolvedProjectId = assignedApp.projectId
+                } else {
+                    return NextResponse.json(createErrorResponse(
+                        'Bạn chưa có dự án nào đang hoạt động (tự tạo hoặc được giao).',
+                        'NO_ACTIVE_PROJECT',
+                        { hint: 'Hãy tạo dự án mới hoặc chờ duyệt vào dự án.' }
+                    ), { status: 400 })
+                }
+            }
+        }
+
         // Generate a random token
         const token = uuidv4().replace(/-/g, '').substring(0, 12)
 
         const reportToken = await (prisma as any).projectReportToken.create({
             data: {
                 token,
-                projectId,
+                projectId: resolvedProjectId,
                 contractorId: customer.id,
                 isActive: true
             }
@@ -65,12 +106,17 @@ export async function GET(
         const customer = await prisma.customer.findFirst({ where: { userId: payload.userId } })
         if (!customer) return NextResponse.json(createErrorResponse('Customer not found', 'NOT_FOUND'), { status: 404 })
 
+        const query: any = {
+            contractorId: customer.id,
+            isActive: true
+        }
+
+        if (projectId !== 'active') {
+            query.projectId = projectId
+        }
+
         const tokens = await (prisma as any).projectReportToken.findMany({
-            where: {
-                projectId,
-                contractorId: customer.id,
-                isActive: true
-            },
+            where: query,
             orderBy: { createdAt: 'desc' }
         })
 

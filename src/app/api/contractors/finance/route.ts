@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
             where: { contractorId },
             include: {
                 milestones: true,
-                project: { select: { name: true } }
+                project: { select: { id: true, name: true } }
             }
         })
 
@@ -43,8 +43,9 @@ export async function GET(request: NextRequest) {
                 })
             }
             projectIncome.push({
+                id: q.id,
                 projectId: q.projectId,
-                title: q.project?.name || 'Dự án không tên',
+                title: q.project?.name || (q.metadata as any)?.projectName || 'Dự án không tên',
                 totalAmount: qTotal,
                 released: q.milestones ? q.milestones.filter((m: any) => m.status === 'RELEASED').reduce((s: number, m: any) => s + m.amount, 0) : 0,
                 incoming: q.milestones ? q.milestones.filter((m: any) => m.status === 'ESCROW_PAID' || m.status === 'COMPLETED').reduce((s: number, m: any) => s + m.amount, 0) : 0
@@ -62,11 +63,11 @@ export async function GET(request: NextRequest) {
         return NextResponse.json(createSuccessResponse({
             summary: {
                 netWorth: totalReleased + totalIncoming - totalSpent,
-                totalReleased, // Tiền đã thực nhận
-                totalIncoming, // Tiền đang treo (Escrow)
-                totalPending,  // Tiền dự kiến (Chưa ký quỹ)
-                totalSpent,    // Tổng tiền vật tư
-                unpaidDebt     // Công nợ vật tư
+                totalReleased,
+                totalIncoming,
+                totalPending,
+                totalSpent,
+                unpaidDebt
             },
             projects: projectIncome,
             recentOrders: orders.slice(0, 5)

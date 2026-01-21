@@ -7,8 +7,8 @@ import { usePathname } from 'next/navigation'
 export default function Footer() {
     const pathname = usePathname()
 
-    // Don't show footer on admin pages
-    if (pathname?.startsWith('/admin')) {
+    // Don't show footer on admin pages or contractor dashboard
+    if (pathname?.startsWith('/admin') || pathname?.startsWith('/contractor')) {
         return null
     }
 

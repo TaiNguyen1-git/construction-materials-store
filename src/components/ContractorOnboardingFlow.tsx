@@ -9,16 +9,19 @@ import { useState, useEffect } from 'react'
 import {
     Lock, User, Camera, Building, MapPin,
     CheckCircle2, AlertCircle, Loader2, Save,
-    X, Briefcase, Plus, Trash2
+    X, Briefcase, Plus, Trash2, ChevronLeft, ChevronDown
 } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { VIETNAM_LOCATIONS, CONTRACTOR_SKILLS } from '@/lib/vn-data'
 
 interface OnboardingProps {
     user: any
+    initialProfile?: any
     onComplete: () => void
+    onClose?: () => void
 }
 
-export default function ContractorOnboardingFlow({ user, onComplete }: OnboardingProps) {
+export default function ContractorOnboardingFlow({ user, initialProfile, onComplete, onClose }: OnboardingProps) {
     const [step, setStep] = useState<'PASSWORD' | 'PROFILE' | 'DOCUMENT'>(
         user.mustChangePassword ? 'PASSWORD' : 'PROFILE'
     )
@@ -29,17 +32,21 @@ export default function ContractorOnboardingFlow({ user, onComplete }: Onboardin
     const [confirmPassword, setConfirmPassword] = useState('')
 
     // States for Profile Update
+    // States for Profile Update
     const [profile, setProfile] = useState({
-        displayName: user.name || '',
-        companyName: '',
-        bio: '',
-        experienceYears: 0,
-        skills: [] as string[],
-        city: 'Biên Hòa',
-        district: '',
-        address: ''
+        displayName: initialProfile?.displayName || user.name || '',
+        companyName: initialProfile?.companyName || '',
+        bio: initialProfile?.bio || '',
+        experienceYears: initialProfile?.experienceYears || 0,
+        skills: Array.isArray(initialProfile?.skills) ? initialProfile.skills : ([] as string[]),
+        city: initialProfile?.city || 'Hồ Chí Minh',
+        district: initialProfile?.district || '',
+        address: initialProfile?.address || ''
     })
     const [newSkill, setNewSkill] = useState('')
+
+    // Get available districts based on selected city
+    const availableDistricts = VIETNAM_LOCATIONS.find(l => l.city === profile.city)?.districts || []
 
     const handlePasswordChange = async () => {
         if (password !== confirmPassword) {
@@ -96,15 +103,42 @@ export default function ContractorOnboardingFlow({ user, onComplete }: Onboardin
     }
 
     const addSkill = () => {
-        if (newSkill && !profile.skills.includes(newSkill)) {
-            setProfile({ ...profile, skills: [...profile.skills, newSkill] })
-            setNewSkill('')
+        const skillToAdd = newSkill.trim()
+        console.log('Adding skill:', skillToAdd)
+
+        if (!skillToAdd) return
+
+        setProfile(prev => {
+            const currentSkills = Array.isArray(prev.skills) ? prev.skills : []
+            if (currentSkills.includes(skillToAdd)) return prev
+            return {
+                ...prev,
+                skills: [...currentSkills, skillToAdd]
+            }
+        })
+        setNewSkill('')
+    }
+
+    const removeSkill = (skill: string): void => {
+        const currentSkills = Array.isArray(profile.skills) ? profile.skills : []
+        setProfile({ ...profile, skills: currentSkills.filter((s: string) => s !== skill) })
+    }
+
+    const handleBack = () => {
+        if (step === 'DOCUMENT') {
+            setStep('PROFILE')
+        } else if (step === 'PROFILE' && user.mustChangePassword) {
+            setStep('PASSWORD')
         }
     }
 
-    const removeSkill = (skill: string) => {
-        setProfile({ ...profile, skills: profile.skills.filter(s => s !== skill) })
-    }
+    const startStep = user.mustChangePassword ? 'PASSWORD' : 'PROFILE'
+    const totalSteps = startStep === 'PASSWORD' ? 3 : 2
+
+    let currentStepNum = 1
+    if (step === 'PASSWORD') currentStepNum = 1
+    else if (step === 'PROFILE') currentStepNum = startStep === 'PASSWORD' ? 2 : 1
+    else if (step === 'DOCUMENT') currentStepNum = startStep === 'PASSWORD' ? 3 : 2
 
     return (
         <div className="fixed inset-0 z-[60] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
@@ -112,19 +146,40 @@ export default function ContractorOnboardingFlow({ user, onComplete }: Onboardin
                 {/* Progress Header */}
                 <div className="bg-gray-50 px-8 py-6 border-b border-gray-100">
                     <div className="flex items-center justify-between mb-2">
-                        <h2 className="text-xl font-black text-gray-900">
-                            {step === 'PASSWORD' ? 'Khởi tạo tài khoản' :
-                                step === 'PROFILE' ? 'Thông tin nhà thầu' : 'Xác thực hồ sơ'}
-                        </h2>
-                        <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-full uppercase tracking-wider">
-                            {step === 'PASSWORD' ? 'Bước 1/3' :
-                                step === 'PROFILE' ? 'Bước 2/3' : 'Bước 3/3'}
-                        </span>
+                        <div className="flex items-center gap-3">
+                            {step !== startStep && (
+                                <button
+                                    onClick={handleBack}
+                                    className="p-1 -ml-2 text-gray-400 hover:text-gray-600 hover:bg-gray-200 rounded-lg transition-all"
+                                    title="Quay lại"
+                                >
+                                    <ChevronLeft className="w-6 h-6" />
+                                </button>
+                            )}
+                            <h2 className="text-xl font-black text-gray-900">
+                                {step === 'PASSWORD' ? 'Khởi tạo tài khoản' :
+                                    step === 'PROFILE' ? 'Thông tin nhà thầu' : 'Xác thực hồ sơ'}
+                            </h2>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-full uppercase tracking-wider">
+                                Bước {currentStepNum}/{totalSteps}
+                            </span>
+                            {onClose && (
+                                <button
+                                    onClick={onClose}
+                                    className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                                    title="Đóng"
+                                >
+                                    <X className="w-6 h-6" />
+                                </button>
+                            )}
+                        </div>
                     </div>
                     <div className="h-1.5 w-full bg-gray-200 rounded-full overflow-hidden">
                         <div
                             className="h-full bg-blue-600 transition-all duration-500"
-                            style={{ width: step === 'PASSWORD' ? '33%' : step === 'PROFILE' ? '66%' : '100%' }}
+                            style={{ width: `${(currentStepNum / totalSteps) * 100}%` }}
                         />
                     </div>
                 </div>
@@ -229,20 +284,21 @@ export default function ContractorOnboardingFlow({ user, onComplete }: Onboardin
                                         onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addSkill())}
                                     />
                                     <button
+                                        type="button"
                                         onClick={addSkill}
-                                        className="p-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700"
+                                        className="p-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 active:scale-95 transition-all"
                                     >
                                         <Plus className="w-5 h-5" />
                                     </button>
                                 </div>
                                 <div className="flex flex-wrap gap-2">
-                                    {profile.skills.map(skill => (
+                                    {(profile.skills as string[]).map((skill: string) => (
                                         <span
                                             key={skill}
                                             className="inline-flex items-center gap-1 px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-sm font-bold group"
                                         >
                                             {skill}
-                                            <button onClick={() => removeSkill(skill)} className="hover:text-red-500">
+                                            <button type="button" onClick={() => removeSkill(skill)} className="hover:text-red-500">
                                                 <X className="w-3 h-3" />
                                             </button>
                                         </span>
@@ -262,22 +318,37 @@ export default function ContractorOnboardingFlow({ user, onComplete }: Onboardin
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-sm font-bold text-gray-700 mb-2">Thành phố</label>
-                                    <input
-                                        type="text"
-                                        value={profile.city}
-                                        readOnly
-                                        className="w-full px-4 py-3 bg-gray-100 border border-gray-200 rounded-xl outline-none"
-                                    />
+                                    <label className="block text-sm font-bold text-gray-700 mb-2">Tỉnh / Thành phố</label>
+                                    <div className="relative">
+                                        <select
+                                            value={profile.city}
+                                            onChange={(e) => setProfile({ ...profile, city: e.target.value, district: '' })}
+                                            className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-blue-500 appearance-none"
+                                        >
+                                            <option value="">Chọn Tỉnh/Thành</option>
+                                            {VIETNAM_LOCATIONS.map(loc => (
+                                                <option key={loc.city} value={loc.city}>{loc.city}</option>
+                                            ))}
+                                        </select>
+                                        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                                    </div>
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-bold text-gray-700 mb-2">Quận/Huyện</label>
-                                    <input
-                                        type="text"
-                                        value={profile.district}
-                                        onChange={(e) => setProfile({ ...profile, district: e.target.value })}
-                                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-blue-500"
-                                    />
+                                    <label className="block text-sm font-bold text-gray-700 mb-2">Quận / Huyện</label>
+                                    <div className="relative">
+                                        <select
+                                            value={profile.district}
+                                            onChange={(e) => setProfile({ ...profile, district: e.target.value })}
+                                            disabled={!profile.city}
+                                            className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-blue-500 appearance-none disabled:bg-gray-100 disabled:text-gray-400"
+                                        >
+                                            <option value="">Chọn Quận/Huyện</option>
+                                            {availableDistricts.map(dist => (
+                                                <option key={dist} value={dist}>{dist}</option>
+                                            ))}
+                                        </select>
+                                        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                                    </div>
                                 </div>
                             </div>
 

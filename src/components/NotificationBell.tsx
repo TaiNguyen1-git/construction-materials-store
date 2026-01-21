@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { Bell, X, CheckCircle, AlertTriangle, Info, RefreshCw } from 'lucide-react'
+import { Bell, X, CheckCircle, AlertTriangle, Info, RefreshCw, Building2, FileText } from 'lucide-react'
 import { getAuthHeaders } from '@/lib/api-client'
 import { useAuth } from '@/contexts/auth-context'
 
@@ -377,6 +377,11 @@ export default function NotificationBell() {
         return <CheckCircle className="w-5 h-5 text-green-500" />
       case 'PAYMENT_UPDATE':
         return <CheckCircle className="w-5 h-5 text-blue-500" />
+      case 'PROJECT_MATCH':
+        return <Building2 className="w-5 h-5 text-orange-500" />
+      case 'QUOTE_NEW':
+      case 'QUOTE_UPDATE':
+        return <FileText className="w-5 h-5 text-purple-500" />
       default:
         return <Info className="w-5 h-5 text-gray-500" />
     }
@@ -412,11 +417,23 @@ export default function NotificationBell() {
     // Navigate based on type
     if (notification.referenceId) {
       const isAdmin = window.location.pathname.startsWith('/admin')
+      const isContractor = window.location.pathname.startsWith('/contractor')
+
+      if (notification.type === 'PROJECT_MATCH') {
+        window.location.href = `/projects/${notification.referenceId}`
+        return
+      }
+
+      if (notification.type === 'QUOTE_NEW' || notification.type === 'QUOTE_UPDATE') {
+        window.location.href = `/contractor/quotes`
+        return
+      }
 
       if (notification.referenceType === 'ORDER' || notification.type === 'ORDER_NEW' || notification.type === 'ORDER_UPDATE') {
         if (isAdmin) {
-          // For admin, go to orders page - the order detail modal will need to be opened manually
           window.location.href = `/admin/orders`
+        } else if (isContractor) {
+          window.location.href = `/contractor/orders`
         } else {
           window.location.href = `/order-tracking?orderId=${notification.referenceId}`
         }
@@ -427,9 +444,13 @@ export default function NotificationBell() {
           window.location.href = `/products/${notification.referenceId}`
         }
       } else {
-        // Default: just close dropdown, notification is marked as read
+        // Default: mark as read only
       }
     } else {
+      // Handle navigation for quote notifications even without refId if they point to list
+      if (notification.type === 'QUOTE_NEW' || notification.type === 'QUOTE_UPDATE') {
+        window.location.href = `/contractor/quotes`
+      }
     }
   }
 

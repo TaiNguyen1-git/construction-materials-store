@@ -13,7 +13,8 @@ import {
   Package,
   Calendar,
   FileText,
-  PenTool
+  PenTool,
+  ArrowLeft
 } from 'lucide-react'
 import { useAuth } from '@/contexts/auth-context'
 import { useRouter } from 'next/navigation'
@@ -45,6 +46,10 @@ export default function AccountPage() {
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-blue-50 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
         <div>
+          <Link href="/" className="inline-flex items-center text-gray-600 hover:text-gray-900 mb-4 transition-colors">
+            <ArrowLeft className="w-5 h-5 mr-2" />
+            Về trang chủ
+          </Link>
           <h1 className="text-3xl font-bold bg-gradient-to-r from-primary-600 to-secondary-600 bg-clip-text text-transparent">
             Tài Khoản Của Tôi
           </h1>

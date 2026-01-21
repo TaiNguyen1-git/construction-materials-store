@@ -1,10 +1,6 @@
 'use client'
 
-/**
- * Shared Sidebar Component for Contractor Pages
- * Includes navigation links with cart badge
- */
-
+import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
@@ -16,9 +12,12 @@ import {
     FileText,
     Building2,
     X,
-    User,
     PenTool,
-    Briefcase
+    Briefcase,
+    Plus,
+    Users,
+    ChevronDown,
+    ChevronRight
 } from 'lucide-react'
 import { useContractorCartStore } from '@/stores/contractorCartStore'
 
@@ -32,18 +31,54 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     const { getTotalItems } = useContractorCartStore()
     const cartItemCount = getTotalItems()
 
-    const navItems = [
-        { href: '/contractor/dashboard', icon: Home, label: 'Tổng quan' },
-        { href: '/projects', icon: Briefcase, label: 'Tìm việc' },
-        { href: '/contractor/quick-order', icon: ClipboardList, label: 'Đặt hàng nhanh' },
-        { href: '/contractor/cart', icon: ShoppingCart, label: 'Giỏ hàng', badge: cartItemCount },
-        { href: '/contractor/orders', icon: Package, label: 'Đơn hàng' },
-        { href: '/contractor/projects', icon: Building2, label: 'Công trình' },
-        { href: '/contractor/quotes', icon: PenTool, label: 'Báo giá' },
-        { href: '/contractor/debt', icon: CreditCard, label: 'Công nợ' },
-        { href: '/contractor/contracts', icon: FileText, label: 'Hợp đồng' },
-        { href: '/contractor/profile', icon: User, label: 'Hồ sơ' },
+
+    // Grouped navigation items for better organization
+    const navGroups = [
+        {
+            title: 'Tổng quan',
+            items: [
+                { href: '/contractor/dashboard', icon: Home, label: 'Dashboard' },
+                { href: '/projects', icon: Briefcase, label: 'Tìm việc mới' },
+            ]
+        },
+        {
+            title: 'Quản lý dự án',
+            items: [
+                { href: '/contractor/projects', icon: Building2, label: 'Công trình của tôi' },
+                { href: '/contractor/team', icon: Users, label: 'Đội ngũ thợ' },
+                { href: '/contractor/quotes', icon: PenTool, label: 'Báo giá & Đấu thầu' },
+                { href: '/contractor/contracts', icon: FileText, label: 'Hợp đồng' },
+            ]
+        },
+        {
+            title: 'Mua sắm & Tài chính',
+            items: [
+                { href: '/contractor/quick-order', icon: ClipboardList, label: 'Đặt hàng nhanh' },
+                { href: '/contractor/cart', icon: ShoppingCart, label: 'Giỏ hàng', badge: cartItemCount },
+                { href: '/contractor/orders', icon: Package, label: 'Đơn hàng đã đặt' },
+                { href: '/contractor/debt', icon: CreditCard, label: 'Công nợ' },
+            ]
+        }
     ]
+
+    const handleLinkClick = () => {
+        if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+            onClose()
+        }
+    }
+
+    const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
+        'Tổng quan': true,
+        'Quản lý dự án': true,
+        'Mua sắm & Tài chính': true
+    })
+
+    const toggleGroup = (title: string) => {
+        setExpandedGroups(prev => ({
+            ...prev,
+            [title]: !prev[title]
+        }))
+    }
 
     return (
         <>
@@ -55,7 +90,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
             {/* Sidebar */}
             <aside className={`
                 fixed top-0 left-0 bottom-0 w-64 bg-white border-r border-gray-200 z-50
-                transform transition-transform duration-300 lg:translate-x-0
+                transform transition-transform duration-300
                 ${isOpen ? 'translate-x-0' : '-translate-x-full'}
                 lg:top-[73px]
             `}>
@@ -72,29 +107,49 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                     </button>
                 </div>
 
-                <nav className="p-4 space-y-1">
-                    {navItems.map((item) => {
-                        const isActive = pathname === item.href
-                        return (
-                            <Link
-                                key={item.href}
-                                href={item.href}
-                                onClick={onClose}
-                                className={`flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-colors ${isActive
-                                    ? 'bg-blue-50 text-blue-600'
-                                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                                    }`}
+                <nav className="p-4 space-y-2 overflow-y-auto h-[calc(100vh-140px)]">
+                    {navGroups.map((group, groupIndex) => (
+                        <div key={groupIndex} className="mb-2">
+                            <button
+                                onClick={() => toggleGroup(group.title)}
+                                className="w-full flex items-center justify-between px-4 py-2 text-xs font-bold text-gray-400 uppercase tracking-wider hover:text-gray-600 transition-colors"
                             >
-                                <item.icon className="w-5 h-5" />
-                                <span className="flex-1">{item.label}</span>
-                                {item.badge !== undefined && item.badge > 0 && (
-                                    <span className="bg-blue-600 text-white text-xs font-bold px-2 py-0.5 rounded-full">
-                                        {item.badge}
-                                    </span>
+                                <span>{group.title}</span>
+                                {expandedGroups[group.title] ? (
+                                    <ChevronDown className="w-3 h-3" />
+                                ) : (
+                                    <ChevronRight className="w-3 h-3" />
                                 )}
-                            </Link>
-                        )
-                    })}
+                            </button>
+
+                            {expandedGroups[group.title] && (
+                                <div className="space-y-1 mt-1 animate-in slide-in-from-top-1 duration-200">
+                                    {group.items.map((item) => {
+                                        const isActive = pathname === item.href
+                                        return (
+                                            <Link
+                                                key={item.href}
+                                                href={item.href}
+                                                onClick={handleLinkClick}
+                                                className={`flex items-center gap-3 px-4 py-2.5 rounded-lg font-medium transition-colors text-sm ${isActive
+                                                    ? 'bg-blue-50 text-blue-600'
+                                                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                                                    }`}
+                                            >
+                                                <item.icon className="w-4 h-4" />
+                                                <span className="flex-1">{item.label}</span>
+                                                {item.badge !== undefined && item.badge > 0 && (
+                                                    <span className="bg-blue-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                                                        {item.badge}
+                                                    </span>
+                                                )}
+                                            </Link>
+                                        )
+                                    })}
+                                </div>
+                            )}
+                        </div>
+                    ))}
                 </nav>
             </aside>
         </>

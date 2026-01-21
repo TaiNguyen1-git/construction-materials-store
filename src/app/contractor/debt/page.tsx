@@ -9,6 +9,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Sidebar from '../components/Sidebar'
 import QRPayment from '@/components/QRPayment'
+import ContractorHeader from '../components/ContractorHeader'
 import {
     Building2,
     Package,
@@ -42,7 +43,8 @@ interface Invoice {
 }
 
 export default function ContractorDebtPage() {
-    const [sidebarOpen, setSidebarOpen] = useState(false)
+    const [sidebarOpen, setSidebarOpen] = useState(true)
+    const [user, setUser] = useState<any>(null)
     const [invoices, setInvoices] = useState<Invoice[]>([])
     const [loading, setLoading] = useState(true)
     const [stats, setStats] = useState({
@@ -57,14 +59,18 @@ export default function ContractorDebtPage() {
     const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null)
 
     useEffect(() => {
+        const userData = localStorage.getItem('user')
+        if (userData) {
+            setUser(JSON.parse(userData))
+        }
         fetchContractorProfile()
     }, [])
 
     const fetchContractorProfile = async () => {
         try {
             const token = localStorage.getItem('access_token')
-            const user = localStorage.getItem('user')
-            const userId = user ? JSON.parse(user).id : null
+            const userStored = localStorage.getItem('user')
+            const userId = userStored ? JSON.parse(userStored).id : null
 
             const response = await fetch('/api/contractors/profile', {
                 headers: {
@@ -239,47 +245,12 @@ export default function ContractorDebtPage() {
     }
 
     return (
-        <div className="min-h-screen bg-gray-50">
-            {/* Top Navigation */}
-            <nav className="fixed top-0 left-0 right-0 z-30 bg-white border-b border-gray-200 shadow-sm">
-                <div className="px-4 lg:px-6 py-4">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                            <button
-                                onClick={() => setSidebarOpen(true)}
-                                className="lg:hidden p-2 text-gray-600 hover:bg-gray-100 rounded-lg"
-                            >
-                                <Menu className="w-6 h-6" />
-                            </button>
-                            <Link href="/contractor/dashboard" className="flex items-center gap-3">
-                                <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
-                                    <Building2 className="w-6 h-6 text-white" />
-                                </div>
-                                <div className="hidden sm:block">
-                                    <span className="text-xl font-bold text-gray-900">SmartBuild</span>
-                                    <span className="text-blue-600 font-semibold ml-1">PRO</span>
-                                </div>
-                            </Link>
-                        </div>
-
-                        <div className="flex items-center gap-3">
-                            <button className="relative p-2 text-gray-500 hover:bg-gray-100 rounded-lg">
-                                <Bell className="w-6 h-6" />
-                            </button>
-                            <button
-                                onClick={handleLogout}
-                                className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg"
-                            >
-                                <LogOut className="w-5 h-5" />
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </nav>
-
+        <div className="min-h-screen bg-gray-50 flex flex-col">
+            <ContractorHeader sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} user={user} />
             <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-            <main className="lg:ml-64 pt-[73px]">
+            {/* Main Content */}
+            <main className={`flex-1 pt-[73px] transition-all duration-300 ${sidebarOpen ? 'lg:ml-64' : 'ml-0'}`}>
                 <div className="p-6 lg:p-8 max-w-7xl mx-auto">
                     {/* Header */}
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
@@ -288,7 +259,10 @@ export default function ContractorDebtPage() {
                             <p className="text-gray-600">Theo dõi và thanh toán hóa đơn</p>
                         </div>
                         <div className="flex gap-3">
-                            <button className="flex items-center gap-2 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-lg font-medium">
+                            <button
+                                onClick={() => window.print()}
+                                className="flex items-center gap-2 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-lg font-medium no-print"
+                            >
                                 <Download className="w-5 h-5" />
                                 Xuất sao kê
                             </button>

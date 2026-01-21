@@ -12,18 +12,7 @@ export async function GET(
         const reportToken = await (prisma as any).projectReportToken.findUnique({
             where: { token, isActive: true },
             include: {
-                project: {
-                    include: {
-                        quoteRequests: {
-                            where: { isLatest: true, status: 'ACCEPTED' },
-                            include: {
-                                milestones: {
-                                    orderBy: { order: 'asc' }
-                                }
-                            }
-                        }
-                    }
-                }
+                project: true
             }
         })
 
@@ -31,8 +20,8 @@ export async function GET(
             return NextResponse.json(createErrorResponse('Mã báo cáo không tồn tại hoặc đã hết hạn', 'NOT_FOUND'), { status: 404 })
         }
 
-        // Get milestones from the accepted quote
-        const milestones = reportToken.project.quoteRequests[0]?.milestones || []
+        // Milestones not currently supported for this project type
+        const milestones = []
 
         return NextResponse.json(createSuccessResponse({
             projectName: reportToken.project.title,

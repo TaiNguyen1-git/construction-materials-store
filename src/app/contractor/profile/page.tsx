@@ -31,6 +31,7 @@ import {
     Zap
 } from 'lucide-react'
 import Sidebar from '../components/Sidebar'
+import ContractorHeader from '../components/ContractorHeader'
 import toast, { Toaster } from 'react-hot-toast'
 
 interface BusinessDocument {
@@ -43,7 +44,8 @@ interface BusinessDocument {
 }
 
 export default function ContractorProfilePage() {
-    const [sidebarOpen, setSidebarOpen] = useState(false)
+    const [sidebarOpen, setSidebarOpen] = useState(true)
+    const [user, setUser] = useState<any>(null)
     const [loading, setLoading] = useState(false)
     const [saving, setSaving] = useState(false)
     const fileInputRef = useRef<HTMLInputElement>(null)
@@ -76,22 +78,53 @@ export default function ContractorProfilePage() {
 
     // Load profile data
     useEffect(() => {
+        const userData = localStorage.getItem('user')
+        if (userData) {
+            setUser(JSON.parse(userData))
+        }
+
         const loadProfile = async () => {
             setLoading(true)
             try {
-                // Load from localStorage for now (would be API in production)
-                const saved = localStorage.getItem('contractor-profile')
-                if (saved) {
-                    setProfile(JSON.parse(saved))
-                }
+                const token = localStorage.getItem('access_token')
+                const userStored = localStorage.getItem('user')
+                const userId = userStored ? JSON.parse(userStored).id : null
 
-                // Load saved documents
-                const savedDocs = localStorage.getItem('contractor-documents')
-                if (savedDocs) {
-                    setDocuments(JSON.parse(savedDocs))
+                const res = await fetch('/api/contractors/profile', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'x-user-id': userId || ''
+                    }
+                })
+
+                if (res.ok) {
+                    const result = await res.json()
+                    if (result.success && result.data) {
+                        const data = result.data
+                        setProfile({
+                            companyName: data.companyName || '',
+                            taxId: data.taxId || '',
+                            representativeName: data.user?.name || '',
+                            email: data.user?.email || '',
+                            phone: data.phone || '',
+                            address: data.address || '',
+                            city: '', // These would normally come from structured address
+                            district: '',
+                            ward: '',
+                            businessType: data.businessType || 'contractor',
+                            website: data.website || '',
+                            highlightBio: data.highlightBio || '',
+                            detailedBio: data.detailedBio || '',
+                            skills: data.skills || [],
+                            yearsExperience: data.yearsExperience?.toString() || '0'
+                        })
+                        // Load documents
+                        if (data.documents) setDocuments(data.documents)
+                    }
                 }
             } catch (error) {
                 console.error('Failed to load profile:', error)
+                toast.error('Không thể tải thông tin hồ sơ')
             } finally {
                 setLoading(false)
             }
@@ -109,11 +142,39 @@ export default function ContractorProfilePage() {
     const handleSave = async () => {
         setSaving(true)
         try {
-            // Save to localStorage for now
-            localStorage.setItem('contractor-profile', JSON.stringify(profile))
-            toast.success('Đã lưu thông tin hồ sơ!')
+            const token = localStorage.getItem('access_token')
+            const userStored = localStorage.getItem('user')
+            const userId = userStored ? JSON.parse(userStored).id : null
+
+            const res = await fetch('/api/contractors/profile', {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                    'x-user-id': userId || ''
+                },
+                body: JSON.stringify({
+                    companyName: profile.companyName,
+                    taxId: profile.taxId,
+                    phone: profile.phone,
+                    address: profile.address,
+                    website: profile.website,
+                    businessType: profile.businessType,
+                    yearsExperience: parseInt(profile.yearsExperience),
+                    skills: profile.skills,
+                    highlightBio: profile.highlightBio,
+                    detailedBio: profile.detailedBio
+                })
+            })
+
+            if (res.ok) {
+                toast.success('Đã cập nhật thông tin hồ sơ!')
+            } else {
+                const error = await res.json()
+                toast.error(error.message || 'Cập nhật thất bại')
+            }
         } catch (error) {
-            toast.error('Có lỗi xảy ra. Vui lòng thử lại.')
+            toast.error('Lỗi kết nối server')
         } finally {
             setSaving(false)
         }
@@ -202,34 +263,13 @@ export default function ContractorProfilePage() {
     }
 
     return (
-        <div className="min-h-screen bg-gray-50">
+        <div className="min-h-screen bg-gray-50 flex flex-col">
             <Toaster position="top-right" />
-
-            {/* Top Nav */}
-            <nav className="fixed top-0 left-0 right-0 h-[73px] bg-white border-b border-gray-200 z-30 px-6">
-                <div className="h-full flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                        <button
-                            onClick={() => setSidebarOpen(!sidebarOpen)}
-                            className="lg:hidden p-2 hover:bg-gray-100 rounded-lg"
-                        >
-                            <Building2 className="w-6 h-6 text-gray-600" />
-                        </button>
-                        <Link href="/contractor/dashboard" className="flex items-center gap-2">
-                            <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
-                                <Building2 className="w-6 h-6 text-white" />
-                            </div>
-                            <span className="text-xl font-bold text-gray-900">SmartBuild</span>
-                            <span className="text-blue-600 font-semibold">PRO</span>
-                        </Link>
-                    </div>
-                </div>
-            </nav>
-
+            <ContractorHeader sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} user={user} />
             <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
             {/* Main Content */}
-            <main className="lg:ml-64 pt-[73px]">
+            <main className={`flex-1 pt-[73px] transition-all duration-300 ${sidebarOpen ? 'lg:ml-64' : 'ml-0'}`}>
                 <div className="p-6 lg:p-8 max-w-4xl mx-auto">
                     {/* Header */}
                     <div className="mb-8">

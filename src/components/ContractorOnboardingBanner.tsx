@@ -98,10 +98,12 @@ export default function ContractorOnboardingBanner({ user, profile }: Onboarding
             {showModal && (
                 <ContractorOnboardingFlow
                     user={user}
+                    initialProfile={profile}
                     onComplete={() => {
                         setShowModal(false)
                         window.location.reload()
                     }}
+                    onClose={() => setShowModal(false)}
                 />
             )}
         </>

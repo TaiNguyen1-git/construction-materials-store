@@ -25,6 +25,7 @@ import {
 } from 'lucide-react'
 import { useContractorCartStore } from '@/stores/contractorCartStore'
 import Sidebar from '../components/Sidebar'
+import ContractorHeader from '../components/ContractorHeader'
 import toast, { Toaster } from 'react-hot-toast'
 
 interface Product {
@@ -53,7 +54,8 @@ export default function QuickOrderPage() {
     const router = useRouter()
     const { addItem, getTotalItems } = useContractorCartStore()
 
-    const [sidebarOpen, setSidebarOpen] = useState(false)
+    const [sidebarOpen, setSidebarOpen] = useState(true)
+    const [user, setUser] = useState<any>(null)
     const [products, setProducts] = useState<Product[]>([])
     const [loading, setLoading] = useState(true)
     const [searchQuery, setSearchQuery] = useState('')
@@ -64,8 +66,13 @@ export default function QuickOrderPage() {
     const [selectedProducts, setSelectedProducts] = useState<SelectedProduct[]>([])
     const [submitting, setSubmitting] = useState(false)
 
-    // Load products
+    // Load products and user
     useEffect(() => {
+        const userData = localStorage.getItem('user')
+        if (userData) {
+            setUser(JSON.parse(userData))
+        }
+
         const fetchProducts = async () => {
             try {
                 const res = await fetch('/api/products?limit=100')
@@ -196,51 +203,15 @@ export default function QuickOrderPage() {
         }
     }
 
-    const cartItemCount = getTotalItems()
-
     return (
-        <div className="min-h-screen bg-gray-50">
+        <div className="min-h-screen bg-gray-50 flex flex-col">
             <Toaster position="top-right" />
 
-            {/* Top Nav */}
-            <nav className="fixed top-0 left-0 right-0 h-[73px] bg-white border-b border-gray-200 z-30 px-6">
-                <div className="h-full flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                        <button
-                            onClick={() => setSidebarOpen(!sidebarOpen)}
-                            className="lg:hidden p-2 hover:bg-gray-100 rounded-lg"
-                        >
-                            <Building2 className="w-6 h-6 text-gray-600" />
-                        </button>
-                        <Link href="/contractor/dashboard" className="flex items-center gap-2">
-                            <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
-                                <Building2 className="w-6 h-6 text-white" />
-                            </div>
-                            <span className="text-xl font-bold text-gray-900">SmartBuild</span>
-                            <span className="text-blue-600 font-semibold">PRO</span>
-                        </Link>
-                    </div>
-
-                    {/* Cart Button */}
-                    <Link
-                        href="/contractor/cart"
-                        className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-                    >
-                        <ShoppingCart className="w-5 h-5" />
-                        <span className="font-medium">Giỏ hàng</span>
-                        {cartItemCount > 0 && (
-                            <span className="bg-white text-blue-600 text-xs font-bold px-2 py-0.5 rounded-full">
-                                {cartItemCount}
-                            </span>
-                        )}
-                    </Link>
-                </div>
-            </nav>
-
+            <ContractorHeader sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} user={user} />
             <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
             {/* Main Content - 2 Sections */}
-            <main className="lg:ml-64 pt-[73px]">
+            <main className={`flex-1 pt-[73px] transition-all duration-300 ${sidebarOpen ? 'lg:ml-64' : 'ml-0'}`}>
                 <div className="flex h-[calc(100vh-73px)]">
                     {/* LEFT SECTION: Product Selection */}
                     <div className="flex-1 flex flex-col border-r border-gray-200 bg-white">
@@ -270,8 +241,8 @@ export default function QuickOrderPage() {
                                 <button
                                     onClick={() => setSelectedCategory('all')}
                                     className={`px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${selectedCategory === 'all'
-                                            ? 'bg-blue-600 text-white'
-                                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                        ? 'bg-blue-600 text-white'
+                                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                                         }`}
                                 >
                                     Tất cả ({products.length})
@@ -281,8 +252,8 @@ export default function QuickOrderPage() {
                                         key={cat.id}
                                         onClick={() => setSelectedCategory(cat.id)}
                                         className={`px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${selectedCategory === cat.id
-                                                ? 'bg-blue-600 text-white'
-                                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                            ? 'bg-blue-600 text-white'
+                                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                                             }`}
                                     >
                                         {cat.name}
@@ -307,14 +278,14 @@ export default function QuickOrderPage() {
                                                 key={product.id}
                                                 onClick={() => toggleProduct(product)}
                                                 className={`relative p-3 rounded-xl border-2 text-left transition-all hover:shadow-md ${selected
-                                                        ? 'border-blue-500 bg-blue-50'
-                                                        : 'border-gray-100 bg-white hover:border-gray-200'
+                                                    ? 'border-blue-500 bg-blue-50'
+                                                    : 'border-gray-100 bg-white hover:border-gray-200'
                                                     }`}
                                             >
                                                 {/* Checkbox */}
                                                 <div className={`absolute top-2 right-2 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${selected
-                                                        ? 'bg-blue-600 border-blue-600'
-                                                        : 'border-gray-300 bg-white'
+                                                    ? 'bg-blue-600 border-blue-600'
+                                                    : 'border-gray-300 bg-white'
                                                     }`}>
                                                     {selected && <Check className="w-4 h-4 text-white" />}
                                                 </div>

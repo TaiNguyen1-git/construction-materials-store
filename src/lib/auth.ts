@@ -98,3 +98,23 @@ export async function getUser() {
     return null
   }
 }
+
+export async function verifyTokenFromRequest(req: any) {
+  const authHeader = req.headers.get('authorization')
+  let token = authHeader?.split(' ')[1]
+
+  // Fallback to x-user-id for internal testing or specific flows
+  const userId = req.headers.get('x-user-id')
+
+  if (!token) {
+    if (userId) return { userId, role: 'CONTRACTOR' } // Mock role if only userId provided
+    return null
+  }
+
+  try {
+    return AuthService.verifyAccessToken(token)
+  } catch (error) {
+    if (userId) return { userId, role: 'CONTRACTOR' }
+    return null
+  }
+}

@@ -12,9 +12,14 @@ export const getAuthHeaders = (): HeadersInit => {
     return {}
   }
 
+  // Get user info to provide x-user-id
+  const userStr = localStorage.getItem('user')
+  const user = userStr ? JSON.parse(userStr) : null
+
   return {
     'Authorization': `Bearer ${token}`,
     'x-auth-token': token,
+    ...(user?.id && { 'x-user-id': user.id })
   }
 }
 

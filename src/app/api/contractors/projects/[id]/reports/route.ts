@@ -9,11 +9,16 @@ export async function GET(
     try {
         const projectId = (await params).id
 
+        const query: any = {
+            status: 'PENDING'
+        }
+
+        if (projectId !== 'active') {
+            query.projectId = projectId
+        }
+
         const reports = await (prisma as any).workerReport.findMany({
-            where: {
-                projectId,
-                status: 'PENDING' // Usually we only show pending ones in the waitlist
-            },
+            where: query,
             orderBy: { createdAt: 'desc' }
         })
 

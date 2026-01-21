@@ -320,6 +320,9 @@ function SupportPanel({ onClose }: { onClose: () => void }) {
     const { user } = useAuth()
     const [step, setStep] = useState(1)
     const [loading, setLoading] = useState(false)
+    const [uploading, setUploading] = useState(false)
+    const [attachments, setAttachments] = useState<{ fileName: string; fileUrl: string }[]>([])
+    const fileInputRef = useRef<HTMLInputElement>(null)
     const [form, setForm] = useState({
         name: user?.name || '',
         phone: user?.phone || '',
@@ -339,6 +342,42 @@ function SupportPanel({ onClose }: { onClose: () => void }) {
         }
     }, [user])
 
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0]
+        if (!file) return
+
+        const allowedTypes = ['jpg', 'jpeg', 'png', 'gif', 'pdf', 'doc', 'docx', 'xls', 'xlsx', 'txt']
+        const ext = file.name.split('.').pop()?.toLowerCase() || ''
+        if (!allowedTypes.includes(ext)) {
+            toast.error('Định dạng file không hỗ trợ')
+            return
+        }
+        if (file.size > 5 * 1024 * 1024) {
+            toast.error('File không được vượt quá 5MB')
+            return
+        }
+
+        setUploading(true)
+        const formData = new FormData()
+        formData.append('file', file)
+
+        try {
+            const res = await fetch('/api/upload/secure', { method: 'POST', body: formData })
+            const data = await res.json()
+            if (data.fileId) {
+                setAttachments(prev => [...prev, { fileName: file.name, fileUrl: `/api/files/${data.fileId}` }])
+                toast.success('Đã đính kèm file')
+            } else {
+                toast.error('Tải file thất bại')
+            }
+        } catch {
+            toast.error('Lỗi tải file')
+        } finally {
+            setUploading(false)
+            if (fileInputRef.current) fileInputRef.current.value = ''
+        }
+    }
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
         if (!form.name || !form.phone || !form.message) {
@@ -350,7 +389,7 @@ function SupportPanel({ onClose }: { onClose: () => void }) {
             const res = await fetch('/api/support', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ...form, pageUrl: window.location.href })
+                body: JSON.stringify({ ...form, attachments, pageUrl: window.location.href })
             })
             const data = await res.json()
             if (data.success) setStep(3)
@@ -419,14 +458,53 @@ function SupportPanel({ onClose }: { onClose: () => void }) {
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <div>
                             <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Nội dung yêu cầu *</label>
-                            <textarea rows={4} value={form.message} onChange={e => setForm({ ...form, message: e.target.value })} placeholder="Mô tả chi tiết vấn đề..."
+                            <textarea rows={3} value={form.message} onChange={e => setForm({ ...form, message: e.target.value })} placeholder="Mô tả chi tiết vấn đề..."
                                 className="w-full px-4 py-3 bg-gray-50 border rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none resize-none" />
                         </div>
+
+                        {/* ATTACHMENT TOOLBAR */}
+                        <div className="flex items-center justify-between p-3 bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl border border-gray-200">
+                            <button
+                                type="button"
+                                onClick={() => fileInputRef.current?.click()}
+                                disabled={uploading}
+                                className="flex items-center gap-2 px-3 py-2 bg-white hover:bg-indigo-50 text-indigo-600 rounded-lg border border-gray-200 text-xs font-bold shadow-sm disabled:opacity-50"
+                            >
+                                {uploading ? (
+                                    <div className="w-4 h-4 border-2 border-indigo-600 border-t-transparent animate-spin rounded-full" />
+                                ) : (
+                                    <span>📎</span>
+                                )}
+                                Đính kèm file
+                            </button>
+                            <input
+                                type="file"
+                                ref={fileInputRef}
+                                onChange={handleFileChange}
+                                className="hidden"
+                                accept=".jpg,.jpeg,.png,.gif,.pdf,.doc,.docx,.xls,.xlsx,.txt"
+                            />
+                            <span className="text-[10px] text-gray-500">Max 5MB</span>
+                        </div>
+
+                        {/* ATTACHMENTS LIST */}
+                        {attachments.length > 0 && (
+                            <div className="space-y-2">
+                                {attachments.map((file, i) => (
+                                    <div key={i} className="flex items-center justify-between p-2 bg-green-50 rounded-lg border border-green-200 text-xs">
+                                        <span className="truncate flex-1 text-green-800 font-medium">📄 {file.fileName}</span>
+                                        <button type="button" onClick={() => setAttachments(prev => prev.filter((_, idx) => idx !== i))}
+                                            className="text-red-500 hover:text-red-700 ml-2 font-bold">✕</button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
                         <div className="flex gap-3">
                             <button type="button" onClick={() => setStep(1)} className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 py-3 rounded-xl font-bold text-sm">
                                 Quay lại
                             </button>
-                            <button type="submit" disabled={loading}
+                            <button type="submit" disabled={loading || uploading}
                                 className="flex-[2] bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl font-bold text-sm disabled:opacity-50 flex items-center justify-center gap-2">
                                 {loading ? <div className="w-5 h-5 border-2 border-white border-t-transparent animate-spin rounded-full" /> : <>Gửi <Send className="w-4 h-4" /></>}
                             </button>

@@ -6,7 +6,7 @@
  */
 
 import { useState, useEffect } from 'react'
-import { Link2, Copy, CheckCircle2, Clock, Eye, Trash2, Camera, QrCode, ExternalLink, Loader2, AlertTriangle } from 'lucide-react'
+import { Link2, Copy, CheckCircle2, Clock, Eye, Trash2, Camera, QrCode, ExternalLink, Loader2, AlertTriangle, Download } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { Badge } from '@/components/ui/badge'
 
@@ -21,19 +21,53 @@ export default function WorkerReportWidget({ projectId }: WorkerReportWidgetProp
     const [generating, setGenerating] = useState(false)
     const [activeTab, setActiveTab] = useState<'LINKS' | 'REPORTS'>('REPORTS')
 
+    // Multi-project support state
+    const [projects, setProjects] = useState<any[]>([])
+    const [selectedProjectId, setSelectedProjectId] = useState<string>(projectId === 'active' ? '' : projectId)
+    const [isMultiProject, setIsMultiProject] = useState(projectId === 'active')
+
+    // Initial load: Fetch projects if in 'active' mode
+    useEffect(() => {
+        if (projectId === 'active') {
+            const fetchProjects = async () => {
+                try {
+                    const token = localStorage.getItem('access_token')
+                    const res = await fetch('/api/contractors/projects', {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    })
+                    if (res.ok) {
+                        const data = await res.json()
+                        setProjects(data.data || [])
+                        if (data.data && data.data.length > 0) {
+                            setSelectedProjectId(data.data[0].id)
+                        }
+                    }
+                } catch (err) {
+                    console.error('Error fetching projects')
+                }
+            }
+            fetchProjects()
+        } else {
+            setSelectedProjectId(projectId)
+        }
+    }, [projectId])
+
+    // Load data when selectedProjectId changes
     const fetchData = async () => {
+        if (!selectedProjectId) return
+
         setLoading(true)
         try {
             const token = localStorage.getItem('access_token')
             // Fetch reports waiting for approval for this project
-            const repRes = await fetch(`/api/contractors/projects/${projectId}/reports`, {
+            const repRes = await fetch(`/api/contractors/projects/${selectedProjectId}/reports`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             })
             const repData = await repRes.json()
             if (repRes.ok) setReports(repData.data || [])
 
             // Fetch active links for this project
-            const tokRes = await fetch(`/api/contractors/projects/${projectId}/report-token`, {
+            const tokRes = await fetch(`/api/contractors/projects/${selectedProjectId}/report-token`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             })
             const tokData = await tokRes.json()
@@ -50,19 +84,25 @@ export default function WorkerReportWidget({ projectId }: WorkerReportWidgetProp
 
     useEffect(() => {
         fetchData()
-    }, [projectId])
+    }, [selectedProjectId])
 
     const generateLink = async () => {
+        if (!selectedProjectId) return toast.error('Vui lòng chọn dự án')
+
         setGenerating(true)
         try {
             const token = localStorage.getItem('access_token')
-            const res = await fetch(`/api/contractors/projects/${projectId}/report-token`, {
+            const res = await fetch(`/api/contractors/projects/${selectedProjectId}/report-token`, {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${token}` }
             })
             if (res.ok) {
                 toast.success('Đã tạo link báo cáo mới')
                 fetchData()
+            } else {
+                const resData = await res.json()
+                const errorMessage = resData.error?.message || resData.message || 'Không thể tạo link'
+                toast.error(errorMessage)
             }
         } catch (err) {
             toast.error('Lỗi tạo link')
@@ -71,9 +111,34 @@ export default function WorkerReportWidget({ projectId }: WorkerReportWidgetProp
         }
     }
 
-    const copyLink = (url: string) => {
-        navigator.clipboard.writeText(url)
-        toast.success('Đã sao chép link')
+
+    const copyLink = async (url: string) => {
+        try {
+            if (navigator.clipboard && window.isSecureContext) {
+                await navigator.clipboard.writeText(url)
+                toast.success('Đã sao chép link')
+            } else {
+                // Fallback for non-secure context (http)
+                const textArea = document.createElement("textarea")
+                textArea.value = url
+                textArea.style.position = "fixed"
+                textArea.style.left = "-9999px"
+                document.body.appendChild(textArea)
+                textArea.focus()
+                textArea.select()
+
+                try {
+                    document.execCommand('copy')
+                    toast.success('Đã sao chép link')
+                } catch (err) {
+                    toast.error('Không thể tự động sao chép, vui lòng copy thủ công')
+                }
+
+                document.body.removeChild(textArea)
+            }
+        } catch (err) {
+            toast.error('Lỗi khi sao chép')
+        }
     }
 
     const handleReportAction = async (reportId: string, status: 'APPROVED' | 'REJECTED') => {
@@ -98,28 +163,45 @@ export default function WorkerReportWidget({ projectId }: WorkerReportWidgetProp
 
     return (
         <div className="bg-white rounded-3xl border border-gray-100 shadow-xl overflow-hidden h-full flex flex-col">
-            <div className="p-6 border-b border-gray-50 bg-gray-50/50 flex items-center justify-between">
-                <div>
-                    <h3 className="font-bold text-gray-900 flex items-center gap-2">
-                        <Camera className="w-5 h-5 text-blue-600" />
-                        Nghiệm thu báo cáo ảnh
-                    </h3>
-                    <p className="text-[10px] text-gray-500 font-medium uppercase mt-1">Từ thợ tại công trường</p>
+            <div className="p-6 border-b border-gray-50 bg-gray-50/50 flex flex-col gap-4">
+                <div className="flex items-center justify-between">
+                    <div>
+                        <h3 className="font-bold text-gray-900 flex items-center gap-2">
+                            <Camera className="w-5 h-5 text-blue-600" />
+                            Nghiệm thu báo cáo ảnh
+                        </h3>
+                        <p className="text-[10px] text-gray-500 font-medium uppercase mt-1">Từ thợ tại công trường</p>
+                    </div>
+                    <div className="flex bg-gray-200/50 p-1 rounded-xl">
+                        <button
+                            onClick={() => setActiveTab('REPORTS')}
+                            className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${activeTab === 'REPORTS' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500'}`}
+                        >
+                            Chờ duyệt ({reports.length})
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('LINKS')}
+                            className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${activeTab === 'LINKS' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500'}`}
+                        >
+                            Gửi thợ
+                        </button>
+                    </div>
                 </div>
-                <div className="flex bg-gray-200/50 p-1 rounded-xl">
-                    <button
-                        onClick={() => setActiveTab('REPORTS')}
-                        className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${activeTab === 'REPORTS' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500'}`}
+
+                {isMultiProject && (
+                    <select
+                        className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs font-bold text-gray-700 outline-none focus:border-blue-500 transition-colors"
+                        value={selectedProjectId}
+                        onChange={(e) => setSelectedProjectId(e.target.value)}
                     >
-                        Chờ duyệt ({reports.length})
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('LINKS')}
-                        className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${activeTab === 'LINKS' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500'}`}
-                    >
-                        Gửi thợ
-                    </button>
-                </div>
+                        {projects.length === 0 && <option value="">Đang tải dự án...</option>}
+                        {projects.map(p => (
+                            <option key={p.id} value={p.id}>
+                                {p.title}
+                            </option>
+                        ))}
+                    </select>
+                )}
             </div>
 
             <div className="p-6 flex-1 overflow-y-auto max-h-[400px]">
@@ -185,37 +267,92 @@ export default function WorkerReportWidget({ projectId }: WorkerReportWidgetProp
                 ) : (
                     <div className="space-y-4">
                         <button
+                            type="button"
                             onClick={generateLink}
                             disabled={generating}
-                            className="w-full py-3 bg-blue-50 text-blue-600 border border-blue-100 border-dashed rounded-2xl flex items-center justify-center gap-2 text-xs font-bold hover:bg-blue-100 transition-all font-sans"
+                            className="w-full py-3 bg-emerald-50 text-emerald-600 border border-emerald-100 border-dashed rounded-2xl flex items-center justify-center gap-2 text-xs font-bold hover:bg-emerald-100 transition-all font-sans"
                         >
                             {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <QrCode className="w-4 h-4" />}
                             Tạo Link/QR Cho Công Trường
                         </button>
 
-                        <div className="space-y-3">
-                            {tokens.map(t => (
-                                <div key={t.token} className="p-4 bg-white border border-gray-100 rounded-2xl flex items-center justify-between hover:shadow-md transition-all">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center">
-                                            <QrCode className="w-5 h-5 text-gray-400" />
+                        <div className="space-y-4">
+                            {tokens.map(t => {
+                                const link = `${window.location.protocol}//${window.location.host}/report/${t.token}`
+                                return (
+                                    <div key={t.token} className="bg-white border border-gray-100 rounded-2xl overflow-hidden hover:shadow-md transition-all">
+                                        <div className="p-4 flex items-center justify-between">
+                                            <div className="flex items-center gap-3 overflow-hidden">
+                                                <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center flex-shrink-0">
+                                                    <QrCode className="w-5 h-5 text-blue-600" />
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-xs font-bold text-gray-900 truncate">QR Báo cáo #{(t.token).slice(0, 4)}</span>
+                                                        <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200">Hoạt động</Badge>
+                                                    </div>
+                                                    <p className="text-[10px] text-gray-400 truncate max-w-[200px]">{link}</p>
+                                                </div>
+                                            </div>
+                                            <div className="flex gap-1">
+                                                <button
+                                                    onClick={() => copyLink(link)}
+                                                    className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors"
+                                                    title="Sao chép liên kết"
+                                                >
+                                                    <Copy className="w-4 h-4" />
+                                                </button>
+                                                <a
+                                                    href={link}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                                    title="Mở liên kết"
+                                                >
+                                                    <ExternalLink className="w-4 h-4" />
+                                                </a>
+                                            </div>
                                         </div>
-                                        <div>
-                                            <p className="text-xs font-bold text-gray-900">Token: {t.token}</p>
-                                            <p className="text-[10px] text-gray-400">Hết hạn sau 7 ngày</p>
+
+                                        {/* QR Code Preview Section */}
+                                        <div className="px-4 pb-4">
+                                            <div className="bg-gray-50 rounded-xl p-4 flex flex-col items-center justify-center border border-gray-100">
+                                                <img
+                                                    src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(link)}`}
+                                                    alt="QR Code"
+                                                    className="w-32 h-32 mb-2 mix-blend-multiply"
+                                                />
+                                                <div className="flex gap-2">
+                                                    <p className="text-[10px] text-gray-400 font-medium">Quét mã để báo cáo</p>
+                                                    <span className="text-gray-300">|</span>
+                                                    <button
+                                                        onClick={() => {
+                                                            const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(link)}`
+                                                            fetch(qrUrl)
+                                                                .then(res => res.blob())
+                                                                .then(blob => {
+                                                                    const url = URL.createObjectURL(blob)
+                                                                    const a = document.createElement('a')
+                                                                    a.href = url
+                                                                    a.download = `qrcode-${t.token}.png`
+                                                                    document.body.appendChild(a)
+                                                                    a.click()
+                                                                    document.body.removeChild(a)
+                                                                    URL.revokeObjectURL(url)
+                                                                    toast.success('Đã tải mã QR')
+                                                                })
+                                                                .catch(() => toast.error('Lỗi tải mã QR'))
+                                                        }}
+                                                        className="text-[10px] text-blue-600 font-bold hover:underline flex items-center gap-1"
+                                                    >
+                                                        <Download className="w-3 h-3" /> Tải về in
+                                                    </button>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
-                                    <div className="flex gap-1">
-                                        <button
-                                            onClick={() => copyLink(`${window.location.protocol}//${window.location.host}/report/${t.token}`)}
-                                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"
-                                            title="Copy Link"
-                                        >
-                                            <Copy className="w-4 h-4" />
-                                        </button>
-                                    </div>
-                                </div>
-                            ))}
+                                )
+                            })}
                         </div>
                     </div>
                 )}
