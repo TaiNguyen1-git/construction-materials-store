@@ -31,10 +31,10 @@ export async function GET(request: NextRequest) {
         }
 
         // Get purchase orders for this supplier
-        const purchaseOrders = await prisma.purchaseOrder.findMany({
+        const purchaseOrders = await (prisma.purchaseOrder as any).findMany({
             where: { supplierId },
             include: {
-                items: {
+                purchaseItems: {
                     include: { product: true }
                 }
             },
@@ -43,26 +43,26 @@ export async function GET(request: NextRequest) {
         })
 
         // Calculate stats
-        const allOrders = await prisma.purchaseOrder.findMany({
+        const allOrders = await (prisma.purchaseOrder as any).findMany({
             where: { supplierId }
         })
 
         const stats = {
             totalOrders: allOrders.length,
-            pendingOrders: allOrders.filter(o => o.status === 'PENDING' || o.status === 'ORDERED').length,
+            pendingOrders: allOrders.filter((o: any) => o.status === 'PENDING' || o.status === 'ORDERED').length,
             totalRevenue: allOrders
-                .filter(o => o.status === 'RECEIVED')
-                .reduce((sum, o) => sum + o.totalAmount, 0),
+                .filter((o: any) => o.status === 'RECEIVED')
+                .reduce((sum: number, o: any) => sum + o.totalAmount, 0),
             pendingPayments: allOrders
-                .filter(o => o.paymentStatus !== 'PAID')
-                .reduce((sum, o) => sum + o.totalAmount, 0)
+                .filter((o: any) => o.paymentStatus !== 'PAID')
+                .reduce((sum: number, o: any) => sum + o.totalAmount, 0)
         }
 
         // Format recent orders
-        const recentOrders = purchaseOrders.flatMap(po =>
-            po.items.map(item => ({
+        const recentOrders = purchaseOrders.flatMap((po: any) =>
+            (po.purchaseItems || []).map((item: any) => ({
                 orderNumber: po.orderNumber,
-                productName: item.product.name,
+                productName: item.product?.name || 'N/A',
                 quantity: item.quantity,
                 status: po.status,
                 createdAt: po.createdAt

@@ -22,9 +22,8 @@ async function main() {
             password: hashedPassword,
             name: 'Nguyễn Văn Thầu',
             phone: '0909123456',
-            role: 'USER',
-            isActive: true,
-            emailVerified: true
+            role: 'CONTRACTOR' as any,
+            isActive: true
         }
     })
     console.log('✅ User created:', user.email)

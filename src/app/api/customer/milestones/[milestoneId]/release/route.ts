@@ -7,7 +7,7 @@ import { createSuccessResponse, createErrorResponse } from '@/lib/api-types'
  */
 export async function POST(
     request: NextRequest,
-    { params }: { params: { milestoneId: string } }
+    { params }: { params: Promise<{ milestoneId: string }> }
 ) {
     try {
         const { milestoneId } = (await params)

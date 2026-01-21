@@ -61,27 +61,28 @@ export async function POST(
 
         // Get or create cart
         let cart = await prisma.cart.findFirst({
-            where: { customerId: customer.id }
+            where: { customerId: customer.id },
+            include: { items: true }
         })
 
         if (!cart) {
             cart = await prisma.cart.create({
                 data: {
                     customerId: customer.id,
-                    items: [],
                     totalItems: 0,
                     subtotal: 0
-                }
+                },
+                include: { items: true }
             })
         }
 
         // Current cart items
-        const currentItems = (cart.items as any[]) || []
+        const currentItems = [...(cart.items || [])]
         let addedCount = 0
         let skippedCount = 0
         let totalAdded = 0
 
-        // Add each material to cart
+        // Combine materials into existing items
         for (const material of materials) {
             const { productId, quantity, name, unit, price } = material
 
@@ -97,15 +98,14 @@ export async function POST(
 
             // Check if already in cart
             const existingIndex = currentItems.findIndex((item: any) => item.productId === productId)
-
-            const finalPrice = isVerified ? price * 0.95 : price // 5% discount for verified
+            const finalPrice = isVerified ? price * 0.95 : price
 
             if (existingIndex >= 0) {
                 // Update quantity
                 currentItems[existingIndex].quantity += quantity
                 currentItems[existingIndex].subtotal = currentItems[existingIndex].quantity * finalPrice
             } else {
-                // Add new item
+                // Add new item to array (will be created in DB later)
                 currentItems.push({
                     productId,
                     productName: name || product.name,
@@ -113,30 +113,51 @@ export async function POST(
                     unit: unit || product.unit,
                     unitPrice: finalPrice,
                     originalPrice: price,
-                    discountPercent,
+                    discountPercent: discountPercent as any,
                     subtotal: quantity * finalPrice,
                     source: 'BOQ',
                     sourceApplicationId: applicationId,
                     sourceProjectTitle: application.project.title
-                })
+                } as any)
             }
 
             addedCount++
             totalAdded += quantity * finalPrice
         }
 
-        // Update cart
+        // Update cart structure in one transaction
         const subtotal = currentItems.reduce((sum: number, item: any) => sum + item.subtotal, 0)
         const totalItems = currentItems.reduce((sum: number, item: any) => sum + item.quantity, 0)
 
-        await prisma.cart.update({
-            where: { id: cart.id },
-            data: {
-                items: currentItems,
-                totalItems,
-                subtotal
-            }
-        })
+        await prisma.$transaction([
+            // Delete all current items for this cart
+            prisma.cartItem.deleteMany({
+                where: { cartId: cart.id }
+            }),
+            // Create all new/updated items
+            prisma.cart.update({
+                where: { id: cart.id },
+                data: {
+                    totalItems,
+                    subtotal,
+                    items: {
+                        create: currentItems.map(item => ({
+                            productId: item.productId,
+                            productName: item.productName,
+                            quantity: item.quantity,
+                            unit: item.unit,
+                            unitPrice: item.unitPrice,
+                            originalPrice: item.originalPrice,
+                            discountPercent: item.discountPercent,
+                            subtotal: item.subtotal,
+                            source: item.source,
+                            sourceApplicationId: item.sourceApplicationId,
+                            sourceProjectTitle: item.sourceProjectTitle
+                        }))
+                    }
+                }
+            })
+        ])
 
         return NextResponse.json(
             createSuccessResponse({

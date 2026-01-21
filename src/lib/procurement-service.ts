@@ -320,10 +320,7 @@ export class ProcurementService {
         createdBy: string
     ) {
         const request = await prisma.purchaseRequest.findUnique({
-            where: { id: requestId },
-            include: {
-                // This would need a relation to product
-            }
+            where: { id: requestId }
         })
 
         if (!request) {

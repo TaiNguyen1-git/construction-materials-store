@@ -55,6 +55,8 @@ export default function CreditManagementPage() {
     const [loading, setLoading] = useState(true)
     const [searchTerm, setSearchTerm] = useState('')
 
+    const [configurations, setConfigurations] = useState<any[]>([])
+
     useEffect(() => {
         loadData()
     }, [activeTab])
@@ -70,6 +72,19 @@ export default function CreditManagementPage() {
                 const res = await fetch('/api/credit?type=pending-approvals')
                 const data = await res.json()
                 setPendingApprovals(data)
+            } else if (activeTab === 'config') {
+                const res = await fetch('/api/credit?type=configurations')
+                const data = await res.json()
+                // If no configs, seed some defaults for UI to show
+                if (Array.isArray(data) && data.length === 0) {
+                    setConfigurations([
+                        { name: 'DEFAULT_CREDIT_LIMIT', value: '50000000', description: 'Hạn mức tín dụng mặc định (VND)' },
+                        { name: 'MAX_OVERDUE_DAYS', value: '30', description: 'Số ngày quá hạn tối đa trước khi khóa (Ngày)' },
+                        { name: 'INTEREST_RATE', value: '0.05', description: 'Lãi suất phạt quá hạn (%)' }
+                    ])
+                } else {
+                    setConfigurations(data)
+                }
             }
         } catch (error) {
             console.error('Error loading data:', error)
@@ -92,6 +107,25 @@ export default function CreditManagementPage() {
             loadData()
         } catch (error) {
             console.error('Error processing approval:', error)
+        }
+    }
+
+    const handleSaveConfig = async (config: any) => {
+        try {
+            await fetch('/api/credit', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'update-config',
+                    configData: config
+                })
+            })
+            // Show success toast or reload
+            alert('Đã lưu cấu hình!')
+            loadData()
+        } catch (error) {
+            console.error('Error saving config:', error)
+            alert('Lỗi khi lưu cấu hình')
         }
     }
 
@@ -186,8 +220,8 @@ export default function CreditManagementPage() {
                     <button
                         onClick={() => setActiveTab('aging')}
                         className={`pb-3 px-1 border-b-2 font-medium ${activeTab === 'aging'
-                                ? 'border-blue-600 text-blue-600'
-                                : 'border-transparent text-gray-500 hover:text-gray-700'
+                            ? 'border-blue-600 text-blue-600'
+                            : 'border-transparent text-gray-500 hover:text-gray-700'
                             }`}
                     >
                         Báo cáo Tuổi nợ
@@ -195,8 +229,8 @@ export default function CreditManagementPage() {
                     <button
                         onClick={() => setActiveTab('approvals')}
                         className={`pb-3 px-1 border-b-2 font-medium flex items-center gap-2 ${activeTab === 'approvals'
-                                ? 'border-blue-600 text-blue-600'
-                                : 'border-transparent text-gray-500 hover:text-gray-700'
+                            ? 'border-blue-600 text-blue-600'
+                            : 'border-transparent text-gray-500 hover:text-gray-700'
                             }`}
                     >
                         Chờ duyệt
@@ -209,8 +243,8 @@ export default function CreditManagementPage() {
                     <button
                         onClick={() => setActiveTab('config')}
                         className={`pb-3 px-1 border-b-2 font-medium ${activeTab === 'config'
-                                ? 'border-blue-600 text-blue-600'
-                                : 'border-transparent text-gray-500 hover:text-gray-700'
+                            ? 'border-blue-600 text-blue-600'
+                            : 'border-transparent text-gray-500 hover:text-gray-700'
                             }`}
                     >
                         Cấu hình
@@ -350,9 +384,39 @@ export default function CreditManagementPage() {
 
                     {/* Config Tab */}
                     {activeTab === 'config' && (
-                        <div className="bg-white rounded-xl p-6 shadow-sm border">
-                            <h3 className="font-semibold mb-4">Cấu hình luật công nợ</h3>
-                            <p className="text-gray-500">Tính năng đang phát triển...</p>
+                        <div className="grid gap-6">
+                            <div className="bg-white rounded-xl p-6 shadow-sm border">
+                                <h3 className="font-semibold text-lg mb-2">Cấu hình luật công nợ</h3>
+                                <p className="text-gray-500 mb-6">Thiết lập các giới hạn và quy định về tín dụng cho hệ thống.</p>
+
+                                <div className="space-y-4 max-w-2xl">
+                                    {configurations.map((config, idx) => (
+                                        <div key={config.name || idx} className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center p-4 bg-gray-50 rounded-lg">
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">{config.name}</label>
+                                                <p className="text-xs text-gray-500">{config.description}</p>
+                                            </div>
+                                            <div className="flex gap-2">
+                                                <input
+                                                    type="text"
+                                                    className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border"
+                                                    defaultValue={config.value}
+                                                    onBlur={(e) => {
+                                                        // Only save if changed
+                                                        if (e.target.value !== config.value) {
+                                                            handleSaveConfig({ ...config, value: e.target.value })
+                                                        }
+                                                    }}
+                                                />
+                                            </div>
+                                        </div>
+                                    ))}
+
+                                    {configurations.length === 0 && (
+                                        <p className="text-center text-gray-500">Chưa có cấu hình nào. Sẽ sử dụng mặc định.</p>
+                                    )}
+                                </div>
+                            </div>
                         </div>
                     )}
                 </>

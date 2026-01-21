@@ -119,3 +119,18 @@ export function requireEmployee(request: NextRequest): NextResponse | null {
 
   return null
 }
+
+/**
+ * Helper to get real userId from either JWT or headers
+ */
+export async function getUserIdFromRequest(request: NextRequest): Promise<string | null> {
+  // 1. Try to get from JWT payload (most reliable)
+  const payload = verifyTokenFromRequest(request)
+  if (payload && payload.userId) {
+    return payload.userId
+  }
+
+  // 2. Fallback to header (from middleware)
+  const userId = request.headers.get('x-user-id')
+  return userId
+}

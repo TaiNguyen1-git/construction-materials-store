@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { TaskStatus } from '@prisma/client'
 import { createSuccessResponse, createErrorResponse } from '@/lib/api-types'
-import { getUserIdFromRequest } from '@/app/api/notifications/route' // We can reuse this helper or move it to a lib
+import { getUserIdFromRequest } from '@/lib/auth-middleware-api'
 
 export async function GET(request: NextRequest) {
     try {

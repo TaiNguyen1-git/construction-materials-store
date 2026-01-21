@@ -38,8 +38,8 @@ export class ReviewRecommendationsService {
         select: { rating: true, isVerified: true, createdAt: true }
       }),
       prisma.productReview.findMany({
-        where: { 
-          productId, 
+        where: {
+          productId,
           isPublished: true,
           createdAt: { gte: thirtyDaysAgo }
         },
@@ -49,7 +49,7 @@ export class ReviewRecommendationsService {
 
     const totalReviews = allReviews.length
     const verifiedReviews = allReviews.filter(r => r.isVerified).length
-    
+
     const averageRating = totalReviews > 0
       ? allReviews.reduce((sum, r) => sum + r.rating, 0) / totalReviews
       : 0
@@ -75,7 +75,7 @@ export class ReviewRecommendationsService {
     const verifiedRatio = totalReviews > 0 ? verifiedReviews / totalReviews : 0
     const trendScore = ratingTrend === 'up' ? 10 : ratingTrend === 'down' ? 0 : 5
 
-    const qualityScore = 
+    const qualityScore =
       (averageRating / 5) * 50 +
       reviewCountScore +
       verifiedRatio * 15 +
@@ -112,13 +112,13 @@ export class ReviewRecommendationsService {
     const enhanced = await Promise.all(
       baseRecommendations.map(async (rec) => {
         const reviewMetrics = await this.getProductReviewMetrics(rec.productId)
-        
+
         // Calculate review boost (0-1)
         const reviewBoost = reviewMetrics.qualityScore / 100
-        
+
         // Combine base score with review boost
         const finalScore = rec.score * (1 - reviewWeight) + reviewBoost * reviewWeight
-        
+
         return {
           productId: rec.productId,
           score: rec.score,
@@ -132,7 +132,7 @@ export class ReviewRecommendationsService {
 
     // Filter and sort
     return enhanced
-      .filter(item => 
+      .filter(item =>
         item.reviewMetrics.averageRating >= minRating &&
         item.reviewMetrics.totalReviews >= minReviews
       )
@@ -178,7 +178,7 @@ export class ReviewRecommendationsService {
     const scored = await Promise.all(
       products.map(async (product) => {
         const reviewMetrics = await this.getProductReviewMetrics(product.id)
-        
+
         return {
           ...product,
           reviewMetrics,
@@ -230,20 +230,20 @@ export class ReviewRecommendationsService {
     const scored = await Promise.all(
       products.map(async (product) => {
         const reviewMetrics = await this.getProductReviewMetrics(product.id)
-        
+
         // Trending score = quality + trend bonus
         let trendScore = reviewMetrics.qualityScore
-        
+
         if (reviewMetrics.ratingTrend === 'up') {
           trendScore += 20 // Significant boost for upward trend
         }
-        
+
         // Boost for recent activity
         const recentReviews = product.productReviews.filter(
           r => new Date(r.createdAt) >= thirtyDaysAgo
         ).length
         trendScore += Math.min(recentReviews * 2, 20) // Max +20 for activity
-        
+
         return {
           ...product,
           reviewMetrics,
@@ -308,8 +308,8 @@ export class ReviewRecommendationsService {
         price: number
         images: string[]
         unit: string
-        category: { name: string }
-        inventoryItem?: { availableQuantity: number }
+        category: { name: string } | null
+        inventoryItem: { availableQuantity: number } | null
       }
       count: number
       avgRating: number
@@ -411,9 +411,9 @@ export class ReviewRecommendationsService {
       recommendations.map(async (product) => {
         const categoryScore = categoryPreferences.get(product.categoryId) || 0
         const reviewMetrics = await this.getProductReviewMetrics(product.id)
-        
+
         const score = categoryScore * 10 + reviewMetrics.qualityScore
-        
+
         return {
           product,
           score,

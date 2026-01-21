@@ -774,6 +774,102 @@ export class AIService {
       return null;
     }
   }
+
+
+  // Extract invoice data directly from image using Gemini Vision
+  static async extractInvoiceData(imageData: string): Promise<any> {
+    try {
+      const { client, modelName } = await getWorkingModelConfig();
+      if (!client) throw new Error('Client init failed');
+
+      // Extract mime type and data
+      const match = imageData.match(/^data:([^;]+);base64,(.+)$/);
+      const mimeType = match ? match[1] : 'image/jpeg';
+      const data = match ? match[2] : imageData;
+
+      const prompt = `
+      Analyze this image and extract invoice data.
+      Return a JSON object with the following structure:
+      {
+        "invoiceNumber": "string",
+        "invoiceDate": "ISO date string or null",
+        "dueDate": "ISO date string or null",
+        "supplierName": "string",
+        "supplierAddress": "string",
+        "supplierPhone": "string",
+        "supplierTaxId": "string",
+        "items": [
+          {
+            "name": "string (product name)",
+            "quantity": number,
+            "unit": "string",
+            "unitPrice": number,
+            "totalPrice": number
+          }
+        ],
+        "subtotal": number,
+        "taxAmount": number,
+        "taxRate": number,
+        "totalAmount": number,
+        "paymentMethod": "CASH" | "BANK_TRANSFER" | "CREDIT_CARD" | "OTHER",
+        "paymentStatus": "PAID" | "UNPAID",
+        "confidence": number (0-1)
+      }
+
+      Rules:
+      - If a field is missing, use null or empty string/0 as appropriate.
+      - For items, try to be as precise as possible.
+      - confidence should reflect how legible the invoice is.
+      - Return ONLY valid JSON.
+      `
+
+      const result = await client.models.generateContent({
+        model: modelName!,
+        contents: [
+          {
+            role: 'user',
+            parts: [
+              { text: prompt },
+              {
+                inlineData: {
+                  data,
+                  mimeType
+                }
+              }
+            ]
+          }
+        ]
+      });
+
+      const text = (result as any).text || '{}';
+
+      let invoiceData: any = {};
+      try {
+        const cleanedText = text.replace(/```json\s*|\s*```/g, '').trim();
+        invoiceData = JSON.parse(cleanedText);
+      } catch (parseError) {
+        // Try to find JSON block
+        const jsonMatch = text.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          try {
+            invoiceData = JSON.parse(jsonMatch[0]);
+          } catch (e) {
+            console.error('Failed to parse invoice JSON:', e);
+          }
+        }
+      }
+
+      // Ensure minimal structure
+      return {
+        ...invoiceData,
+        rawText: text // Keep raw text for debugging if needed
+      };
+
+    } catch (error) {
+      console.error('Gemini invoice extraction error:', error);
+      throw error;
+    }
+  }
 }
 
 export default AIService

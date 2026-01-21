@@ -33,7 +33,7 @@ export class LoyaltyService {
   // Calculate points earned from a purchase
   static calculatePoints(amount: number, tier: LoyaltyTier = 'BRONZE'): number {
     const basePoints = Math.floor(amount / 1000) // 1 point per 1000 VND spent
-    
+
     // Tier multipliers
     const multipliers = {
       'BRONZE': 1,
@@ -42,7 +42,7 @@ export class LoyaltyService {
       'PLATINUM': 2,
       'DIAMOND': 2.5
     }
-    
+
     return Math.floor(basePoints * multipliers[tier])
   }
 
@@ -55,10 +55,10 @@ export class LoyaltyService {
       'PLATINUM': 5000,
       'DIAMOND': 10000
     }
-    
+
     const nextTier = this.getNextTier(currentTier)
     if (!nextTier) return 0 // Already at highest tier
-    
+
     const requiredPoints = tierRequirements[nextTier]
     return Math.max(0, requiredPoints - totalPoints)
   }
@@ -67,11 +67,11 @@ export class LoyaltyService {
   static getNextTier(currentTier: LoyaltyTier): LoyaltyTier | null {
     const tierOrder: LoyaltyTier[] = ['BRONZE', 'SILVER', 'GOLD', 'PLATINUM', 'DIAMOND']
     const currentIndex = tierOrder.indexOf(currentTier)
-    
+
     if (currentIndex < tierOrder.length - 1) {
       return tierOrder[currentIndex + 1]
     }
-    
+
     return null // Already at highest tier
   }
 
@@ -88,7 +88,7 @@ export class LoyaltyService {
 
       // Calculate points for this purchase
       const pointsEarned = this.calculatePoints(purchaseAmount, customer.loyaltyTier || 'BRONZE')
-      
+
       // Update customer loyalty data
       const updatedCustomer: any = await (prisma as any).customer.update({
         where: { id: customerId },
@@ -109,7 +109,7 @@ export class LoyaltyService {
 
       // Determine new tier based on total points
       const newTier = this.determineTier((customer.totalPointsEarned || 0) + pointsEarned)
-      
+
       // Update tier
       const finalCustomer: any = await (prisma as any).customer.update({
         where: { id: customerId },
@@ -289,13 +289,13 @@ export class LoyaltyService {
       }
 
       // Generate unique referral code
-      const baseCode = (customer.user.name.substring(0, 3).toUpperCase() + 
-                      Math.random().toString(36).substring(2, 8).toUpperCase())
-      
+      const baseCode = (customer.user.name.substring(0, 3).toUpperCase() +
+        Math.random().toString(36).substring(2, 8).toUpperCase())
+
       // Ensure uniqueness
       let referralCode = baseCode
       let counter = 1
-      
+
       while (await (prisma as any).customer.findFirst({ where: { referralCode } })) {
         referralCode = baseCode + counter
         counter++
@@ -358,6 +358,78 @@ export class LoyaltyService {
       }
     } catch (error) {
       console.error('Error processing referral:', error)
+      throw error
+    }
+  }
+
+  // Get available voucher options
+  static getVoucherOptions() {
+    return [
+      { id: 'v50', value: 50000, pointsRequired: 500, label: 'Voucher 50.000đ' },
+      { id: 'v100', value: 100000, pointsRequired: 1000, label: 'Voucher 100.000đ' },
+      { id: 'v200', value: 200000, pointsRequired: 2000, label: 'Voucher 200.000đ' },
+      { id: 'v500', value: 500000, pointsRequired: 5000, label: 'Voucher 500.000đ' }
+    ]
+  }
+
+  // Redeem points for a specific voucher
+  static async redeemPointsForVoucher(customerId: string, voucherValue: number) {
+    try {
+      const options = this.getVoucherOptions()
+      const option = options.find(o => o.value === voucherValue)
+
+      if (!option) {
+        throw new Error('Voucher value không hợp lệ')
+      }
+
+      const pointsRequired = option.pointsRequired
+      const result = await this.redeemPoints(customerId, pointsRequired)
+
+      // Generate a dummy voucher code
+      const voucherCode = 'LOYL-' + Math.random().toString(36).substring(2, 10).toUpperCase()
+
+      return {
+        ...result,
+        voucherCode,
+        voucherValue,
+        description: `Đổi ${pointsRequired} điểm lấy voucher ${voucherValue.toLocaleString('vi-VN')}đ`
+      }
+    } catch (error) {
+      console.error('Error redeeming voucher:', error)
+      throw error
+    }
+  }
+
+  // Manually adjust customer points (mainly for admin)
+  static async adjustPoints(customerId: string, points: number, reason: string, adminId: string) {
+    try {
+      const customer: any = await (prisma as any).customer.findUnique({
+        where: { id: customerId }
+      })
+
+      if (!customer) {
+        throw new Error('Customer not found')
+      }
+
+      // Update customer points
+      const updatedCustomer: any = await (prisma as any).customer.update({
+        where: { id: customerId },
+        data: {
+          loyaltyPoints: {
+            increment: points // can be negative for decrement
+          },
+          totalPointsEarned: points > 0 ? { increment: points } : undefined
+        }
+      })
+
+      return {
+        previousPoints: customer.loyaltyPoints || 0,
+        newPoints: updatedCustomer.loyaltyPoints,
+        adjustment: points,
+        reason
+      }
+    } catch (error) {
+      console.error('Error adjusting points:', error)
       throw error
     }
   }

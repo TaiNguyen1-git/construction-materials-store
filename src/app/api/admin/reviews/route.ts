@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
     const isPublished = searchParams.get('isPublished')
     const isVerified = searchParams.get('isVerified')
     const search = searchParams.get('search')
-    
+
     const skip = (page - 1) * limit
 
     // Build where clause
@@ -28,20 +28,20 @@ export async function GET(request: NextRequest) {
       isPublished?: boolean
       isVerified?: boolean
       OR?: Array<{
-        title?: { contains: string; mode: 'insensitive' }
-        review?: { contains: string; mode: 'insensitive' }
-        product?: { name: { contains: string; mode: 'insensitive' } }
+        title?: { contains: string; mode?: 'insensitive' }
+        review?: { contains: string; mode?: 'insensitive' }
+        product?: { name?: { contains: string; mode?: 'insensitive' } }
       }>
     } = {}
-    
+
     if (rating) {
       where.rating = parseInt(rating)
     }
-    
+
     if (isPublished !== null && isPublished !== undefined && isPublished !== '') {
       where.isPublished = isPublished === 'true'
     }
-    
+
     if (isVerified !== null && isVerified !== undefined && isVerified !== '') {
       where.isVerified = isVerified === 'true'
     }
@@ -65,7 +65,7 @@ export async function GET(request: NextRequest) {
         where,
         include: {
           product: {
-            select: { 
+            select: {
               id: true,
               name: true,
               images: true,
@@ -137,7 +137,7 @@ export async function GET(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   try {
     const userRole = request.headers.get('x-user-role')
-    
+
     if (userRole !== 'MANAGER') {
       return NextResponse.json(
         createErrorResponse('Unauthorized', 'FORBIDDEN'),

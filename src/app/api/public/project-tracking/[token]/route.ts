@@ -5,10 +5,10 @@ import { createSuccessResponse, createErrorResponse } from '@/lib/api-types'
 
 export async function GET(
     request: NextRequest,
-    { params }: { params: { token: string } }
+    { params }: { params: Promise<{ token: string }> }
 ) {
     try {
-        const { token } = params
+        const { token } = await params
 
         // 1. Validate Token
         const tokenRecord = await (prisma as any).projectReportToken.findUnique({

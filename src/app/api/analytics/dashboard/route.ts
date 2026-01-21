@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
     startDate.setDate(startDate.getDate() - days)
     startDate.setHours(0, 0, 0, 0)
 
-    const activeStatuses = ['CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'DEPOSIT_PAID', 'PENDING']
+    const activeStatuses: any[] = ['CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'DEPOSIT_PAID', 'PENDING']
 
     // 1. KPI Stats
     const [
@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
         where: { createdAt: { gte: startDate } }
       }),
       prisma.order.count({
-        where: { status: { in: ['PENDING', 'CONFIRMED', 'PENDING_CONFIRMATION', 'PROCESSING'] } }
+        where: { status: { in: ['PENDING', 'CONFIRMED', 'PENDING_CONFIRMATION', 'PROCESSING'] as any } }
       }),
       prisma.order.aggregate({
         where: {
@@ -224,7 +224,7 @@ export async function GET(request: NextRequest) {
           lowStockItems,
           totalOrders,
           pendingOrders,
-          totalRevenue: totalRevenue._sum.totalAmount || 0
+          totalRevenue: totalRevenue?._sum?.totalAmount || 0
         },
         revenueTrend: revenueTrend.map(r => ({
           date: r.date.toISOString().split('T')[0],
@@ -242,7 +242,7 @@ export async function GET(request: NextRequest) {
         })),
         inventoryStatus: inventoryStatus.map(i => ({
           product: i.product.name,
-          category: i.product.category.name,
+          category: i.product.category?.name || 'Uncategorized',
           available: i.availableQuantity,
           min: i.minStockLevel,
           max: i.maxStockLevel || 0,

@@ -4,7 +4,7 @@ import { createSuccessResponse, createErrorResponse } from '@/lib/api-types'
 
 export async function PATCH(
     request: NextRequest,
-    { params }: { params: { id: string; requestId: string } }
+    { params }: { params: Promise<{ id: string; requestId: string }> }
 ) {
     try {
         const { requestId } = (await params)

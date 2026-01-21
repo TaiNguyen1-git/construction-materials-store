@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { fetchWithAuth } from '@/lib/api-client'
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, AreaChart, Area, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
-import { Package, ShoppingCart, ClipboardList, FileText, AlertTriangle, Users, DollarSign, Clock, Star, RefreshCw } from 'lucide-react'
+import { Package, ShoppingCart, ClipboardList, FileText, AlertTriangle, Users, DollarSign, Clock, Star, RefreshCw, Sparkles } from 'lucide-react'
 
 interface DashboardStats {
   totalProducts: number
@@ -32,9 +32,12 @@ export default function AdminDashboard() {
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
   const [isSendingReport, setIsSendingReport] = useState(false)
+  const [aiSummary, setAISummary] = useState<string>('')
+  const [aiSummaryLoading, setAISummaryLoading] = useState(true)
 
   useEffect(() => {
     fetchDashboardData(true)
+    fetchAISummary()
 
     // Auto-refresh every 30 seconds (without showing loading spinner)
     const interval = setInterval(() => {
@@ -43,6 +46,21 @@ export default function AdminDashboard() {
 
     return () => clearInterval(interval)
   }, [])
+
+  const fetchAISummary = async () => {
+    try {
+      setAISummaryLoading(true)
+      const response = await fetchWithAuth('/api/admin/ai-summary')
+      if (response.ok) {
+        const result = await response.json()
+        setAISummary(result.data?.summary || '')
+      }
+    } catch (error) {
+      console.error('Failed to fetch AI summary:', error)
+    } finally {
+      setAISummaryLoading(false)
+    }
+  }
 
 
   const handleSendReport = async () => {
@@ -186,6 +204,40 @@ export default function AdminDashboard() {
           >
             <RefreshCw className="w-4 h-4" />
             <span>Làm mới</span>
+          </button>
+        </div>
+      </div>
+
+      {/* AI Summary Widget */}
+      <div className="bg-gradient-to-r from-purple-600 to-indigo-600 rounded-xl shadow-lg p-6 text-white">
+        <div className="flex items-start gap-3">
+          <div className="p-2 bg-white/20 rounded-lg">
+            <Sparkles className="w-6 h-6" />
+          </div>
+          <div className="flex-1">
+            <h2 className="text-lg font-semibold mb-2 flex items-center gap-2">
+              🤖 Bản tin AI
+              <span className="text-xs bg-white/20 px-2 py-0.5 rounded-full">Gemini</span>
+            </h2>
+            {aiSummaryLoading ? (
+              <div className="flex items-center gap-2">
+                <RefreshCw className="w-4 h-4 animate-spin" />
+                <span className="text-white/80">Đang phân tích dữ liệu...</span>
+              </div>
+            ) : aiSummary ? (
+              <div className="text-white/90 text-sm whitespace-pre-line leading-relaxed">
+                {aiSummary}
+              </div>
+            ) : (
+              <p className="text-white/70 text-sm">Không thể tải bản tin AI.</p>
+            )}
+          </div>
+          <button
+            onClick={fetchAISummary}
+            className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+            title="Làm mới bản tin"
+          >
+            <RefreshCw className={`w-4 h-4 ${aiSummaryLoading ? 'animate-spin' : ''}`} />
           </button>
         </div>
       </div>

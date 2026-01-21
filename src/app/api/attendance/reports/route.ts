@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
     // Check user role from middleware
     const userRole = request.headers.get('x-user-role')
     const userId = request.headers.get('x-user-id')
-    
+
     if (!['MANAGER', 'EMPLOYEE'].includes(userRole || '')) {
       return NextResponse.json(
         createErrorResponse('Access denied', 'FORBIDDEN'),
@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url)
     const params = Object.fromEntries(searchParams.entries())
-    
+
     const validation = reportQuerySchema.safeParse(params)
     if (!validation.success) {
       return NextResponse.json(
@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
     // If employee role, only show their own data
     if (userRole === 'EMPLOYEE') {
       const employee = await prisma.employee.findUnique({
-        where: { userId }
+        where: { userId: userId || undefined }
       })
       if (employee) {
         where.employeeId = employee.id
@@ -142,7 +142,7 @@ export async function GET(request: NextRequest) {
     // Calculate attendance rates
     const reportData = Array.from(attendanceData.values()).map(record => {
       const totalScheduled = record.summary.totalShifts - record.summary.absentShifts
-      record.summary.attendanceRate = totalScheduled > 0 ? 
+      record.summary.attendanceRate = totalScheduled > 0 ?
         (record.summary.completedShifts / totalScheduled) * 100 : 0
 
       // Convert overtime minutes to hours for display
@@ -164,7 +164,7 @@ export async function GET(request: NextRequest) {
       totalAbsentShifts: reportData.reduce((sum, emp) => sum + emp.summary.absentShifts, 0),
       totalHoursWorked: reportData.reduce((sum, emp) => sum + emp.summary.totalHoursWorked, 0),
       totalOvertimeHours: reportData.reduce((sum, emp) => sum + emp.summary.totalOvertimeMinutes, 0) / 60,
-      averageAttendanceRate: reportData.length > 0 ? 
+      averageAttendanceRate: reportData.length > 0 ?
         reportData.reduce((sum, emp) => sum + emp.summary.attendanceRate, 0) / reportData.length : 0
     }
 

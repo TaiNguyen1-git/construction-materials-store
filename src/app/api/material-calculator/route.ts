@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { createSuccessResponse, createErrorResponse } from '@/lib/api-types'
 import { z } from 'zod'
-import { MaterialCalculatorService, ConstructionProject } from '@/lib/material-calculator-service'
+import { MaterialCalculatorService } from '@/lib/material-calculator-service'
 
 const calculatorSchema = z.object({
   projectType: z.enum(['HOUSE', 'VILLA', 'APARTMENT', 'WAREHOUSE', 'OFFICE', 'CUSTOM']),
@@ -24,7 +24,7 @@ const calculatorSchema = z.object({
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    
+
     // Validate input
     const validation = calculatorSchema.safeParse(body)
     if (!validation.success) {
@@ -34,10 +34,10 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const project: ConstructionProject = validation.data
+    const project: any = validation.data
 
     // Calculate materials
-    const result = await MaterialCalculatorService.calculateMaterials(project)
+    const result = await MaterialCalculatorService.quickCalculate(project)
 
     // Save calculation to database if requested
     if (validation.data.saveCalculation) {
@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
             projectType: project.projectType,
             projectData: project as any,
             calculationResult: result as any,
-            totalEstimate: result.totalEstimate.total,
+            totalEstimate: result.totalEstimatedCost,
             status: 'DRAFT'
           }
         })

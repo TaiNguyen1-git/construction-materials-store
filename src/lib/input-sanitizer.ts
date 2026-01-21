@@ -9,22 +9,22 @@ export function sanitizeText(input: string): string {
   if (!input || typeof input !== 'string') {
     return ''
   }
-  
+
   // Remove any script tags
   let sanitized = input.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-  
+
   // Remove any HTML tags
   sanitized = sanitized.replace(/<[^>]*>/g, '')
-  
+
   // Remove any potential SQL injection patterns
   sanitized = sanitized.replace(/(\b(SELECT|INSERT|UPDATE|DELETE|DROP|CREATE|ALTER|EXEC|EXECUTE)\b)/gi, '')
-  
+
   // Limit length
   sanitized = sanitized.substring(0, 5000)
-  
+
   // Trim whitespace
   sanitized = sanitized.trim()
-  
+
   return sanitized
 }
 
@@ -35,22 +35,22 @@ export function sanitizeBase64Image(input: string): string | null {
   if (!input || typeof input !== 'string') {
     return null
   }
-  
+
   // Check if it's a valid data URL
   const dataUrlPattern = /^data:image\/(jpeg|jpg|png|gif|webp|bmp);base64,/
-  
+
   if (!dataUrlPattern.test(input)) {
     return null
   }
-  
+
   // Check size (max 10MB)
   const sizeInBytes = Math.ceil((input.length * 3) / 4)
   const sizeInMB = sizeInBytes / (1024 * 1024)
-  
+
   if (sizeInMB > 10) {
     return null
   }
-  
+
   return input
 }
 
@@ -61,12 +61,12 @@ export function sanitizeSessionId(input: string): string | null {
   if (!input || typeof input !== 'string') {
     return null
   }
-  
+
   // Session ID should be alphanumeric with underscores
   if (!/^chat_[a-zA-Z0-9_-]{10,50}$/.test(input)) {
     return null
   }
-  
+
   return input
 }
 
@@ -75,11 +75,11 @@ export function sanitizeSessionId(input: string): string | null {
  */
 export function sanitizeUserRole(input: string): string {
   const validRoles = ['CUSTOMER', 'EMPLOYEE', 'MANAGER']
-  
+
   if (!input || typeof input !== 'string') {
     return 'CUSTOMER'
   }
-  
+
   const upperInput = input.toUpperCase()
   return validRoles.includes(upperInput) ? upperInput : 'CUSTOMER'
 }
@@ -108,22 +108,22 @@ export function sanitizeChatRequest(input: any): SanitizedChatRequest | null {
     if (!sessionId) {
       return null
     }
-    
+
     // Sanitize message
     const message = input.message ? sanitizeText(input.message) : undefined
-    
+
     // Sanitize image
     const image = input.image ? sanitizeBase64Image(input.image) : undefined
-    
+
     // Must have either message or image
     if (!message && !image) {
       return null
     }
-    
+
     // Sanitize user role
     const userRole = sanitizeUserRole(input.userRole || 'CUSTOMER')
     const isAdmin = userRole === 'MANAGER' || userRole === 'EMPLOYEE'
-    
+
     // Sanitize context
     let context: any = undefined
     if (input.context && typeof input.context === 'object') {
@@ -133,10 +133,10 @@ export function sanitizeChatRequest(input: any): SanitizedChatRequest | null {
         categoryId: input.context.categoryId ? sanitizeText(input.context.categoryId) : undefined
       }
     }
-    
+
     return {
       message,
-      image,
+      image: image ?? undefined,
       customerId: input.customerId ? sanitizeText(input.customerId) : undefined,
       sessionId,
       userRole,

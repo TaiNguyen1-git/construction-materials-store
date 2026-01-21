@@ -15,8 +15,7 @@ import { ADMIN_WELCOME_MESSAGE, CUSTOMER_WELCOME_MESSAGE } from '@/lib/ai-prompt
 // ===== NEW IMPORTS =====
 import { detectIntent, requiresManagerRole } from '@/lib/chatbot/intent-detector'
 import { extractEntities, parseOrderItems } from '@/lib/chatbot/entity-extractor'
-import { processImageOCR, validateInvoiceImage } from '@/lib/chatbot/ocr-processor'
-import { parseInvoice, formatInvoiceForChat, validateInvoice } from '@/lib/chatbot/invoice-parser'
+
 import { executeAction } from '@/lib/chatbot/action-handler'
 import { executeAnalyticsQuery } from '@/lib/chatbot/analytics-engine'
 import {
@@ -1987,54 +1986,58 @@ function getStatusLabel(status: string): string {
 
 async function handleOCRInvoiceFlow(sessionId: string, image: string, message?: string) {
   try {
-    // Validate image
-    const validation = validateInvoiceImage(image)
-    if (!validation.valid) {
-      return NextResponse.json(
-        createSuccessResponse({
-          message: `❌ ${validation.reason}`,
-          suggestions: ['Thử ảnh khác', 'Trợ giúp'],
-          confidence: 0.5,
-          sessionId,
-          timestamp: new Date().toISOString()
-        })
-      )
-    }
+    // Process OCR using Gemini Vision
+    const parsedInvoice = await AIService.extractInvoiceData(image)
 
-    // Process OCR
-    const ocrResult = await processImageOCR(image)
-
-    // Parse invoice
-    const parsedInvoice = parseInvoice(ocrResult)
-
-    // Validate
-    const invoiceValidation = validateInvoice(parsedInvoice)
-
-    if (!invoiceValidation.valid) {
-      return NextResponse.json(
-        createSuccessResponse({
-          message: `⚠️ **Nhận diện không đầy đủ**\n\n` +
-            `Lỗi:\n${invoiceValidation.errors.map(e => `- ${e}`).join('\n')}\n\n` +
-            `Vui lòng chụp lại ảnh rõ hơn hoặc nhập thủ công.`,
-          suggestions: ['Chụp lại', 'Nhập thủ công'],
-          confidence: parsedInvoice.confidence,
-          sessionId,
-          timestamp: new Date().toISOString()
-        })
-      )
+    // Validate (basic check)
+    if (!parsedInvoice.items || parsedInvoice.items.length === 0 || !parsedInvoice.totalAmount) {
+      // Even if validation fails slightly, we show what we got, but with lower confidence
+      if (!parsedInvoice.rawText) {
+        return NextResponse.json(
+          createSuccessResponse({
+            message: `❌ Không thể nhận diện hóa đơn. Vui lòng thử lại với ảnh rõ nét hơn.`,
+            suggestions: ['Thử lại', 'Trợ giúp'],
+            confidence: 0.1,
+            sessionId,
+            timestamp: new Date().toISOString()
+          })
+        )
+      }
     }
 
     // Format for display
-    const formattedMsg = formatInvoiceForChat(parsedInvoice)
+    let formattedMsg = '📄 **HÓA ĐƠN NHẬN DIỆN (Gemini AI)**\n\n'
 
-    // Start OCR flow
+    if (parsedInvoice.invoiceNumber) formattedMsg += `🔢 Số HĐ: **${parsedInvoice.invoiceNumber}**\n`
+    if (parsedInvoice.invoiceDate) formattedMsg += `📅 Ngày: ${parsedInvoice.invoiceDate}\n`
+    if (parsedInvoice.supplierName) formattedMsg += `🏢 NCC: ${parsedInvoice.supplierName}\n`
+
+    formattedMsg += `\n📦 **Sản phẩm:**\n`
+    if (parsedInvoice.items && parsedInvoice.items.length > 0) {
+      parsedInvoice.items.forEach((item: any, idx: number) => {
+        formattedMsg += `${idx + 1}. ${item.name || 'Sản phẩm'}\n`
+        if (item.quantity && item.unit) formattedMsg += `   Số lượng: ${item.quantity} ${item.unit}\n`
+        if (item.unitPrice) formattedMsg += `   Đơn giá: ${item.unitPrice.toLocaleString('vi-VN')}đ\n`
+        if (item.totalPrice) formattedMsg += `   Thành tiền: ${item.totalPrice.toLocaleString('vi-VN')}đ\n`
+      })
+    } else {
+      formattedMsg += `⚠️ Không nhận diện được chi tiết sản phẩm\n`
+    }
+
+    formattedMsg += `\n💰 **Tổng cộng:** ${(parsedInvoice.totalAmount || 0).toLocaleString('vi-VN')}đ\n`
+    if (parsedInvoice.taxAmount) formattedMsg += `📊 VAT: ${(parsedInvoice.taxAmount || 0).toLocaleString('vi-VN')}đ\n`
+
+    formattedMsg += `\n🎯 Độ tin cậy: ${((parsedInvoice.confidence || 0.9) * 100).toFixed(0)}%`
+
+    // Start OCR flow with ParsedInvoice data
+    // Note: ensure startOCRInvoiceFlow accepts this structure or map it
     startOCRInvoiceFlow(sessionId, parsedInvoice)
 
     return NextResponse.json(
       createSuccessResponse({
         message: formattedMsg + '\n\n✅ Lưu hóa đơn vào hệ thống?',
         suggestions: ['Lưu hóa đơn', 'Chỉnh sửa', 'Hủy'],
-        confidence: parsedInvoice.confidence,
+        confidence: parsedInvoice.confidence || 0.9,
         sessionId,
         timestamp: new Date().toISOString(),
         ocrData: parsedInvoice
@@ -2118,6 +2121,7 @@ async function handleOCRInvoiceSave(sessionId: string, state: any) {
 
       // Create invoice items if available
       let itemsCreated = 0
+      let inventorySynced = 0
       if (parsedInvoice.items && parsedInvoice.items.length > 0) {
         for (const item of parsedInvoice.items) {
           if (!item.name) continue
@@ -2134,25 +2138,68 @@ async function handleOCRInvoiceSave(sessionId: string, state: any) {
           })
 
           if (product) {
+            const qty = item.quantity || 1
+
             await tx.invoiceItem.create({
               data: {
                 invoiceId: newInvoice.id,
                 productId: product.id,
                 description: item.name,
-                quantity: item.quantity || 1,
+                quantity: qty,
                 unitPrice: item.unitPrice || 0,
-                totalPrice: item.totalPrice || (item.quantity || 1) * (item.unitPrice || 0),
+                totalPrice: item.totalPrice || qty * (item.unitPrice || 0),
                 discount: 0,
                 taxRate: parsedInvoice.taxRate || 0,
                 taxAmount: 0
               }
             })
             itemsCreated++
+
+            // === AUTO INVENTORY SYNC ===
+            // Find or create inventory item for this product
+            let inventoryItem = await tx.inventoryItem.findUnique({
+              where: { productId: product.id }
+            })
+
+            if (inventoryItem) {
+              // Update existing inventory
+              const previousStock = inventoryItem.quantity
+              const newStock = previousStock + qty
+
+              await tx.inventoryItem.update({
+                where: { productId: product.id },
+                data: {
+                  quantity: newStock,
+                  availableQuantity: newStock - inventoryItem.reservedQuantity,
+                  lastStockDate: new Date()
+                }
+              })
+
+              // Create movement record
+              await tx.inventoryMovement.create({
+                data: {
+                  productId: product.id,
+                  inventoryId: inventoryItem.id,
+                  movementType: 'IN',
+                  quantity: qty,
+                  previousStock,
+                  newStock,
+                  reason: `OCR Invoice Import: ${newInvoice.invoiceNumber}`,
+                  referenceType: 'INVOICE',
+                  referenceId: newInvoice.id,
+                  performedBy: 'system-ocr',
+                  notes: `Auto-synced from invoice ${newInvoice.invoiceNumber}`
+                }
+              })
+
+              inventorySynced++
+            }
+            // If no inventory item exists, skip inventory sync (product may not be tracked)
           }
         }
       }
 
-      return { invoice: newInvoice, itemsCreated }
+      return { invoice: newInvoice, itemsCreated, inventorySynced }
     })
 
     clearConversationState(sessionId)
@@ -2163,14 +2210,15 @@ async function handleOCRInvoiceSave(sessionId: string, state: any) {
           `- Nhà cung cấp: ${parsedInvoice.supplierName || 'N/A'}\n` +
           `- Tổng tiền: ${invoice.invoice.totalAmount.toLocaleString('vi-VN')}đ\n` +
           `- Trạng thái: ${invoice.invoice.status}\n` +
-          `- Sản phẩm: ${invoice.itemsCreated}/${parsedInvoice.items?.length || 0} matched\n\n` +
+          `- Sản phẩm: ${invoice.itemsCreated}/${parsedInvoice.items?.length || 0} matched\n` +
+          `- 📦 Đã nhập kho: ${invoice.inventorySynced} sản phẩm\n\n` +
           (invoice.itemsCreated === 0 ?
             `⚠️ Không match được sản phẩm nào. Vui lòng cập nhật thủ công.` :
-            invoice.itemsCreated < (parsedInvoice.items?.length || 0) ?
-              `💡 Một số sản phẩm chưa match. Vui lòng kiểm tra.` :
-              `✅ Tất cả sản phẩm đã được match!`
+            invoice.inventorySynced > 0 ?
+              `✅ Tồn kho đã được cập nhật tự động!` :
+              `💡 Một số sản phẩm chưa có trong kho. Vui lòng kiểm tra.`
           ),
-        suggestions: ['Xem chi tiết', 'Tạo hóa đơn khác', 'Cập nhật sản phẩm'],
+        suggestions: ['Xem tồn kho', 'Tạo hóa đơn khác', 'Cập nhật sản phẩm'],
         confidence: 1.0,
         sessionId,
         timestamp: new Date().toISOString()

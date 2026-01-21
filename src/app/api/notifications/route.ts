@@ -1,20 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { createSuccessResponse, createErrorResponse } from '@/lib/api-types'
-import { verifyTokenFromRequest } from '@/lib/auth-middleware-api'
-
-// Helper to get real userId from either JWT or headers
-async function getUserIdFromRequest(request: NextRequest): Promise<string | null> {
-  // 1. Try to get from JWT payload (most reliable)
-  const payload = verifyTokenFromRequest(request)
-  if (payload && payload.userId) {
-    return payload.userId
-  }
-
-  // 2. Fallback to header (from middleware)
-  const userId = request.headers.get('x-user-id')
-  return userId
-}
+import { verifyTokenFromRequest, getUserIdFromRequest } from '@/lib/auth-middleware-api'
 
 // GET /api/notifications - Get all notifications for current user with pagination
 export async function GET(request: NextRequest) {

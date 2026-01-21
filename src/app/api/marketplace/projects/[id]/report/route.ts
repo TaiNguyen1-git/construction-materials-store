@@ -64,23 +64,16 @@ export async function POST(
         // Create report record using SupportRequest model (reuse existing)
         const report = await prisma.supportRequest.create({
             data: {
-                type: 'COMPLAINT',
-                subject: `Báo cáo vi phạm: ${REPORT_REASONS[reason as keyof typeof REPORT_REASONS]}`,
-                message: description || `Người dùng báo cáo hồ sơ ứng tuyển vi phạm: ${reason}`,
-                status: 'NEW',
-                priority: 'HIGH',
-                customerName: reporterName || 'Ẩn danh',
-                customerPhone: reporterPhone || null,
-                metadata: {
-                    reportType: 'APPLICATION_REPORT',
-                    applicationId,
-                    projectId,
-                    reason,
-                    contractorId: application.contractorId,
-                    isGuest: application.isGuest,
-                    guestPhone: application.guestPhone,
-                    reportedAt: new Date().toISOString()
-                }
+                name: reporterName || 'Ẩn danh',
+                phone: reporterPhone || 'Không có',
+                message: `[BÁO CÁO VI PHẠM]
+Lý do: ${REPORT_REASONS[reason as keyof typeof REPORT_REASONS]}
+Mô tả: ${description || 'Không có mô tả'}
+Hồ sơ ID: ${applicationId}
+Dự án ID: ${projectId}
+Nhà thầu ID: ${application.contractorId}`,
+                status: 'PENDING',
+                priority: 'HIGH'
             }
         })
 

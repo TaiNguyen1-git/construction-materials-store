@@ -7,7 +7,7 @@ import { createSuccessResponse, createErrorResponse } from '@/lib/api-types'
  */
 export async function POST(
     request: NextRequest,
-    { params }: { params: { token: string } }
+    { params }: { params: Promise<{ token: string }> }
 ) {
     try {
         const { token } = (await params)

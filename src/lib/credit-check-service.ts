@@ -170,7 +170,7 @@ export class CreditCheckService {
     }>
   }> {
     const today = new Date()
-    
+
     const overdueInvoices = await prisma.invoice.findMany({
       where: {
         customerId,
@@ -192,7 +192,7 @@ export class CreditCheckService {
       const dueDate = new Date(inv.dueDate!)
       const diffTime = today.getTime() - dueDate.getTime()
       const overdueDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-      
+
       totalOverdue += inv.balanceAmount
       if (overdueDays > maxDays) maxDays = overdueDays
 
@@ -281,7 +281,7 @@ export class CreditCheckService {
    */
   static async generateDebtAgingReport(): Promise<DebtAgingReport[]> {
     const today = new Date()
-    
+
     // Lấy tất cả khách hàng có nợ
     const customers = await prisma.customer.findMany({
       where: {
@@ -319,7 +319,7 @@ export class CreditCheckService {
 
       for (const invoice of customer.invoices) {
         const balance = invoice.balanceAmount
-        
+
         if (!invoice.dueDate) {
           current += balance
           continue
@@ -411,7 +411,7 @@ export class CreditCheckService {
             expiresAt: { gt: new Date() }
           }
         })
-        
+
         if (!pendingApproval) {
           // Không tự động mở khóa, cần duyệt thủ công
         }
@@ -422,22 +422,40 @@ export class CreditCheckService {
   }
 
   /**
-   * Lấy cấu hình công nợ theo loại khách hàng
+   * Lấy cấu hình công nợ - ưu tiên config hệ thống, sau đó theo loại khách hàng
    */
   private static async getDebtConfiguration(customerType: string) {
+    // 1. Tìm config theo loại khách hàng hoặc Default
     let config = await prisma.debtConfiguration.findFirst({
       where: { name: customerType, isActive: true }
     })
 
     if (!config) {
-      // Trả về cấu hình mặc định
+      // Fallback to Default config
       config = await prisma.debtConfiguration.findFirst({
         where: { name: 'Default', isActive: true }
       })
     }
 
-    // Nếu vẫn không có, dùng giá trị mặc định cứng
-    return config || {
+    if (!config) {
+      // Fallback to any active config
+      config = await prisma.debtConfiguration.findFirst({
+        where: { isActive: true }
+      })
+    }
+
+    // 2. Nếu có config trong DB, dùng nó
+    if (config) {
+      return {
+        maxOverdueDays: config.maxOverdueDays,
+        creditLimitPercent: config.creditLimitPercent,
+        autoHoldOnOverdue: config.autoHoldOnOverdue,
+        warningDays: config.warningDays
+      }
+    }
+
+    // 3. Nếu vẫn không có, dùng giá trị mặc định cứng
+    return {
       maxOverdueDays: 30,
       creditLimitPercent: 100,
       autoHoldOnOverdue: true,

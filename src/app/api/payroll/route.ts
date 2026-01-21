@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { requireManager } from '@/lib/auth-middleware-api'
+import { requireManager, verifyTokenFromRequest } from '@/lib/auth-middleware-api'
 import { UserRole } from '@/lib/auth'
 
 // GET /api/payroll - Get all payroll records
@@ -68,8 +68,13 @@ export async function GET(request: NextRequest) {
 // POST /api/payroll - Create payroll record
 export async function POST(request: NextRequest) {
   try {
-    const user = await verifyToken(request)
-    if (!user || user.role !== 'MANAGER') {
+    const authError = requireManager(request)
+    if (authError) {
+      return authError
+    }
+
+    const user = verifyTokenFromRequest(request)
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 

@@ -27,7 +27,7 @@ export default function AdvancedSearch({ onClose, autoFocus = false }: AdvancedS
   const [loading, setLoading] = useState(false)
   const [showSuggestions, setShowSuggestions] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
-  const searchTimeoutRef = useRef<NodeJS.Timeout>()
+  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     // Load search history from localStorage
@@ -66,11 +66,11 @@ export default function AdvancedSearch({ onClose, autoFocus = false }: AdvancedS
     try {
       setLoading(true)
       const response = await fetch(`/api/products?search=${encodeURIComponent(searchQuery)}&limit=5`)
-      
+
       if (response.ok) {
         const result = await response.json()
         const products = result.data?.items || result.data || []
-        
+
         const productSuggestions: SearchSuggestion[] = products.map((product: any) => ({
           id: product.id,
           name: product.name,
