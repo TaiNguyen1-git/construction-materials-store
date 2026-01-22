@@ -238,36 +238,45 @@ export default function AdminLayout({
         </div>
       )}
 
-      {/* Desktop sidebar */}
       <div className={`hidden md:flex md:flex-col md:fixed md:inset-y-0 transition-all duration-300 ease-in-out z-30 ${isCollapsed ? 'md:w-20' : 'md:w-64'}`}>
-        <div className="flex-1 flex flex-col min-h-0 border-r border-gray-200 bg-white">
-          <div className="flex-1 flex flex-col pt-5 pb-4 overflow-y-auto">
-            <div className={`flex items-center flex-shrink-0 px-4 transition-all ${isCollapsed ? 'justify-center' : ''}`}>
-              <Package className="h-8 w-8 text-blue-600" />
-              {!isCollapsed && <span className="ml-2 text-xl font-bold text-gray-900 truncate">Bảng Quản Trị</span>}
+        <div className="flex-1 flex flex-col min-h-0 border-r border-gray-100 bg-white/95 backdrop-blur-md shadow-xl shadow-blue-900/5">
+          <div className="flex-1 flex flex-col pt-6 pb-4 overflow-y-auto overflow-x-hidden custom-scrollbar">
+            <div className={`flex items-center flex-shrink-0 px-6 mb-8 transition-all ${isCollapsed ? 'justify-center px-0' : ''}`}>
+              <div className="relative group">
+                <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl blur opacity-25 group-hover:opacity-50 transition duration-1000 group-hover:duration-200"></div>
+                <div className="relative p-2 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-xl shadow-lg ring-1 ring-white/20">
+                  <Package className="h-6 w-6 text-white" />
+                </div>
+              </div>
+              {!isCollapsed && (
+                <div className="ml-4 min-w-0">
+                  <h1 className="text-lg font-black text-gray-900 tracking-tight leading-none">SmartBuild</h1>
+                  <span className="text-[10px] text-blue-600 font-black uppercase tracking-[0.2em]">Hệ thống quản trị</span>
+                </div>
+              )}
             </div>
-            <nav className="mt-5 flex-1 px-2 bg-white space-y-2">
+            <nav className="flex-1 px-4 space-y-6">
               {navigationGroups.map((group) => (
-                <div key={group.name} className="space-y-1">
+                <div key={group.name} className="space-y-1.5">
                   {/* Group Header */}
                   {group.items.length > 1 && !isCollapsed && (
                     <button
                       onClick={() => toggleGroup(group.name)}
-                      className="w-full flex items-center justify-between px-2 py-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider hover:bg-gray-50 rounded-md transition-colors"
+                      className="w-full flex items-center justify-between px-2 py-1 text-[10px] font-black text-gray-400 uppercase tracking-widest hover:text-blue-600 transition-colors group/header"
                     >
-                      <span className="flex items-center">
-                        {group.icon && <group.icon className="h-4 w-4 mr-2" />}
+                      <span className="flex items-center gap-2">
+                        <div className="w-1 h-3 bg-gray-200 rounded-full group-hover/header:bg-blue-400 transition-colors" />
                         {group.name}
                       </span>
                       {expandedGroups.includes(group.name) ? (
-                        <ChevronDown className="h-4 w-4" />
+                        <ChevronDown className="h-3 w-3" />
                       ) : (
-                        <ChevronRight className="h-4 w-4" />
+                        <ChevronRight className="h-3 w-3" />
                       )}
                     </button>
                   )}
                   {isCollapsed && group.items.length > 1 && (
-                    <div className="h-px bg-gray-100 mx-2 my-2" />
+                    <div className="h-px bg-gray-100 mx-2 my-4 opacity-50" />
                   )}
 
                   {/* Group Items */}
@@ -279,15 +288,18 @@ export default function AdminLayout({
                         href={item.href}
                         title={isCollapsed ? item.name : ''}
                         className={`${isActive
-                          ? 'bg-blue-50 text-blue-600 border-l-4 border-blue-600'
-                          : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900 border-l-4 border-transparent'
-                          } group flex items-center ${isCollapsed ? 'justify-center px-2' : 'px-3'} py-2.5 text-sm font-medium rounded-r-md transition-all ${group.items.length > 1 && !isCollapsed ? 'ml-2' : ''}`}
+                          ? 'bg-gradient-to-r from-blue-50 to-transparent text-blue-600 shadow-sm border-l-2 border-blue-600'
+                          : 'text-gray-600 hover:bg-gray-50 hover:text-blue-600 border-l-2 border-transparent'
+                          } group flex items-center ${isCollapsed ? 'justify-center px-0 mx-auto w-10' : 'px-3'} py-2.5 text-sm font-bold rounded-r-xl transition-all duration-300 hover:translate-x-1 active:translate-x-0 group/item`}
                       >
                         <item.icon
-                          className={`${isActive ? 'text-blue-600' : 'text-gray-400 group-hover:text-gray-500'
-                            } flex-shrink-0 h-5 w-5 ${!isCollapsed ? 'mr-3' : ''}`}
+                          className={`${isActive ? 'text-blue-600 drop-shadow-[0_0_8px_rgba(37,99,235,0.3)]' : 'text-gray-400 group-hover:text-blue-500'
+                            } flex-shrink-0 h-5 w-5 transition-transform duration-300 group-hover/item:scale-110 ${!isCollapsed ? 'mr-3' : ''}`}
                         />
-                        {!isCollapsed && <span className="truncate">{item.name}</span>}
+                        {!isCollapsed && <span className="truncate tracking-tight">{item.name}</span>}
+                        {isActive && !isCollapsed && (
+                          <div className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse shadow-[0_0_8px_rgba(37,99,235,0.6)]" />
+                        )}
                       </Link>
                     )
                   })}
