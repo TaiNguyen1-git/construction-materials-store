@@ -17,7 +17,7 @@ const createCategorySchema = z.object({
 export async function GET(request: NextRequest) {
   try {
     // Try to get from cache first
-    const cacheKey = 'categories:all:v4'
+    const cacheKey = 'categories:all:v6'
     const cachedResult = await CacheService.get(cacheKey)
     if (cachedResult) {
       return NextResponse.json(
@@ -29,67 +29,66 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams
     const includeInactive = searchParams.get('includeInactive') === 'true'
 
-    const categories = await prisma.category.findMany({
-      where: {
-        isActive: includeInactive ? undefined : true,
-        // If parentId is provided, filter by it. Otherwise, show all categories (undefined means no filter)
-        parentId: searchParams.get('parentId') || undefined
-      },
-      include: {
-        parent: {
-          select: { id: true, name: true }
+    // Fetch all categories and all active products to manually associate them
+    // This bypasses potential Prisma/MongoDB relation issues
+    const [categories, allProducts] = await Promise.all([
+      prisma.category.findMany({
+        where: {
+          isActive: includeInactive ? undefined : true,
+          parentId: searchParams.get('parentId') || undefined
         },
-        children: {
-          where: { isActive: true },
-          select: {
-            id: true,
-            name: true,
-            isActive: true,
-            products: {
-              where: { isActive: true },
-              select: { id: true }
-            }
+        include: {
+          children: {
+            where: { isActive: true },
           }
         },
-        products: {
-          where: { isActive: true },
-          select: { id: true }
-        }
-      },
-      orderBy: [
-        { sortOrder: 'asc' },
-        { name: 'asc' }
-      ]
-    })
+        orderBy: [
+          { sortOrder: 'asc' },
+          { name: 'asc' }
+        ]
+      }),
+      prisma.product.findMany({
+        where: { isActive: true },
+        select: { id: true, categoryId: true, images: true }
+      })
+    ])
 
-    // Calculate total products manually due to Prisma _count issue
-    const categoriesWithCounts = categories.map(category => {
-      // Manual count from fetched array
-      const directCount = category.products.length
+    // Calculate total products manually
+    const categoriesWithCounts = (categories as any[]).map(category => {
+      // Find products directly in this category
+      const directProducts = allProducts.filter(p => p.categoryId === category.id)
+      const directCount = directProducts.length
 
-      const childrenCount = category.children.reduce((sum, child) => {
-        // Safe access to child.products
-        const count = (child as any).products?.length || 0
-        return sum + count
-      }, 0)
+      // Find products in children categories
+      const childrenIds = (category.children || []).map((c: any) => c.id)
+      const childrenProducts = allProducts.filter(p => childrenIds.includes(p.categoryId))
+      const childrenCount = childrenProducts.length
 
-      // Clean up the response to avoid sending large arrays of IDs
-      const { products, children, ...rest } = category
+      // Total count for this category (direct + children)
+      const totalCount = directCount + childrenCount
 
-      const cleanChildren = children.map(child => {
-        const { products: childProducts, ...childRest } = child as any
+      // Use the first product image (from direct or children) as fallback
+      const allCategoryProducts = [...directProducts, ...childrenProducts]
+      const fallbackImage = allCategoryProducts.find(p => p.images && p.images.length > 0)?.images[0] || null
+
+      // Ensure we have a valid image URL (some might be placeholders)
+      const categoryImage = category.image || fallbackImage
+
+      const cleanChildren = (category.children || []).map((child: any) => {
+        const childDirectProducts = allProducts.filter(p => p.categoryId === child.id)
         return {
-          ...childRest,
-          productCount: childProducts?.length || 0,
-          _count: { products: childProducts?.length || 0 }
+          ...child,
+          productCount: childDirectProducts.length,
+          _count: { products: childDirectProducts.length }
         }
       })
 
       return {
-        ...rest,
+        ...category,
+        image: categoryImage,
         children: cleanChildren,
-        totalProducts: directCount + childrenCount,
-        productCount: directCount,
+        totalProducts: totalCount,
+        productCount: totalCount,
         _count: {
           products: directCount
         }

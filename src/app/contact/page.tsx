@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Phone, Mail, MapPin, Clock, Send } from 'lucide-react'
+import { Phone, Mail, MapPin, Clock, Send, MessageSquare, Facebook, Instagram, Youtube, ChevronDown, Check } from 'lucide-react'
 import Header from '@/components/Header'
 
 export default function ContactPage() {
@@ -15,6 +15,7 @@ export default function ContactPage() {
   })
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
+  const [activeFaq, setActiveFaq] = useState<number | null>(0)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -31,268 +32,298 @@ export default function ContactPage() {
         subject: '',
         message: ''
       })
-    }, 1000)
+    }, 1500)
   }
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value })
   }
 
+  const faqs = [
+    { q: "Làm thế nào để đặt hàng trực tuyến?", a: "Bạn có thể duyệt sản phẩm, thêm vào giỏ hàng và thanh toán trực tuyến qua các cổng thanh toán uy tín. Hệ thống sẽ tự động gửi email xác nhận và lộ trình giao hàng cho bạn." },
+    { q: "Thời gian giao hàng trung bình là bao lâu?", a: "Đối với khu vực nội thành, chúng tôi cam kết giao hàng trong 4-8h làm việc. Với các tỉnh thành khác là từ 1-3 ngày tùy theo khối lượng và khoảng cách." },
+    { q: "Có hỗ trợ tư vấn kỹ thuật vật liệu không?", a: "Có, đội ngũ kỹ sư của SmartBuild sẵn sàng hỗ trợ bạn tính toán dự toán vật liệu và tư vấn lựa chọn sản phẩm phù hợp nhất với kết cấu công trình." },
+    { q: "Chính sách bảo hành và đổi trả như thế nào?", a: "Tất cả sản phẩm đều được bảo hành chính hãng. Chúng tôi hỗ trợ đổi trả trong vòng 7 ngày nếu sản phẩm có lỗi từ nhà sản xuất hoặc không đúng cam kết." }
+  ]
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
+    <div className="min-h-screen bg-neutral-50">
       <Header />
 
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        {/* Hero */}
-        <div className="text-center mb-12">
-          <h2 className="text-4xl font-bold text-gray-900 mb-4">Liên hệ với chúng tôi</h2>
-          <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-            Chúng tôi luôn sẵn sàng hỗ trợ bạn. Hãy liên hệ với chúng tôi qua các kênh bên dưới.
+      {/* Hero Section */}
+      <section className="bg-neutral-900 py-24 relative overflow-hidden">
+        <div className="absolute top-0 right-0 -mt-20 -mr-20 w-96 h-96 bg-primary-600/20 rounded-full blur-[100px]"></div>
+        <div className="absolute bottom-0 left-0 -mb-20 -ml-20 w-96 h-96 bg-secondary-600/20 rounded-full blur-[100px]"></div>
+
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 text-center">
+          <h1 className="text-4xl md:text-6xl font-black text-white mb-6">Kết Nối Với <span className="text-primary-400 font-serif italic text-5xl md:text-7xl">SmartBuild</span></h1>
+          <p className="text-xl text-neutral-400 max-w-2xl mx-auto">
+            Chúng tôi luôn ở đây để lắng nghe và hỗ trợ mọi nhu cầu về vật liệu xây dựng cho dự án của bạn.
           </p>
         </div>
+      </section>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
-          {/* Contact Info */}
-          <div className="lg:col-span-1">
-            <div className="bg-white rounded-lg shadow-sm p-8">
-              <h3 className="text-2xl font-bold text-gray-900 mb-8">Thông tin liên hệ</h3>
-              
-              <div className="space-y-6">
-                <div className="flex items-start">
-                  <div className="bg-blue-100 p-3 rounded-full">
-                    <Phone className="h-6 w-6 text-blue-600" />
-                  </div>
-                  <div className="ml-4">
-                    <h4 className="text-lg font-semibold text-gray-900">Điện thoại</h4>
-                    <p className="text-gray-600">Hotline: 1900-1234</p>
-                    <p className="text-gray-600">Di động: 0987-654-321</p>
-                  </div>
-                </div>
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-16 pb-24 relative z-20">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
 
-                <div className="flex items-start">
-                  <div className="bg-green-100 p-3 rounded-full">
-                    <Mail className="h-6 w-6 text-green-600" />
-                  </div>
-                  <div className="ml-4">
-                    <h4 className="text-lg font-semibold text-gray-900">Email</h4>
-                    <p className="text-gray-600">info@smartbuild.vn</p>
-                    <p className="text-gray-600">support@smartbuild.vn</p>
-                  </div>
-                </div>
+          {/* Contact Information Cards */}
+          <div className="lg:col-span-1 space-y-6">
+            <div className="bg-white rounded-[2rem] p-8 shadow-sm border border-neutral-100 group hover:shadow-2xl transition-all duration-500">
+              <div className="w-14 h-14 bg-primary-50 rounded-2xl flex items-center justify-center text-primary-600 mb-6 group-hover:bg-primary-600 group-hover:text-white transition-all">
+                <Phone className="w-6 h-6" />
+              </div>
+              <h3 className="text-xl font-black text-neutral-900 mb-2">Đường dây nóng</h3>
+              <p className="text-neutral-500 text-sm mb-4">Hỗ trợ nhanh chóng 24/7 cho các đơn hàng gấp.</p>
+              <div className="font-bold text-lg text-primary-600">1900 1234</div>
+              <div className="text-neutral-900 font-semibold">0987-654-321</div>
+            </div>
 
-                <div className="flex items-start">
-                  <div className="bg-purple-100 p-3 rounded-full">
-                    <MapPin className="h-6 w-6 text-purple-600" />
-                  </div>
-                  <div className="ml-4">
-                    <h4 className="text-lg font-semibold text-gray-900">Địa chỉ</h4>
-                    <p className="text-gray-600">
-                      123 Đường Nguyễn Văn Cừ<br />
-                      Phường 3, Quận 5<br />
-                      TP. Hồ Chí Minh
-                    </p>
-                  </div>
-                </div>
+            <div className="bg-white rounded-[2rem] p-8 shadow-sm border border-neutral-100 group hover:shadow-2xl transition-all duration-500">
+              <div className="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600 mb-6 group-hover:bg-blue-600 group-hover:text-white transition-all">
+                <Mail className="w-6 h-6" />
+              </div>
+              <h3 className="text-xl font-black text-neutral-900 mb-2">Email hỗ trợ</h3>
+              <p className="text-neutral-500 text-sm mb-4">Gửi yêu cầu báo giá hoặc tư vấn chuyên sâu.</p>
+              <div className="font-bold text-neutral-900">info@smartbuild.vn</div>
+              <div className="text-neutral-500 text-sm">support@smartbuild.vn</div>
+            </div>
 
-                <div className="flex items-start">
-                  <div className="bg-orange-100 p-3 rounded-full">
-                    <Clock className="h-6 w-6 text-orange-600" />
-                  </div>
-                  <div className="ml-4">
-                    <h4 className="text-lg font-semibold text-gray-900">Giờ làm việc</h4>
-                    <p className="text-gray-600">Thứ 2 - Thứ 6: 8:00 - 18:00</p>
-                    <p className="text-gray-600">Thứ 7: 8:00 - 16:00</p>
-                    <p className="text-gray-600">Chủ nhật: 9:00 - 15:00</p>
-                  </div>
-                </div>
+            <div className="bg-white rounded-[2rem] p-8 shadow-sm border border-neutral-100 group hover:shadow-2xl transition-all duration-500">
+              <div className="w-14 h-14 bg-orange-50 rounded-2xl flex items-center justify-center text-orange-600 mb-6 group-hover:bg-orange-600 group-hover:text-white transition-all">
+                <MapPin className="w-6 h-6" />
+              </div>
+              <h3 className="text-xl font-black text-neutral-900 mb-2">Trụ sở chính</h3>
+              <p className="text-neutral-500 text-sm mb-4">Ghé thăm văn phòng của chúng tôi để trao đổi trực tiếp.</p>
+              <address className="not-italic font-semibold text-neutral-900">
+                123 Đường Nguyễn Văn Cừ, Phường 3, Quận 5, TP. Hồ Chí Minh
+              </address>
+              <div className="mt-4 flex gap-4">
+                <Link href="#" className="p-2 bg-neutral-100 rounded-lg hover:bg-primary-600 hover:text-white mb-0 text-neutral-500"><Facebook className="w-4 h-4" /></Link>
+                <Link href="#" className="p-2 bg-neutral-100 rounded-lg hover:bg-primary-600 hover:text-white mb-0 text-neutral-500"><Instagram className="w-4 h-4" /></Link>
+                <Link href="#" className="p-2 bg-neutral-100 rounded-lg hover:bg-primary-600 hover:text-white mb-0 text-neutral-500"><Youtube className="w-4 h-4" /></Link>
               </div>
             </div>
           </div>
 
-          {/* Contact Form */}
+          {/* Contact Form Section */}
           <div className="lg:col-span-2">
-            <div className="bg-white rounded-lg shadow-sm p-8">
-              <h3 className="text-2xl font-bold text-gray-900 mb-8">Gửi tin nhắn cho chúng tôi</h3>
-              
-              {success && (
-                <div className="bg-green-50 border border-green-200 rounded-md p-4 mb-6">
-                  <p className="text-green-600">
-                    Cảm ơn bạn đã liên hệ! Chúng tôi sẽ phản hồi trong vòng 24 giờ.
+            <div className="bg-white rounded-[2.5rem] shadow-sm border border-neutral-100 p-8 md:p-12">
+              <div className="mb-10">
+                <h2 className="text-3xl font-black text-neutral-900 mb-4">Gửi tin nhắn hoặc yêu cầu báo giá</h2>
+                <div className="h-1.5 w-20 bg-primary-600 rounded-full"></div>
+              </div>
+
+              {success ? (
+                <div className="bg-green-50 border border-green-200 rounded-3xl p-12 text-center animate-fade-in-up">
+                  <div className="w-20 h-20 bg-green-500 rounded-full flex items-center justify-center text-white mx-auto mb-6 shadow-xl shadow-green-500/20">
+                    <Check className="w-10 h-10 stroke-[3]" />
+                  </div>
+                  <h3 className="text-2xl font-black text-green-900 mb-2">Thanh toán gửi thành công!</h3>
+                  <p className="text-green-700 text-lg mb-8">
+                    Cảm ơn bạn đã quan tâm. Đội ngũ tư vấn sẽ phản hồi lại bạn sớm nhất có thể trong vòng 2h làm việc.
                   </p>
+                  <button
+                    onClick={() => setSuccess(false)}
+                    className="px-8 py-3 bg-green-600 text-white rounded-full font-bold hover:bg-green-700 transition-all"
+                  >
+                    Gửi tin nhắn mới
+                  </button>
                 </div>
+              ) : (
+                <form onSubmit={handleSubmit} className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <label className="text-sm font-black text-neutral-700 uppercase tracking-widest pl-1">Họ và tên</label>
+                      <input
+                        type="text"
+                        name="name"
+                        required
+                        value={formData.name}
+                        onChange={handleChange}
+                        placeholder="Nguyễn Văn A"
+                        className="w-full px-6 py-4 bg-neutral-50 border border-neutral-200 rounded-2xl focus:ring-2 focus:ring-primary-500 focus:bg-white transition-all outline-none font-medium"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-black text-neutral-700 uppercase tracking-widest pl-1">Địa chỉ Email</label>
+                      <input
+                        type="email"
+                        name="email"
+                        required
+                        value={formData.email}
+                        onChange={handleChange}
+                        placeholder="name@email.com"
+                        className="w-full px-6 py-4 bg-neutral-50 border border-neutral-200 rounded-2xl focus:ring-2 focus:ring-primary-500 focus:bg-white transition-all outline-none font-medium"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <label className="text-sm font-black text-neutral-700 uppercase tracking-widest pl-1">Số điện thoại</label>
+                      <input
+                        type="tel"
+                        name="phone"
+                        value={formData.phone}
+                        onChange={handleChange}
+                        placeholder="09xx xxx xxx"
+                        className="w-full px-6 py-4 bg-neutral-50 border border-neutral-200 rounded-2xl focus:ring-2 focus:ring-primary-500 focus:bg-white transition-all outline-none font-medium"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-black text-neutral-700 uppercase tracking-widest pl-1">Chủ đề quan tâm</label>
+                      <select
+                        name="subject"
+                        required
+                        value={formData.subject}
+                        onChange={handleChange}
+                        className="w-full px-6 py-4 bg-neutral-50 border border-neutral-200 rounded-2xl focus:ring-2 focus:ring-primary-500 focus:bg-white transition-all outline-none font-medium appearance-none"
+                      >
+                        <option value="">Chọn chủ đề</option>
+                        <option value="quote">Yêu cầu báo giá vật liệu</option>
+                        <option value="tech">Tư vấn kỹ thuật xây dựng</option>
+                        <option value="partner">Hợp tác đại lý/Nhà cung cấp</option>
+                        <option value="other">Khác</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-black text-neutral-700 uppercase tracking-widest pl-1">Nội dung chi tiết</label>
+                    <textarea
+                      name="message"
+                      required
+                      rows={6}
+                      value={formData.message}
+                      onChange={handleChange}
+                      placeholder="Hãy cho chúng tôi biết yêu cầu cụ thể của bạn..."
+                      className="w-full px-6 py-4 bg-neutral-50 border border-neutral-200 rounded-2xl focus:ring-2 focus:ring-primary-500 focus:bg-white transition-all outline-none font-medium resize-none"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full bg-primary-600 text-white py-5 px-8 rounded-2xl font-black flex items-center justify-center gap-3 hover:bg-primary-500 transition-all shadow-xl shadow-primary-600/20 disabled:opacity-70 group"
+                  >
+                    {loading ? (
+                      <div className="animate-spin rounded-full h-5 w-5 border-2 border-white/30 border-t-white"></div>
+                    ) : (
+                      <>
+                        GỬI YÊU CẦU NGAY
+                        <Send className="w-5 h-5 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
+                      </>
+                    )}
+                  </button>
+                </form>
               )}
+            </div>
+          </div>
+        </div>
 
-              <form onSubmit={handleSubmit} className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
-                      Họ và tên *
-                    </label>
-                    <input
-                      type="text"
-                      id="name"
-                      name="name"
-                      required
-                      value={formData.name}
-                      onChange={handleChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="Nhập họ và tên của bạn"
-                    />
+        {/* Map & Office Section */}
+        <div className="mt-20">
+          <div className="bg-white rounded-[2.5rem] shadow-sm border border-neutral-100 overflow-hidden grid grid-cols-1 lg:grid-cols-12">
+            <div className="lg:col-span-8 h-[400px] lg:h-auto bg-blue-50 relative">
+              {/* Brighter, Colorful Map Image */}
+              <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1526778548025-fa2f459cd5c1?q=80&w=2066&auto=format&fit=crop')] bg-cover bg-center opacity-80 mix-blend-multiply"></div>
+
+              {/* Floating Branch Badge */}
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="bg-white/80 backdrop-blur-xl p-8 rounded-[2.5rem] shadow-2xl shadow-primary-500/20 flex items-center gap-6 border border-white group hover:scale-105 transition-all duration-500">
+                  <div className="w-16 h-16 bg-primary-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-primary-600/30 group-hover:rotate-12 transition-transform">
+                    <MapPin className="w-8 h-8" />
                   </div>
-
                   <div>
-                    <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                      Email *
-                    </label>
-                    <input
-                      type="email"
-                      id="email"
-                      name="email"
-                      required
-                      value={formData.email}
-                      onChange={handleChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="Nhập email của bạn"
-                    />
-                  </div>
-
-                  <div>
-                    <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">
-                      Số điện thoại
-                    </label>
-                    <input
-                      type="tel"
-                      id="phone"
-                      name="phone"
-                      value={formData.phone}
-                      onChange={handleChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="Nhập số điện thoại"
-                    />
-                  </div>
-
-                  <div>
-                    <label htmlFor="subject" className="block text-sm font-medium text-gray-700 mb-2">
-                      Chủ đề *
-                    </label>
-                    <select
-                      id="subject"
-                      name="subject"
-                      required
-                      value={formData.subject}
-                      onChange={handleChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="">Chọn chủ đề</option>
-                      <option value="inquiry">Tư vấn sản phẩm</option>
-                      <option value="quote">Yêu cầu báo giá</option>
-                      <option value="support">Hỗ trợ kỹ thuật</option>
-                      <option value="partnership">Hợp tác kinh doanh</option>
-                      <option value="complaint">Khiếu nại</option>
-                      <option value="other">Khác</option>
-                    </select>
+                    <div className="font-black text-2xl text-primary-950 leading-tight">SmartBuild Headquarter</div>
+                    <div className="text-primary-600 font-bold flex items-center gap-2 mt-1">
+                      <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                      TP. Hồ Chí Minh, Việt Nam
+                    </div>
                   </div>
                 </div>
+              </div>
 
-                <div>
-                  <label htmlFor="message" className="block text-sm font-medium text-gray-700 mb-2">
-                    Nội dung tin nhắn *
-                  </label>
-                  <textarea
-                    id="message"
-                    name="message"
-                    required
-                    rows={6}
-                    value={formData.message}
-                    onChange={handleChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Nhập nội dung tin nhắn của bạn..."
-                  />
+              {/* Decorative elements */}
+              <div className="absolute top-4 left-4">
+                <div className="px-4 py-2 bg-white/90 backdrop-blur-md rounded-full shadow-lg text-xs font-black text-primary-600 border border-white">BẢN ĐỒ VĂN PHÒNG</div>
+              </div>
+            </div>
+            <div className="lg:col-span-4 p-12 bg-gradient-to-br from-blue-50 to-white text-neutral-900 border-l border-neutral-100">
+              <h3 className="text-2xl font-black mb-8 text-primary-900 uppercase tracking-tight">Thời gian làm việc</h3>
+              <div className="space-y-4">
+                <div className="flex justify-between items-center py-4 border-b border-blue-100">
+                  <span className="text-neutral-500 font-bold uppercase tracking-widest text-xs">Thứ 2 - Thứ 6</span>
+                  <span className="font-black text-primary-800">08:00 - 18:00</span>
                 </div>
+                <div className="flex justify-between items-center py-4 border-b border-blue-100">
+                  <span className="text-neutral-500 font-bold uppercase tracking-widest text-xs">Thứ 7</span>
+                  <span className="font-black text-primary-800">08:00 - 16:00</span>
+                </div>
+                <div className="flex justify-between items-center py-4 border-b border-blue-100">
+                  <span className="text-neutral-500 font-bold uppercase tracking-widest text-xs">Chủ nhật</span>
+                  <span className="text-blue-600 font-black">Hẹn trước</span>
+                </div>
+              </div>
+              <div className="mt-12 bg-primary-600 p-6 rounded-2xl shadow-xl shadow-primary-500/20">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center">
+                    <MessageSquare className="w-6 h-6 text-white" />
+                  </div>
+                  <div>
+                    <div className="font-bold text-white">Hỗ trợ kỹ thuật?</div>
+                    <p className="text-sm text-blue-50 font-medium">Kết nối trực tiếp với kỹ sư của chúng tôi qua Zalo hoặc Hotline.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
 
+        {/* FAQ Section with Custom Accordion */}
+        <div className="mt-24 max-w-4xl mx-auto">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-4xl font-black text-primary-900 mb-4 tracking-tight">Các Câu Hỏi Thường Gặp</h2>
+            <p className="text-primary-600/70 font-medium">Giải đáp nhanh những thắc mắc của bạn về <span className="text-primary-600 font-bold underline decoration-primary-200">SmartBuild</span></p>
+          </div>
+
+          <div className="space-y-4">
+            {faqs.map((faq, idx) => (
+              <div key={idx} className="bg-white rounded-2xl border border-neutral-100 overflow-hidden transition-all duration-300">
                 <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full bg-blue-600 text-white py-3 px-6 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 flex items-center justify-center"
+                  onClick={() => setActiveFaq(activeFaq === idx ? null : idx)}
+                  className="w-full flex items-center justify-between p-6 text-left hover:bg-neutral-50 transition-all"
                 >
-                  {loading ? (
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
-                  ) : (
-                    <Send className="h-5 w-5 mr-2" />
-                  )}
-                  {loading ? 'Đang gửi...' : 'Gửi tin nhắn'}
+                  <span className="font-black text-neutral-900 pr-8">{faq.q}</span>
+                  <ChevronDown className={`w-5 h-5 text-neutral-400 transition-transform duration-300 ${activeFaq === idx ? 'rotate-180' : ''}`} />
                 </button>
-              </form>
-            </div>
+                <div className={`overflow-hidden transition-all duration-300 ${activeFaq === idx ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}`}>
+                  <div className="p-6 pt-0 text-neutral-600 leading-relaxed border-t border-neutral-50 bg-neutral-50/50">
+                    {faq.a}
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
+      </main>
 
-        {/* Map Section */}
-        <div className="mt-12">
-          <div className="bg-white rounded-lg shadow-sm p-8">
-            <h3 className="text-2xl font-bold text-gray-900 mb-6">Tìm chúng tôi</h3>
-            <div className="bg-gray-200 h-96 rounded-lg flex items-center justify-center">
-              <div className="text-center">
-                <MapPin className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-600">Bản đồ sẽ được tích hợp tại đây</p>
-                <p className="text-sm text-gray-500 mt-2">
-                  123 Đường Nguyễn Văn Cừ, Phường 3, Quận 5, TP. Hồ Chí Minh
-                </p>
-              </div>
-            </div>
+      {/* Trust Footer - Vibrant Blue Theme */}
+      <section className="bg-gradient-to-r from-primary-600 to-blue-500 py-16 text-white overflow-hidden relative">
+        <div className="absolute top-0 left-0 w-full h-full bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
+        <div className="max-w-7xl mx-auto px-4 flex flex-col md:flex-row items-center justify-center gap-8 md:gap-16 relative z-10">
+          <div className="text-xl font-black tracking-tighter flex items-center gap-3">
+            <span className="p-2 bg-white/20 rounded-lg backdrop-blur-sm"><Check className="w-5 h-5 text-white" /></span>
+            ĐỐI TÁC TIN CẬY
+          </div>
+          <div className="flex flex-wrap justify-center gap-8 md:gap-16 text-base font-bold uppercase tracking-[0.15em] text-white">
+            <span className="hover:scale-110 transition-transform cursor-pointer hover:text-blue-100">NovaLand</span>
+            <span className="hover:scale-110 transition-transform cursor-pointer hover:text-blue-100">Hoa Binh Corp</span>
+            <span className="hover:scale-110 transition-transform cursor-pointer hover:text-blue-100">Coteccons</span>
+            <span className="hover:scale-110 transition-transform cursor-pointer hover:text-blue-100">VinGroup</span>
           </div>
         </div>
-
-        {/* FAQ Section */}
-        <div className="mt-12">
-          <div className="bg-white rounded-lg shadow-sm p-8">
-            <h3 className="text-2xl font-bold text-gray-900 mb-8">Câu hỏi thường gặp</h3>
-            
-            <div className="space-y-6">
-              <div>
-                <h4 className="text-lg font-semibold text-gray-900 mb-2">
-                  Làm thế nào để đặt hàng trực tuyến?
-                </h4>
-                <p className="text-gray-600">
-                  Bạn có thể duyệt sản phẩm, thêm vào giỏ hàng và thanh toán trực tuyến. 
-                  Chúng tôi hỗ trợ nhiều phương thức thanh toán khác nhau.
-                </p>
-              </div>
-
-              <div>
-                <h4 className="text-lg font-semibold text-gray-900 mb-2">
-                  Thời gian giao hàng là bao lâu?
-                </h4>
-                <p className="text-gray-600">
-                  Thời gian giao hàng thông thường là 1-3 ngày làm việc tùy theo khu vực. 
-                  Đối với các đơn hàng lớn, chúng tôi sẽ thỏa thuận thời gian giao hàng cụ thể.
-                </p>
-              </div>
-
-              <div>
-                <h4 className="text-lg font-semibold text-gray-900 mb-2">
-                  Có hỗ trợ tư vấn kỹ thuật không?
-                </h4>
-                <p className="text-gray-600">
-                  Có, chúng tôi có đội ngũ kỹ sư chuyên nghiệp sẵn sàng tư vấn về việc lựa chọn 
-                  vật liệu phù hợp cho dự án của bạn.
-                </p>
-              </div>
-
-              <div>
-                <h4 className="text-lg font-semibold text-gray-900 mb-2">
-                  Chính sách bảo hành như thế nào?
-                </h4>
-                <p className="text-gray-600">
-                  Tất cả sản phẩm đều có bảo hành theo tiêu chuẩn của nhà sản xuất. 
-                  Chúng tôi cam kết hỗ trợ khách hàng trong suốt quá trình sử dụng.
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      </section>
     </div>
   )
 }
