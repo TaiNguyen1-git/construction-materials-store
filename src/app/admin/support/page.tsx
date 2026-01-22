@@ -20,8 +20,10 @@ import {
     FileText,
     Download,
     Paperclip,
-    Image as ImageIcon
+    Image as ImageIcon,
+    MessageSquare
 } from 'lucide-react'
+import Link from 'next/link'
 import toast from 'react-hot-toast'
 
 export default function SupportManagementPage() {
@@ -220,6 +222,16 @@ export default function SupportManagementPage() {
                                         <option value="RESOLVED">✅ Đã giải quyết</option>
                                         <option value="CLOSED">🔒 Đã đóng</option>
                                     </select>
+
+                                    {selectedRequest.message.includes('ID: ') && (
+                                        <Link
+                                            href={`/admin/messages?id=${selectedRequest.message.split('ID: ')[1].split(' ')[0]}`}
+                                            className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 text-white rounded-xl text-xs font-black shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all"
+                                        >
+                                            <MessageSquare className="w-4 h-4" />
+                                            MỞ CHAT
+                                        </Link>
+                                    )}
                                 </div>
                             </div>
 

@@ -32,8 +32,10 @@ import {
   Box,
   Briefcase,
   ShieldCheck,
+  ShieldAlert,
   Star,
-  ChevronRight
+  ChevronRight,
+  MessageCircle
 } from 'lucide-react'
 import NotificationBell from '@/components/NotificationBell'
 import { useAuth } from '@/contexts/auth-context'
@@ -57,7 +59,9 @@ export default function AdminLayout({
       items: [
         { name: 'Bảng Điều Khiển', href: '/admin', icon: BarChart3 },
         { name: 'Công Việc Của Tôi', href: '/admin/my-tasks', icon: ClipboardList, roles: ['EMPLOYEE'] },
+        { name: 'Tin Nhắn', href: '/admin/messages', icon: MessageCircle },
         { name: 'Hỗ Trợ Khách Hàng', href: '/admin/support', icon: Headset },
+        { name: 'Quản Lý Tranh Chấp', href: '/admin/disputes', icon: ShieldAlert },
       ]
     },
     {

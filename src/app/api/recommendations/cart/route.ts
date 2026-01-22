@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { createSuccessResponse, createErrorResponse } from '@/lib/api-types'
 import { z } from 'zod'
 import { KNOWLEDGE_BASE } from '@/lib/knowledge-base'
+import { mlRecommendations } from '@/lib/ml-recommendations'
 
 const cartRecommendationSchema = z.object({
   productIds: z.array(z.string()).min(1, 'At least one product ID is required'),
@@ -35,8 +36,14 @@ export async function POST(request: NextRequest) {
 
     const cartCategories = [...new Set(cartProducts.map(p => p.categoryId))]
 
-    // Strategy 1: Frequently bought together with cart items
-    const frequentlyBoughtTogether = await getFrequentlyBoughtTogether(productIds, limit)
+    // Strategy 1: ML-Powered Frequently bought together (Collaborative Filtering)
+    const mlScores = await mlRecommendations.getFrequentlyBoughtTogether(productIds, limit)
+    const mlRecommendationsData = await mlRecommendations.enrichRecommendations(mlScores)
+    const frequentlyBoughtTogether = mlRecommendationsData.map((p: any) => ({
+      ...p,
+      badge: '🔥 ML Gợi ý',
+      confidence: 0.95
+    }))
 
     // Strategy 2: Complementary products based on knowledge base
     const complementaryProducts = await getComplementaryProducts(cartProducts, limit)
@@ -121,8 +128,9 @@ export async function POST(request: NextRequest) {
           recommendations: unique,
           count: unique.length,
           strategies: {
+            mlRecommendations: frequentlyBoughtTogether.length,
             complementaryProducts: complementaryProducts.length,
-            frequentlyBoughtTogether: frequentlyBoughtTogether.length
+            aiRecommendations: aiRecommendations.length
           }
         },
         'Cart recommendations generated successfully'
@@ -138,84 +146,6 @@ export async function POST(request: NextRequest) {
   }
 }
 
-/**
- * Find products frequently bought together with cart items
- */
-async function getFrequentlyBoughtTogether(cartProductIds: string[], limit: number) {
-  // Find orders containing any cart products
-  const orders = await prisma.order.findMany({
-    where: {
-      orderItems: {
-        some: {
-          productId: { in: cartProductIds }
-        }
-      },
-      status: { in: ['DELIVERED', 'SHIPPED'] } // Use actual OrderStatus enum values
-    },
-    include: {
-      orderItems: {
-        where: {
-          productId: { notIn: cartProductIds }
-        },
-        include: {
-          product: {
-            include: {
-              category: true,
-              inventoryItem: true,
-              productReviews: {
-                where: { isPublished: true },
-                select: { rating: true }
-              }
-            }
-          }
-        }
-      }
-    },
-    take: 100
-  })
-
-  // Count product occurrences
-  const productCounts = new Map<string, { count: number; product: any }>()
-
-  orders.forEach(order => {
-    order.orderItems.forEach(item => {
-      const current = productCounts.get(item.productId)
-      if (current) {
-        productCounts.set(item.productId, {
-          count: current.count + 1,
-          product: item.product
-        })
-      } else {
-        productCounts.set(item.productId, {
-          count: 1,
-          product: item.product
-        })
-      }
-    })
-  })
-
-  // Convert to array and sort by frequency
-  return Array.from(productCounts.values())
-    .sort((a, b) => b.count - a.count)
-    .slice(0, limit)
-    .map(({ count, product }) => ({
-      id: product.id,
-      name: product.name,
-      price: product.price,
-      unit: product.unit,
-      images: product.images,
-      category: product.category.name,
-      inStock: product.inventoryItem ? product.inventoryItem.availableQuantity > 0 : true,
-      availableQuantity: product.inventoryItem?.availableQuantity || 0,
-      rating: calculateAverageRating(product.productReviews),
-      reviewCount: product.productReviews.length,
-      reason: 'Thường được mua cùng',
-      badge: '🔥 Mua cùng',
-      confidence: Math.min(count / 10, 1),
-      wholesalePrice: product.wholesalePrice,
-      minWholesaleQty: product.minWholesaleQty
-    }))
-}
 
 /**
  * Find complementary products based on knowledge base commonCombinations

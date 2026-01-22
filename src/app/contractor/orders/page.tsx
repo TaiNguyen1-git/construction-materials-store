@@ -32,7 +32,8 @@ import {
     ChevronRight,
     Calendar,
     Edit,
-    Trash2
+    Trash2,
+    ChevronDown
 } from 'lucide-react'
 
 interface Order {
@@ -240,126 +241,137 @@ export default function ContractorOrdersPage() {
             <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
             {/* Main Content */}
-            <main className={`flex-1 pt-[73px] transition-all duration-300 ${sidebarOpen ? 'lg:ml-64' : 'ml-0'}`}>
-                <div className="p-6 lg:p-8 max-w-7xl mx-auto">
-                    {/* Header */}
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+            <main className={`flex-1 pt-[60px] transition-all duration-300 ${sidebarOpen ? 'lg:ml-64' : 'ml-0'}`}>
+                <div className="p-4 lg:p-6 max-w-7xl mx-auto">
+                    {/* Header - Compact */}
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
                         <div>
-                            <h1 className="text-2xl font-bold text-gray-900">Đơn hàng của tôi</h1>
-                            <p className="text-gray-600">Quản lý và theo dõi tất cả đơn hàng</p>
-                        </div>
-                        <div className="flex gap-3">
-                            {/* Removed redundant New Order button as users use Quick Order */}
+                            <h1 className="text-xl font-black text-gray-900 uppercase tracking-tight">Đơn hàng của tôi</h1>
+                            <p className="text-xs text-gray-500 font-medium mt-1">Quản lý và theo dõi trạng thái đơn hàng</p>
                         </div>
                     </div>
 
-                    {/* Filters */}
-                    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-6">
-                        <div className="flex flex-wrap gap-4 items-center">
-                            <div className="flex items-center gap-2">
-                                <Filter className="w-5 h-5 text-gray-400" />
-                                <span className="text-gray-600 font-medium">Lọc theo:</span>
+                    {/* Filters - High Density */}
+                    <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-100 mb-6 font-medium">
+                        <div className="flex flex-wrap gap-3 items-center">
+                            <div className="flex items-center gap-2 px-2">
+                                <Filter className="w-4 h-4 text-gray-400" />
+                                <span className="text-xs font-bold text-gray-600 uppercase tracking-wide">Lọc theo:</span>
                             </div>
-                            <select
-                                value={statusFilter}
-                                onChange={(e) => setStatusFilter(e.target.value)}
-                                className="bg-gray-50 border border-gray-200 rounded-lg px-4 py-2 text-gray-900 font-bold outline-none"
-                            >
-                                <option value="all">Tất cả trạng thái</option>
-                                <option value="PENDING">Chờ xác nhận</option>
-                                <option value="PROCESSING">Đang xử lý</option>
-                                <option value="SHIPPED">Đang giao</option>
-                                <option value="DELIVERED">Đã giao</option>
-                                <option value="CANCELLED">Đã hủy</option>
-                            </select>
+                            <div className="relative">
+                                <select
+                                    value={statusFilter}
+                                    onChange={(e) => setStatusFilter(e.target.value)}
+                                    className="appearance-none bg-gray-50 border border-gray-200 rounded-lg pl-3 pr-8 py-2 text-xs font-bold text-gray-700 outline-none focus:ring-2 focus:ring-primary-100 hover:bg-gray-100 transition-colors"
+                                >
+                                    <option value="all">Tất cả trạng thái</option>
+                                    <option value="PENDING">Chờ xác nhận</option>
+                                    <option value="PROCESSING">Đang xử lý</option>
+                                    <option value="SHIPPED">Đang giao</option>
+                                    <option value="DELIVERED">Đã giao</option>
+                                    <option value="CANCELLED">Đã hủy</option>
+                                </select>
+                                <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+                            </div>
+
                             <div className="flex-1" />
+
                             {selectedIds.length > 0 && (
                                 <button
                                     onClick={handleBulkDelete}
-                                    className="flex items-center gap-2 bg-red-50 text-red-600 px-4 py-2 rounded-lg font-black uppercase text-[10px] tracking-widest hover:bg-red-100 transition-all border border-red-100"
+                                    className="flex items-center gap-1.5 bg-red-50 text-red-600 px-3 py-1.5 rounded-lg font-black uppercase text-[10px] tracking-widest hover:bg-red-100 transition-all border border-red-100 shadow-sm"
                                 >
-                                    <Trash2 className="w-4 h-4" />
-                                    Xoá đã chọn ({selectedIds.length})
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                    Xoá ({selectedIds.length})
                                 </button>
                             )}
-                            <button className="flex items-center gap-2 text-gray-600 hover:text-blue-600 font-bold">
-                                <Download className="w-5 h-5" />
+                            <button className="flex items-center gap-1.5 text-gray-500 hover:text-primary-600 px-3 py-1.5 border border-gray-200 rounded-lg hover:bg-primary-50 hover:border-primary-100 transition-all text-xs font-bold uppercase tracking-wide">
+                                <Download className="w-3.5 h-3.5" />
                                 Xuất Excel
                             </button>
                         </div>
                     </div>
 
-                    {/* Orders Table */}
+                    {/* Orders Table - High Density */}
                     <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                         <div className="overflow-x-auto">
                             <table className="w-full">
-                                <thead className="bg-gray-50 border-b border-gray-100">
+                                <thead className="bg-gray-50/50 border-b border-gray-100">
                                     <tr>
-                                        <th className="px-6 py-4 text-center w-12">
+                                        <th className="px-4 py-3 text-center w-10">
                                             <input
                                                 type="checkbox"
                                                 checked={selectedIds.length === filteredOrders.length && filteredOrders.length > 0}
                                                 onChange={toggleSelectAll}
-                                                className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                                                className="w-3.5 h-3.5 rounded border-gray-300 text-primary-600 focus:ring-primary-500 cursor-pointer"
                                             />
                                         </th>
-                                        <th className="text-left px-6 py-4 text-sm font-semibold text-gray-700">Mã đơn</th>
-                                        <th className="text-left px-6 py-4 text-sm font-semibold text-gray-700">Ngày đặt</th>
-                                        <th className="text-left px-6 py-4 text-sm font-semibold text-gray-700">Dự án</th>
-                                        <th className="text-center px-6 py-4 text-sm font-semibold text-gray-700">SP</th>
-                                        <th className="text-right px-6 py-4 text-sm font-semibold text-gray-700">Tổng tiền</th>
-                                        <th className="text-center px-6 py-4 text-sm font-semibold text-gray-700">Trạng thái</th>
-                                        <th className="text-center px-6 py-4 text-sm font-semibold text-gray-700"></th>
+                                        <th className="text-left px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-500">Mã đơn</th>
+                                        <th className="text-left px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-500">Ngày đặt</th>
+                                        <th className="text-left px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-500">Dự án</th>
+                                        <th className="text-center px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-500">SP</th>
+                                        <th className="text-right px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-500">Thành tiền</th>
+                                        <th className="text-center px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-500">Trạng thái</th>
+                                        <th className="text-center px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-500">Thao tác</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-gray-100">
+                                <tbody className="divide-y divide-gray-50">
                                     {filteredOrders.map((order) => (
-                                        <tr key={order.id} className={`hover:bg-gray-50 transition-colors ${selectedIds.includes(order.id) ? 'bg-blue-50/30' : ''}`}>
-                                            <td className="px-6 py-4 text-center">
+                                        <tr key={order.id} className={`hover:bg-primary-50/10 transition-colors group ${selectedIds.includes(order.id) ? 'bg-primary-50/30' : ''}`}>
+                                            <td className="px-4 py-2.5 text-center">
                                                 <input
                                                     type="checkbox"
                                                     checked={selectedIds.includes(order.id)}
                                                     onChange={() => toggleSelectOrder(order.id)}
-                                                    className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                                                    className="w-3.5 h-3.5 rounded border-gray-300 text-primary-600 focus:ring-primary-500 cursor-pointer"
                                                 />
                                             </td>
-                                            <td className="px-6 py-4">
-                                                <span className="font-semibold text-blue-600">{order.orderNumber}</span>
+                                            <td className="px-4 py-2.5">
+                                                <span className="font-bold text-xs text-primary-600 group-hover:underline cursor-pointer" onClick={() => handleViewOrder(order)}>{order.orderNumber}</span>
                                             </td>
-                                            <td className="px-6 py-4 text-gray-600">{order.date}</td>
-                                            <td className="px-6 py-4 text-gray-900">{order.project}</td>
-                                            <td className="px-6 py-4 text-center text-gray-600">{order.items}</td>
-                                            <td className="px-6 py-4 text-right font-semibold text-gray-900">
+                                            <td className="px-4 py-2.5 text-xs text-gray-500 font-medium">{order.date}</td>
+                                            <td className="px-4 py-2.5">
+                                                <div className="flex items-center gap-1.5">
+                                                    <div className="w-1 h-4 bg-gray-200 rounded-full group-hover:bg-primary-400 transition-colors" />
+                                                    <span className="text-xs font-semibold text-gray-700">{order.project}</span>
+                                                </div>
+                                            </td>
+                                            <td className="px-4 py-2.5 text-center text-xs font-bold text-gray-500">{order.items}</td>
+                                            <td className="px-4 py-2.5 text-right font-black text-xs text-gray-900">
                                                 {formatCurrency(order.total)}
                                             </td>
-                                            <td className="px-6 py-4 text-center">
-                                                <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(order.status)}`}>
+                                            <td className="px-4 py-2.5 text-center">
+                                                <span className={`inline-block px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider ${getStatusColor(order.status)}`}>
                                                     {getStatusText(order.status)}
                                                 </span>
                                             </td>
-                                            <td className="px-6 py-4 text-center">
-                                                <div className="flex items-center justify-center gap-1">
+                                            <td className="px-4 py-2.5 text-center">
+                                                <div className="flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                                     <button
                                                         onClick={() => handleViewOrder(order)}
-                                                        className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                                        className="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
                                                         title="Xem chi tiết"
                                                     >
-                                                        <Eye className="w-5 h-5" />
+                                                        <Eye className="w-4 h-4" />
                                                     </button>
-                                                    <button
-                                                        onClick={() => handleEditOrder(order)}
-                                                        className="p-2 text-gray-400 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
-                                                        title="Chỉnh sửa"
-                                                    >
-                                                        <Edit className="w-5 h-5" />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handleDeleteOrder(order)}
-                                                        className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                                        title="Xoá đơn"
-                                                    >
-                                                        <Trash2 className="w-5 h-5" />
-                                                    </button>
+                                                    {order.status === 'PENDING' && (
+                                                        <button
+                                                            onClick={() => handleEditOrder(order)}
+                                                            className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
+                                                            title="Chỉnh sửa"
+                                                        >
+                                                            <Edit className="w-4 h-4" />
+                                                        </button>
+                                                    )}
+                                                    {(order.status === 'PENDING' || order.status === 'CANCELLED') && (
+                                                        <button
+                                                            onClick={() => handleDeleteOrder(order)}
+                                                            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                                            title="Xoá đơn"
+                                                        >
+                                                            <Trash2 className="w-4 h-4" />
+                                                        </button>
+                                                    )}
                                                 </div>
                                             </td>
                                         </tr>
@@ -368,46 +380,24 @@ export default function ContractorOrdersPage() {
                             </table>
                         </div>
 
-                        {/* Pagination */}
-                        <div className="flex items-center justify-between px-6 py-4 border-t border-gray-100">
-                            <p className="text-sm text-gray-600">
-                                Hiển thị 1-{filteredOrders.length} của {filteredOrders.length} đơn hàng
+                        {/* Pagination - Compact */}
+                        <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100 bg-gray-50/30">
+                            <p className="text-[11px] font-medium text-gray-500">
+                                Hiển thị <span className="font-bold text-gray-900">1-{filteredOrders.length}</span> / {filteredOrders.length} đơn hàng
                             </p>
-                            <div className="flex items-center gap-2">
-                                <button className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg" disabled>
-                                    <ChevronLeft className="w-5 h-5" />
+                            <div className="flex items-center gap-1.5">
+                                <button className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md disabled:opacity-50" disabled>
+                                    <ChevronLeft className="w-4 h-4" />
                                 </button>
-                                <button className="px-3 py-1 bg-blue-600 text-white rounded-lg text-sm font-medium">1</button>
-                                <button className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg" disabled>
-                                    <ChevronRight className="w-5 h-5" />
+                                <button className="px-2.5 py-1 bg-primary-600 text-white rounded-md text-[11px] font-bold shadow-sm shadow-primary-200">1</button>
+                                <button className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md disabled:opacity-50" disabled>
+                                    <ChevronRight className="w-4 h-4" />
                                 </button>
                             </div>
                         </div>
                     </div>
                 </div>
             </main>
-
-            {/* Mobile Bottom Navigation */}
-            <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-30">
-                <div className="flex items-center justify-around py-2">
-                    <Link href="/contractor/dashboard" className="flex flex-col items-center gap-1 py-2 px-3 text-gray-500">
-                        <Home className="w-6 h-6" />
-                        <span className="text-xs">Tổng quan</span>
-                    </Link>
-                    <Link href="/contractor/orders" className="flex flex-col items-center gap-1 py-2 px-3 text-blue-600">
-                        <ShoppingCart className="w-6 h-6" />
-                        <span className="text-xs font-medium">Đơn hàng</span>
-                    </Link>
-                    <Link href="/products" className="flex flex-col items-center gap-1 py-2 px-3 text-gray-500">
-                        <Package className="w-6 h-6" />
-                        <span className="text-xs">Sản phẩm</span>
-                    </Link>
-                    <Link href="/contractor/debt" className="flex flex-col items-center gap-1 py-2 px-3 text-gray-500">
-                        <CreditCard className="w-6 h-6" />
-                        <span className="text-xs">Công nợ</span>
-                    </Link>
-                </div>
-            </nav>
 
             {/* View Order Modal */}
             {showViewModal && selectedOrder && (

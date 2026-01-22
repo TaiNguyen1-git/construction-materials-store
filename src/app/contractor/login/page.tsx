@@ -18,6 +18,7 @@ import {
     Eye,
     EyeOff
 } from 'lucide-react'
+import { getPostLoginRedirectUrl } from '@/lib/auth-redirect'
 
 export default function ContractorLoginPage() {
     const router = useRouter()
@@ -75,6 +76,26 @@ export default function ContractorLoginPage() {
                 throw new Error(data.error || 'Đăng nhập thất bại')
             }
 
+            // Check if user is a contractor
+            if (data.user && data.user.role !== 'CONTRACTOR') {
+                // Not a contractor - redirect to appropriate page with message
+                if (data.user.role === 'MANAGER' || data.user.role === 'EMPLOYEE') {
+                    // Store tokens first
+                    if (data.token) {
+                        localStorage.setItem('access_token', data.token)
+                    }
+                    if (data.user) {
+                        localStorage.setItem('user', JSON.stringify(data.user))
+                    }
+                    // Redirect to admin with info
+                    window.location.href = '/admin'
+                    return
+                } else {
+                    // Customer - show error and suggest using customer login
+                    throw new Error('Tài khoản này không phải là nhà thầu. Vui lòng sử dụng trang đăng nhập khách hàng.')
+                }
+            }
+
             // Save tokens using same keys as main auth system for consistency
             if (data.accessToken) {
                 localStorage.setItem('access_token', data.accessToken)
@@ -90,8 +111,10 @@ export default function ContractorLoginPage() {
                 localStorage.setItem('user', JSON.stringify(data.user))
             }
 
-            // Use hard redirect to ensure AuthProvider re-initializes from localStorage
-            window.location.href = '/contractor/dashboard'
+            // Redirect with callback support (only allow contractor paths)
+            const redirectUrl = getPostLoginRedirectUrl(data.user)
+            console.log('[CONTRACTOR LOGIN] Redirecting to:', redirectUrl)
+            window.location.href = redirectUrl
         } catch (err: any) {
             setError(err.message || 'Đã có lỗi xảy ra')
         } finally {

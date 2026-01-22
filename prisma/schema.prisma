@@ -102,9 +102,35 @@ model User {
   customer Customer?
   announcementActions UserAnnouncementAction[]
   notifications       Notification[]
+  disputeComments     DisputeComment[]
 
   @@map("users")
   @@index([role])
+  sessions UserSession[]
+}
+
+// User Session Management (for multi-device/tab support)
+model UserSession {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId       String   @db.ObjectId
+  tokenHash    String   // Hash of the JWT token (for revocation)
+  deviceInfo   String?  // Browser/device info
+  ipAddress    String?  // IP address
+  userAgent    String?  // User agent string
+  tabId        String?  // Tab identifier for multi-tab support
+  isActive     Boolean  @default(true)
+  lastActivityAt DateTime @default(now())
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+
+  // Relationships
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_sessions")
+  @@index([userId])
+  @@index([tokenHash])
+  @@index([isActive])
+  @@index([expiresAt])
 }
 
 model Employee {
@@ -182,6 +208,7 @@ model Customer {
   materialCalculations MaterialCalculation[]
   creditApprovals CreditApproval[]
   contracts Contract[]
+  disputes Dispute[]
   
   // Brokerage
   quoteRequests   QuoteRequest[] @relation("CustomerOutboundQuotes")
@@ -483,13 +510,20 @@ model Order {
   confirmedAt     DateTime?
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
+  
+  // Contractor Selection (Value-Added Service)
+  selectedContractorId String?    @db.ObjectId
+  contractorChangeCount Int        @default(0)
 
   // Relationships
   customer     Customer?   @relation(fields: [customerId], references: [id])
+  contractor   ContractorProfile? @relation(fields: [selectedContractorId], references: [id])
   orderItems   OrderItem[]
   invoices     Invoice[]
   orderTracking OrderTracking[]
   delivery      OrderDelivery?
+  deliveryPhases DeliveryPhase[]
+  disputes      Dispute[]
 
   @@map("orders")
   @@index([customerId])
@@ -515,6 +549,7 @@ model OrderItem {
   // Relationships
   order   Order   @relation(fields: [orderId], references: [id])
   product Product @relation(fields: [productId], references: [id])
+  deliveryPhaseItems DeliveryPhaseItem[]
 
   @@map("order_items")
   @@index([orderId])
@@ -1591,9 +1626,11 @@ model ContractorProfile {
   
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+  disputes        Dispute[]
 
   // Relationships
   reviews         ContractorReview[]
+  orders          Order[]
 
   @@map("contractor_profiles")
   @@index([isVerified])
@@ -2152,4 +2189,129 @@ model OrderDelivery {
   order           Order    @relation(fields: [orderId], references: [id])
 
   @@map("order_deliveries")
+}
+
+// ============================================
+// SME FEATURE: PHASED DELIVERY (GIAO HÀNG CUỐN CHIẾU)
+// ============================================
+
+model DeliveryPhase {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  orderId         String   @db.ObjectId
+  phaseNumber     Int      // Phase 1, 2, 3...
+  status          DeliveryPhaseStatus @default(PENDING)
+  scheduledDate   DateTime
+  actualDate      DateTime?
+  notes           String?
+  items           DeliveryPhaseItem[]
+  
+  order           Order    @relation(fields: [orderId], references: [id])
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("delivery_phases")
+  @@index([orderId])
+  @@index([status])
+}
+
+model DeliveryPhaseItem {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  phaseId         String   @db.ObjectId
+  orderItemId     String   @db.ObjectId
+  quantity        Float    // Quantity in this phase
+  
+  phase           DeliveryPhase @relation(fields: [phaseId], references: [id])
+  orderItem       OrderItem     @relation(fields: [orderItemId], references: [id])
+  
+  @@map("delivery_phase_items")
+  @@index([phaseId])
+  @@index([orderItemId])
+}
+
+enum DeliveryPhaseStatus {
+  PENDING
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+// ============================================
+// SME FEATURE: DISPUTE CENTER (TRUNG TÂM TRANH CHẤP)
+// ============================================
+
+model Dispute {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  orderId         String?  @db.ObjectId
+  projectId       String?  @db.ObjectId
+  
+  // Actor identification
+  type            DisputeType @default(CUSTOMER_TO_STORE)
+  
+  customerId      String?  @db.ObjectId // Involved customer
+  contractorId    String?  @db.ObjectId // Involved contractor
+  
+  reason          String
+  description     String
+  status          DisputeStatus @default(OPEN)
+  resolution      String?      // Admin resolution
+  resolvedAt      DateTime?
+  resolvedBy      String?      @db.ObjectId // Admin ID
+  
+  evidence        DisputeEvidence[]
+  comments        DisputeComment[]
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  order           Order?   @relation(fields: [orderId], references: [id])
+  customer        Customer? @relation(fields: [customerId], references: [id])
+  contractor      ContractorProfile? @relation(fields: [contractorId], references: [id])
+  
+  @@map("disputes")
+  @@index([status])
+  @@index([type])
+  @@index([orderId])
+}
+
+model DisputeComment {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  disputeId       String   @db.ObjectId
+  authorId        String   @db.ObjectId // User ID
+  content         String
+  attachments     String[] // Array of image URLs
+  
+  createdAt       DateTime @default(now())
+  
+  dispute         Dispute  @relation(fields: [disputeId], references: [id])
+  author          User     @relation(fields: [authorId], references: [id])
+
+  @@map("dispute_comments")
+  @@index([disputeId])
+}
+
+enum DisputeType {
+  CUSTOMER_TO_STORE
+  CUSTOMER_TO_CONTRACTOR
+  CONTRACTOR_TO_CUSTOMER
+  CONTRACTOR_TO_STORE
+}
+
+model DisputeEvidence {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  disputeId       String   @db.ObjectId
+  imageUrl        String
+  description     String?
+  
+  dispute         Dispute  @relation(fields: [disputeId], references: [id])
+  
+  @@map("dispute_evidences")
+}
+
+enum DisputeStatus {
+  OPEN
+  UNDER_REVIEW
+  RESOLVED
+  REJECTED
 }

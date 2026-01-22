@@ -135,7 +135,8 @@ export default function ContractorRegisterPage() {
                     name: formData.fullName,
                     email: formData.email,
                     password: formData.password,
-                    phone: formData.phone
+                    phone: formData.phone,
+                    role: 'CONTRACTOR' // Register as contractor, not customer
                 })
             })
 

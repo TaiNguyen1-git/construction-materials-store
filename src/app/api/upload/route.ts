@@ -1,21 +1,50 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createSuccessResponse } from '@/lib/api-types'
+import { writeFile } from 'fs/promises'
+import path from 'path'
+import { v4 as uuidv4 } from 'uuid'
 
 export async function POST(request: NextRequest) {
-    // In a real app, this would use Cloudinary, AWS S3, or local storage
-    // For this demo/ERP, we return a themed placeholder URL
+    try {
+        const formData = await request.formData()
+        const file = formData.get('file') as File | null
 
-    const formData = await request.formData()
-    const file = formData.get('file') as File
+        if (!file) {
+            return NextResponse.json({ success: false, error: 'No file uploaded' }, { status: 400 })
+        }
 
-    console.log('Mock upload received file:', file?.name)
+        const bytes = await file.arrayBuffer()
+        const buffer = Buffer.from(bytes)
 
-    // Simulate some delay
-    await new Promise(resolve => setTimeout(resolve, 800))
+        // Ensure public/uploads exists (manual creation might be needed or mkdir)
+        const uploadDir = path.join(process.cwd(), 'public', 'uploads')
+        // const uploadDir = 'public/uploads' // Relative path
 
-    return NextResponse.json(createSuccessResponse({
-        url: `https://images.unsplash.com/photo-1581094794329-c8112a89af12?w=800&q=80`, // Construction themed fallback
-        fileName: file?.name || 'document.pdf',
-        size: file?.size || 0
-    }, 'Tải lên thành công'))
+        // Simple distinct filename
+        const uniqueName = `${uuidv4()}-${file.name}`
+        const filePath = path.join(uploadDir, uniqueName)
+
+        // Write file (Requires 'public/uploads' folder to exist)
+        try {
+            await writeFile(filePath, buffer)
+        } catch (e: any) {
+            // Try creating dir if fails? Or just returning error. 
+            // Assuming public/uploads exists or I can create a util to ensure it.
+            // For safety in this environment, I'll assume I need to create it manually via tool if this fails, 
+            // but let's try writing.
+            console.error('Write file error', e)
+            return NextResponse.json({ success: false, error: 'Upload failed' }, { status: 500 })
+        }
+
+        const fileUrl = `/uploads/${uniqueName}`
+
+        return NextResponse.json({
+            success: true,
+            fileUrl,
+            fileName: file.name,
+            fileType: file.type
+        })
+
+    } catch (error: any) {
+        return NextResponse.json({ success: false, error: error.message }, { status: 500 })
+    }
 }

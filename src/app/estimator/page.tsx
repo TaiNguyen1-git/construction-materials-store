@@ -31,6 +31,9 @@ import toast, { Toaster } from 'react-hot-toast'
 import { useCartStore, CartItem } from '@/stores/cartStore'
 import { useAuth } from '@/contexts/auth-context'
 
+import LoginIncentiveModal from '@/components/LoginIncentiveModal'
+import SiteHeader from '@/components/Header'
+
 interface RoomDimension {
     name: string
     length: number
@@ -79,6 +82,7 @@ export default function EstimatorPage() {
     const [addingToCart, setAddingToCart] = useState(false)
     const [creatingProject, setCreatingProject] = useState(false)
     const [showProjectModal, setShowProjectModal] = useState(false)
+    const [showLoginModal, setShowLoginModal] = useState(false)
     const [projectName, setProjectName] = useState('')
     const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -324,60 +328,41 @@ export default function EstimatorPage() {
                 </div>
             )}
 
-            {/* Header */}
-            <header className="bg-white/80 backdrop-blur-sm border-b border-gray-200 sticky top-0 z-40">
-                <div className="max-w-6xl mx-auto px-6 py-4">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                            <Link
-                                href="/"
-                                className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-                            >
-                                <ArrowLeft className="w-5 h-5" />
-                            </Link>
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-purple-600 rounded-xl flex items-center justify-center">
-                                    <Calculator className="w-6 h-6 text-white" />
-                                </div>
-                                <div>
-                                    <h1 className="text-xl font-bold text-gray-900">AI Dự Toán Vật Liệu</h1>
-                                    <p className="text-sm text-gray-500">Upload ảnh hoặc mô tả dự án</p>
-                                </div>
-                            </div>
-                        </div>
+            {/* Global Header */}
+            <SiteHeader />
 
-                        <Link
-                            href="/cart"
-                            className="flex items-center gap-2 text-gray-600 hover:text-blue-600 transition-colors"
-                        >
-                            <ShoppingCart className="w-5 h-5" />
-                            <span className="hidden sm:inline">Giỏ hàng</span>
-                        </Link>
+            <main className="max-w-7xl mx-auto px-4 py-8">
+                {/* Page Header - High Density */}
+                <div className="mb-8 flex items-center gap-3">
+                    <div className="w-10 h-10 bg-gradient-to-br from-primary-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-primary-100">
+                        <Calculator className="w-5 h-5 text-white" />
+                    </div>
+                    <div>
+                        <h1 className="text-xl font-black text-gray-900 leading-none mb-1">AI ESTIMATOR</h1>
+                        <p className="text-xs text-gray-500 font-bold uppercase tracking-widest">Dự toán vật liệu thông minh</p>
                     </div>
                 </div>
-            </header>
 
-            <main className="max-w-6xl mx-auto px-6 py-8">
-                <div className="grid lg:grid-cols-2 gap-8">
+                <div className="grid lg:grid-cols-12 gap-6 items-start">
                     {/* Input Panel */}
-                    <div className="space-y-6">
+                    <div className="lg:col-span-5 space-y-4">
                         {/* Project Type Selection */}
-                        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-                            <h2 className="text-lg font-semibold text-gray-900 mb-4">Loại công việc</h2>
-                            <div className="grid grid-cols-2 gap-3">
+                        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+                            <h2 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-3">Loại công việc</h2>
+                            <div className="grid grid-cols-4 gap-2">
                                 {PROJECT_TYPES.map((type) => (
                                     <button
                                         key={type.id}
                                         onClick={() => setProjectType(type.id)}
-                                        className={`p-4 rounded-xl border-2 transition-all flex flex-col items-center gap-2 ${projectType === type.id
-                                            ? 'border-blue-500 bg-blue-50'
-                                            : 'border-gray-200 hover:border-blue-300'
+                                        className={`p-2 rounded-lg border transition-all flex flex-col items-center gap-1.5 ${projectType === type.id
+                                            ? 'border-primary-500 bg-primary-50'
+                                            : 'border-gray-100 hover:border-gray-200'
                                             }`}
                                     >
-                                        <div className={`w-10 h-10 ${type.color} rounded-lg flex items-center justify-center`}>
-                                            <type.icon className="w-5 h-5 text-white" />
+                                        <div className={`w-8 h-8 ${type.color} rounded-lg flex items-center justify-center`}>
+                                            <type.icon className="w-4 h-4 text-white" />
                                         </div>
-                                        <span className={`font-medium ${projectType === type.id ? 'text-blue-700' : 'text-gray-700'}`}>
+                                        <span className={`text-[10px] font-bold ${projectType === type.id ? 'text-primary-700' : 'text-gray-500'}`}>
                                             {type.name}
                                         </span>
                                     </button>
@@ -386,47 +371,44 @@ export default function EstimatorPage() {
                         </div>
 
                         {/* Input Mode Toggle */}
-                        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-                            <div className="flex gap-2 mb-6">
+                        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+                            <div className="flex gap-1.5 mb-4 bg-gray-50 p-1 rounded-lg">
                                 <button
                                     onClick={() => setInputMode('text')}
-                                    className={`flex-1 py-3 px-4 rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${inputMode === 'text'
-                                        ? 'bg-blue-600 text-white'
-                                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                    className={`flex-1 py-2 px-3 rounded-md text-[11px] font-black transition-all flex items-center justify-center gap-1.5 ${inputMode === 'text'
+                                        ? 'bg-white text-primary-600 shadow-sm'
+                                        : 'text-gray-400 hover:text-gray-600'
                                         }`}
                                 >
-                                    <Ruler className="w-4 h-4" />
-                                    Nhập kích thước
+                                    <Ruler className="w-3.5 h-3.5" />
+                                    KÍCH THƯỚC
                                 </button>
                                 <button
                                     onClick={() => setInputMode('image')}
-                                    className={`flex-1 py-3 px-4 rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${inputMode === 'image'
-                                        ? 'bg-blue-600 text-white'
-                                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                    className={`flex-1 py-2 px-3 rounded-md text-[11px] font-black transition-all flex items-center justify-center gap-1.5 ${inputMode === 'image'
+                                        ? 'bg-white text-primary-600 shadow-sm'
+                                        : 'text-gray-400 hover:text-gray-600'
                                         }`}
                                 >
-                                    <Camera className="w-4 h-4" />
-                                    Upload ảnh
+                                    <Camera className="w-3.5 h-3.5" />
+                                    MẶT BẰNG
                                 </button>
                             </div>
 
                             {inputMode === 'text' ? (
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Mô tả dự án của bạn
-                                    </label>
+                                <div className="animate-in fade-in duration-300">
                                     <textarea
                                         value={description}
                                         onChange={(e) => setDescription(e.target.value)}
                                         placeholder="Ví dụ: Lát sân vườn 6x8m, phòng khách 5x4m..."
-                                        className="w-full h-32 border border-gray-200 rounded-xl px-4 py-3 text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                                        className="w-full h-24 border border-gray-100 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-300 focus:ring-1 focus:ring-primary-500 focus:border-transparent resize-none leading-relaxed"
                                     />
-                                    <p className="text-xs text-gray-500 mt-2">
-                                        💡 Gợi ý: Nhập kích thước cụ thể để có kết quả chính xác hơn
+                                    <p className="text-[10px] text-gray-400 mt-2 font-medium">
+                                        💡 Mẹo: Nhập kích thước cụ thể để AI tính toán chính xác hơn
                                     </p>
                                 </div>
                             ) : (
-                                <div>
+                                <div className="animate-in fade-in duration-300">
                                     <input
                                         ref={fileInputRef}
                                         type="file"
@@ -436,18 +418,18 @@ export default function EstimatorPage() {
                                     />
 
                                     {imagePreview ? (
-                                        <div className="relative">
+                                        <div className="relative group">
                                             <img
                                                 src={imagePreview}
                                                 alt="Floor plan preview"
-                                                className="w-full h-48 object-contain bg-gray-50 rounded-xl"
+                                                className="w-full h-32 object-contain bg-gray-50 rounded-lg border border-gray-100"
                                             />
                                             <button
                                                 onClick={() => {
                                                     setImagePreview(null)
                                                     setImageBase64(null)
                                                 }}
-                                                className="absolute top-2 right-2 bg-red-500 text-white p-1.5 rounded-full hover:bg-red-600"
+                                                className="absolute -top-1.5 -right-1.5 bg-red-500 text-white w-5 h-5 rounded-full hover:bg-red-600 flex items-center justify-center text-xs shadow-lg transition-transform group-hover:scale-110"
                                             >
                                                 ×
                                             </button>
@@ -455,14 +437,14 @@ export default function EstimatorPage() {
                                     ) : (
                                         <button
                                             onClick={() => fileInputRef.current?.click()}
-                                            className="w-full h-48 border-2 border-dashed border-gray-300 rounded-xl flex flex-col items-center justify-center gap-3 hover:border-blue-400 hover:bg-blue-50/50 transition-all"
+                                            className="w-full h-32 border-2 border-dashed border-gray-100 rounded-xl flex flex-col items-center justify-center gap-2 hover:border-primary-300 hover:bg-primary-50/50 transition-all group"
                                         >
-                                            <div className="w-14 h-14 bg-blue-100 rounded-full flex items-center justify-center">
-                                                <Upload className="w-7 h-7 text-blue-600" />
+                                            <div className="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
+                                                <Upload className="w-5 h-5 text-primary-600" />
                                             </div>
                                             <div className="text-center">
-                                                <p className="font-medium text-gray-700">Click để upload ảnh</p>
-                                                <p className="text-sm text-gray-500">Bản vẽ mặt bằng hoặc ảnh phòng</p>
+                                                <p className="text-xs font-bold text-gray-700 uppercase tracking-tighter">Click để upload</p>
+                                                <p className="text-[10px] text-gray-400">Ảnh mặt bằng hoặc bản vẽ phòng</p>
                                             </div>
                                         </button>
                                     )}
@@ -472,17 +454,17 @@ export default function EstimatorPage() {
                             <button
                                 onClick={handleEstimate}
                                 disabled={loading}
-                                className="w-full mt-6 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:from-gray-400 disabled:to-gray-400 text-white py-4 rounded-xl font-semibold transition-all flex items-center justify-center gap-2 shadow-lg"
+                                className="w-full mt-4 bg-gradient-to-r from-primary-600 to-indigo-600 hover:from-primary-700 hover:to-indigo-700 disabled:from-gray-300 disabled:to-gray-300 text-white py-3 rounded-lg text-sm font-black transition-all flex items-center justify-center gap-2 shadow-lg shadow-primary-100"
                             >
                                 {loading ? (
                                     <>
-                                        <Loader2 className="w-5 h-5 animate-spin" />
-                                        Đang phân tích...
+                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                        ĐANG PHÂN TÍCH...
                                     </>
                                 ) : (
                                     <>
-                                        <Calculator className="w-5 h-5" />
-                                        Tính toán Vật liệu
+                                        <Calculator className="w-4 h-4" />
+                                        PHÂN TÍCH VẬT LIỆU AI
                                     </>
                                 )}
                             </button>
@@ -490,126 +472,112 @@ export default function EstimatorPage() {
                     </div>
 
                     {/* Results Panel */}
-                    <div className="space-y-6">
+                    <div className="lg:col-span-7 space-y-4">
                         {result ? (
                             <>
-                                {/* Summary */}
-                                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+                                {/* Summary Card - Compact */}
+                                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 animate-in slide-in-from-right-4 duration-500">
                                     <div className="flex items-center justify-between mb-4">
-                                        <h2 className="text-lg font-semibold text-gray-900">Kết quả Dự toán</h2>
-                                        <span className={`px-3 py-1 rounded-full text-sm font-medium ${result.confidence > 0.7 ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'
+                                        <h2 className="text-[11px] font-black text-gray-400 uppercase tracking-widest">TỔNG QUAN DỰ TOÁN</h2>
+                                        <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-tighter ${result.confidence > 0.7 ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'
                                             }`}>
-                                            Độ tin cậy: {(result.confidence * 100).toFixed(0)}%
+                                            ĐỘ TIN CẬY: {(result.confidence * 100).toFixed(0)}%
                                         </span>
                                     </div>
 
-                                    <div className="grid grid-cols-2 gap-4 mb-6">
-                                        <div className="bg-blue-50 rounded-xl p-4 text-center">
-                                            <p className="text-2xl font-bold text-blue-600">{result.totalArea.toFixed(1)} m²</p>
-                                            <p className="text-sm text-gray-600">Tổng diện tích</p>
+                                    <div className="grid grid-cols-2 gap-3 mb-4">
+                                        <div className="bg-primary-50 px-4 py-3 rounded-xl border border-primary-100">
+                                            <p className="text-[10px] font-black text-primary-600 uppercase tracking-tighter mb-1">Diện tích</p>
+                                            <p className="text-xl font-black text-slate-900">{result.totalArea.toFixed(1)} <span className="text-xs">m²</span></p>
                                         </div>
-                                        <div className="bg-green-50 rounded-xl p-4 text-center">
-                                            <p className="text-2xl font-bold text-green-600">
+                                        <div className="bg-indigo-50 px-4 py-3 rounded-xl border border-indigo-100">
+                                            <p className="text-[10px] font-black text-indigo-600 uppercase tracking-tighter mb-1">Ngân sách dự kiến</p>
+                                            <p className="text-xl font-black text-slate-900">
                                                 {result.totalEstimatedCost > 0
-                                                    ? formatCurrency(result.totalEstimatedCost)
-                                                    : 'Liên hệ'
-                                                }
+                                                    ? formatCurrency(result.totalEstimatedCost).replace(/₫/g, '')
+                                                    : '...'} <span className="text-xs">₫</span>
                                             </p>
-                                            <p className="text-sm text-gray-600">Ước tính chi phí</p>
                                         </div>
                                     </div>
 
                                     {result.rooms.length > 0 && (
-                                        <div className="mb-6">
-                                            <h3 className="text-sm font-medium text-gray-700 mb-2">Các phòng/khu vực:</h3>
-                                            <div className="flex flex-wrap gap-2">
-                                                {result.rooms.map((room, i) => (
-                                                    <span key={i} className="px-3 py-1 bg-gray-100 rounded-full text-sm text-gray-700">
-                                                        {room.name}: {room.length}×{room.width}m ({room.area.toFixed(1)}m²)
-                                                    </span>
-                                                ))}
-                                            </div>
+                                        <div className="flex flex-wrap gap-1.5 border-t border-gray-50 pt-3">
+                                            {result.rooms.map((room, i) => (
+                                                <span key={i} className="px-2 py-1 bg-gray-50 rounded text-[10px] text-gray-500 font-bold border border-gray-100">
+                                                    {room.name.toUpperCase()} ({room.area.toFixed(0)}M²)
+                                                </span>
+                                            ))}
                                         </div>
                                     )}
                                 </div>
 
-                                {/* Materials List */}
-                                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-                                    <h2 className="text-lg font-semibold text-gray-900 mb-4">Danh sách Vật liệu</h2>
+                                {/* Materials Grid - Optimized */}
+                                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 animate-in slide-in-from-right-4 duration-700">
+                                    <h2 className="text-[11px] font-black text-gray-400 uppercase tracking-widest mb-4">DANH SÁCH VẬT LIỆU</h2>
 
-                                    <div className="space-y-3">
+                                    <div className="grid gap-2">
                                         {result.materials.map((material, i) => (
-                                            <div key={i} className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+                                            <div key={i} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-100 hover:border-primary-200 transition-colors group">
                                                 <div className="flex items-center gap-3">
-                                                    <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                                                        <Package className="w-5 h-5 text-blue-600" />
+                                                    <div className="w-8 h-8 bg-white rounded-md flex items-center justify-center border border-gray-100 group-hover:bg-primary-600 transition-colors">
+                                                        <Package className="w-4 h-4 text-primary-600 group-hover:text-white" />
                                                     </div>
                                                     <div>
-                                                        <p className="font-medium text-gray-900">{material.productName}</p>
-                                                        <p className="text-sm text-gray-500">{material.reason}</p>
+                                                        <Link href={material.productId ? `/products/${material.productId}` : '#'} className="font-bold text-xs text-slate-800 hover:text-primary-600 transition-colors line-clamp-1 uppercase tracking-tight">
+                                                            {material.productName}
+                                                        </Link>
+                                                        <p className="text-[10px] text-gray-400 font-medium line-clamp-1">{material.reason}</p>
                                                     </div>
                                                 </div>
                                                 <div className="text-right">
-                                                    <p className="font-semibold text-gray-900">
-                                                        {material.quantity} {material.unit}
+                                                    <p className="font-black text-xs text-slate-900">
+                                                        {material.quantity} <span className="text-[10px] text-gray-400 underline">{material.unit}</span>
                                                     </p>
                                                     {material.price && (
-                                                        <p className="text-sm text-blue-600">{formatCurrency(material.price * material.quantity)}</p>
+                                                        <p className="text-[10px] font-bold text-primary-600">{formatCurrency(material.price * material.quantity)}</p>
                                                     )}
                                                 </div>
                                             </div>
                                         ))}
                                     </div>
 
-                                    <button
-                                        onClick={handleAddAllToCart}
-                                        disabled={addingToCart || !result.materials.some(m => m.productId)}
-                                        className="w-full mt-6 bg-green-600 hover:bg-green-700 disabled:bg-gray-300 text-white py-3 rounded-xl font-semibold transition-all flex items-center justify-center gap-2"
-                                    >
-                                        {addingToCart ? (
-                                            <>
-                                                <Loader2 className="w-5 h-5 animate-spin" />
-                                                Đang thêm...
-                                            </>
-                                        ) : (
-                                            <>
-                                                <ShoppingCart className="w-5 h-5" />
-                                                Thêm tất cả vào Giỏ hàng
-                                            </>
-                                        )}
-                                    </button>
-
-                                    {/* Create Project Button */}
-                                    {isAuthenticated ? (
+                                    <div className="grid grid-cols-2 gap-3 mt-6">
                                         <button
-                                            onClick={() => {
-                                                setProjectName(`Dự án ${PROJECT_TYPES.find(t => t.id === projectType)?.name} - ${new Date().toLocaleDateString('vi-VN')}`)
-                                                setShowProjectModal(true)
-                                            }}
-                                            className="w-full mt-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white py-3 rounded-xl font-semibold transition-all flex items-center justify-center gap-2 shadow-lg"
+                                            onClick={handleAddAllToCart}
+                                            disabled={addingToCart || !result.materials.some(m => m.productId)}
+                                            className="bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-200 text-white py-3 rounded-lg text-[11px] font-black uppercase transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-50"
                                         >
-                                            <FolderPlus className="w-5 h-5" />
-                                            Tạo Dự Án Từ Dự Toán Này
+                                            {addingToCart ? (
+                                                <Loader2 className="w-4 h-4 animate-spin" />
+                                            ) : (
+                                                <>
+                                                    <ShoppingCart className="w-4 h-4" />
+                                                    VÀO GIỎ HÀNG
+                                                </>
+                                            )}
                                         </button>
-                                    ) : (
-                                        <div className="mt-4 p-5 bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-100 rounded-xl">
-                                            <div className="flex items-start gap-4">
-                                                <div className="bg-white p-2 rounded-lg shadow-sm">
-                                                    <Sparkles className="w-5 h-5 text-indigo-600" />
-                                                </div>
-                                                <div>
-                                                    <h4 className="font-bold text-gray-800 text-sm">Biến dự toán thành Dự án thực tế</h4>
-                                                    <p className="text-xs text-gray-500 mt-1">Đăng ký tài khoản để lưu trữ, theo dõi tiến độ và mời nhà thầu tham gia dự án của bạn.</p>
-                                                    <Link
-                                                        href="/register?redirect=/estimator"
-                                                        className="inline-flex items-center mt-3 text-indigo-600 font-bold hover:underline text-sm"
-                                                    >
-                                                        Đăng ký miễn phí <CheckCircle className="w-4 h-4 ml-1" />
-                                                    </Link>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )}
+
+                                        {isAuthenticated ? (
+                                            <button
+                                                onClick={() => {
+                                                    setProjectName(`Dự án ${PROJECT_TYPES.find(t => t.id === projectType)?.name} - ${new Date().toLocaleDateString('vi-VN')}`)
+                                                    setShowProjectModal(true)
+                                                }}
+                                                className="bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-lg text-[11px] font-black uppercase transition-all flex items-center justify-center gap-2 shadow-lg shadow-indigo-50"
+                                            >
+                                                <FolderPlus className="w-4 h-4" />
+                                                LƯU DỰ ÁN
+                                            </button>
+                                        ) : (
+                                            <button
+                                                onClick={() => setShowLoginModal(true)}
+                                                className="bg-indigo-100 text-indigo-700 hover:bg-indigo-200 py-3 rounded-lg text-[11px] font-black uppercase transition-all flex items-center justify-center gap-2"
+                                            >
+                                                <Sparkles className="w-4 h-4" />
+                                                MỞ KHÓA Dự Án
+                                            </button>
+                                        )}
+                                    </div>
                                 </div>
                             </>
                         ) : (
@@ -626,16 +594,13 @@ export default function EstimatorPage() {
                     </div>
                 </div>
 
-                {/* Tips Section */}
-                <div className="mt-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl p-6 text-white">
-                    <h3 className="font-semibold mb-3">💡 Mẹo để có kết quả chính xác hơn</h3>
-                    <ul className="grid md:grid-cols-2 gap-2 text-sm text-blue-100">
-                        <li>• Nhập đầy đủ kích thước (dài × rộng)</li>
-                        <li>• Với ảnh, chụp rõ có thước đo nếu được</li>
-                        <li>• Phân chia theo từng phòng/khu vực</li>
-                        <li>• Liên hệ tư vấn để được hỗ trợ chi tiết hơn</li>
-                    </ul>
-                </div>
+                <LoginIncentiveModal
+                    isOpen={showLoginModal}
+                    onClose={() => setShowLoginModal(false)}
+                    feature="general"
+                    title="Mở khóa Dự án"
+                    description="Đăng nhập để lưu trữ kết quả dự toán, theo dõi tiến trình và dễ dàng mời các nhà thầu báo giá."
+                />
             </main>
         </div>
     )

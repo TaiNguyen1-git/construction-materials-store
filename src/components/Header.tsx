@@ -7,12 +7,16 @@ import NotificationBell from './NotificationBell'
 import { useWishlistStore } from '@/stores/wishlistStore'
 import { useAuth } from '@/contexts/auth-context'
 import { useState } from 'react'
+import LoginIncentiveModal from './LoginIncentiveModal'
+import { useRouter } from 'next/navigation'
 
 export default function Header() {
   const { getTotalItems } = useWishlistStore()
   const { user, isAuthenticated, logout } = useAuth()
   const [showUserMenu, setShowUserMenu] = useState(false)
   const [showServicesMenu, setShowServicesMenu] = useState(false)
+  const [showLoginModal, setShowLoginModal] = useState(false)
+  const router = useRouter()
 
   return (
     <header className="bg-white/90 backdrop-blur-md shadow-lg border-b border-primary-100 sticky top-0 z-50">
@@ -124,14 +128,23 @@ export default function Header() {
           {/* Actions */}
           <div className="flex items-center space-x-2 lg:space-x-4 flex-shrink-0">
             {/* Wishlist Icon */}
-            <Link href="/wishlist" className="relative p-2 hover:bg-gray-100 rounded-lg transition-colors">
-              <Heart className="h-6 w-6 text-gray-700" />
+            <button
+              onClick={(e) => {
+                if (!isAuthenticated) {
+                  setShowLoginModal(true)
+                } else {
+                  router.push('/wishlist')
+                }
+              }}
+              className="relative p-2 hover:bg-gray-100 rounded-lg transition-colors group"
+            >
+              <Heart className="h-6 w-6 text-gray-700 group-hover:text-red-500 transition-colors" />
               {getTotalItems() > 0 && (
                 <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
                   {getTotalItems() > 9 ? '9+' : getTotalItems()}
                 </span>
               )}
-            </Link>
+            </button>
 
             {/* Cart Icon */}
             <CartIcon />
@@ -163,6 +176,14 @@ export default function Header() {
                       <User className="h-4 w-4 mr-2" />
                       Tài khoản của tôi
                     </Link>
+                    <Link
+                      href="/order-tracking"
+                      className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                      onClick={() => setShowUserMenu(false)}
+                    >
+                      <Package className="h-4 w-4 mr-2" />
+                      Theo dõi đơn hàng
+                    </Link>
                     <button
                       onClick={() => {
                         logout()
@@ -189,6 +210,13 @@ export default function Header() {
           </div>
         </div>
       </div>
+      <LoginIncentiveModal
+        isOpen={showLoginModal}
+        onClose={() => setShowLoginModal(false)}
+        feature="wishlist"
+        title="Danh sách yêu thích"
+        description="Đăng nhập để xem lại toàn bộ các sản phẩm bạn đã lưu và nhận thông báo khi chúng có ưu đãi."
+      />
     </header>
   )
 }

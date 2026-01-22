@@ -180,7 +180,18 @@ export async function middleware(request: NextRequest) {
   if (!token) {
     // Handle redirect for pages (not logged in)
     if (isProtectedPage && !pathname.includes('/login') && !pathname.includes('/register')) {
-      const loginUrl = new URL('/login', request.url)
+      // Determine which login page to redirect to based on the protected route
+      let loginPath = '/login'
+
+      if (pathname.startsWith('/contractor')) {
+        loginPath = '/contractor/login'
+      } else if (pathname.startsWith('/supplier')) {
+        loginPath = '/supplier/login'
+      } else if (pathname.startsWith('/admin')) {
+        loginPath = '/login' // Admin uses regular login
+      }
+
+      const loginUrl = new URL(loginPath, request.url)
       loginUrl.searchParams.set('callbackUrl', pathname)
       return NextResponse.redirect(loginUrl)
     }

@@ -30,6 +30,8 @@ const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount)
 }
 
+import ContractorHeader from '../components/ContractorHeader'
+
 export default function ContractorCartPage() {
     const router = useRouter()
     const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -60,16 +62,22 @@ export default function ContractorCartPage() {
     const totalPrice = getTotalPrice()
     const totalItems = getTotalItems()
 
-    // Fetch contractor profile with credit info
+    const [user, setUser] = useState<any>(null)
+
+    // Fetch user and profile
     useEffect(() => {
+        const userData = localStorage.getItem('user')
+        if (userData) {
+            setUser(JSON.parse(userData))
+        }
         fetchContractorProfile()
     }, [])
 
     const fetchContractorProfile = async () => {
         try {
             const token = localStorage.getItem('access_token')
-            const user = localStorage.getItem('user')
-            const userId = user ? JSON.parse(user).id : null
+            const userStored = localStorage.getItem('user')
+            const userId = userStored ? JSON.parse(userStored).id : null
 
             const response = await fetch('/api/contractors/profile', {
                 headers: {
@@ -155,189 +163,174 @@ export default function ContractorCartPage() {
     }
 
     return (
-        <div className="min-h-screen bg-gray-50">
+        <div className="min-h-screen bg-gray-50 flex flex-col">
             <Toaster position="top-right" />
-
-            {/* Top Nav */}
-            <nav className="fixed top-0 left-0 right-0 h-[73px] bg-white border-b border-gray-200 z-30 px-6">
-                <div className="h-full flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                        <button
-                            onClick={() => setSidebarOpen(!sidebarOpen)}
-                            className="lg:hidden p-2 hover:bg-gray-100 rounded-lg"
-                        >
-                            <Building2 className="w-6 h-6 text-gray-600" />
-                        </button>
-                        <Link href="/contractor/dashboard" className="flex items-center gap-2">
-                            <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
-                                <Building2 className="w-6 h-6 text-white" />
-                            </div>
-                            <span className="text-xl font-bold text-gray-900">SmartBuild</span>
-                            <span className="text-blue-600 font-semibold">PRO</span>
-                        </Link>
-                    </div>
-                </div>
-            </nav>
-
+            <ContractorHeader sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} user={user} />
             <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
             {/* Main Content */}
-            <main className="lg:ml-64 pt-[73px]">
-                <div className="p-6 lg:p-8 max-w-6xl mx-auto">
-                    {/* Header */}
-                    <div className="flex items-center gap-4 mb-8">
-                        <Link
-                            href="/contractor/quick-order"
-                            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                        >
-                            <ArrowLeft className="w-5 h-5 text-gray-600" />
-                        </Link>
-                        <div>
-                            <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
-                                <ShoppingCart className="w-7 h-7 text-blue-600" />
-                                Giỏ Hàng Đối Tác
-                            </h1>
-                            <p className="text-gray-500">{totalItems} sản phẩm</p>
+            <main className={`flex-1 pt-[60px] transition-all duration-300 ${sidebarOpen ? 'lg:ml-64' : 'ml-0'}`}>
+                <div className="p-4 lg:p-6 max-w-7xl mx-auto">
+                    {/* Header - Compact */}
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                        <div className="flex items-center gap-3">
+                            <Link
+                                href="/contractor/quick-order"
+                                className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors border border-transparent hover:border-gray-200"
+                            >
+                                <ArrowLeft className="w-4 h-4 text-gray-500" />
+                            </Link>
+                            <div>
+                                <h1 className="text-xl font-black text-gray-900 uppercase tracking-tight flex items-center gap-2">
+                                    <ShoppingCart className="w-5 h-5 text-primary-600" />
+                                    Giỏ Hàng Đối Tác
+                                </h1>
+                                <p className="text-xs text-gray-500 font-medium mt-0.5">{totalItems} sản phẩm trong giỏ</p>
+                            </div>
                         </div>
                     </div>
 
                     {items.length === 0 ? (
                         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center">
-                            <Package className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                            <h2 className="text-xl font-semibold text-gray-600 mb-2">Giỏ hàng trống</h2>
-                            <p className="text-gray-400 mb-6">Thêm sản phẩm từ trang Đặt Hàng Nhanh</p>
+                            <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <Package className="w-8 h-8 text-gray-300" />
+                            </div>
+                            <h2 className="text-sm font-bold text-gray-900 uppercase mb-1">Giỏ hàng trống</h2>
+                            <p className="text-xs text-gray-400 mb-6">Thêm sản phẩm từ trang Đặt Hàng Nhanh để bắt đầu</p>
                             <Link
                                 href="/contractor/quick-order"
-                                className="inline-flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                                className="inline-flex items-center gap-2 bg-primary-600 text-white px-5 py-2.5 rounded-lg hover:bg-primary-700 transition-colors text-xs font-black uppercase tracking-wider shadow-lg shadow-primary-200"
                             >
-                                <Plus className="w-5 h-5" />
-                                Thêm Sản Phẩm
+                                <Plus className="w-4 h-4" />
+                                Đặt hàng nhanh
                             </Link>
                         </div>
                     ) : (
-                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                            {/* Cart Items */}
-                            <div className="lg:col-span-2 space-y-4">
-                                {/* Project Info */}
-                                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-                                    <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                                        <FileText className="w-5 h-5 text-blue-600" />
+                        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+                            {/* Cart Items Area */}
+                            <div className="xl:col-span-2 space-y-4">
+                                {/* Project Info Card */}
+                                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+                                    <h3 className="text-xs font-black text-gray-900 uppercase tracking-wide mb-3 flex items-center gap-2 border-b border-gray-50 pb-2">
+                                        <FileText className="w-4 h-4 text-primary-600" />
                                         Thông Tin Đơn Hàng
                                     </h3>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                                                Tên Dự Án
+                                            <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1">
+                                                Tên Dự Án <span className="text-red-500">*</span>
                                             </label>
                                             <input
                                                 type="text"
                                                 value={projectName}
                                                 onChange={(e) => setProjectName(e.target.value)}
                                                 placeholder="VD: Dự án Biên Hòa"
-                                                className="w-full border border-gray-200 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-primary-100 focus:border-primary-500 outline-none transition-all placeholder:text-gray-400"
                                             />
                                         </div>
                                         <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                                                Mã tham chiếu (tùy chọn)
+                                            <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1">
+                                                Mã tham chiếu (PO)
                                             </label>
                                             <input
                                                 type="text"
                                                 value={poNumber}
                                                 onChange={(e) => setPoNumber(e.target.value)}
-                                                placeholder="Ghi chú nội bộ của bạn..."
-                                                className="w-full border border-gray-200 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                placeholder="Mã nội bộ..."
+                                                className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-primary-100 focus:border-primary-500 outline-none transition-all placeholder:text-gray-400"
                                             />
                                         </div>
                                     </div>
-                                    <div className="mt-4">
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    <div className="mt-3">
+                                        <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1">
                                             Ghi Chú
                                         </label>
                                         <textarea
                                             value={notes}
                                             onChange={(e) => setNotes(e.target.value)}
-                                            placeholder="Ghi chú thêm cho đơn hàng..."
+                                            placeholder="Ghi chú giao hàng..."
                                             rows={2}
-                                            className="w-full border border-gray-200 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                                            className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-primary-100 focus:border-primary-500 outline-none transition-all resize-none placeholder:text-gray-400"
                                         />
                                     </div>
                                 </div>
 
                                 {/* Products List */}
                                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                                    <div className="p-4 border-b border-gray-100 flex justify-between items-center">
-                                        <h3 className="font-semibold text-gray-900">Sản Phẩm ({items.length})</h3>
+                                    <div className="p-3 border-b border-gray-100 flex justify-between items-center bg-gray-50/30">
+                                        <h3 className="text-xs font-black text-gray-900 uppercase tracking-wide">Sản Phẩm ({items.length})</h3>
                                         <button
                                             onClick={clearCart}
-                                            className="text-red-600 text-sm hover:underline"
+                                            className="text-red-600 text-[10px] font-bold uppercase tracking-wider hover:text-red-700 flex items-center gap-1 group"
                                         >
+                                            <Trash2 className="w-3 h-3 group-hover:scale-110 transition-transform" />
                                             Xóa tất cả
                                         </button>
                                     </div>
-                                    <div className="divide-y divide-gray-100">
+                                    <div className="divide-y divide-gray-50">
                                         {items.map((item) => (
-                                            <div key={item.productId} className="p-4 flex gap-4">
+                                            <div key={item.productId} className="p-3 flex gap-3 hover:bg-gray-50/50 transition-colors">
                                                 {/* Image */}
-                                                <div className="w-16 h-16 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
+                                                <div className="w-14 h-14 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0 border border-gray-100">
                                                     {item.image ? (
                                                         <Image
                                                             src={item.image}
                                                             alt={item.name}
-                                                            width={64}
-                                                            height={64}
+                                                            width={56}
+                                                            height={56}
                                                             className="w-full h-full object-cover"
                                                         />
                                                     ) : (
                                                         <div className="w-full h-full flex items-center justify-center">
-                                                            <Package className="w-8 h-8 text-gray-300" />
+                                                            <Package className="w-6 h-6 text-gray-300" />
                                                         </div>
                                                     )}
                                                 </div>
 
                                                 {/* Info */}
-                                                <div className="flex-1 min-w-0">
-                                                    <h4 className="font-medium text-gray-900 truncate">{item.name}</h4>
-                                                    <p className="text-sm text-gray-500">SKU: {item.sku}</p>
-                                                    <p className="text-sm text-blue-600 font-medium">
-                                                        {formatCurrency(item.price)}/{item.unit}
-                                                    </p>
+                                                <div className="flex-1 min-w-0 flex flex-col justify-center">
+                                                    <h4 className="font-bold text-xs text-gray-900 truncate mb-0.5">{item.name}</h4>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-[10px] font-medium text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">SKU: {item.sku}</span>
+                                                        <span className="text-[10px] font-bold text-primary-600">
+                                                            {formatCurrency(item.price)}/{item.unit}
+                                                        </span>
+                                                    </div>
                                                 </div>
 
-                                                {/* Quantity */}
-                                                <div className="flex items-center gap-2">
-                                                    <button
-                                                        onClick={() => updateQuantity(item.productId, item.quantity - 1)}
-                                                        className="p-1 border border-gray-200 rounded hover:bg-gray-50"
-                                                    >
-                                                        <Minus className="w-4 h-4" />
-                                                    </button>
-                                                    <input
-                                                        type="number"
-                                                        value={item.quantity}
-                                                        onChange={(e) => updateQuantity(item.productId, parseInt(e.target.value) || 1)}
-                                                        className="w-16 text-center border border-gray-200 rounded py-1"
-                                                        min="1"
-                                                    />
-                                                    <button
-                                                        onClick={() => updateQuantity(item.productId, item.quantity + 1)}
-                                                        className="p-1 border border-gray-200 rounded hover:bg-gray-50"
-                                                    >
-                                                        <Plus className="w-4 h-4" />
-                                                    </button>
-                                                </div>
-
-                                                {/* Subtotal & Remove */}
-                                                <div className="text-right">
-                                                    <p className="font-semibold text-gray-900">
-                                                        {formatCurrency(item.price * item.quantity)}
-                                                    </p>
-                                                    <button
-                                                        onClick={() => removeItem(item.productId)}
-                                                        className="text-red-500 hover:text-red-700 mt-1"
-                                                    >
-                                                        <Trash2 className="w-4 h-4" />
-                                                    </button>
+                                                {/* Quantity & Subtotal */}
+                                                <div className="flex flex-col items-end gap-2">
+                                                    <div className="flex items-center gap-1">
+                                                        <button
+                                                            onClick={() => updateQuantity(item.productId, item.quantity - 1)}
+                                                            className="w-6 h-6 flex items-center justify-center border border-gray-200 rounded-md hover:bg-gray-100 text-gray-600 transition-colors"
+                                                        >
+                                                            <Minus className="w-3 h-3" />
+                                                        </button>
+                                                        <input
+                                                            type="text"
+                                                            value={item.quantity}
+                                                            onChange={(e) => updateQuantity(item.productId, parseInt(e.target.value) || 1)}
+                                                            className="w-10 text-center text-xs font-bold border-y border-gray-200 py-1 focus:outline-none"
+                                                        />
+                                                        <button
+                                                            onClick={() => updateQuantity(item.productId, item.quantity + 1)}
+                                                            className="w-6 h-6 flex items-center justify-center border border-gray-200 rounded-md hover:bg-gray-100 text-gray-600 transition-colors"
+                                                        >
+                                                            <Plus className="w-3 h-3" />
+                                                        </button>
+                                                    </div>
+                                                    <div className="flex items-center gap-3">
+                                                        <p className="font-black text-xs text-gray-900">
+                                                            {formatCurrency(item.price * item.quantity)}
+                                                        </p>
+                                                        <button
+                                                            onClick={() => removeItem(item.productId)}
+                                                            className="text-gray-400 hover:text-red-500 transition-colors"
+                                                        >
+                                                            <Trash2 className="w-3.5 h-3.5" />
+                                                        </button>
+                                                    </div>
                                                 </div>
                                             </div>
                                         ))}
@@ -345,82 +338,84 @@ export default function ContractorCartPage() {
                                 </div>
                             </div>
 
-                            {/* Order Summary */}
+                            {/* Order Summary Sidebar */}
                             <div className="space-y-4">
-                                {/* Credit Info */}
-                                <div className="bg-blue-50 rounded-xl p-4 border border-blue-100">
-                                    <h3 className="font-semibold text-blue-900 mb-3 flex items-center gap-2">
-                                        <CreditCard className="w-5 h-5" />
+                                {/* Credit Info Card */}
+                                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-100 shadow-sm">
+                                    <h3 className="text-xs font-black text-blue-800 uppercase tracking-wide mb-3 flex items-center gap-2">
+                                        <CreditCard className="w-4 h-4" />
                                         Hạn Mức Tín Dụng
                                     </h3>
-                                    <div className="space-y-2 text-sm">
-                                        <div className="flex justify-between">
-                                            <span className="text-blue-700">Hạn mức:</span>
-                                            <span className="font-medium">{formatCurrency(contractorInfo.creditLimit)}</span>
+                                    <div className="space-y-2">
+                                        <div className="flex justify-between items-center text-xs">
+                                            <span className="text-blue-700 font-medium">Hạn mức tối đa</span>
+                                            <span className="font-bold text-blue-900">{formatCurrency(contractorInfo.creditLimit)}</span>
                                         </div>
-                                        <div className="flex justify-between">
-                                            <span className="text-blue-700">Đã sử dụng:</span>
-                                            <span className="font-medium text-red-600">{formatCurrency(contractorInfo.currentDebt)}</span>
+                                        <div className="w-full bg-blue-200/50 rounded-full h-1.5">
+                                            <div
+                                                className="bg-blue-600 h-1.5 rounded-full"
+                                                style={{ width: `${Math.min((contractorInfo.currentDebt / contractorInfo.creditLimit) * 100, 100)}%` }}
+                                            />
                                         </div>
-                                        <div className="flex justify-between border-t border-blue-200 pt-2">
-                                            <span className="text-blue-700 font-medium">Còn lại:</span>
-                                            <span className="font-bold text-green-600">{formatCurrency(availableCredit)}</span>
+                                        <div className="flex justify-between items-center pt-2 border-t border-blue-200/50">
+                                            <span className="text-blue-700 font-bold text-xs">Khả dụng</span>
+                                            <span className="font-black text-emerald-600 text-sm">{formatCurrency(availableCredit)}</span>
                                         </div>
                                     </div>
                                 </div>
 
-                                {/* Summary */}
-                                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-                                    <h3 className="font-semibold text-gray-900 mb-4">Tổng Đơn Hàng</h3>
-                                    <div className="space-y-3 text-sm">
-                                        <div className="flex justify-between">
-                                            <span className="text-gray-600">Tạm tính:</span>
-                                            <span className="font-medium">{formatCurrency(totalPrice)}</span>
+                                {/* Summary Card */}
+                                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+                                    <h3 className="text-xs font-black text-gray-900 uppercase tracking-wide mb-4">Chi tiết thanh toán</h3>
+                                    <div className="space-y-2.5">
+                                        <div className="flex justify-between text-xs">
+                                            <span className="text-gray-500 font-medium">Tạm tính</span>
+                                            <span className="font-bold text-gray-900">{formatCurrency(totalPrice)}</span>
                                         </div>
-                                        <div className="flex justify-between text-green-600">
-                                            <span>Chiết khấu ({contractorInfo.discountPercent}%):</span>
-                                            <span className="font-medium">-{formatCurrency(discountAmount)}</span>
+                                        <div className="flex justify-between text-xs text-emerald-600">
+                                            <span className="font-medium">Chiết khấu ({contractorInfo.discountPercent}%)</span>
+                                            <span className="font-bold">-{formatCurrency(discountAmount)}</span>
                                         </div>
-                                        <div className="flex justify-between text-gray-600">
-                                            <span className="flex items-center gap-1">
-                                                <Truck className="w-4 h-4" />
-                                                Phí vận chuyển:
+                                        <div className="flex justify-between text-xs text-gray-500">
+                                            <span className="flex items-center gap-1.5 font-medium">
+                                                <Truck className="w-3.5 h-3.5" />
+                                                Vận chuyển
                                             </span>
-                                            <span className="text-green-600 font-medium">Miễn phí</span>
+                                            <span className="text-emerald-600 font-bold text-[10px] uppercase bg-emerald-50 px-1.5 py-0.5 rounded">Miễn phí</span>
                                         </div>
-                                        <div className="border-t border-gray-200 pt-3 flex justify-between">
-                                            <span className="font-semibold text-gray-900">Tổng cộng:</span>
-                                            <span className="text-xl font-bold text-blue-600">{formatCurrency(finalTotal)}</span>
+                                        <div className="border-t border-dashed border-gray-200 pt-3 mt-2 flex justify-between items-end">
+                                            <span className="text-xs font-bold text-gray-900 uppercase tracking-wide">Tổng cộng</span>
+                                            <span className="text-xl font-black text-primary-600 leading-none">{formatCurrency(finalTotal)}</span>
                                         </div>
                                     </div>
 
                                     {finalTotal > availableCredit && (
-                                        <div className="mt-4 p-3 bg-red-50 rounded-lg flex items-start gap-2 text-red-700 text-sm">
-                                            <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
-                                            <span>Đơn hàng vượt quá hạn mức tín dụng còn lại</span>
+                                        <div className="mt-4 p-3 bg-red-50 border border-red-100 rounded-lg flex gap-2 text-red-700 text-xs">
+                                            <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                                            <span className="font-medium">Đơn hàng vượt quá hạn mức tín dụng khả dụng. Vui lòng thanh toán bớt công nợ.</span>
                                         </div>
                                     )}
 
                                     <button
                                         onClick={handleCheckout}
                                         disabled={isProcessing || finalTotal > availableCredit}
-                                        className="w-full mt-6 bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+                                        className="w-full mt-5 bg-gradient-to-r from-primary-600 to-indigo-600 text-white py-3 rounded-xl font-black text-xs uppercase tracking-widest hover:from-primary-700 hover:to-indigo-700 disabled:from-gray-300 disabled:to-gray-400 disabled:cursor-not-allowed transition-all shadow-lg shadow-primary-200 hover:shadow-xl hover:shadow-primary-300 flex items-center justify-center gap-2"
                                     >
                                         {isProcessing ? (
                                             <>
-                                                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                                                 Đang xử lý...
                                             </>
                                         ) : (
                                             <>
-                                                <CreditCard className="w-5 h-5" />
-                                                Đặt Hàng (Ghi Nợ)
+                                                <CreditCard className="w-4 h-4" />
+                                                Xác nhận đặt hàng
                                             </>
                                         )}
                                     </button>
 
-                                    <p className="text-xs text-gray-500 text-center mt-3">
-                                        Thanh toán trong vòng 30 ngày
+                                    <p className="text-[10px] text-gray-400 text-center mt-3 font-medium">
+                                        Bằng việc đặt hàng, bạn đồng ý với chính sách công nợ 30 ngày.
                                     </p>
                                 </div>
                             </div>

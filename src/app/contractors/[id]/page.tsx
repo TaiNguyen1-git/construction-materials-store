@@ -133,7 +133,6 @@ export default function ContractorPortfolio({ params }: { params: Promise<{ id: 
                                 <SummaryStat label="Đánh giá" value={contractor.avgRating || 0} icon={<Star className="w-5 h-5 fill-amber-400 text-amber-400" />} />
                                 <SummaryStat label="Kinh nghiệm" value={`${contractor.experienceYears || 0} Năm`} icon={<Clock className="w-5 h-5 text-blue-500" />} />
                                 <SummaryStat label="Dự án" value={contractor.totalProjectsCompleted || 0} icon={<CheckCircle2 className="w-5 h-5 text-emerald-500" />} />
-                                <SummaryStat label="Tín nhiệm" value={contractor.trustScore || 100} icon={<ShieldCheck className="w-5 h-5 text-blue-600" />} />
                             </div>
                         </div>
                     </div>
@@ -190,8 +189,8 @@ export default function ContractorPortfolio({ params }: { params: Promise<{ id: 
                                             </div>
                                         </div>
                                         <div className="bg-white/10 backdrop-blur-md rounded-2xl p-8 text-center border border-white/20 min-w-[160px]">
-                                            <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-80 mb-2">Điểm uy tín</p>
-                                            <div className="text-5xl font-black text-white">{contractor.trustScore || 100}</div>
+                                            <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-80 mb-2">Trạng thái</p>
+                                            <div className="text-3xl font-black text-white px-2">CHUYÊN GIA</div>
                                         </div>
                                     </div>
                                 </div>

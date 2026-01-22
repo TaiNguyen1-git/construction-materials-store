@@ -10,9 +10,11 @@ interface AuthContextType {
   isAuthenticated: boolean
   isLoading: boolean
   error: string | null
+  tabId: string | null
   login: (credentials: LoginCredentials, rememberMe?: boolean) => Promise<void>
   register: (userData: RegisterData) => Promise<void>
-  logout: () => void
+  logout: () => Promise<void>
+  logoutAll: () => Promise<void>
   clearError: () => void
 }
 
@@ -25,7 +27,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     user: null,
     isAuthenticated: false,
     isLoading: true,
-    error: null
+    error: null,
+    tabId: null,
   })
 
   // Initialize auth state on app load
@@ -39,7 +42,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           user: null,
           isAuthenticated: false,
           isLoading: false,
-          error: 'Failed to initialize authentication'
+          error: 'Không thể khởi tạo xác thực',
+          tabId: null,
         })
       }
     }
@@ -47,66 +51,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     initializeAuth()
   }, [])
 
-  // Listen for storage changes from other tabs (cross-tab sync)
+  // Setup cross-tab communication for logout-all
   useEffect(() => {
-    const handleStorageChange = (event: StorageEvent) => {
-      // Only handle changes to auth-related keys
-      if (event.key === 'user' || event.key === 'access_token') {
-        console.log('[Auth Context] Storage change detected from another tab:', event.key)
-
-        if (event.key === 'user') {
-          if (event.newValue) {
-            // User logged in from another tab
-            try {
-              const user = JSON.parse(event.newValue)
-              console.log('[Auth Context] User logged in from another tab:', user.email, 'role:', user.role)
-
-              setAuthState({
-                user,
-                isAuthenticated: true,
-                isLoading: false,
-                error: null
-              })
-
-              // Redirect based on role
-              if (user.role === 'MANAGER' || user.role === 'EMPLOYEE') {
-                console.log('[Auth Context] Redirecting to /admin after cross-tab login')
-                window.location.href = '/admin'
-              } else {
-                // For customers, refresh to update the UI
-                console.log('[Auth Context] Refreshing page after cross-tab customer login')
-                window.location.reload()
-              }
-            } catch (e) {
-              console.error('[Auth Context] Error parsing user data from storage:', e)
-            }
-          } else {
-            // User logged out from another tab
-            console.log('[Auth Context] User logged out from another tab, clearing state')
-            setAuthState({
-              user: null,
-              isAuthenticated: false,
-              isLoading: false,
-              error: null
-            })
-
-            // Redirect to home page
-            window.location.href = '/'
-          }
-        }
-      }
-    }
-
-    if (typeof window !== 'undefined') {
-      window.addEventListener('storage', handleStorageChange)
-    }
-
-    return () => {
-      if (typeof window !== 'undefined') {
-        window.removeEventListener('storage', handleStorageChange)
-      }
-    }
+    const cleanup = authService.setupCrossTabCommunication()
+    return cleanup
   }, [])
+
+  // NOTE: We intentionally DO NOT listen to storage events for cross-tab sync
+  // This allows each tab to have its own independent session
+  // Only 'logout-all' will affect other tabs via BroadcastChannel
 
   // Login function
   const login = async (credentials: LoginCredentials, rememberMe: boolean = true) => {
@@ -117,13 +70,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user: response.user,
         isAuthenticated: true,
         isLoading: false,
-        error: null
+        error: null,
+        tabId: authService.getTabId(),
       })
     } catch (error: any) {
       setAuthState(prev => ({
         ...prev,
         isLoading: false,
-        error: error.message || 'Login failed'
+        error: error.message || 'Đăng nhập thất bại',
       }))
       throw error
     }
@@ -138,26 +92,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user: response.user,
         isAuthenticated: true,
         isLoading: false,
-        error: null
+        error: null,
+        tabId: authService.getTabId(),
       })
     } catch (error: any) {
       setAuthState(prev => ({
         ...prev,
         isLoading: false,
-        error: error.message || 'Registration failed'
+        error: error.message || 'Đăng ký thất bại',
       }))
       throw error
     }
   }
 
-  // Logout function
+  // Logout function (current tab only)
   const logout = async () => {
     await authService.logout()
     setAuthState({
       user: null,
       isAuthenticated: false,
       isLoading: false,
-      error: null
+      error: null,
+      tabId: authService.getTabId(),
+    })
+  }
+
+  // Logout all devices/tabs
+  const logoutAll = async () => {
+    await authService.logoutAll()
+    setAuthState({
+      user: null,
+      isAuthenticated: false,
+      isLoading: false,
+      error: null,
+      tabId: authService.getTabId(),
     })
   }
 
@@ -172,10 +140,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isAuthenticated: authState.isAuthenticated,
     isLoading: authState.isLoading,
     error: authState.error,
+    tabId: authState.tabId,
     login,
     register,
     logout,
-    clearError
+    logoutAll,
+    clearError,
   }
 
   return (

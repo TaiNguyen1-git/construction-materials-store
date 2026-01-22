@@ -56,7 +56,17 @@ export default function SupplierLoginPage() {
                 localStorage.setItem('supplier_name', data.data.supplier.name)
 
                 toast.success('Đăng nhập thành công!')
-                router.push('/supplier/dashboard')
+
+                // Check for callbackUrl in URL params
+                const urlParams = new URLSearchParams(window.location.search)
+                const callbackUrl = urlParams.get('callbackUrl')
+
+                // Validate callbackUrl is a supplier path
+                if (callbackUrl && callbackUrl.startsWith('/supplier')) {
+                    router.push(callbackUrl)
+                } else {
+                    router.push('/supplier/dashboard')
+                }
             } else {
                 toast.error(data.error?.message || 'Đăng nhập thất bại')
             }

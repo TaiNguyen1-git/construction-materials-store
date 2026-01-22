@@ -25,8 +25,17 @@ export default function FloatingWidgetsContainer() {
     if (pathname?.startsWith('/admin')) return null
 
     // Hide on certain pages where widgets are not needed
-    const hiddenPages = ['/login', '/register', '/forgot-password', '/contractor/login', '/contractor/register']
-    if (hiddenPages.some(page => pathname === page)) return null
+    // Hide on certain pages where widgets are not needed (Auth, Chat pages)
+    const hiddenPatterns = [
+        '/login',
+        '/register',
+        '/forgot-password',
+        '/contractor/login',
+        '/contractor/register',
+        '/contractor/messages',
+        '/messages'
+    ]
+    if (hiddenPatterns.some(pattern => pathname?.startsWith(pattern))) return null
 
     const openChat = () => {
         setActivePanel('chat')

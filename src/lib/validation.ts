@@ -27,6 +27,9 @@ export const registerSchema = z.object({
   password: passwordSchema,
   fullName: z.string().min(2, 'Tên phải có ít nhất 2 ký tự').max(100),
   phone: phoneSchema,
+  // Only allow self-registration as CUSTOMER or CONTRACTOR
+  // MANAGER and EMPLOYEE roles must be assigned by admins
+  role: z.enum(['CUSTOMER', 'CONTRACTOR']).optional().default('CUSTOMER'),
 })
 
 export const changePasswordSchema = z.object({

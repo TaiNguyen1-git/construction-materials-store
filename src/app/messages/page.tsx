@@ -3,11 +3,16 @@
 import { useState, useEffect, useRef } from 'react'
 import Header from '@/components/Header'
 import ChatSummaryButton from '@/components/ChatSummaryButton'
-import { Send, ArrowLeft, MessageCircle, Paperclip, Image as ImageIcon, FileText, Download, X, Sparkles, UserPlus } from 'lucide-react'
+import {
+    Send, ArrowLeft, MessageCircle, Paperclip, Image as ImageIcon,
+    FileText, Download, X, Sparkles, UserPlus, Phone, Video, ChevronDown
+} from 'lucide-react'
 import { useAuth } from '@/contexts/auth-context'
 import Link from 'next/link'
 import { getFirebaseDatabase } from '@/lib/firebase'
 import { ref, onChildAdded, off } from 'firebase/database'
+import ChatCallManager from '@/components/ChatCallManager'
+import toast, { Toaster } from 'react-hot-toast'
 
 interface Conversation {
     id: string
@@ -47,7 +52,9 @@ export default function MessagesPage() {
         preview: string;
         type: string;
     } | null>(null)
+    const [showScrollButton, setShowScrollButton] = useState(false)
     const messagesContainerRef = useRef<HTMLDivElement>(null)
+    const messagesEndRef = useRef<HTMLDivElement>(null)
     const fileInputRef = useRef<HTMLInputElement>(null)
 
     // Get current user from localStorage
@@ -62,15 +69,32 @@ export default function MessagesPage() {
         fetchConversations(uid)
     }, [])
 
-    useEffect(() => {
-        if (messagesContainerRef.current) {
-            const { scrollHeight, clientHeight } = messagesContainerRef.current
-            messagesContainerRef.current.scrollTo({
-                top: scrollHeight - clientHeight,
-                behavior: 'smooth'
-            })
+    const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
+        if (messagesEndRef.current) {
+            messagesEndRef.current.scrollIntoView({ behavior })
         }
+    }
+
+    useEffect(() => {
+        scrollToBottom()
     }, [messages])
+
+    const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+        const { scrollTop, scrollHeight, clientHeight } = e.currentTarget
+        setShowScrollButton(scrollHeight - scrollTop - clientHeight > 200)
+    }
+
+    const handleCall = (type: 'audio' | 'video' = 'audio') => {
+        if (!selectedConv) return
+        const conv = conversations.find(c => c.id === selectedConv)
+        if (!conv) return
+
+        if ((window as any).__startCall) {
+            (window as any).__startCall(conv.otherUserId, conv.otherUserName, conv.id, type)
+        } else {
+            toast.error('Hệ thống gọi chưa sẵn sàng')
+        }
+    }
 
     const fetchConversations = async (uid: string) => {
         try {
@@ -228,6 +252,8 @@ export default function MessagesPage() {
 
     return (
         <div className="h-screen bg-gray-50 flex flex-col overflow-hidden">
+            <Toaster position="top-right" />
+            {userId && <ChatCallManager userId={userId} userName={userName} />}
             <Header />
 
             <div className="flex-1 max-w-6xl w-full mx-auto px-4 py-6 flex flex-col overflow-hidden">
@@ -310,21 +336,42 @@ export default function MessagesPage() {
                                         </div>
                                     )}
 
-                                    {/* Chat Header with Summary Button */}
-                                    <div className="px-4 py-3 border-b bg-white flex items-center justify-between">
-                                        <div className="font-semibold text-gray-800">
-                                            {conversations.find(c => c.id === selectedConv)?.otherUserName || 'Cuộc hội thoại'}
+                                    {/* Chat Header with Status and Call Buttons */}
+                                    <div className="px-6 py-3 border-b bg-white flex items-center justify-between sticky top-0 z-20 shadow-sm backdrop-blur-md bg-white/90">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary-600 to-indigo-600 flex items-center justify-center text-white font-bold shadow-sm">
+                                                {(conversations.find(c => c.id === selectedConv)?.otherUserName || 'U').charAt(0)}
+                                            </div>
+                                            <div className="min-w-0">
+                                                <div className="font-bold text-gray-900 truncate">
+                                                    {conversations.find(c => c.id === selectedConv)?.otherUserName || 'Cuộc hội thoại'}
+                                                </div>
+                                                <div className="flex items-center gap-1.5">
+                                                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                                                    <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">Đang hoạt động</p>
+                                                </div>
+                                            </div>
                                         </div>
-                                        <ChatSummaryButton
-                                            conversationId={selectedConv}
-                                            currentUserId={userId}
-                                        />
+                                        <div className="flex items-center gap-1">
+                                            <button onClick={() => handleCall('audio')} className="p-2 text-primary-600 hover:bg-primary-50 rounded-full transition-all" title="Gọi thoại">
+                                                <Phone className="w-5 h-5" />
+                                            </button>
+                                            <button onClick={() => handleCall('video')} className="p-2 text-primary-600 hover:bg-primary-50 rounded-full transition-all" title="Gọi video">
+                                                <Video className="w-5 h-5" />
+                                            </button>
+                                            <div className="w-px h-6 bg-gray-100 mx-2" />
+                                            <ChatSummaryButton
+                                                conversationId={selectedConv}
+                                                currentUserId={userId}
+                                            />
+                                        </div>
                                     </div>
 
                                     {/* Messages */}
                                     <div
                                         ref={messagesContainerRef}
-                                        className="flex-1 overflow-y-auto p-4 space-y-4 bg-[#f0f2f5]"
+                                        onScroll={handleScroll}
+                                        className="flex-1 overflow-y-auto p-6 space-y-6 bg-gray-50/50 relative custom-scrollbar"
                                     >
                                         {messages.map((msg, index) => (
                                             <div
@@ -337,12 +384,12 @@ export default function MessagesPage() {
                                                     }`}>
 
                                                     {msg.fileUrl && msg.fileType === 'image' && (
-                                                        <div className="mb-2 -mx-1 -mt-1 overflow-hidden rounded-lg">
+                                                        <div className="mb-2 -mx-1 -mt-1 overflow-hidden rounded-xl border border-black/5 shadow-sm">
                                                             <Link href={msg.fileUrl} target="_blank">
                                                                 <img
                                                                     src={msg.fileUrl}
                                                                     alt={msg.fileName || 'Image'}
-                                                                    className="max-h-60 rounded-lg hover:opacity-90 transition-opacity cursor-pointer object-cover w-full"
+                                                                    className="max-w-[240px] max-h-[320px] w-auto h-auto rounded-xl hover:scale-[1.02] transition-transform duration-200 cursor-pointer object-cover"
                                                                 />
                                                             </Link>
                                                         </div>
@@ -379,7 +426,21 @@ export default function MessagesPage() {
                                                 </div>
                                             </div>
                                         ))}
+                                        <div ref={messagesEndRef} className="h-2" />
                                     </div>
+
+                                    {/* Scroll to Bottom Button */}
+                                    {showScrollButton && (
+                                        <button
+                                            onClick={() => scrollToBottom()}
+                                            className="absolute bottom-24 right-8 p-4 bg-white text-primary-600 rounded-full shadow-2xl border border-primary-50 animate-bounce active:scale-110 transition-all z-30 group"
+                                        >
+                                            <ChevronDown className="w-6 h-6" />
+                                            <span className="absolute -top-12 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-[10px] py-2 px-4 rounded-xl opacity-0 group-hover:opacity-100 transition-all whitespace-nowrap font-black shadow-2xl border border-white/10">
+                                                MỚI NHẤT ↓
+                                            </span>
+                                        </button>
+                                    )}
 
                                     {/* Input Area */}
                                     <div className="border-t border-gray-200 p-4 bg-white">

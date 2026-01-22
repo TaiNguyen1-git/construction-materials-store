@@ -31,7 +31,8 @@ const createOrderSchema = z.object({
   remainingAmount: z.number().optional().nullable(),
   totalAmount: z.number(),
   shippingAmount: z.number(),
-  netAmount: z.number()
+  netAmount: z.number(),
+  selectedContractorId: z.string().optional().nullable()
 })
 
 // GET /api/orders - List orders
@@ -348,6 +349,7 @@ export async function POST(request: NextRequest) {
           qrExpiresAt: data.paymentMethod === 'BANK_TRANSFER' ? qrExpiresAt : null,
           shippingAddress: data.shippingAddress,
           notes: data.notes,
+          selectedContractorId: data.selectedContractorId,
           orderItems: {
             create: data.items.map(item => ({
               productId: item.productId,

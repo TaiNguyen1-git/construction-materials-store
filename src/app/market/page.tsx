@@ -57,41 +57,41 @@ export default function MarketPage() {
                     <span className="text-blue-600">Thị trường</span>
                 </nav>
 
-                {/* Hero Section */}
-                <div className="bg-white rounded-2xl shadow-xl p-8 mb-10 border border-slate-100 flex flex-col md:flex-row justify-between items-center bg-gradient-to-br from-white to-blue-50/30">
+                {/* Hero Section - Compact */}
+                <div className="bg-white rounded-xl shadow-sm p-6 mb-6 border border-gray-100 flex flex-col md:flex-row justify-between items-center bg-gradient-to-br from-white to-blue-50/50">
                     <div>
-                        <h1 className="text-3xl font-black text-slate-900 mb-2">Trung Tâm Phân Tích Thị Trường</h1>
-                        <p className="text-slate-500 max-w-xl">
-                            Cung cấp dữ liệu thời gian thực về biến động giá vật liệu xây dựng, giúp nhà thầu và chủ đầu tư đưa ra quyết định mua hàng tối ưu nhất.
+                        <h1 className="text-xl font-black text-gray-900 mb-1">TRUNG TÂM PHÂN TÍCH THỊ TRƯỜNG</h1>
+                        <p className="text-gray-500 text-xs max-w-xl font-medium">
+                            Dữ liệu thời gian thực biến động giá vật liệu xây dựng 24/7.
                         </p>
                     </div>
-                    <div className="mt-6 md:mt-0 flex gap-3">
-                        <button className="flex items-center gap-2 bg-slate-100 text-slate-700 px-4 py-2.5 rounded-lg font-bold hover:bg-slate-200 transition-all">
-                            <Download className="w-4 h-4" /> Xuất báo cáo
+                    <div className="mt-4 md:mt-0 flex gap-2">
+                        <button className="flex items-center gap-1.5 bg-gray-50 text-gray-700 px-3 py-2 rounded-lg text-[11px] font-black uppercase hover:bg-gray-100 transition-all border border-gray-200">
+                            <Download className="w-3.5 h-3.5" /> Xuất báo cáo
                         </button>
-                        <button className="flex items-center gap-2 bg-blue-600 text-white px-5 py-2.5 rounded-lg font-bold hover:bg-blue-700 shadow-lg shadow-blue-200 transition-all">
-                            <Activity className="w-4 h-4" /> Dự báo 2026
+                        <button className="flex items-center gap-1.5 bg-primary-600 text-white px-3 py-2 rounded-lg text-[11px] font-black uppercase hover:bg-primary-700 shadow-lg shadow-primary-200 transition-all">
+                            <Activity className="w-3.5 h-3.5" /> Dự báo 2026
                         </button>
                     </div>
                 </div>
 
-                {/* Market Snippets */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+                {/* Market Snippets - High Density */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
                     {[
-                        { label: 'Thép Pomina (kg)', price: '17.200đ', change: '+2.4%', up: true, icon: TrendingUp, color: 'text-green-600', bg: 'bg-green-50' },
-                        { label: 'Xi măng Hà Tiên (bao)', price: '91.000đ', change: '+1.5%', up: true, icon: TrendingUp, color: 'text-green-600', bg: 'bg-green-50' },
-                        { label: 'Gạch tuynel (viên)', price: '1.400đ', change: '-0.8%', up: false, icon: TrendingDown, color: 'text-red-600', bg: 'bg-red-50' },
+                        { label: 'Thép Pomina (kg)', price: '17.200đ', change: '2.4%', up: true, icon: TrendingUp, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+                        { label: 'Xi măng Hà Tiên (bao)', price: '91.000đ', change: '1.5%', up: true, icon: TrendingUp, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+                        { label: 'Gạch tuynel (viên)', price: '1.400đ', change: '0.8%', up: false, icon: TrendingDown, color: 'text-red-500', bg: 'bg-red-50' },
                     ].map((item, i) => (
-                        <div key={i} className="bg-white p-6 rounded-xl border border-slate-100 shadow-sm flex items-center justify-between">
+                        <div key={i} className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm hover:border-primary-100 transition-all flex items-center justify-between group">
                             <div>
-                                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">{item.label}</p>
-                                <h4 className="text-2xl font-black text-slate-900">{item.price}</h4>
-                                <div className={`flex items-center text-sm font-bold mt-1 ${item.color}`}>
-                                    <item.icon className="w-4 h-4 mr-1" /> {item.change} <span className="text-slate-400 font-medium ml-2">trong 30 ngày</span>
+                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">{item.label}</p>
+                                <h4 className="text-2xl font-black text-gray-900 leading-none mb-1">{item.price}</h4>
+                                <div className={`flex items-center text-[10px] font-black ${item.color} bg-white rounded-full inline-flex`}>
+                                    {item.up ? '+' : '-'}{item.change} <span className="text-gray-400 font-medium ml-1">30 ngày</span>
                                 </div>
                             </div>
-                            <div className={`${item.bg} p-4 rounded-full`}>
-                                <item.icon className={`w-8 h-8 ${item.color}`} />
+                            <div className={`${item.bg} p-2.5 rounded-xl group-hover:scale-110 transition-transform`}>
+                                <item.icon className={`w-6 h-6 ${item.color}`} />
                             </div>
                         </div>
                     ))}

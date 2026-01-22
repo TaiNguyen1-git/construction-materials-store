@@ -1,7 +1,10 @@
 'use client'
 
+import { useState } from 'react'
 import { Heart } from 'lucide-react'
 import { useWishlistStore } from '@/stores/wishlistStore'
+import { useAuth } from '@/contexts/auth-context'
+import LoginIncentiveModal from './LoginIncentiveModal'
 import toast from 'react-hot-toast'
 
 interface WishlistButtonProps {
@@ -20,7 +23,9 @@ interface WishlistButtonProps {
 }
 
 export default function WishlistButton({ product, size = 'md', showText = false }: WishlistButtonProps) {
+  const { isAuthenticated } = useAuth()
   const { addItem, removeItem, isInWishlist } = useWishlistStore()
+  const [showLoginModal, setShowLoginModal] = useState(false)
   const inWishlist = isInWishlist(product.id)
 
   const sizeClasses = {
@@ -38,6 +43,11 @@ export default function WishlistButton({ product, size = 'md', showText = false 
   const handleToggle = (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
+
+    if (!isAuthenticated) {
+      setShowLoginModal(true)
+      return
+    }
 
     if (inWishlist) {
       removeItem(product.id)
@@ -59,23 +69,32 @@ export default function WishlistButton({ product, size = 'md', showText = false 
   }
 
   return (
-    <button
-      onClick={handleToggle}
-      className={`${sizeClasses[size]} rounded-lg transition-all hover:scale-110 ${
-        inWishlist
-          ? 'bg-red-50 text-red-600 hover:bg-red-100'
-          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-      } ${showText ? 'flex items-center gap-2 px-4' : ''}`}
-      title={inWishlist ? 'Xóa khỏi yêu thích' : 'Thêm vào yêu thích'}
-    >
-      <Heart
-        className={`${iconSizes[size]} ${inWishlist ? 'fill-current' : ''} transition-all`}
+    <>
+      <button
+        onClick={handleToggle}
+        className={`${sizeClasses[size]} rounded-lg transition-all hover:scale-110 ${inWishlist
+            ? 'bg-red-50 text-red-600 hover:bg-red-100'
+            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+          } ${showText ? 'flex items-center gap-2 px-4' : ''}`}
+        title={inWishlist ? 'Xóa khỏi yêu thích' : 'Thêm vào yêu thích'}
+      >
+        <Heart
+          className={`${iconSizes[size]} ${inWishlist ? 'fill-current' : ''} transition-all`}
+        />
+        {showText && (
+          <span className="font-semibold text-sm">
+            {inWishlist ? 'Đã yêu thích' : 'Yêu thích'}
+          </span>
+        )}
+      </button>
+
+      <LoginIncentiveModal
+        isOpen={showLoginModal}
+        onClose={() => setShowLoginModal(false)}
+        feature="wishlist"
+        title="Lưu vào yêu thích"
+        description="Đăng nhập để lưu lại những vật tư bạn ưng ý nhất và không bỏ lỡ bất kỳ ưu đãi nào từ SmartBuild."
       />
-      {showText && (
-        <span className="font-semibold text-sm">
-          {inWishlist ? 'Đã yêu thích' : 'Yêu thích'}
-        </span>
-      )}
-    </button>
+    </>
   )
 }

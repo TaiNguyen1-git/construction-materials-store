@@ -2,13 +2,70 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
+import crypto from 'crypto'
 import { registerSchema, validateRequest, sanitizeString } from '@/lib/validation'
 import { logger, logAuth, logAPI } from '@/lib/logger'
+import { checkRateLimit } from '@/lib/rate-limit-api'
+
+// Helper to hash token for storage
+function hashToken(token: string): string {
+  return crypto.createHash('sha256').update(token).digest('hex')
+}
+
+// Helper to get client info
+function getClientInfo(request: NextRequest) {
+  const userAgent = request.headers.get('user-agent') || 'Unknown'
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+    || request.headers.get('x-real-ip')
+    || 'Unknown'
+  const tabId = request.headers.get('x-tab-id') || null
+
+  let deviceInfo = 'Unknown Device'
+  if (userAgent.includes('Mobile')) {
+    deviceInfo = 'Điện thoại'
+  } else if (userAgent.includes('Windows')) {
+    deviceInfo = 'Windows PC'
+  } else if (userAgent.includes('Mac')) {
+    deviceInfo = 'Mac'
+  }
+
+  if (userAgent.includes('Chrome')) {
+    deviceInfo += ' - Chrome'
+  } else if (userAgent.includes('Firefox')) {
+    deviceInfo += ' - Firefox'
+  } else if (userAgent.includes('Safari') && !userAgent.includes('Chrome')) {
+    deviceInfo += ' - Safari'
+  }
+
+  return { userAgent, ip, tabId, deviceInfo }
+}
 
 export async function POST(request: NextRequest) {
   const startTime = Date.now()
 
   try {
+    // Get client info for rate limiting
+    const clientInfo = getClientInfo(request)
+
+    // Apply rate limiting (10 registrations per hour per IP)
+    const rateLimitResult = await checkRateLimit(`register:${clientInfo.ip}`, 'STRICT')
+    if (!rateLimitResult.success) {
+      logAPI.error('POST', '/api/auth/register', new Error('Rate limit exceeded'), { ip: clientInfo.ip })
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Quá nhiều yêu cầu đăng ký. Vui lòng thử lại sau.',
+          retryAfter: rateLimitResult.reset,
+        },
+        {
+          status: 429,
+          headers: {
+            'Retry-After': String(rateLimitResult.reset - Math.floor(Date.now() / 1000)),
+          }
+        }
+      )
+    }
+
     const body = await request.json()
 
     // Validate with Zod
@@ -18,15 +75,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          error: 'Validation failed',
+          error: 'Dữ liệu không hợp lệ',
           details: validation.errors
         },
         { status: 400 }
       )
     }
 
-    const { fullName, email, phone, password, guestId } = validation.data as any
+    const { fullName, email, phone, password, guestId, role } = validation.data as any
     const sanitizedName = sanitizeString(fullName)
+
+    // Use validated role (defaults to CUSTOMER)
+    const userRole = role || 'CUSTOMER'
 
     // Check if user already exists
     const existingUser = await prisma.user.findUnique({
@@ -36,7 +96,7 @@ export async function POST(request: NextRequest) {
     if (existingUser) {
       logger.warn('Registration attempt with existing email', { email })
       return NextResponse.json(
-        { success: false, error: 'User already exists with this email' },
+        { success: false, error: 'Email này đã được đăng ký' },
         { status: 400 }
       )
     }
@@ -87,7 +147,7 @@ export async function POST(request: NextRequest) {
           name: sanitizedName,
           email: email.toLowerCase(), // Store email in lowercase
           phone,
-          role: 'CUSTOMER',
+          role: userRole, // Use role from request
           password: hashedPassword
         }
       })
@@ -157,15 +217,37 @@ export async function POST(request: NextRequest) {
     })
 
     // Generate JWT token
+    const jwtSecret = process.env.JWT_SECRET
+    if (!jwtSecret) {
+      throw new Error('JWT_SECRET is not configured')
+    }
+
     const token = jwt.sign(
       {
         userId: result.user.id,
         email: result.user.email,
         role: result.user.role
       },
-      process.env.JWT_SECRET || 'fallback-secret',
+      jwtSecret,
       { expiresIn: '7d' }
     )
+
+    // Create session record in database
+    const tokenHash = hashToken(token)
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
+
+    const session = await prisma.userSession.create({
+      data: {
+        userId: result.user.id,
+        tokenHash,
+        deviceInfo: clientInfo.deviceInfo,
+        ipAddress: clientInfo.ip,
+        userAgent: clientInfo.userAgent,
+        tabId: clientInfo.tabId,
+        expiresAt,
+        lastActivityAt: new Date(),
+      }
+    })
 
     // Log successful registration
     logAuth.login(result.user.id, result.user.email, true)
@@ -184,7 +266,8 @@ export async function POST(request: NextRequest) {
     const response = NextResponse.json({
       success: true,
       user: userWithoutPassword,
-      token
+      token,
+      sessionId: session.id,
     }, { status: 201 })
 
     // Set HTTP-only cookie for middleware protection
@@ -213,17 +296,16 @@ export async function POST(request: NextRequest) {
       const field = error.meta?.target?.[0] || 'field'
       if (field === 'referralCode') {
         logger.error('Referral code uniqueness violation - this should not happen', { error: error.message })
-        // Retry logic could be added here, but for now just return error
         return NextResponse.json(
           {
             success: false,
-            error: 'Registration failed due to a system error. Please try again.'
+            error: 'Đăng ký thất bại do lỗi hệ thống. Vui lòng thử lại.'
           },
           { status: 500 }
         )
       }
       return NextResponse.json(
-        { success: false, error: `This ${field} is already registered` },
+        { success: false, error: `${field === 'email' ? 'Email' : field} đã được đăng ký` },
         { status: 400 }
       )
     }
@@ -231,9 +313,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        error: process.env.NODE_ENV === 'development'
-          ? error.message
-          : 'Internal server error'
+        error: 'Đã xảy ra lỗi. Vui lòng thử lại.'
       },
       { status: 500 }
     )

@@ -13,48 +13,56 @@ export default function Footer() {
     }
 
     return (
-        <footer className="bg-gray-900 text-white">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-                    <div>
-                        <div className="flex items-center mb-4">
-                            <Package className="h-8 w-8 text-primary-400" />
-                            <span className="ml-2 text-xl font-bold">SmartBuild</span>
+        <footer className="bg-slate-900 text-white relative">
+            <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-primary-500/50 to-transparent"></div>
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+                    <div className="col-span-2 md:col-span-1">
+                        <div className="flex items-center mb-4 group cursor-default">
+                            <div className="p-1.5 bg-primary-500 rounded-lg group-hover:scale-110 transition-transform">
+                                <Package className="h-5 w-5 text-white" />
+                            </div>
+                            <span className="ml-2 text-lg font-black tracking-tighter uppercase">SmartBuild</span>
                         </div>
-                        <p className="text-gray-400">
-                            Đối tác tin cậy của bạn cho vật liệu xây dựng chất lượng và dịch vụ xuất sắc.
+                        <p className="text-gray-400 text-xs leading-relaxed max-w-xs">
+                            Hệ thống cung ứng vật tư 4.0. Giải pháp tối ưu chi phí và minh bạch cho mọi công trình xây dựng.
                         </p>
                     </div>
                     <div>
-                        <h3 className="text-lg font-semibold mb-4">Sản Phẩm</h3>
-                        <ul className="space-y-2 text-gray-400">
-                            <li><Link href="/products" className="hover:text-white">Xi măng</Link></li>
-                            <li><Link href="/products" className="hover:text-white">Thép</Link></li>
-                            <li><Link href="/products" className="hover:text-white">Gạch</Link></li>
-                            <li><Link href="/products" className="hover:text-white">Công cụ</Link></li>
+                        <h3 className="text-[10px] font-black text-primary-400 mb-4 uppercase tracking-[0.2em]">Sản Phẩm</h3>
+                        <ul className="space-y-2 text-[11px] font-medium text-gray-400">
+                            <li><Link href="/products" className="hover:text-primary-400 transition-colors">Vật liệu thô</Link></li>
+                            <li><Link href="/products" className="hover:text-primary-400 transition-colors">Vật liệu hoàn thiện</Link></li>
+                            <li><Link href="/products" className="hover:text-primary-400 transition-colors">Thiết bị điện nước</Link></li>
+                            <li><Link href="/products" className="hover:text-primary-400 transition-colors">Dụng cụ xây dựng</Link></li>
                         </ul>
                     </div>
                     <div>
-                        <h3 className="text-lg font-semibold mb-4">Công Ty</h3>
-                        <ul className="space-y-2 text-gray-400">
-                            <li><Link href="/about" className="hover:text-white">Về chúng tôi</Link></li>
-                            <li><Link href="/contact" className="hover:text-white">Liên hệ</Link></li>
-                            <li><Link href="#" className="hover:text-white">Tuyển dụng</Link></li>
-                            <li><Link href="#" className="hover:text-white">Blog</Link></li>
+                        <h3 className="text-[10px] font-black text-primary-400 mb-4 uppercase tracking-[0.2em]">Giải Pháp AI</h3>
+                        <ul className="space-y-2 text-[11px] font-medium text-gray-400">
+                            <li><Link href="/estimator" className="hover:text-primary-400 transition-colors">Dự toán vật liệu</Link></li>
+                            <li><Link href="/contractors" className="hover:text-primary-400 transition-colors">Tìm kiếm thầu thợ</Link></li>
+                            <li><Link href="/market" className="hover:text-primary-400 transition-colors">Theo dõi giá thị trường</Link></li>
+                            <li><Link href="/account/projects" className="hover:text-primary-400 transition-colors">Quản lý dự án</Link></li>
                         </ul>
                     </div>
                     <div>
-                        <h3 className="text-lg font-semibold mb-4">Hỗ Trợ</h3>
-                        <ul className="space-y-2 text-gray-400">
-                            <li><Link href="#" className="hover:text-white">Trung tâm trợ giúp</Link></li>
-                            <li><Link href="#" className="hover:text-white">Thông tin vận chuyển</Link></li>
-                            <li><Link href="#" className="hover:text-white">Đổi trả hàng</Link></li>
-                            <li><Link href="#" className="hover:text-white">Bảo hành</Link></li>
+                        <h3 className="text-[10px] font-black text-primary-400 mb-4 uppercase tracking-[0.2em]">Hỗ Trợ</h3>
+                        <ul className="space-y-2 text-[11px] font-medium text-gray-400">
+                            <li><Link href="/about" className="hover:text-primary-400 transition-colors">Về SmartBuild</Link></li>
+                            <li><Link href="/contact" className="hover:text-primary-400 transition-colors">Liên hệ chuyên gia</Link></li>
+                            <li><Link href="#" className="hover:text-primary-400 transition-colors">Chính sách bảo hành</Link></li>
+                            <li><Link href="#" className="hover:text-primary-400 transition-colors">Hướng dẫn thanh toán</Link></li>
                         </ul>
                     </div>
                 </div>
-                <div className="border-t border-gray-800 mt-8 pt-8 text-center text-gray-400">
-                    <p>&copy; 2026 SmartBuild. Bản quyền thuộc về SmartBuild.</p>
+                <div className="border-t border-slate-800/50 mt-10 pt-6 flex flex-col md:flex-row justify-between items-center gap-4">
+                    <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">&copy; 2026 SmartBuild System. All Rights Reserved.</p>
+                    <div className="flex gap-6">
+                        <Link href="#" className="text-[10px] text-gray-500 hover:text-white transition-colors uppercase font-bold tracking-tighter">Điều khoản</Link>
+                        <Link href="#" className="text-[10px] text-gray-500 hover:text-white transition-colors uppercase font-bold tracking-tighter">Bảo mật</Link>
+                        <Link href="#" className="text-[10px] text-gray-500 hover:text-white transition-colors uppercase font-bold tracking-tighter">Sơ đồ web</Link>
+                    </div>
                 </div>
             </div>
         </footer>

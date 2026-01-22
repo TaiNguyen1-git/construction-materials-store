@@ -599,6 +599,13 @@ export default function OrdersPage() {
                         👁️ Xem
                       </button>
 
+                      <button
+                        onClick={() => window.location.href = `/admin/orders/${order.id}/phases`}
+                        className="text-indigo-600 hover:text-indigo-900 text-sm font-medium"
+                      >
+                        🚚 Lập lịch đợt
+                      </button>
+
                       {/* Confirm/Reject buttons for pending orders */}
                       {order.status === 'PENDING_CONFIRMATION' && (
                         <>

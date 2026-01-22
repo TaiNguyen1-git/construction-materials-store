@@ -132,7 +132,6 @@ function ContractorCompareContent() {
                                 "Điểm đánh giá",
                                 "Kinh nghiệm thực tế",
                                 "Số lượng công trình",
-                                "Mức độ tin cậy",
                                 "Kỹ năng chuyên biệt",
                                 "Trạng thái sẵn sàng"
                             ].map((label, idx) => (
@@ -209,17 +208,6 @@ function ContractorCompareContent() {
                                         </div>
                                     </CompareCell>
 
-                                    {/* Tin cậy */}
-                                    <CompareCell mobileLabel="Mức độ tin cậy">
-                                        <div className="flex flex-col items-center">
-                                            <div className={`w-16 h-16 rounded-[24px] flex flex-col items-center justify-center border shadow-xl ${(c.trustScore || 100) >= 90
-                                                ? 'bg-blue-600 border-blue-400 text-white'
-                                                : 'bg-white border-gray-200 text-gray-900'
-                                                }`}>
-                                                <span className="text-2xl font-black">{c.trustScore || 100}</span>
-                                            </div>
-                                        </div>
-                                    </CompareCell>
 
                                     {/* Kỹ năng */}
                                     <CompareCell mobileLabel="Kỹ năng chuyên biệt">

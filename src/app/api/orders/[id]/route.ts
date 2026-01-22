@@ -39,7 +39,8 @@ export async function GET(
               }
             }
           }
-        }
+        },
+        contractor: true
       }
     })
 

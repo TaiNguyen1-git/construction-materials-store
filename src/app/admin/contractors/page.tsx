@@ -20,6 +20,7 @@ export default function AdminContractorDashboard() {
     const [contractors, setContractors] = useState<any[]>([])
     const [searchTerm, setSearchTerm] = useState('')
     const [statusFilter, setStatusFilter] = useState('ALL')
+    const [trustTier, setTrustTier] = useState('ALL')
 
     useEffect(() => {
         fetchContractors()
@@ -46,12 +47,19 @@ export default function AdminContractorDashboard() {
             c.companyName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
             c.email.toLowerCase().includes(searchTerm.toLowerCase())
 
-        if (statusFilter === 'ALL') return matchesSearch
-        if (statusFilter === 'VERIFIED') return matchesSearch && c.isVerified
-        if (statusFilter === 'PENDING') return matchesSearch && c.onboardingStatus === 'PENDING_REVIEW'
-        if (statusFilter === 'INCOMPLETE') return matchesSearch && c.onboardingStatus === 'INCOMPLETE'
+        let matchesStatus = true
+        if (statusFilter === 'VERIFIED') matchesStatus = c.isVerified
+        else if (statusFilter === 'PENDING') matchesStatus = c.onboardingStatus === 'PENDING_REVIEW'
+        else if (statusFilter === 'INCOMPLETE') matchesStatus = c.onboardingStatus === 'INCOMPLETE'
 
-        return matchesSearch
+        let matchesTier = true
+        const score = c.trustScore || 0
+        if (trustTier === 'ELITE') matchesTier = score >= 90
+        else if (trustTier === 'GOLD') matchesTier = score >= 80 && score < 90
+        else if (trustTier === 'SILVER') matchesTier = score >= 60 && score < 80
+        else if (trustTier === 'BRONZE') matchesTier = score < 60
+
+        return matchesSearch && matchesStatus && matchesTier
     })
 
     // Calculate summary stats
@@ -141,14 +149,36 @@ export default function AdminContractorDashboard() {
                                 key={s}
                                 onClick={() => setStatusFilter(s)}
                                 className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${statusFilter === s
-                                        ? 'bg-white text-blue-600 shadow-sm border border-slate-200'
-                                        : 'text-slate-500 hover:text-slate-800'
+                                    ? 'bg-white text-blue-600 shadow-sm border border-slate-200'
+                                    : 'text-slate-500 hover:text-slate-800'
                                     }`}
                             >
                                 {s === 'ALL' ? 'Tất cả' : s === 'VERIFIED' ? 'Đã xác thực' : s === 'PENDING' ? 'Chờ duyệt' : 'Chưa xong'}
                             </button>
                         ))}
                     </div>
+                </div>
+
+                {/* Trust Tier Filters */}
+                <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
+                    {[
+                        { id: 'ALL', label: 'Mọi phân khúc' },
+                        { id: 'ELITE', label: '💎 Elite (90+)' },
+                        { id: 'GOLD', label: '🥇 Gold (80-89)' },
+                        { id: 'SILVER', label: '🥈 Silver (60-79)' },
+                        { id: 'BRONZE', label: '🥉 Bronze (<60)' }
+                    ].map((tier) => (
+                        <button
+                            key={tier.id}
+                            onClick={() => setTrustTier(tier.id)}
+                            className={`px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-wider transition-all border ${trustTier === tier.id
+                                ? 'bg-slate-900 text-white border-slate-900 shadow-lg shadow-slate-200'
+                                : 'bg-white text-slate-400 border-slate-200 hover:border-slate-300'
+                                }`}
+                        >
+                            {tier.label}
+                        </button>
+                    ))}
                 </div>
 
                 {/* Table Section */}

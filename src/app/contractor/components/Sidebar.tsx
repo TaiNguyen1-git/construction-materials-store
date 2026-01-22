@@ -92,17 +92,17 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                 fixed top-0 left-0 bottom-0 w-64 bg-white border-r border-gray-200 z-50
                 transform transition-transform duration-300
                 ${isOpen ? 'translate-x-0' : '-translate-x-full'}
-                lg:top-[73px]
+                lg:top-[60px]
             `}>
                 {/* Mobile Header */}
-                <div className="lg:hidden flex items-center justify-between p-4 border-b border-gray-100">
-                    <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+                <div className="lg:hidden flex items-center justify-between p-3 border-b border-gray-100">
+                    <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 bg-gradient-to-br from-primary-600 to-indigo-600 rounded-lg flex items-center justify-center shadow-lg shadow-primary-100">
                             <Building2 className="w-5 h-5 text-white" />
                         </div>
-                        <span className="font-bold text-gray-900">SmartBuild PRO</span>
+                        <span className="font-black text-gray-900 text-lg tracking-tight">SmartBuild PRO</span>
                     </div>
-                    <button onClick={onClose} className="p-2 text-gray-500">
+                    <button onClick={onClose} className="p-1.5 text-gray-500 hover:bg-gray-100 rounded-lg">
                         <X className="w-5 h-5" />
                     </button>
                 </div>
@@ -131,15 +131,15 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                                                 key={item.href}
                                                 href={item.href}
                                                 onClick={handleLinkClick}
-                                                className={`flex items-center gap-3 px-4 py-2.5 rounded-lg font-medium transition-colors text-sm ${isActive
-                                                    ? 'bg-blue-50 text-blue-600'
+                                                className={`flex items-center gap-2.5 px-4 py-2 rounded-lg font-bold transition-all text-xs ${isActive
+                                                    ? 'bg-primary-50 text-primary-700'
                                                     : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                                                     }`}
                                             >
-                                                <item.icon className="w-4 h-4" />
+                                                <item.icon className={`w-4 h-4 ${isActive ? 'text-primary-600' : 'text-gray-400'}`} />
                                                 <span className="flex-1">{item.label}</span>
                                                 {item.badge !== undefined && item.badge > 0 && (
-                                                    <span className="bg-blue-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                                                    <span className="bg-red-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-md min-w-[18px] text-center shadow-sm shadow-red-200">
                                                         {item.badge}
                                                     </span>
                                                 )}

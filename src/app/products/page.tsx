@@ -212,88 +212,64 @@ function ProductsPageContent() {
 
             {/* Products Grid/List */}
             {loading ? (
-              <div className={`grid gap-6 ${viewMode === 'grid'
-                ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3'
+              <div className={`grid gap-4 ${viewMode === 'grid'
+                ? 'grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5'
                 : 'grid-cols-1'}`}>
-                {[...Array(12)].map((_, i) => (
-                  <div key={i} className="bg-white rounded-2xl shadow-lg p-6 animate-pulse">
-                    <div className="bg-gray-200 h-48 rounded-xl mb-4"></div>
-                    <div className="bg-gray-200 h-4 rounded mb-2"></div>
-                    <div className="bg-gray-200 h-4 rounded w-3/4 mb-4"></div>
-                    <div className="bg-gray-200 h-8 rounded w-1/2"></div>
-                  </div>
+                {[...Array(10)].map((_, i) => (
+                  <div key={i} className="bg-white rounded-xl shadow-sm h-64 animate-pulse border border-gray-100"></div>
                 ))}
               </div>
             ) : products.length > 0 ? (
-              <div className={`grid gap-6 ${viewMode === 'grid'
-                ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3'
+              <div className={`grid gap-4 ${viewMode === 'grid'
+                ? 'grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5'
                 : 'grid-cols-1'}`}>
                 {products.map((product) => (
-                  <div key={product.id} className="bg-white rounded-2xl shadow-lg border border-gray-100 hover:shadow-xl transition-all duration-300 overflow-hidden group hover:scale-[1.02]">
+                  <div key={product.id} className="bg-white rounded-xl shadow-sm border border-gray-100 hover:shadow-xl hover:border-primary-200 transition-all duration-300 overflow-hidden group">
                     {viewMode === 'grid' ? (
                       <>
-                        <div className="relative aspect-w-16 aspect-h-9 bg-gradient-to-br from-gray-100 to-gray-200">
+                        <div className="relative aspect-[4/3] bg-gray-50 p-2 overflow-hidden">
                           {product.images && product.images.length > 0 ? (
                             <Image
                               src={product.images[0]}
                               alt={product.name}
-                              width={400}
-                              height={300}
-                              loading="lazy"
-                              placeholder="blur"
-                              blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAAIAAoDASIAAhEBAxEB/8QAFgABAQEAAAAAAAAAAAAAAAAAAAMH/8QAFhABAQEAAAAAAAAAAAAAAAAAAAEW/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAVEQEBAAAAAAAAAAAAAAAAAAAAA//aAAwDAQACEQMRAD8AyXDWuVtr0QBTXP/Z"
-                              className="w-full h-48 object-cover group-hover:scale-110 transition-transform duration-300"
+                              width={300}
+                              height={225}
+                              className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-500"
                             />
                           ) : (
-                            <div className="w-full h-48 bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
-                              <Package className="h-12 w-12 text-gray-400" />
+                            <div className="w-full h-full flex items-center justify-center text-gray-200">
+                              <Package className="h-10 w-10" />
                             </div>
                           )}
 
-                          {/* Action Buttons */}
-                          <div className="absolute top-2 right-2 z-10 flex gap-2">
-                            <ComparisonButton product={product} size="md" />
-                            <WishlistButton product={product} size="md" />
+                          <div className="absolute top-2 right-2 z-10 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <ComparisonButton product={product} size="sm" />
+                            <WishlistButton product={product} size="sm" />
                           </div>
 
                           {product.inventoryItem?.availableQuantity && product.inventoryItem.availableQuantity <= 10 && (
-                            <div className="absolute top-2 left-2 bg-red-500 text-white px-2 py-1 rounded-lg text-xs font-bold">
-                              Còn {product.inventoryItem.availableQuantity}
+                            <div className="absolute top-2 left-2 bg-red-600 text-white px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-tighter">
+                              CÒN {product.inventoryItem.availableQuantity}
                             </div>
                           )}
                         </div>
-                        <div className="p-6">
-                          <div className="text-sm font-semibold text-primary-600 mb-1">{product.category?.name}</div>
-                          <h3 className="text-lg font-bold text-gray-900 mb-2 line-clamp-2">{product.name}</h3>
-                          <p className="text-gray-500 text-xs mb-2">SKU: {product.sku}</p>
-                          <p className="text-gray-600 text-sm mb-4 line-clamp-2">{product.description}</p>
-                          <div className="flex items-center justify-between mb-4">
-                            <span className="text-2xl font-black text-primary-600">
-                              {product.price?.toLocaleString()}đ
+                        <div className="p-3">
+                          <div className="text-[9px] font-black text-primary-600 mb-1 uppercase tracking-tighter">{product.category?.name}</div>
+                          <Link href={`/products/${product.id}`}>
+                            <h3 className="text-[11px] font-bold text-gray-900 mb-2 line-clamp-2 h-8 group-hover:text-primary-600 transition-colors leading-tight">
+                              {product.name}
+                            </h3>
+                          </Link>
+                          <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-50">
+                            <span className="text-sm font-black text-gray-900">
+                              {product.price?.toLocaleString()}₫
                             </span>
-                            <div className={`text-sm font-semibold ${(product.inventoryItem?.availableQuantity || 0) > 0
-                              ? 'text-green-600'
-                              : 'text-red-600'
-                              }`}>
-                              {(product.inventoryItem?.availableQuantity || 0) > 0
-                                ? `Kho: ${product.inventoryItem?.availableQuantity}`
-                                : 'Hết hàng'}
-                            </div>
-                          </div>
-                          <div className="flex gap-2">
                             <Link
                               href={`/products/${product.id}`}
-                              className="flex-1 bg-primary-600 text-white px-4 py-2 rounded-xl hover:bg-primary-700 text-sm font-bold text-center transition-colors"
+                              className="text-[9px] font-black text-primary-600 bg-primary-50 px-2 py-1 rounded hover:bg-primary-600 hover:text-white transition-all"
                             >
-                              Chi Tiết
+                              XEM
                             </Link>
-                            <button
-                              onClick={() => addToCart(product)}
-                              disabled={!product.inventoryItem?.availableQuantity || product.inventoryItem.availableQuantity <= 0}
-                              className="px-4 py-2 border-2 border-primary-600 text-primary-600 rounded-xl hover:bg-primary-50 text-sm font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              <ShoppingCart className="h-4 w-4" />
-                            </button>
                           </div>
                         </div>
                       </>

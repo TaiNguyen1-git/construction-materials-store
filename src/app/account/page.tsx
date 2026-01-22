@@ -183,6 +183,18 @@ export default function AccountPage() {
               Theo dõi các yêu cầu báo giá vật tư và thi công
             </p>
           </Link>
+
+          <Link href="/account/disputes" className="group bg-white rounded-xl shadow-md hover:shadow-xl transition-all duration-300 p-6 border border-gray-100 hover:border-red-200 hover:scale-105">
+            <div className="flex items-center mb-3">
+              <div className="w-12 h-12 rounded-lg bg-red-100 flex items-center justify-center group-hover:bg-red-200 transition-colors">
+                <Shield className="h-6 w-6 text-red-600" />
+              </div>
+              <h3 className="ml-3 text-lg font-semibold text-gray-900">Khiếu nại & Tranh chấp</h3>
+            </div>
+            <p className="text-sm text-gray-600">
+              Gửi yêu cầu hỗ trợ hoặc khiếu nại về đơn hàng/dự án
+            </p>
+          </Link>
         </div>
 
         {/* Quick Stats */}

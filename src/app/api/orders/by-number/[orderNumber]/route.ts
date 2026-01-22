@@ -49,7 +49,8 @@ export async function GET(
         orderTracking: {
           orderBy: { timestamp: 'desc' },
           take: 10
-        }
+        },
+        contractor: true
       }
     })
 
@@ -67,7 +68,7 @@ export async function GET(
 
   } catch (error: any) {
     console.error('Get order by number error:', error)
-    
+
     return NextResponse.json(
       createErrorResponse('Internal server error', 'INTERNAL_ERROR'),
       { status: 500 }

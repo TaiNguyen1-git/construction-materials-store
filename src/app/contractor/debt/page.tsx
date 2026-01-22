@@ -250,153 +250,146 @@ export default function ContractorDebtPage() {
             <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
             {/* Main Content */}
-            <main className={`flex-1 pt-[73px] transition-all duration-300 ${sidebarOpen ? 'lg:ml-64' : 'ml-0'}`}>
-                <div className="p-6 lg:p-8 max-w-7xl mx-auto">
-                    {/* Header */}
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+            <main className={`flex-1 pt-[60px] transition-all duration-300 ${sidebarOpen ? 'lg:ml-64' : 'ml-0'}`}>
+                <div className="p-4 lg:p-6 max-w-7xl mx-auto">
+                    {/* Header - Compact */}
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
                         <div>
-                            <h1 className="text-2xl font-bold text-gray-900">Quản lý Công nợ</h1>
-                            <p className="text-gray-600">Theo dõi và thanh toán hóa đơn</p>
+                            <h1 className="text-xl font-black text-gray-900 uppercase tracking-tight">Quản lý Công nợ</h1>
+                            <p className="text-xs text-gray-500 font-medium mt-1">Theo dõi hạn mức và thanh toán hóa đơn</p>
                         </div>
-                        <div className="flex gap-3">
+                        <div className="flex gap-2">
                             <button
                                 onClick={() => window.print()}
-                                className="flex items-center gap-2 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-lg font-medium no-print"
+                                className="flex items-center gap-2 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wide transition-all no-print shadow-sm"
                             >
-                                <Download className="w-5 h-5" />
+                                <Download className="w-4 h-4" />
                                 Xuất sao kê
                             </button>
                         </div>
                     </div>
 
-                    {/* Stats Cards */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                        <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-                            <div className="flex items-center gap-4">
-                                <div className="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center">
-                                    <DollarSign className="w-6 h-6 text-red-600" />
-                                </div>
-                                <div>
-                                    <p className="text-gray-500 text-sm">Tổng công nợ</p>
-                                    <p className="text-xl font-bold text-gray-900">{formatCurrency(stats.totalDebt)}</p>
-                                </div>
+                    {/* Stats Dashboard - High Density Strip */}
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+                        <div className="bg-white rounded-xl p-3 shadow-sm border border-gray-100 flex items-center justify-between group hover:border-primary-200 transition-colors">
+                            <div>
+                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">Tổng công nợ</p>
+                                <p className="text-lg font-black text-gray-900 group-hover:text-primary-600 transition-colors">{formatCurrency(stats.totalDebt)}</p>
+                            </div>
+                            <div className="w-8 h-8 bg-red-50 rounded-lg flex items-center justify-center">
+                                <DollarSign className="w-4 h-4 text-red-500" />
                             </div>
                         </div>
 
-                        <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-                            <div className="flex items-center gap-4">
-                                <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
-                                    <CreditCard className="w-6 h-6 text-green-600" />
-                                </div>
-                                <div>
-                                    <p className="text-gray-500 text-sm">Hạn mức còn lại</p>
-                                    <p className="text-xl font-bold text-gray-900">{formatCurrency(stats.creditLimit - stats.totalDebt)}</p>
-                                </div>
+                        <div className="bg-white rounded-xl p-3 shadow-sm border border-gray-100 flex items-center justify-between group hover:border-emerald-200 transition-colors">
+                            <div>
+                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">Hạn mức còn lại</p>
+                                <p className="text-lg font-black text-emerald-600">{formatCurrency(stats.creditLimit - stats.totalDebt)}</p>
+                            </div>
+                            <div className="w-8 h-8 bg-emerald-50 rounded-lg flex items-center justify-center">
+                                <CreditCard className="w-4 h-4 text-emerald-500" />
                             </div>
                         </div>
 
-                        <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-                            <div className="flex items-center gap-4">
-                                <div className="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center">
-                                    <Clock className="w-6 h-6 text-orange-600" />
-                                </div>
-                                <div>
-                                    <p className="text-gray-500 text-sm">Đến hạn tuần này</p>
-                                    <p className="text-xl font-bold text-gray-900">{formatCurrency(stats.dueThisWeek)}</p>
-                                </div>
+                        <div className="bg-white rounded-xl p-3 shadow-sm border border-gray-100 flex items-center justify-between group hover:border-orange-200 transition-colors">
+                            <div>
+                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">Đến hạn tuần này</p>
+                                <p className="text-lg font-black text-gray-900 group-hover:text-orange-600 transition-colors">{formatCurrency(stats.dueThisWeek)}</p>
+                            </div>
+                            <div className="w-8 h-8 bg-orange-50 rounded-lg flex items-center justify-center">
+                                <Clock className="w-4 h-4 text-orange-500" />
                             </div>
                         </div>
 
-                        <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-                            <div className="flex items-center gap-4">
-                                <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center">
-                                    <AlertCircle className="w-6 h-6 text-purple-600" />
-                                </div>
-                                <div>
-                                    <p className="text-gray-500 text-sm">Quá hạn</p>
-                                    <p className="text-xl font-bold text-gray-900">{formatCurrency(stats.overdue)}</p>
-                                </div>
+                        <div className="bg-white rounded-xl p-3 shadow-sm border border-gray-100 flex items-center justify-between group hover:border-purple-200 transition-colors">
+                            <div>
+                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">Đã quá hạn</p>
+                                <p className="text-lg font-black text-gray-900 group-hover:text-purple-600 transition-colors">{formatCurrency(stats.overdue)}</p>
+                            </div>
+                            <div className="w-8 h-8 bg-purple-50 rounded-lg flex items-center justify-center">
+                                <AlertCircle className="w-4 h-4 text-purple-500" />
                             </div>
                         </div>
                     </div>
 
-                    {/* Credit Usage */}
-                    <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 mb-8">
-                        <div className="flex items-center justify-between mb-4">
-                            <h2 className="text-lg font-semibold text-gray-900">Hạn mức Tín dụng</h2>
-                            <span className="text-sm text-gray-500">
-                                {formatCurrency(stats.totalDebt)} / {formatCurrency(stats.creditLimit)}
+                    {/* Credit Usage Bar - Compact */}
+                    <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 mb-6">
+                        <div className="flex items-end justify-between mb-2">
+                            <div>
+                                <h2 className="text-xs font-black text-gray-900 uppercase tracking-wide">Sử dụng Tín dụng</h2>
+                                <p className="text-[10px] text-gray-400 font-medium mt-0.5">
+                                    Hạn mức tối đa: <span className="text-gray-700">{formatCurrency(stats.creditLimit)}</span>
+                                </p>
+                            </div>
+                            <span className={`text-xs font-black ${creditUsage > 80 ? 'text-red-500' : 'text-emerald-600'}`}>
+                                {creditUsage.toFixed(1)}%
                             </span>
                         </div>
-                        <div className="h-4 bg-gray-100 rounded-full overflow-hidden">
+                        <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
                             <div
-                                className={`h-full rounded-full transition-all ${creditUsage > 80 ? 'bg-red-500' :
-                                    creditUsage > 60 ? 'bg-orange-500' : 'bg-green-500'
+                                className={`h-full rounded-full transition-all duration-700 ${creditUsage > 80 ? 'bg-red-500' :
+                                    creditUsage > 60 ? 'bg-orange-500' : 'bg-emerald-500'
                                     }`}
                                 style={{ width: `${creditUsage}%` }}
                             />
                         </div>
-                        <div className="flex justify-between mt-2 text-sm">
-                            <span className="text-gray-500">Đã sử dụng: {creditUsage.toFixed(1)}%</span>
-                            <span className="text-gray-500">Còn lại: {(100 - creditUsage).toFixed(1)}%</span>
-                        </div>
                     </div>
 
-                    {/* Invoices Table */}
+                    {/* Invoices Table - High Density */}
                     <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                        <div className="p-6 border-b border-gray-100">
-                            <h2 className="text-lg font-semibold text-gray-900">Danh sách Hóa đơn</h2>
+                        <div className="p-4 border-b border-gray-100 bg-gray-50/30">
+                            <h2 className="text-xs font-black text-gray-900 uppercase tracking-wide">Danh sách Hóa đơn</h2>
                         </div>
                         <div className="overflow-x-auto">
                             <table className="w-full">
-                                <thead className="bg-gray-50 border-b border-gray-100">
+                                <thead className="bg-gray-50/50 border-b border-gray-100">
                                     <tr>
-                                        <th className="text-left px-6 py-4 text-sm font-semibold text-gray-700">Số HĐ</th>
-                                        <th className="text-left px-6 py-4 text-sm font-semibold text-gray-700">Ngày lập</th>
-                                        <th className="text-left px-6 py-4 text-sm font-semibold text-gray-700">Hạn thanh toán</th>
-                                        <th className="text-right px-6 py-4 text-sm font-semibold text-gray-700">Số tiền</th>
-                                        <th className="text-right px-6 py-4 text-sm font-semibold text-gray-700">Đã thanh toán</th>
-                                        <th className="text-center px-6 py-4 text-sm font-semibold text-gray-700">Trạng thái</th>
-                                        <th className="text-center px-6 py-4 text-sm font-semibold text-gray-700"></th>
+                                        <th className="text-left px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-500">Số HĐ</th>
+                                        <th className="text-left px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-500">Ngày lập</th>
+                                        <th className="text-left px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-500">Hạn thanh toán</th>
+                                        <th className="text-right px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-500">Số tiền</th>
+                                        <th className="text-right px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-500">Đã trả</th>
+                                        <th className="text-center px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-500">Trạng thái</th>
+                                        <th className="text-center px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-500">Thao tác</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-gray-100">
+                                <tbody className="divide-y divide-gray-50">
                                     {invoices.map((invoice) => (
-                                        <tr key={invoice.id} className="hover:bg-gray-50 transition-colors">
-                                            <td className="px-6 py-4">
-                                                <span className="font-semibold text-blue-600">{invoice.invoiceNumber}</span>
+                                        <tr key={invoice.id} className="hover:bg-primary-50/10 transition-colors group">
+                                            <td className="px-4 py-2.5">
+                                                <span className="font-bold text-xs text-primary-600 group-hover:underline cursor-pointer">{invoice.invoiceNumber}</span>
                                             </td>
-                                            <td className="px-6 py-4 text-gray-600">{invoice.date}</td>
-                                            <td className="px-6 py-4 text-gray-600">{invoice.dueDate}</td>
-                                            <td className="px-6 py-4 text-right font-semibold text-gray-900">
+                                            <td className="px-4 py-2.5 text-xs text-gray-500 font-medium">{invoice.date}</td>
+                                            <td className="px-4 py-2.5 text-xs text-gray-500 font-medium">{invoice.dueDate}</td>
+                                            <td className="px-4 py-2.5 text-right font-black text-xs text-gray-900">
                                                 {formatCurrency(invoice.amount)}
                                             </td>
-                                            <td className="px-6 py-4 text-right text-gray-600">
+                                            <td className="px-4 py-2.5 text-right font-bold text-xs text-emerald-600">
                                                 {formatCurrency(invoice.paid)}
                                             </td>
-                                            <td className="px-6 py-4 text-center">
-                                                <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(invoice.status)}`}>
+                                            <td className="px-4 py-2.5 text-center">
+                                                <span className={`inline-block px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider ${getStatusColor(invoice.status)}`}>
                                                     {getStatusText(invoice.status)}
                                                 </span>
                                             </td>
-                                            <td className="px-6 py-4">
-                                                <div className="flex items-center justify-end gap-2">
+                                            <td className="px-4 py-2.5">
+                                                <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                                     {/* Download Invoice Button */}
                                                     <button
                                                         onClick={() => handleDownloadInvoice(invoice)}
-                                                        className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                                        className="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
                                                         title="Tải hóa đơn"
                                                     >
-                                                        <Printer className="w-5 h-5" />
+                                                        <Printer className="w-4 h-4" />
                                                     </button>
 
                                                     {/* QR Payment Button */}
                                                     {invoice.status !== 'PAID' && (
                                                         <button
                                                             onClick={() => handlePayment(invoice)}
-                                                            className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm rounded-lg font-medium transition-colors"
+                                                            className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold uppercase tracking-wide rounded-lg transition-colors shadow-sm shadow-emerald-100"
                                                         >
-                                                            <QrCode className="w-4 h-4" />
+                                                            <QrCode className="w-3 h-3" />
                                                             Thanh toán
                                                         </button>
                                                     )}
@@ -410,28 +403,6 @@ export default function ContractorDebtPage() {
                     </div>
                 </div>
             </main>
-
-            {/* Mobile Bottom Navigation */}
-            <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-30">
-                <div className="flex items-center justify-around py-2">
-                    <Link href="/contractor/dashboard" className="flex flex-col items-center gap-1 py-2 px-3 text-gray-500">
-                        <Home className="w-6 h-6" />
-                        <span className="text-xs">Tổng quan</span>
-                    </Link>
-                    <Link href="/contractor/orders" className="flex flex-col items-center gap-1 py-2 px-3 text-gray-500">
-                        <ShoppingCart className="w-6 h-6" />
-                        <span className="text-xs">Đơn hàng</span>
-                    </Link>
-                    <Link href="/products" className="flex flex-col items-center gap-1 py-2 px-3 text-gray-500">
-                        <Package className="w-6 h-6" />
-                        <span className="text-xs">Sản phẩm</span>
-                    </Link>
-                    <Link href="/contractor/debt" className="flex flex-col items-center gap-1 py-2 px-3 text-blue-600">
-                        <CreditCard className="w-6 h-6" />
-                        <span className="text-xs font-medium">Công nợ</span>
-                    </Link>
-                </div>
-            </nav>
 
             {/* QR Payment Modal */}
             {showQRModal && selectedInvoice && (

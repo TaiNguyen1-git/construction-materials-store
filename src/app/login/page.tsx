@@ -8,6 +8,7 @@ import { useAuth } from '@/contexts/auth-context'
 import { useGoogleLogin } from '@react-oauth/google'
 import { toast } from 'react-hot-toast'
 import { useFacebookSDK, loginWithFacebook } from '@/lib/facebook-sdk'
+import { performPostLoginRedirect } from '@/lib/auth-redirect'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -49,12 +50,8 @@ export default function LoginPage() {
 
           toast.success('Đăng nhập Google thành công!')
 
-          // Force redirect based on role
-          if (data.user.role === 'MANAGER' || data.user.role === 'EMPLOYEE') {
-            window.location.href = '/admin'
-          } else {
-            window.location.href = '/'
-          }
+          // Redirect with callback support
+          performPostLoginRedirect(data.user)
         } else {
           throw new Error(data.error || 'Đăng nhập Google thất bại')
         }
@@ -97,11 +94,8 @@ export default function LoginPage() {
 
         toast.success('Đăng nhập Facebook thành công!')
 
-        if (data.user.role === 'MANAGER' || data.user.role === 'EMPLOYEE') {
-          window.location.href = '/admin'
-        } else {
-          window.location.href = '/'
-        }
+        // Redirect with callback support
+        performPostLoginRedirect(data.user)
       } else {
         throw new Error(data.error || 'Đăng nhập Facebook thất bại')
       }
@@ -149,38 +143,34 @@ export default function LoginPage() {
     setLocalErrors({})
 
     try {
+      // Login returns user data directly
       await login({
         email: formData.email,
         password: formData.password
       }, rememberMe)
 
+      // Wait a tick to ensure auth state is updated
+      await new Promise(resolve => setTimeout(resolve, 50))
 
-      // Get user data from storage (check both localStorage and sessionStorage)
-      // Wait a tick to ensure storage is written
-      await new Promise(resolve => setTimeout(resolve, 100))
-
-      const userData = localStorage.getItem('user') || sessionStorage.getItem('user')
+      // Get user from localStorage (auth service stores it there)
+      const userData = localStorage.getItem('user')
 
       if (userData) {
         const user = JSON.parse(userData)
-        console.log('[LOGIN] Parsed user object:', {
+        console.log('[LOGIN] User logged in:', {
           id: user.id,
           name: user.name,
           email: user.email,
           role: user.role
         })
 
-        // Redirect based on role - using window.location for FORCE redirect
-        if (user.role === 'MANAGER' || user.role === 'EMPLOYEE') {
-          // Use window.location.href for a hard redirect that bypasses Next.js routing
-          window.location.href = '/admin'
-        } else {
-          // Customer redirect to home page
-          window.location.href = '/'
-        }
+        // Use the utility function for redirect (handles callback URL)
+        performPostLoginRedirect(user)
       } else {
-        // Fallback to home if no user data
-        console.warn('[LOGIN] No user data found after login, redirecting to /')
+        // This shouldn't happen, but fallback just in case
+        console.error('[LOGIN] User data not found in localStorage after successful login')
+        // Try to get from auth response directly via context
+        // For now, redirect to home
         window.location.href = '/'
       }
     } catch (error: any) {

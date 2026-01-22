@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
                 }
             },
             orderBy: {
-                avgRating: 'desc'
+                trustScore: 'desc'
             }
         })
 
