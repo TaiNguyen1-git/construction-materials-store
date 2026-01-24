@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { verifyTokenFromRequest } from '@/lib/auth-middleware-api'
+import jwt from 'jsonwebtoken'
 
 export async function PATCH(request: NextRequest) {
     try {
@@ -18,14 +19,56 @@ export async function PATCH(request: NextRequest) {
             )
         }
 
-        const { name, phone, address } = await request.json()
+        const { name, phone, address, otp, updateToken } = await request.json()
 
-        // Validate input
+        // Validate basic input
         if (!name || !name.trim()) {
             return NextResponse.json(
                 { success: false, error: 'Vui lòng nhập họ tên' },
                 { status: 400 }
             )
+        }
+
+        const currentUser = await prisma.user.findUnique({
+            where: { id: payload.userId }
+        })
+
+        if (!currentUser) {
+            return NextResponse.json({ success: false, error: 'Không tìm thấy người dùng' }, { status: 404 })
+        }
+
+        // Check if phone is being changed
+        const isPhoneChanged = phone && phone.trim() !== currentUser.phone
+
+        if (isPhoneChanged) {
+            // Require OTP for phone change
+            if (!otp || !updateToken) {
+                return NextResponse.json(
+                    { success: false, error: 'Xác thực OTP là bắt buộc để thay đổi số điện thoại', requiresOtp: true },
+                    { status: 400 }
+                )
+            }
+
+            // Verify OTP
+            if (currentUser.otpCode !== otp || (currentUser.otpExpiresAt && currentUser.otpExpiresAt < new Date())) {
+                return NextResponse.json(
+                    { success: false, error: 'Mã OTP không chính xác hoặc đã hết hạn' },
+                    { status: 400 }
+                )
+            }
+
+            // Verify Update Token
+            try {
+                const decoded: any = jwt.verify(updateToken, process.env.JWT_SECRET!)
+                if (decoded.userId !== currentUser.id || decoded.purpose !== 'profile_update') {
+                    throw new Error('Invalid token')
+                }
+            } catch (err) {
+                return NextResponse.json(
+                    { success: false, error: 'Phiên làm việc không hợp lệ' },
+                    { status: 401 }
+                )
+            }
         }
 
         // Update user
@@ -34,7 +77,9 @@ export async function PATCH(request: NextRequest) {
             data: {
                 name: name.trim(),
                 phone: phone?.trim() || null,
-                address: address?.trim() || null
+                address: address?.trim() || null,
+                // Clear OTP if used
+                ...(isPhoneChanged ? { otpCode: null, otpExpiresAt: null } : {})
             },
             select: {
                 id: true,

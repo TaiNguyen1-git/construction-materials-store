@@ -92,10 +92,17 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   
-  // Password reset
+  // Password reset & OTP
   resetToken       String?
   resetTokenExpiry DateTime?
   mustChangePassword Boolean @default(false)
+  
+  // Verification & 2FA
+  emailVerified    Boolean   @default(false)
+  otpCode          String?
+  otpExpiresAt     DateTime?
+  is2FAEnabled     Boolean   @default(false)
+  hasSetTwoFactor  Boolean   @default(false)
 
   // Relationships
   employee Employee?

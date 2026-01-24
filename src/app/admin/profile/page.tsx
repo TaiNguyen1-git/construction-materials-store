@@ -2,12 +2,19 @@
 
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/contexts/auth-context'
-import { User, Mail, Phone, MapPin, Lock, Save, Eye, EyeOff, AlertCircle, CheckCircle } from 'lucide-react'
+import { User, Mail, Phone, MapPin, Lock, Save, Eye, EyeOff, AlertCircle, CheckCircle, Shield, ShieldCheck, Loader2 } from 'lucide-react'
+import OTPModal from '@/components/auth/OTPModal'
+import toast, { Toaster } from 'react-hot-toast'
 
 export default function AdminProfilePage() {
-    const { user } = useAuth()
+    const { user, refreshUser } = useAuth()
     const [isLoading, setIsLoading] = useState(false)
     const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
+
+    // 2FA State
+    const [otpModal, setOtpModal] = useState({ isOpen: false, updateToken: '' })
+    const [otpLoading, setOtpLoading] = useState(false)
+    const [highlight2FA, setHighlight2FA] = useState(false)
 
     // Profile form
     const [profileData, setProfileData] = useState({
@@ -36,6 +43,18 @@ export default function AdminProfilePage() {
         }
     }, [user])
 
+    // Handle setup2fa query param
+    useEffect(() => {
+        if (typeof window === 'undefined') return
+        const urlParams = new URLSearchParams(window.location.search)
+        if (urlParams.get('setup2fa') === 'true' && user && !user.is2FAEnabled) {
+            setHighlight2FA(true)
+            const securitySection = document.getElementById('security-section')
+            securitySection?.scrollIntoView({ behavior: 'smooth' })
+            setTimeout(() => setHighlight2FA(false), 5000)
+        }
+    }, [user])
+
     const handleProfileSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
         setIsLoading(true)
@@ -52,6 +71,7 @@ export default function AdminProfilePage() {
 
             if (data.success) {
                 setMessage({ type: 'success', text: 'Cập nhật thông tin thành công!' })
+                refreshUser?.()
             } else {
                 setMessage({ type: 'error', text: data.error || 'Có lỗi xảy ra' })
             }
@@ -104,6 +124,49 @@ export default function AdminProfilePage() {
         }
     }
 
+    const handleToggle2FA = async (otp?: string) => {
+        const isEnabling = !user?.is2FAEnabled
+
+        if (otp) setOtpLoading(true)
+        else setIsLoading(true)
+
+        try {
+            const token = localStorage.getItem('access_token')
+            const res = await fetch('/api/auth/profile/toggle-2fa', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ enabled: isEnabling, otp })
+            })
+
+            const data = await res.json()
+
+            if (res.ok && data.success) {
+                if (data.requiresOtp) {
+                    setOtpModal({
+                        isOpen: true,
+                        updateToken: 'toggle-2fa'
+                    })
+                } else {
+                    toast.success(data.message)
+                    setOtpModal({ isOpen: false, updateToken: '' })
+                    refreshUser?.()
+                }
+            } else {
+                toast.error(data.error || 'Thao tác thất bại')
+                if (otp) throw new Error(data.error)
+            }
+        } catch (error: any) {
+            if (!otp) toast.error('Lỗi kết nối server')
+            throw error
+        } finally {
+            if (otp) setOtpLoading(false)
+            else setIsLoading(false)
+        }
+    }
+
     const getRoleName = (role: string) => {
         const roles: Record<string, string> = {
             'MANAGER': 'Quản lý',
@@ -115,6 +178,7 @@ export default function AdminProfilePage() {
 
     return (
         <div className="space-y-6">
+            <Toaster position="top-right" />
             <div>
                 <h1 className="text-2xl font-bold text-gray-900">Hồ Sơ Cá Nhân</h1>
                 <p className="text-gray-600">Quản lý thông tin tài khoản của bạn</p>
@@ -288,6 +352,48 @@ export default function AdminProfilePage() {
                 </div>
             </div>
 
+            {/* Two-Factor Authentication Card */}
+            <div id="security-section">
+                <div className={`bg-white rounded-xl shadow-lg border transition-all duration-500 p-6 ${highlight2FA ? 'ring-4 ring-indigo-500 ring-opacity-30 border-indigo-500 animate-pulse-gentle' : 'border-gray-100'}`}>
+                    <div className="flex items-center justify-between mb-6">
+                        <div className="flex items-center gap-3">
+                            <div className="bg-gradient-to-r from-indigo-500 to-primary-500 p-3 rounded-xl shadow-md">
+                                <ShieldCheck className="h-6 w-6 text-white" />
+                            </div>
+                            <div>
+                                <h2 className="text-lg font-semibold text-gray-900">Xác thực 2 lớp (2FA)</h2>
+                                <p className="text-sm text-gray-500">Tăng cường bảo mật đăng nhập</p>
+                            </div>
+                        </div>
+                        <div className="flex items-center">
+                            <button
+                                onClick={() => handleToggle2FA()}
+                                disabled={isLoading}
+                                className={`relative inline-flex h-7 w-12 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${user?.is2FAEnabled ? 'bg-indigo-600' : 'bg-gray-200'}`}
+                            >
+                                <span
+                                    className={`pointer-events-none inline-block h-6 w-6 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${user?.is2FAEnabled ? 'translate-x-5' : 'translate-x-0'}`}
+                                />
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="bg-indigo-50/50 border border-indigo-100 rounded-xl p-5 flex gap-4">
+                        <div className="bg-white p-2 rounded-lg h-fit shadow-sm border border-indigo-100">
+                            <Shield className="w-5 h-5 text-indigo-600" />
+                        </div>
+                        <div className="flex-1">
+                            <p className="text-sm font-bold text-indigo-900 mb-1">
+                                {user?.is2FAEnabled ? 'Tài khoản của bạn đang được bảo vệ!' : 'Kích hoạt lớp bảo mật bổ sung'}
+                            </p>
+                            <p className="text-xs text-indigo-700 leading-relaxed max-w-2xl">
+                                Khi kích hoạt 2FA, hệ thống sẽ yêu cầu một mã OTP được gửi qua email của bạn mỗi khi thực hiện đăng nhập. Điều này giúp ngăn chặn truy cập trái phép ngay cả khi mật khẩu của bạn bị lộ.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             {/* Account Info */}
             <div className="bg-white rounded-xl shadow-lg border border-gray-100 p-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Thông Tin Tài Khoản</h3>
@@ -311,6 +417,18 @@ export default function AdminProfilePage() {
                     </div>
                 </div>
             </div>
+
+            {user && (
+                <OTPModal
+                    isOpen={otpModal.isOpen}
+                    email={user.email}
+                    title="Xác thực bảo mật 2 lớp"
+                    description="Vui lòng nhập mã OTP để xác nhận thay đổi cài đặt bảo mật cho email:"
+                    isLoading={otpLoading}
+                    onClose={() => setOtpModal({ ...otpModal, isOpen: false })}
+                    onVerify={handleToggle2FA}
+                />
+            )}
         </div>
     )
 }

@@ -19,6 +19,7 @@ export interface AuthState {
   isLoading: boolean
   error: string | null
   tabId: string | null
+  needs2FASetupPrompt: boolean
 }
 
 export interface LoginCredentials {
@@ -40,9 +41,14 @@ export interface TokenResponse {
 }
 
 export interface AuthResponse {
-  user: User
-  tokens: TokenResponse
+  user?: User
+  tokens?: TokenResponse
   sessionId?: string
+  verificationRequired?: boolean
+  twoFactorRequired?: boolean
+  verificationToken?: string
+  email?: string
+  needs2FASetupPrompt?: boolean
 }
 
 export interface SessionInfo {
@@ -202,6 +208,14 @@ class EnhancedAuthService {
     localStorage.removeItem('last_active_tab')
   }
 
+  /**
+   * Clear 2FA prompt flag
+   */
+  removeNeeds2FAPrompt(): void {
+    sessionStorage.removeItem(getTabStorageKey('needs_2fa_prompt', this.tabId))
+    localStorage.removeItem('needs_2fa_prompt')
+  }
+
   // ============ AUTH METHODS ============
 
   /**
@@ -225,6 +239,11 @@ class EnhancedAuthService {
 
       const data = await response.json()
 
+      // If 2FA or verification is required, don't store tokens yet
+      if (data.twoFactorRequired || data.verificationRequired) {
+        return data
+      }
+
       // Store tokens and user data
       this.accessToken = data.token
       this.user = data.user
@@ -242,12 +261,17 @@ class EnhancedAuthService {
         localStorage.setItem('remember_me', 'true')
       }
 
+      if (data.needs2FASetupPrompt) {
+        this.setInTabStorage('needs_2fa_prompt', 'true')
+      }
+
       return {
         user: data.user,
         tokens: {
           accessToken: data.token,
         },
         sessionId: data.sessionId,
+        needs2FASetupPrompt: !!data.needs2FASetupPrompt,
       }
     } catch (error) {
       throw error
@@ -274,6 +298,11 @@ class EnhancedAuthService {
       }
 
       const data = await response.json()
+
+      // If verification is required, don't store tokens yet
+      if (data.verificationRequired || data.twoFactorRequired) {
+        return data
+      }
 
       // Store tokens and user data
       this.accessToken = data.token
@@ -386,6 +415,7 @@ class EnhancedAuthService {
           isLoading: false,
           error: null,
           tabId: this.tabId,
+          needs2FASetupPrompt: this.getFromTabStorage('needs_2fa_prompt') === 'true',
         }
       }
 
@@ -395,6 +425,7 @@ class EnhancedAuthService {
         isLoading: false,
         error: null,
         tabId: this.tabId,
+        needs2FASetupPrompt: false,
       }
     } catch (error) {
       return {
@@ -403,6 +434,7 @@ class EnhancedAuthService {
         isLoading: false,
         error: 'Không thể khởi tạo xác thực',
         tabId: this.tabId,
+        needs2FASetupPrompt: false,
       }
     }
   }
@@ -484,6 +516,71 @@ class EnhancedAuthService {
     return () => {
       channel.removeEventListener('message', handleMessage)
       channel.close()
+    }
+  }
+
+  /**
+   * Verify OTP for email verification or 2FA
+   */
+  async verifyOTP(otp: string, verificationToken: string): Promise<AuthResponse> {
+    try {
+      const response = await fetch('/api/verify-otp', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Tab-Id': this.tabId,
+        },
+        body: JSON.stringify({ otp, verificationToken }),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Xác thực thất bại')
+      }
+
+      const data = await response.json()
+
+      // Store tokens and user data
+      this.accessToken = data.token
+      this.user = data.user
+
+      // Store in tab-specific storage
+      this.setInTabStorage('access_token', data.token)
+      this.setInTabStorage('user', JSON.stringify(data.user))
+
+      if (data.sessionId) {
+        this.setInTabStorage('session_id', data.sessionId)
+      }
+
+      return {
+        user: data.user,
+        tokens: {
+          accessToken: data.token,
+        },
+        sessionId: data.sessionId,
+      }
+    } catch (error) {
+      throw error
+    }
+  }
+
+  /**
+   * Resend OTP
+   */
+  async resendOTP(verificationToken: string): Promise<boolean> {
+    try {
+      const response = await fetch('/api/resend-otp', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ verificationToken }),
+      })
+
+      return response.ok
+    } catch (error) {
+      console.error('[Auth] Failed to resend OTP:', error)
+      return false
     }
   }
 }

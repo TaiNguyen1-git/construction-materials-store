@@ -11,6 +11,7 @@ import { GoogleProvider } from '@/components/GoogleProvider'
 import RealtimeNotificationWatcher from '@/components/RealtimeNotificationWatcher'
 import Footer from '@/components/Footer'
 import SystemInterceptor from '@/components/SystemInterceptor'
+import GlobalAuthModals from '@/components/auth/GlobalAuthModals'
 // import { ErrorBoundary } from '@/components/ErrorBoundary' // Temporarily disabled
 
 const inter = Inter({ subsets: ['latin'] })
@@ -62,6 +63,7 @@ export default function RootLayout({
             <ConsoleGuard />
             <ContractorRedirect />
             <AdminRedirect />
+            <GlobalAuthModals />
             <div id="root" className="min-h-screen flex flex-col">
               <main className="flex-grow">
                 {children}

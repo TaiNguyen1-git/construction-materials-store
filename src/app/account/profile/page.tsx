@@ -16,9 +16,11 @@ import {
     Shield,
     Eye,
     EyeOff,
-    CheckCircle
+    CheckCircle,
+    ShieldCheck
 } from 'lucide-react'
 import { useAuth } from '@/contexts/auth-context'
+import OTPModal from '@/components/auth/OTPModal'
 
 export default function ProfilePage() {
     const router = useRouter()
@@ -45,11 +47,33 @@ export default function ProfilePage() {
     })
     const [changingPassword, setChangingPassword] = useState(false)
 
+    // OTP State
+    const [otpModal, setOtpModal] = useState({
+        isOpen: false,
+        updateToken: '',
+        pendingData: null as any
+    })
+    const [otpLoading, setOtpLoading] = useState(false)
+
     useEffect(() => {
         if (!authLoading && !isAuthenticated) {
             router.push('/login')
         }
     }, [authLoading, isAuthenticated, router])
+
+    const [highlight2FA, setHighlight2FA] = useState(false)
+
+    // Handle setup2fa query param
+    useEffect(() => {
+        const urlParams = new URLSearchParams(window.location.search)
+        if (urlParams.get('setup2fa') === 'true' && user && !user.is2FAEnabled) {
+            setHighlight2FA(true)
+            // Scroll to security section
+            const securitySection = document.getElementById('security-section')
+            securitySection?.scrollIntoView({ behavior: 'smooth' })
+            setTimeout(() => setHighlight2FA(false), 5000)
+        }
+    }, [user])
 
     useEffect(() => {
         if (user) {
@@ -67,13 +91,15 @@ export default function ProfilePage() {
         setProfile(prev => ({ ...prev, [name]: value }))
     }
 
-    const handleSaveProfile = async () => {
+    const handleSaveProfile = async (otp?: string, updateToken?: string) => {
         if (!profile.name.trim()) {
             toast.error('Vui lòng nhập họ tên')
             return
         }
 
-        setSaving(true)
+        if (otp) setOtpLoading(true)
+        else setSaving(true)
+
         try {
             const token = localStorage.getItem('access_token')
             const res = await fetch('/api/auth/update-profile', {
@@ -85,20 +111,48 @@ export default function ProfilePage() {
                 body: JSON.stringify({
                     name: profile.name,
                     phone: profile.phone,
-                    address: profile.address
+                    address: profile.address,
+                    otp,
+                    updateToken
                 })
             })
+
+            const data = await res.json()
 
             if (res.ok) {
                 toast.success('Cập nhật thông tin thành công!')
                 refreshUser?.()
+                setOtpModal({ isOpen: false, updateToken: '', pendingData: null })
+            } else if (data.requiresOtp) {
+                // Request OTP for the change
+                const otpReq = await fetch('/api/auth/profile/request-otp', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    }
+                })
+                const otpData = await otpReq.json()
+
+                if (otpData.success) {
+                    setOtpModal({
+                        isOpen: true,
+                        updateToken: otpData.updateToken,
+                        pendingData: { name: profile.name, phone: profile.phone, address: profile.address }
+                    })
+                } else {
+                    toast.error('Không thể yêu cầu mã OTP. Vui lòng thử lại.')
+                }
             } else {
-                const error = await res.json()
-                toast.error(error.message || 'Cập nhật thất bại')
+                toast.error(data.error || data.message || 'Cập nhật thất bại')
+                if (otp) throw new Error(data.error)
             }
-        } catch (error) {
-            toast.error('Lỗi kết nối server')
+        } catch (error: any) {
+            if (!otp) toast.error('Lỗi kết nối server')
+            throw error
         } finally {
+            if (otp) setOtpLoading(false)
+            else setSaving(true) // Wait, setSaving should be false?
             setSaving(false)
         }
     }
@@ -143,6 +197,50 @@ export default function ProfilePage() {
             toast.error('Lỗi kết nối server')
         } finally {
             setChangingPassword(false)
+        }
+    }
+
+    const handleToggle2FA = async (otp?: string) => {
+        const isEnabling = !user?.is2FAEnabled
+
+        if (otp) setOtpLoading(true)
+        else setLoading(true)
+
+        try {
+            const token = localStorage.getItem('access_token')
+            const res = await fetch('/api/auth/profile/toggle-2fa', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ enabled: isEnabling, otp })
+            })
+
+            const data = await res.json()
+
+            if (res.ok && data.success) {
+                if (data.requiresOtp) {
+                    setOtpModal({
+                        isOpen: true,
+                        updateToken: 'toggle-2fa',
+                        pendingData: null
+                    })
+                } else {
+                    toast.success(data.message)
+                    setOtpModal({ isOpen: false, updateToken: '', pendingData: null })
+                    refreshUser?.()
+                }
+            } else {
+                toast.error(data.error || 'Thao tác thất bại')
+                if (otp) throw new Error(data.error)
+            }
+        } catch (error: any) {
+            if (!otp) toast.error('Lỗi kết nối server')
+            throw error
+        } finally {
+            if (otp) setOtpLoading(false)
+            else setLoading(false)
         }
     }
 
@@ -272,7 +370,7 @@ export default function ProfilePage() {
                         </div>
 
                         <button
-                            onClick={handleSaveProfile}
+                            onClick={() => handleSaveProfile()}
                             disabled={saving}
                             className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 disabled:from-gray-300 disabled:to-gray-400 text-white font-bold rounded-xl transition-all flex items-center justify-center gap-2"
                         >
@@ -381,6 +479,57 @@ export default function ProfilePage() {
                                 </>
                             )}
                         </button>
+                    </div>
+                </div>
+            </div>
+
+            <OTPModal
+                isOpen={otpModal.isOpen}
+                email={user.email}
+                title="Xác nhận thay đổi"
+                description="Mã OTP cần thiết để cập nhật số điện thoại. Vui lòng kiểm tra email:"
+                isLoading={otpLoading}
+                onClose={() => setOtpModal({ ...otpModal, isOpen: false })}
+                onVerify={(otp) => {
+                    if (otpModal.updateToken === 'toggle-2fa') {
+                        return handleToggle2FA(otp)
+                    }
+                    return handleSaveProfile(otp, otpModal.updateToken)
+                }}
+            />
+
+            {/* Two-Factor Authentication Section */}
+            <div id="security-section" className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 mt-6">
+                <div className={`bg-white rounded-2xl shadow-md border p-6 transition-all duration-500 ${highlight2FA ? 'ring-4 ring-indigo-500 ring-opacity-50 border-indigo-500 animate-pulse-gentle' : 'border-gray-100'}`}>
+                    <div className="flex items-center justify-between mb-6">
+                        <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                            <Shield className="w-5 h-5 text-indigo-600" />
+                            Xác thực 2 lớp (2FA)
+                        </h3>
+                        <div className="flex items-center">
+                            <button
+                                onClick={() => handleToggle2FA()}
+                                disabled={loading}
+                                className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${user.is2FAEnabled ? 'bg-indigo-600' : 'bg-gray-200'}`}
+                            >
+                                <span
+                                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${user.is2FAEnabled ? 'translate-x-5' : 'translate-x-0'}`}
+                                />
+                            </button>
+                        </div>
+                    </div>
+                    <div className="bg-indigo-50 rounded-xl p-4 flex gap-4">
+                        <div className="bg-white p-2 rounded-lg h-fit shadow-sm">
+                            <ShieldCheck className="w-5 h-5 text-indigo-600" />
+                        </div>
+                        <div>
+                            <p className="text-sm font-semibold text-indigo-900 mb-1">
+                                {user.is2FAEnabled ? 'Bảo mật đang được kích hoạt' : 'Tăng cường bảo mật cho tài khoản'}
+                            </p>
+                            <p className="text-xs text-indigo-700 leading-relaxed">
+                                Khi kích hoạt, chúng tôi sẽ yêu cầu nhập mã OTP gửi qua email mỗi khi bạn đăng nhập từ thiết bị lạ. Điều này giúp ngăn chặn truy cập trái phép ngay cả khi mật khẩu của bạn bị lộ.
+                            </p>
+                        </div>
                     </div>
                 </div>
             </div>

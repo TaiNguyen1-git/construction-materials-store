@@ -6,6 +6,7 @@ import crypto from 'crypto'
 import { loginSchema, validateRequest } from '@/lib/validation'
 import { logger, logAuth, logAPI } from '@/lib/logger'
 import { checkRateLimit } from '@/lib/rate-limit-api'
+import { EmailService } from '@/lib/email-service'
 
 // Helper to hash token for storage
 function hashToken(token: string): string {
@@ -124,10 +125,96 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Check if email is verified
+    if (!user.emailVerified) {
+      // Generate 6-digit OTP
+      const otpCode = Math.floor(100000 + Math.random() * 900000).toString()
+      const otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000)
+
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { otpCode, otpExpiresAt }
+      })
+
+      // Send OTP
+      await EmailService.sendOTP({
+        email: user.email,
+        name: user.name,
+        otpCode,
+        type: 'VERIFICATION'
+      })
+
+      // Short-lived verification token
+      const verificationToken = jwt.sign(
+        { userId: user.id, email: user.email, purpose: 'email_verification' },
+        process.env.JWT_SECRET!,
+        { expiresIn: '15m' }
+      )
+
+      return NextResponse.json({
+        success: true,
+        verificationRequired: true,
+        verificationToken,
+        email: user.email
+      })
+    }
+
     // Generate JWT token
     const jwtSecret = process.env.JWT_SECRET
     if (!jwtSecret) {
       throw new Error('JWT_SECRET is not configured')
+    }
+
+    // Check for 2FA requirement (User defined)
+    const requires2FA = user.is2FAEnabled
+
+    if (requires2FA) {
+      // Generate 6-digit OTP
+      const otpCode = Math.floor(100000 + Math.random() * 900000).toString()
+      const otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000) // 10 minutes
+
+      // Update user with OTP
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          otpCode,
+          otpExpiresAt
+        }
+      })
+
+      // Send OTP via Email
+      const emailSent = await EmailService.sendOTP({
+        email: user.email,
+        name: user.name,
+        otpCode,
+        type: '2FA',
+        expiresInMinutes: 10
+      })
+
+      if (!emailSent) {
+        logger.error('Failed to send 2FA email', { email: user.email })
+      }
+
+      // Generate a short-lived 2FA verification token
+      const verificationToken = jwt.sign(
+        {
+          userId: user.id,
+          email: user.email,
+          purpose: '2fa'
+        },
+        jwtSecret,
+        { expiresIn: '15m' }
+      )
+
+      const duration = Date.now() - startTime
+      logAPI.response('POST', '/api/auth/login', 200, duration)
+
+      return NextResponse.json({
+        success: true,
+        twoFactorRequired: true,
+        verificationToken,
+        email: user.email
+      })
     }
 
     const token = jwt.sign(
@@ -171,6 +258,7 @@ export async function POST(request: NextRequest) {
       user: userWithoutPassword,
       token,
       sessionId: session.id,
+      needs2FASetupPrompt: !(user as any).hasSetTwoFactor,
     })
 
     // Set HTTP-only cookie for middleware protection

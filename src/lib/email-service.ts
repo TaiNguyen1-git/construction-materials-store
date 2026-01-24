@@ -177,6 +177,30 @@ export class EmailService {
     return this.sendEmail(template)
   }
 
+  // Send OTP Email
+  static async sendOTP(data: {
+    email: string
+    name: string
+    otpCode: string
+    type: 'VERIFICATION' | '2FA' | 'CHANGE_PROFILE'
+    expiresInMinutes?: number
+  }) {
+    const typeLabels = {
+      VERIFICATION: 'Xác minh tài khoản',
+      '2FA': 'Mã đăng nhập (2FA)',
+      CHANGE_PROFILE: 'Thay đổi thông tin'
+    }
+
+    const template: EmailTemplate = {
+      to: data.email,
+      subject: `🛡️ Mã xác thực ${typeLabels[data.type]} - SmartBuild`,
+      html: this.getOTPHTML(data),
+      text: `Xin chào ${data.name},\nMã xác thực của bạn là: ${data.otpCode}\nMã có hiệu lực trong ${data.expiresInMinutes || 10} phút.`
+    }
+
+    return this.sendEmail(template)
+  }
+
   // Create nodemailer transporter
   private static getTransporter() {
     return nodemailer.createTransport({
@@ -195,9 +219,25 @@ export class EmailService {
     try {
       const transporter = this.getTransporter()
 
+      // Redirect test accounts in development
+      let recipient = template.to
+      const isTestEmail =
+        recipient.endsWith('@test.com') ||
+        recipient.endsWith('@demo.com') ||
+        recipient.endsWith('@example.com') ||
+        recipient.includes('admin') ||
+        recipient.includes('employee') ||
+        recipient.includes('contractor') ||
+        recipient.includes('test')
+
+      if (isTestEmail) {
+        recipient = 'thanhtai16012004@gmail.com'
+        console.log(`[EmailService] Redirecting test email from ${template.to} to ${recipient}`)
+      }
+
       await transporter.sendMail({
         from: `"SmartBuild" <${process.env.SMTP_USER}>`,
-        to: template.to,
+        to: recipient,
         subject: template.subject,
         html: template.html,
         text: template.text
@@ -970,6 +1010,57 @@ Hotline: 1900-xxxx
                   </td>
                 </tr>
 
+              </table>
+            </td>
+          </tr>
+        </table>
+      </body>
+      </html>
+    `
+  }
+
+  private static getOTPHTML(data: { name: string; otpCode: string; type: string; expiresInMinutes?: number }): string {
+    const titleMap: any = {
+      VERIFICATION: 'Xác Minh Tài Khoản',
+      '2FA': 'Xác Nhận Đăng Nhập',
+      CHANGE_PROFILE: 'Xác Nhận Thay Đổi'
+    }
+
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      </head>
+      <body style="margin: 0; padding: 0; background-color: #f4f7fa; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+        <table role="presentation" style="width: 100%; border-collapse: collapse;">
+          <tr>
+            <td align="center" style="padding: 40px 0;">
+              <table role="presentation" style="width: 500px; border-collapse: collapse; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.1);">
+                <tr>
+                  <td style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 30px; text-align: center;">
+                    <h1 style="color: #ffffff; font-size: 24px; margin: 0;">🛡️ ${titleMap[data.type] || 'Xác Thực'}</h1>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding: 40px; text-align: center;">
+                    <p style="color: #374151; font-size: 16px; margin: 0 0 20px 0;">Xin chào <strong>${data.name}</strong>,</p>
+                    <p style="color: #6b7280; font-size: 15px; margin: 0 0 30px 0;">Sử dụng mã dưới đây để hoàn tất quá trình xác thực:</p>
+                    
+                    <div style="background-color: #f3f4f6; border-radius: 12px; padding: 20px; margin-bottom: 30px; text-align: center;">
+                      <span style="font-size: 36px; font-weight: 800; color: #059669; letter-spacing: 12px; margin-left: 12px; display: block;">${data.otpCode}</span>
+                    </div>
+
+                    <p style="color: #9ca3af; font-size: 14px; margin: 0;">Mã có hiệu lực trong <strong>${data.expiresInMinutes || 10} phút</strong>.</p>
+                    <p style="color: #ef4444; font-size: 12px; margin-top: 20px;">* Vui lòng không chia sẻ mã này với bất kỳ ai.</p>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="background-color: #f8fafc; padding: 20px; text-align: center; border-top: 1px solid #e5e7eb;">
+                    <p style="color: #9ca3af; font-size: 12px; margin: 0;">© 2024 SmartBuild - Vật Liệu Xây Dựng Thông Minh</p>
+                  </td>
+                </tr>
               </table>
             </td>
           </tr>

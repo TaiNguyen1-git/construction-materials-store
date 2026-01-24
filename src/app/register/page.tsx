@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Eye, EyeOff, Mail, Lock, User, Phone, ArrowLeft, Sparkles } from 'lucide-react'
+import { Eye, EyeOff, Mail, Lock, User, Phone, ArrowLeft, Sparkles, ShieldCheck } from 'lucide-react'
 import { useAuth } from '@/contexts/auth-context'
 
 export default function RegisterPage() {
@@ -20,6 +20,14 @@ export default function RegisterPage() {
     confirmPassword: ''
   })
   const [localErrors, setLocalErrors] = useState<Record<string, string>>({})
+  const [verificationData, setVerificationData] = useState<{
+    required: boolean
+    email: string
+    token: string
+  } | null>(null)
+  const [otpValue, setOtpValue] = useState('')
+  const [isResending, setIsResending] = useState(false)
+  const [resendSuccess, setResendSuccess] = useState(false)
 
   // Check for existing guest session
   useEffect(() => {
@@ -54,13 +62,22 @@ export default function RegisterPage() {
     if (!validateForm()) return
 
     try {
-      await register({
+      const response = await register({
         fullName: formData.fullName,
         email: formData.email,
         phone: formData.phone,
         password: formData.password,
         guestId: guestId || undefined
-      })
+      }) as any
+
+      if (response?.verificationRequired) {
+        setVerificationData({
+          required: true,
+          email: response.email,
+          token: response.verificationToken
+        })
+        return
+      }
 
       // Clear guest data after successful registration
       if (guestId) {
@@ -73,6 +90,43 @@ export default function RegisterPage() {
       router.push('/account')
     } catch (error: any) {
       setLocalErrors({ general: error.message || 'Đăng ký thất bại' })
+    }
+  }
+
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (otpValue.length !== 6) return
+
+    try {
+      if (!verificationData?.token) return
+      await (useAuth as any)().verifyOTP(otpValue, verificationData.token)
+
+      // Clear guest data
+      if (guestId) {
+        localStorage.removeItem('user_id')
+        localStorage.removeItem('user_name')
+        localStorage.removeItem('user_phone')
+        localStorage.removeItem('user_email')
+      }
+
+      router.push('/account')
+    } catch (err: any) {
+      setLocalErrors({ otp: err.message || 'Xác thực thất bại' })
+    }
+  }
+
+  const { verifyOTP, resendOTP } = useAuth()
+
+  const handleResendOtp = async () => {
+    if (!verificationData?.token || isResending) return
+
+    setIsResending(true)
+    try {
+      await resendOTP(verificationData.token)
+      setResendSuccess(true)
+      setTimeout(() => setResendSuccess(false), 3000)
+    } finally {
+      setIsResending(false)
     }
   }
 
@@ -134,171 +188,236 @@ export default function RegisterPage() {
             </div>
           )}
 
-          <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-            {(error || localErrors.general) && (
-              <div className="bg-red-50 border border-red-200 rounded-md p-4">
-                <p className="text-sm text-red-600">{error || localErrors.general}</p>
-              </div>
-            )}
-
-            <div className="space-y-4">
-              <div>
-                <label htmlFor="fullName" className="block text-sm font-medium text-gray-700 mb-2">
-                  <User className="h-4 w-4 inline mr-1" />
-                  Họ và tên *
-                </label>
-                <input
-                  id="fullName"
-                  name="fullName"
-                  type="text"
-                  autoComplete="name"
-                  required
-                  value={formData.fullName}
-                  onChange={handleChange}
-                  className={`appearance-none relative block w-full px-3 py-2 border placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 focus:z-10 sm:text-sm ${localErrors.fullName ? 'border-red-300' : 'border-gray-300'
-                    }`}
-                  placeholder="Nhập họ và tên của bạn"
-                />
-                {localErrors.fullName && <p className="text-red-500 text-xs mt-1">{localErrors.fullName}</p>}
-              </div>
-
-              <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                  <Mail className="h-4 w-4 inline mr-1" />
-                  Email *
-                </label>
-                <input
-                  id="email"
-                  name="email"
-                  type="email"
-                  autoComplete="email"
-                  required
-                  value={formData.email}
-                  onChange={handleChange}
-                  className={`appearance-none relative block w-full px-3 py-2 border placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 focus:z-10 sm:text-sm ${localErrors.email ? 'border-red-300' : 'border-gray-300'
-                    }`}
-                  placeholder="Nhập email của bạn"
-                />
-                {localErrors.email && <p className="text-red-500 text-xs mt-1">{localErrors.email}</p>}
-              </div>
-
-              <div>
-                <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">
-                  <Phone className="h-4 w-4 inline mr-1" />
-                  Số điện thoại *
-                </label>
-                <input
-                  id="phone"
-                  name="phone"
-                  type="tel"
-                  autoComplete="tel"
-                  required
-                  value={formData.phone}
-                  onChange={handleChange}
-                  className={`appearance-none relative block w-full px-3 py-2 border placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 focus:z-10 sm:text-sm ${localErrors.phone ? 'border-red-300' : 'border-gray-300'
-                    }`}
-                  placeholder="Nhập số điện thoại"
-                />
-                {localErrors.phone && <p className="text-red-500 text-xs mt-1">{localErrors.phone}</p>}
-              </div>
-
-              <div>
-                <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
-                  <Lock className="h-4 w-4 inline mr-1" />
-                  Mật khẩu *
-                </label>
-                <div className="relative">
-                  <input
-                    id="password"
-                    name="password"
-                    type={showPassword ? 'text' : 'password'}
-                    autoComplete="new-password"
-                    required
-                    value={formData.password}
-                    onChange={handleChange}
-                    className={`appearance-none relative block w-full px-3 py-2 pr-10 border placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 focus:z-10 sm:text-sm ${localErrors.password ? 'border-red-300' : 'border-gray-300'
-                      }`}
-                    placeholder="Tạo mật khẩu (8+ ký tự, có chữ hoa, thường, số)"
-                  />
-                  <button
-                    type="button"
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                    onClick={() => setShowPassword(!showPassword)}
-                  >
-                    {showPassword ? (
-                      <EyeOff className="h-4 w-4 text-gray-400" />
-                    ) : (
-                      <Eye className="h-4 w-4 text-gray-400" />
-                    )}
-                  </button>
+          {verificationData?.required ? (
+            <div className="mt-8">
+              <div className="bg-white p-8 rounded-2xl shadow-xl border border-gray-100">
+                <div className="text-center mb-8">
+                  <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-primary-100 mb-4">
+                    <ShieldCheck className="h-8 w-8 text-primary-600" />
+                  </div>
+                  <h3 className="text-2xl font-bold text-gray-900">Xác minh Email</h3>
+                  <p className="mt-2 text-sm text-gray-500">
+                    Mã xác thực đã được gửi đến <br />
+                    <span className="font-semibold text-gray-900">{verificationData.email}</span>
+                  </p>
                 </div>
-                {localErrors.password && <p className="text-red-500 text-xs mt-1">{localErrors.password}</p>}
+
+                <form onSubmit={handleVerifyOtp} className="space-y-6">
+                  <div>
+                    <input
+                      type="text"
+                      maxLength={6}
+                      value={otpValue}
+                      onChange={(e) => setOtpValue(e.target.value.replace(/\D/g, ''))}
+                      className="block w-full text-center text-3xl tracking-[1.5rem] font-bold py-4 border-2 border-gray-200 rounded-xl focus:ring-primary-500 focus:border-primary-500"
+                      placeholder="000000"
+                      required
+                    />
+                    {localErrors.otp && (
+                      <p className="mt-2 text-sm text-red-600 text-center">{localErrors.otp}</p>
+                    )}
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={isLoading || otpValue.length !== 6}
+                    className="w-full flex justify-center py-3 px-4 border border-transparent rounded-xl shadow-sm text-sm font-bold text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50"
+                  >
+                    {isLoading ? 'Đang xác thực...' : 'Xác thực tài khoản'}
+                  </button>
+                </form>
+
+                <div className="mt-8 text-center">
+                  <p className="text-sm text-gray-500">
+                    Không nhận được mã?{' '}
+                    <button
+                      onClick={handleResendOtp}
+                      disabled={isResending}
+                      className="font-bold text-primary-600 hover:text-primary-500 disabled:opacity-50"
+                    >
+                      {isResending ? 'Đang gửi lại...' : 'Gửi lại mã'}
+                    </button>
+                  </p>
+                  {resendSuccess && (
+                    <p className="mt-2 text-xs text-green-600 font-medium">Đã gửi mã mới thành công!</p>
+                  )}
+                </div>
+
+                <button
+                  onClick={() => setVerificationData(null)}
+                  className="mt-6 w-full text-sm text-gray-400 hover:text-gray-600"
+                >
+                  Quay lại đăng ký
+                </button>
+              </div>
+            </div>
+          ) : (
+            <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+              {(error || localErrors.general) && (
+                <div className="bg-red-50 border border-red-200 rounded-md p-4">
+                  <p className="text-sm text-red-600">{error || localErrors.general}</p>
+                </div>
+              )}
+
+              <div className="space-y-4">
+                <div>
+                  <label htmlFor="fullName" className="block text-sm font-medium text-gray-700 mb-2">
+                    <User className="h-4 w-4 inline mr-1" />
+                    Họ và tên *
+                  </label>
+                  <input
+                    id="fullName"
+                    name="fullName"
+                    type="text"
+                    autoComplete="name"
+                    required
+                    value={formData.fullName}
+                    onChange={handleChange}
+                    className={`appearance-none relative block w-full px-3 py-2 border placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 focus:z-10 sm:text-sm ${localErrors.fullName ? 'border-red-300' : 'border-gray-300'
+                      }`}
+                    placeholder="Nhập họ và tên của bạn"
+                  />
+                  {localErrors.fullName && <p className="text-red-500 text-xs mt-1">{localErrors.fullName}</p>}
+                </div>
+
+                <div>
+                  <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+                    <Mail className="h-4 w-4 inline mr-1" />
+                    Email *
+                  </label>
+                  <input
+                    id="email"
+                    name="email"
+                    type="email"
+                    autoComplete="email"
+                    required
+                    value={formData.email}
+                    onChange={handleChange}
+                    className={`appearance-none relative block w-full px-3 py-2 border placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 focus:z-10 sm:text-sm ${localErrors.email ? 'border-red-300' : 'border-gray-300'
+                      }`}
+                    placeholder="Nhập email của bạn"
+                  />
+                  {localErrors.email && <p className="text-red-500 text-xs mt-1">{localErrors.email}</p>}
+                </div>
+
+                <div>
+                  <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">
+                    <Phone className="h-4 w-4 inline mr-1" />
+                    Số điện thoại *
+                  </label>
+                  <input
+                    id="phone"
+                    name="phone"
+                    type="tel"
+                    autoComplete="tel"
+                    required
+                    value={formData.phone}
+                    onChange={handleChange}
+                    className={`appearance-none relative block w-full px-3 py-2 border placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 focus:z-10 sm:text-sm ${localErrors.phone ? 'border-red-300' : 'border-gray-300'
+                      }`}
+                    placeholder="Nhập số điện thoại"
+                  />
+                  {localErrors.phone && <p className="text-red-500 text-xs mt-1">{localErrors.phone}</p>}
+                </div>
+
+                <div>
+                  <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+                    <Lock className="h-4 w-4 inline mr-1" />
+                    Mật khẩu *
+                  </label>
+                  <div className="relative">
+                    <input
+                      id="password"
+                      name="password"
+                      type={showPassword ? 'text' : 'password'}
+                      autoComplete="new-password"
+                      required
+                      value={formData.password}
+                      onChange={handleChange}
+                      className={`appearance-none relative block w-full px-3 py-2 pr-10 border placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 focus:z-10 sm:text-sm ${localErrors.password ? 'border-red-300' : 'border-gray-300'
+                        }`}
+                      placeholder="Tạo mật khẩu (8+ ký tự, có chữ hoa, thường, số)"
+                    />
+                    <button
+                      type="button"
+                      className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                      onClick={() => setShowPassword(!showPassword)}
+                    >
+                      {showPassword ? (
+                        <EyeOff className="h-4 w-4 text-gray-400" />
+                      ) : (
+                        <Eye className="h-4 w-4 text-gray-400" />
+                      )}
+                    </button>
+                  </div>
+                  {localErrors.password && <p className="text-red-500 text-xs mt-1">{localErrors.password}</p>}
+                </div>
+
+                <div>
+                  <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-2">
+                    <Lock className="h-4 w-4 inline mr-1" />
+                    Xác nhận mật khẩu *
+                  </label>
+                  <div className="relative">
+                    <input
+                      id="confirmPassword"
+                      name="confirmPassword"
+                      type={showConfirmPassword ? 'text' : 'password'}
+                      autoComplete="new-password"
+                      required
+                      value={formData.confirmPassword}
+                      onChange={handleChange}
+                      className={`appearance-none relative block w-full px-3 py-2 pr-10 border placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 focus:z-10 sm:text-sm ${localErrors.confirmPassword ? 'border-red-300' : 'border-gray-300'
+                        }`}
+                      placeholder="Nhập lại mật khẩu"
+                    />
+                    <button
+                      type="button"
+                      className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    >
+                      {showConfirmPassword ? (
+                        <EyeOff className="h-4 w-4 text-gray-400" />
+                      ) : (
+                        <Eye className="h-4 w-4 text-gray-400" />
+                      )}
+                    </button>
+                  </div>
+                  {localErrors.confirmPassword && <p className="text-red-500 text-xs mt-1">{localErrors.confirmPassword}</p>}
+                </div>
+              </div>
+
+              <div className="flex items-center">
+                <input
+                  id="agree-terms"
+                  name="agree-terms"
+                  type="checkbox"
+                  required
+                  className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                />
+                <label htmlFor="agree-terms" className="ml-2 block text-sm text-gray-900">
+                  Tôi đồng ý với{' '}
+                  <Link href="/terms" className="text-primary-600 hover:text-primary-500">
+                    Điều khoản sử dụng
+                  </Link>{' '}
+                  và{' '}
+                  <Link href="/privacy" className="text-primary-600 hover:text-primary-500">
+                    Chính sách bảo mật
+                  </Link>
+                </label>
               </div>
 
               <div>
-                <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-2">
-                  <Lock className="h-4 w-4 inline mr-1" />
-                  Xác nhận mật khẩu *
-                </label>
-                <div className="relative">
-                  <input
-                    id="confirmPassword"
-                    name="confirmPassword"
-                    type={showConfirmPassword ? 'text' : 'password'}
-                    autoComplete="new-password"
-                    required
-                    value={formData.confirmPassword}
-                    onChange={handleChange}
-                    className={`appearance-none relative block w-full px-3 py-2 pr-10 border placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 focus:z-10 sm:text-sm ${localErrors.confirmPassword ? 'border-red-300' : 'border-gray-300'
-                      }`}
-                    placeholder="Nhập lại mật khẩu"
-                  />
-                  <button
-                    type="button"
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  >
-                    {showConfirmPassword ? (
-                      <EyeOff className="h-4 w-4 text-gray-400" />
-                    ) : (
-                      <Eye className="h-4 w-4 text-gray-400" />
-                    )}
-                  </button>
-                </div>
-                {localErrors.confirmPassword && <p className="text-red-500 text-xs mt-1">{localErrors.confirmPassword}</p>}
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isLoading ? 'Đang tạo tài khoản...' : 'Tạo tài khoản'}
+                </button>
               </div>
-            </div>
-
-            <div className="flex items-center">
-              <input
-                id="agree-terms"
-                name="agree-terms"
-                type="checkbox"
-                required
-                className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
-              />
-              <label htmlFor="agree-terms" className="ml-2 block text-sm text-gray-900">
-                Tôi đồng ý với{' '}
-                <Link href="/terms" className="text-primary-600 hover:text-primary-500">
-                  Điều khoản sử dụng
-                </Link>{' '}
-                và{' '}
-                <Link href="/privacy" className="text-primary-600 hover:text-primary-500">
-                  Chính sách bảo mật
-                </Link>
-              </label>
-            </div>
-
-            <div>
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isLoading ? 'Đang tạo tài khoản...' : 'Tạo tài khoản'}
-              </button>
-            </div>
-          </form>
+            </form>
+          )}
         </div>
       </div>
     </div>

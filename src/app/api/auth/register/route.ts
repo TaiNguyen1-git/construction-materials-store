@@ -6,6 +6,7 @@ import crypto from 'crypto'
 import { registerSchema, validateRequest, sanitizeString } from '@/lib/validation'
 import { logger, logAuth, logAPI } from '@/lib/logger'
 import { checkRateLimit } from '@/lib/rate-limit-api'
+import { EmailService } from '@/lib/email-service'
 
 // Helper to hash token for storage
 function hashToken(token: string): string {
@@ -216,70 +217,53 @@ export async function POST(request: NextRequest) {
       return { user, customer }
     })
 
-    // Generate JWT token
-    const jwtSecret = process.env.JWT_SECRET
-    if (!jwtSecret) {
-      throw new Error('JWT_SECRET is not configured')
-    }
+    // Generate 6-digit OTP
+    const otpCode = Math.floor(100000 + Math.random() * 900000).toString()
+    const otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000) // 10 minutes
 
-    const token = jwt.sign(
-      {
-        userId: result.user.id,
-        email: result.user.email,
-        role: result.user.role
-      },
-      jwtSecret,
-      { expiresIn: '7d' }
-    )
-
-    // Create session record in database
-    const tokenHash = hashToken(token)
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
-
-    const session = await prisma.userSession.create({
+    // Update user with OTP
+    await prisma.user.update({
+      where: { id: result.user.id },
       data: {
-        userId: result.user.id,
-        tokenHash,
-        deviceInfo: clientInfo.deviceInfo,
-        ipAddress: clientInfo.ip,
-        userAgent: clientInfo.userAgent,
-        tabId: clientInfo.tabId,
-        expiresAt,
-        lastActivityAt: new Date(),
+        otpCode,
+        otpExpiresAt
       }
     })
 
-    // Log successful registration
-    logAuth.login(result.user.id, result.user.email, true)
-    logger.info('New user registered', {
-      userId: result.user.id,
+    // Send OTP via Email
+    const emailSent = await EmailService.sendOTP({
       email: result.user.email,
-      type: 'auth'
+      name: result.user.name,
+      otpCode,
+      type: 'VERIFICATION',
+      expiresInMinutes: 10
     })
 
-    // Return user data without password
-    const { password: _, ...userWithoutPassword } = result.user
+    if (!emailSent) {
+      logger.error('Failed to send verification email', { email: result.user.email })
+    }
+
+    // Generate a temporary verification token (short-lived)
+    const verificationToken = jwt.sign(
+      {
+        userId: result.user.id,
+        email: result.user.email,
+        purpose: 'email_verification'
+      },
+      process.env.JWT_SECRET!,
+      { expiresIn: '15m' }
+    )
 
     const duration = Date.now() - startTime
     logAPI.response('POST', '/api/auth/register', 201, duration)
 
-    const response = NextResponse.json({
+    return NextResponse.json({
       success: true,
-      user: userWithoutPassword,
-      token,
-      sessionId: session.id,
+      message: 'Đăng ký thành công. Vui lòng kiểm tra email để nhận mã xác thực.',
+      verificationRequired: true,
+      email: result.user.email,
+      verificationToken // Client can use this to identify the session
     }, { status: 201 })
-
-    // Set HTTP-only cookie for middleware protection
-    response.cookies.set('auth_token', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      path: '/',
-      maxAge: 7 * 24 * 60 * 60 // 7 days
-    })
-
-    return response
   } catch (error: any) {
     const duration = Date.now() - startTime
     logAPI.error('POST', '/api/auth/register', error, { duration })
