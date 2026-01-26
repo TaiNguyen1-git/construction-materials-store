@@ -45,6 +45,112 @@ export default function PostProjectPage() {
         isPublic: true
     })
 
+    // Template-based description generator
+    const DESCRIPTION_TEMPLATES: Record<string, (name: string, location: string) => string> = {
+        flooring: (name, location) => `📋 **Yêu cầu công việc:**
+Lát gạch nền toàn bộ ${name ? `cho "${name}"` : 'khu vực'}.
+
+📐 **Chi tiết:**
+• Diện tích: [Nhập diện tích] m²
+• Loại gạch yêu cầu: Gạch men 60x60cm / 80x80cm
+• Tình trạng nền hiện tại: [Bê tông/Gạch cũ/Nền đất]
+
+📍 **Địa điểm:** ${location || '[Nhập địa điểm]'}
+
+✅ **Yêu cầu khác:**
+• Nhà thầu tự cung cấp vật tư hoặc gia chủ cung cấp
+• Hoàn thiện gọn gàng, vệ sinh sau thi công
+• Bảo hành tối thiểu 12 tháng`,
+
+        painting: (name, location) => `📋 **Yêu cầu công việc:**
+Sơn tường ${name ? `cho "${name}"` : 'toàn bộ công trình'}.
+
+📐 **Chi tiết:**
+• Tổng diện tích tường: [Nhập diện tích] m²
+• Loại sơn: Sơn nội thất / Sơn ngoại thất
+• Màu sắc: [Trắng/Kem/Theo yêu cầu]
+• Tình trạng tường: [Mới/Cũ cần cạo sơn/Bong tróc]
+
+📍 **Địa điểm:** ${location || '[Nhập địa điểm]'}
+
+✅ **Yêu cầu khác:**
+• Sơn lót + 2 lớp sơn phủ
+• Che chắn đồ đạc cẩn thận
+• Dọn dẹp sạch sẽ sau thi công`,
+
+        tiling: (name, location) => `📋 **Yêu cầu công việc:**
+Ốp lát tường ${name ? `cho "${name}"` : 'khu vực'}.
+
+📐 **Chi tiết:**
+• Diện tích ốp: [Nhập diện tích] m²
+• Vị trí: Nhà vệ sinh / Bếp / Phòng khách
+• Loại gạch: Gạch men / Đá granite
+• Kích thước gạch: [30x60cm / 40x80cm]
+
+📍 **Địa điểm:** ${location || '[Nhập địa điểm]'}
+
+✅ **Yêu cầu khác:**
+• Chà ron màu phù hợp
+• Căn chỉnh thẳng hàng, đều đẹp
+• Bảo hành công trình`,
+
+        general: (name, location) => `📋 **Yêu cầu công việc:**
+${name || 'Công trình xây dựng / cải tạo nhà ở'}.
+
+📐 **Phạm vi công việc:**
+• [Liệt kê các hạng mục cần thi công]
+• Diện tích: [Nhập diện tích] m²
+• Số tầng / phòng: [Nếu có]
+
+📍 **Địa điểm:** ${location || '[Nhập địa điểm]'}
+
+⏰ **Thời gian mong muốn:**
+• Khởi công: [Ngày bắt đầu]
+• Hoàn thành dự kiến: [Số ngày / tuần]
+
+✅ **Yêu cầu khác:**
+• Có kinh nghiệm công trình tương tự
+• Báo giá chi tiết theo từng hạng mục
+• Cam kết tiến độ và chất lượng`,
+
+        interior: (name, location) => `📋 **Yêu cầu công việc:**
+Hoàn thiện nội thất ${name ? `cho "${name}"` : ''}.
+
+📐 **Chi tiết:**
+• Diện tích: [Nhập diện tích] m²
+• Hạng mục: Trần thạch cao / Sàn gỗ / Tủ bếp / Cửa
+• Phong cách: Hiện đại / Cổ điển / Tối giản
+
+📍 **Địa điểm:** ${location || '[Nhập địa điểm]'}
+
+✅ **Yêu cầu khác:**
+• Thiết kế theo bản vẽ hoặc tư vấn
+• Vật liệu chính hãng, có xuất xứ
+• Bảo hành theo tiêu chuẩn`,
+
+        repair: (name, location) => `📋 **Yêu cầu công việc:**
+Sửa chữa ${name || 'công trình'}.
+
+🔧 **Mô tả hiện trạng:**
+• Vấn đề cần sửa: [Mô tả cụ thể]
+• Nguyên nhân (nếu biết): [Thấm dột/Hư hỏng/Xuống cấp]
+• Mức độ: [Nhẹ/Trung bình/Nặng]
+
+📍 **Địa điểm:** ${location || '[Nhập địa điểm]'}
+
+✅ **Yêu cầu:**
+• Khảo sát và báo giá chi tiết trước thi công
+• Sửa chữa triệt để, không tái phát
+• Bảo hành sau sửa chữa`
+    }
+
+    const generateDescription = () => {
+        const template = DESCRIPTION_TEMPLATES[formData.category] || DESCRIPTION_TEMPLATES.general
+        const description = template(formData.name, formData.location)
+        setFormData(prev => ({ ...prev, description }))
+        toast.success('Đã tạo mẫu mô tả! Hãy điền thông tin chi tiết.')
+    }
+
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value } = e.target
         setFormData(prev => ({ ...prev, [name]: value }))
@@ -264,14 +370,24 @@ export default function PostProjectPage() {
                                     </div>
 
                                     <div>
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Mô tả chi tiết *</label>
+                                        <div className="flex items-center justify-between mb-2">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Mô tả chi tiết *</label>
+                                            <button
+                                                type="button"
+                                                onClick={generateDescription}
+                                                className="text-xs font-bold text-purple-600 flex items-center gap-1 hover:text-purple-700 transition-colors"
+                                            >
+                                                <Sparkles className="w-3.5 h-3.5" />
+                                                Tạo mẫu
+                                            </button>
+                                        </div>
                                         <textarea
                                             name="description"
                                             value={formData.description}
                                             onChange={handleInputChange}
-                                            rows={5}
+                                            rows={8}
                                             placeholder="Mô tả công việc cần làm, diện tích, vật liệu yêu cầu..."
-                                            className="w-full px-5 py-4 bg-slate-50 border-2 border-transparent focus:border-primary-500 focus:bg-white rounded-2xl outline-none font-bold text-slate-700 transition-all resize-none leading-relaxed"
+                                            className="w-full px-5 py-4 bg-slate-50 border-2 border-transparent focus:border-primary-500 focus:bg-white rounded-2xl outline-none font-medium text-slate-700 transition-all resize-none leading-relaxed"
                                             required
                                         />
                                     </div>

@@ -76,31 +76,74 @@ export default function ApplicationForm({
     const [aiAdvice, setAiAdvice] = useState<string | null>(null)
     const [aiProducts, setAiProducts] = useState<string | null>(null)
 
-    const handleAIGenerate = async () => {
-        setAiLoading(true)
-        try {
-            const res = await fetch('/api/ai/write', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    type: 'BIDDING_PROPOSAL',
-                    prompt: 'Hãy giúp tôi viết thư ứng tuyển chuyên nghiệp cho dự án này.',
-                    context: {
-                        projectTitle,
-                        experience: contractorName ? 'đã xác minh trên sàn' : 'nhiều năm kinh nghiệm'
-                    }
-                })
-            })
-            const data = await res.json()
-            if (data.success) {
-                setForm({ ...form, message: data.data.text })
-                toast.success('AI đã soạn thảo thư cho bạn!')
-            }
-        } catch (err) {
-            toast.error('Lỗi gọi AI')
-        } finally {
-            setAiLoading(false)
+    // Template-based proposal generator (no API call, instant, free)
+    const PROPOSAL_TEMPLATES = [
+        // Template 1: Professional formal
+        (name: string, project: string, isVerified: boolean) => `Kính gửi Quý Chủ đầu tư,
+
+Tôi là ${name}${isVerified ? ' - Đối tác xác minh trên SmartBuild' : ''}. Sau khi xem xét yêu cầu của dự án "${project}", tôi xin gửi đến Quý vị lời đề nghị hợp tác.
+
+**Cam kết của tôi:**
+• Thi công đúng tiến độ, đảm bảo chất lượng
+• Sử dụng vật tư chính hãng, có nguồn gốc rõ ràng
+• Báo giá minh bạch, không phát sinh chi phí ẩn
+• Bảo hành công trình theo thỏa thuận
+
+Rất mong có cơ hội được trao đổi thêm với Quý Chủ đầu tư.
+
+Trân trọng,
+${name}`,
+
+        // Template 2: Friendly but professional
+        (name: string, project: string, isVerified: boolean) => `Chào anh/chị,
+
+Em là ${name}${isVerified ? ' (Nhà thầu xác minh)' : ''}, chuyên nhận các công trình xây dựng và hoàn thiện nội thất.
+
+Em rất quan tâm đến dự án "${project}" của anh/chị. Với kinh nghiệm thực tế, em cam kết:
+✓ Thi công đúng kỹ thuật, đảm bảo tiến độ
+✓ Vật tư sử dụng đều có chứng từ rõ ràng
+✓ Giá cả hợp lý, thanh toán linh hoạt
+
+Anh/chị có thể liên hệ để em báo giá chi tiết ạ!
+
+Cảm ơn anh/chị,
+${name}`,
+
+        // Template 3: Experience-focused
+        (name: string, project: string, isVerified: boolean) => `Kính chào Quý Chủ đầu tư,
+
+${name} xin giới thiệu năng lực thực hiện dự án "${project}"${isVerified ? ' (Đã xác minh trên SmartBuild)' : ''}.
+
+**Điểm mạnh của chúng tôi:**
+→ Đội ngũ thợ lành nghề, có chứng chỉ nghề
+→ Máy móc thiết bị đầy đủ, hiện đại
+→ Cam kết tiến độ và chất lượng công trình
+→ Hỗ trợ tư vấn vật tư phù hợp ngân sách
+
+Chúng tôi sẵn sàng khảo sát và báo giá miễn phí. Rất mong được phục vụ!
+
+Trân trọng,
+${name}`
+    ]
+
+    const handleAIGenerate = () => {
+        // Validate: Guest must fill in name first
+        if (!isLoggedIn && !form.guestName.trim()) {
+            toast.error('Vui lòng nhập Họ tên trước để tạo mẫu thư')
+            return
         }
+
+        // Get user name
+        const userName = isLoggedIn ? (contractorName || 'Nhà thầu') : form.guestName.trim()
+        const isVerified = isLoggedIn
+
+        // Pick a random template or cycle through them
+        const templateIndex = Math.floor(Math.random() * PROPOSAL_TEMPLATES.length)
+        const template = PROPOSAL_TEMPLATES[templateIndex]
+        const generatedText = template(userName, projectTitle, isVerified)
+
+        setForm({ ...form, message: generatedText })
+        toast.success('Đã tạo mẫu thư! Hãy chỉnh sửa cho phù hợp với bạn.')
     }
 
     const handleAIAdvice = async () => {
@@ -340,11 +383,10 @@ export default function ApplicationForm({
                                     <label className="block text-sm font-medium text-gray-700">Giới thiệu năng lực *</label>
                                     <button
                                         onClick={handleAIGenerate}
-                                        disabled={aiLoading}
-                                        className="text-xs font-semibold text-purple-600 flex items-center gap-1 hover:text-purple-700 disabled:opacity-50"
+                                        className="text-xs font-semibold text-purple-600 flex items-center gap-1 hover:text-purple-700 transition-colors"
                                     >
                                         <Sparkles className="w-3.5 h-3.5" />
-                                        {aiLoading ? 'Đang soạn...' : 'AI Soạn giúp tôi'}
+                                        Tạo mẫu thư
                                     </button>
                                 </div>
                                 <textarea
