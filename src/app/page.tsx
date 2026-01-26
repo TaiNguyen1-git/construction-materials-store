@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { Search, MapPin, ArrowRight, Zap, TrendingUp, ShieldCheck, PenTool, LayoutGrid, Brain, CreditCard, Package, ChevronRight, UserPlus, ChevronDown, HardHat, Quote, Star, Sparkles, Clock, X } from 'lucide-react'
+import { Search, MapPin, ArrowRight, Zap, TrendingUp, ShieldCheck, PenTool, LayoutGrid, Brain, CreditCard, Package, ChevronRight, UserPlus, ChevronDown, HardHat, Quote, Star, Sparkles, Clock, X, Plus } from 'lucide-react'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import WishlistButton from '@/components/WishlistButton'
@@ -874,6 +874,13 @@ export default function HomePage() {
                     <div className="font-bold text-sm">Tìm nhà thầu uy tín</div>
                   </div>
                   <ShieldCheck className="w-6 h-6 opacity-80 group-hover:scale-110 transition-transform" />
+                </Link>
+                <Link href="/projects/post" className="flex-1 bg-gradient-to-r from-orange-500 to-amber-600 p-4 rounded-xl text-white shadow-lg flex items-center justify-between group cursor-pointer hover:shadow-orange-200 transition-all active:scale-95">
+                  <div>
+                    <div className="text-[10px] font-bold opacity-80 uppercase tracking-widest">Khách hàng</div>
+                    <div className="font-bold text-sm">Đăng tin dự án</div>
+                  </div>
+                  <Plus className="w-6 h-6 opacity-80 group-hover:scale-110 transition-transform" />
                 </Link>
               </div>
             </div>

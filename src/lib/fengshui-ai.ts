@@ -24,7 +24,7 @@ Nhiệm vụ của bạn là tư vấn cho chủ nhà về màu sắc và vật 
 - Loại công việc: ${projectType}
 
 **CẤU TRÚC PHẢN HỒI (HÃY VIẾT TỰ NHIÊN):**
-1. Phân tích mệnh của gia chủ dựa trên năm sinh (Ví dụ: Năm 1992 là mệnh Kiếm Phong Kim).
+1. Phân tích mệnh của khách hàng dựa trên năm sinh (Ví dụ: Năm 1992 là mệnh Kiếm Phong Kim).
 2. Phân tích sự tương tác giữa Mệnh và Hướng nhà.
 3. Gợi ý màu sắc vật liệu (Ví dụ: Màu sơn, màu gạch nền).
 4. Khuyên loại vật liệu cụ thể (VD: Gạch ceramic bóng, sơn mịn...).

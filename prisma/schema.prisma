@@ -1089,7 +1089,8 @@ model Project {
   id              String     @id @default(auto()) @map("_id") @db.ObjectId
   name            String
   description     String?
-  customerId      String     @db.ObjectId
+  category        String?    @default("general")
+  customerId      String?    @db.ObjectId
   status          ProjectStatus @default(PLANNING)
   startDate       DateTime
   endDate         DateTime?
@@ -1099,11 +1100,29 @@ model Project {
   priority        Priority   @default(MEDIUM)
   notes           String?
   location        String?
+  
+  // Guest fields
+  guestName       String?
+  guestPhone      String?
+  guestEmail      String?
+  
+  // Moderation & Public Visibility
+  moderationStatus ModerationStatus @default(PENDING)
+  isPublic        Boolean    @default(false)
+  approvedAt      DateTime?
+  approvedBy      String?    @db.ObjectId // Employee/Admin ID
+  
+  // Verification for Guests
+  isVerified      Boolean    @default(false)
+  otpCode         String?
+  otpExpiresAt    DateTime?
+  verificationId  String?    // To handle step-by-step verification
+  
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt
 
   // Relationships
-  customer        Customer   @relation("ProjectOwner", fields: [customerId], references: [id])
+  customer        Customer?  @relation("ProjectOwner", fields: [customerId], references: [id])
   contractorId    String?    @db.ObjectId
   contractor      Customer?  @relation("ProjectContractor", fields: [contractorId], references: [id])
   projectTasks    ProjectTask[]
@@ -1115,6 +1134,14 @@ model Project {
   @@index([status])
   @@index([priority])
   @@index([startDate])
+  @@index([moderationStatus])
+  @@index([isPublic])
+}
+
+enum ModerationStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }
 
 model ProjectTask {

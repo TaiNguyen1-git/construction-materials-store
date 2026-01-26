@@ -16,40 +16,70 @@ const genAI = process.env.GEMINI_API_KEY
 // TCVN Construction material standards (Vietnamese market)
 // Based on Norm 1776/BXD & Typical Market Yields
 const CONSTRUCTION_STANDARDS = {
-    // Basic Materials per m2 of Floor Area (Simplified for general estimation)
+    /**
+     * Empirical norms for Vietnamese residential construction (Suất định mức m2 sàn)
+     * Adjusted for small footprints (20-40m2) where wall density is higher.
+     */
     nhà_cấp_4: {
-        bricks: 75,      // gạch ống 8x8x18 per m2 floor (includes walls)
-        cement: 75,      // kg per m2 floor (foundation + walls + plaster)
-        sand: 0.15,      // m3 per m2 floor
-        stone_1x2: 0.08, // m3 per m2 floor
-        steel: 25,       // kg per m2 floor (simple foundation)
+        cement: 90,       // kg/m2 floor
+        sand_build: 0.25,  // m3/m2
+        sand_fill: 0.12,   // m3/m2
+        stone_1x2: 0.20,   // m3/m2
+        stone_4x6: 0.08,   // m3/m2
+        bricks: 120,      // viên/m2 (Increased for small house density)
+        steel: 50,        // kg/m2
+        electric_pipes: 2.5,
+        water_pipes: 1.8,
     },
     nhà_phố: {
-        bricks: 85,      // More walls/compartments
-        cement: 90,      // More structural concrete
-        sand: 0.18,
-        stone_1x2: 0.12,
-        steel: 55,       // Frame structure (cột, dầm, sàn)
+        cement: 140,      // Increased for structural density
+        sand_build: 0.45,
+        sand_fill: 0.15,
+        stone_1x2: 0.35,
+        stone_4x6: 0.12,
+        bricks: 180,      // ~7200 viên for 40m2 (Realistic for 2-story 20m2 house)
+        steel: 110,       // kg/m2
+        electric_pipes: 4.5,
+        water_pipes: 3.5,
     },
     biệt_thự: {
-        bricks: 100,
-        cement: 120,
-        sand: 0.22,
-        stone_1x2: 0.18,
-        steel: 85,       // Heavy structure & details
-    },
-    // Working items
-    painting: {
-        primer_m2_per_liter: 10,
-        paint_m2_per_liter: 8, // 2 coats
-        wastage: 1.1,
+        cement: 180,
+        sand_build: 0.60,
+        sand_fill: 0.20,
+        stone_1x2: 0.50,
+        stone_4x6: 0.15,
+        bricks: 220,
+        steel: 150,
+        electric_pipes: 7.0,
+        water_pipes: 6.0,
     },
     flooring: {
-        cement_leveling_kg_m2: 15, // 3-5cm thickness
-        sand_leveling_m3_m2: 0.03,
+        cement_leveling_kg_m2: 12, // For substrate
+        sand_leveling_m3_m2: 0.04,  // For substrate (approx 3-5cm thick)
         tile_wastage: 1.08,
-        grout_kg_m2: 0.5,
+        grout_kg_m2: 0.8, // Increased for realistic gaps
+    },
+    painting: {
+        primer_m2_per_liter: 10,
+        topcoat_m2_per_liter: 5,
+        putty_m2_per_kg: 1.2,
     }
+}
+
+// Market Price Fallback (VND) for items NOT in store
+const MARKET_PRICES: Record<string, { price: number, unit: string }> = {
+    'xi măng': { price: 85000, unit: 'bao' },
+    'gạch': { price: 1300, unit: 'viên' },
+    'cát': { price: 350000, unit: 'm³' },
+    'đá 1×2': { price: 450000, unit: 'm³' },
+    'đá 4×6': { price: 380000, unit: 'm³' },
+    'thép': { price: 17500000, unit: 'tấn' }, // ~17.5k/kg
+    'sắt': { price: 17500000, unit: 'tấn' },
+    'sơn': { price: 120000, unit: 'lít' },
+    'điện': { price: 45000, unit: 'mét' },
+    'nước': { price: 65000, unit: 'mét' },
+    'keo chà ron': { price: 35000, unit: 'kg' },
+    'gạch lát nền': { price: 220000, unit: 'm²' } // Fallback for 60x60
 }
 
 export interface RoomDimension {
@@ -62,11 +92,13 @@ export interface RoomDimension {
 
 export interface MaterialEstimate {
     productName: string
+    originalName?: string // The AI-generated generic name
     productId?: string
     quantity: number
     unit: string
     reason: string
     price?: number
+    isInStore?: boolean
 }
 
 export interface EstimatorResult {
@@ -82,6 +114,9 @@ export interface EstimatorResult {
     validationMessage?: string
     rawAnalysis?: string
     error?: string
+    fengShuiAdvice?: string
+    wallPerimeter?: number
+    roofType?: string
 }
 
 // Retry helper
@@ -95,9 +130,12 @@ async function withRetry<T>(fn: () => Promise<T>, maxRetries = 3): Promise<T> {
 /**
  * Analyze floor plan image using Gemini Vision
  */
+// ... (imports remain)
 export async function analyzeFloorPlanImage(
-    base64Image: string,
-    projectType: 'general' | 'flooring' | 'painting' | 'tiling' = 'general'
+    base64Images: string | string[],
+    projectType: 'general' | 'flooring' | 'painting' | 'tiling' = 'general',
+    birthYear?: string,
+    houseDirection?: string
 ): Promise<EstimatorResult> {
     if (!genAI) return {
         success: false,
@@ -112,16 +150,36 @@ export async function analyzeFloorPlanImage(
     }
 
     try {
-        const imageData = base64Image.replace(/^data:image\/\w+;base64,/, '')
-        const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
+        const images = Array.isArray(base64Images) ? base64Images : [base64Images]
+        const imageParts = images.map(img => ({
+            inlineData: {
+                mimeType: 'image/jpeg',
+                data: img.replace(/^data:image\/\w+;base64,/, '')
+            }
+        }))
 
-        const prompt = `
-You are a professional Vietnamese construction surveyor. Analyze this image and:
-1. Identify all visible rooms and dimensions.
-2. IMPORTANT: Find a scale reference (e.g., a door marked 900, a dimension line like 4000, or a scale bar). Use this to calibrate all measurements.
-3. Determine the building style: "nhà_cấp_4", "nhà_phố", or "biệt_thự".
-4. Estimate "Tổng chiều dài tường bao và tường ngăn" (Visible Wall Perimeter) in meters.
-5. Identify the roof type (bê_tông, mái_thái, mái_tôn).
+        let fengShuiPrompt = ''
+        if (birthYear || houseDirection) {
+            fengShuiPrompt = `
+6. FENG SHUI ANALYSIS:
+   - User Info: Birth Year: ${birthYear || 'N/A'}, House Direction: ${houseDirection || 'N/A'}
+   - Determine the user's "Mệnh" (Fate) based on birth year.
+   - Analyze compatibility with the house direction (if provided).
+   - Suggest 3 specific Colors and Material types (e.g., Gỗ, Đá, Kim loại) that are "Tương sinh" or "Tương hợp".
+   - Provide a short, encouraging advice paragraph in Vietnamese.
+`
+        }
+
+        const aiPrompt = `
+1. ROOM ANALYSIS: Identify all visible rooms. For EACH room, provide estimated "length" and "width" in meters. 
+   - Calculate area for EACH room.
+   - Sum all room areas to get the floor area.
+2. TOTAL AREA: The "totalArea" field MUST be the mathematical sum of all identify room areas across all floors. Do NOT guess a round number.
+3. SCALE REFERENCE: Find a door (0.9m), a kitchen counter (0.6m depth), or a dimension line (e.g., 4000 = 4.0m). Use this to calibrate.
+4. BUILDING STYLE: Categorize as "nhà_cấp_4", "nhà_phố", or "biệt_thự".
+5. WALLS: Estimate total "wallPerimeter" for all floors combined in meters.
+6. ROOF: Identify "roofType" (bê_tông, mái_thái, mái_tôn).
+${fengShuiPrompt}
 
 Return ONLY JSON:
 {
@@ -131,18 +189,46 @@ Return ONLY JSON:
   "totalArea": float,
   "wallPerimeter": float, 
   "confidence": float,
-  "notes": "string"
+  "notes": "string",
+  "fengShuiAdvice": "string (markdown formatted, brief advice)"
 }
 `
-        const result = (await withRetry(() => model.generateContent([
-            prompt,
-            { inlineData: { mimeType: 'image/jpeg', data: imageData } }
-        ]))) as any
-        const responseText = result.response.text()
-        const cleanedText = responseText.replace(/```json|```/g, '').trim()
-        const data = JSON.parse(cleanedText)
 
-        const rooms: RoomDimension[] = data.rooms.map((r: any) => ({ ...r, area: r.length * r.width, height: 3.2 }))
+        const models = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-3-flash']
+        let lastError: any = null
+        let responseText = ''
+
+        for (const modelName of models) {
+            try {
+                const model = genAI.getGenerativeModel({ model: modelName })
+                const result = (await withRetry(() => model.generateContent([
+                    aiPrompt,
+                    ...imageParts
+                ]))) as any
+                responseText = result.response.text()
+                if (responseText) break
+            } catch (err) {
+                console.error(`Model ${modelName} failed, trying fallback...`, err)
+                lastError = err
+                continue
+            }
+        }
+
+        if (!responseText) throw lastError || new Error('All models failed')
+
+        // Robust JSON extraction
+        const jsonMatch = responseText.match(/\{[\s\S]*\}/)
+        if (!jsonMatch) {
+            console.error('Failed to find JSON in response:', responseText)
+            throw new Error('AI response was not in a valid JSON format.')
+        }
+        const data = JSON.parse(jsonMatch[0])
+
+        const rooms: RoomDimension[] = data.rooms.map((r: any) => ({
+            ...r,
+            area: (r.length && r.width) ? r.length * r.width : (r.area || 0),
+            height: 3.2
+        }))
         const totalArea = data.totalArea || rooms.reduce((sum, r) => sum + r.area, 0)
 
         const materials = await calculateMaterials(
@@ -170,7 +256,10 @@ Return ONLY JSON:
             confidence: data.confidence || 0.8,
             validationStatus: validation.status,
             validationMessage: validation.message,
-            rawAnalysis: `${data.notes || ''} | Roof: ${data.roofType || 'Unknown'}`
+            rawAnalysis: `${data.notes || ''} | Roof: ${data.roofType || 'Unknown'} `,
+            fengShuiAdvice: data.fengShuiAdvice,
+            wallPerimeter: data.wallPerimeter,
+            roofType: data.roofType
         }
     } catch (error: any) {
         console.error('Estimator error:', error)
@@ -224,6 +313,45 @@ function validateAgainstIndustryStandards(area: number, materials: MaterialEstim
     }
 }
 
+export async function recalculateEstimate(
+    totalArea: number,
+    projectType: string,
+    rooms: RoomDimension[],
+    buildingStyle: any,
+    wallPerimeter: number,
+    roofType: string,
+    fengShuiAdvice?: string,
+    confidence: number = 1.0,
+    notes: string = ''
+): Promise<EstimatorResult> {
+    const materials = await calculateMaterials(
+        totalArea,
+        projectType,
+        rooms,
+        buildingStyle,
+        wallPerimeter,
+        roofType
+    )
+    const enriched = await enrichMaterialsWithProducts(materials)
+    const cost = enriched.reduce((sum, m) => sum + (m.price || 0) * m.quantity, 0)
+    const validation = validateAgainstIndustryStandards(totalArea, enriched)
+
+    return {
+        success: true,
+        projectType,
+        buildingStyle,
+        rooms,
+        totalArea,
+        materials: enriched,
+        totalEstimatedCost: cost,
+        confidence,
+        validationStatus: validation.status,
+        validationMessage: validation.message,
+        rawAnalysis: `${notes} | Roof: ${roofType}`,
+        fengShuiAdvice
+    }
+}
+
 async function calculateMaterials(
     area: number,
     type: string,
@@ -233,95 +361,254 @@ async function calculateMaterials(
     roofType: string
 ): Promise<MaterialEstimate[]> {
     const materials: MaterialEstimate[] = []
-    const std = CONSTRUCTION_STANDARDS[style] || CONSTRUCTION_STANDARDS.nhà_cấp_4
-
-    // Apply Structural Multipliers
-    const foundationFactor = style === 'nhà_phố' ? 1.5 : (style === 'biệt_thự' ? 1.8 : 1.3)
-    const roofMultiplier = roofType === 'mái_thái' ? 1.4 : 1.1
+    const std = (CONSTRUCTION_STANDARDS as any)[style] || CONSTRUCTION_STANDARDS.nhà_cấp_4
 
     if (type === 'general') {
-        // Bricks: Average 100 bricks/m2 of wall area (blending wall 10 and 20)
-        const wallArea = wallPerimeter * 3.5 // 3.2m height + parapet/foundation wall
-        const brickCount = Math.ceil(wallArea * 100 * 1.05)
+        // Bricks: Average 100 bricks/m2 of wall area
+        const wallArea = wallPerimeter * 3.5
         materials.push({
             productName: 'Gạch ống 8×8×18cm',
-            quantity: brickCount,
+            quantity: Math.ceil(area * std.bricks),
             unit: 'viên',
-            reason: `Dựa trên ước tính ~${wallPerimeter.toFixed(1)}m chu vi tường theo TT 01/2025`
+            reason: `Định mức ~${std.bricks} viên / m² sàn cho ${style.replace('_', ' ')} (Bao gồm tường và cột)`
         })
 
-        // Cement: Industry avg in VN
-        // Grade 1 (Simple): ~4 bags/m2
-        // Grade 2 (Multi-story/Frame): ~5.5 to 6 bags/m2
-        const cementRate = style === 'nhà_cấp_4' ? 4.0 : 5.8
-        const cementBags = Math.ceil(area * cementRate * (style === 'biệt_thự' ? 1.2 : 1))
+        // Cement
+        const cementBags = Math.ceil((area * std.cement) / 50)
         materials.push({
-            productName: 'Xi măng (bao 50kg)',
+            productName: 'Xi măng xây tô (bao 50kg)',
             quantity: cementBags,
             unit: 'bao',
-            reason: `Định mức ~${cementRate} bao/m² cho dòng ${style.replace('_', ' ')} (Móng + Khung + Xây trát)`
+            reason: `Định mức ~${std.cement} kg / m² sàn(${cementBags} bao)`
         })
 
-        // Steel: Highly dependent on foundation & height
-        const steelTons = Number(((area * std.steel * foundationFactor) / 1000).toFixed(2))
+        // Steel
+        const steelTons = Number(((area * std.steel) / 1000).toFixed(2))
         materials.push({
             productName: 'Sắt thép xây dựng (tổng hợp)',
             quantity: steelTons,
             unit: 'tấn',
-            reason: `Hệ số móng ${foundationFactor}x diện tích sàn theo chuẩn đo bóc 01/2025`
+            reason: `Định mức thép ~${std.steel} kg / m² cho kết cấu ${style.replace('_', ' ')} `
         })
-        // Sand
+
+        // Sand Build
         materials.push({
-            productName: 'Cát xây dựng',
-            quantity: Number((area * std.sand).toFixed(1)),
+            productName: 'Cát xây tô',
+            quantity: Number((area * std.sand_build).toFixed(1)),
             unit: 'm³',
-            reason: `Tỷ lệ ~${std.sand}m³/m² diện tích xây dựng`
+            reason: `Dùng cho vữa xây và trát tường(~${std.sand_build}m³/m²)`
         })
-        // Stone
+
+        // Sand Fill
         materials.push({
-            productName: 'Đá 1×2 xây dựng',
+            productName: 'Cát san lấp',
+            quantity: Number((area * std.sand_fill).toFixed(1)),
+            unit: 'm³',
+            reason: `Dùng cho tôn nền và móng`
+        })
+
+        // Stone 1x2
+        materials.push({
+            productName: 'Đá 1×2',
             quantity: Number((area * std.stone_1x2).toFixed(1)),
             unit: 'm³',
-            reason: `Khối lượng bê tông dự kiến ${std.stone_1x2}m³/m²`
+            reason: `Dùng cho bê tông khung cột, dầm sàn`
         })
+
+        // Stone 4x6
+        materials.push({
+            productName: 'Đá 4×6',
+            quantity: Number((area * std.stone_4x6).toFixed(1)),
+            unit: 'm³',
+            reason: `Dùng cho bê tông lót móng`
+        })
+
+        // Pipes & Electric
+        materials.push({
+            productName: 'Hệ thống điện (ống & dây)',
+            quantity: Math.ceil(area * std.electric_pipes),
+            unit: 'mét',
+            reason: `Ước tính hệ thống điện theo diện tích sàn`
+        })
+        materials.push({
+            productName: 'Hệ thống cấp thoát nước',
+            quantity: Math.ceil(area * std.water_pipes),
+            unit: 'mét',
+            reason: `Ước tính đường ống nhựa cấp thoát nước`
+        })
+
     } else if (type === 'flooring') {
         const floorStd = CONSTRUCTION_STANDARDS.flooring
         materials.push({
             productName: 'Gạch lát nền 60×60cm',
             quantity: Math.ceil((area / 0.36) * floorStd.tile_wastage),
             unit: 'viên',
-            reason: `Diện tích ${area.toFixed(1)}m² + 8% hao hụt thi công`
+            reason: `Diện tích ${area.toFixed(1)} m² + 8 % hao hụt thi công`
         })
         materials.push({
-            productName: 'Xi măng (bao 50kg)',
+            productName: 'Cát vàng (Cán nền)',
+            quantity: Number((area * floorStd.sand_leveling_m3_m2).toFixed(1)),
+            unit: 'm³',
+            reason: `Lớp cát đệm cán nền dày ~4cm`
+        })
+        materials.push({
+            productName: 'Xi măng dán gạch/leveling',
             quantity: Math.ceil((area * floorStd.cement_leveling_kg_m2) / 50),
             unit: 'bao',
-            reason: `Lớp vữa lót nền dày 3-5cm (${floorStd.cement_leveling_kg_m2}kg/m²)`
+            reason: `Lớp vữa lót / dán gạch(${floorStd.cement_leveling_kg_m2}kg / m²)`
+        })
+        materials.push({
+            productName: 'Keo chà ron',
+            quantity: Math.ceil(area * floorStd.grout_kg_m2),
+            unit: 'kg',
+            reason: `Định mức ~${floorStd.grout_kg_m2} kg / m² cho mạch gạch`
+        })
+    } else if (type === 'painting') {
+        const paintStd = CONSTRUCTION_STANDARDS.painting
+        const wallArea = area * 3.0 // Rough estimated wall area ratio to floor
+        materials.push({
+            productName: 'Sơn lót chống kiềm',
+            quantity: Math.ceil(wallArea / paintStd.primer_m2_per_liter),
+            unit: 'lít',
+            reason: `Sơn lót 1 lớp cho diện tích tường ~${wallArea.toFixed(0)} m²`
+        })
+        materials.push({
+            productName: 'Sơn phủ màu nội thất',
+            quantity: Math.ceil(wallArea / paintStd.topcoat_m2_per_liter),
+            unit: 'lít',
+            reason: `Sơn phủ 2 lớp cho diện tích tường ~${wallArea.toFixed(0)} m²`
+        })
+        materials.push({
+            productName: 'Bột trét tường (Putty)',
+            quantity: Math.ceil(wallArea / paintStd.putty_m2_per_kg),
+            unit: 'kg',
+            reason: `Lớp bả hoàn thiện bề mặt tường`
         })
     }
-    // ... Additional specific types (painting, tiling) can be added similarly
 
     return materials
 }
 
 async function enrichMaterialsWithProducts(materials: MaterialEstimate[]): Promise<MaterialEstimate[]> {
-    const enriched: MaterialEstimate[] = []
+    const productMap = new Map<string, MaterialEstimate>()
+
     for (const m of materials) {
-        const searchTerms = m.productName.split(' ')[0]
-        const product = await prisma.product.findFirst({
-            where: { name: { contains: searchTerms, mode: 'insensitive' }, isActive: true },
+        let searchName = m.productName.split('(')[0].trim()
+        let excludeKeywords: string[] = []
+
+        // Special handling to prevent mis-matching generic "Gạch"
+        if (m.productName.toLowerCase().includes('lát nền')) {
+            excludeKeywords = ['đinh', 'ống', 'thẻ', 'xây']
+        }
+
+        // Special mapping for Stone/Cement/Steel to be more specific
+        if (m.productName.includes('1×2')) searchName = '1×2'
+        if (m.productName.includes('4×6')) searchName = '4×6'
+        if (m.productName.toLowerCase().includes('xi măng')) searchName = 'Xi măng'
+        if (m.productName.toLowerCase().includes('thép')) searchName = 'Thép'
+
+        let product = await prisma.product.findFirst({
+            where: {
+                name: { contains: searchName, mode: 'insensitive' },
+                isActive: true,
+                NOT: excludeKeywords.map(k => ({
+                    name: { contains: k, mode: 'insensitive' }
+                }))
+            },
             orderBy: { price: 'asc' }
         })
-        if (product) {
-            enriched.push({ ...m, productId: product.id, productName: product.name, price: product.price, unit: product.unit })
+
+        // Fallback for more general keywords if no specific match found
+        if (!product) {
+            const firstWord = m.productName.split(' ')[0]
+            product = await prisma.product.findFirst({
+                where: {
+                    name: { contains: firstWord, mode: 'insensitive' },
+                    isActive: true,
+                    NOT: excludeKeywords.map(k => ({
+                        name: { contains: k, mode: 'insensitive' }
+                    }))
+                },
+                orderBy: { price: 'asc' }
+            })
+        }
+
+        const key = product ? product.id : m.productName
+        const existing = productMap.get(key)
+
+        // Unit Conversion Logic
+        let finalQuantity = m.quantity
+        if (product && m.unit !== product.unit) {
+            // Ton to Kg
+            if (m.unit === 'tấn' && product.unit?.toLowerCase() === 'kg') {
+                finalQuantity = m.quantity * 1000
+            }
+            // Kg to Ton
+            else if (m.unit?.toLowerCase() === 'kg' && product.unit === 'tấn') {
+                finalQuantity = m.quantity / 1000
+            }
+            // Liter to ml etc. (optional, but good for base construction)
+        }
+
+        if (existing) {
+            existing.quantity += finalQuantity
+            if (!existing.reason.includes(m.reason.split('(')[0].trim())) {
+                existing.reason += ` & ${m.reason} `
+            }
         } else {
-            enriched.push(m)
+            if (product) {
+                productMap.set(key, {
+                    ...m,
+                    productId: product.id,
+                    productName: product.name,
+                    originalName: m.productName,
+                    quantity: finalQuantity,
+                    price: product.price,
+                    unit: product.unit,
+                    isInStore: true
+                })
+            } else {
+                // Find market price fallback for items NOT in store
+                let fallbackPrice = 0
+                const lowerName = m.productName.toLowerCase()
+                for (const [markeyKey, val] of Object.entries(MARKET_PRICES)) {
+                    if (lowerName.includes(markeyKey)) {
+                        fallbackPrice = val.price
+                        break
+                    }
+                }
+
+                productMap.set(key, {
+                    ...m,
+                    originalName: m.productName,
+                    price: fallbackPrice,
+                    isInStore: false
+                })
+            }
         }
     }
-    return enriched
+
+    // Final Rounding Pass to avoid 7.1999999999
+    const result = Array.from(productMap.values()).map(m => {
+        // Round based on unit
+        if (['viên', 'bao', 'máy', 'bộ', 'mét', 'kg'].includes(m.unit)) {
+            m.quantity = Math.ceil(m.quantity)
+        } else {
+            // Cubic meters (m3) and Tons (tấn) round to 1 decimal
+            m.quantity = Math.round(m.quantity * 10) / 10
+        }
+        return m
+    })
+
+    return result
 }
 
-export async function estimateFromText(description: string, projectType: any = 'general'): Promise<EstimatorResult> {
+export async function estimateFromText(
+    description: string,
+    projectType: any = 'general',
+    birthYear?: string,
+    houseDirection?: string
+): Promise<EstimatorResult> {
     if (!genAI) return {
         success: false,
         projectType,
@@ -335,39 +622,67 @@ export async function estimateFromText(description: string, projectType: any = '
     }
 
     try {
-        const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
+        let fengShuiPrompt = ''
+        if (birthYear || houseDirection) {
+            fengShuiPrompt = `
+        5. FENG SHUI ANALYSIS:
+        - User Info: Birth Year: ${birthYear || 'N/A'}, House Direction: ${houseDirection || 'N/A'}
+        - Determine the user's "Mệnh" (Fate) based on birth year.
+            - Analyze compatibility with the house direction(if provided).
+   - Suggest 3 specific Colors and Material types(e.g., Gỗ, Đá, Kim loại) that are "Tương sinh" or "Tương hợp".
+   - Return this advice as a SHORT string in "fengShuiAdvice" field(Vietnamese).
+`
+        }
 
-        const prompt = `
-Bạn là một kỹ sư xây dựng chuyên nghiệp Việt Nam. Phân tích mô tả dự án sau và trích xuất thông tin:
+        const aiPrompt = `
+Bạn là một kỹ sư xây dựng chuyên nghiệp Việt Nam và Chuyên gia Phong thuỷ.Phân tích mô tả dự án sau và trích xuất thông tin:
 
 Mô tả: "${description}"
 
 Hãy xác định:
-1. Các phòng/khu vực và kích thước (dài x rộng), ước lượng nếu không rõ.
-2. Loại nhà: "nhà_cấp_4", "nhà_phố", hoặc "biệt_thự" (mặc định là nhà_cấp_4 nếu không rõ).
+        1. Các phòng / khu vực và kích thước(dài x rộng), ước lượng nếu không rõ.
+2. Loại nhà: "nhà_cấp_4", "nhà_phố", hoặc "biệt_thự"(mặc định là nhà_cấp_4 nếu không rõ).
 3. Loại mái: "bê_tông", "mái_thái", hoặc "mái_tôn".
-4. Ước tính tổng chu vi tường (m).
+4. Ước tính tổng chu vi tường(m).
+            ${fengShuiPrompt}
 
 VÍ DỤ đầu vào: "lát sân 6x8m, phòng khách 5x4m"
 VÍ DỤ đầu ra:
-{
-  "buildingStyle": "nhà_cấp_4",
-  "roofType": "mái_tôn",
-  "rooms": [
-    { "name": "Sân", "length": 6, "width": 8 },
-    { "name": "Phòng khách", "length": 5, "width": 4 }
-  ],
-  "totalArea": 68,
-  "wallPerimeter": 40,
-  "confidence": 0.85,
-  "notes": "Dự án lát nền sân và phòng khách"
-}
+        {
+            "buildingStyle": "nhà_cấp_4",
+                "roofType": "mái_tôn",
+                    "rooms": [
+                        { "name": "Sân", "length": 6, "width": 8 },
+                        { "name": "Phòng khách", "length": 5, "width": 4 }
+                    ],
+                        "totalArea": 68,
+                            "wallPerimeter": 40,
+                                "confidence": 0.85,
+                                    "notes": "Dự án lát nền sân và phòng khách",
+                                        "fengShuiAdvice": "Mệnh Thổ hợp màu nâu, vàng. Hướng Đông Nam kỵ..."
+        }
 
 CHỈ trả về JSON, không có text giải thích:
-`
-        const result = await withRetry(() => model.generateContent(prompt))
-        const responseText = result.response.text()
-        const cleanedText = responseText.replace(/```json|```/g, '').trim()
+        `
+        const models = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-3-flash']
+        let lastError: any = null
+        let responseText = ''
+
+        for (const modelName of models) {
+            try {
+                const model = genAI.getGenerativeModel({ model: modelName })
+                const result = (await withRetry(() => model.generateContent(aiPrompt))) as any
+                responseText = result.response.text()
+                if (responseText) break
+            } catch (err) {
+                console.error(`Model ${modelName} failed, trying fallback...`, err)
+                lastError = err
+                continue
+            }
+        }
+
+        if (!responseText) throw lastError || new Error('All models failed')
+        const cleanedText = responseText.replace(/```json | ```/g, '').trim()
 
         let data: any
         try {
@@ -379,7 +694,7 @@ CHỈ trả về JSON, không có text giải thích:
 
             if (matches.length > 0) {
                 const rooms = matches.map((match, idx) => ({
-                    name: `Khu vực ${idx + 1}`,
+                    name: `Khu vực ${idx + 1} `,
                     length: parseFloat(match[1].replace(',', '.')),
                     width: parseFloat(match[2].replace(',', '.')),
                 }))
@@ -393,7 +708,8 @@ CHỈ trả về JSON, không có text giải thích:
                     totalArea,
                     wallPerimeter: Math.sqrt(totalArea) * 4,
                     confidence: 0.6,
-                    notes: 'Phân tích từ regex (AI không trả về JSON hợp lệ)'
+                    notes: 'Phân tích từ regex (AI không trả về JSON hợp lệ)',
+                    fengShuiAdvice: birthYear ? 'Vui lòng thử lại để nhận tư vấn phong thủy chi tiết.' : undefined
                 }
             } else {
                 throw new Error('Không thể xác định kích thước từ mô tả. Vui lòng nhập rõ hơn, ví dụ: "phòng 5x4m"')
@@ -445,7 +761,8 @@ CHỈ trả về JSON, không có text giải thích:
             confidence: data.confidence || 0.75,
             validationStatus: validation.status,
             validationMessage: validation.message,
-            rawAnalysis: data.notes || `Phân tích từ mô tả: "${description.substring(0, 100)}..."`
+            rawAnalysis: data.notes || `Phân tích từ mô tả: "${description.substring(0, 100)}..."`,
+            fengShuiAdvice: data.fengShuiAdvice
         }
     } catch (error: any) {
         console.error('Text estimator error:', error)

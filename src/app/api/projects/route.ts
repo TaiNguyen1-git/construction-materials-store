@@ -6,29 +6,38 @@ import { UserRole } from '@/lib/auth'
 // GET /api/projects - Get all projects
 export async function GET(request: NextRequest) {
   try {
-    const authError = requireAuth(request)
-    if (authError) return authError
-
-
     const { searchParams } = new URL(request.url)
+    const isPublic = searchParams.get('isPublic') === 'true'
+
+    // Auth is only mandatory if NOT requesting public marketplace projects
+    let user = null
+    const { verifyTokenFromRequest } = await import('@/lib/auth-middleware-api')
+
+    try {
+      user = verifyTokenFromRequest(request)
+    } catch (e) {
+      if (!isPublic) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      }
+    }
+
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '10')
     const status = searchParams.get('status')
+    const moderationStatus = searchParams.get('moderationStatus')
     const customerId = searchParams.get('customerId')
     const sortBy = searchParams.get('sortBy') || 'createdAt'
     const sortOrder = searchParams.get('sortOrder') || 'desc'
 
     const skip = (page - 1) * limit
 
-    // Get user from token for authorization check
-    const { verifyTokenFromRequest } = await import('@/lib/auth-middleware-api')
-    const user = verifyTokenFromRequest(request)
-
     // Build filter object
     const where: any = {}
 
-    // For customers, show projects they own OR projects they are contractors for
-    if (user && user.role === 'CUSTOMER') {
+    if (isPublic) {
+      where.isPublic = true
+      where.moderationStatus = 'APPROVED'
+    } else if (user && user.role === 'CUSTOMER') {
       const customer = await prisma.customer.findFirst({
         where: { userId: user.userId }
       })
@@ -42,10 +51,10 @@ export async function GET(request: NextRequest) {
         { customerId: customer.id },
         { contractorId: customer.id }
       ]
-    }
-    // For employees/managers, filter by customerId if provided
-    else if (customerId) {
-      where.customerId = customerId
+    } else if (user) {
+      // MANAGER/EMPLOYEE
+      if (customerId) where.customerId = customerId
+      if (moderationStatus) where.moderationStatus = moderationStatus
     }
 
     if (status) {
@@ -116,41 +125,56 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const { verifyTokenFromRequest } = await import('@/lib/auth-middleware-api')
-    const user = verifyTokenFromRequest(request)
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    let user = null
+    try {
+      user = verifyTokenFromRequest(request)
+    } catch (e) {
+      // Guest user
     }
 
     const body = await request.json()
-    const { name, description, customerId, contractorId, startDate, endDate, budget, priority, notes } = body
+    const {
+      name, description, customerId, contractorId,
+      startDate, endDate, budget, priority, notes, location,
+      guestName, guestPhone, guestEmail, isPublic
+    } = body
 
     // Validate required fields
     if (!name || !startDate || !budget) {
       return NextResponse.json({ error: 'Name, start date, and budget are required' }, { status: 400 })
     }
 
-    // For customers, use their own customer ID
-    let projectCustomerId = customerId
-    if (user.role === 'CUSTOMER') {
-      const customer = await prisma.customer.findFirst({
-        where: { userId: user.userId }
-      })
+    let projectCustomerId = null
+    let moderationStatus = 'PENDING'
+    let isVerified = user ? true : false // Auto-verify if logged in
+    let otpCode = null
+    let otpExpiresAt = null
 
-      if (!customer) {
-        return NextResponse.json({ error: 'Customer not found' }, { status: 404 })
+    if (user) {
+      // For authenticated customers, link to their account
+      if (user.role === 'CUSTOMER') {
+        const customer = await prisma.customer.findFirst({
+          where: { userId: user.userId }
+        })
+        if (customer) {
+          projectCustomerId = customer.id
+        }
+      } else if (customerId) {
+        // Admin creating for a customer
+        projectCustomerId = customerId
       }
 
-      projectCustomerId = customer.id
-    }
+      // Admin/Employee posts might be auto-approved
+      if (user.role === 'MANAGER' || user.role === 'EMPLOYEE') {
+        moderationStatus = 'APPROVED'
+      }
+    } else {
+      // Guest submission requirements
+      otpCode = Math.floor(100000 + Math.random() * 900000).toString() // 6 digit OTP
+      otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000) // 10 minutes expiry
 
-    // Validate customer exists
-    const customer = await prisma.customer.findUnique({
-      where: { id: projectCustomerId }
-    })
-
-    if (!customer) {
-      return NextResponse.json({ error: 'Customer not found' }, { status: 404 })
+      // In a real app, you would send this via SMS/Email
+      console.log(`[VERIFICATION] OTP for project "${name}" to ${guestPhone}: ${otpCode}`)
     }
 
     // Create project
@@ -164,7 +188,16 @@ export async function POST(request: NextRequest) {
         endDate: endDate ? new Date(endDate) : null,
         budget: parseFloat(budget),
         priority: priority || 'MEDIUM',
-        notes: notes || ''
+        notes: notes || '',
+        location: location || '',
+        guestName: guestName || null,
+        guestPhone: guestPhone || null,
+        guestEmail: guestEmail || null,
+        isPublic: isPublic || false,
+        moderationStatus,
+        isVerified,
+        otpCode,
+        otpExpiresAt
       },
       include: {
         customer: {
@@ -179,6 +212,14 @@ export async function POST(request: NextRequest) {
         }
       }
     })
+
+    if (!isVerified) {
+      return NextResponse.json({
+        message: 'Verification required',
+        projectId: project.id,
+        requiresVerification: true
+      }, { status: 202 })
+    }
 
     return NextResponse.json(project, { status: 201 })
   } catch (error) {

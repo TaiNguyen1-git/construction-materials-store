@@ -4,16 +4,27 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { analyzeFloorPlanImage, estimateFromText, EstimatorResult } from '@/lib/ai-vision-estimator'
+import { analyzeFloorPlanImage, estimateFromText, recalculateEstimate, EstimatorResult } from '@/lib/ai-vision-estimator'
 import { z } from 'zod'
 
 const estimatorSchema = z.object({
     image: z.string().optional(),
+    images: z.array(z.string()).optional(),
     description: z.string().optional(),
     projectType: z.enum(['flooring', 'painting', 'tiling', 'general']).optional().default('flooring'),
-    sessionId: z.string().optional()
-}).refine(data => data.image || data.description, {
-    message: 'Either image or description is required'
+    birthYear: z.string().optional(),
+    houseDirection: z.string().optional(),
+    sessionId: z.string().optional(),
+    // Recalculation fields
+    totalArea: z.number().optional(),
+    rooms: z.array(z.any()).optional(),
+    buildingStyle: z.string().optional(),
+    wallPerimeter: z.number().optional(),
+    roofType: z.string().optional(),
+    fengShuiAdvice: z.string().optional(),
+    isRecalculation: z.boolean().optional()
+}).refine(data => data.image || data.images || data.description || data.isRecalculation, {
+    message: 'Required input missing'
 })
 
 export async function POST(request: NextRequest) {
@@ -28,16 +39,30 @@ export async function POST(request: NextRequest) {
             )
         }
 
-        const { image, description, projectType } = validation.data
+        const {
+            image, images, description, projectType, birthYear, houseDirection,
+            isRecalculation, totalArea, rooms, buildingStyle, wallPerimeter, roofType, fengShuiAdvice
+        } = validation.data
 
         let result: EstimatorResult
 
-        if (image) {
-            // Analyze floor plan image
-            result = await analyzeFloorPlanImage(image, projectType)
+        if (isRecalculation && totalArea !== undefined) {
+            // Regeneration from confirmed data
+            result = await recalculateEstimate(
+                totalArea,
+                projectType,
+                rooms || [],
+                buildingStyle as any,
+                wallPerimeter || (totalArea * 0.8),
+                roofType || 'bê_tông',
+                fengShuiAdvice
+            )
+        } else if (image || (images && images.length > 0)) {
+            // Analyze floor plan image(s)
+            result = await analyzeFloorPlanImage(images || [image!], projectType, birthYear, houseDirection)
         } else if (description) {
             // Estimate from text description
-            result = await estimateFromText(description, projectType)
+            result = await estimateFromText(description, projectType, birthYear, houseDirection)
         } else {
             return NextResponse.json(
                 { success: false, error: 'No input provided' },
