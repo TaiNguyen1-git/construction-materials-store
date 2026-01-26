@@ -8,7 +8,8 @@ export default function Footer() {
     const pathname = usePathname()
 
     // Don't show footer on admin pages or contractor dashboard
-    if (pathname?.startsWith('/admin') || pathname?.startsWith('/contractor')) {
+    const isDashboard = pathname?.startsWith('/admin') || pathname === '/contractor' || pathname?.startsWith('/contractor/')
+    if (isDashboard) {
         return null
     }
 

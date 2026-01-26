@@ -13,19 +13,17 @@ import { Toaster, toast } from 'react-hot-toast'
 
 interface Project {
     id: string
-    name: string
+    title: string
     description: string | null
     status: string
-    startDate: string
-    budget: number
-    location: string | null
-    category: string | null
-    guestName?: string
-    moderationStatus: string
-    isPublic: boolean
     createdAt: string
-    taskCompletion?: number
-    totalTasks?: number
+    estimatedBudget: number | null
+    location: string | null
+    projectType: string | null
+    contactName?: string
+    applicationCount: number
+    viewCount: number
+    isUrgent: boolean
 }
 
 const CATEGORIES = [
@@ -49,12 +47,14 @@ export default function PublicProjectsPage() {
     const fetchProjects = async () => {
         try {
             setLoading(true)
-            // Using our new public projects API
-            const res = await fetch(`/api/projects?isPublic=true`)
+            // Using our new public marketplace projects API
+            const res = await fetch(`/api/marketplace/projects`)
             if (res.ok) {
                 const data = await res.json()
-                console.log('Fetched projects:', data)
-                setProjects(data.data || [])
+                console.log('Fetched marketplace projects:', data)
+                if (data.success) {
+                    setProjects(data.data.projects || [])
+                }
             }
         } catch (error) {
             console.error('Failed to fetch projects:', error)
@@ -73,9 +73,9 @@ export default function PublicProjectsPage() {
     }
 
     const filteredProjects = projects.filter(p => {
-        const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase()) ||
+        const matchesSearch = p.title.toLowerCase().includes(search.toLowerCase()) ||
             (p.location && p.location.toLowerCase().includes(search.toLowerCase()))
-        const matchesCategory = activeCategory === 'all' || p.category === activeCategory
+        const matchesCategory = activeCategory === 'all' || p.projectType === activeCategory
         return matchesSearch && matchesCategory
     })
 
@@ -133,7 +133,7 @@ export default function PublicProjectsPage() {
                                         </li>
                                     ))}
                                 </ul>
-                                <Link href="/contractors/login" className="w-full py-4 bg-slate-900 text-white rounded-xl font-black text-xs text-center block hover:bg-slate-800 transition-all">
+                                <Link href="/contractor/register" className="w-full py-4 bg-slate-900 text-white rounded-xl font-black text-xs text-center block hover:bg-slate-800 transition-all">
                                     ĐĂNG KÝ HÀNH NGHỀ
                                 </Link>
                             </div>
@@ -207,11 +207,11 @@ export default function PublicProjectsPage() {
                                     <div className="flex items-start justify-between mb-6">
                                         <div className="flex items-center gap-2">
                                             <div className="w-10 h-10 bg-primary-50 rounded-xl flex items-center justify-center text-primary-600 font-black">
-                                                {project.name.charAt(0)}
+                                                {project.title.charAt(0)}
                                             </div>
                                             <div>
                                                 <div className="text-xs font-black text-slate-900 truncate max-w-[150px] uppercase tracking-tight">
-                                                    {project.guestName || 'Khách hàng'}
+                                                    {project.contactName || 'Khách hàng'}
                                                 </div>
                                                 <div className="flex items-center gap-1 text-[10px] text-slate-400 font-bold uppercase">
                                                     <Clock className="w-3 h-3" /> {new Date(project.createdAt).toLocaleDateString('vi-VN')}
@@ -224,7 +224,7 @@ export default function PublicProjectsPage() {
                                     </div>
 
                                     <h3 className="text-xl font-black text-slate-900 group-hover:text-primary-600 transition-colors mb-4 line-clamp-2 leading-tight">
-                                        {project.name}
+                                        {project.title}
                                     </h3>
 
                                     <div className="space-y-4 mb-8">
@@ -234,7 +234,7 @@ export default function PublicProjectsPage() {
                                         </div>
                                         <div className="flex items-center gap-3 text-sm font-black text-emerald-600">
                                             <DollarSign className="w-4 h-4" />
-                                            {formatCurrency(project.budget)}
+                                            {project.estimatedBudget ? formatCurrency(project.estimatedBudget) : 'Thỏa thuận'}
                                         </div>
                                     </div>
 
@@ -250,7 +250,9 @@ export default function PublicProjectsPage() {
                                                 <div key={i} className="w-6 h-6 rounded-full border-2 border-white bg-slate-200"></div>
                                             ))}
                                         </div>
-                                        <span className="text-[10px] font-black text-slate-400 uppercase group-hover:text-primary-700">2 ứng tuyển</span>
+                                        <span className="text-[10px] font-black text-slate-400 uppercase group-hover:text-primary-700">
+                                            {project.applicationCount || 0} ứng tuyển
+                                        </span>
                                     </div>
                                     <div className="text-xs font-black text-primary-600 flex items-center gap-1 group-hover:translate-x-1 transition-transform">
                                         XEM CHI TIẾT <ArrowRight className="w-3.5 h-3.5" />
