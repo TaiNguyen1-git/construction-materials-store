@@ -17,7 +17,8 @@ import {
     Plus,
     Users,
     ChevronDown,
-    ChevronRight
+    ChevronRight,
+    Wallet
 } from 'lucide-react'
 import { useContractorCartStore } from '@/stores/contractorCartStore'
 
@@ -57,6 +58,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                 { href: '/contractor/cart', icon: ShoppingCart, label: 'Giỏ hàng', badge: cartItemCount },
                 { href: '/contractor/orders', icon: Package, label: 'Đơn hàng đã đặt' },
                 { href: '/contractor/debt', icon: CreditCard, label: 'Công nợ' },
+                { href: '/contractor/wallet', icon: Wallet, label: 'Ví hoa hồng & Affiliate' },
             ]
         }
     ]

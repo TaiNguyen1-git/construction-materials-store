@@ -55,12 +55,21 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             return NextResponse.json(createErrorResponse('Mốc thanh toán chưa được khách hàng thanh toán', 'INVALID_STATE'), { status: 400 })
         }
 
-        // Update milestone status to pending confirmation
-        const updated = await prisma.paymentMilestone.update({
-            where: { id: milestoneId },
-            data: {
-                status: 'PENDING_CONFIRMATION'
-            }
+        // Use EscrowService to submit evidence
+        const { escrowService } = await import('@/lib/escrow-service')
+        const result = await escrowService.submitCompletionEvidence(
+            milestoneId,
+            proofImages?.[0] || '', // Use first image as main evidence
+            notes || ''
+        )
+
+        if (!result.success) {
+            return NextResponse.json(createErrorResponse(result.message, 'INVALID_OPERATION'), { status: 400 })
+        }
+
+        // Fetch updated milestone
+        const updated = await prisma.paymentMilestone.findUnique({
+            where: { id: milestoneId }
         })
 
         // Log to quote history

@@ -153,13 +153,31 @@ export async function POST(request: NextRequest) {
         }
       })
 
-      // Generate unique referral code
+      // NEW: Handle input referral code
+      const inputReferralCode = body.referralCode
+      let referredBy = null
+      if (inputReferralCode) {
+        const referrer = await tx.customer.findFirst({
+          where: { referralCode: inputReferralCode }
+        })
+        if (referrer) {
+          referredBy = referrer.id
+          logger.info('User registered with referral code', {
+            userId: user.id,
+            referralCode: inputReferralCode,
+            referrerId: referrer.id
+          })
+        }
+      }
+
+      // Generate unique referral code for the NEW user
       const referralCode = await generateUniqueReferralCode(tx)
 
       const customer = await tx.customer.create({
         data: {
           userId: user.id,
-          referralCode
+          referralCode,
+          referredBy // Link to referrer
         }
       })
 

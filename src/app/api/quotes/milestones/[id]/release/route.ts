@@ -22,7 +22,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
         const { id: milestoneId } = await params
         const body = await request.json()
-        const { notes, rating } = body // Optional rating for contractor performance
+        const { notes, rating, proofImages } = body // Optional rating for contractor performance
 
         // Find the milestone
         const milestone = await prisma.paymentMilestone.findUnique({
@@ -55,13 +55,17 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             return NextResponse.json(createErrorResponse('Mốc thanh toán chưa sẵn sàng để giải ngân', 'INVALID_STATE'), { status: 400 })
         }
 
-        // Update milestone status to released
-        const updated = await prisma.paymentMilestone.update({
-            where: { id: milestoneId },
-            data: {
-                status: 'RELEASED',
-                paidAt: new Date()
-            }
+        // Use EscrowService to release payment
+        const { escrowService } = await import('@/lib/escrow-service')
+        const result = await escrowService.approveAndRelease(milestoneId, userId)
+
+        if (!result.success) {
+            return NextResponse.json(createErrorResponse(result.message, 'INVALID_OPERATION'), { status: 400 })
+        }
+
+        // Fetch updated milestone
+        const updated = await prisma.paymentMilestone.findUnique({
+            where: { id: milestoneId }
         })
 
         // Log to quote history

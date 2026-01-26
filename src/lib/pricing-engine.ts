@@ -9,7 +9,12 @@
  */
 
 import { prisma } from './prisma'
+import { MilestoneEscrowStatus } from '@prisma/client'
 
+// @ts-ignore - Prisma generated types sometimes take a moment to sync in IDE
+type ExtendedPaymentMilestone = any;
+// @ts-ignore
+type ExtendedQuoteRequest = any;
 export interface PriceResult {
     productId: string
     basePrice: number
@@ -112,7 +117,8 @@ export class PricingEngine {
             productId,
             customer.customerType,
             basePrice,
-            today
+            today,
+            quantity
         )
 
         if (priceListResult) {
@@ -210,13 +216,14 @@ export class PricingEngine {
     }
 
     /**
-     * Lấy giá từ bảng giá theo loại khách hàng
+     * Lấy giá từ bảng giá theo loại khách hàng (Hỗ trợ giá bậc thang)
      */
     private static async getPriceListPrice(
         productId: string,
         customerType: string,
         basePrice: number,
-        today: Date
+        today: Date,
+        quantity: number = 1
     ): Promise<PriceResult | null> {
         // Tìm bảng giá áp dụng cho loại khách hàng
         const priceLists = await prisma.priceList.findMany({
@@ -231,6 +238,11 @@ export class PricingEngine {
                     }
                 ]
             },
+            include: {
+                tiers: {
+                    orderBy: { minQuantity: 'desc' } // Bậc cao nhất lên đầu
+                }
+            },
             orderBy: { priority: 'desc' } // Ưu tiên cao trước
         })
 
@@ -238,14 +250,52 @@ export class PricingEngine {
             return null
         }
 
+        // Lấy thông tin sản phẩm để biết Category
+        const product = await prisma.product.findUnique({
+            where: { id: productId },
+            select: { categoryId: true }
+        })
+
+        if (!product) return null
+
+        // --- LOGIC GIÁ BẬC THANG (CATEGORY-BASED TIERED PRICING) ---
+        // Ưu tiên 1: Tìm bậc giá khớp với số lượng VÀ đúng Category của sản phẩm
+        // Ưu tiên 2: Tìm bậc giá khớp với số lượng (Global Tier - categoryId null)
+
         // Lấy bảng giá có priority cao nhất
         const priceList = priceLists[0]
 
-        if (priceList.discountPercent <= 0) {
+        let effectiveDiscount = priceList.discountPercent
+        let appliedTierId: string | undefined
+
+        const tiers = (priceList as any).tiers || []
+
+        if (tiers.length > 0) {
+            // Tìm tier khớp category trước
+            const categoryTier = tiers.find((tier: any) =>
+                tier.categoryId === product.categoryId && quantity >= tier.minQuantity
+            )
+
+            if (categoryTier) {
+                effectiveDiscount = categoryTier.discountPercent
+                appliedTierId = categoryTier.id
+            } else {
+                // Nếu không có category tier, tìm global tier (categoryId null)
+                const globalTier = tiers.find((tier: any) =>
+                    !tier.categoryId && quantity >= tier.minQuantity
+                )
+                if (globalTier) {
+                    effectiveDiscount = globalTier.discountPercent
+                    appliedTierId = globalTier.id
+                }
+            }
+        }
+
+        if (effectiveDiscount <= 0) {
             return null
         }
 
-        const effectivePrice = basePrice * (1 - priceList.discountPercent / 100)
+        const effectivePrice = basePrice * (1 - effectiveDiscount / 100)
         const discountAmount = basePrice - effectivePrice
 
         return {
@@ -253,12 +303,13 @@ export class PricingEngine {
             basePrice,
             effectivePrice,
             discountAmount,
-            discountPercent: priceList.discountPercent,
+            discountPercent: effectiveDiscount,
             priceSource: 'PRICE_LIST',
-            priceSourceId: priceList.id,
+            priceSourceId: appliedTierId || priceList.id,
             priceSourceName: priceList.name,
             isLocked: false, // Giá từ bảng giá có thể điều chỉnh
-            validUntil: priceList.validTo || undefined
+            validUntil: priceList.validTo || undefined,
+            notes: appliedTierId ? `Áp dụng giá sỉ cấp độ số lượng >= ${(priceList as any).tiers.find((t: any) => t.id === appliedTierId)?.minQuantity}` : undefined
         }
     }
 

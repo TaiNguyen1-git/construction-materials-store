@@ -225,6 +225,7 @@ model Customer {
   workerReportsManaged WorkerReport[]
   siteMaterialRequests SiteMaterialRequest[]
   contractorProfile     ContractorProfile?
+  wallet                Wallet?
   
   @@map("customers")
   @@index([customerType])
@@ -372,6 +373,7 @@ model Category {
   parent   Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   children Category[] @relation("CategoryHierarchy")
   products Product[]
+  priceTiers PriceTier[]
 
   @@map("categories")
   @@index([parentId])
@@ -970,6 +972,7 @@ enum OrderStatus {
   DELIVERED                // Đã giao hàng
   CANCELLED                // Đã hủy
   RETURNED                 // Đã trả hàng
+  COMPLETED                // Đã hoàn thành (sau khi thanh toán & nhận hàng)
 }
 
 enum OrderCustomerType {
@@ -1386,11 +1389,27 @@ model PriceList {
   validFrom       DateTime?
   validTo         DateTime?
   createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  updatedAt           DateTime @updatedAt
+  
+  tiers               PriceTier[] // Bậc giá theo số lượng
 
   @@map("price_lists")
   @@index([isActive])
   @@index([priority])
+}
+
+// Bậc giá theo số lượng cho PriceList
+model PriceTier {
+  id           String    @id @default(auto()) @map("_id") @db.ObjectId
+  priceListId  String    @db.ObjectId
+  categoryId   String?   @db.ObjectId // Ngành hàng áp dụng (Nếu null thì áp dụng toàn bộ)
+  minQuantity  Float     // Số lượng từ (>=)
+  discountPercent Float  // % giảm giá
+  
+  priceList    PriceList @relation(fields: [priceListId], references: [id], onDelete: Cascade)
+  category     Category? @relation(fields: [categoryId], references: [id])
+
+  @@map("price_tiers")
 }
 
 
@@ -1441,9 +1460,13 @@ model QuoteRequest {
   
   // Flow 3: Staged Payments
   milestones   PaymentMilestone[]
-  // Staged Payments & Contract
-  amount       Float?      // Total contract amount
-  metadata     Json?       // Extra metadata (projectId, applicationId, etc.)
+  
+  // Staged Payments & Escrow
+  totalAmount  Float?      // Tổng giá trị (đã bao gồm phí)
+  platformFee  Float       @default(0) // Phí môi giới sàn thu
+  escrowBalance Float      @default(0) // Số tiền hiện đang treo ký quỹ
+  
+  metadata     Json?       // Extra metadata
   
   history      QuoteStatusHistory[]
   milestoneReports WorkerReport[]
@@ -1489,8 +1512,20 @@ model PaymentMilestone {
   
   createdAt      DateTime      @default(now())
   workerReports  WorkerReport[]
+  
+  // Escrow tracking
+  escrowStatus   MilestoneEscrowStatus @default(PENDING) // PENDING -> DEPOSITED -> RELEASED
+  proofImageUrl  String?       // Ảnh nghiệm thu thực tế
+  confirmedAt    DateTime?     // Thời điểm khách nhấn duyệt nghiệm thu
 
   @@map("payment_milestones")
+}
+
+enum MilestoneEscrowStatus {
+  PENDING         // Chưa thanh toán
+  DEPOSITED       // Khách đã nạp tiền vào quỹ treo
+  RELEASED        // Sàn đã chuyển tiền cho nhà thầu
+  DISPUTED        // Đang tranh chấp
 }
 
 model QuoteStatusHistory {
@@ -2321,4 +2356,41 @@ enum DisputeStatus {
   UNDER_REVIEW
   RESOLVED
   REJECTED
+}
+model Wallet {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  customerId      String   @unique @db.ObjectId
+  balance         Float    @default(0) // Số dư khả dụng (VND)
+  holdBalance     Float    @default(0) // Tiền đang chờ duyệt (Escrow hoặc sỉ chưa giao)
+  totalEarned     Float    @default(0) // Tổng tiền đã kiếm được
+  totalSpent      Float    @default(0) // Tổng tiền đã dùng mua hàng
+  updatedAt       DateTime @updatedAt
+  
+  customer        Customer @relation(fields: [customerId], references: [id])
+  transactions    WalletTransaction[]
+
+  @@map("wallets")
+}
+
+model WalletTransaction {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  walletId        String   @db.ObjectId
+  amount          Float    // Số tiền (dương = cộng, âm = trừ)
+  type            WalletTransactionType
+  description     String?
+  relatedOrderId  String?  @db.ObjectId
+  createdAt       DateTime @default(now())
+  
+  wallet          Wallet   @relation(fields: [walletId], references: [id])
+
+  @@map("wallet_transactions")
+}
+
+enum WalletTransactionType {
+  COMMISSION      // Hoa hồng từ giới thiệu (Affiliate)
+  ORDER_PAYMENT   // Dùng ví thanh toán đơn hàng
+  WITHDRAWAL      // Rút tiền khỏi hệ thống
+  REFUND          // Hoàn tiền đơn hàng vào ví
+  ESCROW_RELEASE  // Giải ngân từ hợp đồng thầu
+  ADJUSTMENT      // Điều chỉnh từ Admin
 }

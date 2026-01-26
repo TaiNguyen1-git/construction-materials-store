@@ -154,15 +154,25 @@ export default function CartDrawer() {
                         </button>
                       </div>
 
-                      {/* Subtotal */}
-                      <p className="text-sm text-gray-600 mt-2">
-                        Tổng: <span className="font-semibold text-gray-900">
-                          {((item.price || 0) * (item.quantity || 0)).toLocaleString()}đ
-                        </span>
-                      </p>
+                      {/* Subtotal & Upsell Suggestion */}
+                      <div className="mt-2 flex flex-col gap-1">
+                        <p className="text-sm text-gray-600">
+                          Tổng: <span className="font-semibold text-gray-900">
+                            {((item.price || 0) * (item.quantity || 0)).toLocaleString()}đ
+                          </span>
+                        </p>
+
+                        {/* Feature 5: Bulk Discount Hint */}
+                        {item.quantity >= 5 && item.quantity < 10 && (
+                          <div className="p-1 px-2 bg-amber-50 rounded border border-amber-100 text-[10px] text-amber-700 font-bold flex items-center gap-1 animate-pulse">
+                            <Plus className="w-3 h-3" />
+                            MUA THÊM {10 - item.quantity} ĐỂ NHẬN GIÁ SĨ NHÀ THẦU (-15%)
+                          </div>
+                        )}
+                      </div>
                     </div>
-                </div>
-              )
+                  </div>
+                )
               })}
             </div>
           )}

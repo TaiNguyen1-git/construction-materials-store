@@ -165,6 +165,14 @@ export async function PUT(
       return order
     })
 
+    // NEW: Feature 2 - Commission: Award commission when order is COMPLETED
+    if (status === 'COMPLETED' && existingOrder.status !== 'COMPLETED') {
+      const { walletService } = await import('@/lib/wallet-service')
+      walletService.awardCommission(orderId).catch(err =>
+        console.error('Commission award error:', err)
+      )
+    }
+
     logger.info('Order status updated', {
       orderId,
       oldStatus: existingOrder.status,
