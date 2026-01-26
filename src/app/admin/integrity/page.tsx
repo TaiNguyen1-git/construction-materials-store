@@ -177,12 +177,12 @@ export default function IntegrityDashboard() {
                                 key={tab.id}
                                 onClick={() => setActiveTab(tab.id as any)}
                                 className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === tab.id
-                                        ? 'border-blue-600 text-blue-600'
-                                        : 'border-transparent text-gray-500 hover:text-gray-700'
+                                    ? 'border-blue-600 text-blue-600'
+                                    : 'border-transparent text-gray-500 hover:text-gray-700'
                                     }`}
                             >
                                 {tab.label}
-                                {tab.count !== null && tab.count > 0 && (
+                                {(tab.count ?? 0) > 0 && (
                                     <span className="ml-2 px-2 py-0.5 text-xs bg-red-100 text-red-700 rounded-full">
                                         {tab.count}
                                     </span>
@@ -231,8 +231,8 @@ export default function IntegrityDashboard() {
                                         {['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'].map(severity => (
                                             <div key={severity} className="flex-1 text-center">
                                                 <div className={`text-2xl font-bold ${severity === 'CRITICAL' ? 'text-red-600' :
-                                                        severity === 'HIGH' ? 'text-orange-600' :
-                                                            severity === 'MEDIUM' ? 'text-yellow-600' : 'text-blue-600'
+                                                    severity === 'HIGH' ? 'text-orange-600' :
+                                                        severity === 'MEDIUM' ? 'text-yellow-600' : 'text-blue-600'
                                                     }`}>
                                                     {stats.alertsBySeverity[severity] || 0}
                                                 </div>

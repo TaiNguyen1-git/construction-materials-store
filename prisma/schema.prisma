@@ -558,7 +558,6 @@ model OrderItem {
   // Relationships
   order   Order   @relation(fields: [orderId], references: [id])
   product Product @relation(fields: [productId], references: [id])
-  deliveryPhaseItems DeliveryPhaseItem[]
 
   @@map("order_items")
   @@index([orderId])
@@ -2234,52 +2233,6 @@ model OrderDelivery {
 }
 
 // ============================================
-// SME FEATURE: PHASED DELIVERY (GIAO HÀNG CUỐN CHIẾU)
-// ============================================
-
-model DeliveryPhase {
-  id              String   @id @default(auto()) @map("_id") @db.ObjectId
-  orderId         String   @db.ObjectId
-  phaseNumber     Int      // Phase 1, 2, 3...
-  status          DeliveryPhaseStatus @default(PENDING)
-  scheduledDate   DateTime
-  actualDate      DateTime?
-  notes           String?
-  items           DeliveryPhaseItem[]
-  
-  order           Order    @relation(fields: [orderId], references: [id])
-  
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-
-  @@map("delivery_phases")
-  @@index([orderId])
-  @@index([status])
-}
-
-model DeliveryPhaseItem {
-  id              String   @id @default(auto()) @map("_id") @db.ObjectId
-  phaseId         String   @db.ObjectId
-  orderItemId     String   @db.ObjectId
-  quantity        Float    // Quantity in this phase
-  
-  phase           DeliveryPhase @relation(fields: [phaseId], references: [id])
-  orderItem       OrderItem     @relation(fields: [orderItemId], references: [id])
-  
-  @@map("delivery_phase_items")
-  @@index([phaseId])
-  @@index([orderItemId])
-}
-
-enum DeliveryPhaseStatus {
-  PENDING
-  PROCESSING
-  SHIPPED
-  DELIVERED
-  CANCELLED
-}
-
-// ============================================
 // SME FEATURE: DISPUTE CENTER (TRUNG TÂM TRANH CHẤP)
 // ============================================
 
@@ -2728,4 +2681,414 @@ model DeviceSession {
   @@index([ipAddress])
   @@index([lastActiveAt])
 }
+
+// ============================================
+// ENTERPRISE FEATURES
+// ============================================
+
+// Feature 1: E-Invoice (Hóa đơn điện tử VAT)
+model EInvoice {
+  id              String        @id @default(auto()) @map("_id") @db.ObjectId
+  
+  // Reference
+  invoiceId       String?       @db.ObjectId    // Link to internal Invoice
+  orderId         String?       @db.ObjectId
+  quoteId         String?       @db.ObjectId
+  
+  // Invoice Info
+  invoiceNumber   String        @unique         // Số hóa đơn từ nhà cung cấp
+  invoiceSeries   String?                       // Ký hiệu (e.g., 1C24TDK)
+  templateCode    String?                       // Mẫu hóa đơn
+  
+  // Seller Info
+  sellerTaxCode   String                        // MST người bán (cửa hàng)
+  sellerName      String
+  sellerAddress   String?
+  
+  // Buyer Info
+  buyerTaxCode    String?                       // MST người mua (nếu có)
+  buyerName       String
+  buyerAddress    String?
+  buyerEmail      String?
+  
+  // Amounts
+  subtotal        Float
+  vatRate         Float         @default(10)    // 0, 5, 8, 10%
+  vatAmount       Float
+  totalAmount     Float
+  currency        String        @default("VND")
+  
+  // E-Invoice Provider
+  provider        EInvoiceProvider @default(INTERNAL)
+  providerInvoiceId String?                     // ID từ nhà cung cấp (Misa, Viettel...)
+  providerResponse Json?                        // Response data từ provider
+  
+  // Status
+  status          EInvoiceStatus @default(DRAFT)
+  signedAt        DateTime?
+  sentAt          DateTime?
+  cancelledAt     DateTime?
+  cancelReason    String?
+  
+  // Files
+  pdfUrl          String?                       // URL file PDF hóa đơn
+  xmlUrl          String?                       // URL file XML
+  
+  // Audit
+  createdBy       String?       @db.ObjectId
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@map("e_invoices")
+  @@index([orderId])
+  @@index([buyerTaxCode])
+  @@index([status])
+  @@index([createdAt])
+}
+
+enum EInvoiceProvider {
+  INTERNAL        // Nội bộ (không gửi đi)
+  MISA            // Misa meInvoice
+  VIETTEL         // Viettel S-Invoice
+  VNPT            // VNPT E-Invoice
+  FPT             // FPT.eInvoice
+  BKAV            // BKAV eHoadon
+}
+
+enum EInvoiceStatus {
+  DRAFT           // Nháp
+  PENDING_SIGN    // Chờ ký số
+  SIGNED          // Đã ký
+  SENT            // Đã gửi cho khách
+  CANCELLED       // Đã hủy
+  REPLACED        // Đã thay thế (xuất hóa đơn mới)
+}
+
+// Feature 2: E-Contract (Hợp đồng điện tử có pháp lý)
+model EContract {
+  id              String        @id @default(auto()) @map("_id") @db.ObjectId
+  
+  // Reference
+  quoteId         String?       @db.ObjectId
+  projectId       String?       @db.ObjectId
+  orderId         String?       @db.ObjectId
+  
+  // Contract Info
+  contractNumber  String        @unique
+  title           String
+  description     String?
+  contractType    EContractType
+  
+  // Parties
+  partyA          Json                          // {name, taxCode, address, representative, role}
+  partyB          Json                          // {name, taxCode, address, representative, role}
+  
+  // Value & Terms
+  totalValue      Float
+  currency        String        @default("VND")
+  startDate       DateTime
+  endDate         DateTime?
+  paymentTerms    String?
+  
+  // Content
+  templateId      String?                       // Template được sử dụng
+  contentHtml     String?                       // Nội dung HTML
+  clauses         Json?                         // Các điều khoản {id, title, content}[]
+  
+  // Signatures
+  signatureStatus EContractSignStatus @default(PENDING)
+  partyASignedAt  DateTime?
+  partyASignature Json?                         // {method, signatureData, ipAddress, timestamp}
+  partyBSignedAt  DateTime?
+  partyBSignature Json?
+  
+  // Digital Signature (CA)
+  usesDigitalCert Boolean       @default(false)
+  certSerialNumber String?                      // Serial chứng thư số
+  certProvider    String?                       // Nhà cung cấp CA (VNPT-CA, Viettel-CA, etc.)
+  
+  // Files
+  pdfUrl          String?                       // URL hợp đồng PDF
+  signedPdfUrl    String?                       // URL hợp đồng đã ký
+  
+  // Status
+  status          EContractStatus @default(DRAFT)
+  effectiveDate   DateTime?                     // Ngày có hiệu lực
+  terminatedAt    DateTime?
+  terminationReason String?
+  
+  // Audit
+  createdBy       String        @db.ObjectId
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@map("e_contracts")
+  @@index([quoteId])
+  @@index([projectId])
+  @@index([status])
+  @@index([signatureStatus])
+}
+
+enum EContractType {
+  SERVICE         // Hợp đồng dịch vụ thi công
+  SUPPLY          // Hợp đồng cung cấp vật tư
+  CONSTRUCTION    // Hợp đồng xây dựng
+  MAINTENANCE     // Hợp đồng bảo trì
+  FRAMEWORK       // Hợp đồng khung (nhiều đơn hàng)
+}
+
+enum EContractSignStatus {
+  PENDING         // Chờ ký
+  PARTY_A_SIGNED  // Bên A đã ký
+  PARTY_B_SIGNED  // Bên B đã ký
+  FULLY_SIGNED    // Đã ký đủ
+  REJECTED        // Từ chối ký
+}
+
+enum EContractStatus {
+  DRAFT           // Nháp
+  PENDING_REVIEW  // Chờ xem xét
+  PENDING_SIGN    // Chờ ký
+  ACTIVE          // Đang có hiệu lực
+  COMPLETED       // Đã hoàn thành
+  TERMINATED      // Đã chấm dứt
+  EXPIRED         // Hết hạn
+}
+
+// Feature 3: Project Insurance (Bảo hiểm công trình)
+model ProjectInsurance {
+  id              String        @id @default(auto()) @map("_id") @db.ObjectId
+  
+  // Reference
+  projectId       String?       @db.ObjectId
+  quoteId         String?       @db.ObjectId
+  contractId      String?       @db.ObjectId    // Link to EContract
+  
+  // Policy Info
+  policyNumber    String        @unique
+  insurerName     String                        // Tên công ty bảo hiểm
+  insurerCode     String?                       // Mã đại lý/công ty
+  
+  // Coverage
+  insuranceType   InsuranceType
+  coverageAmount  Float                         // Số tiền bảo hiểm tối đa
+  deductible      Float         @default(0)     // Mức khấu trừ
+  premium         Float                         // Phí bảo hiểm
+  
+  // Period
+  effectiveDate   DateTime
+  expiryDate      DateTime
+  
+  // Insured Party
+  insuredName     String
+  insuredTaxCode  String?
+  insuredAddress  String?
+  
+  // Beneficiary (người thụ hưởng)
+  beneficiaryName String?
+  beneficiaryInfo Json?
+  
+  // Status
+  status          InsuranceStatus @default(PENDING)
+  approvedAt      DateTime?
+  claimCount      Int           @default(0)
+  totalClaimAmount Float        @default(0)
+  
+  // Documents
+  policyDocUrl    String?                       // URL file hợp đồng bảo hiểm
+  certificateUrl  String?                       // URL giấy chứng nhận
+  
+  // Claims
+  claims          InsuranceClaim[]
+  
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@map("project_insurances")
+  @@index([projectId])
+  @@index([status])
+  @@index([expiryDate])
+}
+
+model InsuranceClaim {
+  id              String        @id @default(auto()) @map("_id") @db.ObjectId
+  insuranceId     String        @db.ObjectId
+  
+  // Claim Info
+  claimNumber     String        @unique
+  incidentDate    DateTime
+  reportDate      DateTime      @default(now())
+  description     String
+  
+  // Damage
+  damageType      String                        // Thiệt hại vật chất, tai nạn lao động, etc.
+  estimatedLoss   Float
+  claimAmount     Float                         // Số tiền yêu cầu bồi thường
+  approvedAmount  Float?                        // Số tiền được duyệt
+  
+  // Evidence
+  photos          String[]                      // URLs ảnh chứng cứ
+  documents       String[]                      // URLs tài liệu
+  witnessInfo     Json?                         // Thông tin nhân chứng
+  
+  // Status
+  status          ClaimStatus   @default(SUBMITTED)
+  reviewedBy      String?
+  reviewedAt      DateTime?
+  reviewNotes     String?
+  paidAt          DateTime?
+  
+  // Relationship
+  insurance       ProjectInsurance @relation(fields: [insuranceId], references: [id])
+  
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@map("insurance_claims")
+  @@index([insuranceId])
+  @@index([status])
+}
+
+enum InsuranceType {
+  CONSTRUCTION_ALL_RISK   // Bảo hiểm mọi rủi ro xây dựng (CAR)
+  LIABILITY               // Bảo hiểm trách nhiệm dân sự
+  WORKERS_COMPENSATION    // Bảo hiểm tai nạn lao động
+  EQUIPMENT               // Bảo hiểm thiết bị máy móc
+  MATERIAL_TRANSIT        // Bảo hiểm vận chuyển vật liệu
+  PROFESSIONAL_INDEMNITY  // Bảo hiểm trách nhiệm nghề nghiệp
+}
+
+enum InsuranceStatus {
+  PENDING         // Đang chờ duyệt
+  ACTIVE          // Đang có hiệu lực
+  EXPIRED         // Hết hạn
+  CANCELLED       // Đã hủy
+  CLAIMED         // Đã có claim
+}
+
+enum ClaimStatus {
+  SUBMITTED       // Đã gửi
+  UNDER_REVIEW    // Đang xem xét
+  APPROVED        // Đã duyệt
+  REJECTED        // Từ chối
+  PAID            // Đã thanh toán
+  CLOSED          // Đã đóng
+}
+
+// Feature 4: Delivery Phases (Giao hàng theo giai đoạn)
+model DeliveryPhase {
+  id              String        @id @default(auto()) @map("_id") @db.ObjectId
+  orderId         String        @db.ObjectId
+  
+  // Phase Info
+  phaseNumber     Int                           // Đợt 1, 2, 3...
+  phaseName       String                        // "Giai đoạn móng", "Giai đoạn hoàn thiện"
+  description     String?
+  
+  // Items in this phase
+  items           Json                          // [{productId, quantity, unitPrice}]
+  itemCount       Int           @default(0)
+  
+  // Value
+  phaseValue      Float                         // Giá trị đợt giao
+  depositRequired Float         @default(0)     // Tiền cọc yêu cầu cho đợt này
+  
+  // Schedule
+  scheduledDate   DateTime                      // Ngày dự kiến giao
+  actualDate      DateTime?                     // Ngày giao thực tế
+  
+  // Status
+  status          DeliveryPhaseStatus @default(PENDING)
+  
+  // Payment (linked to Escrow)
+  paymentStatus   PhasePaymentStatus @default(UNPAID)
+  depositPaidAt   DateTime?
+  releasedAt      DateTime?                     // Tiền được giải ngân lúc nào
+  
+  // Delivery tracking
+  trackingNumber  String?
+  carrierName     String?
+  deliveryProof   String?                       // URL ảnh xác nhận giao hàng
+  receiverName    String?
+  receiverSignature String?                     // URL chữ ký người nhận
+  
+  // Confirmation
+  confirmedBy     String?       @db.ObjectId    // Khách hàng xác nhận
+  confirmedAt     DateTime?
+  
+  // Relationship
+  order           Order         @relation(fields: [orderId], references: [id])
+  
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@map("delivery_phases")
+  @@index([orderId])
+  @@index([status])
+  @@index([scheduledDate])
+  @@index([paymentStatus])
+}
+
+enum DeliveryPhaseStatus {
+  PENDING         // Chờ xử lý
+  PREPARING       // Đang chuẩn bị hàng
+  READY           // Sẵn sàng giao
+  IN_TRANSIT      // Đang vận chuyển
+  DELIVERED       // Đã giao
+  CONFIRMED       // Khách đã xác nhận
+  CANCELLED       // Đã hủy
+}
+
+enum PhasePaymentStatus {
+  UNPAID          // Chưa thanh toán
+  DEPOSIT_PAID    // Đã đặt cọc
+  ESCROWED        // Tiền đã vào Escrow
+  RELEASED        // Đã giải ngân cho nhà cung cấp/thầu
+  REFUNDED        // Đã hoàn tiền
+}
+
+// Feature 5: Sensitive Data Encryption Tracking (PDPA Compliance)
+model SensitiveDataLog {
+  id              String        @id @default(auto()) @map("_id") @db.ObjectId
+  
+  // What data
+  dataType        SensitiveDataType
+  entityType      String                        // Customer, KYCDocument, etc.
+  entityId        String        @db.ObjectId
+  fieldName       String                        // cccdNumber, bankAccountNumber, etc.
+  
+  // Encryption
+  encryptionKey   String?                       // Key ID (không lưu key thật)
+  encryptedAt     DateTime      @default(now())
+  algorithm       String        @default("AES-256-GCM")
+  
+  // Access log
+  lastAccessedBy  String?       @db.ObjectId
+  lastAccessedAt  DateTime?
+  accessCount     Int           @default(0)
+  
+  // Compliance
+  retentionDays   Int           @default(365)   // Thời gian lưu trữ
+  expiresAt       DateTime?                     // Ngày phải xóa
+  deletedAt       DateTime?
+  deletionReason  String?
+
+  @@map("sensitive_data_logs")
+  @@index([entityType, entityId])
+  @@index([dataType])
+  @@index([expiresAt])
+}
+
+enum SensitiveDataType {
+  CCCD_NUMBER           // Số CCCD
+  CMND_NUMBER           // Số CMND
+  PASSPORT_NUMBER       // Số hộ chiếu
+  TAX_CODE              // Mã số thuế
+  BANK_ACCOUNT          // Số tài khoản ngân hàng
+  PHONE_NUMBER          // Số điện thoại
+  ADDRESS               // Địa chỉ
+  KYC_IMAGE             // Ảnh KYC (CCCD, selfie)
+  SIGNATURE             // Chữ ký
+}
+
 

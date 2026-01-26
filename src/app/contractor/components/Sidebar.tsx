@@ -18,7 +18,9 @@ import {
     Users,
     ChevronDown,
     ChevronRight,
-    Wallet
+    Wallet,
+    Receipt,
+    Shield
 } from 'lucide-react'
 import { useContractorCartStore } from '@/stores/contractorCartStore'
 
@@ -59,6 +61,13 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                 { href: '/contractor/orders', icon: Package, label: 'Đơn hàng đã đặt' },
                 { href: '/contractor/debt', icon: CreditCard, label: 'Công nợ' },
                 { href: '/contractor/wallet', icon: Wallet, label: 'Ví hoa hồng & Affiliate' },
+            ]
+        },
+        {
+            title: 'Doanh nghiệp (Enterprise)',
+            items: [
+                { href: '/contractor/invoices', icon: Receipt, label: 'Hóa đơn VAT' },
+                { href: '/contractor/insurance', icon: Shield, label: 'Bảo hiểm công trình' },
             ]
         }
     ]
