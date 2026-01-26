@@ -7,6 +7,8 @@ import { registerSchema, validateRequest, sanitizeString } from '@/lib/validatio
 import { logger, logAuth, logAPI } from '@/lib/logger'
 import { checkRateLimit } from '@/lib/rate-limit-api'
 import { EmailService } from '@/lib/email-service'
+import { AnomalyDetectionService } from '@/lib/anomaly-detection-service'
+import { AuditService } from '@/lib/audit-service'
 
 // Helper to hash token for storage
 function hashToken(token: string): string {
@@ -234,6 +236,60 @@ export async function POST(request: NextRequest) {
 
       return { user, customer }
     })
+
+    // ========== INTEGRITY SUITE: Track device & detect multi-account ==========
+    try {
+      // Track device session for this new user
+      await AnomalyDetectionService.trackDeviceSession(
+        {
+          userId: result.user.id,
+          customerId: result.customer.id,
+          ipAddress: clientInfo.ip !== 'Unknown' ? clientInfo.ip : undefined
+        },
+        {
+          userAgent: clientInfo.userAgent,
+          platform: clientInfo.deviceInfo.includes('Windows') ? 'Windows' :
+            clientInfo.deviceInfo.includes('Mac') ? 'Mac' : undefined,
+          browser: clientInfo.deviceInfo.includes('Chrome') ? 'Chrome' :
+            clientInfo.deviceInfo.includes('Firefox') ? 'Firefox' :
+              clientInfo.deviceInfo.includes('Safari') ? 'Safari' : undefined
+        }
+      )
+
+      // Check for multi-account (async, don't block registration)
+      if (clientInfo.ip !== 'Unknown') {
+        AnomalyDetectionService.detectMultiAccount({
+          userId: result.user.id,
+          customerId: result.customer.id,
+          ipAddress: clientInfo.ip
+        }).catch(err => logger.error('Multi-account detection failed', { error: err }))
+      }
+
+      // Audit log for new user creation
+      await AuditService.log(
+        {
+          actorId: result.user.id,
+          actorEmail: result.user.email,
+          actorRole: userRole,
+          actorIp: clientInfo.ip,
+          actorDevice: clientInfo.deviceInfo
+        },
+        {
+          action: 'USER_CREATE',
+          entityType: 'User',
+          entityId: result.user.id,
+          newValue: {
+            email: result.user.email,
+            name: result.user.name,
+            role: userRole
+          },
+          severity: 'INFO'
+        }
+      )
+    } catch (integrityError) {
+      // Don't fail registration if integrity tracking fails
+      logger.error('Integrity tracking failed', { error: integrityError })
+    }
 
     // Generate 6-digit OTP
     const otpCode = Math.floor(100000 + Math.random() * 900000).toString()

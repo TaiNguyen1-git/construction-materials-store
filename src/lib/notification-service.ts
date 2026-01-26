@@ -364,15 +364,89 @@ export async function saveNotification(notification: Notification) {
 
 /**
  * Send notification (email, push, etc.)
+ * Multi-channel notification delivery
  */
-export async function sendNotification(notification: Notification) {
-  // Save to database first
+export async function sendNotification(notification: Notification, options?: {
+  sendEmail?: boolean
+  sendPush?: boolean
+  sendSMS?: boolean
+  recipientEmail?: string
+  recipientPhone?: string
+}) {
+  // 1. Save to database first (always)
   await saveNotification(notification)
 
-  // TODO: Send email
-  // TODO: Send push notification
-  // TODO: Send SMS (if critical)
+  // 2. Send email (for HIGH priority or explicitly requested)
+  if (options?.sendEmail || notification.priority === 'HIGH') {
+    try {
+      const { EmailService } = await import('@/lib/email-service')
 
+      if (options?.recipientEmail) {
+        // Send to specific recipient
+        await EmailService.sendGenericNotificationEmail({
+          email: options.recipientEmail,
+          subject: notification.title,
+          message: notification.message,
+          priority: notification.priority,
+          actionUrl: notification.orderId
+            ? `/order-tracking?orderId=${notification.orderId}`
+            : notification.productId
+              ? `/products/${notification.productId}`
+              : undefined
+        })
+      } else {
+        // Send to all managers for system notifications
+        const managers = await prisma.user.findMany({
+          where: { role: 'MANAGER' },
+          select: { email: true }
+        })
+
+        for (const manager of managers) {
+          EmailService.sendGenericNotificationEmail({
+            email: manager.email,
+            subject: notification.title,
+            message: notification.message,
+            priority: notification.priority,
+            actionUrl: notification.orderId
+              ? `/admin/orders/${notification.orderId}`
+              : undefined
+          }).catch(err => console.error('Email to manager error:', err))
+        }
+      }
+    } catch (err) {
+      console.error('Email notification error:', err)
+    }
+  }
+
+  // 3. Push notification via Firebase (for HIGH/MEDIUM priority)
+  if (options?.sendPush !== false && notification.priority !== 'LOW') {
+    try {
+      await pushSystemNotification({
+        userRole: 'MANAGER',
+        type: notification.type,
+        title: notification.title,
+        message: notification.message,
+        priority: notification.priority,
+        read: false,
+        createdAt: new Date().toISOString(),
+        data: notification.data
+      })
+    } catch (err) {
+      console.error('Push notification error:', err)
+    }
+  }
+
+  // 4. SMS for critical notifications (if phone provided and priority is HIGH)
+  if (options?.sendSMS && notification.priority === 'HIGH' && options?.recipientPhone) {
+    try {
+      // Using console.log as placeholder - integrate with actual SMS provider (e.g., Twilio, VNPT)
+      console.log(`[SMS] Would send to ${options.recipientPhone}: ${notification.title} - ${notification.message}`)
+      // TODO: Integrate with actual SMS provider when ready
+      // await SMSService.send(options.recipientPhone, `${notification.title}: ${notification.message}`)
+    } catch (err) {
+      console.error('SMS notification error:', err)
+    }
+  }
 }
 
 /**

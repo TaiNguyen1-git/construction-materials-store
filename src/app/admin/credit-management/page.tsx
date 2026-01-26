@@ -94,6 +94,10 @@ export default function CreditManagementPage() {
 
     const handleApproval = async (approvalId: string, approved: boolean) => {
         try {
+            // Get admin user ID from localStorage
+            const userDataStr = localStorage.getItem('user')
+            const adminId = userDataStr ? JSON.parse(userDataStr).id : 'system'
+
             await fetch('/api/credit', {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
@@ -101,7 +105,7 @@ export default function CreditManagementPage() {
                     action: 'process-approval',
                     approvalId,
                     approved,
-                    approvedBy: 'admin' // TODO: Get from session
+                    approvedBy: adminId
                 })
             })
             loadData()

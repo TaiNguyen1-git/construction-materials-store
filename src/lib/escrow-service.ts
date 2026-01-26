@@ -130,9 +130,18 @@ export class EscrowService {
                 }
             })
 
-            // 3. TODO: Cộng tiền vào ví Nhà thầu (nếu có model Wallet)
-            // Hiện tại ta log lại để theo dõi dòng tiền
-            console.log(`[ESCROW] Released ${disbursementAmount} to contractor. Platform took ${platformFee} fee.`);
+            // 3. Cộng tiền vào ví Nhà thầu
+            if (milestone.quote.contractorId) {
+                // Import wallet service within transaction context
+                const { walletService } = await import('@/lib/wallet-service')
+                await walletService.releaseEscrowToWallet(
+                    milestone.quote.contractorId,
+                    disbursementAmount,
+                    undefined,
+                    `Giải ngân giai đoạn "${milestone.name}" - Phí sàn: ${platformFee.toLocaleString('vi-VN')}đ`
+                )
+                console.log(`[ESCROW] Released ${disbursementAmount.toLocaleString('vi-VN')}đ to contractor wallet. Platform fee: ${platformFee.toLocaleString('vi-VN')}đ`)
+            }
 
             return {
                 success: true,

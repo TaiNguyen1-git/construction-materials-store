@@ -201,6 +201,66 @@ export class EmailService {
     return this.sendEmail(template)
   }
 
+  // Generic Notification Email (for multi-channel notifications)
+  static async sendGenericNotificationEmail(data: {
+    email: string
+    subject: string
+    message: string
+    priority: 'HIGH' | 'MEDIUM' | 'LOW'
+    actionUrl?: string
+  }) {
+    const priorityColors = {
+      HIGH: { bg: '#dc2626', text: '#ffffff', label: '⚠️ KHẨN CẤP' },
+      MEDIUM: { bg: '#f59e0b', text: '#ffffff', label: '📢 Thông báo' },
+      LOW: { bg: '#3b82f6', text: '#ffffff', label: '💡 Thông tin' }
+    }
+
+    const style = priorityColors[data.priority] || priorityColors.MEDIUM
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head><meta charset="utf-8"></head>
+      <body style="margin: 0; padding: 20px; background-color: #f4f7fa; font-family: Arial, sans-serif;">
+        <table style="max-width: 500px; margin: 0 auto; background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+          <tr>
+            <td style="background: ${style.bg}; padding: 20px; text-align: center;">
+              <span style="color: ${style.text}; font-size: 14px; font-weight: 600;">${style.label}</span>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 25px;">
+              <h2 style="margin: 0 0 15px 0; color: #1e293b; font-size: 18px;">${data.subject}</h2>
+              <p style="color: #64748b; font-size: 15px; line-height: 1.6; margin: 0;">${data.message}</p>
+              ${data.actionUrl ? `
+              <div style="text-align: center; margin-top: 25px;">
+                <a href="${data.actionUrl}" style="display: inline-block; background: #1d4ed8; color: #fff; padding: 12px 30px; border-radius: 8px; text-decoration: none; font-weight: 600;">
+                  Xem Chi Tiết
+                </a>
+              </div>
+              ` : ''}
+            </td>
+          </tr>
+          <tr>
+            <td style="background: #f8fafc; padding: 15px; text-align: center; color: #9ca3af; font-size: 12px;">
+              SmartBuild - Vật Liệu Xây Dựng Thông Minh
+            </td>
+          </tr>
+        </table>
+      </body>
+      </html>
+    `
+
+    const template: EmailTemplate = {
+      to: data.email,
+      subject: data.subject,
+      html,
+      text: `${data.subject}\n\n${data.message}`
+    }
+
+    return this.sendEmail(template)
+  }
+
   // Create nodemailer transporter
   private static getTransporter() {
     return nodemailer.createTransport({

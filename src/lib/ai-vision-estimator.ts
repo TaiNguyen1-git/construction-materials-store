@@ -322,9 +322,7 @@ async function enrichMaterialsWithProducts(materials: MaterialEstimate[]): Promi
 }
 
 export async function estimateFromText(description: string, projectType: any = 'general'): Promise<EstimatorResult> {
-    // Simplified version for demo, similar logic to image but using text prompt
-    // In real app, this would use a text-only Gemini model
-    return {
+    if (!genAI) return {
         success: false,
         projectType,
         rooms: [],
@@ -333,6 +331,134 @@ export async function estimateFromText(description: string, projectType: any = '
         totalEstimatedCost: 0,
         confidence: 0,
         validationStatus: 'warning',
-        error: 'Not implemented'
+        error: 'AI service not configured.'
+    }
+
+    try {
+        const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
+
+        const prompt = `
+Bạn là một kỹ sư xây dựng chuyên nghiệp Việt Nam. Phân tích mô tả dự án sau và trích xuất thông tin:
+
+Mô tả: "${description}"
+
+Hãy xác định:
+1. Các phòng/khu vực và kích thước (dài x rộng), ước lượng nếu không rõ.
+2. Loại nhà: "nhà_cấp_4", "nhà_phố", hoặc "biệt_thự" (mặc định là nhà_cấp_4 nếu không rõ).
+3. Loại mái: "bê_tông", "mái_thái", hoặc "mái_tôn".
+4. Ước tính tổng chu vi tường (m).
+
+VÍ DỤ đầu vào: "lát sân 6x8m, phòng khách 5x4m"
+VÍ DỤ đầu ra:
+{
+  "buildingStyle": "nhà_cấp_4",
+  "roofType": "mái_tôn",
+  "rooms": [
+    { "name": "Sân", "length": 6, "width": 8 },
+    { "name": "Phòng khách", "length": 5, "width": 4 }
+  ],
+  "totalArea": 68,
+  "wallPerimeter": 40,
+  "confidence": 0.85,
+  "notes": "Dự án lát nền sân và phòng khách"
+}
+
+CHỈ trả về JSON, không có text giải thích:
+`
+        const result = await withRetry(() => model.generateContent(prompt))
+        const responseText = result.response.text()
+        const cleanedText = responseText.replace(/```json|```/g, '').trim()
+
+        let data: any
+        try {
+            data = JSON.parse(cleanedText)
+        } catch (parseError) {
+            // Fallback: Try to extract dimensions from description manually
+            const dimensionRegex = /(\d+(?:[.,]\d+)?)\s*[xX×]\s*(\d+(?:[.,]\d+)?)\s*m?/g
+            const matches = [...description.matchAll(dimensionRegex)]
+
+            if (matches.length > 0) {
+                const rooms = matches.map((match, idx) => ({
+                    name: `Khu vực ${idx + 1}`,
+                    length: parseFloat(match[1].replace(',', '.')),
+                    width: parseFloat(match[2].replace(',', '.')),
+                }))
+
+                const totalArea = rooms.reduce((sum, r) => sum + (r.length * r.width), 0)
+
+                data = {
+                    buildingStyle: 'nhà_cấp_4',
+                    roofType: 'bê_tông',
+                    rooms,
+                    totalArea,
+                    wallPerimeter: Math.sqrt(totalArea) * 4,
+                    confidence: 0.6,
+                    notes: 'Phân tích từ regex (AI không trả về JSON hợp lệ)'
+                }
+            } else {
+                throw new Error('Không thể xác định kích thước từ mô tả. Vui lòng nhập rõ hơn, ví dụ: "phòng 5x4m"')
+            }
+        }
+
+        const rooms: RoomDimension[] = (data.rooms || []).map((r: any) => ({
+            ...r,
+            area: r.length * r.width,
+            height: 3.2
+        }))
+        const totalArea = data.totalArea || rooms.reduce((sum, r) => sum + r.area, 0)
+
+        if (totalArea <= 0) {
+            return {
+                success: false,
+                projectType,
+                rooms: [],
+                totalArea: 0,
+                materials: [],
+                totalEstimatedCost: 0,
+                confidence: 0,
+                validationStatus: 'warning',
+                error: 'Không thể xác định diện tích. Vui lòng mô tả rõ hơn (VD: "sân 6x8m").'
+            }
+        }
+
+        const materials = await calculateMaterials(
+            totalArea,
+            projectType,
+            rooms,
+            data.buildingStyle || 'nhà_cấp_4',
+            data.wallPerimeter || (totalArea * 0.8),
+            data.roofType || 'bê_tông'
+        )
+        const enriched = await enrichMaterialsWithProducts(materials)
+        const cost = enriched.reduce((sum, m) => sum + (m.price || 0) * m.quantity, 0)
+
+        const validation = validateAgainstIndustryStandards(totalArea, enriched)
+
+        return {
+            success: true,
+            projectType,
+            buildingStyle: data.buildingStyle,
+            rooms,
+            totalArea,
+            materials: enriched,
+            totalEstimatedCost: cost,
+            confidence: data.confidence || 0.75,
+            validationStatus: validation.status,
+            validationMessage: validation.message,
+            rawAnalysis: data.notes || `Phân tích từ mô tả: "${description.substring(0, 100)}..."`
+        }
+    } catch (error: any) {
+        console.error('Text estimator error:', error)
+        return {
+            success: false,
+            projectType,
+            rooms: [],
+            totalArea: 0,
+            materials: [],
+            totalEstimatedCost: 0,
+            confidence: 0,
+            validationStatus: 'warning',
+            error: error.message || 'Lỗi khi phân tích mô tả.'
+        }
     }
 }

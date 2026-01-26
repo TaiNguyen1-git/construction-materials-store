@@ -103,6 +103,9 @@ export default function NegotiationRoom({ quoteId, userId, userName, role, initi
     const [isConnected, setIsConnected] = useState(false)
     const [sessionId] = useState(() => Math.random().toString(36).substring(2, 6))
 
+    // Sync State
+    const [isSaving, setIsSaving] = useState(false)
+
     // Negotiation States
     const [negotiation, setNegotiation] = useState<NegotiationState | null>(null)
     const [peerId, setPeerId] = useState<string>('')
@@ -312,6 +315,55 @@ export default function NegotiationRoom({ quoteId, userId, userName, role, initi
         }
     }, [quoteId, db, userId, role, localStream, peerId, remoteStream])
 
+    // Sync to Backend (MongoDB/Prisma)
+    const syncToBackend = async (currentBoQ: BoQItem[]) => {
+        if (isSaving) return
+        setIsSaving(true)
+        try {
+            console.log('[Negotiation] Syncing finalized quote to backend...')
+            const token = localStorage.getItem('access_token')
+            const res = await fetch(`/api/quotes/${quoteId}`, {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                    'x-user-id': userId
+                },
+                body: JSON.stringify({
+                    status: 'REPLIED', // Create new version
+                    response: `Đã chốt thỏa thuận qua phòng đàm phán trực tuyến vào lúc ${new Date().toLocaleString('vi-VN')}.`,
+                    items: currentBoQ.map(item => ({
+                        description: item.description,
+                        quantity: item.quantity,
+                        unit: item.unit,
+                        unitPrice: item.unitPrice,
+                        category: 'Thỏa thuận'
+                    }))
+                })
+            })
+
+            const data = await res.json()
+
+            if (!res.ok) {
+                throw new Error(data.message || 'Failed to sync quote')
+            }
+
+            toast.success('Đã lưu phiên bản báo giá chính thức! Đang chuyển hướng...')
+
+            // Redirect after short delay
+            setTimeout(() => {
+                const path = role === 'contractor' ? '/contractor/quotes' : '/account/quotes'
+                router.push(path)
+            }, 2000)
+
+        } catch (error) {
+            console.error('Sync error:', error)
+            toast.error('Lỗi khi lưu báo giá vào hệ thống. Vui lòng thử lại.')
+        } finally {
+            setIsSaving(false)
+        }
+    }
+
     // Handlers
     const handleUpdateItem = (itemId: string, field: string, value: any) => {
         if (negotiation?.status === 'locked') return
@@ -378,21 +430,32 @@ export default function NegotiationRoom({ quoteId, userId, userName, role, initi
         })
     }
 
-    const handleAccept = () => {
+    const handleAccept = async () => {
         if (!negotiation) return
 
+        // Prevent double click
+        if (isSaving) return
+
         const newAcceptedBy = [...new Set([...(negotiation.acceptedBy || []), userId])]
-        const negotiationRef = ref(db, `negotiations/${quoteId}`)
+        const isLocked = newAcceptedBy.length >= 2
 
-        update(negotiationRef, {
-            acceptedBy: newAcceptedBy,
-            status: newAcceptedBy.length >= 2 ? 'locked' : 'negotiating'
-        })
+        try {
+            const negotiationRef = ref(db, `negotiations/${quoteId}`)
+            await update(negotiationRef, {
+                acceptedBy: newAcceptedBy,
+                status: isLocked ? 'locked' : 'negotiating'
+            })
 
-        if (newAcceptedBy.length >= 2) {
-            toast.success('Thỏa thuận thành công! Đang khóa hợp đồng...')
-        } else {
-            toast.success('Bạn đã xác nhận thỏa thuận. Chờ đối phương...')
+            if (isLocked) {
+                toast.success('Thỏa thuận thành công! Đang đồng bộ dữ liệu...')
+                // Use current boq state
+                await syncToBackend(negotiation.boq || initialBoQ || [])
+            } else {
+                toast.success('Bạn đã xác nhận thỏa thuận. Chờ đối phương...')
+            }
+        } catch (err) {
+            console.error('Firebase update error:', err)
+            toast.error('Lỗi kết nối. Vui lòng thử lại.')
         }
     }
 

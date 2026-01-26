@@ -14,7 +14,10 @@ import {
     CheckCircle2,
     Clock,
     DollarSign,
-    Share2
+    Share2,
+    X,
+    Loader2,
+    Building2
 } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 
@@ -23,6 +26,14 @@ export default function ContractorWalletPage() {
     const [user, setUser] = useState<any>(null)
     const [data, setData] = useState<any>(null)
     const [loading, setLoading] = useState(true)
+    const [showWithdrawModal, setShowWithdrawModal] = useState(false)
+    const [withdrawing, setWithdrawing] = useState(false)
+    const [withdrawForm, setWithdrawForm] = useState({
+        amount: '',
+        bankName: '',
+        accountNumber: '',
+        accountHolder: ''
+    })
     const router = useRouter()
 
     useEffect(() => {
@@ -66,6 +77,61 @@ export default function ContractorWalletPage() {
         }
     }
 
+    const handleWithdraw = async () => {
+        const amount = parseInt(withdrawForm.amount.replace(/[^\d]/g, ''))
+        const wallet = data?.wallet || { balance: 0 }
+
+        if (!amount || amount < 50000) {
+            toast.error('Số tiền rút tối thiểu là 50.000đ')
+            return
+        }
+        if (amount > wallet.balance) {
+            toast.error('Số dư không đủ')
+            return
+        }
+        if (!withdrawForm.bankName || !withdrawForm.accountNumber || !withdrawForm.accountHolder) {
+            toast.error('Vui lòng điền đầy đủ thông tin ngân hàng')
+            return
+        }
+
+        setWithdrawing(true)
+        try {
+            const token = localStorage.getItem('access_token')
+            const userStored = localStorage.getItem('user')
+            const userId = userStored ? JSON.parse(userStored).id : null
+
+            const res = await fetch('/api/contractors/wallet/withdraw', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                    'x-user-id': userId || ''
+                },
+                body: JSON.stringify({
+                    amount,
+                    bankName: withdrawForm.bankName,
+                    accountNumber: withdrawForm.accountNumber,
+                    accountHolder: withdrawForm.accountHolder
+                })
+            })
+
+            const result = await res.json()
+            if (result.success) {
+                toast.success('Yêu cầu rút tiền đã được gửi! Chúng tôi sẽ xử lý trong 24h.')
+                setShowWithdrawModal(false)
+                setWithdrawForm({ amount: '', bankName: '', accountNumber: '', accountHolder: '' })
+                fetchWalletData() // Refresh wallet data
+            } else {
+                toast.error(result.error?.message || 'Không thể xử lý yêu cầu rút tiền')
+            }
+        } catch (err) {
+            console.error('Withdraw error:', err)
+            toast.error('Lỗi kết nối. Vui lòng thử lại.')
+        } finally {
+            setWithdrawing(false)
+        }
+    }
+
     if (loading) {
         return <div className="min-h-screen bg-gray-50 flex items-center justify-center">Đang tải...</div>
     }
@@ -77,6 +143,103 @@ export default function ContractorWalletPage() {
             <ContractorHeader sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} user={user} />
             <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
+            {/* Withdraw Modal */}
+            {showWithdrawModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-gray-100 animate-in zoom-in-95 duration-200">
+                        <div className="bg-gradient-to-r from-primary-600 to-indigo-600 p-6 text-white flex justify-between items-center">
+                            <div>
+                                <h2 className="text-xl font-bold flex items-center gap-2">
+                                    <Building2 className="w-6 h-6" />
+                                    Rút tiền về ngân hàng
+                                </h2>
+                                <p className="text-primary-100 text-sm mt-1">Số dư khả dụng: {wallet.balance?.toLocaleString()}đ</p>
+                            </div>
+                            <button onClick={() => setShowWithdrawModal(false)} className="p-1 hover:bg-white/20 rounded-lg transition-colors">
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        <div className="p-6 space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Số tiền muốn rút *</label>
+                                <input
+                                    type="text"
+                                    value={withdrawForm.amount}
+                                    onChange={(e) => {
+                                        const rawVal = e.target.value.replace(/[^\d]/g, '')
+                                        const formatted = rawVal ? parseInt(rawVal).toLocaleString('vi-VN') : ''
+                                        setWithdrawForm(prev => ({ ...prev, amount: formatted }))
+                                    }}
+                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent text-lg font-bold"
+                                    placeholder="0"
+                                />
+                                <p className="text-xs text-gray-400 mt-1">Tối thiểu 50.000đ</p>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Tên ngân hàng *</label>
+                                <input
+                                    type="text"
+                                    value={withdrawForm.bankName}
+                                    onChange={(e) => setWithdrawForm(prev => ({ ...prev, bankName: e.target.value }))}
+                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                                    placeholder="VD: Vietcombank, MB Bank..."
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Số tài khoản *</label>
+                                <input
+                                    type="text"
+                                    value={withdrawForm.accountNumber}
+                                    onChange={(e) => setWithdrawForm(prev => ({ ...prev, accountNumber: e.target.value }))}
+                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                                    placeholder="Nhập số tài khoản"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Tên chủ tài khoản *</label>
+                                <input
+                                    type="text"
+                                    value={withdrawForm.accountHolder}
+                                    onChange={(e) => setWithdrawForm(prev => ({ ...prev, accountHolder: e.target.value.toUpperCase() }))}
+                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent uppercase"
+                                    placeholder="NGUYEN VAN A"
+                                />
+                            </div>
+
+                            <div className="flex gap-3 pt-4">
+                                <button
+                                    onClick={() => setShowWithdrawModal(false)}
+                                    className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 font-medium transition-colors"
+                                >
+                                    Hủy
+                                </button>
+                                <button
+                                    onClick={handleWithdraw}
+                                    disabled={withdrawing}
+                                    className="flex-1 px-4 py-3 bg-gradient-to-r from-primary-600 to-indigo-600 text-white rounded-xl hover:from-primary-700 hover:to-indigo-700 font-semibold transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                                >
+                                    {withdrawing ? (
+                                        <>
+                                            <Loader2 className="w-4 h-4 animate-spin" />
+                                            Đang xử lý...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <ArrowUpRight className="w-4 h-4" />
+                                            Gửi yêu cầu
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <main className={`flex-1 pt-[60px] transition-all duration-300 ${sidebarOpen ? 'lg:ml-64' : 'ml-0'}`}>
                 <div className="p-4 lg:p-6 max-w-7xl mx-auto space-y-6">
 
@@ -86,7 +249,11 @@ export default function ContractorWalletPage() {
                             <h1 className="text-2xl font-bold text-gray-900">Ví Hoa Hồng & Affiliate</h1>
                             <p className="text-gray-500">Quản lý thu nhập từ giới thiệu và chiết khấu dự án</p>
                         </div>
-                        <button className="flex items-center justify-center gap-2 bg-primary-600 text-white px-6 py-2.5 rounded-xl font-bold hover:bg-primary-700 transition-all shadow-lg shadow-primary-100 active:scale-95">
+                        <button
+                            onClick={() => setShowWithdrawModal(true)}
+                            disabled={!wallet.balance || wallet.balance < 50000}
+                            className="flex items-center justify-center gap-2 bg-primary-600 text-white px-6 py-2.5 rounded-xl font-bold hover:bg-primary-700 transition-all shadow-lg shadow-primary-100 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
                             <ArrowUpRight className="w-4 h-4" />
                             Rút tiền về ngân hàng
                         </button>

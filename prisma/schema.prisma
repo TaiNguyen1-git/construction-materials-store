@@ -2377,13 +2377,25 @@ model WalletTransaction {
   walletId        String   @db.ObjectId
   amount          Float    // Số tiền (dương = cộng, âm = trừ)
   type            WalletTransactionType
+  status          WalletTransactionStatus @default(COMPLETED)
   description     String?
   relatedOrderId  String?  @db.ObjectId
+  metadata        Json?    // Extra data (bank info for withdrawal, etc.)
   createdAt       DateTime @default(now())
   
   wallet          Wallet   @relation(fields: [walletId], references: [id])
 
   @@map("wallet_transactions")
+  @@index([walletId])
+  @@index([type])
+  @@index([status])
+}
+
+enum WalletTransactionStatus {
+  PENDING     // Đang chờ xử lý (withdrawal)
+  COMPLETED   // Đã hoàn thành
+  REJECTED    // Đã từ chối
+  CANCELLED   // Đã hủy
 }
 
 enum WalletTransactionType {
@@ -2394,3 +2406,326 @@ enum WalletTransactionType {
   ESCROW_RELEASE  // Giải ngân từ hợp đồng thầu
   ADJUSTMENT      // Điều chỉnh từ Admin
 }
+
+// ============================================
+// INTEGRITY SUITE - HỆ THỐNG GIÁM SÁT & MINH BẠCH
+// ============================================
+
+// Layer 1: Audit Log - Truy vết mọi hành động nhạy cảm
+model AuditLog {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  
+  // Who did it
+  actorId       String?  @db.ObjectId    // User ID who performed action
+  actorEmail    String?                   // Email for reference (in case user deleted)
+  actorRole     String?                   // Role at time of action
+  actorIp       String?                   // IP address
+  actorDevice   String?                   // Device/browser info
+  
+  // What happened
+  action        AuditAction               // Type of action
+  entityType    String                    // Target entity type (Customer, Order, Wallet, etc.)
+  entityId      String?  @db.ObjectId     // Target entity ID
+  
+  // Change details
+  oldValue      Json?                     // Previous value (for updates)
+  newValue      Json?                     // New value
+  changes       Json?                     // Structured diff of changes
+  
+  // Context
+  reason        String?                   // Reason provided (if any)
+  metadata      Json?                     // Additional context data
+  
+  // Severity
+  severity      AuditSeverity @default(INFO)
+  
+  createdAt     DateTime @default(now())
+
+  @@map("audit_logs")
+  @@index([actorId])
+  @@index([action])
+  @@index([entityType, entityId])
+  @@index([severity])
+  @@index([createdAt])
+}
+
+enum AuditAction {
+  // Authentication
+  LOGIN
+  LOGOUT
+  LOGIN_FAILED
+  PASSWORD_CHANGE
+  PASSWORD_RESET
+  
+  // User Management
+  USER_CREATE
+  USER_UPDATE
+  USER_DELETE
+  USER_BAN
+  USER_UNBAN
+  ROLE_CHANGE
+  
+  // KYC & Verification
+  KYC_SUBMIT
+  KYC_APPROVE
+  KYC_REJECT
+  VERIFICATION_CHANGE
+  
+  // Financial
+  CREDIT_LIMIT_CHANGE
+  CREDIT_APPROVAL
+  CREDIT_HOLD
+  WALLET_DEPOSIT
+  WALLET_WITHDRAWAL
+  WALLET_ADJUSTMENT
+  ESCROW_DEPOSIT
+  ESCROW_RELEASE
+  
+  // Contractor
+  CONTRACTOR_VERIFY
+  CONTRACTOR_SUSPEND
+  BANK_ACCOUNT_CHANGE
+  QUOTE_SUBMIT
+  QUOTE_ACCEPT
+  
+  // Order & Project
+  ORDER_CREATE
+  ORDER_CANCEL
+  ORDER_REFUND
+  PROJECT_CREATE
+  PROJECT_ASSIGN
+
+  // Admin Actions
+  ADMIN_OVERRIDE
+  SYSTEM_ALERT_RESOLVE
+  CONFIG_CHANGE
+}
+
+enum AuditSeverity {
+  INFO        // Normal operations
+  NOTICE      // Notable but expected
+  WARNING     // Potentially concerning
+  CRITICAL    // Requires immediate attention
+}
+
+// Layer 2: KYC Documents - Xác minh danh tính
+model KYCDocument {
+  id              String        @id @default(auto()) @map("_id") @db.ObjectId
+  customerId      String        @db.ObjectId
+  
+  // Document Info
+  documentType    KYCDocumentType
+  documentNumber  String?                   // ID number, tax code, etc.
+  frontImageUrl   String                    // Front of ID/license
+  backImageUrl    String?                   // Back (if applicable)
+  selfieUrl       String?                   // Selfie with ID
+  
+  // Business docs (for contractors)
+  businessLicenseUrl  String?             // Giấy phép kinh doanh
+  taxCertificateUrl   String?             // Giấy chứng nhận MST
+  
+  // Verification
+  status          KYCStatus     @default(PENDING)
+  verifiedBy      String?       @db.ObjectId  // Admin who verified
+  verifiedAt      DateTime?
+  rejectionReason String?
+  
+  // Metadata
+  expiryDate      DateTime?                 // Document expiry
+  extractedData   Json?                     // OCR/AI extracted data
+  
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@map("kyc_documents")
+  @@index([customerId])
+  @@index([status])
+  @@index([documentType])
+}
+
+enum KYCDocumentType {
+  CCCD            // Căn cước công dân
+  CMND            // Chứng minh nhân dân (old)
+  PASSPORT
+  BUSINESS_LICENSE   // Giấy phép kinh doanh
+  TAX_CERTIFICATE    // Đăng ký thuế
+  CONTRACTOR_LICENSE // Chứng chỉ hành nghề
+}
+
+enum KYCStatus {
+  PENDING         // Chờ xử lý
+  REVIEWING       // Đang xem xét
+  APPROVED        // Đã duyệt
+  REJECTED        // Từ chối
+  EXPIRED         // Hết hạn
+}
+
+// Layer 3: Suspicious Activity Detection - Phát hiện bất thường
+model SuspiciousActivity {
+  id              String        @id @default(auto()) @map("_id") @db.ObjectId
+  
+  // Who
+  userId          String?       @db.ObjectId
+  customerId      String?       @db.ObjectId
+  sessionId       String?                     // For guest tracking
+  ipAddress       String?
+  deviceFingerprint String?
+  
+  // What
+  activityType    SuspiciousActivityType
+  description     String
+  evidence        Json?                       // Supporting data
+  
+  // Related entities
+  relatedEntityType String?                   // Order, Quote, Project, etc.
+  relatedEntityId   String?       @db.ObjectId
+  
+  // Linked accounts (for multi-account detection)
+  linkedUserIds   String[]      @db.ObjectId
+  linkedIps       String[]
+  
+  // Risk assessment
+  riskScore       Float         @default(0)   // 0-100
+  severity        AlertSeverity @default(LOW)
+  
+  // Resolution
+  status          AlertStatus   @default(OPEN)
+  resolvedBy      String?       @db.ObjectId
+  resolvedAt      DateTime?
+  resolution      String?                     // Action taken
+  
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@map("suspicious_activities")
+  @@index([userId])
+  @@index([customerId])
+  @@index([ipAddress])
+  @@index([activityType])
+  @@index([status])
+  @@index([severity])
+  @@index([createdAt])
+}
+
+enum SuspiciousActivityType {
+  MULTI_ACCOUNT           // Nhiều tài khoản từ cùng IP/thiết bị
+  COLLUSION_BIDDING       // Thông đồng đấu thầu
+  FAKE_REVIEWS            // Đánh giá ảo
+  RAPID_WITHDRAWALS       // Rút tiền liên tục bất thường
+  UNUSUAL_TRANSACTION     // Giao dịch bất thường
+  LOGIN_ANOMALY           // Đăng nhập từ vị trí lạ
+  PRICE_MANIPULATION      // Thao túng giá
+  IDENTITY_MISMATCH       // Thông tin không khớp
+  PAYMENT_FRAUD           // Thanh toán gian lận
+  OTHER
+}
+
+enum AlertSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum AlertStatus {
+  OPEN
+  INVESTIGATING
+  RESOLVED
+  FALSE_POSITIVE
+  ESCALATED
+}
+
+// Layer 4: User Restrictions - Cấm vận đa cấp độ
+model UserRestriction {
+  id              String        @id @default(auto()) @map("_id") @db.ObjectId
+  customerId      String        @db.ObjectId
+  
+  // Restriction Type
+  type            RestrictionType
+  reason          String
+  evidence        Json?                       // Supporting evidence
+  
+  // Duration
+  isActive        Boolean       @default(true)
+  startDate       DateTime      @default(now())
+  endDate         DateTime?                   // null = permanent
+  
+  // Who imposed
+  imposedBy       String        @db.ObjectId  // Admin/System ID
+  imposedByName   String?
+  
+  // Appeal
+  appealStatus    AppealStatus  @default(NONE)
+  appealReason    String?
+  appealReviewedBy String?      @db.ObjectId
+  appealReviewedAt DateTime?
+  
+  // Audit
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  liftedAt        DateTime?
+  liftedBy        String?       @db.ObjectId
+  liftReason      String?
+
+  @@map("user_restrictions")
+  @@index([customerId])
+  @@index([type])
+  @@index([isActive])
+  @@index([startDate])
+  @@index([endDate])
+}
+
+enum RestrictionType {
+  FULL_BAN            // Cấm hoàn toàn
+  MARKETPLACE_BAN     // Cấm nhận dự án/báo giá
+  WALLET_HOLD         // Tạm dừng rút tiền (điều tra)
+  CREDIT_FREEZE       // Khóa tín dụng
+  REVIEW_BAN          // Cấm đánh giá
+  BIDDING_BAN         // Cấm đấu thầu
+  COMMUNICATION_BAN   // Cấm chat
+  PROBATION           // Thời gian thử thách (theo dõi)
+}
+
+enum AppealStatus {
+  NONE
+  PENDING
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+}
+
+// Device/Session tracking for anomaly detection
+model DeviceSession {
+  id              String        @id @default(auto()) @map("_id") @db.ObjectId
+  userId          String?       @db.ObjectId
+  customerId      String?       @db.ObjectId
+  
+  // Device info
+  fingerprint     String                      // Device fingerprint hash
+  userAgent       String
+  platform        String?                     // Windows, Mac, iOS, Android
+  browser         String?
+  
+  // Location
+  ipAddress       String
+  city            String?
+  country         String?
+  
+  // Session
+  sessionToken    String?
+  lastActiveAt    DateTime      @default(now())
+  
+  // Trust
+  isTrusted       Boolean       @default(false)  // User marked as trusted
+  trustScore      Float         @default(50)     // 0-100
+  
+  createdAt       DateTime      @default(now())
+
+  @@map("device_sessions")
+  @@index([userId])
+  @@index([customerId])
+  @@index([fingerprint])
+  @@index([ipAddress])
+  @@index([lastActiveAt])
+}
+
