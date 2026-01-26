@@ -21,7 +21,8 @@ import {
     QrCode,
     ShieldCheck,
     Star,
-    Award
+    Award,
+    Zap
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -92,8 +93,14 @@ export default function CustomerQuotesPage() {
         try {
             setLoading(true)
             const token = localStorage.getItem('access_token')
+            const userData = localStorage.getItem('user')
+            const userId = userData ? JSON.parse(userData).id : ''
+
             const res = await fetch('/api/quotes?type=sent', {
-                headers: { 'Authorization': `Bearer ${token}` }
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'x-user-id': userId
+                }
             })
             if (res.ok) {
                 const data = await res.json()
@@ -327,6 +334,14 @@ export default function CustomerQuotesPage() {
                                                 <MessageSquare className="w-4 h-4 text-primary-500" />
                                                 Nhắn tin
                                             </button>
+                                            <Link
+                                                href={`/account/quotes/${selectedQuote.id}/negotiate`}
+                                                className="relative flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-2xl font-black text-xs hover:bg-blue-700 hover:translate-y-[-1px] hover:shadow-lg transition-all"
+                                            >
+                                                <Zap className="w-4 h-4 fill-current animate-pulse text-yellow-300" />
+                                                VÀO PHÒNG CHIẾN LƯỢC
+                                                <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 border-2 border-white rounded-full animate-ping"></span>
+                                            </Link>
                                         </div>
                                     </div>
                                 </div>

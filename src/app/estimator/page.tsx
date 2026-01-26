@@ -33,6 +33,7 @@ import { useAuth } from '@/contexts/auth-context'
 
 import LoginIncentiveModal from '@/components/LoginIncentiveModal'
 import SiteHeader from '@/components/Header'
+import FengshuiConsultant from '@/components/FengshuiConsultant'
 
 interface RoomDimension {
     name: string
@@ -469,6 +470,9 @@ export default function EstimatorPage() {
                                 )}
                             </button>
                         </div>
+
+                        {/* Fengshui Section */}
+                        <FengshuiConsultant projectType={PROJECT_TYPES.find(t => t.id === projectType)?.name || projectType} />
                     </div>
 
                     {/* Results Panel */}

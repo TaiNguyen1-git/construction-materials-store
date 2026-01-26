@@ -4,6 +4,47 @@ import { createSuccessResponse, createErrorResponse } from '@/lib/api-types'
 import { z } from 'zod'
 import { saveNotificationForUser } from '@/lib/notification-service'
 
+// GET /api/quotes/[id] - Get quote details
+export async function GET(
+    request: NextRequest,
+    { params }: { params: Promise<{ id: string }> }
+) {
+    try {
+        const { id: quoteId } = await params
+        const userId = request.headers.get('x-user-id')
+        if (!userId) {
+            return NextResponse.json(createErrorResponse('Unauthorized', 'UNAUTHORIZED'), { status: 401 })
+        }
+
+        const quote = await prisma.quoteRequest.findUnique({
+            where: { id: quoteId },
+            include: {
+                items: true,
+                milestones: {
+                    orderBy: { order: 'asc' }
+                },
+                customer: { include: { user: { select: { name: true, email: true } } } },
+                contractor: { include: { user: { select: { name: true, email: true } } } },
+                history: {
+                    orderBy: { createdAt: 'desc' },
+                    include: {
+                        quote: false
+                    }
+                }
+            }
+        })
+
+        if (!quote) {
+            return NextResponse.json(createErrorResponse('Yêu cầu báo giá không tồn tại', 'NOT_FOUND'), { status: 404 })
+        }
+
+        return NextResponse.json(createSuccessResponse(quote))
+    } catch (error: any) {
+        console.error('Get quote error:', error)
+        return NextResponse.json(createErrorResponse('Lỗi máy chủ nội bộ', 'INTERNAL_ERROR'), { status: 500 })
+    }
+}
+
 const quoteItemSchema = z.object({
     description: z.string(),
     quantity: z.number(),

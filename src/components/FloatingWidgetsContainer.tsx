@@ -33,9 +33,10 @@ export default function FloatingWidgetsContainer() {
         '/contractor/login',
         '/contractor/register',
         '/contractor/messages',
-        '/messages'
+        '/messages',
+        '/negotiate'
     ]
-    if (hiddenPatterns.some(pattern => pathname?.startsWith(pattern))) return null
+    if (hiddenPatterns.some(pattern => pathname?.includes(pattern))) return null
 
     const openChat = () => {
         setActivePanel('chat')

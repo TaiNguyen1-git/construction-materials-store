@@ -15,6 +15,8 @@ import Sidebar from '../../components/Sidebar'
 import ContractorHeader from '../../components/ContractorHeader'
 import { fetchWithAuth } from '@/lib/api-client'
 import toast, { Toaster } from 'react-hot-toast'
+import { savePendingReport } from '@/lib/offline-db'
+import OfflineSyncManager from '@/components/OfflineSyncManager'
 
 interface Milestone {
     id: string
@@ -181,6 +183,26 @@ export default function ProjectDetailPage() {
         input.onchange = async (e: any) => {
             const file = e.target.files[0]
             if (!file) return
+
+            // Check connection
+            if (!navigator.onLine) {
+                try {
+                    await savePendingReport({
+                        projectId: project?.id || '',
+                        fileBlob: file,
+                        fileName: file.name,
+                        fileType: file.type,
+                        notes: `Báo cáo cho giai đoạn: ${milestoneName}`,
+                        workerName: user?.name || 'Nhà thầu',
+                        createdAt: Date.now()
+                    })
+                    toast.success('Đã lưu báo cáo offline. Sẽ tự động gửi khi có mạng!')
+                } catch (err) {
+                    toast.error('Lỗi khi lưu báo cáo offline')
+                }
+                return
+            }
+
             const formData = new FormData()
             formData.append('file', file)
 
@@ -271,6 +293,7 @@ export default function ProjectDetailPage() {
             <Toaster position="top-right" />
             <ContractorHeader sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} user={user} />
             <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+            <OfflineSyncManager />
 
             <main className={`flex-1 pt-[73px] transition-all duration-300 ${sidebarOpen ? 'lg:ml-64' : 'ml-0'}`}>
                 <div className="p-6 lg:p-8 max-w-7xl mx-auto">

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
 import {
     Clock,
@@ -22,7 +23,8 @@ import {
     Plus,
     AlertCircle,
     Download,
-    MessageCircle
+    MessageCircle,
+    Zap
 } from 'lucide-react'
 import Sidebar from '../components/Sidebar'
 import ContractorHeader from '../components/ContractorHeader'
@@ -49,10 +51,11 @@ interface QuoteRequest {
 }
 
 export default function ContractorQuotesPage() {
+    const router = useRouter()
     const [quotes, setQuotes] = useState<QuoteRequest[]>([])
     const [user, setUser] = useState<any>(null)
     const [loading, setLoading] = useState(true)
-    const [sidebarOpen, setSidebarOpen] = useState(false)
+    const [sidebarOpen, setSidebarOpen] = useState(true)
     const [selectedQuote, setSelectedQuote] = useState<QuoteRequest | null>(null)
 
     // Reply form
@@ -76,6 +79,9 @@ export default function ContractorQuotesPage() {
         const userData = localStorage.getItem('user')
         if (userData) {
             setUser(JSON.parse(userData))
+        } else {
+            router.push('/contractor/login')
+            return
         }
         fetchQuotes()
     }, [])
@@ -304,6 +310,14 @@ export default function ContractorQuotesPage() {
                                                     <Download className="w-4 h-4" />
                                                     XUẤT PDF
                                                 </button>
+                                                <Link
+                                                    href={`/contractor/quotes/${selectedQuote.id}/negotiate`}
+                                                    className="relative flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl font-black text-xs hover:bg-blue-700 hover:translate-y-[-1px] hover:shadow-lg transition-all"
+                                                >
+                                                    <Zap className="w-4 h-4 fill-current animate-pulse text-yellow-300" />
+                                                    VÀO PHÒNG CHIẾN LƯỢC
+                                                    <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 border-2 border-white rounded-full animate-ping"></span>
+                                                </Link>
                                                 {selectedQuote.conversationId && (
                                                     <Link
                                                         href={`/contractor/messages?id=${selectedQuote.conversationId}`}
