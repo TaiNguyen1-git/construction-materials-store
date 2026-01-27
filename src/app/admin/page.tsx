@@ -13,6 +13,7 @@ import {
   TrendingUp, ArrowUpRight, ArrowDownRight, Zap, Target,
   Calendar, Briefcase, Boxes, LayoutGrid, ChevronRight
 } from 'lucide-react'
+import { Skeleton } from '@/components/ui/skeleton'
 
 interface DashboardStats {
   totalProducts: number
@@ -183,9 +184,30 @@ export default function AdminDashboard() {
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center h-[80vh] space-y-4">
-        <div className="w-12 h-12 border-4 border-slate-900/10 border-t-slate-900 rounded-full animate-spin"></div>
-        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Đang Tải Dữ Liệu...</p>
+      <div className="space-y-10 animate-pulse">
+        {/* Header Skeleton */}
+        <div className="flex flex-col lg:flex-row gap-6">
+          <div className="flex-1 space-y-2 pt-4">
+            <div className="flex gap-2">
+              <Skeleton className="h-12 w-40 rounded-2xl" />
+              <Skeleton className="h-12 w-16 rounded-2xl" />
+            </div>
+          </div>
+          <Skeleton className="h-[200px] lg:w-[450px] rounded-[40px]" />
+        </div>
+
+        {/* Stat Cards Skeleton */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6">
+          {[...Array(6)].map((_, i) => (
+            <Skeleton key={i} className={`h-40 rounded-[40px] ${i === 4 ? 'lg:col-span-2' : ''}`} />
+          ))}
+        </div>
+
+        {/* Charts Skeleton */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <Skeleton className="lg:col-span-8 h-[450px] rounded-[40px]" />
+          <Skeleton className="lg:col-span-4 h-[450px] rounded-[40px]" />
+        </div>
       </div>
     )
   }

@@ -5,6 +5,7 @@ import { useState, useEffect, use } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { Package, ShoppingCart, ArrowLeft, ArrowRight, Truck, Shield, RotateCcw, Plus, Minus, Check, Heart, Scale, Sparkles, Star, Building, ExternalLink } from 'lucide-react'
+import { Skeleton } from '@/components/ui/skeleton'
 import Header from '@/components/Header'
 import WishlistButton from '@/components/WishlistButton'
 import ComparisonButton from '@/components/ComparisonButton'
@@ -144,16 +145,45 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
         <Toaster position="top-right" />
         <Header />
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="animate-pulse">
-            <div className="h-4 bg-gray-200 rounded w-40 mb-8"></div>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-              <div className="bg-gray-200 h-96 rounded-2xl"></div>
-              <div className="space-y-4">
-                <div className="h-8 bg-gray-200 rounded w-3/4"></div>
-                <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-                <div className="h-10 bg-gray-200 rounded w-1/4"></div>
-                <div className="h-20 bg-gray-200 rounded"></div>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-pulse">
+          {/* Breadcrumb Skeleton */}
+          <Skeleton className="h-4 w-48 mb-8 rounded" />
+
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-12">
+            {/* Image Skeleton */}
+            <div className="lg:col-span-5 space-y-3">
+              <Skeleton className="aspect-square w-full rounded-2xl" />
+              <div className="flex gap-2">
+                <Skeleton className="w-16 h-16 rounded-lg" />
+                <Skeleton className="w-16 h-16 rounded-lg" />
+                <Skeleton className="w-16 h-16 rounded-lg" />
+              </div>
+            </div>
+
+            {/* Info Skeleton */}
+            <div className="lg:col-span-7 space-y-6">
+              <div className="flex justify-between">
+                <Skeleton className="h-6 w-24 rounded-full" />
+                <div className="flex gap-2">
+                  <Skeleton className="h-8 w-8 rounded-full" />
+                  <Skeleton className="h-8 w-8 rounded-full" />
+                </div>
+              </div>
+              <div>
+                <Skeleton className="h-10 w-3/4 mb-2 rounded" />
+                <Skeleton className="h-4 w-24 rounded" />
+              </div>
+
+              <Skeleton className="h-24 w-full rounded-2xl" />
+
+              <div className="space-y-2">
+                <Skeleton className="h-4 w-32 rounded" />
+                <Skeleton className="h-20 w-full rounded" />
+              </div>
+
+              <div className="grid grid-cols-12 gap-3">
+                <Skeleton className="col-span-4 h-14 rounded-xl" />
+                <Skeleton className="col-span-8 h-14 rounded-xl" />
               </div>
             </div>
           </div>
@@ -384,11 +414,15 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
 
             {loadingSimilar ? (
               <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
-                {[...Array(6)].map((_, i) => (
-                  <div key={i} className="bg-white rounded-xl shadow-md p-4 animate-pulse">
-                    <div className="aspect-square bg-gray-200 rounded-lg mb-3" />
-                    <div className="h-4 bg-gray-200 rounded mb-2" />
-                    <div className="h-4 bg-gray-200 rounded w-2/3" />
+                {[...Array(5)].map((_, i) => (
+                  <div key={i} className="bg-white rounded-xl shadow-md p-2 space-y-2 border border-gray-100">
+                    <Skeleton className="aspect-[3/2] w-full rounded-lg" />
+                    <Skeleton className="h-3 w-3/4 rounded" />
+                    <Skeleton className="h-3 w-1/2 rounded" />
+                    <div className="flex justify-between items-center pt-2 border-t border-gray-50">
+                      <Skeleton className="h-4 w-16 rounded" />
+                      <Skeleton className="h-5 w-8 rounded" />
+                    </div>
                   </div>
                 ))}
               </div>

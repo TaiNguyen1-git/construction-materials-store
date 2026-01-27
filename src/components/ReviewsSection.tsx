@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { Star, ThumbsUp, CheckCircle, X } from 'lucide-react'
+import { Skeleton } from '@/components/ui/skeleton'
 import { useAuth } from '@/contexts/auth-context'
 import ReviewForm from './ReviewForm'
 import LoginIncentiveModal from './LoginIncentiveModal'
@@ -137,11 +138,30 @@ export default function ReviewsSection({ productId, productName }: ReviewsSectio
 
   if (loading) {
     return (
-      <div className="bg-white rounded-2xl shadow-lg p-8">
-        <div className="animate-pulse space-y-4">
-          <div className="h-8 bg-gray-200 rounded w-1/3"></div>
-          <div className="h-20 bg-gray-200 rounded"></div>
-          <div className="h-40 bg-gray-200 rounded"></div>
+      <div className="bg-white rounded-2xl shadow-lg p-6 space-y-6">
+        <Skeleton className="h-8 w-48 rounded-lg mb-6" />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pb-6 border-b border-gray-100">
+          <div className="space-y-2">
+            <Skeleton className="h-10 w-20 mx-auto rounded-lg" />
+            <Skeleton className="h-4 w-32 mx-auto rounded" />
+          </div>
+          <div className="space-y-2">
+            {[...Array(5)].map((_, i) => (
+              <Skeleton key={i} className="h-6 w-full rounded" />
+            ))}
+          </div>
+        </div>
+        <div className="space-y-6">
+          {[...Array(3)].map((_, i) => (
+            <div key={i} className="space-y-3">
+              <div className="flex justify-between">
+                <Skeleton className="h-4 w-32 rounded" />
+                <Skeleton className="h-3 w-20 rounded" />
+              </div>
+              <Skeleton className="h-4 w-full rounded" />
+              <Skeleton className="h-4 w-2/3 rounded" />
+            </div>
+          ))}
         </div>
       </div>
     )
