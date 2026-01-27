@@ -1,8 +1,10 @@
 'use client'
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'
-import authService, { AuthState, LoginCredentials, RegisterData, AuthResponse } from '@/lib/auth-service'
+import authService, { AuthState, LoginCredentials, RegisterData, AuthResponse, PendingSession } from '@/lib/auth-service'
 import { User } from '@prisma/client'
+import SessionPromptModal from '@/components/auth/SessionPromptModal'
+import { getDefaultRedirectPath } from '@/lib/auth-redirect'
 
 // Define the context type
 interface AuthContextType {
@@ -12,6 +14,8 @@ interface AuthContextType {
   error: string | null
   tabId: string | null
   needs2FASetupPrompt: boolean
+  pendingSession: PendingSession | null
+  showSessionPrompt: boolean
   login: (credentials: LoginCredentials, rememberMe?: boolean) => Promise<AuthResponse | void>
   register: (userData: RegisterData) => Promise<AuthResponse | void>
   verifyOTP: (otp: string, verificationToken: string) => Promise<AuthResponse | void>
@@ -21,6 +25,8 @@ interface AuthContextType {
   clearError: () => void
   refreshUser: () => Promise<void>
   dismiss2FAPrompt: () => Promise<void>
+  acceptSession: () => Promise<void>
+  declineSession: () => void
 }
 
 // Create the context
@@ -35,6 +41,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     error: null,
     tabId: null,
     needs2FASetupPrompt: false,
+    pendingSession: null,
+    showSessionPrompt: false,
   })
 
   // Initialize auth state on app load
@@ -51,6 +59,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           error: 'Không thể khởi tạo xác thực',
           tabId: null,
           needs2FASetupPrompt: false,
+          pendingSession: null,
+          showSessionPrompt: false,
         })
       }
     }
@@ -216,6 +226,56 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  // Accept pending session and authenticate
+  const acceptSession = async () => {
+    if (!authState.pendingSession) return
+
+    setAuthState(prev => ({ ...prev, isLoading: true }))
+
+    try {
+      const newState = await authService.acceptPendingSession(authState.pendingSession)
+      setAuthState(newState)
+
+      // Clear guest mode flag if user accepts session
+      sessionStorage.removeItem('guest_mode')
+
+      // Redirect based on role if authenticated
+      if (newState.isAuthenticated && newState.user) {
+        const redirectPath = getDefaultRedirectPath(newState.user.role)
+        window.location.href = redirectPath
+      }
+    } catch (error) {
+      console.error('[Auth] Failed to accept session:', error)
+      setAuthState(prev => ({
+        ...prev,
+        isLoading: false,
+        error: 'Không thể xác thực phiên đăng nhập',
+        showSessionPrompt: false,
+        pendingSession: null,
+      }))
+    }
+  }
+
+  // Decline session and browse as guest
+  const declineSession = () => {
+    // Set guest mode flag in sessionStorage (tab-specific)
+    sessionStorage.setItem('guest_mode', 'true')
+
+    // Redirect to homepage since user chose to browse as guest
+    // This prevents the redirect loop when on admin pages
+    const currentPath = window.location.pathname
+    if (currentPath.startsWith('/admin') || currentPath.startsWith('/contractor/dashboard')) {
+      window.location.href = '/'
+      return
+    }
+
+    setAuthState(prev => ({
+      ...prev,
+      pendingSession: null,
+      showSessionPrompt: false,
+    }))
+  }
+
   // Context value
   const contextValue: AuthContextType = {
     user: authState.user,
@@ -223,6 +283,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isLoading: authState.isLoading,
     error: authState.error,
     tabId: authState.tabId,
+    pendingSession: authState.pendingSession,
+    showSessionPrompt: authState.showSessionPrompt,
     login,
     register,
     verifyOTP,
@@ -233,11 +295,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     refreshUser,
     dismiss2FAPrompt,
     needs2FASetupPrompt: authState.needs2FASetupPrompt,
+    acceptSession,
+    declineSession,
   }
 
   return (
     <AuthContext.Provider value={contextValue}>
       {children}
+
+      {/* Session Prompt Modal for new tabs */}
+      {authState.showSessionPrompt && authState.pendingSession && (
+        <SessionPromptModal
+          isOpen={authState.showSessionPrompt}
+          userEmail={authState.pendingSession.user.email}
+          userName={authState.pendingSession.user.name || 'Người dùng'}
+          userRole={authState.pendingSession.user.role}
+          onContinue={acceptSession}
+          onBrowseAsGuest={declineSession}
+          onClose={declineSession}
+        />
+      )}
     </AuthContext.Provider>
   )
 }

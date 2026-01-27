@@ -13,6 +13,11 @@ import { User } from '@prisma/client'
 
 // ============ TYPES ============
 
+export interface PendingSession {
+  accessToken: string
+  user: User
+}
+
 export interface AuthState {
   user: User | null
   isAuthenticated: boolean
@@ -20,6 +25,8 @@ export interface AuthState {
   error: string | null
   tabId: string | null
   needs2FASetupPrompt: boolean
+  pendingSession: PendingSession | null
+  showSessionPrompt: boolean
 }
 
 export interface LoginCredentials {
@@ -206,6 +213,7 @@ class EnhancedAuthService {
     localStorage.removeItem('session_id')
     localStorage.removeItem('remember_me')
     localStorage.removeItem('last_active_tab')
+    localStorage.removeItem('session_prompt_preference')
   }
 
   /**
@@ -247,6 +255,9 @@ class EnhancedAuthService {
       // Store tokens and user data
       this.accessToken = data.token
       this.user = data.user
+
+      // Clear guest mode flag since user is now logged in
+      sessionStorage.removeItem('guest_mode')
 
       // Store in tab-specific storage
       this.setInTabStorage('access_token', data.token)
@@ -307,6 +318,9 @@ class EnhancedAuthService {
       // Store tokens and user data
       this.accessToken = data.token
       this.user = data.user
+
+      // Clear guest mode flag since user is now logged in
+      sessionStorage.removeItem('guest_mode')
 
       // Store in tab-specific storage
       this.setInTabStorage('access_token', data.token)
@@ -394,6 +408,7 @@ class EnhancedAuthService {
 
   /**
    * Initialize auth state from storage
+   * New flow: Check if this is a new tab and whether to prompt user
    */
   async initializeAuth(): Promise<AuthState> {
     try {
@@ -402,12 +417,14 @@ class EnhancedAuthService {
         this.tabId = generateTabId()
       }
 
-      const accessToken = this.getFromTabStorage('access_token')
-      const userDataStr = this.getFromTabStorage('user')
+      // Check tab-specific storage first (this tab's own session)
+      const tabAccessToken = sessionStorage.getItem(getTabStorageKey('access_token', this.tabId))
+      const tabUserDataStr = sessionStorage.getItem(getTabStorageKey('user', this.tabId))
 
-      if (accessToken && userDataStr) {
-        this.accessToken = accessToken
-        this.user = JSON.parse(userDataStr)
+      // If this tab has its own session, use it directly
+      if (tabAccessToken && tabUserDataStr) {
+        this.accessToken = tabAccessToken
+        this.user = JSON.parse(tabUserDataStr)
 
         return {
           user: this.user,
@@ -416,9 +433,90 @@ class EnhancedAuthService {
           error: null,
           tabId: this.tabId,
           needs2FASetupPrompt: this.getFromTabStorage('needs_2fa_prompt') === 'true',
+          pendingSession: null,
+          showSessionPrompt: false,
         }
       }
 
+      // Check if this tab is in guest mode (user previously chose to browse as guest)
+      const isGuestMode = sessionStorage.getItem('guest_mode') === 'true'
+      if (isGuestMode) {
+        return {
+          user: null,
+          isAuthenticated: false,
+          isLoading: false,
+          error: null,
+          tabId: this.tabId,
+          needs2FASetupPrompt: false,
+          pendingSession: null,
+          showSessionPrompt: false,
+        }
+      }
+
+      // Check shared localStorage for existing session from other tabs
+      const sharedAccessToken = localStorage.getItem('access_token')
+      const sharedUserDataStr = localStorage.getItem('user')
+
+      if (sharedAccessToken && sharedUserDataStr) {
+        const sharedUser = JSON.parse(sharedUserDataStr) as User
+
+        // Check if user has a saved preference
+        const preference = localStorage.getItem('session_prompt_preference')
+
+        if (preference === 'guest') {
+          // User previously chose to always browse as guest
+          return {
+            user: null,
+            isAuthenticated: false,
+            isLoading: false,
+            error: null,
+            tabId: this.tabId,
+            needs2FASetupPrompt: false,
+            pendingSession: null,
+            showSessionPrompt: false,
+          }
+        }
+
+        if (preference === 'continue') {
+          // User previously chose to always continue - verify and use session
+          const isValid = await this.verifySessionWithServer(sharedAccessToken)
+          if (isValid) {
+            this.accessToken = sharedAccessToken
+            this.user = sharedUser
+            this.setInTabStorage('access_token', sharedAccessToken)
+            this.setInTabStorage('user', sharedUserDataStr)
+            return {
+              user: this.user,
+              isAuthenticated: true,
+              isLoading: false,
+              error: null,
+              tabId: this.tabId,
+              needs2FASetupPrompt: false,
+              pendingSession: null,
+              showSessionPrompt: false,
+            }
+          }
+          // Token invalid, clear and continue as guest
+          this.clearSharedStorage()
+        }
+
+        // No preference - show the prompt to let user decide
+        return {
+          user: null,
+          isAuthenticated: false,
+          isLoading: false,
+          error: null,
+          tabId: this.tabId,
+          needs2FASetupPrompt: false,
+          pendingSession: {
+            accessToken: sharedAccessToken,
+            user: sharedUser,
+          },
+          showSessionPrompt: true,
+        }
+      }
+
+      // No session found anywhere
       return {
         user: null,
         isAuthenticated: false,
@@ -426,6 +524,8 @@ class EnhancedAuthService {
         error: null,
         tabId: this.tabId,
         needs2FASetupPrompt: false,
+        pendingSession: null,
+        showSessionPrompt: false,
       }
     } catch (error) {
       return {
@@ -435,8 +535,85 @@ class EnhancedAuthService {
         error: 'Không thể khởi tạo xác thực',
         tabId: this.tabId,
         needs2FASetupPrompt: false,
+        pendingSession: null,
+        showSessionPrompt: false,
       }
     }
+  }
+
+  /**
+   * Verify session with server
+   */
+  async verifySessionWithServer(accessToken: string): Promise<boolean> {
+    try {
+      const response = await fetch('/api/auth/verify-session', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ accessToken }),
+      })
+
+      if (!response.ok) return false
+
+      const data = await response.json()
+      return data.valid === true
+    } catch (error) {
+      console.error('[Auth] Failed to verify session:', error)
+      return false
+    }
+  }
+
+  /**
+   * Accept pending session and authenticate this tab
+   */
+  async acceptPendingSession(pendingSession: PendingSession): Promise<AuthState> {
+    const isValid = await this.verifySessionWithServer(pendingSession.accessToken)
+
+    if (!isValid) {
+      // Token is no longer valid
+      this.clearSharedStorage()
+      return {
+        user: null,
+        isAuthenticated: false,
+        isLoading: false,
+        error: 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.',
+        tabId: this.tabId,
+        needs2FASetupPrompt: false,
+        pendingSession: null,
+        showSessionPrompt: false,
+      }
+    }
+
+    // Session is valid - use it for this tab
+    this.accessToken = pendingSession.accessToken
+    this.user = pendingSession.user
+
+    // Store in tab-specific storage
+    this.setInTabStorage('access_token', pendingSession.accessToken)
+    this.setInTabStorage('user', JSON.stringify(pendingSession.user))
+
+    return {
+      user: this.user,
+      isAuthenticated: true,
+      isLoading: false,
+      error: null,
+      tabId: this.tabId,
+      needs2FASetupPrompt: false,
+      pendingSession: null,
+      showSessionPrompt: false,
+    }
+  }
+
+  /**
+   * Clear shared localStorage (used when session is invalid)
+   */
+  private clearSharedStorage(): void {
+    if (typeof window === 'undefined') return
+    localStorage.removeItem('access_token')
+    localStorage.removeItem('user')
+    localStorage.removeItem('session_id')
+    localStorage.removeItem('remember_me')
   }
 
   /**
@@ -543,6 +720,9 @@ class EnhancedAuthService {
       // Store tokens and user data
       this.accessToken = data.token
       this.user = data.user
+
+      // Clear guest mode flag since user is now logged in
+      sessionStorage.removeItem('guest_mode')
 
       // Store in tab-specific storage
       this.setInTabStorage('access_token', data.token)

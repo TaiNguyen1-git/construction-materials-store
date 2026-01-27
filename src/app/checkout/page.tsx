@@ -20,8 +20,10 @@ import {
   Loader2,
   Star,
   Sparkles,
-  Package
+  Package,
+  Plus
 } from 'lucide-react'
+import { Skeleton } from '@/components/ui/skeleton'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
 import toast, { Toaster } from 'react-hot-toast'
@@ -283,8 +285,22 @@ export default function CheckoutPage() {
           <span className="text-gray-900 font-semibold">Thanh toán</span>
         </div>
 
-        <h1 className="text-4xl font-black text-gray-900 mb-8">
-          💳 Thanh Toán
+        <div className="mb-8 animate-in fade-in slide-in-from-top-4 duration-500">
+          <div className="flex justify-between mb-2 px-2">
+            <span className="text-xs font-bold text-emerald-600 flex items-center gap-1"><CheckCircle size={12} /> 1. Giỏ Hàng</span>
+            <span className="text-xs font-bold text-primary-600">2. Thanh Toán</span>
+            <span className="text-xs font-bold text-gray-400">3. Hoàn Tất</span>
+          </div>
+          <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+            <div className="h-full w-2/3 bg-gradient-to-r from-emerald-500 to-primary-600 rounded-full shadow-[0_0_10px_rgba(37,99,235,0.5)]"></div>
+          </div>
+        </div>
+
+        <h1 className="text-3xl font-black text-gray-900 mb-8 flex items-center gap-3">
+          <div className="p-2 bg-gradient-to-br from-primary-600 to-indigo-600 rounded-xl shadow-lg text-white">
+            <CreditCard size={24} />
+          </div>
+          Thông Tin Thanh Toán
         </h1>
 
         <form onSubmit={handleSubmit}>
@@ -369,7 +385,21 @@ export default function CheckoutPage() {
                 </div>
 
                 {loadingRecs ? (
-                  <div className="flex items-center justify-center py-10"><Loader2 className="h-8 w-8 animate-spin text-primary-200" /></div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {[...Array(2)].map((_, i) => (
+                      <div key={i} className="flex gap-4 p-4 border rounded-xl">
+                        <div className="flex-1 space-y-2">
+                          <Skeleton className="h-4 w-32 rounded" />
+                          <Skeleton className="h-3 w-20 rounded" />
+                          <div className="flex gap-1 pt-2">
+                            <Skeleton className="h-5 w-12 rounded" />
+                            <Skeleton className="h-5 w-12 rounded" />
+                          </div>
+                        </div>
+                        <Skeleton className="h-8 w-8 rounded-lg" />
+                      </div>
+                    ))}
+                  </div>
                 ) : contractorRecs.length > 0 ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {contractorRecs.map((c: any) => (
@@ -421,49 +451,63 @@ export default function CheckoutPage() {
               </div>
 
               {/* Product Recs (ML-Based) */}
-              {productRecs.length > 0 && (
-                <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100 mt-8">
-                  <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-                    <Sparkles className="h-5 w-5 text-amber-500" />
-                    Có Thể Bạn Đang Thiếu?
-                  </h2>
-                  <p className="text-xs text-gray-500 mb-4 px-1 italic">Hệ thống ML gợi ý các vật tư thường mua cùng để tiết kiệm phí vận chuyển</p>
+              <div className="mt-8">
+                {loadingProductRecs ? (
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    {productRecs.map((p: any) => (
-                      <div key={p.id} className="group border border-gray-100 rounded-xl p-3 hover:border-primary-200 hover:shadow-md transition-all bg-slate-50/30">
-                        <div className="relative aspect-square rounded-lg overflow-hidden mb-2 bg-white">
-                          {p.images?.[0] ? (
-                            <Image src={p.images[0]} alt={p.name} fill className="object-cover group-hover:scale-110 transition-transform" />
-                          ) : (
-                            <Package className="h-8 w-8 text-gray-200 m-auto mt-6" />
-                          )}
-                        </div>
-                        <h4 className="text-[10px] font-bold text-gray-900 line-clamp-2 h-6 mb-1">{p.name}</h4>
-                        <p className="text-xs font-black text-primary-600 mb-2">{p.price.toLocaleString()}đ</p>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            addItem({
-                              id: p.id,
-                              productId: p.id,
-                              name: p.name,
-                              price: p.price,
-                              quantity: 1,
-                              image: p.images?.[0] || '',
-                              sku: p.id.slice(0, 8).toUpperCase(),
-                              unit: p.unit
-                            });
-                            toast.success(`Đã thêm ${p.name} vào đơn hàng`);
-                          }}
-                          className="w-full py-1.5 bg-white border border-primary-200 text-primary-600 rounded-lg text-[10px] font-black hover:bg-primary-600 hover:text-white transition-all"
-                        >
-                          + THÊM
-                        </button>
+                    {[...Array(4)].map((_, i) => (
+                      <div key={i} className="bg-white rounded-xl p-3 border border-gray-100 space-y-2">
+                        <Skeleton className="aspect-square rounded-lg w-full" />
+                        <Skeleton className="h-3 w-3/4 rounded" />
+                        <Skeleton className="h-4 w-1/2 rounded" />
                       </div>
                     ))}
                   </div>
-                </div>
-              )}
+                ) : productRecs.length > 0 && (
+                  <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100 relative overflow-hidden">
+                    <div className="absolute top-0 right-0 p-4 opacity-10 pointer-events-none">
+                      <Sparkles size={80} className="text-amber-500" />
+                    </div>
+                    <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2 relative z-10">
+                      <Sparkles className="h-5 w-5 text-amber-500 fill-amber-500" />
+                      Có Thể Bạn Đang Thiếu?
+                    </h2>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 relative z-10">
+                      {productRecs.map((p: any) => (
+                        <div key={p.id} className="group border border-gray-100 rounded-xl p-3 hover:border-primary-200 hover:shadow-md transition-all bg-slate-50/50 hover:bg-white">
+                          <div className="relative aspect-square rounded-lg overflow-hidden mb-2 bg-white border border-gray-100">
+                            {p.images?.[0] ? (
+                              <Image src={p.images[0]} alt={p.name} fill className="object-cover group-hover:scale-110 transition-transform duration-500" />
+                            ) : (
+                              <Package className="h-8 w-8 text-gray-200 m-auto mt-6" />
+                            )}
+                          </div>
+                          <h4 className="text-[10px] font-bold text-gray-900 line-clamp-2 h-7 mb-1 leading-snug group-hover:text-primary-600 transition-colors">{p.name}</h4>
+                          <p className="text-xs font-black text-primary-600 mb-2">{p.price.toLocaleString()}đ</p>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              addItem({
+                                id: p.id,
+                                productId: p.id,
+                                name: p.name,
+                                price: p.price,
+                                quantity: 1,
+                                image: p.images?.[0] || '',
+                                sku: p.id.slice(0, 8).toUpperCase(),
+                                unit: p.unit
+                              });
+                              toast.success(`Đã thêm ${p.name} vào đơn hàng`);
+                            }}
+                            className="w-full py-2 bg-white border border-gray-200 text-gray-600 rounded-lg text-[10px] font-black hover:bg-primary-600 hover:text-white hover:border-primary-600 transition-all flex items-center justify-center gap-1 shadow-sm"
+                          >
+                            <Plus size={12} strokeWidth={3} /> THÊM
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Right Column - Summary */}

@@ -87,6 +87,15 @@ export async function PUT(
       updateData.paymentStatus = 'CANCELLED' // Use CANCELLED instead of FAILED (not in enum)
     }
 
+    // Regenerate QR expiry when order is confirmed (give customer fresh 30-min window)
+    if ((status === 'CONFIRMED' || status === 'CONFIRMED_AWAITING_DEPOSIT') &&
+      existingOrder.paymentMethod === 'BANK_TRANSFER' &&
+      existingOrder.paymentStatus !== 'PAID') {
+      const qrExpiry = new Date()
+      qrExpiry.setMinutes(qrExpiry.getMinutes() + 30)
+      updateData.qrExpiresAt = qrExpiry
+    }
+
     const updatedOrder = await (prisma as any).$transaction(async (tx: any) => {
       // If cancelling, restore inventory
       if (status === 'CANCELLED' && existingOrder.status !== 'CANCELLED') {

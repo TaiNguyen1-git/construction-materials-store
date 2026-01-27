@@ -26,6 +26,7 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import toast, { Toaster } from 'react-hot-toast'
+import { Skeleton } from '@/components/ui/skeleton'
 
 const QRPayment = dynamic(() => import('@/components/QRPayment'), { ssr: false })
 
@@ -237,7 +238,8 @@ function OrderTrackingContent() {
     }
   }
 
-  const getStatusInfo = (status: string) => {
+
+  const getStatusInfo = (status: string): { icon: React.ReactElement; color: string; bg: string; label: string; desc: string } => {
     switch (status) {
       case 'PENDING_CONFIRMATION':
         return { icon: <Clock className="h-12 w-12" />, color: 'text-orange-600', bg: 'bg-orange-100', label: 'Chờ Xác Nhận', desc: 'Đơn hàng đang chờ admin xác nhận' }
@@ -262,6 +264,36 @@ function OrderTrackingContent() {
       default:
         return { icon: <Clock className="h-12 w-12" />, color: 'text-gray-600', bg: 'bg-gray-100', label: status, desc: '' }
     }
+  }
+
+  // Skeleton Loading State
+  if (loading && !order) {
+    return (
+      <div className="min-h-screen bg-[#f8fafc]">
+        <Header />
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+          <div className="text-center mb-16 space-y-4">
+            <Skeleton className="h-12 w-3/4 md:w-1/2 mx-auto rounded-xl" />
+            <Skeleton className="h-4 w-1/3 mx-auto rounded" />
+          </div>
+          <Skeleton className="h-24 w-full rounded-[32px] mb-12" />
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            <div className="lg:col-span-8 space-y-8">
+              <Skeleton className="h-64 w-full rounded-[32px]" />
+              <div className="space-y-4">
+                {[1, 2, 3].map(i => (
+                  <Skeleton key={i} className="h-28 w-full rounded-[24px]" />
+                ))}
+              </div>
+            </div>
+            <div className="lg:col-span-4 space-y-8">
+              <Skeleton className="h-80 w-full rounded-[32px]" />
+              <Skeleton className="h-48 w-full rounded-[32px]" />
+            </div>
+          </div>
+        </main>
+      </div>
+    )
   }
 
   return (
@@ -322,47 +354,52 @@ function OrderTrackingContent() {
                       <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">{getStatusInfo(order.status).desc}</p>
                     </div>
                   </div>
-                  {['PENDING', 'PENDING_CONFIRMATION', 'CONFIRMED', 'CONFIRMED_AWAITING_DEPOSIT'].includes(order.status) && (
-                    <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-full border border-emerald-100 border-dashed">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                      <span className="text-[9px] font-black uppercase tracking-widest">Live Updates</span>
-                    </div>
-                  )}
                 </div>
 
-                {/* Visual Timeline Bar */}
-                <div className="relative pb-6">
-                  <div className="absolute left-0 top-[1.4rem] w-full h-[2px] bg-slate-50"></div>
+                {/* Visual Timeline Bar - Enhanced */}
+                <div className="relative pb-8 px-4">
+                  {/* Background track */}
+                  <div className="absolute left-4 right-4 top-[1.5rem] h-[6px] bg-slate-100 rounded-full overflow-hidden">
+                    <div className="absolute inset-0 bg-gradient-to-r from-slate-100 to-slate-50"></div>
+                  </div>
+
+                  {/* Active progress */}
                   <div
-                    className="absolute left-0 top-[1.4rem] h-[3px] -mt-[0.5px] bg-blue-600 transition-all duration-1000 rounded-full"
+                    className="absolute left-4 top-[1.5rem] h-[6px] bg-gradient-to-r from-blue-600 via-indigo-500 to-blue-600 transition-all duration-1000 ease-out rounded-full shadow-lg shadow-blue-500/30"
                     style={{
-                      width: order.status === 'PENDING_CONFIRMATION' ? '12.5%' :
-                        order.status === 'CONFIRMED_AWAITING_DEPOSIT' ? '25%' :
-                          order.status === 'DEPOSIT_PAID' ? '37.5%' :
-                            order.status === 'CONFIRMED' ? '50%' :
-                              order.status === 'PROCESSING' ? '62.5%' :
+                      width: order.status === 'PENDING_CONFIRMATION' ? '10%' :
+                        order.status === 'CONFIRMED' ? '18%' :
+                          order.status === 'CONFIRMED_AWAITING_DEPOSIT' ? '18%' :
+                            order.status === 'DEPOSIT_PAID' ? '30%' :
+                              order.status === 'PROCESSING' ? '55%' :
                                 order.status === 'SHIPPED' ? '75%' :
-                                  order.status === 'DELIVERED' ? '90%' :
+                                  order.status === 'DELIVERED' ? '92%' :
                                     order.status === 'COMPLETED' ? '100%' : '5%'
                     }}
-                  ></div>
+                  >
+                    {/* Animated pulse at end */}
+                    <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow-md border-2 border-indigo-500 animate-pulse"></div>
+                  </div>
 
-                  <div className="flex justify-between relative z-10">
+                  <div className="flex justify-between relative z-10 pt-1">
                     {[
-                      { s: 'PENDING_CONFIRMATION', i: Clock },
-                      { s: 'DEPOSIT_PAID', i: CheckCircle },
-                      { s: 'PROCESSING', i: Package },
-                      { s: 'SHIPPED', i: Truck },
-                      { s: 'DELIVERED', i: Home }
+                      { s: 'PENDING_CONFIRMATION', i: Clock, l: 'Đã đặt' },
+                      { s: 'DEPOSIT_PAID', i: CheckCircle, l: 'Đã cọc' },
+                      { s: 'PROCESSING', i: Package, l: 'Sản xuất' },
+                      { s: 'SHIPPED', i: Truck, l: 'Vận chuyển' },
+                      { s: 'DELIVERED', i: Home, l: 'Đã giao' }
                     ].map((step, idx) => {
                       const isActive = getStatusPriority(order.status) >= getStatusPriority(step.s);
                       return (
-                        <div key={idx} className="flex flex-col items-center group">
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-all border-2 ${isActive ? 'bg-blue-600 border-white text-white shadow-lg scale-110 ring-4 ring-blue-500/5' : 'bg-white border-slate-50 text-slate-200'}`}>
-                            <step.i className="w-3.5 h-3.5" />
+                        <div key={idx} className="flex flex-col items-center group cursor-default">
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-500 border-[3px] ${isActive
+                            ? 'bg-gradient-to-br from-blue-600 to-indigo-600 border-white text-white shadow-xl shadow-blue-500/40 scale-110'
+                            : 'bg-white border-slate-100 text-slate-300'
+                            }`}>
+                            <step.i className="w-4 h-4" />
                           </div>
-                          <span className={`mt-3 text-[8px] font-black uppercase tracking-tight ${isActive ? 'text-blue-600' : 'text-slate-300'}`}>
-                            {getStatusLabel(step.s)}
+                          <span className={`mt-3 text-[9px] font-black uppercase tracking-wider transition-colors duration-300 ${isActive ? 'text-blue-600' : 'text-slate-300'}`}>
+                            {step.l}
                           </span>
                         </div>
                       )
@@ -445,51 +482,52 @@ function OrderTrackingContent() {
                 )
               )}
 
-              {/* ALL PRODUCTS LIST - Moved from Sidebar to Main Column for better balance */}
-              <div className="bg-white rounded-[32px] shadow-[0_20px_40px_rgba(0,0,0,0.03)] p-10 border border-slate-100 relative overflow-hidden">
+              {/* ALL PRODUCTS LIST - Modern Card Layout */}
+              <div className="bg-white rounded-[32px] shadow-[0_20px_40px_rgba(0,0,0,0.03)] p-8 border border-slate-100">
                 <div className="flex items-center gap-4 mb-8">
-                  <div className="w-1 h-6 bg-emerald-500 rounded-full"></div>
-                  <h3 className="text-xl font-black text-slate-900 tracking-tighter uppercase leading-none">Chi tiết vật tư</h3>
+                  <div className="w-1.5 h-8 bg-gradient-to-b from-emerald-500 to-teal-600 rounded-full"></div>
+                  <div>
+                    <h3 className="text-xl font-black text-slate-900 tracking-tighter uppercase leading-none">Chi tiết vật tư</h3>
+                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-1">{order.orderItems.length} sản phẩm</p>
+                  </div>
                 </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="text-left border-b border-slate-100">
-                        <th className="pb-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Sản phẩm</th>
-                        <th className="pb-4 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">Số lượng</th>
-                        <th className="pb-4 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest">Thành tiền</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-50">
-                      {order.orderItems.map((item) => (
-                        <tr key={item.id} className="group">
-                          <td className="py-5">
-                            <div className="flex items-center gap-4">
-                              <div className="w-12 h-12 bg-slate-50 rounded-xl flex items-center justify-center p-2 group-hover:bg-blue-50 transition-colors">
-                                {item.product.images?.[0] ? (
-                                  <img src={item.product.images[0]} alt={item.product.name} className="max-w-full max-h-full object-contain" />
-                                ) : (
-                                  <Package className="w-5 h-5 text-slate-300" />
-                                )}
-                              </div>
-                              <div>
-                                <p className="font-bold text-slate-900 text-sm uppercase tracking-tight leading-tight mb-1">{item.product.name}</p>
-                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{item.unitPrice.toLocaleString()}₫ / {item.product.unit || 'Đơn vị'}</p>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="py-5 text-center">
-                            <span className="inline-block px-3 py-1 bg-slate-50 rounded-lg font-black text-slate-700 text-xs">
-                              {item.quantity}
+
+                <div className="grid grid-cols-1 gap-4">
+                  {order.orderItems.map((item) => (
+                    <div key={item.id} className="flex gap-4 p-4 rounded-2xl border border-slate-100 bg-slate-50/50 hover:bg-blue-50/50 hover:border-blue-100 transition-all duration-300 group">
+                      {/* Product Image */}
+                      <div className="relative w-20 h-20 bg-white rounded-xl overflow-hidden shrink-0 border border-slate-100 shadow-sm group-hover:scale-105 transition-transform duration-300">
+                        {item.product.images?.[0] ? (
+                          <img src={item.product.images[0]} alt={item.product.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <Package className="w-8 h-8 text-slate-300 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+                        )}
+                      </div>
+
+                      {/* Product Info */}
+                      <div className="flex-1 min-w-0 flex flex-col justify-between py-1">
+                        <div>
+                          <h4 className="font-bold text-slate-900 text-sm leading-snug line-clamp-2 group-hover:text-blue-700 transition-colors">{item.product.name}</h4>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="text-[10px] font-black text-slate-400 bg-white px-1.5 py-0.5 rounded border border-slate-100">
+                              {item.product.sku || 'SKU-N/A'}
                             </span>
-                          </td>
-                          <td className="py-5 text-right font-black text-slate-900 text-sm">
-                            {item.totalPrice.toLocaleString()}₫
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                          </div>
+                        </div>
+
+                        <div className="flex items-end justify-between mt-2">
+                          <div className="flex items-center gap-1.5 bg-white px-2 py-1 rounded-lg border border-slate-100 shadow-sm">
+                            <span className="text-[10px] font-bold text-slate-400">SL:</span>
+                            <span className="text-xs font-black text-slate-800">{item.quantity}</span>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-sm font-black text-slate-900">{item.totalPrice.toLocaleString()}₫</p>
+                            <p className="text-[9px] text-slate-400 font-medium">{item.unitPrice.toLocaleString()}₫ / {item.product.unit || 'cái'}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
@@ -498,7 +536,7 @@ function OrderTrackingContent() {
             <div className="lg:col-span-4 space-y-8">
               {/* Payment Status & QR Card - Priority 1 (Actionable) */}
               {order.paymentMethod === 'BANK_TRANSFER' && order.paymentStatus !== 'PAID' && order.qrExpiresAt && (
-                (order.status === 'CONFIRMED_AWAITING_DEPOSIT' || order.status === 'PENDING_CONFIRMATION') && (
+                ['CONFIRMED', 'CONFIRMED_AWAITING_DEPOSIT', 'PENDING_CONFIRMATION'].includes(order.status) && (
                   <div className="bg-white rounded-[32px] shadow-[0_30px_60px_rgba(59,130,246,0.1)] p-8 border border-blue-200 relative overflow-hidden ring-4 ring-blue-500/5">
                     <div className="absolute top-0 right-0 p-4 opacity-5">
                       <Shield size={60} className="text-blue-600" />
@@ -511,12 +549,32 @@ function OrderTrackingContent() {
                         Thanh toán
                       </h4>
                     </div>
-                    <QRPayment
-                      amount={order.paymentType === 'DEPOSIT' ? (order.depositAmount || 0) : order.netAmount}
-                      orderId={order.orderNumber}
-                      description={order.paymentType === 'DEPOSIT' ? `Coc ${order.depositPercentage}% ${order.orderNumber}` : `Full ${order.orderNumber}`}
-                      expiresAt={order.qrExpiresAt}
-                    />
+
+                    {/* Check if QR expired */}
+                    {new Date(order.qrExpiresAt) < new Date() ? (
+                      <div className="text-center py-8 space-y-4">
+                        <div className="w-16 h-16 bg-red-100 rounded-full mx-auto flex items-center justify-center">
+                          <AlertTriangle className="w-8 h-8 text-red-500" />
+                        </div>
+                        <div>
+                          <p className="font-bold text-slate-900 mb-1">Mã QR đã hết hạn</p>
+                          <p className="text-sm text-slate-500">Vui lòng liên hệ hotline để được hỗ trợ thanh toán</p>
+                        </div>
+                        <a
+                          href="tel:1900636999"
+                          className="inline-flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-xl font-bold text-sm hover:bg-blue-700 transition-all"
+                        >
+                          📞 Gọi Hotline: 1900 636 999
+                        </a>
+                      </div>
+                    ) : (
+                      <QRPayment
+                        amount={order.paymentType === 'DEPOSIT' ? (order.depositAmount || 0) : order.netAmount}
+                        orderId={order.orderNumber}
+                        description={order.paymentType === 'DEPOSIT' ? `Coc ${order.depositPercentage}% ${order.orderNumber}` : `Full ${order.orderNumber}`}
+                        expiresAt={order.qrExpiresAt}
+                      />
+                    )}
                   </div>
                 )
               )}
@@ -586,7 +644,7 @@ function OrderTrackingContent() {
               <div className="bg-white rounded-[32px] shadow-[0_20px_40px_rgba(0,0,0,0.03)] border border-slate-100 p-8 overflow-hidden relative">
                 <div className="flex items-center justify-between mb-6">
                   <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">Kiến trúc sư / Thợ</h4>
-                  {order.contractorChangeCount < 1 && (order.status === 'PENDING' || order.status === 'PENDING_CONFIRMATION') && (
+                  {order.contractorChangeCount < 1 && ['PENDING', 'PENDING_CONFIRMATION', 'CONFIRMED', 'CONFIRMED_AWAITING_DEPOSIT'].includes(order.status) && (
                     <button
                       onClick={() => { setShowContractorModal(true); fetchContractorRecs(); }}
                       className="text-[9px] font-black bg-blue-50 text-blue-600 px-3 py-1.5 rounded-lg uppercase tracking-widest hover:bg-blue-600 hover:text-white transition-all shadow-sm"
@@ -597,16 +655,16 @@ function OrderTrackingContent() {
                 </div>
 
                 {order.contractor ? (
-                  <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl p-5 relative group overflow-hidden">
+                  <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-2xl p-5 relative group overflow-hidden">
                     <div className="relative z-10 flex items-center gap-4">
-                      <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center text-white font-black text-xl shadow-lg uppercase">
+                      <div className="w-12 h-12 bg-white/20 backdrop-blur rounded-xl flex items-center justify-center text-white font-black text-xl shadow-lg uppercase">
                         {order.contractor.displayName[0]}
                       </div>
                       <div className="flex-1 min-w-0">
                         <h5 className="font-black text-white text-sm uppercase truncate">{order.contractor.displayName}</h5>
                         <div className="flex items-center gap-2 mt-0.5">
-                          <span className="flex items-center gap-1 text-[10px] text-amber-400 font-bold"><Star size={10} fill="currentColor" /> {order.contractor.avgRating}</span>
-                          <span className="text-[10px] text-slate-400 font-bold uppercase truncate opacity-60">Expert • {order.contractor.city}</span>
+                          <span className="flex items-center gap-1 text-[10px] text-amber-300 font-bold"><Star size={10} fill="currentColor" /> {order.contractor.avgRating}</span>
+                          <span className="text-[10px] text-blue-100 font-bold uppercase truncate">Expert • {order.contractor.city}</span>
                         </div>
                       </div>
                     </div>
@@ -623,7 +681,7 @@ function OrderTrackingContent() {
               <div className="flex flex-col gap-3">
                 <button
                   onClick={() => window.print()}
-                  className="w-full bg-slate-900 text-white px-6 py-4 rounded-[20px] font-black text-[10px] uppercase tracking-widest hover:bg-slate-800 transition-all active:scale-95 flex items-center justify-center gap-2"
+                  className="w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-4 rounded-[20px] font-black text-[10px] uppercase tracking-widest hover:from-blue-700 hover:to-blue-800 transition-all active:scale-95 flex items-center justify-center gap-2 shadow-lg shadow-blue-500/25"
                 >
                   Tải hóa đơn (PDF)
                 </button>
@@ -638,66 +696,112 @@ function OrderTrackingContent() {
           </div>
         )}
 
-        {/* Change Contractor Modal */}
+        {/* Change Contractor Modal - Premium Design */}
         {showContractorModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-            <div className="bg-white rounded-3xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl animate-in zoom-in-95 duration-200">
-              <div className="p-6 border-b flex justify-between items-center bg-primary-600 text-white">
-                <div>
-                  <h3 className="text-2xl font-black">🏗️ Cập Nhật Nhà Thầu</h3>
-                  <p className="text-primary-100 text-xs mt-1">Lưu ý: Bạn chỉ được thay đổi duy nhất 1 lần</p>
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-md">
+            <div className="bg-white rounded-[28px] w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl animate-in zoom-in-95 duration-300">
+              {/* Header */}
+              <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 text-white relative overflow-hidden">
+                <div className="absolute inset-0 opacity-20">
+                  <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2"></div>
                 </div>
-                <button onClick={() => setShowContractorModal(false)} className="p-2 hover:bg-white/10 rounded-full transition-colors"><X size={24} /></button>
+                <div className="relative z-10">
+                  <h3 className="text-xl font-black tracking-tight flex items-center gap-2">
+                    <Building className="w-6 h-6" />
+                    Kết nối Chuyên Gia Thi Công
+                  </h3>
+                  <p className="text-blue-100 text-xs mt-1 font-medium">Lưu ý: Bạn chỉ được thay đổi duy nhất 1 lần</p>
+                </div>
+                <button
+                  onClick={() => setShowContractorModal(false)}
+                  className="relative z-10 p-2.5 hover:bg-white/20 rounded-xl transition-all active:scale-95"
+                >
+                  <X size={22} />
+                </button>
               </div>
 
+              {/* Content */}
               <div className="flex-1 overflow-y-auto p-6 space-y-6">
-                <div className="bg-amber-50 border-2 border-amber-200 rounded-2xl p-4 flex gap-3 text-amber-800">
-                  <AlertTriangle className="shrink-0" />
-                  <p className="text-sm font-bold leading-tight">
-                    CẢNH BÁO: Đây là lượt thay đổi cuối cùng của bạn cho đơn hàng này. Hãy kiểm tra kỹ trước khi xác nhận.
-                  </p>
+                {/* Warning Banner */}
+                <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-2xl p-4 flex gap-3">
+                  <div className="w-10 h-10 bg-amber-500 rounded-xl flex items-center justify-center shrink-0">
+                    <AlertTriangle className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-amber-800 leading-tight">
+                      Đây là lượt thay đổi cuối cùng
+                    </p>
+                    <p className="text-xs text-amber-600 mt-0.5">Hãy kiểm tra kỹ trước khi xác nhận</p>
+                  </div>
                 </div>
 
                 {loadingRecs ? (
-                  <div className="py-20 flex flex-col items-center justify-center gap-4">
-                    <Loader2 className="h-10 w-10 animate-spin text-primary-600" />
-                    <p className="text-gray-500 font-bold">Đang tìm chuyên gia phù hợp...</p>
+                  <div className="py-12 flex flex-col items-center justify-center gap-4">
+                    <div className="relative">
+                      <div className="w-16 h-16 border-4 border-blue-100 rounded-full"></div>
+                      <div className="absolute top-0 left-0 w-16 h-16 border-4 border-blue-600 rounded-full border-t-transparent animate-spin"></div>
+                    </div>
+                    <p className="text-slate-500 font-bold text-sm">Đang tìm chuyên gia phù hợp...</p>
                   </div>
                 ) : contractorRecs.length > 0 ? (
-                  <div className="grid grid-cols-1 gap-4">
+                  <div className="space-y-3">
                     {contractorRecs.map((c) => (
-                      <div key={c.id} className="p-4 bg-white rounded-2xl border-2 border-gray-100 hover:border-primary-600 transition-all group shadow-sm flex items-center gap-4">
+                      <div
+                        key={c.id}
+                        className="p-4 bg-slate-50 rounded-2xl border-2 border-transparent hover:border-blue-500 hover:bg-blue-50/50 transition-all duration-200 group flex items-center gap-4"
+                      >
+                        {/* Avatar */}
+                        <div className="w-14 h-14 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-2xl flex items-center justify-center text-white font-black text-xl shadow-lg shadow-blue-500/30 shrink-0">
+                          {c.displayName?.[0]?.toUpperCase() || 'C'}
+                        </div>
+
+                        {/* Info */}
                         <div className="flex-1 min-w-0">
-                          <h4 className="font-bold text-gray-900 truncate">{c.displayName}</h4>
+                          <h4 className="font-bold text-slate-900 truncate group-hover:text-blue-700 transition-colors">{c.displayName}</h4>
                           <div className="flex items-center gap-3 mt-1">
-                            <span className="flex items-center gap-1 text-xs text-amber-500 font-bold"><Star size={12} fill="currentColor" /> {c.avgRating}</span>
-                            <span className="text-xs text-gray-400"># {c.city}</span>
+                            <span className="flex items-center gap-1 text-xs text-amber-500 font-bold">
+                              <Star size={12} fill="currentColor" /> {c.avgRating?.toFixed(1) || 'N/A'}
+                            </span>
+                            <span className="text-xs text-slate-400 font-medium">📍 {c.city || 'Vietnam'}</span>
                           </div>
-                          <div className="flex flex-wrap gap-1 mt-2">
+                          <div className="flex flex-wrap gap-1.5 mt-2">
                             {c.skills?.slice(0, 3).map((s: string) => (
-                              <span key={s} className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full font-bold">{s}</span>
+                              <span key={s} className="text-[10px] bg-white text-slate-600 px-2 py-0.5 rounded-lg font-bold border border-slate-100 shadow-sm">
+                                {s}
+                              </span>
                             ))}
                           </div>
                         </div>
+
+                        {/* Action */}
                         <button
                           disabled={isUpdatingContractor}
                           onClick={() => handleUpdateContractor(c.id)}
-                          className="bg-primary-600 text-white px-5 py-2.5 rounded-xl font-bold text-sm hover:bg-primary-700 transition-all flex items-center gap-2 disabled:opacity-50"
+                          className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-5 py-3 rounded-xl font-bold text-sm hover:from-blue-700 hover:to-indigo-700 transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-blue-500/25 active:scale-95"
                         >
                           Chọn
                           <ArrowRight size={16} />
                         </button>
                       </div>
                     ))}
+
+                    {/* Remove all button */}
                     <button
                       onClick={() => handleUpdateContractor(null)}
-                      className="w-full py-3 bg-red-50 text-red-600 rounded-xl font-bold text-sm hover:bg-red-100 transition-all mt-4"
+                      disabled={isUpdatingContractor}
+                      className="w-full py-3.5 bg-red-50 text-red-600 rounded-xl font-bold text-sm hover:bg-red-100 transition-all mt-4 border border-red-100 disabled:opacity-50"
                     >
                       Bỏ chọn tất cả nhà thầu
                     </button>
                   </div>
                 ) : (
-                  <div className="text-center py-10"><p className="text-gray-400 italic">Không tìm thấy thợ phù hợp tại khu vực này.</p></div>
+                  <div className="text-center py-16">
+                    <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <User className="w-10 h-10 text-slate-300" />
+                    </div>
+                    <p className="text-slate-500 font-bold">Không tìm thấy thợ phù hợp</p>
+                    <p className="text-slate-400 text-sm mt-1">Hãy thử lại sau hoặc liên hệ hotline</p>
+                  </div>
                 )}
               </div>
             </div>
@@ -712,12 +816,13 @@ function OrderTrackingContent() {
 const getStatusPriority = (status: string) => {
   const priorities: Record<string, number> = {
     'PENDING_CONFIRMATION': 1,
-    'CONFIRMED_AWAITING_DEPOSIT': 2,
-    'DEPOSIT_PAID': 3,
-    'PROCESSING': 4,
-    'SHIPPED': 5,
-    'DELIVERED': 6,
-    'COMPLETED': 7
+    'CONFIRMED': 1.5,
+    'CONFIRMED_AWAITING_DEPOSIT': 1.5,
+    'DEPOSIT_PAID': 2,
+    'PROCESSING': 3,
+    'SHIPPED': 4,
+    'DELIVERED': 5,
+    'COMPLETED': 6
   }
   return priorities[status] || 0
 }

@@ -60,6 +60,12 @@ interface Order {
   updatedAt: string
 }
 
+const BANK_INFO = {
+  bankId: '970423', // TPBank
+  accountNumber: '06729594301',
+  accountName: 'NGUYEN THANH TAI'
+}
+
 export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([])
   const [customers, setCustomers] = useState<Customer[]>([])
@@ -82,6 +88,8 @@ export default function OrdersPage() {
     search: '', // Search by order number, phone, name (debounced)
     page: 1
   })
+
+  const [showQR, setShowQR] = useState(false)
 
   // Separate state for search input (to avoid triggering API on every keystroke)
   const [searchInput, setSearchInput] = useState('')
@@ -596,6 +604,7 @@ export default function OrdersPage() {
                         onClick={() => {
                           setSelectedOrder(order)
                           setShowModal(true)
+                          setShowQR(false)
                         }}
                         className="p-2 rounded-lg bg-slate-50 text-blue-600 hover:text-blue-700 hover:bg-blue-100 transition-all group/btn"
                         title="Xem chi tiết"
@@ -657,6 +666,26 @@ export default function OrdersPage() {
                           title={`Chuyển sang: ${getStatusLabel(getNextStatus(order.status, order.paymentType)!)}`}
                         >
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>
+                        </button>
+                      )}
+
+                      {/* Payment QR Button */}
+                      {order.paymentMethod === 'BANK_TRANSFER' && order.paymentStatus !== 'PAID' && order.status !== 'PENDING' && order.status !== 'CANCELLED' && order.status !== 'RETURNED' && (
+                        <button
+                          onClick={() => {
+                            const amount = order.paymentType === 'DEPOSIT'
+                              ? (order.status === 'DEPOSIT_PAID' || order.status === 'PROCESSING' || order.status === 'SHIPPED' || order.status === 'DELIVERED'
+                                ? (order.remainingAmount || (order.totalAmount - (order.depositAmount || 0)))
+                                : (order.depositAmount || 0))
+                              : order.totalAmount;
+
+                            const qrUrl = `https://img.vietqr.io/image/${BANK_INFO.bankId}-${BANK_INFO.accountNumber}-compact.png?amount=${amount}&addInfo=${encodeURIComponent('DH ' + order.orderNumber)}&accountName=${encodeURIComponent(BANK_INFO.accountName)}`;
+                            window.open(qrUrl, '_blank');
+                          }}
+                          className="p-2 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white transition-all"
+                          title="Lấy mã QR thanh toán"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h4v4H4V6zm12 0h4v4h-4V6zM4 14h4v4H4v-4zm12 0h4v4h-4v-4z" /></svg>
                         </button>
                       )}
 
@@ -812,6 +841,60 @@ export default function OrdersPage() {
                     </span>
                   )}
                 </div>
+
+                {/* QR Code Section for Bank Transfer */}
+                {selectedOrder.paymentMethod === 'BANK_TRANSFER' && selectedOrder.paymentStatus !== 'PAID' && (
+                  <div className="mt-3 border-t pt-3">
+                    <button
+                      onClick={() => setShowQR(!showQR)}
+                      className="text-sm text-blue-600 hover:text-blue-800 font-bold flex items-center gap-1 bg-blue-50 px-3 py-2 rounded-lg transition-colors w-full justify-center"
+                    >
+                      {showQR ? '🔽 Ẩn mã QR' : '💳 Lấy Mã QR / Link Thanh Toán'}
+                    </button>
+
+                    {showQR && (
+                      <div className="mt-3 p-4 border rounded-xl bg-slate-50 animate-in fade-in zoom-in-95 duration-200">
+                        <div className="flex flex-col md:flex-row gap-6 items-center">
+                          <div className="bg-white p-2 rounded-xl shadow-sm border border-slate-200 shrink-0">
+                            <img
+                              src={`https://img.vietqr.io/image/${BANK_INFO.bankId}-${BANK_INFO.accountNumber}-compact.png?amount=${selectedOrder.paymentType === 'DEPOSIT' && selectedOrder.depositAmount ? selectedOrder.depositAmount : selectedOrder.totalAmount}&addInfo=${encodeURIComponent('DH ' + selectedOrder.orderNumber)}&accountName=${encodeURIComponent(BANK_INFO.accountName)}`}
+                              alt="QR Code"
+                              className="w-40 h-40 object-contain"
+                            />
+                            <p className="text-[10px] text-center mt-1 font-bold text-slate-400">VietQR Pro</p>
+                          </div>
+                          <div className="flex-1 space-y-3 w-full">
+                            <div>
+                              <p className="text-sm font-bold text-slate-800 mb-1">🔗 Link theo dõi & Thanh toán:</p>
+                              <div className="flex gap-2">
+                                <input
+                                  readOnly
+                                  value={`${typeof window !== 'undefined' ? window.location.origin : ''}/order-tracking?orderId=${selectedOrder.id}`}
+                                  className="flex-1 text-xs border border-slate-300 rounded-lg px-3 py-2 bg-white text-slate-600 outline-none focus:border-blue-500"
+                                  onClick={(e) => e.currentTarget.select()}
+                                />
+                                <button
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(`${typeof window !== 'undefined' ? window.location.origin : ''}/order-tracking?orderId=${selectedOrder.id}`);
+                                    toast.success('Đã sao chép link');
+                                  }}
+                                  className="px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-blue-600 transition-colors"
+                                >
+                                  Copy
+                                </button>
+                              </div>
+                            </div>
+                            <div className="bg-blue-100/50 p-3 rounded-lg border border-blue-100">
+                              <p className="text-xs text-blue-800 leading-relaxed">
+                                💡 <strong>Hướng dẫn:</strong> Gửi hình ảnh QR Code hoặc đường link này cho khách hàng. Khách hàng có thể truy cập link để xem chi tiết đơn hàng và thực hiện thanh toán mới.
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Deposit Information */}
