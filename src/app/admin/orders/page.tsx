@@ -475,7 +475,7 @@ export default function OrdersPage() {
                 setSearchInput('')
                 setFilters({ status: '', customerId: '', customerType: '', search: '', page: 1 })
               }}
-              className="w-full px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
+              className="w-full px-4 py-2 border border-blue-200 bg-blue-50 rounded-md text-blue-700 hover:bg-blue-100 transition-colors flex items-center justify-center gap-2"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -526,15 +526,15 @@ export default function OrdersPage() {
       <div className="bg-white shadow overflow-hidden sm:rounded-md">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+            <thead className="bg-slate-50 border-b border-slate-200">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Đơn Hàng</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Khách Hàng</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Sản Phẩm</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tổng Tiền</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Trạng Thái</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ngày</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Hành Động</th>
+                <th className="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Đơn Hàng</th>
+                <th className="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Khách Hàng</th>
+                <th className="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Sản Phẩm</th>
+                <th className="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Tổng Tiền</th>
+                <th className="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Trạng Thái</th>
+                <th className="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Ngày</th>
+                <th className="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[150px]">Hành Động</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -553,16 +553,19 @@ export default function OrdersPage() {
                       )}
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div>
-                      <div className="text-sm font-medium text-gray-900">
+                  <td className="px-6 py-4">
+                    <div className="max-w-[200px]">
+                      <div className="text-sm font-black text-slate-900 truncate">
                         {order.customerName || order.customer?.name || order.guestName || 'N/A'}
                       </div>
-                      <div className="text-sm text-gray-500">
+                      <div className="text-[11px] text-slate-400 truncate font-medium">
                         {order.customerEmail || order.customer?.email || order.guestEmail || 'N/A'}
                       </div>
                       {order.guestPhone && (
-                        <div className="text-sm text-gray-500">📞 {order.guestPhone}</div>
+                        <div className="text-[11px] text-blue-500 font-bold mt-1 inline-flex items-center gap-1 bg-blue-50 px-1.5 py-0.5 rounded">
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
+                          {order.guestPhone}
+                        </div>
                       )}
                     </div>
                   </td>
@@ -587,23 +590,25 @@ export default function OrdersPage() {
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {new Date(order.createdAt).toLocaleDateString()}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <div className="flex flex-wrap gap-2">
+                  <td className="px-6 py-4">
+                    <div className="flex flex-wrap gap-2 max-w-[180px]">
                       <button
                         onClick={() => {
                           setSelectedOrder(order)
                           setShowModal(true)
                         }}
-                        className="text-blue-600 hover:text-blue-900 text-sm font-medium"
+                        className="p-2 rounded-lg bg-slate-50 text-blue-600 hover:text-blue-700 hover:bg-blue-100 transition-all group/btn"
+                        title="Xem chi tiết"
                       >
-                        👁️ Xem
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
                       </button>
 
                       <button
                         onClick={() => window.location.href = `/admin/orders/${order.id}/phases`}
-                        className="text-indigo-600 hover:text-indigo-900 text-sm font-medium"
+                        className="p-2 rounded-lg bg-slate-50 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all"
+                        title="Lập lịch đợt giao"
                       >
-                        🚚 Lập lịch đợt
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                       </button>
 
                       {/* Confirm/Reject buttons for pending orders */}
@@ -611,18 +616,20 @@ export default function OrdersPage() {
                         <>
                           <button
                             onClick={() => confirmOrder(order.id, 'confirm')}
-                            className="text-green-600 hover:text-green-900 text-sm font-medium"
+                            className="p-2 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white transition-all"
+                            title="Xác nhận đơn"
                           >
-                            ✅ Xác nhận
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
                           </button>
                           <button
                             onClick={() => {
                               const reason = prompt('Lý do từ chối:')
                               if (reason) confirmOrder(order.id, 'reject', reason)
                             }}
-                            className="text-red-600 hover:text-red-900 text-sm font-medium"
+                            className="p-2 rounded-lg bg-red-50 text-red-600 hover:bg-red-600 hover:text-white transition-all"
+                            title="Từ chối đơn"
                           >
-                            ❌ Từ chối
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                           </button>
                         </>
                       )}
@@ -635,9 +642,10 @@ export default function OrdersPage() {
                               confirmDeposit(order.id)
                             }
                           }}
-                          className="text-cyan-600 hover:text-cyan-900 text-sm font-medium"
+                          className="p-2 rounded-lg bg-cyan-50 text-cyan-600 hover:bg-cyan-600 hover:text-white transition-all"
+                          title="Xác nhận tiền cọc"
                         >
-                          💰 Xác nhận cọc
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                         </button>
                       )}
 
@@ -645,29 +653,22 @@ export default function OrdersPage() {
                       {getNextStatus(order.status, order.paymentType) && (
                         <button
                           onClick={() => updateOrderStatus(order.id, getNextStatus(order.status, order.paymentType)!)}
-                          className="text-purple-600 hover:text-purple-900 text-sm font-medium"
+                          className="p-2 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white transition-all"
+                          title={`Chuyển sang: ${getStatusLabel(getNextStatus(order.status, order.paymentType)!)}`}
                         >
-                          ➡️ {getStatusLabel(getNextStatus(order.status, order.paymentType)!)}
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>
                         </button>
                       )}
 
-                      {/* Cancel button */}
-                      {order.status !== 'CANCELLED' && order.status !== 'COMPLETED' && order.status !== 'DELIVERED' && (
-                        <button
-                          onClick={() => updateOrderStatus(order.id, 'CANCELLED')}
-                          className="text-orange-600 hover:text-orange-900 text-sm font-medium"
-                        >
-                          🚫 Hủy
-                        </button>
-                      )}
                       <button
                         onClick={() => {
                           setDeletingOrder(order)
                           setShowDeleteDialog(true)
                         }}
-                        className="text-red-600 hover:text-red-900"
+                        className="p-2 rounded-lg bg-slate-50 text-slate-400 hover:text-red-600 hover:bg-red-50 transition-all"
+                        title="Xóa đơn hàng"
                       >
-                        Xóa
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                       </button>
                     </div>
                   </td>

@@ -19,7 +19,18 @@ import {
     Calendar,
     RefreshCw,
     Search,
-    Eye
+    Eye,
+    Briefcase,
+    ShieldCheck,
+    AlertCircle,
+    ChevronRight,
+    Tag,
+    BarChart,
+    ChevronDown,
+    MapPin,
+    ArrowUpRight,
+    LayoutGrid,
+    List
 } from 'lucide-react'
 
 interface Contract {
@@ -123,28 +134,32 @@ export default function ContractManagementPage() {
         }).format(amount)
     }
 
-    const formatDate = (dateStr: string) => {
-        return new Date(dateStr).toLocaleDateString('vi-VN')
+    const formatDateArr = (dateStr: string) => {
+        const d = new Date(dateStr)
+        return {
+            date: d.toLocaleDateString('vi-VN'),
+            short: d.toLocaleDateString('vi-VN', { month: 'short', day: 'numeric' })
+        }
     }
 
-    const getStatusColor = (status: string) => {
+    const getStatusStyle = (status: string) => {
         switch (status) {
-            case 'ACTIVE': return 'bg-green-100 text-green-700'
-            case 'DRAFT': return 'bg-gray-100 text-gray-700'
-            case 'PENDING': return 'bg-yellow-100 text-yellow-700'
-            case 'EXPIRED': return 'bg-red-100 text-red-700'
-            case 'CANCELLED': return 'bg-red-100 text-red-700'
+            case 'ACTIVE': return 'bg-emerald-50 text-emerald-600 border-emerald-100'
+            case 'DRAFT': return 'bg-slate-50 text-slate-400 border-slate-100'
+            case 'PENDING': return 'bg-amber-50 text-amber-600 border-amber-100'
+            case 'EXPIRED': return 'bg-red-50 text-red-600 border-red-100'
+            case 'CANCELLED': return 'bg-slate-100 text-slate-500 border-slate-200'
             default: return 'bg-gray-100 text-gray-700'
         }
     }
 
     const getStatusText = (status: string) => {
         switch (status) {
-            case 'ACTIVE': return 'Hiệu lực'
-            case 'DRAFT': return 'Nháp'
-            case 'PENDING': return 'Chờ duyệt'
-            case 'EXPIRED': return 'Hết hạn'
-            case 'CANCELLED': return 'Đã hủy'
+            case 'ACTIVE': return 'Đang Hiệu Lực'
+            case 'DRAFT': return 'Bản Nháp'
+            case 'PENDING': return 'Chờ Phê Duyệt'
+            case 'EXPIRED': return 'Hết Hiệu Lực'
+            case 'CANCELLED': return 'Đã Hủy Bỏ'
             default: return status
         }
     }
@@ -160,276 +175,299 @@ export default function ContractManagementPage() {
     }).length
 
     const filteredContracts = contracts.filter(c => {
-        const matchSearch = c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            c.contractNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            c.customer.user.name.toLowerCase().includes(searchTerm.toLowerCase())
+        const searchInput = searchTerm.toLowerCase()
+        const matchSearch = c.name.toLowerCase().includes(searchInput) ||
+            c.contractNumber.toLowerCase().includes(searchInput) ||
+            c.customer.user.name.toLowerCase().includes(searchInput)
         const matchStatus = !statusFilter || c.status === statusFilter
         return matchSearch && matchStatus
     })
 
     return (
-        <div className="p-6 space-y-6">
-            {/* Header */}
-            <div className="flex justify-between items-center">
+        <div className="space-y-8 animate-in fade-in duration-500">
+            {/* Header Area */}
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Quản lý Hợp đồng & Giá B2B</h1>
-                    <p className="text-gray-500">Thiết lập giá theo hợp đồng và bảng giá đa cấp</p>
+                    <h1 className="text-3xl font-black text-slate-900 tracking-tight flex items-center gap-3">
+                        <Briefcase className="text-blue-600" size={32} />
+                        Hợp đồng & Bảng giá B2B
+                    </h1>
+                    <p className="text-sm font-bold text-slate-400 mt-1 uppercase tracking-widest">Quản Lý Vòng Đời Hợp Đồng Doanh Nghiệp</p>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-3">
                     <button
                         onClick={() => setShowCreateModal(true)}
-                        className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                        className="bg-blue-600 text-white px-6 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-700 shadow-xl shadow-blue-500/20 transition-all active:scale-95 flex items-center gap-2"
                     >
-                        <Plus className="w-4 h-4" />
-                        Tạo hợp đồng
+                        <Plus size={16} />
+                        Soạn Thảo Hợp Đồng
                     </button>
                     <button
                         onClick={loadData}
-                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                        className="bg-blue-100 text-blue-600 px-5 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest border border-blue-200 hover:bg-blue-200 transition-all flex items-center gap-2"
                     >
-                        <RefreshCw className="w-4 h-4" />
-                        Làm mới
+                        <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
                     </button>
                 </div>
             </div>
 
-            {/* Summary Cards */}
+            {/* Metrics Grid */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="bg-white rounded-xl p-4 shadow-sm border">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2 bg-green-100 rounded-lg">
-                            <CheckCircle className="w-5 h-5 text-green-600" />
+                {[
+                    { label: 'Hợp Đồng Hiệu Lực', value: activeContracts, icon: ShieldCheck, color: 'bg-emerald-50 text-emerald-600', sub: 'Đang Hoạt Động', trend: 'Lưu Lượng Ổn Định' },
+                    { label: 'Hợp Đồng Nháp', value: draftContracts, icon: FileText, color: 'bg-slate-100 text-slate-400', sub: 'Đang Soạn Thảo', trend: 'Chờ Xử Lý' },
+                    { label: 'Sắp Hết Hạn (7 ngày)', value: expiringContracts, icon: AlertCircle, color: 'bg-red-50 text-red-600', sub: 'Cần Hành Động Ngay', trend: 'Cần Gia Hạn' },
+                    { label: 'Bảng Giá Đặc Thù', value: priceLists.length, icon: Tag, color: 'bg-blue-50 text-blue-600', sub: 'Giá Đang Áp Dụng', trend: 'Định Giá Theo Bậc' }
+                ].map((stat, i) => (
+                    <div key={i} className="bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+                        <div className="flex justify-between items-start mb-4">
+                            <div className={`p-3 rounded-2xl ${stat.color}`}>
+                                <stat.icon size={20} />
+                            </div>
+                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{stat.sub}</span>
                         </div>
-                        <div>
-                            <p className="text-sm text-gray-500">Đang hiệu lực</p>
-                            <p className="text-xl font-bold text-green-600">{activeContracts} hợp đồng</p>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="bg-white rounded-xl p-4 shadow-sm border">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2 bg-gray-100 rounded-lg">
-                            <FileText className="w-5 h-5 text-gray-600" />
-                        </div>
-                        <div>
-                            <p className="text-sm text-gray-500">Bản nháp</p>
-                            <p className="text-xl font-bold">{draftContracts} hợp đồng</p>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="bg-white rounded-xl p-4 shadow-sm border">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2 bg-orange-100 rounded-lg">
-                            <Clock className="w-5 h-5 text-orange-600" />
-                        </div>
-                        <div>
-                            <p className="text-sm text-gray-500">Sắp hết hạn</p>
-                            <p className="text-xl font-bold text-orange-600">{expiringContracts} hợp đồng</p>
+                        <div className="text-2xl font-black text-slate-900">{stat.value}</div>
+                        <div className="flex items-center gap-2 mt-1">
+                            <div className="text-xs font-bold text-slate-400 uppercase tracking-tighter">{stat.label}</div>
+                            <div className={`text-[9px] font-black uppercase ${i === 2 && expiringContracts > 0 ? 'text-red-500' : 'text-emerald-500'}`}>
+                                {stat.trend}
+                            </div>
                         </div>
                     </div>
-                </div>
-
-                <div className="bg-white rounded-xl p-4 shadow-sm border">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2 bg-blue-100 rounded-lg">
-                            <DollarSign className="w-5 h-5 text-blue-600" />
-                        </div>
-                        <div>
-                            <p className="text-sm text-gray-500">Bảng giá</p>
-                            <p className="text-xl font-bold">{priceLists.length} loại</p>
-                        </div>
-                    </div>
-                </div>
+                ))}
             </div>
 
-            {/* Tabs */}
-            <div className="border-b">
-                <nav className="flex gap-4">
-                    <button
-                        onClick={() => setActiveTab('contracts')}
-                        className={`pb-3 px-1 border-b-2 font-medium ${activeTab === 'contracts'
-                                ? 'border-blue-600 text-blue-600'
-                                : 'border-transparent text-gray-500 hover:text-gray-700'
-                            }`}
-                    >
-                        Hợp đồng
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('price-lists')}
-                        className={`pb-3 px-1 border-b-2 font-medium ${activeTab === 'price-lists'
-                                ? 'border-blue-600 text-blue-600'
-                                : 'border-transparent text-gray-500 hover:text-gray-700'
-                            }`}
-                    >
-                        Bảng giá
-                    </button>
-                </nav>
+            {/* Tab Navigation */}
+            <div className="flex bg-slate-100 p-1.5 rounded-[22px] w-full md:w-max border border-slate-200/50">
+                <button
+                    onClick={() => setActiveTab('contracts')}
+                    className={`flex items-center gap-2 px-6 py-2.5 rounded-[18px] text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'contracts' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'
+                        }`}
+                >
+                    <Briefcase size={14} />
+                    Danh sách hợp đồng
+                </button>
+                <button
+                    onClick={() => setActiveTab('price-lists')}
+                    className={`flex items-center gap-2 px-6 py-2.5 rounded-[18px] text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'price-lists' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'
+                        }`}
+                >
+                    <Tag size={14} />
+                    Bảng giá phân hạng
+                </button>
             </div>
 
-            {/* Content */}
+            {/* Content Area */}
             {loading ? (
-                <div className="flex justify-center py-12">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                <div className="py-24 text-center">
+                    <div className="w-12 h-12 border-4 border-blue-600/20 border-t-blue-600 rounded-full animate-spin mx-auto mb-4"></div>
+                    <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Loading Repository...</span>
                 </div>
             ) : (
                 <>
-                    {/* Contracts Tab */}
                     {activeTab === 'contracts' && (
-                        <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
-                            {/* Filters */}
-                            <div className="p-4 border-b flex gap-4">
-                                <div className="flex-1 relative">
-                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        <div className="space-y-6">
+                            {/* Contract Filters */}
+                            <div className="p-4 bg-white rounded-[32px] border border-slate-100 shadow-sm flex flex-col md:flex-row gap-4 items-center">
+                                <div className="relative flex-1 group">
+                                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
                                     <input
                                         type="text"
-                                        placeholder="Tìm kiếm hợp đồng, khách hàng..."
+                                        placeholder="Tìm số hợp đồng, tên khách hàng hoặc tiêu đề..."
                                         value={searchTerm}
                                         onChange={(e) => setSearchTerm(e.target.value)}
-                                        className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                                        className="w-full pl-12 pr-4 py-3 bg-slate-50 border-none rounded-2xl text-sm font-medium focus:ring-2 focus:ring-blue-500/20 transition-all"
                                     />
                                 </div>
-                                <select
-                                    value={statusFilter}
-                                    onChange={(e) => setStatusFilter(e.target.value)}
-                                    className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-                                >
-                                    <option value="">Tất cả trạng thái</option>
-                                    <option value="ACTIVE">Hiệu lực</option>
-                                    <option value="DRAFT">Nháp</option>
-                                    <option value="PENDING">Chờ duyệt</option>
-                                    <option value="EXPIRED">Hết hạn</option>
-                                </select>
-                            </div>
-
-                            {/* Table */}
-                            <div className="overflow-x-auto">
-                                <table className="w-full">
-                                    <thead className="bg-gray-50">
-                                        <tr>
-                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Mã HĐ</th>
-                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tên hợp đồng</th>
-                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Khách hàng</th>
-                                            <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Loại</th>
-                                            <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Hiệu lực</th>
-                                            <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">SP</th>
-                                            <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Trạng thái</th>
-                                            <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Thao tác</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y">
-                                        {filteredContracts.map((contract) => (
-                                            <tr key={contract.id} className="hover:bg-gray-50">
-                                                <td className="px-4 py-3 font-mono text-sm">{contract.contractNumber}</td>
-                                                <td className="px-4 py-3 font-medium">{contract.name}</td>
-                                                <td className="px-4 py-3">{contract.customer.user.name}</td>
-                                                <td className="px-4 py-3 text-center">
-                                                    <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs">
-                                                        {contract.contractType}
-                                                    </span>
-                                                </td>
-                                                <td className="px-4 py-3 text-center text-sm">
-                                                    {formatDate(contract.validFrom)} - {formatDate(contract.validTo)}
-                                                </td>
-                                                <td className="px-4 py-3 text-center">{contract._count.contractPrices}</td>
-                                                <td className="px-4 py-3 text-center">
-                                                    <span className={`px-2 py-1 rounded-full text-xs ${getStatusColor(contract.status)}`}>
-                                                        {getStatusText(contract.status)}
-                                                    </span>
-                                                </td>
-                                                <td className="px-4 py-3 text-center">
-                                                    <div className="flex gap-1 justify-center">
-                                                        <button className="p-1 text-blue-600 hover:bg-blue-50 rounded" title="Xem">
-                                                            <Eye className="w-4 h-4" />
-                                                        </button>
-                                                        <button className="p-1 text-gray-600 hover:bg-gray-50 rounded" title="Sửa">
-                                                            <Edit className="w-4 h-4" />
-                                                        </button>
-                                                        {contract.status === 'DRAFT' && (
-                                                            <button
-                                                                onClick={() => handleActivateContract(contract.id)}
-                                                                className="p-1 text-green-600 hover:bg-green-50 rounded"
-                                                                title="Kích hoạt"
-                                                            >
-                                                                <CheckCircle className="w-4 h-4" />
-                                                            </button>
-                                                        )}
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-
-                            {filteredContracts.length === 0 && (
-                                <div className="text-center py-12 text-gray-500">
-                                    Chưa có hợp đồng nào
+                                <div className="flex gap-2 w-full md:w-auto">
+                                    <select
+                                        value={statusFilter}
+                                        onChange={(e) => setStatusFilter(e.target.value)}
+                                        className="flex-1 md:w-48 px-4 py-3 bg-slate-50 border-none rounded-2xl text-[10px] font-black text-slate-500 uppercase tracking-widest focus:ring-2 focus:ring-blue-500/20"
+                                    >
+                                        <option value="">Tất cả trạng thái</option>
+                                        <option value="ACTIVE">Hiệu lực</option>
+                                        <option value="DRAFT">Nháp</option>
+                                        <option value="PENDING">Chờ duyệt</option>
+                                        <option value="EXPIRED">Hết hạn</option>
+                                    </select>
                                 </div>
-                            )}
+                            </div>
+
+                            {/* Contracts Table */}
+                            <div className="bg-white rounded-[32px] border border-slate-100 shadow-sm overflow-hidden">
+                                <div className="overflow-x-auto">
+                                    <table className="min-w-full divide-y divide-slate-100">
+                                        <thead className="bg-slate-50/50">
+                                            <tr className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                                <th className="px-6 py-4 text-left">Contract Info</th>
+                                                <th className="px-6 py-4 text-left">Client Entity</th>
+                                                <th className="px-4 py-4 text-center">Type</th>
+                                                <th className="px-4 py-4 text-center">Validation Period</th>
+                                                <th className="px-4 py-4 text-center">SKU Items</th>
+                                                <th className="px-4 py-4 text-center">Lifecycle</th>
+                                                <th className="px-6 py-4 text-right">Thao Tác</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-50">
+                                            {filteredContracts.length === 0 ? (
+                                                <tr>
+                                                    <td colSpan={7} className="px-6 py-12 text-center text-slate-400 font-bold italic uppercase tracking-widest italic">No contracts matching your criteria</td>
+                                                </tr>
+                                            ) : (
+                                                filteredContracts.map((contract) => (
+                                                    <tr key={contract.id} className="hover:bg-blue-50/30 transition-colors group">
+                                                        <td className="px-6 py-4 whitespace-nowrap">
+                                                            <div className="flex items-center gap-3">
+                                                                <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-emerald-600 group-hover:text-white transition-all">
+                                                                    <FileText size={18} />
+                                                                </div>
+                                                                <div>
+                                                                    <div className="text-sm font-black text-slate-900 group-hover:text-emerald-600 transition-colors uppercase tracking-tight">{contract.name}</div>
+                                                                    <div className="text-[10px] font-mono text-slate-400 font-bold uppercase tracking-widest mt-0.5">#{contract.contractNumber}</div>
+                                                                </div>
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-6 py-4 whitespace-nowrap">
+                                                            <div className="flex items-center gap-2">
+                                                                <Users size={12} className="text-blue-400" />
+                                                                <span className="text-xs font-bold text-slate-600">{contract.customer.user.name}</span>
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-4 py-4 text-center">
+                                                            <span className="px-2 py-0.5 bg-blue-50 text-blue-600 rounded-lg text-[10px] font-black uppercase tracking-tighter">
+                                                                {contract.contractType}
+                                                            </span>
+                                                        </td>
+                                                        <td className="px-4 py-4 text-center">
+                                                            <div className="flex flex-col items-center">
+                                                                <div className="text-[11px] font-bold text-slate-600">
+                                                                    {formatDateArr(contract.validFrom).short} - {formatDateArr(contract.validTo).short}
+                                                                </div>
+                                                                <div className="text-[9px] text-slate-300 font-black uppercase tracking-widest mt-0.5 underline decoration-slate-200">
+                                                                    {contract.creditTermDays} Days Net
+                                                                </div>
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-4 py-4 text-center">
+                                                            <div className="inline-flex items-center gap-1 px-2 py-1 bg-slate-50 rounded-lg">
+                                                                <List size={10} className="text-slate-400" />
+                                                                <span className="text-xs font-bold text-slate-600">{contract._count.contractPrices}</span>
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-4 py-4 text-center">
+                                                            <span className={`px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${getStatusStyle(contract.status)}`}>
+                                                                {getStatusText(contract.status)}
+                                                            </span>
+                                                        </td>
+                                                        <td className="px-6 py-4 text-right">
+                                                            <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                <button className="p-2 bg-slate-50 text-slate-400 rounded-xl hover:bg-slate-900 hover:text-white transition-all shadow-sm">
+                                                                    <Eye size={16} />
+                                                                </button>
+                                                                <button className="p-2 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-600 hover:text-white transition-all shadow-sm">
+                                                                    <Edit size={16} />
+                                                                </button>
+                                                                {contract.status === 'DRAFT' && (
+                                                                    <button
+                                                                        onClick={() => handleActivateContract(contract.id)}
+                                                                        className="p-2 bg-emerald-50 text-emerald-600 rounded-xl hover:bg-emerald-600 hover:text-white transition-all shadow-sm"
+                                                                    >
+                                                                        <CheckCircle size={16} />
+                                                                    </button>
+                                                                )}
+                                                                <button className="p-2 bg-red-50 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all shadow-sm">
+                                                                    <Trash2 size={16} />
+                                                                </button>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                ))
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
                         </div>
                     )}
 
-                    {/* Price Lists Tab */}
                     {activeTab === 'price-lists' && (
-                        <div className="space-y-4">
-                            <div className="flex justify-end">
+                        <div className="space-y-6 animate-in slide-in-from-right duration-500">
+                            <div className="flex flex-col md:flex-row justify-between items-start md:items-center p-8 bg-purple-50 rounded-[40px] border border-purple-100 gap-6">
+                                <div className="flex items-center gap-4">
+                                    <div className="p-4 bg-white text-purple-600 rounded-[22px] shadow-sm">
+                                        <BarChart size={24} />
+                                    </div>
+                                    <div>
+                                        <h2 className="text-xl font-black text-purple-900 uppercase tracking-tighter">Bảng giá bậc thang B2B</h2>
+                                        <p className="text-[10px] font-black text-purple-400 uppercase tracking-widest mt-0.5">Multi-tier pricing architecture</p>
+                                    </div>
+                                </div>
                                 <button
                                     onClick={handleSeedPriceLists}
-                                    className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+                                    className="px-6 py-4 bg-white text-purple-600 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-purple-600 hover:text-white transition-all shadow-xl shadow-purple-100/50 flex items-center gap-2"
                                 >
-                                    <Plus className="w-4 h-4" />
-                                    Tạo bảng giá mặc định
+                                    <RefreshCw size={14} />
+                                    Reset Default Price Lists
                                 </button>
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-8">
                                 {priceLists.length === 0 ? (
-                                    <div className="col-span-full bg-white rounded-xl p-12 text-center text-gray-500 border">
-                                        <DollarSign className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-                                        <p>Chưa có bảng giá nào</p>
-                                        <button
-                                            onClick={handleSeedPriceLists}
-                                            className="mt-4 text-blue-600 hover:underline"
-                                        >
-                                            Tạo bảng giá mặc định
-                                        </button>
+                                    <div className="col-span-full py-24 text-center bg-white rounded-[40px] border border-slate-100">
+                                        <DollarSign className="w-16 h-16 text-slate-200 mx-auto mb-4" />
+                                        <p className="text-sm font-black text-slate-400 uppercase tracking-widest">Hệ thống chưa ghi nhận bảng giá nào</p>
+                                        <button onClick={handleSeedPriceLists} className="mt-4 text-blue-600 font-bold uppercase text-[10px] tracking-widest hover:underline underline-offset-4">Tạo nhanh 3 cấp bậc giá mặc định</button>
                                     </div>
                                 ) : (
                                     priceLists.map((priceList) => (
-                                        <div key={priceList.id} className="bg-white rounded-xl p-4 shadow-sm border">
-                                            <div className="flex justify-between items-start mb-3">
-                                                <div>
-                                                    <span className={`inline-block px-2 py-1 rounded-full text-xs ${priceList.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'
-                                                        }`}>
-                                                        {priceList.isActive ? 'Đang áp dụng' : 'Tạm dừng'}
-                                                    </span>
+                                        <div key={priceList.id} className="bg-white rounded-[40px] p-8 shadow-sm border border-slate-100 hover:shadow-xl hover:-translate-y-1 transition-all group overflow-hidden relative">
+                                            {/* Top Decorative Circle */}
+                                            <div className="absolute -top-12 -right-12 w-32 h-32 bg-slate-50 rounded-full group-hover:bg-blue-50 transition-colors"></div>
+
+                                            <div className="flex justify-between items-start mb-6 relative z-10">
+                                                <div className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${priceList.isActive ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-slate-50 text-slate-400 border-slate-100'}`}>
+                                                    {priceList.isActive ? 'Applied' : 'Hold'}
                                                 </div>
-                                                <span className="text-sm text-gray-500">#{priceList.priority}</span>
+                                                <div className="text-[10px] font-black text-slate-300 uppercase tracking-widest border-b-2 border-slate-100">Priority #{priceList.priority}</div>
                                             </div>
 
-                                            <h3 className="font-semibold text-lg mb-1">{priceList.name}</h3>
-                                            <p className="text-sm text-gray-500 mb-3">Mã: {priceList.code}</p>
+                                            <div className="mb-6 relative z-10">
+                                                <h3 className="text-xl font-black text-slate-900 uppercase tracking-tighter line-clamp-1">{priceList.name}</h3>
+                                                <div className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-widest mt-1">CODE: {priceList.code}</div>
+                                            </div>
 
-                                            {priceList.description && (
-                                                <p className="text-sm text-gray-600 mb-3">{priceList.description}</p>
-                                            )}
+                                            <p className="text-[11px] font-bold text-slate-400 leading-relaxed mb-8 uppercase tracking-tighter h-12 line-clamp-3">
+                                                {priceList.description || 'Hệ thống định giá tự động dựa trên phân khúc khách hàng mục tiêu.'}
+                                            </p>
 
-                                            <div className="border-t pt-3">
-                                                <div className="flex justify-between items-center mb-2">
-                                                    <span className="text-gray-500">Chiết khấu:</span>
-                                                    <span className="text-xl font-bold text-green-600">
-                                                        {priceList.discountPercent}%
-                                                    </span>
+                                            <div className="p-6 bg-slate-50 rounded-[32px] border border-slate-100 relative z-10">
+                                                <div className="flex justify-between items-center mb-4">
+                                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Contractual Discount</span>
+                                                    <ArrowUpRight size={14} className="text-blue-500" />
                                                 </div>
-                                                <div className="flex flex-wrap gap-1">
+                                                <div className="flex items-baseline gap-1">
+                                                    <span className="text-4xl font-black text-slate-900 tracking-tighter">{priceList.discountPercent}</span>
+                                                    <span className="text-lg font-black text-blue-600">%</span>
+                                                </div>
+                                                <div className="mt-4 flex flex-wrap gap-1.5 pt-4 border-t border-slate-200/50">
                                                     {priceList.customerTypes.map((type, index) => (
-                                                        <span key={index} className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs">
+                                                        <span key={index} className="px-2 py-0.5 bg-white text-slate-400 text-[9px] font-black border border-slate-100 rounded uppercase tracking-tighter">
                                                             {type}
                                                         </span>
                                                     ))}
                                                 </div>
+                                            </div>
+
+                                            <div className="grid grid-cols-2 gap-3 mt-6">
+                                                <button className="py-3.5 bg-blue-600 text-white rounded-[20px] font-black text-[10px] uppercase tracking-widest hover:bg-blue-700 transition-all flex items-center justify-center gap-2">
+                                                    <Edit size={12} />
+                                                    Cập nhật
+                                                </button>
+                                                <button className="py-3.5 bg-slate-100 text-slate-400 rounded-[20px] font-black text-[10px] uppercase tracking-widest hover:bg-red-50 hover:text-red-600 transition-all flex items-center justify-center gap-2">
+                                                    <Trash2 size={12} />
+                                                    Xóa bỏ
+                                                </button>
                                             </div>
                                         </div>
                                     ))

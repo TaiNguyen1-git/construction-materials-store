@@ -6,6 +6,11 @@ import { fetchWithAuth } from '@/lib/api-client'
 import ConfirmDialog from '@/components/ConfirmDialog'
 import FormModal from '@/components/FormModal'
 import Pagination from '@/components/Pagination'
+import {
+  User, Mail, Phone, MapPin,
+  Calendar, ShoppingBag, Edit, Trash2,
+  Search, X, Users, CheckCircle, AlertCircle, Plus
+} from 'lucide-react'
 
 interface Customer {
   id: string
@@ -28,7 +33,7 @@ export default function CustomersPage() {
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null)
   const [deletingCustomer, setDeletingCustomer] = useState<Customer | null>(null)
   const [formLoading, setFormLoading] = useState(false)
-  
+
   const [form, setForm] = useState({
     name: '',
     email: '',
@@ -51,7 +56,6 @@ export default function CustomersPage() {
       const response = await fetchWithAuth(`/api/customers?${params}`)
       if (response.ok) {
         const data = await response.json()
-        // Handle nested data structure
         const customersData = data.data?.data || data.data || []
         const customersArray = Array.isArray(customersData) ? customersData : []
         setCustomers(customersArray)
@@ -66,28 +70,10 @@ export default function CustomersPage() {
     }
   }
 
-  const updateCustomerStatus = async (customerId: string, status: string) => {
-    try {
-      const response = await fetchWithAuth(`/api/customers/${customerId}`, {
-        method: 'PUT',
-        body: JSON.stringify({ status })
-      })
-
-      if (response.ok) {
-        toast.success(`Khách hàng đã ${status === 'ACTIVE' ? 'kích hoạt' : 'vô hiệu hóa'}`)
-        fetchCustomers()
-      } else {
-        const error = await response.json()
-        toast.error(error.error || 'Không thể cập nhật khách hàng')
-      }
-    } catch (error) {
-      console.error('Error updating customer:', error)
-      toast.error('Không thể cập nhật khách hàng')
-    }
-  }
-
   const getStatusColor = (status: string) => {
-    return status === 'ACTIVE' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+    return status === 'ACTIVE'
+      ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
+      : 'bg-slate-50 text-slate-400 border-slate-100'
   }
 
   const openModal = (customer?: Customer) => {
@@ -172,18 +158,10 @@ export default function CustomersPage() {
     }
   }
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-      </div>
-    )
-  }
-
   // Client-side pagination
   const filteredCustomers = customers.filter(c => {
     const matchesStatus = !filters.status || c.status === filters.status
-    const matchesSearch = !filters.search || 
+    const matchesSearch = !filters.search ||
       c.name.toLowerCase().includes(filters.search.toLowerCase()) ||
       c.email.toLowerCase().includes(filters.search.toLowerCase())
     return matchesStatus && matchesSearch
@@ -197,127 +175,196 @@ export default function CustomersPage() {
   )
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-900">Quản Lý Khách Hàng</h1>
-        <button 
+    <div className="space-y-8 animate-in fade-in duration-500">
+      {/* Header & Main Stats */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-black text-slate-900 tracking-tight">Hồ Sơ Khách Hàng</h1>
+          <p className="text-sm font-bold text-slate-400 mt-1 uppercase tracking-widest">Quản Lý Vòng Đời Khách Hàng</p>
+        </div>
+        <button
           onClick={() => openModal()}
-          className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
+          className="bg-blue-600 text-white px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-blue-700 shadow-xl shadow-blue-500/20 transition-all active:scale-95 flex items-center justify-center gap-2"
         >
+          <Plus size={16} />
           Thêm Khách Hàng
         </button>
       </div>
 
-      {/* Filters */}
-      <div className="bg-white p-4 rounded-lg shadow">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Tìm Kiếm</label>
-            <input
-              type="text"
-              placeholder="Tìm theo tên hoặc email..."
-              value={filters.search}
-              onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 bg-white"
-            />
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        {[
+          { label: 'Tổng khách hàng', value: customers.length, icon: Users, color: 'bg-blue-50 text-blue-600', sub: 'Toàn hệ thống' },
+          { label: 'Đang hoạt động', value: customers.filter(c => c.status === 'ACTIVE').length, icon: CheckCircle, color: 'bg-emerald-50 text-emerald-600', sub: 'Thường xuyên' },
+          { label: 'Ngừng hoạt động', value: customers.filter(c => c.status === 'INACTIVE').length, icon: AlertCircle, color: 'bg-slate-50 text-slate-400', sub: 'Cần chăm sóc' },
+          { label: 'Đơn hàng mới', value: customers.reduce((sum, c) => sum + (c._count?.orders || 0), 0), icon: ShoppingBag, color: 'bg-purple-50 text-purple-600', sub: 'Sức mua tổng' }
+        ].map((stat, i) => (
+          <div key={i} className="bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+            <div className="flex justify-between items-start mb-4">
+              <div className={`p-3 rounded-2xl ${stat.color}`}>
+                <stat.icon size={20} />
+              </div>
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{stat.sub}</span>
+            </div>
+            <div className="text-2xl font-black text-slate-900">{stat.value.toLocaleString('vi-VN')}</div>
+            <div className="text-xs font-bold text-slate-400 mt-1 uppercase tracking-tighter">{stat.label}</div>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Trạng Thái</label>
-            <select
-              value={filters.status}
-              onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 bg-white"
-            >
-              <option value="">Tất Cả Trạng Thái</option>
-              <option value="ACTIVE">Hoạt Động</option>
-              <option value="INACTIVE">Ngừng Hoạt Động</option>
-            </select>
-          </div>
-          <div className="flex items-end">
+        ))}
+      </div>
+
+      {/* Modern Filter Bar */}
+      <div className="p-4 bg-white rounded-[32px] border border-slate-100 shadow-sm flex flex-col md:flex-row gap-4 items-center">
+        <div className="relative flex-1 group">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
+          <input
+            type="text"
+            placeholder="Tìm theo tên mẫu, email hoặc số điện thoại..."
+            value={filters.search}
+            onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+            className="w-full pl-12 pr-4 py-3 bg-slate-50 border-none rounded-2xl text-sm font-medium focus:ring-2 focus:ring-blue-500/20 transition-all placeholder:text-slate-400"
+          />
+        </div>
+        <div className="flex gap-2 w-full md:w-auto">
+          <select
+            value={filters.status}
+            onChange={(e) => setFilters({ ...filters, status: e.target.value })}
+            className="flex-1 md:w-48 px-4 py-3 bg-slate-50 border-none rounded-2xl text-sm font-bold text-slate-600 focus:ring-2 focus:ring-blue-500/20"
+          >
+            <option value="">Tất cả trạng thái</option>
+            <option value="ACTIVE">Hoạt động</option>
+            <option value="INACTIVE">Ngừng hoạt động</option>
+          </select>
+          {(filters.search || filters.status) && (
             <button
               onClick={() => setFilters({ status: '', search: '' })}
-              className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+              className="p-3 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-2xl transition-all"
+              title="Xóa bộ lọc"
             >
-              Xóa Bộ Lọc
+              <X size={20} />
             </button>
-          </div>
+          )}
         </div>
       </div>
 
-      {/* Customers Table */}
-      <div className="bg-white shadow overflow-hidden sm:rounded-md">
+      {/* Main Data Table */}
+      <div className="bg-white rounded-[32px] border border-slate-100 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+          <table className="min-w-full divide-y divide-slate-100">
+            <thead className="bg-slate-50/50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Khách Hàng</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Liên Hệ</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Đơn Hàng</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Trạng Thái</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ngày Tham Gia</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Hành Động</th>
+                <th className="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Khách Hàng</th>
+                <th className="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Liên Hệ & Địa Chỉ</th>
+                <th className="px-6 py-4 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">Đơn Hàng</th>
+                <th className="px-6 py-4 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">Ngày Gia Nhập</th>
+                <th className="px-6 py-4 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">Trạng Thái</th>
+                <th className="px-6 py-4 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest">Thao Tác</th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {paginatedCustomers.map((customer) => (
-                <tr key={customer.id}>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div>
-                      <div className="text-sm font-medium text-gray-900">{customer.name}</div>
-                      <div className="text-sm text-gray-500">{customer.email}</div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div>
-                      {customer.phone && <div className="text-sm text-gray-900">{customer.phone}</div>}
-                      {customer.address && <div className="text-sm text-gray-500">{customer.address}</div>}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {customer._count?.orders || 0} đơn hàng
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(customer.status)}`}>
-                      {customer.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {new Date(customer.createdAt).toLocaleDateString()}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <div className="flex space-x-2">
-                      <button 
-                        onClick={() => openModal(customer)}
-                        className="text-blue-600 hover:text-blue-900"
-                      >
-                        Sửa
-                      </button>
-                      <button 
-                        onClick={() => setDeletingCustomer(customer)}
-                        className="text-red-600 hover:text-red-900"
-                      >
-                        Xóa
-                      </button>
-
+            <tbody className="divide-y divide-slate-50">
+              {loading ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-12 text-center">
+                    <div className="flex flex-col items-center gap-3">
+                      <div className="w-10 h-10 border-4 border-blue-600/20 border-t-blue-600 rounded-full animate-spin"></div>
+                      <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Đang tải dữ liệu...</span>
                     </div>
                   </td>
                 </tr>
-              ))}
+              ) : paginatedCustomers.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-12 text-center text-slate-400 font-bold italic">
+                    Không tìm thấy khách hàng nào phù hợp
+                  </td>
+                </tr>
+              ) : (
+                paginatedCustomers.map((customer) => (
+                  <tr key={customer.id} className="hover:bg-blue-50/30 transition-colors group">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center text-slate-600 font-black text-xs uppercase shadow-inner group-hover:from-blue-500 group-hover:to-blue-600 group-hover:text-white transition-all">
+                          {customer.name.charAt(0)}
+                        </div>
+                        <div>
+                          <div className="text-sm font-black text-slate-900 group-hover:text-blue-600 transition-colors uppercase tracking-tight">{customer.name}</div>
+                          <div className="flex items-center gap-1 text-[11px] text-slate-400 font-bold lowercase tracking-tighter mt-0.5">
+                            <Mail size={10} />
+                            {customer.email}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 text-xs font-black text-slate-600">
+                          <Phone size={12} className="text-slate-400" />
+                          {customer.phone || 'Chưa cập nhật'}
+                        </div>
+                        <div className="flex items-center gap-2 text-[10px] text-slate-400 font-bold uppercase tracking-tighter">
+                          <MapPin size={12} />
+                          <span className="max-w-[200px] truncate">{customer.address || 'Hệ thống'}</span>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-center">
+                      <div className="inline-flex flex-col items-center">
+                        <div className="text-[14px] font-black text-slate-900 flex items-center gap-1.5">
+                          <ShoppingBag size={14} className="text-purple-400" />
+                          {customer._count?.orders || 0}
+                        </div>
+                        <span className="text-[9px] font-black text-slate-300 uppercase mt-0.5">Giao dịch</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-center">
+                      <div className="flex flex-col items-center">
+                        <span className="text-xs font-black text-slate-600 tracking-tighter">
+                          {new Date(customer.createdAt).toLocaleDateString()}
+                        </span>
+                        <span className="text-[9px] font-black text-slate-300 uppercase mt-0.5">Ngày tạo</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-center">
+                      <span className={`px-4 py-1.5 text-[9px] font-black rounded-full uppercase tracking-widest border ${getStatusColor(customer.status)}`}>
+                        {customer.status === 'ACTIVE' ? 'Hoạt Động' : 'Tạm Ngưng'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right">
+                      <div className="flex justify-end gap-2">
+                        <button
+                          onClick={() => openModal(customer)}
+                          className="p-2.5 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-600 hover:text-white transition-all active:scale-90 shadow-sm border border-blue-100 hover:border-blue-600"
+                          title="Sửa"
+                        >
+                          <Edit size={16} />
+                        </button>
+                        <button
+                          onClick={() => setDeletingCustomer(customer)}
+                          className="p-2.5 bg-red-50 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all active:scale-90 shadow-sm"
+                          title="Xóa"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
 
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <Pagination
-            currentPage={currentPage}
-            totalPages={totalPages}
-            totalItems={totalCustomers}
-            itemsPerPage={pageSize}
-            onPageChange={setCurrentPage}
-            loading={loading}
-          />
-        )}
+        {/* Pagination Container */}
+        <div className="p-6 bg-slate-50/50 border-t border-slate-100">
+          {totalPages > 1 && (
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalItems={totalCustomers}
+              itemsPerPage={pageSize}
+              onPageChange={setCurrentPage}
+              loading={loading}
+            />
+          )}
+        </div>
       </div>
 
       {/* Customer Form Modal */}
@@ -325,75 +372,79 @@ export default function CustomersPage() {
         isOpen={showModal}
         onClose={closeModal}
         title={editingCustomer ? 'Sửa Khách Hàng' : 'Thêm Khách Hàng Mới'}
+        size="lg"
       >
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Tên Khách Hàng *</label>
-            <input
-              type="text"
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 bg-white"
-              required
-            />
+        <form onSubmit={handleSubmit} className="p-8 space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-4">
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Tên Khách Hàng *</label>
+                <input
+                  type="text"
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  className="w-full px-4 py-3 bg-slate-50 border-none rounded-2xl text-sm font-bold text-slate-900 focus:ring-2 focus:ring-blue-500/20"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Email *</label>
+                <input
+                  type="email"
+                  value={form.email}
+                  onChange={(e) => setForm({ ...form, email: e.target.value })}
+                  className="w-full px-4 py-3 bg-slate-50 border-none rounded-2xl text-sm font-bold text-slate-900 focus:ring-2 focus:ring-blue-500/20"
+                  required
+                />
+              </div>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Số Điện Thoại</label>
+                <input
+                  type="tel"
+                  value={form.phone}
+                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                  className="w-full px-4 py-3 bg-slate-50 border-none rounded-2xl text-sm font-bold text-slate-900 focus:ring-2 focus:ring-blue-500/20"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Trạng Thái</label>
+                <select
+                  value={form.status}
+                  onChange={(e) => setForm({ ...form, status: e.target.value as 'ACTIVE' | 'INACTIVE' })}
+                  className="w-full px-4 py-3 bg-slate-50 border-none rounded-2xl text-sm font-bold text-slate-900 focus:ring-2 focus:ring-blue-500/20"
+                >
+                  <option value="ACTIVE">Hoạt Động</option>
+                  <option value="INACTIVE">Ngừng Hoạt Động</option>
+                </select>
+              </div>
+            </div>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
-            <input
-              type="email"
-              value={form.email}
-              onChange={(e) => setForm({ ...form, email: e.target.value })}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 bg-white"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Số Điện Thoại</label>
-            <input
-              type="tel"
-              value={form.phone}
-              onChange={(e) => setForm({ ...form, phone: e.target.value })}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 bg-white"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Địa Chỉ</label>
+            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Địa Chỉ</label>
             <textarea
               value={form.address}
               onChange={(e) => setForm({ ...form, address: e.target.value })}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 bg-white"
+              className="w-full px-4 py-3 bg-slate-50 border-none rounded-2xl text-sm font-bold text-slate-900 focus:ring-2 focus:ring-blue-500/20 resize-none"
               rows={3}
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Trạng Thái</label>
-            <select
-              value={form.status}
-              onChange={(e) => setForm({ ...form, status: e.target.value as 'ACTIVE' | 'INACTIVE' })}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 bg-white"
-            >
-              <option value="ACTIVE">Hoạt Động</option>
-              <option value="INACTIVE">Ngừng Hoạt Động</option>
-            </select>
-          </div>
-
-          <div className="flex justify-end space-x-3 pt-4 border-t">
+          <div className="flex justify-end gap-3 pt-6 border-t border-slate-100">
             <button
               type="button"
               onClick={closeModal}
               disabled={formLoading}
-              className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              className="px-6 py-3 rounded-2xl text-xs font-black uppercase tracking-widest text-slate-400 hover:bg-slate-50 transition-all"
             >
               Hủy
             </button>
             <button
               type="submit"
               disabled={formLoading}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+              className="px-8 py-3 bg-blue-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-blue-700 shadow-xl shadow-blue-100 transition-all active:scale-95"
             >
               {formLoading ? 'Đang lưu...' : (editingCustomer ? 'Cập Nhật' : 'Thêm Mới')}
             </button>

@@ -57,7 +57,7 @@ export default function AdminLayout({
     {
       name: 'Điều Hành',
       items: [
-        { name: 'Bảng Điều Khiển', href: '/admin', icon: BarChart3 },
+        { name: 'Tổng Quan', href: '/admin', icon: BarChart3 },
         { name: 'Công Việc Của Tôi', href: '/admin/my-tasks', icon: ClipboardList, roles: ['EMPLOYEE'] },
         { name: 'Tin Nhắn', href: '/admin/messages', icon: MessageCircle },
         { name: 'Hỗ Trợ Khách Hàng', href: '/admin/support', icon: Headset },
@@ -168,7 +168,7 @@ export default function AdminLayout({
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[#fcfdfe]">
       {/* Mobile sidebar */}
       {sidebarOpen && (
         <div className="fixed inset-0 z-40 md:hidden">
@@ -344,11 +344,7 @@ export default function AdminLayout({
           <div className="py-6">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8">
               <div className="flex justify-between items-center mb-6">
-                <h1 className="text-2xl font-semibold text-gray-900">
-                  {navigationGroups
-                    .flatMap(g => g.items)
-                    .find(item => pathname.startsWith(item.href))?.name || 'Bảng Điều Khiển'}
-                </h1>
+                <div className="flex-1"></div>
                 <div className="flex items-center space-x-4">
                   <NotificationBell />
                   <Link href="/admin/profile" className="flex items-center text-sm text-gray-700 hover:text-blue-600 transition-colors">
@@ -359,9 +355,9 @@ export default function AdminLayout({
                   </Link>
                   <button
                     onClick={handleLogout}
-                    className="flex items-center text-sm text-gray-700 hover:text-gray-900 transition-colors"
+                    className="flex items-center text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-red-600 transition-all active:scale-95"
                   >
-                    <LogOut className="h-5 w-5 mr-1" />
+                    <LogOut className="h-4 w-4 mr-2" />
                     Đăng Xuất
                   </button>
                 </div>

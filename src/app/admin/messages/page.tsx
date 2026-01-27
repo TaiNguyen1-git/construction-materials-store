@@ -254,11 +254,43 @@ function MessagesContent() {
         }
     }
 
-    const handleMenuAction = (action: string) => {
+    const handleMenuAction = async (action: string) => {
+        if (!selectedConv || !selectedId) return
         setShowMenu(false)
-        if (action === 'delete') {
-            if (confirm('Bạn có chắc muốn xóa cuộc hội thoại này?')) {
-                toast.success('Tính năng đang phát triển')
+
+        if (action === 'info') {
+            const otherUserName = user?.id === selectedConv.participant1Id ? selectedConv.participant2Name : selectedConv.participant1Name
+            const otherUserId = user?.id === selectedConv.participant1Id ? selectedConv.participant2Id : selectedConv.participant1Id
+            toast.success(`Thông tin: ${otherUserName}\nID: ${otherUserId}`, {
+                duration: 4000,
+                icon: '👤'
+            })
+        } else if (action === 'report') {
+            toast.success('Cảm ơn bạn đã báo cáo. Chúng tôi sẽ xem xét nội dung này sớm nhất có thể.', {
+                duration: 4000,
+                icon: '🚩'
+            })
+        } else if (action === 'delete') {
+            if (confirm('Bạn có chắc muốn xóa vĩnh viễn cuộc hội thoại này? Dữ liệu không thể khôi phục.')) {
+                try {
+                    const res = await fetch(`/api/chat/conversations/${selectedId}`, {
+                        method: 'DELETE',
+                        headers: getAuthHeaders()
+                    })
+
+                    if (res.ok) {
+                        toast.success('Đã xóa hội thoại')
+                        setSelectedId(null)
+                        setMessages([])
+                        fetchConversations()
+                    } else {
+                        const err = await res.json()
+                        toast.error(err.message || 'Lỗi khi xóa hội thoại')
+                    }
+                } catch (err) {
+                    console.error('Delete conversation error:', err)
+                    toast.error('Có lỗi xảy ra khi xóa')
+                }
             }
         }
     }
@@ -266,6 +298,19 @@ function MessagesContent() {
     const formatTime = (dateString: string) => {
         const date = new Date(dateString)
         return date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+    }
+
+    const formatLastMessage = (content: string) => {
+        if (!content) return 'Bắt đầu trò chuyện'
+        if (content.startsWith('[CALL_LOG]:')) {
+            try {
+                const log = JSON.parse(content.replace('[CALL_LOG]:', ''))
+                return log.type === 'video' ? '📽️ Cuộc gọi video' : '📞 Cuộc gọi thoại'
+            } catch (e) {
+                return 'Cuộc gọi'
+            }
+        }
+        return content
     }
 
     const renderMessageContent = (msg: any) => {
@@ -394,7 +439,7 @@ function MessagesContent() {
                                         </span>
                                     </div>
                                     <p className={`text-[11px] truncate ${conv.unread1 > 0 || conv.unread2 > 0 ? 'font-bold text-indigo-900' : 'text-gray-500'}`}>
-                                        {conv.lastMessage || 'Bắt đầu trò chuyện'}
+                                        {formatLastMessage(conv.lastMessage)}
                                     </p>
                                 </div>
                             </button>

@@ -143,7 +143,7 @@ export default function AdminContractorDashboard() {
                             className="w-full pl-12 pr-6 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:bg-white focus:border-blue-500 transition-all font-medium"
                         />
                     </div>
-                    <div className="flex items-center gap-2 bg-slate-50 p-1.5 rounded-2xl border border-slate-100">
+                    <div className="flex items-center gap-2 bg-blue-50 p-1.5 rounded-2xl border border-blue-100">
                         {['ALL', 'VERIFIED', 'PENDING', 'INCOMPLETE'].map((s) => (
                             <button
                                 key={s}
@@ -172,8 +172,8 @@ export default function AdminContractorDashboard() {
                             key={tier.id}
                             onClick={() => setTrustTier(tier.id)}
                             className={`px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-wider transition-all border ${trustTier === tier.id
-                                ? 'bg-slate-900 text-white border-slate-900 shadow-lg shadow-slate-200'
-                                : 'bg-white text-slate-400 border-slate-200 hover:border-slate-300'
+                                ? 'bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-200'
+                                : 'bg-white text-slate-400 border-slate-200 hover:border-blue-300 hover:text-blue-500'
                                 }`}
                         >
                             {tier.label}
@@ -266,7 +266,7 @@ export default function AdminContractorDashboard() {
                                             <td className="px-8 py-6 text-right">
                                                 <Link
                                                     href={`/admin/contractors/${c.id}`}
-                                                    className="inline-flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl font-bold text-sm hover:bg-slate-900 hover:text-white hover:border-slate-900 transition-all active:scale-95"
+                                                    className="inline-flex items-center gap-2 px-4 py-2.5 bg-white border border-blue-200 text-blue-600 rounded-xl font-bold text-sm hover:bg-blue-600 hover:text-white hover:border-blue-600 transition-all active:scale-95"
                                                 >
                                                     Chi tiết
                                                     <ChevronRight className="w-4 h-4" />

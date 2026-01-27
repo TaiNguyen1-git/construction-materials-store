@@ -1,5 +1,7 @@
 'use client'
 
+import { toast } from 'react-hot-toast'
+
 /**
  * Credit Management Page - SME Feature 1
  * Trang quản lý công nợ và kiểm soát tín dụng
@@ -17,7 +19,16 @@ import {
     TrendingUp,
     Search,
     Filter,
-    RefreshCw
+    RefreshCw,
+    ChevronRight,
+    ArrowUpRight,
+    ArrowDownRight,
+    ShieldAlert,
+    ShieldCheck,
+    Settings,
+    User,
+    Calendar,
+    Briefcase
 } from 'lucide-react'
 
 interface DebtAgingReport {
@@ -94,7 +105,6 @@ export default function CreditManagementPage() {
 
     const handleApproval = async (approvalId: string, approved: boolean) => {
         try {
-            // Get admin user ID from localStorage
             const userDataStr = localStorage.getItem('user')
             const adminId = userDataStr ? JSON.parse(userDataStr).id : 'system'
 
@@ -124,12 +134,9 @@ export default function CreditManagementPage() {
                     configData: config
                 })
             })
-            // Show success toast or reload
-            alert('Đã lưu cấu hình!')
             loadData()
         } catch (error) {
             console.error('Error saving config:', error)
-            alert('Lỗi khi lưu cấu hình')
         }
     }
 
@@ -151,279 +158,296 @@ export default function CreditManagementPage() {
     )
 
     return (
-        <div className="p-6 space-y-6">
-            {/* Header */}
-            <div className="flex justify-between items-center">
+        <div className="space-y-8 animate-in fade-in duration-500">
+            {/* Premium Header */}
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Quản lý Công nợ</h1>
-                    <p className="text-gray-500">Kiểm soát tín dụng và theo dõi tuổi nợ khách hàng</p>
+                    <h1 className="text-3xl font-black text-slate-900 tracking-tight text-gradient bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-500">Tín Dụng & Công Nợ</h1>
+                    <p className="text-sm font-bold text-slate-400 mt-1 uppercase tracking-widest">Kiểm Soát Tín Dụng & Danh Mục Nợ</p>
                 </div>
-                <button
-                    onClick={loadData}
-                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                >
-                    <RefreshCw className="w-4 h-4" />
-                    Làm mới
-                </button>
+                <div className="flex gap-3">
+                    <button
+                        onClick={loadData}
+                        className="bg-blue-100 text-blue-600 px-5 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest border border-blue-200 hover:bg-blue-200 transition-all flex items-center gap-2"
+                    >
+                        <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+                        Làm mới
+                    </button>
+                    <button
+                        className="bg-blue-600 text-white px-6 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-700 shadow-xl shadow-blue-500/20 transition-all active:scale-95 flex items-center gap-2"
+                    >
+                        <Settings className="w-3.5 h-3.5" />
+                        Cấu hình mở rộng
+                    </button>
+                </div>
             </div>
 
             {/* Summary Cards */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="bg-white rounded-xl p-4 shadow-sm border">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2 bg-blue-100 rounded-lg">
-                            <DollarSign className="w-5 h-5 text-blue-600" />
+                {[
+                    { label: 'Tổng công nợ hồ sơ', value: totalDebt, icon: CreditCard, color: 'bg-blue-50 text-blue-600', sub: 'Số Dư Danh Mục', up: true },
+                    { label: 'Đang trễ hạn', value: overdueDebt, icon: Clock, color: 'bg-amber-50 text-amber-600', sub: 'Khối Lượng Quá Hạn', up: true },
+                    { label: 'Nợ khó đòi (90+)', value: criticalDebt, icon: ShieldAlert, color: 'bg-red-50 text-red-600', sub: 'Khoản Vay Không Hiệu Quả', up: false },
+                    { label: 'Khách hàng bị khóa', value: holdCount, icon: XCircle, color: 'bg-slate-50 text-slate-600', sub: 'Tài Khoản Bị Hạn Chế', up: false }
+                ].map((stat, i) => (
+                    <div key={i} className="bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+                        <div className="flex justify-between items-start mb-4">
+                            <div className={`p-3 rounded-2xl ${stat.color}`}>
+                                <stat.icon size={20} />
+                            </div>
+                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{stat.sub}</span>
                         </div>
-                        <div>
-                            <p className="text-sm text-gray-500">Tổng công nợ</p>
-                            <p className="text-xl font-bold">{formatCurrency(totalDebt)}</p>
+                        <div className="text-xl font-black text-slate-900">
+                            {typeof stat.value === 'number' && i < 3 ? formatCurrency(stat.value) : `${stat.value} Tài khoản`}
                         </div>
-                    </div>
-                </div>
-
-                <div className="bg-white rounded-xl p-4 shadow-sm border">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2 bg-yellow-100 rounded-lg">
-                            <Clock className="w-5 h-5 text-yellow-600" />
-                        </div>
-                        <div>
-                            <p className="text-sm text-gray-500">Nợ quá hạn</p>
-                            <p className="text-xl font-bold">{formatCurrency(overdueDebt)}</p>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="bg-white rounded-xl p-4 shadow-sm border">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2 bg-red-100 rounded-lg">
-                            <AlertTriangle className="w-5 h-5 text-red-600" />
-                        </div>
-                        <div>
-                            <p className="text-sm text-gray-500">Nợ xấu (90+ ngày)</p>
-                            <p className="text-xl font-bold text-red-600">{formatCurrency(criticalDebt)}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                            <div className="text-xs font-bold text-slate-400 uppercase tracking-tighter">{stat.label}</div>
+                            {i < 3 && (
+                                <div className={`flex items-center text-[9px] font-black uppercase ${stat.up ? 'text-emerald-500' : 'text-red-500'}`}>
+                                    {stat.up ? <ArrowUpRight size={10} /> : <ArrowDownRight size={10} />}
+                                    2.4%
+                                </div>
+                            )}
                         </div>
                     </div>
-                </div>
-
-                <div className="bg-white rounded-xl p-4 shadow-sm border">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2 bg-orange-100 rounded-lg">
-                            <Users className="w-5 h-5 text-orange-600" />
-                        </div>
-                        <div>
-                            <p className="text-sm text-gray-500">Đang khóa TN</p>
-                            <p className="text-xl font-bold">{holdCount} khách hàng</p>
-                        </div>
-                    </div>
-                </div>
+                ))}
             </div>
 
-            {/* Tabs */}
-            <div className="border-b">
-                <nav className="flex gap-4">
+            {/* Content Tabs */}
+            <div className="flex bg-slate-100 p-1.5 rounded-[22px] w-full md:w-max border border-slate-200/50">
+                {[
+                    { id: 'aging', label: 'Báo cáo tuổi nợ', icon: TrendingUp },
+                    { id: 'approvals', label: 'Duyệt hạn mức', icon: CheckCircle, count: pendingApprovals.length },
+                    { id: 'config', label: 'Chính sách tín dụng', icon: Settings }
+                ].map(tab => (
                     <button
-                        onClick={() => setActiveTab('aging')}
-                        className={`pb-3 px-1 border-b-2 font-medium ${activeTab === 'aging'
-                            ? 'border-blue-600 text-blue-600'
-                            : 'border-transparent text-gray-500 hover:text-gray-700'
+                        key={tab.id}
+                        onClick={() => setActiveTab(tab.id as any)}
+                        className={`flex items-center gap-2 px-6 py-2.5 rounded-[18px] text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === tab.id ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'
                             }`}
                     >
-                        Báo cáo Tuổi nợ
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('approvals')}
-                        className={`pb-3 px-1 border-b-2 font-medium flex items-center gap-2 ${activeTab === 'approvals'
-                            ? 'border-blue-600 text-blue-600'
-                            : 'border-transparent text-gray-500 hover:text-gray-700'
-                            }`}
-                    >
-                        Chờ duyệt
-                        {pendingApprovals.length > 0 && (
-                            <span className="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">
-                                {pendingApprovals.length}
+                        <tab.icon size={14} />
+                        {tab.label}
+                        {tab.count !== undefined && tab.count > 0 && (
+                            <span className="ml-1 bg-red-500 text-white text-[9px] w-4 h-4 flex items-center justify-center rounded-full animate-pulse">
+                                {tab.count}
                             </span>
                         )}
                     </button>
-                    <button
-                        onClick={() => setActiveTab('config')}
-                        className={`pb-3 px-1 border-b-2 font-medium ${activeTab === 'config'
-                            ? 'border-blue-600 text-blue-600'
-                            : 'border-transparent text-gray-500 hover:text-gray-700'
-                            }`}
-                    >
-                        Cấu hình
-                    </button>
-                </nav>
+                ))}
             </div>
 
-            {/* Content */}
-            {loading ? (
-                <div className="flex justify-center py-12">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                </div>
-            ) : (
-                <>
-                    {/* Aging Report Tab */}
-                    {activeTab === 'aging' && (
-                        <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
-                            {/* Search */}
-                            <div className="p-4 border-b">
-                                <div className="flex gap-4">
-                                    <div className="flex-1 relative">
-                                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                                        <input
-                                            type="text"
-                                            placeholder="Tìm kiếm khách hàng..."
-                                            value={searchTerm}
-                                            onChange={(e) => setSearchTerm(e.target.value)}
-                                            className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                        />
-                                    </div>
-                                </div>
-                            </div>
+            {/* Dynamic Content */}
+            {activeTab === 'aging' && (
+                <div className="space-y-6">
+                    {/* Filter Bar */}
+                    <div className="p-4 bg-white rounded-[32px] border border-slate-100 shadow-sm flex flex-col md:flex-row gap-4 items-center">
+                        <div className="relative flex-1 group">
+                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
+                            <input
+                                type="text"
+                                placeholder="Tìm kiếm đối tác, mã khách hàng..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="w-full pl-12 pr-4 py-3 bg-slate-50 border-none rounded-2xl text-sm font-medium focus:ring-2 focus:ring-blue-500/20"
+                            />
+                        </div>
+                        <button className="flex items-center gap-2 px-6 py-3 bg-slate-50 text-slate-400 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-100 transition-all">
+                            <Filter size={14} />
+                            Bộ lọc nâng cao
+                        </button>
+                    </div>
 
-                            {/* Table */}
-                            <div className="overflow-x-auto">
-                                <table className="w-full">
-                                    <thead className="bg-gray-50">
+                    {/* Aging Table */}
+                    <div className="bg-white rounded-[32px] border border-slate-100 shadow-sm overflow-hidden">
+                        <div className="overflow-x-auto">
+                            <table className="min-w-full divide-y divide-slate-100">
+                                <thead className="bg-slate-50/50 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                    <tr>
+                                        <th className="px-6 py-4 text-left">Hồ sơ khách hàng</th>
+                                        <th className="px-4 py-4 text-right">Trong hạn</th>
+                                        <th className="px-4 py-4 text-right">1-30 ngày</th>
+                                        <th className="px-4 py-4 text-right">31-60 ngày</th>
+                                        <th className="px-4 py-4 text-right">61-90 ngày</th>
+                                        <th className="px-4 py-4 text-right text-red-600">Nợ xấu 90+</th>
+                                        <th className="px-6 py-4 text-right">Tổng công nợ</th>
+                                        <th className="px-6 py-4 text-center">Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-50">
+                                    {loading ? (
                                         <tr>
-                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Khách hàng</th>
-                                            <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Trong hạn</th>
-                                            <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">1-30 ngày</th>
-                                            <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">31-60 ngày</th>
-                                            <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">61-90 ngày</th>
-                                            <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase text-red-600">90+ ngày</th>
-                                            <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Tổng nợ</th>
-                                            <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Trạng thái</th>
+                                            <td colSpan={8} className="px-6 py-12 text-center">
+                                                <div className="w-8 h-8 border-4 border-blue-600/20 border-t-blue-600 rounded-full animate-spin mx-auto"></div>
+                                            </td>
                                         </tr>
-                                    </thead>
-                                    <tbody className="divide-y">
-                                        {filteredReport.map((row) => (
-                                            <tr key={row.customerId} className="hover:bg-gray-50">
-                                                <td className="px-4 py-3">
-                                                    <div>
-                                                        <p className="font-medium">{row.customerName}</p>
-                                                        <p className="text-sm text-gray-500">{row.customerType}</p>
+                                    ) : filteredReport.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={8} className="px-6 py-12 text-center text-slate-400 font-bold italic">
+                                                Hệ thống không ghi nhận dữ liệu công nợ phù hợp
+                                            </td>
+                                        </tr>
+                                    ) : (
+                                        filteredReport.map((row) => (
+                                            <tr key={row.customerId} className="hover:bg-blue-50/30 transition-colors group">
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-blue-600 group-hover:text-white transition-all">
+                                                            <User size={18} />
+                                                        </div>
+                                                        <div>
+                                                            <div className="text-sm font-black text-slate-900 group-hover:text-blue-600 transition-colors">{row.customerName}</div>
+                                                            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{row.customerType}</div>
+                                                        </div>
                                                     </div>
                                                 </td>
-                                                <td className="px-4 py-3 text-right text-green-600">{formatCurrency(row.current)}</td>
-                                                <td className="px-4 py-3 text-right text-yellow-600">{formatCurrency(row.days1to30)}</td>
-                                                <td className="px-4 py-3 text-right text-orange-600">{formatCurrency(row.days31to60)}</td>
-                                                <td className="px-4 py-3 text-right text-red-500">{formatCurrency(row.days61to90)}</td>
-                                                <td className="px-4 py-3 text-right text-red-700 font-bold">{formatCurrency(row.over90)}</td>
-                                                <td className="px-4 py-3 text-right font-bold">{formatCurrency(row.totalDebt)}</td>
-                                                <td className="px-4 py-3 text-center">
+                                                <td className="px-4 py-4 text-right text-xs font-bold text-emerald-600">{formatCurrency(row.current)}</td>
+                                                <td className="px-4 py-4 text-right text-xs font-bold text-amber-500">{formatCurrency(row.days1to30)}</td>
+                                                <td className="px-4 py-4 text-right text-xs font-bold text-orange-500">{formatCurrency(row.days31to60)}</td>
+                                                <td className="px-4 py-4 text-right text-xs font-bold text-red-400">{formatCurrency(row.days61to90)}</td>
+                                                <td className="px-4 py-4 text-right text-xs font-black text-red-700 bg-red-50/50">{formatCurrency(row.over90)}</td>
+                                                <td className="px-6 py-4 text-right">
+                                                    <div className="text-sm font-black text-slate-900">{formatCurrency(row.totalDebt)}</div>
+                                                    <div className="text-[10px] text-slate-300 font-bold">Limit: {formatCurrency(row.creditLimit)}</div>
+                                                </td>
+                                                <td className="px-6 py-4 text-center">
                                                     {row.creditHold ? (
-                                                        <span className="inline-flex items-center gap-1 px-2 py-1 bg-red-100 text-red-700 rounded-full text-xs">
-                                                            <XCircle className="w-3 h-3" />
-                                                            Đã khóa
+                                                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-600 rounded-full text-[9px] font-black uppercase tracking-widest border border-red-100">
+                                                            <ShieldAlert size={12} />
+                                                            BLOCK
                                                         </span>
                                                     ) : (
-                                                        <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs">
-                                                            <CheckCircle className="w-3 h-3" />
-                                                            Bình thường
+                                                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-full text-[9px] font-black uppercase tracking-widest border border-emerald-100">
+                                                            <ShieldCheck size={12} />
+                                                            ACTIVE
                                                         </span>
                                                     )}
                                                 </td>
                                             </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-
-                            {filteredReport.length === 0 && (
-                                <div className="text-center py-12 text-gray-500">
-                                    Không có dữ liệu công nợ
-                                </div>
-                            )}
-                        </div>
-                    )}
-
-                    {/* Pending Approvals Tab */}
-                    {activeTab === 'approvals' && (
-                        <div className="space-y-4">
-                            {pendingApprovals.length === 0 ? (
-                                <div className="bg-white rounded-xl p-12 text-center text-gray-500 border">
-                                    <CheckCircle className="w-12 h-12 mx-auto mb-4 text-green-500" />
-                                    <p>Không có yêu cầu nào đang chờ duyệt</p>
-                                </div>
-                            ) : (
-                                pendingApprovals.map((approval) => (
-                                    <div key={approval.id} className="bg-white rounded-xl p-6 shadow-sm border">
-                                        <div className="flex justify-between items-start">
-                                            <div>
-                                                <h3 className="font-semibold text-lg">{approval.customer.user.name}</h3>
-                                                <p className="text-gray-500 mt-1">{approval.reason}</p>
-                                                <div className="mt-3 flex gap-4 text-sm">
-                                                    <span>Yêu cầu: <strong>{formatCurrency(approval.requestedAmount)}</strong></span>
-                                                    <span>Nợ hiện tại: <strong>{formatCurrency(approval.currentDebt)}</strong></span>
-                                                    <span>Hạn mức: <strong>{formatCurrency(approval.creditLimit)}</strong></span>
-                                                </div>
-                                                <p className="text-xs text-gray-400 mt-2">
-                                                    {new Date(approval.createdAt).toLocaleString('vi-VN')}
-                                                </p>
-                                            </div>
-                                            <div className="flex gap-2">
-                                                <button
-                                                    onClick={() => handleApproval(approval.id, true)}
-                                                    className="flex items-center gap-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-                                                >
-                                                    <CheckCircle className="w-4 h-4" />
-                                                    Duyệt
-                                                </button>
-                                                <button
-                                                    onClick={() => handleApproval(approval.id, false)}
-                                                    className="flex items-center gap-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
-                                                >
-                                                    <XCircle className="w-4 h-4" />
-                                                    Từ chối
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))
-                            )}
-                        </div>
-                    )}
-
-                    {/* Config Tab */}
-                    {activeTab === 'config' && (
-                        <div className="grid gap-6">
-                            <div className="bg-white rounded-xl p-6 shadow-sm border">
-                                <h3 className="font-semibold text-lg mb-2">Cấu hình luật công nợ</h3>
-                                <p className="text-gray-500 mb-6">Thiết lập các giới hạn và quy định về tín dụng cho hệ thống.</p>
-
-                                <div className="space-y-4 max-w-2xl">
-                                    {configurations.map((config, idx) => (
-                                        <div key={config.name || idx} className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center p-4 bg-gray-50 rounded-lg">
-                                            <div>
-                                                <label className="block text-sm font-medium text-gray-700 mb-1">{config.name}</label>
-                                                <p className="text-xs text-gray-500">{config.description}</p>
-                                            </div>
-                                            <div className="flex gap-2">
-                                                <input
-                                                    type="text"
-                                                    className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border"
-                                                    defaultValue={config.value}
-                                                    onBlur={(e) => {
-                                                        // Only save if changed
-                                                        if (e.target.value !== config.value) {
-                                                            handleSaveConfig({ ...config, value: e.target.value })
-                                                        }
-                                                    }}
-                                                />
-                                            </div>
-                                        </div>
-                                    ))}
-
-                                    {configurations.length === 0 && (
-                                        <p className="text-center text-gray-500">Chưa có cấu hình nào. Sẽ sử dụng mặc định.</p>
+                                        ))
                                     )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {activeTab === 'approvals' && (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-in slide-in-from-bottom-4 duration-500">
+                    {pendingApprovals.length === 0 ? (
+                        <div className="col-span-full py-24 text-center bg-white rounded-[40px] border border-slate-100">
+                            <div className="w-16 h-16 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <CheckCircle size={32} />
+                            </div>
+                            <h3 className="text-lg font-black text-slate-900 uppercase tracking-tighter">Hết hồ sơ tồn đọng</h3>
+                            <p className="text-sm font-bold text-slate-400 uppercase tracking-widest mt-1">Tất cả yêu cầu đã được xử lý</p>
+                        </div>
+                    ) : (
+                        pendingApprovals.map((approval) => (
+                            <div key={approval.id} className="bg-white rounded-[32px] p-8 shadow-sm border border-slate-100 hover:shadow-xl hover:-translate-y-1 transition-all group">
+                                <div className="flex justify-between items-start mb-6">
+                                    <div className="p-4 bg-slate-50 text-slate-400 group-hover:bg-blue-600 group-hover:text-white rounded-[22px] transition-colors">
+                                        <Briefcase size={24} />
+                                    </div>
+                                    <div className="text-right">
+                                        <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest mb-1 block">Request ID</span>
+                                        <span className="text-xs font-black text-slate-900 break-all">{approval.id.substring(0, 8)}</span>
+                                    </div>
+                                </div>
+                                <h3 className="text-xl font-black text-slate-900 group-hover:text-blue-600 transition-colors uppercase tracking-tight">{approval.customer.user.name}</h3>
+                                <div className="mt-4 p-4 bg-slate-50 rounded-2xl border border-slate-100 text-xs font-bold text-slate-600 leading-relaxed italic">
+                                    "{approval.reason}"
+                                </div>
+                                <div className="grid grid-cols-2 gap-4 mt-6 py-6 border-y border-slate-50">
+                                    <div>
+                                        <span className="block text-[9px] font-black text-slate-400 uppercase tracking-widest">Yêu cầu cấp thêm</span>
+                                        <span className="text-sm font-black text-emerald-600">{formatCurrency(approval.requestedAmount)}</span>
+                                    </div>
+                                    <div className="text-right">
+                                        <span className="block text-[9px] font-black text-slate-400 uppercase tracking-widest">Hạn mức hiện tại</span>
+                                        <span className="text-sm font-black text-slate-900">{formatCurrency(approval.creditLimit)}</span>
+                                    </div>
+                                </div>
+                                <div className="mt-4 flex items-center gap-2 text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+                                    <Calendar size={12} />
+                                    Submited: {new Date(approval.createdAt).toLocaleDateString('vi-VN')}
+                                </div>
+                                <div className="grid grid-cols-2 gap-3 mt-8">
+                                    <button
+                                        onClick={() => handleApproval(approval.id, true)}
+                                        className="flex items-center justify-center gap-2 py-4 bg-emerald-600 text-white rounded-[20px] font-black text-[10px] uppercase tracking-widest hover:bg-emerald-700 shadow-lg shadow-emerald-50 transition-all active:scale-95"
+                                    >
+                                        <CheckCircle size={14} />
+                                        Approve
+                                    </button>
+                                    <button
+                                        onClick={() => handleApproval(approval.id, false)}
+                                        className="flex items-center justify-center gap-2 py-4 bg-red-50 text-red-600 rounded-[20px] font-black text-[10px] uppercase tracking-widest hover:bg-red-600 hover:text-white transition-all active:scale-95"
+                                    >
+                                        <XCircle size={14} />
+                                        Reject
+                                    </button>
                                 </div>
                             </div>
-                        </div>
+                        ))
                     )}
-                </>
+                </div>
+            )}
+
+            {activeTab === 'config' && (
+                <div className="bg-white rounded-[40px] shadow-sm border border-slate-100 overflow-hidden animate-in fade-in duration-500">
+                    <div className="p-10 border-b border-slate-50 bg-slate-50/50">
+                        <div className="flex items-center gap-4 mb-2">
+                            <div className="p-3 bg-blue-50 text-blue-600 rounded-2xl">
+                                <Settings size={28} />
+                            </div>
+                            <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tighter">Luật kiểm soát tín dụng</h2>
+                        </div>
+                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">System Credit & Risk Configuration</p>
+                    </div>
+
+                    <div className="p-10 grid gap-6 max-w-4xl mx-auto">
+                        {configurations.map((config, idx) => (
+                            <div key={config.name || idx} className="group flex flex-col md:flex-row items-start md:items-center justify-between gap-6 p-8 bg-slate-50/50 hover:bg-white rounded-[32px] border border-slate-100 hover:border-blue-100 transition-all">
+                                <div className="space-y-1 flex-1">
+                                    <label className="block text-[11px] font-black text-slate-900 uppercase tracking-widest mb-1">{config.name.replace(/_/g, ' ')}</label>
+                                    <p className="text-xs font-bold text-slate-400 leading-relaxed uppercase tracking-tighter">{config.description}</p>
+                                </div>
+                                <div className="w-full md:w-64 flex items-center gap-3">
+                                    <input
+                                        type="text"
+                                        className="flex-1 bg-white border-slate-100 rounded-2xl px-5 py-4 text-sm font-black text-blue-600 shadow-inner focus:ring-4 focus:ring-blue-500/10 transition-all outline-none"
+                                        defaultValue={config.value}
+                                        onBlur={(e) => {
+                                            if (e.target.value !== config.value) {
+                                                handleSaveConfig({ ...config, value: e.target.value })
+                                                toast.success(`Đã cập nhật ${config.name}`)
+                                            }
+                                        }}
+                                    />
+                                    <div className="p-2 bg-slate-100 text-slate-400 rounded-lg group-focus-within:bg-blue-600 group-focus-within:text-white transition-all">
+                                        <RefreshCw size={14} />
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                        {configurations.length === 0 && (
+                            <div className="text-center py-12 text-slate-400 font-bold uppercase tracking-widest">
+                                Loading configurations...
+                            </div>
+                        )}
+                        <div className="mt-8 p-8 bg-amber-50 rounded-[32px] border border-amber-100 flex items-start gap-4">
+                            <div className="p-3 bg-amber-100 text-amber-600 rounded-2xl">
+                                <AlertTriangle size={24} />
+                            </div>
+                            <div>
+                                <h4 className="text-xs font-black text-amber-900 uppercase tracking-widest mb-1">Cảnh báo hệ thống</h4>
+                                <p className="text-xs font-bold text-amber-600/80 leading-relaxed uppercase tracking-tighter">Mọi thay đổi cấu hình sẽ ảnh hưởng trực tiếp đến việc phê duyệt đơn hàng tự động và tính toán nợ xấu của toàn công ty. Vui lòng kiểm tra kỹ trước khi thoát.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     )

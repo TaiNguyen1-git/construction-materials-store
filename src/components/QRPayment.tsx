@@ -40,9 +40,9 @@ export default function QRPayment({ amount, orderId, description, expiresAt }: Q
   const sanitizedOrderId = orderId.replace(/[^a-zA-Z0-9-_]/g, '')
   const sanitizedDescription = (description || '').replace(/[<>]/g, '').slice(0, 100)
 
-  // Calculate expiration time (15 minutes from now if not provided)
-  const expirationTime = expiresAt 
-    ? new Date(expiresAt) 
+  // Calculate expiration time (15 minutes from now if not provided or invalid)
+  const expirationTime = (expiresAt && expiresAt !== 'null')
+    ? new Date(expiresAt)
     : new Date(Date.now() + 15 * 60 * 1000) // 15 minutes
 
   // Countdown timer effect
@@ -67,7 +67,7 @@ export default function QRPayment({ amount, orderId, description, expiresAt }: Q
     const timer = setInterval(() => {
       const remaining = calculateTimeLeft()
       setTimeLeft(remaining)
-      
+
       if (remaining <= 0) {
         clearInterval(timer)
       }
@@ -79,7 +79,7 @@ export default function QRPayment({ amount, orderId, description, expiresAt }: Q
   useEffect(() => {
     generateQR()
   }, [amount, orderId, description])
-  
+
   // Format time left as MM:SS
   const formatTimeLeft = (seconds: number): string => {
     const minutes = Math.floor(seconds / 60)
@@ -89,7 +89,7 @@ export default function QRPayment({ amount, orderId, description, expiresAt }: Q
 
   const generateQR = async () => {
     setIsLoading(true)
-    
+
     try {
       // Validate amount
       if (sanitizedAmount <= 0) {
@@ -97,17 +97,17 @@ export default function QRPayment({ amount, orderId, description, expiresAt }: Q
         setIsLoading(false)
         return
       }
-      
+
       // Format description for transaction
       const transferContent = sanitizedDescription || `Thanh toan ${sanitizedOrderId}`
-      
+
       // VietQR API URL with sanitized values
       const apiUrl = 'https://img.vietqr.io/image/' +
         `${bankInfo.bankId}-${bankInfo.accountNo}-${bankInfo.template}.png` +
         `?amount=${sanitizedAmount}` +
         `&addInfo=${encodeURIComponent(transferContent)}` +
         `&accountName=${encodeURIComponent(bankInfo.accountName)}`
-      
+
       setQrUrl(apiUrl)
       setIsLoading(false)
     } catch (error) {
@@ -133,31 +133,28 @@ export default function QRPayment({ amount, orderId, description, expiresAt }: Q
   return (
     <div className="space-y-6">
       {/* Countdown Timer */}
-      <div className={`p-4 rounded-xl border-2 flex items-center justify-center gap-3 ${
-        isExpired 
-          ? 'bg-red-50 border-red-500' 
-          : timeLeft < 300 
-            ? 'bg-yellow-50 border-yellow-500' 
+      <div className={`p-4 rounded-xl border-2 flex items-center justify-center gap-3 ${isExpired
+          ? 'bg-red-50 border-red-500'
+          : timeLeft < 300
+            ? 'bg-yellow-50 border-yellow-500'
             : 'bg-green-50 border-green-500'
-      }`}>
-        <Clock className={`h-6 w-6 ${
-          isExpired 
-            ? 'text-red-600' 
-            : timeLeft < 300 
-              ? 'text-yellow-600' 
+        }`}>
+        <Clock className={`h-6 w-6 ${isExpired
+            ? 'text-red-600'
+            : timeLeft < 300
+              ? 'text-yellow-600'
               : 'text-green-600'
-        }`} />
+          }`} />
         <div>
           <p className="text-sm font-semibold text-gray-700">
             {isExpired ? 'Mã QR đã hết hạn' : 'Thời gian còn lại'}
           </p>
-          <p className={`text-2xl font-black ${
-            isExpired 
-              ? 'text-red-600' 
-              : timeLeft < 300 
-                ? 'text-yellow-600' 
+          <p className={`text-2xl font-black ${isExpired
+              ? 'text-red-600'
+              : timeLeft < 300
+                ? 'text-yellow-600'
                 : 'text-green-600'
-          }`}>
+            }`}>
             {isExpired ? '00:00' : formatTimeLeft(timeLeft)}
           </p>
         </div>
@@ -165,9 +162,8 @@ export default function QRPayment({ amount, orderId, description, expiresAt }: Q
 
       {/* QR Code */}
       <div className="flex justify-center relative">
-        <div className={`bg-white p-6 rounded-2xl shadow-xl border-4 ${
-          isExpired ? 'border-gray-300' : 'border-green-500'
-        }`}>
+        <div className={`bg-white p-6 rounded-2xl shadow-xl border-4 ${isExpired ? 'border-gray-300' : 'border-green-500'
+          }`}>
           {qrUrl ? (
             <>
               <Image
@@ -207,7 +203,7 @@ export default function QRPayment({ amount, orderId, description, expiresAt }: Q
         <h4 className="font-bold text-gray-900 text-center mb-4">
           Hoặc chuyển khoản thủ công
         </h4>
-        
+
         {/* Account Number */}
         <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
           <div>
@@ -342,6 +338,6 @@ function getBankName(bankId: string): string {
     '970403': 'Sacombank (Ngân hàng Sài Gòn Thương Tín)',
     '970432': 'VPBank (Ngân hàng Việt Nam Thịnh Vượng)',
   }
-  
+
   return bankNames[bankId] || 'Ngân hàng'
 }

@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { toast } from 'react-hot-toast'
 import { fetchWithAuth } from '@/lib/api-client'
 import FormattedNumberInput from '@/components/FormattedNumberInput'
-import { Package, Building, Plus, Search, ChevronDown, ChevronUp } from 'lucide-react'
+import { Package, Building, Plus, Search, ChevronDown, ChevronUp, Tag, Edit, Trash2, Star, Mail, Phone, MapPin, User } from 'lucide-react'
 import ConfirmDialog from '@/components/ConfirmDialog'
 import FormModal from '@/components/FormModal'
 import Pagination from '@/components/Pagination'
@@ -559,67 +559,94 @@ export default function ProductsSuppliersPage() {
               </div>
             ) : (
               <>
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
+                <div className="overflow-hidden border border-slate-100 rounded-2xl shadow-sm">
+                  <table className="min-w-full divide-y divide-slate-100">
+                    <thead className="bg-slate-50/50">
                       <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">SKU</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tên Sản Phẩm</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Danh Mục</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Giá</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Đơn Vị</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tồn Kho</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Trạng Thái</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Hành Động</th>
+                        <th className="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">SKU & Ảnh</th>
+                        <th className="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Tên Sản Phẩm</th>
+                        <th className="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Danh Mục</th>
+                        <th className="px-6 py-4 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest">Giá Niêm Yết</th>
+                        <th className="px-6 py-4 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">Đơn Vị</th>
+                        <th className="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Tồn Kho</th>
+                        <th className="px-6 py-4 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">Trạng Thái</th>
+                        <th className="px-6 py-4 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest">Thao Tác</th>
                       </tr>
                     </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
+                    <tbody className="bg-white divide-y divide-slate-50">
                       {paginatedProducts.map((product) => {
                         const stockStatus = getStockStatus(product)
+                        const images = (product as any).images || []
                         return (
-                          <tr key={product.id} className="hover:bg-gray-50">
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                              {product.sku}
+                          <tr key={product.id} className="hover:bg-blue-50/30 transition-colors group">
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-center overflow-hidden shrink-0 group-hover:border-blue-200 transition-colors">
+                                  {images[0] ? (
+                                    <img src={images[0]} alt="" className="w-full h-full object-contain p-1" />
+                                  ) : (
+                                    <Package className="w-5 h-5 text-slate-300" />
+                                  )}
+                                </div>
+                                <span className="text-xs font-black text-slate-500 font-mono tracking-tighter bg-slate-100 px-2 py-1 rounded">
+                                  {product.sku}
+                                </span>
+                              </div>
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                              {product.name}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {product.category.name}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                              {product.price.toLocaleString('vi-VN')}đ
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {product.unit}
+                            <td className="px-6 py-4">
+                              <div className="text-sm font-bold text-slate-900 line-clamp-1 group-hover:text-blue-600 transition-colors uppercase tracking-tight">
+                                {product.name}
+                              </div>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm font-medium text-gray-900">
-                                {product.inventoryItem?.availableQuantity ?? product.inventoryItem?.quantity ?? 0}
-                              </div>
-                              <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${stockStatus.color}`}>
-                                {stockStatus.text}
+                              <span className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                                <Tag className="w-3 h-3 text-blue-400" />
+                                {product.category.name}
                               </span>
                             </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-right">
+                              <div className="text-sm font-black text-slate-900 tracking-tight">
+                                {product.price.toLocaleString('vi-VN')}<span className="text-[10px] ml-0.5 text-slate-400">₫</span>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-center">
+                              <span className="text-xs font-bold text-slate-400 uppercase">{product.unit}</span>
+                            </td>
                             <td className="px-6 py-4 whitespace-nowrap">
-                              <span className={`px-2 py-1 text-xs font-semibold rounded-full ${product.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                              <div className="flex flex-col">
+                                <div className="text-sm font-black text-slate-900 flex items-center gap-1.5">
+                                  {product.inventoryItem?.availableQuantity ?? product.inventoryItem?.quantity ?? 0}
+                                  <span className="text-[10px] font-bold text-slate-400">SP</span>
+                                </div>
+                                <span className={`inline-flex items-center gap-1 mt-1 text-[9px] font-black uppercase tracking-widest ${stockStatus.color.replace('bg-', 'text-').replace('-100', '-600')}`}>
+                                  <span className={`w-1 h-1 rounded-full ${stockStatus.color.replace('bg-', 'bg-').replace('-100', '-500')}`}></span>
+                                  {stockStatus.text}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-center">
+                              <span className={`px-3 py-1 text-[9px] font-black rounded-full uppercase tracking-widest border ${product.isActive ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-slate-50 text-slate-400 border-slate-100'
                                 }`}>
                                 {product.isActive ? 'Đang bán' : 'Ngừng bán'}
                               </span>
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                              <button
-                                onClick={() => openProductModal(product)}
-                                className="text-blue-600 hover:text-blue-900 mr-3"
-                              >
-                                Sửa
-                              </button>
-                              <button
-                                onClick={() => setDeletingProduct(product)}
-                                className="text-red-600 hover:text-red-900"
-                              >
-                                Xóa
-                              </button>
+                            <td className="px-6 py-4 whitespace-nowrap text-right">
+                              <div className="flex justify-end gap-2">
+                                <button
+                                  onClick={() => openProductModal(product)}
+                                  className="p-2 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-600 hover:text-white transition-all active:scale-90"
+                                  title="Chỉnh sửa"
+                                >
+                                  <Edit size={16} />
+                                </button>
+                                <button
+                                  onClick={() => setDeletingProduct(product)}
+                                  className="p-2 bg-red-50 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all active:scale-90"
+                                  title="Xóa"
+                                >
+                                  <Trash2 size={16} />
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         )
@@ -652,7 +679,7 @@ export default function ProductsSuppliersPage() {
           className="w-full flex items-center justify-between p-4 hover:bg-gray-50"
         >
           <div className="flex items-center space-x-3">
-            <Building className="h-5 w-5 text-green-600" />
+            <Building className="h-5 w-5 text-blue-600" />
             <h2 className="text-lg font-semibold text-gray-900">Nhà Cung Cấp</h2>
             <span className="text-sm text-gray-500">({suppliers.length} nhà cung cấp)</span>
           </div>
@@ -670,12 +697,12 @@ export default function ProductsSuppliersPage() {
                   value={supplierSearch}
                   onChange={(e) => setSupplierSearch(e.target.value)}
                   placeholder="Tìm kiếm nhà cung cấp..."
-                  className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                  className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <button
                 onClick={() => openSupplierModal()}
-                className="ml-4 flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                className="ml-4 flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
               >
                 <Plus className="h-5 w-5 mr-2" />
                 Thêm NCC
@@ -684,79 +711,98 @@ export default function ProductsSuppliersPage() {
 
             {suppliersLoading ? (
               <div className="flex items-center justify-center h-32">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
               </div>
             ) : (
               <>
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
+                <div className="overflow-hidden border border-slate-100 rounded-2xl shadow-sm">
+                  <table className="min-w-full divide-y divide-slate-100">
+                    <thead className="bg-slate-50/50">
                       <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tên NCC</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Người Liên Hệ</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Điện Thoại</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Địa Chỉ</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Hạn Mức</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Đánh Giá</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Trạng Thái</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Hành Động</th>
+                        <th className="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Nhà Cung Cấp</th>
+                        <th className="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Liên Hệ</th>
+                        <th className="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Vị Trí</th>
+                        <th className="px-6 py-4 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest">Hạn Mức Tín Dụng</th>
+                        <th className="px-6 py-4 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">Đánh Giá</th>
+                        <th className="px-6 py-4 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">Trạng Thái</th>
+                        <th className="px-6 py-4 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest">Thao Tác</th>
                       </tr>
                     </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
+                    <tbody className="bg-white divide-y divide-slate-50">
                       {paginatedSuppliers.map((supplier) => (
-                        <tr key={supplier.id} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                            {supplier.name}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {supplier.contactPerson || '-'}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {supplier.email || '-'}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {supplier.phone || '-'}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            <div className="max-w-xs truncate">
-                              {supplier.address ? `${supplier.address}, ${supplier.city}` : '-'}
+                        <tr key={supplier.id} className="hover:bg-blue-50/30 transition-colors group">
+                          <td className="px-6 py-4">
+                            <div className="text-sm font-bold text-slate-900 group-hover:text-blue-600 transition-colors uppercase tracking-tight">
+                              {supplier.name}
+                            </div>
+                            <div className="text-[10px] text-slate-400 font-bold uppercase mt-0.5">
+                              Partner Code: {supplier.id.slice(0, 8)}
                             </div>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                            {supplier.creditLimit.toLocaleString('vi-VN')}đ
+                          <td className="px-6 py-4">
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2 text-xs font-bold text-slate-600">
+                                <User size={12} className="text-slate-400" />
+                                {supplier.contactPerson || 'Trống'}
+                              </div>
+                              <div className="flex items-center gap-2 text-[10px] text-slate-400 font-medium">
+                                <Mail size={10} />
+                                {supplier.email || 'N/A'}
+                              </div>
+                              <div className="flex items-center gap-2 text-[10px] text-slate-400 font-medium">
+                                <Phone size={10} />
+                                {supplier.phone || 'N/A'}
+                              </div>
+                            </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center gap-2 text-xs font-bold text-slate-500">
+                              <MapPin size={12} className="text-blue-400" />
+                              <div className="max-w-[150px] truncate">
+                                {supplier.city || 'N/A'}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-right">
+                            <div className="text-sm font-black text-slate-900 tracking-tight">
+                              {supplier.creditLimit.toLocaleString('vi-VN')}<span className="text-[10px] ml-0.5 text-slate-400">₫</span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-center">
                             {supplier.rating ? (
-                              <div className="flex items-center">
-                                <span className="text-yellow-500">★</span>
-                                <span className="ml-1 text-sm font-medium text-gray-900">
+                              <div className="inline-flex items-center gap-1 px-2 py-1 bg-amber-50 rounded-lg">
+                                <Star size={12} className="text-amber-500 fill-amber-500" />
+                                <span className="text-xs font-black text-amber-700">
                                   {supplier.rating.toFixed(1)}
                                 </span>
                               </div>
                             ) : (
-                              <span className="text-sm text-gray-400">Chưa có</span>
+                              <span className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">Chưa có</span>
                             )}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`px-2 py-1 text-xs font-semibold rounded-full ${supplier.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                          <td className="px-6 py-4 whitespace-nowrap text-center">
+                            <span className={`px-3 py-1 text-[9px] font-black rounded-full uppercase tracking-widest border ${supplier.isActive ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-slate-50 text-slate-400 border-slate-100'
                               }`}>
-                              {supplier.isActive ? 'Hoạt động' : 'Ngừng'}
+                              {supplier.isActive ? 'Hoạt động' : 'Tạm dừng'}
                             </span>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                            <button
-                              onClick={() => openSupplierModal(supplier)}
-                              className="text-blue-600 hover:text-blue-900 mr-3"
-                            >
-                              Sửa
-                            </button>
-                            <button
-                              onClick={() => setDeletingSupplier(supplier)}
-                              className="text-red-600 hover:text-red-900"
-                            >
-                              Xóa
-                            </button>
+                          <td className="px-6 py-4 whitespace-nowrap text-right">
+                            <div className="flex justify-end gap-2">
+                              <button
+                                onClick={() => openSupplierModal(supplier)}
+                                className="p-2 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-600 hover:text-white transition-all active:scale-90"
+                                title="Chỉnh sửa"
+                              >
+                                <Edit size={16} />
+                              </button>
+                              <button
+                                onClick={() => setDeletingSupplier(supplier)}
+                                className="p-2 bg-red-50 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all active:scale-90"
+                                title="Xóa"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))}

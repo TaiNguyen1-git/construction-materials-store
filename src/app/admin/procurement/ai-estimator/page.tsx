@@ -158,8 +158,8 @@ export default function AIEstimatorPage() {
                                                 key={idx}
                                                 onClick={() => toggleItem(item)}
                                                 className={`p-6 rounded-3xl border-2 transition-all cursor-pointer flex items-center justify-between ${selectedItems.find(i => i.productId === item.productId)
-                                                        ? 'bg-purple-50/50 border-purple-500 shadow-lg shadow-purple-50'
-                                                        : 'bg-white border-slate-50 hover:border-slate-200'
+                                                    ? 'bg-purple-50/50 border-purple-500 shadow-lg shadow-purple-50'
+                                                    : 'bg-white border-slate-50 hover:border-slate-200'
                                                     }`}
                                             >
                                                 <div className="flex items-center gap-4">
@@ -180,17 +180,17 @@ export default function AIEstimatorPage() {
                                     </div>
 
                                     {selectedItems.length > 0 && (
-                                        <div className="mt-10 p-6 bg-slate-900 rounded-[32px] flex items-center justify-between animate-in slide-in-from-bottom-5">
+                                        <div className="mt-10 p-6 bg-blue-600 rounded-[32px] flex items-center justify-between animate-in slide-in-from-bottom-5">
                                             <div className="text-white">
-                                                <p className="text-xs font-bold opacity-60 uppercase tracking-widest mb-1">Đã chọn {selectedItems.length} vật tư</p>
+                                                <p className="text-xs font-bold opacity-80 uppercase tracking-widest mb-1">Đã chọn {selectedItems.length} vật tư</p>
                                                 <p className="text-xl font-black">
                                                     {selectedItems.reduce((sum, item) => sum + (item.price * item.recommendedQty), 0).toLocaleString('vi-VN')}
-                                                    <span className="text-xs ml-1 opacity-60">VNĐ</span>
+                                                    <span className="text-xs ml-1 opacity-80">VNĐ</span>
                                                 </p>
                                             </div>
                                             <button
                                                 onClick={addToCart}
-                                                className="px-8 py-4 bg-white text-slate-900 font-black rounded-2xl hover:bg-purple-50 transition-all flex items-center gap-2"
+                                                className="px-8 py-4 bg-white text-blue-600 font-black rounded-2xl hover:bg-blue-50 transition-all flex items-center gap-2"
                                             >
                                                 Thêm vào dự án
                                                 <ArrowRight className="w-5 h-5" />

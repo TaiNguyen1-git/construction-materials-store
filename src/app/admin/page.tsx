@@ -3,8 +3,16 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { fetchWithAuth } from '@/lib/api-client'
-import { LineChart, Line, BarChart, Bar, PieChart, Pie, AreaChart, Area, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
-import { Package, ShoppingCart, ClipboardList, FileText, AlertTriangle, Users, DollarSign, Clock, Star, RefreshCw, Sparkles } from 'lucide-react'
+import {
+  LineChart, Line, BarChart, Bar, PieChart, Pie, AreaChart, Area,
+  Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
+} from 'recharts'
+import {
+  Package, ShoppingCart, ClipboardList, FileText, AlertTriangle,
+  Users, DollarSign, Clock, Star, RefreshCw, Sparkles,
+  TrendingUp, ArrowUpRight, ArrowDownRight, Zap, Target,
+  Calendar, Briefcase, Boxes, LayoutGrid, ChevronRight
+} from 'lucide-react'
 
 interface DashboardStats {
   totalProducts: number
@@ -39,7 +47,6 @@ export default function AdminDashboard() {
     fetchDashboardData(true)
     fetchAISummary()
 
-    // Auto-refresh every 30 seconds (without showing loading spinner)
     const interval = setInterval(() => {
       fetchDashboardData(false)
     }, 30000)
@@ -107,10 +114,10 @@ export default function AdminDashboard() {
   }
 
   const quickActions = [
-    { name: 'Thêm Sản Phẩm', href: '/admin/products', icon: Package, color: 'bg-blue-500' },
-    { name: 'Xem Đơn Hàng', href: '/admin/orders', icon: ShoppingCart, color: 'bg-green-500' },
-    { name: 'Quản Lý Kho', href: '/admin/inventory', icon: ClipboardList, color: 'bg-orange-500' },
-    { name: 'Tạo Hóa Đơn', href: '/admin/invoices', icon: FileText, color: 'bg-purple-500' },
+    { name: 'Thêm Sản Phẩm', href: '/admin/products', icon: Package, color: 'text-blue-600 bg-blue-50' },
+    { name: 'Xem Đơn Hàng', href: '/admin/orders', icon: ShoppingCart, color: 'text-emerald-600 bg-emerald-50' },
+    { name: 'Quản Lý Kho', href: '/admin/inventory', icon: Boxes, color: 'text-amber-600 bg-amber-50' },
+    { name: 'Bảng Lương', href: '/admin/payroll', icon: Target, color: 'text-purple-600 bg-purple-50' },
   ]
 
   const stats = data?.kpis || {
@@ -124,298 +131,275 @@ export default function AdminDashboard() {
 
   const statCards = [
     {
-      title: 'Tổng Sản Phẩm',
+      title: 'Danh mục sản phẩm',
       value: formatNumber(stats.totalProducts),
       icon: Package,
-      color: 'bg-blue-100 text-blue-800',
-      bgColor: 'bg-blue-500',
-      trend: '+12%'
+      color: 'bg-blue-50 text-blue-600',
+      trend: '+12%',
+      sub: 'Mã SKU'
     },
     {
-      title: 'Sản Phẩm Sắp Hết',
+      title: 'Tồn kho cảnh báo',
       value: formatNumber(stats.lowStockItems),
       icon: AlertTriangle,
-      color: 'bg-yellow-100 text-yellow-800',
-      bgColor: 'bg-yellow-500',
-      trend: stats.lowStockItems > 10 ? 'Cảnh báo' : 'OK'
+      color: 'bg-red-50 text-red-600',
+      trend: stats.lowStockItems > 10 ? 'Urgent' : 'Low Risk',
+      sub: 'Mức Quan Trọng'
     },
     {
-      title: 'Tổng Đơn Hàng',
+      title: 'Thanh khoản đơn hàng',
       value: formatNumber(stats.totalOrders),
       icon: ShoppingCart,
-      color: 'bg-green-100 text-green-800',
-      bgColor: 'bg-green-500',
-      trend: '+8%'
+      color: 'bg-emerald-50 text-emerald-600',
+      trend: '+8%',
+      sub: 'Khối Lượng'
     },
     {
-      title: 'Tổng Khách Hàng',
+      title: 'Cơ sở khách hàng',
       value: formatNumber(stats.totalCustomers),
       icon: Users,
-      color: 'bg-purple-100 text-purple-800',
-      bgColor: 'bg-purple-500',
-      trend: '+15%'
+      color: 'bg-indigo-50 text-indigo-600',
+      trend: '+15%',
+      sub: 'Người Dùng'
     },
     {
-      title: 'Tổng Doanh Thu',
+      title: 'Tổng doanh thu',
       value: formatCurrency(stats.totalRevenue),
       icon: DollarSign,
-      color: 'bg-green-100 text-green-800',
-      bgColor: 'bg-green-600',
-      trend: '+23%'
+      color: 'bg-emerald-600 text-white',
+      trend: '+23%',
+      sub: 'Trong Tháng',
+      isHero: true
     },
     {
-      title: 'Đơn Hàng Chờ',
+      title: 'Đơn chờ xử lý',
       value: formatNumber(stats.pendingOrders),
       icon: Clock,
-      color: 'bg-orange-100 text-orange-800',
-      bgColor: 'bg-orange-500',
-      trend: stats.pendingOrders > 20 ? 'Cao' : 'Bình thường'
+      color: 'bg-amber-50 text-amber-600',
+      trend: 'Queued',
+      sub: 'Chờ Xử Lý'
     }
   ]
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="flex flex-col items-center justify-center h-[80vh] space-y-4">
+        <div className="w-12 h-12 border-4 border-slate-900/10 border-t-slate-900 rounded-full animate-spin"></div>
+        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Đang Tải Dữ Liệu...</p>
       </div>
     )
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Bảng Điều Khiển</h1>
-          <p className="text-gray-600">Chào mừng đến với bảng quản trị Cửa Hàng Vật Liệu Xây Dựng</p>
-        </div>
-        <div className="flex gap-2">
-          <button
-            onClick={handleSendReport}
-            disabled={isSendingReport}
-            className={`px-4 py-2 border border-blue-600 ${isSendingReport ? 'bg-blue-50 text-blue-300' : 'text-blue-600 hover:bg-blue-50'} rounded-lg transition-colors flex items-center gap-2`}
-          >
-            {isSendingReport ? <RefreshCw className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
-            <span>Gửi báo cáo Email</span>
-          </button>
-          <button
-            onClick={() => fetchDashboardData(false)}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
-          >
-            <RefreshCw className="w-4 h-4" />
-            <span>Làm mới</span>
-          </button>
-        </div>
-      </div>
-
-      {/* AI Summary Widget */}
-      <div className="bg-gradient-to-r from-purple-600 to-indigo-600 rounded-xl shadow-lg p-6 text-white">
-        <div className="flex items-start gap-3">
-          <div className="p-2 bg-white/20 rounded-lg">
-            <Sparkles className="w-6 h-6" />
+    <div className="space-y-10 animate-in fade-in duration-700">
+      {/* Dynamic AI & Header Layer */}
+      <div className="flex flex-col lg:flex-row gap-6">
+        <div className="flex-1 space-y-2">
+          <div className="flex gap-2 pt-4">
+            <button
+              onClick={handleSendReport}
+              disabled={isSendingReport}
+              className="bg-blue-500 text-white px-5 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest border border-blue-400 hover:bg-blue-600 transition-all flex items-center gap-2 shadow-lg shadow-blue-500/20"
+            >
+              {isSendingReport ? <RefreshCw className="animate-spin" size={12} /> : <FileText size={12} />}
+              Gửi Báo Cáo Ngày
+            </button>
+            <button
+              onClick={() => fetchDashboardData(true)}
+              className="bg-blue-600 text-white px-5 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-700 transition-all active:scale-95 shadow-lg shadow-blue-600/20"
+            >
+              <RefreshCw size={12} />
+            </button>
           </div>
-          <div className="flex-1">
-            <h2 className="text-lg font-semibold mb-2 flex items-center gap-2">
-              🤖 Bản tin AI
-              <span className="text-xs bg-white/20 px-2 py-0.5 rounded-full">Gemini</span>
-            </h2>
+        </div>
+
+        {/* AI Insight Card - Premium Glass */}
+        {/* AI Insight Card - Premium Glass */}
+        <div className="lg:w-[450px] bg-gradient-to-br from-blue-600 to-indigo-600 rounded-[40px] p-8 text-white relative overflow-hidden group border border-blue-500 shadow-2xl shadow-blue-500/30">
+          <div className="absolute top-0 right-0 p-6 opacity-20 text-white group-hover:scale-110 transition-transform">
+            <Sparkles size={80} />
+          </div>
+          <div className="relative z-10">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-2 h-2 rounded-full bg-white animate-pulse"></div>
+              <span className="text-[10px] font-black text-blue-100 uppercase tracking-[0.2em]">Trợ Lý AI Thông Minh</span>
+            </div>
             {aiSummaryLoading ? (
-              <div className="flex items-center gap-2">
-                <RefreshCw className="w-4 h-4 animate-spin" />
-                <span className="text-white/80">Đang phân tích dữ liệu...</span>
-              </div>
-            ) : aiSummary ? (
-              <div className="text-white/90 text-sm whitespace-pre-line leading-relaxed">
-                {aiSummary}
+              <div className="space-y-3">
+                <div className="h-4 w-full bg-blue-500/50 rounded animate-pulse"></div>
+                <div className="h-4 w-2/3 bg-blue-500/50 rounded animate-pulse"></div>
               </div>
             ) : (
-              <p className="text-white/70 text-sm">Không thể tải bản tin AI.</p>
+              <p className="text-sm font-bold text-white/90 leading-relaxed italic">
+                "{aiSummary || 'Hệ thống đang sẵn sàng phân tích dữ liệu vận hành. Nhấn làm mới để nhận bản tin tối ưu hóa kinh doanh.'}"
+              </p>
             )}
+            <div className="mt-6 flex justify-between items-end">
+              <span className="text-[9px] font-bold text-blue-200 uppercase tracking-tighter">Powered by Google DeepMind</span>
+              <button onClick={fetchAISummary} className="p-2 bg-blue-500/50 rounded-xl hover:bg-white hover:text-blue-600 transition-all">
+                <Zap size={14} className="fill-current" />
+              </button>
+            </div>
           </div>
-          <button
-            onClick={fetchAISummary}
-            className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-            title="Làm mới bản tin"
-          >
-            <RefreshCw className={`w-4 h-4 ${aiSummaryLoading ? 'animate-spin' : ''}`} />
-          </button>
         </div>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {/* Stats Layer - Precise Bento */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6">
         {statCards.map((stat, index) => (
-          <div key={index} className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition-shadow">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center flex-1">
-                <div className={`flex-shrink-0 w-12 h-12 ${stat.bgColor} rounded-lg flex items-center justify-center`}>
-                  <stat.icon className="w-6 h-6 text-white" />
-                </div>
-                <div className="ml-4 flex-1">
-                  <dt className="text-sm font-medium text-gray-500">{stat.title}</dt>
-                  <dd className="text-2xl font-bold text-gray-900 mt-1">{stat.value}</dd>
-                </div>
+          <div
+            key={index}
+            className={`bg-white rounded-[40px] border border-slate-100 p-8 shadow-sm hover:shadow-xl transition-all group relative overflow-hidden ${stat.isHero ? 'lg:col-span-2' : 'lg:col-span-1'
+              }`}
+          >
+            {stat.isHero && <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 blur-[60px] pointer-events-none"></div>}
+
+            <div className="flex flex-col h-full justify-between">
+              <div>
+                <dt className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">{stat.title}</dt>
+                <dd className={`font-black text-slate-900 tracking-tighter ${stat.isHero ? 'text-4xl' : 'text-2xl line-clamp-1'}`}>
+                  {stat.value}
+                </dd>
               </div>
-              <div className="text-right">
-                <span className="text-xs font-semibold text-green-600 bg-green-50 px-2 py-1 rounded">
-                  {stat.trend}
-                </span>
+
+              <div className="flex items-center justify-between mt-6">
+                <div className={`p-3 rounded-2xl ${stat.color} transition-transform group-hover:scale-110 shadow-sm`}>
+                  <stat.icon size={20} />
+                </div>
+                <div className="text-right">
+                  <div className={`text-[10px] font-black px-2 py-1 rounded-lg uppercase tracking-widest mb-1 ${stat.trend.includes('+') ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-50 text-slate-400'
+                    }`}>
+                    {stat.trend}
+                  </div>
+                  <div className="text-[9px] font-bold text-slate-300 uppercase">{stat.sub}</div>
+                </div>
               </div>
             </div>
           </div>
         ))}
       </div>
 
-      {/* Charts Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Revenue Trend Chart */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Xu Hướng Doanh Thu (30 ngày)</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={data?.revenueTrend || []}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="date" tick={{ fontSize: 12 }} />
-              <YAxis tick={{ fontSize: 12 }} />
-              <Tooltip
-                formatter={(value: number) => formatCurrency(value)}
-                contentStyle={{ backgroundColor: '#fff', border: '1px solid #ccc' }}
-              />
-              <Legend />
-              <Line
-                type="monotone"
-                dataKey="revenue"
-                stroke="#3b82f6"
-                strokeWidth={2}
-                name="Doanh thu"
-                dot={{ fill: '#3b82f6' }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
+      {/* Analytics Visualization Layer */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* Main Revenue Chart */}
+        <div className="lg:col-span-8 bg-white rounded-[40px] border border-slate-100 p-10 shadow-sm relative overflow-hidden">
+          <div className="flex justify-between items-center mb-10">
+            <div>
+              <h3 className="text-xl font-black text-slate-900 uppercase tracking-tighter italic flex items-center gap-2">
+                <TrendingUp className="text-blue-600" size={20} />
+                Xu Hướng Dòng Tiền
+              </h3>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Biểu đồ giao dịch 30 ngày qua</p>
+            </div>
+            <div className="flex gap-2">
+              <div className="px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-[10px] font-black uppercase tracking-widest">Doanh Thu (VND)</div>
+            </div>
+          </div>
+          <div className="h-[350px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={data?.revenueTrend || []}>
+                <defs>
+                  <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.1} />
+                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#94a3b8' }} />
+                <YAxis hide />
+                <Tooltip
+                  contentStyle={{ borderRadius: '20px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)', padding: '15px' }}
+                  formatter={(value: any) => [formatCurrency(value), 'Doanh Thu']}
+                />
+                <Area type="monotone" dataKey="revenue" stroke="#3b82f6" strokeWidth={4} fillOpacity={1} fill="url(#colorRev)" />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
         </div>
 
-        {/* Sales by Category Chart */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Doanh Thu Theo Danh Mục (30 ngày)</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <PieChart>
-              <Pie
-                data={data?.salesByCategory || []}
-                cx="50%"
-                cy="50%"
-                labelLine={false}
-                label={(props: any) => {
-                  const { category, percent } = props
-                  return `${category} (${((percent || 0) * 100).toFixed(1)}%)`
-                }}
-                outerRadius={80}
-                fill="#8884d8"
-                dataKey="total"
-              >
-                {data?.salesByCategory.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                ))}
-              </Pie>
-              <Tooltip formatter={(value: number) => formatCurrency(value)} />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
-
-        {/* Top Products Chart */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Top 10 Sản Phẩm Bán Chạy (30 ngày)</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={data?.topProducts || []} layout="vertical">
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis type="number" tick={{ fontSize: 12 }} />
-              <YAxis dataKey="name" type="category" width={150} tick={{ fontSize: 11 }} />
-              <Tooltip formatter={(value: number) => formatCurrency(value)} />
-              <Legend />
-              <Bar dataKey="revenue" fill="#10b981" name="Doanh thu" />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-
-        {/* Inventory Status Chart */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Tình Trạng Tồn Kho (Hiện tại)</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <AreaChart data={data?.inventoryStatus.slice(0, 10) || []}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="product" tick={{ fontSize: 10 }} angle={-45} textAnchor="end" height={100} />
-              <YAxis tick={{ fontSize: 12 }} />
-              <Tooltip />
-              <Legend />
-              <Area type="monotone" dataKey="available" stackId="1" stroke="#3b82f6" fill="#3b82f6" name="Tồn kho" />
-              <Area type="monotone" dataKey="min" stackId="2" stroke="#ef4444" fill="#ef4444" name="Mức tối thiểu" />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
-
-      {/* Quick Actions */}
-      <div className="bg-white rounded-lg shadow">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h2 className="text-lg font-medium text-gray-900">Thao Tác Nhanh</h2>
-        </div>
-        <div className="p-6">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {quickActions.map((action, index) => (
-              <Link
-                key={index}
-                href={action.href}
-                className="group relative bg-white p-6 rounded-lg border-2 border-gray-200 hover:border-primary-500 transition-colors"
-              >
-                <div className="flex flex-col items-center text-center">
-                  <div className={`w-12 h-12 ${action.color} rounded-lg flex items-center justify-center mb-3 group-hover:scale-110 transition-transform`}>
-                    <action.icon className="w-6 h-6 text-white" />
-                  </div>
-                  <h3 className="text-sm font-medium text-gray-900 group-hover:text-primary-600">
-                    {action.name}
-                  </h3>
-                </div>
-              </Link>
+        {/* Categories Distribution */}
+        <div className="lg:col-span-4 bg-slate-50/50 rounded-[40px] border border-slate-100 p-10 shadow-sm flex flex-col items-center">
+          <h3 className="text-xl font-black text-slate-900 uppercase tracking-tighter italic mb-6 w-full">Cơ Cấu Danh Mục</h3>
+          <div className="h-[250px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={data?.salesByCategory || []}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={60}
+                  outerRadius={80}
+                  paddingAngle={8}
+                  cornerRadius={10}
+                  dataKey="total"
+                >
+                  {data?.salesByCategory.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="grid grid-cols-2 gap-3 mt-6 w-full">
+            {data?.salesByCategory.slice(0, 4).map((cat, i) => (
+              <div key={i} className="flex flex-col p-3 bg-white rounded-2xl border border-slate-100">
+                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest line-clamp-1">{cat.category}</span>
+                <span className="text-sm font-black text-slate-900 mt-1">{formatNumber(cat.total / 1000000)}M</span>
+              </div>
             ))}
           </div>
         </div>
       </div>
 
-      {/* Recent Activity & Additional Info */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Recent Orders */}
-        <div className="lg:col-span-2 bg-white rounded-lg shadow">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h2 className="text-lg font-medium text-gray-900">Đơn Hàng Gần Đây</h2>
+      {/* Operational Layer */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Recent Transactions */}
+        <div className="lg:col-span-2 space-y-6">
+          <div className="flex items-center justify-between px-2">
+            <h3 className="text-xl font-black text-slate-900 uppercase tracking-tighter italic flex items-center gap-2">
+              <ShoppingCart className="text-emerald-500" size={20} />
+              Giao Dịch Gần Đây
+            </h3>
+            <Link href="/admin/orders" className="text-[10px] font-black text-blue-500 uppercase tracking-widest hover:underline">Xem Tất Cả</Link>
           </div>
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Mã ĐH</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Khách hàng</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Số tiền</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Trạng thái</th>
+          <div className="bg-white rounded-[40px] border border-slate-100 overflow-hidden shadow-sm">
+            <table className="min-w-full divide-y divide-slate-50">
+              <thead className="bg-slate-50/50">
+                <tr className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                  <th className="px-6 py-4 text-left">Mã Đơn</th>
+                  <th className="px-6 py-4 text-left">Khách Hàng</th>
+                  <th className="px-4 py-4 text-right">Giá Trị (VND)</th>
+                  <th className="px-6 py-4 text-center">Trạng Thái</th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="divide-y divide-slate-50">
                 {data?.recentOrders.map((order) => (
-                  <tr key={order.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {order.orderNumber}
+                  <tr key={order.id} className="hover:bg-slate-50/50 transition-colors group">
+                    <td className="px-6 py-4">
+                      <div className="text-xs font-black text-slate-900 group-hover:text-blue-600 transition-colors uppercase font-mono">{order.orderNumber}</div>
+                      <div className="text-[9px] text-slate-300 font-bold uppercase tracking-widest mt-0.5">{order.date}</div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {order.customer}
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-black text-slate-400">{order.customer[0]}</div>
+                        <span className="text-xs font-bold text-slate-600">{order.customer}</span>
+                      </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {formatCurrency(order.amount)}
+                    <td className="px-4 py-4 text-right">
+                      <span className="text-xs font-black text-slate-900">{formatCurrency(order.amount)}</span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 py-1 text-xs font-semibold rounded-full ${order.status === 'DELIVERED' ? 'bg-green-100 text-green-800' :
-                        order.status === 'SHIPPED' ? 'bg-blue-100 text-blue-800' :
-                          order.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
-                            'bg-gray-100 text-gray-800'
+                    <td className="px-6 py-4 text-center">
+                      <span className={`px-2.5 py-1 rounded-full text-[8px] font-black uppercase tracking-widest border ${order.status === 'DELIVERED' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
+                        order.status === 'PENDING' ? 'bg-amber-50 text-amber-600 border-amber-100' :
+                          'bg-slate-50 text-slate-400 border-slate-100'
                         }`}>
-                        {order.status}
+                        {order.status === 'DELIVERED' ? 'Đã Giao' :
+                          order.status === 'PENDING' ? 'Chờ Xử Lý' :
+                            order.status === 'SHIPPED' ? 'Đang Giao' :
+                              order.status === 'CONFIRMED' ? 'Đã Xác Nhận' :
+                                order.status === 'CANCELLED' ? 'Đã Hủy' :
+                                  order.status}
                       </span>
                     </td>
                   </tr>
@@ -425,56 +409,37 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* Quick Stats */}
-        <div className="space-y-4">
-          {/* Low Stock Alert */}
-          <div className="bg-white rounded-lg shadow p-4">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold text-gray-900">Cảnh Báo Hết Hàng</h3>
-              <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center">
-                <AlertTriangle className="w-5 h-5 text-red-600" />
-              </div>
-            </div>
-            <p className="text-2xl font-bold text-gray-900">{stats.lowStockItems}</p>
-            <p className="text-sm text-gray-500 mt-1">sản phẩm sắp hết</p>
-            <Link href="/admin/inventory" className="text-xs text-blue-600 hover:underline mt-2 inline-block">
-              Xem chi tiết →
-            </Link>
-          </div>
-
-          {/* Pending Orders */}
-          <div className="bg-white rounded-lg shadow p-4">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold text-gray-900">Đơn Chờ Xử Lý</h3>
-              <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
-                <Clock className="w-5 h-5 text-orange-600" />
-              </div>
-            </div>
-            <p className="text-2xl font-bold text-gray-900">{stats.pendingOrders}</p>
-            <p className="text-sm text-gray-500 mt-1">đơn hàng cần xử lý</p>
-            <Link href="/admin/orders" className="text-xs text-blue-600 hover:underline mt-2 inline-block">
-              Xem chi tiết →
-            </Link>
-          </div>
-
-          {/* Employee Performance */}
-          <div className="bg-white rounded-lg shadow p-4">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold text-gray-900">Nhân Viên Xuất Sắc</h3>
-              <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
-                <Star className="w-5 h-5 text-green-600" />
-              </div>
-            </div>
-            {data?.employeePerformance.slice(0, 3).map((emp, idx) => (
-              <div key={idx} className="flex items-center justify-between py-2 border-b last:border-0">
-                <span className="text-sm text-gray-900">{emp.name}</span>
-                <span className="text-xs font-semibold text-green-600">{emp.rate}%</span>
-              </div>
+        {/* Quick Hub & Notifications */}
+        <div className="space-y-6">
+          <h3 className="text-xl font-black text-slate-900 uppercase tracking-tighter italic px-2">Thao Tác Nhanh</h3>
+          <div className="grid grid-cols-2 gap-4">
+            {quickActions.map((action, i) => (
+              <Link key={i} href={action.href} className="flex flex-col p-6 bg-white rounded-[32px] border border-slate-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all group items-center text-center">
+                <div className={`p-4 rounded-2xl ${action.color} group-hover:scale-110 transition-transform mb-4`}>
+                  <action.icon size={24} />
+                </div>
+                <span className="text-[10px] font-black text-slate-900 uppercase tracking-widest">{action.name}</span>
+              </Link>
             ))}
+          </div>
+
+          <div className="bg-white rounded-[40px] p-8 space-y-6 shadow-xl border border-amber-100 relative overflow-hidden group">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-amber-50 rounded-bl-[100px] pointer-events-none transition-transform group-hover:scale-110"></div>
+            <div className="flex items-center justify-between relative z-10">
+              <h4 className="text-[10px] font-black text-amber-600 uppercase tracking-widest">Cảnh Báo Tồn Kho</h4>
+              <AlertTriangle className="text-amber-500" size={16} />
+            </div>
+            <div className="relative z-10">
+              <div className="text-4xl font-black text-slate-900 tracking-tighter">{stats.lowStockItems}</div>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Sản phẩm sắp hết hàng</p>
+            </div>
+            <Link href="/admin/inventory" className="flex items-center justify-between p-4 bg-blue-500 rounded-2xl hover:bg-blue-600 transition-all text-white relative z-10 shadow-lg shadow-blue-500/30">
+              <span className="text-[10px] font-black uppercase tracking-widest">Điều Chỉnh Kho</span>
+              <ChevronRight size={14} />
+            </Link>
           </div>
         </div>
       </div>
-
     </div>
   )
 }

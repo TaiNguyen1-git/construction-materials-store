@@ -70,7 +70,7 @@ export async function GET(request: NextRequest) {
         // 3. Generate AI summary
         const prompt = `
 Bạn là trợ lý BI (Business Intelligence) cho cửa hàng vật liệu xây dựng.
-Dựa trên dữ liệu sau, hãy viết một bản tin ngắn gọn (tối đa 150 từ) bằng tiếng Việt cho quản lý:
+Dựa trên dữ liệu sau, hãy viết một bản tin ngắn gọn (tối đa 80 từ) bằng tiếng Việt cho quản lý:
 
 Dữ liệu:
 - Ngày: ${analysisData.date}
@@ -94,8 +94,13 @@ Yêu cầu:
         try {
             const aiResponse = await AIService.generateChatbotResponse(prompt, null, [], true)
             summary = aiResponse.response
+
+            // Check if AI actually returned a valid summary or an error message
+            if (summary.includes("Xin lỗi") || summary.length < 50) {
+                throw new Error("AI returned error message")
+            }
         } catch (aiError) {
-            console.error('AI summary generation failed:', aiError)
+            console.error('AI summary generation failed or returned error:', aiError)
             // Fallback to static summary
             summary = `Chào Admin,
 

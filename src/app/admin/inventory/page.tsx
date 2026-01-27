@@ -4,7 +4,12 @@
 import { useState, useEffect } from 'react'
 import { toast } from 'react-hot-toast'
 import { fetchWithAuth } from '@/lib/api-client'
-import { RefreshCw, AlertTriangle, CheckCircle, Package, ShoppingCart, ChevronDown, ChevronUp, Sparkles } from 'lucide-react'
+import {
+  RefreshCw, AlertTriangle, CheckCircle, Package, ShoppingCart,
+  ChevronDown, ChevronUp, Sparkles, Filter, Search, Plus,
+  Truck, ArrowRight, BarChart3, Settings, Boxes, LayoutGrid, X,
+  History, Download, ArrowUpRight, ArrowDownRight, User
+} from 'lucide-react'
 import Pagination from '@/components/Pagination'
 import InventoryAnalytics from '@/components/admin/InventoryAnalytics'
 import InventoryManagement from '@/components/admin/InventoryManagement'
@@ -71,9 +76,7 @@ export default function InventoryPage() {
   const [filters, setFilters] = useState({ category: '', status: '', lowStock: false, timeframe: 'MONTH' })
   const pageSize = 20
   const [stockPage, setStockPage] = useState(1)
-  const [predictionPage, setPredictionPage] = useState(1)
-  const [recommendationPage, setRecommendationPage] = useState(1)
-  const [movementPage, setMovementPage] = useState(1)
+  const [searchTerm, setSearchTerm] = useState('')
 
   const [expandedSections, setExpandedSections] = useState({ stock: true, predictions: true, recommendations: true, movements: false })
 
@@ -122,7 +125,7 @@ export default function InventoryPage() {
     setRefreshing(true)
     await fetchData()
     setRefreshing(false)
-    toast.success('Data refreshed')
+    toast.success('Dữ liệu đã được cập nhật')
   }
 
   const handleStockAdjustment = async (e: React.FormEvent) => {
@@ -130,29 +133,31 @@ export default function InventoryPage() {
     try {
       const res = await fetchWithAuth('/api/inventory/movements', { method: 'POST', body: JSON.stringify(adjustForm) })
       if (res.ok) {
-        toast.success('Adjustment recorded')
+        toast.success('Đã lưu điều chỉnh kho thành công')
         setShowAdjustModal(false)
         setAdjustForm({ productId: '', type: 'ADJUSTMENT', quantity: 0, reason: '' })
         fetchData()
       } else {
         const err = await res.json()
-        toast.error(err.error || 'Failed')
+        toast.error(err.error || 'Thất bại')
       }
     } catch (e) {
       console.error(e)
-      toast.error('Failed')
+      toast.error('Có lỗi xảy ra')
     }
   }
 
   const getStockStatus = (product: Product) => {
-    if (product.stock <= 0) return { color: 'bg-red-100 text-red-800', text: 'Hết Hàng', icon: AlertTriangle }
-    if (product.stock <= product.minStock) return { color: 'bg-yellow-100 text-yellow-800', text: 'Sắp Hết', icon: AlertTriangle }
-    return { color: 'bg-green-100 text-green-800', text: 'Còn Hàng', icon: CheckCircle }
+    if (product.stock <= 0) return { color: 'bg-red-50 text-red-600 border-red-100', text: 'Hết Hàng', icon: AlertTriangle }
+    if (product.stock <= product.minStock) return { color: 'bg-amber-50 text-amber-600 border-amber-100', text: 'Sắp Hết', icon: AlertTriangle }
+    return { color: 'bg-emerald-50 text-emerald-600 border-emerald-100', text: 'Ổn Định', icon: CheckCircle }
   }
 
   const formatCurrency = (v: number | undefined | null) => (!v || isNaN(v) ? '0đ' : `${Math.round(v).toLocaleString('vi-VN')}đ`)
 
   const filteredProducts = products.filter(p => {
+    const matchSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) || p.sku.toLowerCase().includes(searchTerm.toLowerCase())
+    if (!matchSearch) return false
     if (filters.category && (p.category as any)?.name !== filters.category && p.category !== filters.category) return false
     if (filters.status && p.status !== filters.status) return false
     if (filters.lowStock && p.stock > p.minStock) return false
@@ -167,171 +172,199 @@ export default function InventoryPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600" />
+      <div className="flex flex-col items-center justify-center h-[60vh] space-y-4">
+        <div className="w-12 h-12 border-4 border-blue-600/10 border-t-blue-600 rounded-full animate-spin"></div>
+        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Đang Tải Kho...</p>
       </div>
     )
   }
 
   return (
-    <div className="space-y-6">
-      {/* Tab Navigation */}
-      <div className="border-b border-gray-200 mb-6">
-        <nav className="flex space-x-8">
-          <button onClick={() => setActiveTab('stock')} className={`py-2 px-1 font-bold ${activeTab === 'stock' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-600'}`}>Tồn Kho</button>
-          <button onClick={() => setActiveTab('alerts')} className={`py-2 px-1 font-bold flex items-center gap-1.5 ${activeTab === 'alerts' ? 'border-b-2 border-red-600 text-red-600' : 'text-gray-600'}`}>
-            Nhắc Nhập Hàng
-          </button>
-          <button onClick={() => setActiveTab('analytics')} className={`py-2 px-1 font-bold ${activeTab === 'analytics' ? 'border-b-2 border-purple-600 text-purple-600' : 'text-gray-600'}`}>Số Liệu Nhập Hàng</button>
-          <button onClick={() => setActiveTab('management')} className={`py-2 px-1 font-bold ${activeTab === 'management' ? 'border-b-2 border-orange-600 text-orange-600' : 'text-gray-600'}`}>Cài Đặt Kho</button>
-        </nav>
-      </div>
-
-      {/* Header */}
-      <div className="flex justify-between items-center">
+    <div className="space-y-8 animate-in fade-in duration-500">
+      {/* Premium Header */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Quản Lý Kho Hàng</h1>
-          <p className="text-sm text-gray-500 mt-1">Theo dõi hàng tồn kho và gợi ý đặt hàng tự động</p>
+          <h1 className="text-3xl font-black text-slate-900 tracking-tight flex items-center gap-3">
+            <span className="bg-blue-500 text-white p-2 rounded-2xl shadow-lg shadow-blue-200"><Boxes size={24} /></span>
+            Quản Lý Kho Hàng
+          </h1>
+          <p className="text-sm font-bold text-slate-400 mt-1 uppercase tracking-widest">Giám Sát Chuỗi Cung Ứng Thời Gian Thực</p>
         </div>
-        <div className="flex space-x-2">
-          <select value={filters.timeframe} onChange={e => setFilters({ ...filters, timeframe: e.target.value })} className="px-3 py-2 border border-gray-300 rounded-md text-sm text-gray-900 bg-white">
-            <option value="WEEK">Tuần</option>
-            <option value="MONTH">Tháng</option>
-            <option value="QUARTER">Quý</option>
-          </select>
-          <button onClick={handleRefresh} disabled={refreshing} className="flex items-center px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50">
-            <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
-            Làm Mới
+        <div className="flex gap-3">
+          <button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="bg-blue-100 text-blue-600 px-5 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest border border-blue-200 hover:bg-blue-200 transition-all flex items-center gap-2"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
           </button>
-          <button onClick={() => setShowAdjustModal(true)} className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 text-sm font-medium">Điều Chỉnh Tồn Kho</button>
+          <button
+            onClick={() => setShowAdjustModal(true)}
+            className="bg-blue-500 text-white px-6 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-600 shadow-xl shadow-blue-200 transition-all active:scale-95 flex items-center gap-2"
+          >
+            <Plus size={16} />
+            Điều chỉnh tồn kho
+          </button>
         </div>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        <div className="bg-white p-4 rounded-lg shadow border-l-4 border-blue-500">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-sm text-gray-600">Tổng Sản Phẩm</div>
-              <div className="text-2xl font-bold text-gray-900">{products.length}</div>
+      {/* Analytics Bento Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {[
+          { label: 'Tổng Hạng Mục SKU', value: products.length, icon: Package, color: 'bg-blue-50 text-blue-600', sub: 'Danh Mục Đang Hoạt Động', trend: 'Còn Hàng: 94%' },
+          { label: 'Cảnh Báo Hết Hàng', value: lowStockProducts.length, icon: AlertTriangle, color: 'bg-red-50 text-red-600', sub: 'Thấp Hơn Mức Tối Thiểu', trend: 'Cần Xử Lý Ngay' },
+          { label: 'Yêu Cầu Khẩn Cấp', value: urgentRecommendations.length, icon: ShoppingCart, color: 'bg-amber-50 text-amber-600', sub: 'Cảnh Báo Mua Hàng', trend: 'Gợi Ý Tự Động' }
+        ].map((stat, i) => (
+          <div key={i} className="bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm hover:shadow-md transition-shadow group">
+            <div className="flex justify-between items-start mb-4">
+              <div className={`p-3 rounded-2xl ${stat.color} transition-transform group-hover:scale-110`}>
+                <stat.icon size={24} />
+              </div>
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{stat.sub}</span>
             </div>
-            <Package className="w-8 h-8 text-blue-600" />
-          </div>
-        </div>
-        <div className="bg-white p-4 rounded-lg shadow border-l-4 border-red-500">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-sm text-gray-600">Sắp Hết Hàng</div>
-              <div className="text-2xl font-bold text-red-600">{lowStockProducts.length}</div>
+            <div className="text-3xl font-black text-slate-900">{stat.value}</div>
+            <div className="flex items-center gap-2 mt-1">
+              <div className="text-xs font-bold text-slate-400 uppercase tracking-tighter">{stat.label}</div>
+              <div className={`text-[9px] font-black uppercase ${i === 1 && lowStockProducts.length > 0 ? 'text-red-500 animate-pulse' : 'text-emerald-500'}`}>
+                {stat.trend}
+              </div>
             </div>
-            <AlertTriangle className="w-8 h-8 text-red-600" />
           </div>
-        </div>
-        <div className="bg-white p-4 rounded-lg shadow border-l-4 border-orange-500">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-sm text-gray-600">Đề Xuất Khẩn Cấp</div>
-              <div className="text-2xl font-bold text-orange-600">{urgentRecommendations.length}</div>
-            </div>
-            <ShoppingCart className="w-8 h-8 text-orange-600" />
-          </div>
-        </div>
+        ))}
       </div>
 
-      {/* Tab Content */}
-      {activeTab === 'stock' && (
-        <div className="space-y-6">
-          {/* Filters */}
-          <div className="bg-white p-4 rounded-lg shadow">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Danh Mục</label>
-                <select value={filters.category} onChange={e => setFilters({ ...filters, category: e.target.value })} className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 bg-white">
-                  <option value="">Tất Cả Danh Mục</option>
+      {/* Navigation Sub-Tabs */}
+      <div className="flex bg-slate-100 p-1.5 rounded-[22px] w-full md:w-max border border-slate-200/50">
+        {[
+          { id: 'stock', label: 'Tổng Quan Tồn Kho', icon: LayoutGrid },
+          { id: 'alerts', label: 'Cảnh Báo Thông Minh', icon: Sparkles },
+          { id: 'analytics', label: 'Phân Tích Sức Mua', icon: BarChart3 },
+          { id: 'management', label: 'Cơ Chế Vận Hành', icon: Settings }
+        ].map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id as any)}
+            className={`flex items-center gap-2 px-6 py-2.5 rounded-[18px] text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === tab.id ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'
+              }`}
+          >
+            <tab.icon size={14} />
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Dynamic Tab Content */}
+      <div className="animate-in slide-in-from-bottom-4 duration-500">
+        {activeTab === 'stock' && (
+          <div className="space-y-6">
+            {/* Layered Filters */}
+            <div className="p-4 bg-white rounded-[32px] border border-slate-100 shadow-sm flex flex-col md:flex-row gap-4 items-center">
+              <div className="relative flex-1 group">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
+                <input
+                  type="text"
+                  placeholder="Tìm mã SKU, tên vật liệu hoặc quy cách..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-12 pr-4 py-3 bg-slate-50 border-none rounded-2xl text-sm font-medium focus:ring-4 focus:ring-blue-500/10 transition-all outline-none"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <select
+                  value={filters.category}
+                  onChange={e => setFilters({ ...filters, category: e.target.value })}
+                  className="px-6 py-3 bg-slate-50 border-none rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-500 focus:ring-4 focus:ring-blue-500/10"
+                >
+                  <option value="">Mọi danh mục</option>
                   {Array.from(new Set(products.map(p => typeof p.category === 'string' ? p.category : (p.category as any)?.name || ''))).map(cat => (
                     <option key={cat} value={cat}>{cat}</option>
                   ))}
                 </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Trạng Thái</label>
-                <select value={filters.status} onChange={e => setFilters({ ...filters, status: e.target.value })} className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 bg-white">
-                  <option value="">Tất Cả Trạng Thái</option>
-                  <option value="ACTIVE">Hoạt Động</option>
-                  <option value="INACTIVE">Ngừng Hoạt Động</option>
-                  <option value="DISCONTINUED">Ngừng Sản Xuất</option>
-                </select>
-              </div>
-              <div className="flex items-end">
-                <label className="flex items-center">
-                  <input type="checkbox" checked={filters.lowStock} onChange={e => setFilters({ ...filters, lowStock: e.target.checked })} className="mr-2" />
-                  <span className="text-sm text-gray-700">Chỉ Sản Phẩm Sắp Hết</span>
-                </label>
-              </div>
-              <div className="flex items-end">
-                <button onClick={() => setFilters({ category: '', status: '', lowStock: false, timeframe: filters.timeframe })} className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50">Xóa Bộ Lọc</button>
+                <button
+                  onClick={() => setFilters({ category: '', status: '', lowStock: !filters.lowStock, timeframe: filters.timeframe })}
+                  className={`px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border ${filters.lowStock ? 'bg-red-50 text-red-600 border-red-100' : 'bg-slate-50 text-slate-400 border-slate-100 hover:bg-slate-100'
+                    }`}
+                >
+                  Low Stock Focus
+                </button>
               </div>
             </div>
-          </div>
 
-          {/* Stock Table */}
-          <div className="bg-white rounded-lg shadow">
-            <button onClick={() => toggleSection('stock')} className="w-full flex items-center justify-between p-4 hover:bg-gray-50">
-              <div className="flex items-center space-x-3">
-                <Package className="h-5 w-5 text-blue-600" />
-                <h2 className="text-lg font-semibold text-gray-900">Tồn Kho Hiện Tại</h2>
-                <span className="text-sm text-gray-500">({filteredProducts.length} sản phẩm)</span>
-              </div>
-              {expandedSections.stock ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
-            </button>
-            {expandedSections.stock && (
-              <div className="border-t">
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
+            {/* Master Inventory Table */}
+            <div className="bg-white rounded-[32px] border border-slate-100 shadow-sm overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-slate-100">
+                  <thead className="bg-slate-50/50">
+                    <tr className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                      <th className="px-6 py-4 text-left">Hàng Hóa / SKU</th>
+                      <th className="px-6 py-4 text-left">Phân Loại</th>
+                      <th className="px-4 py-4 text-right">Tồn Kho</th>
+                      <th className="px-4 py-4 text-center">Định Mức</th>
+                      <th className="px-4 py-4 text-center">Status</th>
+                      <th className="px-4 py-4 text-right">Tổng Giá Trị</th>
+                      <th className="px-6 py-4 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50">
+                    {paginatedStock.length === 0 ? (
                       <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Sản Phẩm</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Danh Mục</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tồn Kho</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tối Thiểu</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Trạng Thái</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Giá Trị</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Hành Động</th>
+                        <td colSpan={7} className="px-6 py-24 text-center text-slate-400 font-bold uppercase tracking-widest italic italic">Không tìm thấy dữ liệu tồn kho phù hợp</td>
                       </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {paginatedStock.map(product => {
+                    ) : (
+                      paginatedStock.map(product => {
                         const stockStatus = getStockStatus(product)
-                        const Icon = stockStatus.icon as any
                         return (
-                          <tr key={product.id} className="hover:bg-gray-50">
+                          <tr key={product.id} className="hover:bg-blue-50/20 transition-colors group">
                             <td className="px-6 py-4 whitespace-nowrap">
-                              <div>
-                                <div className="text-sm font-medium text-gray-900">{product.name}</div>
-                                <div className="text-sm text-gray-500">{product.sku}</div>
+                              <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-blue-600 group-hover:text-white transition-all">
+                                  <Package size={18} />
+                                </div>
+                                <div>
+                                  <div className="text-sm font-black text-slate-900 group-hover:text-blue-600 transition-colors uppercase tracking-tight">{product.name}</div>
+                                  <div className="text-[10px] font-mono text-slate-400 font-bold uppercase tracking-widest mt-0.5">#{product.sku}</div>
+                                </div>
                               </div>
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{typeof product.category === 'string' ? product.category : (product.category as any)?.name || 'N/A'}</td>
                             <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="flex items-center">
-                                <Icon className="h-4 w-4 mr-1" />
-                                <span className="text-sm font-medium">{product.stock}</span>
+                              <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-2 py-1 bg-slate-100 rounded-lg">{typeof product.category === 'string' ? product.category : (product.category as any)?.name || 'N/A'}</span>
+                            </td>
+                            <td className="px-4 py-4 text-right whitespace-nowrap">
+                              <div className={`text-sm font-black ${product.stock <= product.minStock ? 'text-red-600' : 'text-slate-900'}`}>{product.stock} đv</div>
+                              <div className="text-[9px] text-slate-300 font-bold uppercase tracking-widest italic">{product.stock > product.minStock ? 'Ổn Định' : 'Cần Nhập Hàng'}</div>
+                            </td>
+                            <td className="px-4 py-4 text-center whitespace-nowrap">
+                              <div className="text-xs font-bold text-slate-400 bg-slate-50 inline-block px-3 py-1 rounded-full">{product.minStock} (Tối thiểu)</div>
+                            </td>
+                            <td className="px-4 py-4 text-center whitespace-nowrap">
+                              <span className={`px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${stockStatus.color}`}>
+                                {stockStatus.text}
+                              </span>
+                            </td>
+                            <td className="px-4 py-4 text-right whitespace-nowrap">
+                              <div className="text-sm font-black text-slate-900">{formatCurrency((product.stock || 0) * (product.price || 0))}</div>
+                            </td>
+                            <td className="px-6 py-4 text-right whitespace-nowrap">
+                              <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button
+                                  onClick={() => { setSelectedProduct(product); setAdjustForm({ ...adjustForm, productId: product.id }); setShowAdjustModal(true) }}
+                                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-lg shadow-blue-200"
+                                >
+                                  Điều Chỉnh
+                                  <ArrowRight size={14} />
+                                </button>
                               </div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{product.minStock}</td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <span className={`px-2 py-1 text-xs font-semibold rounded-full ${stockStatus.color}`}>{stockStatus.text}</span>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{formatCurrency((product.stock || 0) * (product.price || 0))}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                              <button onClick={() => { setSelectedProduct(product); setAdjustForm({ ...adjustForm, productId: product.id }); setShowAdjustModal(true) }} className="text-blue-600 hover:text-blue-900 font-semibold">Điều Chỉnh</button>
                             </td>
                           </tr>
                         )
-                      })}
-                    </tbody>
-                  </table>
-                </div>
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              {/* Custom Pagination Style */}
+              <div className="p-6 bg-slate-50/50 flex justify-between items-center">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Showing page {stockPage} of {Math.ceil(totalStock / pageSize)}</span>
                 <Pagination
                   currentPage={stockPage}
                   totalPages={Math.ceil(totalStock / pageSize)}
@@ -340,89 +373,88 @@ export default function InventoryPage() {
                   onPageChange={setStockPage}
                 />
               </div>
-            )}
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {activeTab === 'alerts' && (
-        <SmartInventoryAlerts />
-      )}
+        {activeTab === 'alerts' && <SmartInventoryAlerts />}
+        {activeTab === 'analytics' && <InventoryAnalytics predictions={predictions} onRefresh={fetchData} />}
+        {activeTab === 'management' && <InventoryManagement recommendations={recommendations} movements={movements} />}
+      </div>
 
-      {activeTab === 'analytics' && (
-        <InventoryAnalytics predictions={predictions} onRefresh={fetchData} />
-      )}
-
-      {activeTab === 'management' && (
-        <InventoryManagement recommendations={recommendations} movements={movements} />
-      )}
-
-      {/* Stock Adjustment Modal */}
+      {/* Premium Adjustment Modal */}
       {showAdjustModal && (
-        <div className="fixed inset-0 bg-gray-100 bg-opacity-75 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold">Điều Chỉnh Tồn Kho</h3>
-              <button onClick={() => setShowAdjustModal(false)} className="text-gray-500 hover:text-gray-700">✕</button>
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-md overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
+          <div className="relative bg-white w-full max-w-xl shadow-2xl rounded-[40px] overflow-hidden animate-in zoom-in-95 duration-300">
+            <div className="p-10 border-b border-slate-50 bg-slate-50/50 flex justify-between items-center">
+              <div>
+                <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tighter italic">Điều Chỉnh Tồn Kho</h3>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Cập Nhật Thủ Công Thông Số Tồn Kho</p>
+              </div>
+              <button onClick={() => setShowAdjustModal(false)} className="p-3 bg-white text-slate-400 hover:text-slate-900 rounded-2xl border border-slate-100 transition-all">
+                <X size={20} />
+              </button>
             </div>
 
-            <form onSubmit={handleStockAdjustment} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Sản Phẩm *</label>
-                <select
-                  value={adjustForm.productId}
-                  onChange={(e) => setAdjustForm({ ...adjustForm, productId: e.target.value })}
-                  className="mt-1 w-full border rounded-lg px-3 py-2"
-                  required
-                >
-                  <option value="">Chọn sản phẩm</option>
-                  {products.map(p => (
-                    <option key={p.id} value={p.id}>{p.name} (Tồn: {p.stock})</option>
-                  ))}
-                </select>
+            <form onSubmit={handleStockAdjustment} className="p-10 space-y-6">
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Chọn Sản Phẩm</label>
+                  <select
+                    value={adjustForm.productId}
+                    onChange={(e) => setAdjustForm({ ...adjustForm, productId: e.target.value })}
+                    className="w-full bg-slate-100/50 border-none rounded-2xl px-5 py-4 text-sm font-black text-slate-900 focus:ring-4 focus:ring-blue-500/10 transition-all outline-none"
+                    required
+                  >
+                    <option value="">-- Chọn Sản Phẩm --</option>
+                    {products.map(p => (
+                      <option key={p.id} value={p.id}>{p.name.toUpperCase()} (AVL: {p.stock})</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Loại Điều Chỉnh</label>
+                    <select
+                      value={adjustForm.type}
+                      onChange={(e) => setAdjustForm({ ...adjustForm, type: e.target.value as 'IN' | 'OUT' | 'ADJUSTMENT' })}
+                      className="w-full bg-slate-100/50 border-none rounded-2xl px-5 py-4 text-sm font-black text-slate-900 focus:ring-4 focus:ring-blue-500/10 transition-all outline-none"
+                      required
+                    >
+                      <option value="IN">Nhập Kho (Tăng)</option>
+                      <option value="OUT">Xuất Kho (Giảm)</option>
+                      <option value="ADJUSTMENT">Cân Bằng (Đặt lại)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Số Lượng</label>
+                    <input
+                      type="number"
+                      value={adjustForm.quantity || ''}
+                      onChange={(e) => setAdjustForm({ ...adjustForm, quantity: Number(e.target.value) })}
+                      className="w-full bg-slate-100/50 border-none rounded-2xl px-5 py-4 text-sm font-black text-slate-900 focus:ring-4 focus:ring-blue-500/10 transition-all outline-none"
+                      min={1}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Lý Do Điều Chỉnh</label>
+                  <textarea
+                    value={adjustForm.reason}
+                    onChange={(e) => setAdjustForm({ ...adjustForm, reason: e.target.value })}
+                    className="w-full bg-slate-100/50 border-none rounded-2xl px-5 py-4 text-sm font-black text-slate-900 focus:ring-4 focus:ring-blue-500/10 transition-all outline-none min-h-[100px]"
+                    placeholder="Nhập lý do điều chỉnh..."
+                    required
+                  />
+                </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Loại Điều Chỉnh *</label>
-                <select
-                  value={adjustForm.type}
-                  onChange={(e) => setAdjustForm({ ...adjustForm, type: e.target.value as 'IN' | 'OUT' | 'ADJUSTMENT' })}
-                  className="mt-1 w-full border rounded-lg px-3 py-2"
-                  required
-                >
-                  <option value="IN">Nhập Kho</option>
-                  <option value="OUT">Xuất Kho</option>
-                  <option value="ADJUSTMENT">Điều Chỉnh</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Số Lượng *</label>
-                <input
-                  type="number"
-                  value={adjustForm.quantity || ''}
-                  onChange={(e) => setAdjustForm({ ...adjustForm, quantity: Number(e.target.value) })}
-                  className="mt-1 w-full border rounded-lg px-3 py-2"
-                  min={1}
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Lý Do *</label>
-                <textarea
-                  value={adjustForm.reason}
-                  onChange={(e) => setAdjustForm({ ...adjustForm, reason: e.target.value })}
-                  className="mt-1 w-full border rounded-lg px-3 py-2"
-                  rows={3}
-                  placeholder="Nhập lý do điều chỉnh..."
-                  required
-                />
-              </div>
-
-              <div className="flex justify-end gap-3 mt-6">
-                <button type="button" onClick={() => setShowAdjustModal(false)} className="px-4 py-2 border rounded-lg hover:bg-gray-50">Hủy</button>
-                <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Xác Nhận</button>
+              <div className="flex gap-4 pt-6">
+                <button type="button" onClick={() => setShowAdjustModal(false)} className="flex-1 py-4 bg-slate-100 text-slate-400 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-200 transition-all">Hủy</button>
+                <button type="submit" className="flex-[2] py-4 bg-blue-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-700 shadow-xl shadow-blue-100 transition-all active:scale-95">Xác Nhận</button>
               </div>
             </form>
           </div>

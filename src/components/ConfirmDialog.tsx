@@ -1,6 +1,6 @@
 'use client'
 
-import { X } from 'lucide-react'
+import { X, AlertCircle, AlertTriangle, Info } from 'lucide-react'
 
 interface ConfirmDialogProps {
   isOpen: boolean
@@ -27,70 +27,78 @@ export default function ConfirmDialog({
 }: ConfirmDialogProps) {
   if (!isOpen) return null
 
-  const getTypeColors = () => {
+  const getTypeStyle = () => {
     switch (type) {
       case 'danger':
         return {
-          icon: 'text-red-600',
-          button: 'bg-red-600 hover:bg-red-700 focus:ring-red-500'
+          icon: <AlertCircle className="w-8 h-8 text-red-500" />,
+          bgColor: 'bg-red-50',
+          borderColor: 'border-red-100',
+          button: 'bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 shadow-red-500/20'
         }
       case 'warning':
         return {
-          icon: 'text-yellow-600',
-          button: 'bg-yellow-600 hover:bg-yellow-700 focus:ring-yellow-500'
+          icon: <AlertTriangle className="w-8 h-8 text-amber-500" />,
+          bgColor: 'bg-amber-50',
+          borderColor: 'border-amber-100',
+          button: 'bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 shadow-amber-500/20'
         }
       case 'info':
         return {
-          icon: 'text-blue-600',
-          button: 'bg-blue-600 hover:bg-blue-700 focus:ring-blue-500'
+          icon: <Info className="w-8 h-8 text-blue-500" />,
+          bgColor: 'bg-blue-50',
+          borderColor: 'border-blue-100',
+          button: 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-blue-500/20'
         }
     }
   }
 
-  const colors = getTypeColors()
+  const styles = getTypeStyle()
 
   return (
-    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center">
-      <div className="relative bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+    <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
+      <div className="relative bg-white rounded-[32px] shadow-[0_32px_80px_rgba(0,0,0,0.15)] max-w-md w-full overflow-hidden border border-slate-100 animate-in zoom-in-95 duration-300">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b">
-          <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
+        <div className="flex items-center justify-between p-6 border-b border-slate-50">
+          <div className="flex items-center gap-3">
+            <div className={`p-2 rounded-xl ${styles.bgColor}`}>
+              {styles.icon}
+            </div>
+            <h3 className="text-xl font-black text-slate-900 tracking-tight uppercase leading-none">{title}</h3>
+          </div>
           <button
             onClick={onClose}
             disabled={loading}
-            className="text-gray-400 hover:text-gray-600 disabled:opacity-50"
+            className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-50 text-slate-400 hover:text-slate-600 transition-all active:scale-90"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
 
         {/* Content */}
-        <div className="p-6">
-          <p className="text-gray-700">{message}</p>
+        <div className="p-8">
+          <p className="text-slate-600 font-medium leading-relaxed">{message}</p>
         </div>
 
         {/* Footer */}
-        <div className="flex justify-end space-x-3 p-4 border-t bg-gray-50 rounded-b-lg">
+        <div className="flex justify-end gap-3 p-6 bg-slate-50/50 border-t border-slate-50">
           <button
             onClick={onClose}
             disabled={loading}
-            className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            className="px-6 py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest text-slate-500 hover:bg-slate-100 transition-all active:scale-95 disabled:opacity-50"
           >
             {cancelText}
           </button>
           <button
             onClick={onConfirm}
             disabled={loading}
-            className={`px-4 py-2 rounded-md text-sm font-medium text-white disabled:opacity-50 ${colors.button}`}
+            className={`px-8 py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest text-white shadow-lg transition-all active:scale-95 disabled:opacity-50 flex items-center gap-2 ${styles.button}`}
           >
             {loading ? (
-              <span className="flex items-center">
-                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
+              <>
+                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                 Đang xử lý...
-              </span>
+              </>
             ) : (
               confirmText
             )}

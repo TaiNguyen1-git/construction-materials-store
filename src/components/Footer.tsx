@@ -7,9 +7,15 @@ import { usePathname } from 'next/navigation'
 export default function Footer() {
     const pathname = usePathname()
 
-    // Don't show footer on admin pages or contractor dashboard
-    const isDashboard = pathname?.startsWith('/admin') || pathname === '/contractor' || pathname?.startsWith('/contractor/')
-    if (isDashboard) {
+    // Don't show footer on admin pages, contractor dashboard, or legal/doc pages
+    const documentationPaths = ['/terms', '/privacy', '/guidelines', '/help', '/payment-policy', '/standards']
+    const hideFooter =
+        pathname?.startsWith('/admin') ||
+        pathname === '/contractor' ||
+        pathname?.startsWith('/contractor/') ||
+        documentationPaths.includes(pathname || '')
+
+    if (hideFooter) {
         return null
     }
 
@@ -58,7 +64,7 @@ export default function Footer() {
                     </div>
                 </div>
                 <div className="border-t border-slate-800/50 mt-10 pt-6 flex flex-col md:flex-row justify-between items-center gap-4">
-                    <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">&copy; 2026 SmartBuild System. All Rights Reserved.</p>
+                    <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">&copy; 2026 SmartBuild System. Bảo lưu mọi quyền.</p>
                     <div className="flex gap-6">
                         <Link href="#" className="text-[10px] text-gray-500 hover:text-white transition-colors uppercase font-bold tracking-tighter">Điều khoản</Link>
                         <Link href="#" className="text-[10px] text-gray-500 hover:text-white transition-colors uppercase font-bold tracking-tighter">Bảo mật</Link>

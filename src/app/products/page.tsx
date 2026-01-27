@@ -227,14 +227,14 @@ function ProductsPageContent() {
                   <div key={product.id} className="bg-white rounded-xl shadow-sm border border-gray-100 hover:shadow-xl hover:border-primary-200 transition-all duration-300 overflow-hidden group">
                     {viewMode === 'grid' ? (
                       <>
-                        <div className="relative aspect-[4/3] bg-gray-50 p-2 overflow-hidden">
+                        <div className="relative aspect-[4/3] bg-gray-50 p-2 overflow-hidden group/img">
                           {product.images && product.images.length > 0 ? (
                             <Image
                               src={product.images[0]}
                               alt={product.name}
                               width={300}
                               height={225}
-                              className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-500"
+                              className="w-full h-full object-contain group-hover/img:scale-110 transition-transform duration-700"
                             />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center text-gray-200">
@@ -242,34 +242,46 @@ function ProductsPageContent() {
                             </div>
                           )}
 
-                          <div className="absolute top-2 right-2 z-10 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                          {/* Top Actions */}
+                          <div className="absolute top-2 right-2 z-10 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-[-10px] group-hover:translate-y-0">
                             <ComparisonButton product={product} size="sm" />
                             <WishlistButton product={product} size="sm" />
                           </div>
 
+                          {/* Quick Add Overlay */}
+                          <div className="absolute inset-x-0 bottom-0 p-2 translate-y-full group-hover/img:translate-y-0 transition-transform duration-300 z-20">
+                            <button
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                addToCart(product);
+                              }}
+                              disabled={!product.inventoryItem?.availableQuantity || product.inventoryItem.availableQuantity <= 0}
+                              className="w-full bg-slate-900/90 backdrop-blur-sm text-white py-2 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-blue-600 transition-all flex items-center justify-center gap-2 shadow-xl"
+                            >
+                              <ShoppingCart size={12} />
+                              Thêm vào giỏ
+                            </button>
+                          </div>
+
                           {product.inventoryItem?.availableQuantity && product.inventoryItem.availableQuantity <= 10 && (
-                            <div className="absolute top-2 left-2 bg-red-600 text-white px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-tighter">
+                            <div className="absolute top-2 left-2 bg-red-600 text-white px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-tighter shadow-sm z-10">
                               CÒN {product.inventoryItem.availableQuantity}
                             </div>
                           )}
                         </div>
-                        <div className="p-3">
-                          <div className="text-[9px] font-black text-primary-600 mb-1 uppercase tracking-tighter">{product.category?.name}</div>
+                        <div className="p-4">
+                          <div className="text-[9px] font-black text-blue-600 mb-1.5 uppercase tracking-tighter opacity-70 group-hover:opacity-100 transition-opacity">{product.category?.name}</div>
                           <Link href={`/products/${product.id}`}>
-                            <h3 className="text-[11px] font-bold text-gray-900 mb-2 line-clamp-2 h-8 group-hover:text-primary-600 transition-colors leading-tight">
+                            <h3 className="text-[11px] font-bold text-gray-900 mb-3 line-clamp-2 h-8 group-hover:text-blue-600 transition-colors leading-tight">
                               {product.name}
                             </h3>
                           </Link>
-                          <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-50">
-                            <span className="text-sm font-black text-gray-900">
-                              {product.price?.toLocaleString()}₫
+                          <div className="flex items-center justify-between pt-3 border-t border-slate-50">
+                            <span className="text-sm font-black text-slate-900 tracking-tight">
+                              {product.price?.toLocaleString()}<span className="text-[10px] ml-0.5 opacity-50 font-medium">₫</span>
                             </span>
-                            <Link
-                              href={`/products/${product.id}`}
-                              className="text-[9px] font-black text-primary-600 bg-primary-50 px-2 py-1 rounded hover:bg-primary-600 hover:text-white transition-all"
-                            >
-                              XEM
-                            </Link>
+                            <div className="w-1.5 h-1.5 rounded-full bg-slate-100 group-hover:bg-blue-400 transition-colors"></div>
                           </div>
                         </div>
                       </>

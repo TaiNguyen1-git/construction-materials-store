@@ -13,24 +13,40 @@ export const deliveryService = {
         notes?: string,
         items: { orderItemId: string, quantity: number }[]
     }[]) {
+        // Fetch order to get unit prices for value calculation
+        const order = await prisma.order.findUnique({
+            where: { id: orderId },
+            include: { orderItems: true }
+        });
+
+        if (!order) throw new Error('Order not found');
+
         return await (prisma as any).$transaction(async (tx: any) => {
             const createdPhases = []
 
             for (const phaseData of phases) {
+                // Calculate phase value
+                let phaseValue = 0;
+                for (const item of phaseData.items) {
+                    const orderItem = order.orderItems.find(oi => oi.id === item.orderItemId);
+                    if (orderItem) {
+                        phaseValue += orderItem.unitPrice * item.quantity;
+                    }
+                }
+
                 const phase = await tx.deliveryPhase.create({
                     data: {
                         orderId,
                         phaseNumber: phaseData.phaseNumber,
+                        phaseName: `Đợt ${phaseData.phaseNumber}`,
+                        phaseValue,
                         scheduledDate: phaseData.scheduledDate,
-                        notes: phaseData.notes,
-                        items: {
-                            create: phaseData.items.map(item => ({
-                                orderItemId: item.orderItemId,
-                                quantity: item.quantity
-                            }))
-                        }
-                    },
-                    include: { items: true }
+                        description: phaseData.notes || '',
+                        items: phaseData.items.map(item => ({
+                            orderItemId: item.orderItemId,
+                            quantity: item.quantity
+                        }))
+                    }
                 })
                 createdPhases.push(phase)
             }
@@ -51,17 +67,6 @@ export const deliveryService = {
     async getOrderPhases(orderId: string) {
         return await (prisma as any).deliveryPhase.findMany({
             where: { orderId },
-            include: {
-                items: {
-                    include: {
-                        orderItem: {
-                            include: {
-                                product: true
-                            }
-                        }
-                    }
-                }
-            },
             orderBy: { phaseNumber: 'asc' }
         })
     },

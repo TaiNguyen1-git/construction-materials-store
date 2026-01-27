@@ -103,7 +103,7 @@ export async function PUT(
     // Create QR code expiry for bank transfer orders (both DEPOSIT and FULL)
     if (order.paymentMethod === 'BANK_TRANSFER') {
       const qrExpiry = new Date()
-      qrExpiry.setHours(qrExpiry.getHours() + 24) // 24 hours to pay
+      qrExpiry.setHours(qrExpiry.getHours() + 48) // Increased to 48 hours to be safe with timezones
       updateData.qrExpiresAt = qrExpiry
     }
 

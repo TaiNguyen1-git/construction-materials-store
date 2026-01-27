@@ -65,7 +65,7 @@ export async function GET(request: NextRequest) {
   } catch (error: any) {
     console.error('[Notifications API] GET Error:', error)
     return NextResponse.json(
-      createErrorResponse('Internal server error', 'INTERNAL_ERROR'),
+      createErrorResponse(error.message || 'Internal server error', 'INTERNAL_ERROR'),
       { status: 500 }
     )
   }

@@ -3,8 +3,9 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Eye, EyeOff, Mail, Lock, User, Phone, ArrowLeft, Sparkles, ShieldCheck } from 'lucide-react'
+import { Eye, EyeOff, Mail, Lock, User, Phone, ArrowLeft, Sparkles, ShieldCheck, CheckCircle2, Building2, HardHat, Construction, Check } from 'lucide-react'
 import { useAuth } from '@/contexts/auth-context'
+import { toast } from 'react-hot-toast'
 
 export default function RegisterPage() {
   const router = useRouter()
@@ -39,7 +40,6 @@ export default function RegisterPage() {
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {}
-
     if (!formData.fullName.trim()) newErrors.fullName = 'Vui lòng nhập họ tên'
     if (!formData.email.trim()) newErrors.email = 'Vui lòng nhập email'
     else if (!/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = 'Email không hợp lệ'
@@ -58,9 +58,7 @@ export default function RegisterPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-
     if (!validateForm()) return
-
     try {
       const response = await register({
         fullName: formData.fullName,
@@ -79,47 +77,42 @@ export default function RegisterPage() {
         return
       }
 
-      // Clear guest data after successful registration
       if (guestId) {
         localStorage.removeItem('user_id')
         localStorage.removeItem('user_name')
         localStorage.removeItem('user_phone')
         localStorage.removeItem('user_email')
       }
-
+      toast.success('Đăng ký thành công!')
       router.push('/account')
     } catch (error: any) {
       setLocalErrors({ general: error.message || 'Đăng ký thất bại' })
     }
   }
 
+  const { verifyOTP, resendOTP } = useAuth()
+
   const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault()
     if (otpValue.length !== 6) return
-
     try {
       if (!verificationData?.token) return
-      await (useAuth as any)().verifyOTP(otpValue, verificationData.token)
-
-      // Clear guest data
+      await verifyOTP(otpValue, verificationData.token)
       if (guestId) {
         localStorage.removeItem('user_id')
         localStorage.removeItem('user_name')
         localStorage.removeItem('user_phone')
         localStorage.removeItem('user_email')
       }
-
+      toast.success('Xác thực thành công!')
       router.push('/account')
     } catch (err: any) {
       setLocalErrors({ otp: err.message || 'Xác thực thất bại' })
     }
   }
 
-  const { verifyOTP, resendOTP } = useAuth()
-
   const handleResendOtp = async () => {
     if (!verificationData?.token || isResending) return
-
     setIsResending(true)
     try {
       await resendOTP(verificationData.token)
@@ -138,286 +131,331 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-blue-50 flex flex-col">
-      {/* Header */}
-      <div className="bg-white shadow-sm">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between py-4">
-            <button
-              onClick={() => router.push('/')}
-              className="flex items-center text-gray-600 hover:text-gray-900"
-            >
-              <ArrowLeft className="h-5 w-5 mr-2" />
-              Về trang chủ
-            </button>
-            <h1 className="text-2xl font-bold text-gray-900">SmartBuild</h1>
-            <div></div>
-          </div>
+    <div className="min-h-screen flex bg-white font-sans selection:bg-primary-100 selection:text-primary-900">
+      {/* Left: Visuals (Desktop) */}
+      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-neutral-900">
+        <div className="absolute inset-0 z-0 scale-105 animate-slow-zoom">
+          <img
+            src="https://images.unsplash.com/photo-1504307651254-35680f356dfd?q=80&w=2070&auto=format&fit=crop"
+            alt="Construction Team Meeting"
+            className="w-full h-full object-cover opacity-60"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-neutral-900 via-neutral-900/40 to-transparent" />
         </div>
-      </div>
 
-      {/* Main Content */}
-      <div className="flex-1 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-md w-full space-y-8">
-          <div>
-            <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-              Tạo tài khoản mới
-            </h2>
-            <p className="mt-2 text-center text-sm text-gray-600">
-              Đã có tài khoản?{' '}
-              <Link href="/login" className="font-medium text-primary-600 hover:text-primary-500">
-                Đăng nhập ngay
-              </Link>
-            </p>
+        <div className="relative z-10 w-full flex flex-col justify-between p-12 text-white">
+          <div className="flex items-center gap-3 animate-fade-in">
+            <div className="bg-blue-500 p-3 rounded-[20px] shadow-2xl shadow-blue-500/50">
+              <Building2 className="h-7 w-7 text-white" />
+            </div>
+            <span className="text-3xl font-black tracking-tighter uppercase italic">SmartBuild</span>
           </div>
 
-          {/* Guest Data Migration Notice */}
-          {guestId && (
-            <div className="bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 rounded-xl p-4">
-              <div className="flex items-start gap-3">
-                <div className="bg-indigo-100 p-2 rounded-lg">
-                  <Sparkles className="h-5 w-5 text-indigo-600" />
+          <div className="max-w-lg space-y-8 animate-fade-in-up">
+            <h2 className="text-5xl font-bold leading-tight">
+              Bắt đầu hành trình <span className="text-primary-400">xây dựng</span> chuyên nghiệp.
+            </h2>
+            <p className="text-lg text-slate-300 font-medium leading-relaxed">
+              Trở thành một phần của cộng đồng SmartBuild để tiếp cận nguồn cung vật liệu uy tín và đội ngũ nhà thầu chất lượng nhất.
+            </p>
+
+            <div className="space-y-4 pt-4">
+              <div className="flex items-center gap-4 bg-white/5 backdrop-blur-sm p-5 rounded-[24px] border border-white/10 group hover:bg-white/10 transition-all cursor-default">
+                <div className="h-14 w-14 rounded-2xl bg-blue-500/20 flex items-center justify-center border border-blue-500/30 shrink-0 group-hover:scale-110 transition-transform">
+                  <HardHat className="h-7 w-7 text-blue-400" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-gray-800 text-sm">Dữ liệu của bạn sẽ được bảo toàn!</h3>
-                  <p className="text-xs text-gray-600 mt-1">
-                    Chúng tôi phát hiện bạn đã có lịch sử chat với nhà thầu. Sau khi đăng ký, toàn bộ cuộc hội thoại sẽ được liên kết vào tài khoản mới của bạn.
-                  </p>
+                  <h4 className="font-black text-white uppercase tracking-tight">Dành cho Nhà thầu</h4>
+                  <p className="text-xs text-slate-400 font-medium leading-relaxed mt-1">Quản lý dự án, báo giá và tìm kiếm khách hàng tiềm năng chuyên nghiệp.</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-4 bg-white/5 backdrop-blur-sm p-5 rounded-[24px] border border-white/10 group hover:bg-white/10 transition-all cursor-default">
+                <div className="h-14 w-14 rounded-2xl bg-emerald-500/20 flex items-center justify-center border border-emerald-500/30 shrink-0 group-hover:scale-110 transition-transform">
+                  <Construction className="h-7 w-7 text-emerald-400" />
+                </div>
+                <div>
+                  <h4 className="font-black text-white uppercase tracking-tight">Dành cho Chủ nhà</h4>
+                  <p className="text-xs text-slate-400 font-medium leading-relaxed mt-1">Mua sắm vật liệu, theo dõi tiến độ và tối ưu ngân sách công trình.</p>
                 </div>
               </div>
             </div>
-          )}
+          </div>
 
-          {verificationData?.required ? (
-            <div className="mt-8">
-              <div className="bg-white p-8 rounded-2xl shadow-xl border border-gray-100">
-                <div className="text-center mb-8">
-                  <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-primary-100 mb-4">
-                    <ShieldCheck className="h-8 w-8 text-primary-600" />
+          <p className="text-sm text-slate-500 font-medium animate-fade-in">
+            © 2026 SmartBuild ERP. Giải pháp số cho ngành xây dựng.
+          </p>
+        </div>
+      </div>
+
+      {/* Right: Register Form */}
+      <div className="flex-1 flex flex-col overflow-y-auto">
+        {/* Mobile Header */}
+        <div className="flex lg:hidden items-center justify-between p-4 border-b border-neutral-100 bg-white sticky top-0 z-50">
+          <div className="flex items-center gap-2">
+            <Building2 className="h-6 w-6 text-primary-600" />
+            <span className="text-xl font-black tracking-tighter text-neutral-900">SmartBuild</span>
+          </div>
+          <button onClick={() => router.push('/')} className="p-2 hover:bg-neutral-100 rounded-full transition-colors">
+            <ArrowLeft className="h-5 w-5 text-neutral-600" />
+          </button>
+        </div>
+
+        <div className="flex-1 flex flex-col justify-center px-6 sm:px-12 lg:px-20 py-8 lg:py-12">
+          <div className="w-full max-w-md mx-auto">
+            <button
+              onClick={() => router.push('/')}
+              className="hidden lg:flex items-center text-neutral-500 hover:text-primary-600 font-medium transition-all mb-6 group"
+            >
+              <ArrowLeft className="h-4 w-4 mr-2 group-hover:-translate-x-1 transition-transform" />
+              Về trang chủ
+            </button>
+
+            <div className="mb-8">
+              <div className="w-12 h-1.5 bg-blue-600 rounded-full mb-6"></div>
+              <h1 className="text-4xl font-black text-slate-900 mb-3 tracking-tighter uppercase whitespace-nowrap">Tạo tài khoản mới</h1>
+              <p className="text-slate-500 font-medium text-sm">Gia nhập hệ sinh thái SmartBuild ngay hôm nay.</p>
+            </div>
+
+            {/* Guest Data Migration Notice */}
+            {guestId && (
+              <div className="mb-6 bg-indigo-50/50 p-4 rounded-3xl border border-indigo-100 flex items-start gap-4 animate-pulse-gentle">
+                <div className="bg-indigo-600 p-2 rounded-2xl shadow-lg shadow-indigo-200 shrink-0">
+                  <Sparkles className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-indigo-900 text-sm">Dữ liệu của bạn đã sẵn sàng!</h3>
+                  <p className="text-[11px] text-indigo-700 mt-0.5 leading-relaxed font-medium">
+                    Chúng tôi sẽ tự động kết nối lịch sử chat và báo giá tạm thời vào tài khoản mới của bạn.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {verificationData?.required ? (
+              <div className="animate-slide-in space-y-6">
+                <div className="bg-primary-50 p-6 rounded-3xl border border-primary-100 text-center">
+                  <div className="mx-auto flex items-center justify-center h-14 w-14 rounded-full bg-white shadow-sm mb-4">
+                    <ShieldCheck className="h-7 w-7 text-primary-600" />
                   </div>
-                  <h3 className="text-2xl font-bold text-gray-900">Xác minh Email</h3>
-                  <p className="mt-2 text-sm text-gray-500">
-                    Mã xác thực đã được gửi đến <br />
-                    <span className="font-semibold text-gray-900">{verificationData.email}</span>
+                  <h3 className="text-xl font-bold text-neutral-900">Xác minh danh tính</h3>
+                  <p className="mt-2 text-sm text-neutral-600">
+                    Mã 6 chữ số đã được gửi đến:<br />
+                    <span className="font-bold text-neutral-900">{verificationData.email}</span>
                   </p>
                 </div>
 
                 <form onSubmit={handleVerifyOtp} className="space-y-6">
-                  <div>
-                    <input
-                      type="text"
-                      maxLength={6}
-                      value={otpValue}
-                      onChange={(e) => setOtpValue(e.target.value.replace(/\D/g, ''))}
-                      className="block w-full text-center text-3xl tracking-[1.5rem] font-bold py-4 border-2 border-gray-200 rounded-xl focus:ring-primary-500 focus:border-primary-500"
-                      placeholder="000000"
-                      required
-                    />
-                    {localErrors.otp && (
-                      <p className="mt-2 text-sm text-red-600 text-center">{localErrors.otp}</p>
-                    )}
-                  </div>
+                  <input
+                    type="text"
+                    maxLength={6}
+                    value={otpValue}
+                    onChange={(e) => setOtpValue(e.target.value.replace(/\D/g, ''))}
+                    className="block w-full text-center text-3xl tracking-[1rem] font-bold py-5 bg-neutral-50 border-2 border-neutral-100 rounded-2xl focus:bg-white focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 transition-all outline-none"
+                    placeholder="000000"
+                    required
+                  />
+                  {localErrors.otp && (
+                    <p className="mt-2 text-sm text-red-600 text-center font-bold">{localErrors.otp}</p>
+                  )}
 
                   <button
                     type="submit"
                     disabled={isLoading || otpValue.length !== 6}
-                    className="w-full flex justify-center py-3 px-4 border border-transparent rounded-xl shadow-sm text-sm font-bold text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50"
+                    className="w-full py-4 px-4 rounded-2xl shadow-xl text-base font-bold text-white bg-primary-600 hover:bg-primary-700 transition-all disabled:opacity-50"
                   >
-                    {isLoading ? 'Đang xác thực...' : 'Xác thực tài khoản'}
+                    {isLoading ? 'Đang xác thực...' : 'Kích hoạt tài khoản'}
                   </button>
                 </form>
 
-                <div className="mt-8 text-center">
-                  <p className="text-sm text-gray-500">
-                    Không nhận được mã?{' '}
+                <div className="text-center pt-4">
+                  <p className="text-sm text-neutral-500">
+                    Chưa nhận được mã?{' '}
                     <button
                       onClick={handleResendOtp}
                       disabled={isResending}
-                      className="font-bold text-primary-600 hover:text-primary-500 disabled:opacity-50"
+                      className="font-bold text-primary-600 hover:underline"
                     >
-                      {isResending ? 'Đang gửi lại...' : 'Gửi lại mã'}
+                      {isResending ? 'Hệ thống đang gửi...' : 'Gửi lại ngay'}
                     </button>
                   </p>
                   {resendSuccess && (
-                    <p className="mt-2 text-xs text-green-600 font-medium">Đã gửi mã mới thành công!</p>
+                    <div className="mt-4 inline-flex items-center gap-2 bg-green-50 text-green-700 px-4 py-2 rounded-full text-xs font-bold">
+                      <CheckCircle2 className="h-3 w-3" /> Mã mới đã được gửi!
+                    </div>
                   )}
+                  <button
+                    onClick={() => setVerificationData(null)}
+                    className="block w-full mt-6 text-sm text-neutral-400 hover:text-neutral-600 transition-colors font-medium"
+                  >
+                    Quay lại bước đăng ký
+                  </button>
                 </div>
-
-                <button
-                  onClick={() => setVerificationData(null)}
-                  className="mt-6 w-full text-sm text-gray-400 hover:text-gray-600"
-                >
-                  Quay lại đăng ký
-                </button>
               </div>
-            </div>
-          ) : (
-            <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-              {(error || localErrors.general) && (
-                <div className="bg-red-50 border border-red-200 rounded-md p-4">
-                  <p className="text-sm text-red-600">{error || localErrors.general}</p>
-                </div>
-              )}
-
-              <div className="space-y-4">
-                <div>
-                  <label htmlFor="fullName" className="block text-sm font-medium text-gray-700 mb-2">
-                    <User className="h-4 w-4 inline mr-1" />
-                    Họ và tên *
-                  </label>
-                  <input
-                    id="fullName"
-                    name="fullName"
-                    type="text"
-                    autoComplete="name"
-                    required
-                    value={formData.fullName}
-                    onChange={handleChange}
-                    className={`appearance-none relative block w-full px-3 py-2 border placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 focus:z-10 sm:text-sm ${localErrors.fullName ? 'border-red-300' : 'border-gray-300'
-                      }`}
-                    placeholder="Nhập họ và tên của bạn"
-                  />
-                  {localErrors.fullName && <p className="text-red-500 text-xs mt-1">{localErrors.fullName}</p>}
-                </div>
-
-                <div>
-                  <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                    <Mail className="h-4 w-4 inline mr-1" />
-                    Email *
-                  </label>
-                  <input
-                    id="email"
-                    name="email"
-                    type="email"
-                    autoComplete="email"
-                    required
-                    value={formData.email}
-                    onChange={handleChange}
-                    className={`appearance-none relative block w-full px-3 py-2 border placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 focus:z-10 sm:text-sm ${localErrors.email ? 'border-red-300' : 'border-gray-300'
-                      }`}
-                    placeholder="Nhập email của bạn"
-                  />
-                  {localErrors.email && <p className="text-red-500 text-xs mt-1">{localErrors.email}</p>}
-                </div>
-
-                <div>
-                  <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">
-                    <Phone className="h-4 w-4 inline mr-1" />
-                    Số điện thoại *
-                  </label>
-                  <input
-                    id="phone"
-                    name="phone"
-                    type="tel"
-                    autoComplete="tel"
-                    required
-                    value={formData.phone}
-                    onChange={handleChange}
-                    className={`appearance-none relative block w-full px-3 py-2 border placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 focus:z-10 sm:text-sm ${localErrors.phone ? 'border-red-300' : 'border-gray-300'
-                      }`}
-                    placeholder="Nhập số điện thoại"
-                  />
-                  {localErrors.phone && <p className="text-red-500 text-xs mt-1">{localErrors.phone}</p>}
-                </div>
-
-                <div>
-                  <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
-                    <Lock className="h-4 w-4 inline mr-1" />
-                    Mật khẩu *
-                  </label>
-                  <div className="relative">
-                    <input
-                      id="password"
-                      name="password"
-                      type={showPassword ? 'text' : 'password'}
-                      autoComplete="new-password"
-                      required
-                      value={formData.password}
-                      onChange={handleChange}
-                      className={`appearance-none relative block w-full px-3 py-2 pr-10 border placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 focus:z-10 sm:text-sm ${localErrors.password ? 'border-red-300' : 'border-gray-300'
-                        }`}
-                      placeholder="Tạo mật khẩu (8+ ký tự, có chữ hoa, thường, số)"
-                    />
-                    <button
-                      type="button"
-                      className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                      onClick={() => setShowPassword(!showPassword)}
-                    >
-                      {showPassword ? (
-                        <EyeOff className="h-4 w-4 text-gray-400" />
-                      ) : (
-                        <Eye className="h-4 w-4 text-gray-400" />
-                      )}
-                    </button>
+            ) : (
+              <form className="space-y-4" onSubmit={handleSubmit}>
+                {(error || localErrors.general) && (
+                  <div className="bg-red-50 border border-red-100 rounded-2xl p-3 text-red-600 text-sm font-medium flex items-center gap-3">
+                    <div className="h-2 w-2 rounded-full bg-red-600 animate-pulse" />
+                    {error || localErrors.general}
                   </div>
-                  {localErrors.password && <p className="text-red-500 text-xs mt-1">{localErrors.password}</p>}
-                </div>
+                )}
 
-                <div>
-                  <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-2">
-                    <Lock className="h-4 w-4 inline mr-1" />
-                    Xác nhận mật khẩu *
-                  </label>
-                  <div className="relative">
-                    <input
-                      id="confirmPassword"
-                      name="confirmPassword"
-                      type={showConfirmPassword ? 'text' : 'password'}
-                      autoComplete="new-password"
-                      required
-                      value={formData.confirmPassword}
-                      onChange={handleChange}
-                      className={`appearance-none relative block w-full px-3 py-2 pr-10 border placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 focus:z-10 sm:text-sm ${localErrors.confirmPassword ? 'border-red-300' : 'border-gray-300'
-                        }`}
-                      placeholder="Nhập lại mật khẩu"
-                    />
-                    <button
-                      type="button"
-                      className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    >
-                      {showConfirmPassword ? (
-                        <EyeOff className="h-4 w-4 text-gray-400" />
-                      ) : (
-                        <Eye className="h-4 w-4 text-gray-400" />
-                      )}
-                    </button>
+                <div className="grid grid-cols-1 gap-4">
+                  <div className="space-y-1 ml-1">
+                    <label htmlFor="fullName" className="block text-xs font-bold text-neutral-500 uppercase tracking-wider">Họ và tên *</label>
+                    <div className="relative group">
+                      <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-neutral-400 group-focus-within:text-primary-500">
+                        <User className="h-5 w-5" />
+                      </div>
+                      <input
+                        id="fullName"
+                        name="fullName"
+                        type="text"
+                        required
+                        value={formData.fullName}
+                        onChange={handleChange}
+                        className={`block w-full pl-12 pr-4 py-4 bg-slate-50 border ${localErrors.fullName ? 'border-red-300' : 'border-slate-100'} rounded-2xl focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/5 transition-all outline-none font-bold text-sm`}
+                        placeholder="Nguyễn Văn A"
+                      />
+                    </div>
+                    {localErrors.fullName && <p className="text-red-500 text-[10px] font-bold uppercase ml-2">{localErrors.fullName}</p>}
                   </div>
-                  {localErrors.confirmPassword && <p className="text-red-500 text-xs mt-1">{localErrors.confirmPassword}</p>}
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-1 ml-1">
+                      <label htmlFor="email" className="block text-xs font-bold text-neutral-500 uppercase tracking-wider">Email *</label>
+                      <div className="relative group">
+                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-neutral-400 group-focus-within:text-primary-500">
+                          <Mail className="h-5 w-5" />
+                        </div>
+                        <input
+                          id="email"
+                          name="email"
+                          type="email"
+                          required
+                          value={formData.email}
+                          onChange={handleChange}
+                          className={`block w-full pl-12 pr-4 py-4 bg-slate-50 border ${localErrors.email ? 'border-red-300' : 'border-slate-100'} rounded-2xl focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/5 transition-all outline-none font-bold text-sm`}
+                          placeholder="email@vidu.com"
+                        />
+                      </div>
+                      {localErrors.email && <p className="text-red-500 text-[10px] font-bold uppercase ml-2">{localErrors.email}</p>}
+                    </div>
+
+                    <div className="space-y-1 ml-1">
+                      <label htmlFor="phone" className="block text-xs font-bold text-neutral-500 uppercase tracking-wider">Số điện thoại *</label>
+                      <div className="relative group">
+                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-neutral-400 group-focus-within:text-primary-500">
+                          <Phone className="h-5 w-5" />
+                        </div>
+                        <input
+                          id="phone"
+                          name="phone"
+                          type="tel"
+                          required
+                          value={formData.phone}
+                          onChange={handleChange}
+                          className={`block w-full pl-12 pr-4 py-4 bg-slate-50 border ${localErrors.phone ? 'border-red-300' : 'border-slate-100'} rounded-2xl focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/5 transition-all outline-none font-bold text-sm`}
+                          placeholder="09xx xxx xxx"
+                        />
+                      </div>
+                      {localErrors.phone && <p className="text-red-500 text-[10px] font-bold uppercase ml-2">{localErrors.phone}</p>}
+                    </div>
+                  </div>
+
+                  <div className="space-y-1 ml-1">
+                    <label htmlFor="password" className="block text-xs font-bold text-neutral-500 uppercase tracking-wider">Mật khẩu *</label>
+                    <div className="relative group">
+                      <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-neutral-400 group-focus-within:text-primary-500">
+                        <Lock className="h-5 w-5" />
+                      </div>
+                      <input
+                        id="password"
+                        name="password"
+                        type={showPassword ? 'text' : 'password'}
+                        required
+                        value={formData.password}
+                        onChange={handleChange}
+                        className={`block w-full pl-12 pr-12 py-4 bg-slate-50 border ${localErrors.password ? 'border-red-300' : 'border-slate-100'} rounded-2xl focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/5 transition-all outline-none font-bold text-sm`}
+                        placeholder="••••••••"
+                      />
+                      <button
+                        type="button"
+                        className="absolute inset-y-0 right-0 pr-4 flex items-center text-neutral-400 hover:text-neutral-600"
+                        onClick={() => setShowPassword(!showPassword)}
+                      >
+                        {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                      </button>
+                    </div>
+                    {localErrors.password && <p className="text-red-500 text-[10px] font-bold uppercase ml-2">{localErrors.password}</p>}
+                  </div>
+
+                  <div className="space-y-1 ml-1">
+                    <label htmlFor="confirmPassword" className="block text-xs font-bold text-neutral-500 uppercase tracking-wider">Xác nhận mật khẩu *</label>
+                    <div className="relative group">
+                      <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-neutral-400 group-focus-within:text-primary-500">
+                        <Lock className="h-5 w-5" />
+                      </div>
+                      <input
+                        id="confirmPassword"
+                        name="confirmPassword"
+                        type={showConfirmPassword ? 'text' : 'password'}
+                        required
+                        value={formData.confirmPassword}
+                        onChange={handleChange}
+                        className={`block w-full pl-12 pr-12 py-4 bg-slate-50 border ${localErrors.confirmPassword ? 'border-red-300' : 'border-slate-100'} rounded-2xl focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/5 transition-all outline-none font-bold text-sm`}
+                        placeholder="Nhập lại mật khẩu"
+                      />
+                      <button
+                        type="button"
+                        className="absolute inset-y-0 right-0 pr-4 flex items-center text-neutral-400 hover:text-neutral-600"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      >
+                        {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                      </button>
+                    </div>
+                    {localErrors.confirmPassword && <p className="text-red-500 text-[10px] font-bold uppercase ml-2">{localErrors.confirmPassword}</p>}
+                  </div>
                 </div>
-              </div>
 
-              <div className="flex items-center">
-                <input
-                  id="agree-terms"
-                  name="agree-terms"
-                  type="checkbox"
-                  required
-                  className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
-                />
-                <label htmlFor="agree-terms" className="ml-2 block text-sm text-gray-900">
-                  Tôi đồng ý với{' '}
-                  <Link href="/terms" className="text-primary-600 hover:text-primary-500">
-                    Điều khoản sử dụng
-                  </Link>{' '}
-                  và{' '}
-                  <Link href="/privacy" className="text-primary-600 hover:text-primary-500">
-                    Chính sách bảo mật
-                  </Link>
-                </label>
-              </div>
+                <div className="pt-2">
+                  <label className="flex items-start gap-3 cursor-pointer group select-none">
+                    <div className="relative flex items-center justify-center mt-0.5">
+                      <input
+                        type="checkbox"
+                        required
+                        className="peer sr-only"
+                      />
+                      <div className="h-5 w-5 rounded-md border-2 border-neutral-300 bg-white shadow-sm ring-offset-2 peer-focus:ring-2 peer-focus:ring-primary-500/20 peer-checked:border-primary-600 peer-checked:bg-primary-600 transition-all duration-200 ease-out group-hover:border-primary-400" />
+                      <Check className="absolute h-3.5 w-3.5 text-white opacity-0 transform scale-50 peer-checked:opacity-100 peer-checked:scale-100 transition-all duration-200 ease-out pointer-events-none stroke-[3]" />
+                    </div>
+                    <span className="text-[13px] text-neutral-500 font-medium leading-relaxed group-hover:text-neutral-700 transition-colors">
+                      Tôi đồng ý với các <Link href="/terms" className="font-bold text-blue-600 hover:text-blue-700 hover:underline hover:underline-offset-2 transition-all">Điều khoản dịch vụ</Link> và <Link href="/privacy" className="font-bold text-blue-600 hover:text-blue-700 hover:underline hover:underline-offset-2 transition-all">Chính sách bảo mật</Link> của SmartBuild.
+                    </span>
+                  </label>
+                </div>
 
-              <div>
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full py-5 px-4 rounded-2xl shadow-2xl shadow-blue-500/20 text-xs font-black uppercase tracking-[0.2em] text-white bg-blue-600 hover:bg-blue-700 transition-all transform active:scale-[0.98] disabled:opacity-50 flex justify-center items-center gap-3"
                 >
-                  {isLoading ? 'Đang tạo tài khoản...' : 'Tạo tài khoản'}
+                  {isLoading ? (
+                    <div className="w-5 h-5 border-3 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <span>Tạo tài khoản SmartBuild</span>
+                  )}
                 </button>
-              </div>
-            </form>
-          )}
+
+                <p className="text-center text-sm font-bold text-neutral-400 pt-4">
+                  Đã có tài khoản?{' '}
+                  <Link href="/login" className="text-primary-600 hover:underline underline-offset-4 decoration-2">
+                    Đăng nhập tại đây
+                  </Link>
+                </p>
+              </form>
+            )}
+          </div>
         </div>
       </div>
     </div>

@@ -40,7 +40,10 @@ export async function GET(
             }
           }
         },
-        contractor: true
+        contractor: true,
+        deliveryPhases: {
+          orderBy: { phaseNumber: 'asc' }
+        }
       }
     })
 

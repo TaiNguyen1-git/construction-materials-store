@@ -3,14 +3,17 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { Search, MapPin, ArrowRight, Zap, TrendingUp, ShieldCheck, PenTool, LayoutGrid, Brain, CreditCard, Package, ChevronRight, UserPlus, ChevronDown, HardHat, Quote, Star, Sparkles, Clock, X, Plus } from 'lucide-react'
+import { Search, MapPin, ArrowRight, Zap, TrendingUp, ShieldCheck, PenTool, LayoutGrid, Brain, CreditCard, Package, ChevronRight, UserPlus, ChevronDown, HardHat, Quote, Star, Sparkles, Clock, X, Plus, ShoppingCart } from 'lucide-react'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import WishlistButton from '@/components/WishlistButton'
 import { useAuth } from '@/contexts/auth-context'
+import { useCartStore } from '@/stores/cartStore'
+import toast, { Toaster } from 'react-hot-toast'
 
 export default function HomePage() {
   const { user, isAuthenticated } = useAuth()
+  const { addItem } = useCartStore()
   const [featuredProducts, setFeaturedProducts] = useState<any[]>([])
   const [aiRecommendedProducts, setAiRecommendedProducts] = useState<any[]>([])
   const [stats, setStats] = useState({
@@ -410,8 +413,28 @@ export default function HomePage() {
     }
   }
 
+  const addToCart = (product: any) => {
+    const availableQuantity = product.inventoryItem?.availableQuantity || 999;
+
+    addItem({
+      id: product.id,
+      productId: product.id,
+      name: product.name,
+      price: product.price,
+      sku: product.sku || '',
+      unit: 'pcs',
+      image: product.images?.[0],
+      maxStock: availableQuantity
+    })
+
+    toast.success('Đã thêm vào giỏ hàng!', {
+      duration: 2000,
+    })
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-800 flex flex-col">
+      <Toaster position="top-right" />
       <Header />
 
       <main className="flex-1">
@@ -959,30 +982,43 @@ export default function HomePage() {
                     <div className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
                       <WishlistButton product={product} size="sm" />
                     </div>
-                    <Link href={`/products/${product.id}`}>
-                      <div className="relative aspect-[4/3] bg-slate-50 overflow-hidden p-2">
+                    <Link href={`/products/${product.id}`} className="block h-full">
+                      <div className="relative aspect-[4/3] bg-slate-50 overflow-hidden p-2 group/img">
                         {product.images?.[0] ? (
-                          <Image src={product.images[0]} alt={product.name} fill className="object-contain group-hover:scale-110 transition-transform duration-500" />
+                          <Image src={product.images[0]} alt={product.name} fill className="object-contain group-hover/img:scale-110 transition-transform duration-700" />
                         ) : (
                           <div className="flex items-center justify-center h-full text-slate-200">
                             <Package className="h-8 w-8" />
                           </div>
                         )}
+
+                        {/* Quick Add Overlay */}
+                        <div className="absolute inset-x-0 bottom-0 p-2 translate-y-full group-hover/img:translate-y-0 transition-transform duration-300 z-20">
+                          <button
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              addToCart(product);
+                            }}
+                            className="w-full bg-slate-900/90 backdrop-blur-sm text-white py-2 rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-blue-600 transition-all flex items-center justify-center gap-2 shadow-xl"
+                          >
+                            <ShoppingCart size={12} />
+                            Thêm nhanh
+                          </button>
+                        </div>
                       </div>
-                      <div className="p-3">
-                        <div className="text-[9px] text-blue-500 mb-1 uppercase font-black tracking-tighter">
+                      <div className="p-4">
+                        <div className="text-[9px] text-blue-500 mb-1.5 uppercase font-black tracking-tighter opacity-70 group-hover:opacity-100 transition-opacity">
                           {product.category?.name || 'Vật liệu'}
                         </div>
-                        <h3 className="font-bold text-slate-800 mb-1.5 line-clamp-2 h-8 group-hover:text-blue-700 transition-colors text-[11px] leading-tight">
+                        <h3 className="font-bold text-slate-800 mb-3 line-clamp-2 h-8 group-hover:text-blue-700 transition-colors text-[11px] leading-tight">
                           {product.name}
                         </h3>
-                        <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-50">
-                          <span className="text-sm font-black text-slate-900">
+                        <div className="flex items-center justify-between pt-3 border-t border-slate-50">
+                          <span className="text-sm font-black text-slate-900 tracking-tight">
                             {product.price.toLocaleString('vi-VN')}₫
                           </span>
-                          <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">
-                            CHI TIẾT
-                          </span>
+                          <div className="w-1.5 h-1.5 rounded-full bg-slate-100 group-hover:bg-blue-400 transition-colors"></div>
                         </div>
                       </div>
                     </Link>
@@ -1032,9 +1068,17 @@ export default function HomePage() {
                           <Zap className="w-3 h-3 text-yellow-500 mr-1" />
                           Độ phù hợp: <span className="font-semibold text-slate-700 ml-1">{Math.round(product.recommendationScore * 100)}%</span>
                         </div>
-                        <Link href={`/products/${product.id}`} className="block w-full text-center bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-sm font-semibold py-2 rounded-lg transition-colors">
-                          Xem chi tiết
-                        </Link>
+                        <div className="flex gap-2">
+                          <Link href={`/products/${product.id}`} className="flex-1 text-center bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-[11px] font-bold py-2 rounded-lg transition-colors flex items-center justify-center uppercase">
+                            Chi tiết
+                          </Link>
+                          <button
+                            onClick={() => addToCart(product)}
+                            className="flex-1 text-center bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-bold py-2 rounded-lg transition-colors flex items-center justify-center uppercase"
+                          >
+                            + Mua nhanh
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -1393,6 +1437,6 @@ export default function HomePage() {
         </section>
       </main>
 
-    </div>
+    </div >
   )
 }

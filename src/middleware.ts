@@ -43,6 +43,7 @@ export async function middleware(request: NextRequest) {
   // These routes are purely public and don't need any auth headers
   const publicRoutes = [
     '/api/reviews',
+    '/api/notifications',
   ]
 
   // ===== PUBLIC PAGES (no auth required) =====

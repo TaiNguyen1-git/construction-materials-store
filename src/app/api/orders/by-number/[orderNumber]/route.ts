@@ -50,7 +50,10 @@ export async function GET(
           orderBy: { timestamp: 'desc' },
           take: 10
         },
-        contractor: true
+        contractor: true,
+        deliveryPhases: {
+          orderBy: { phaseNumber: 'asc' }
+        }
       }
     })
 

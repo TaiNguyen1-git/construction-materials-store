@@ -2,7 +2,12 @@
 
 import { useState, useEffect } from 'react'
 import { toast } from 'react-hot-toast'
-import { Save, Plus, Trash2, FileText, Receipt, X, Edit } from 'lucide-react'
+import {
+  Save, Plus, Trash2, FileText, Receipt, X, Edit,
+  Search, Filter, ChevronRight, Eye, Send, CheckCircle,
+  Clock, AlertCircle, TrendingUp, DollarSign, ShoppingCart,
+  History, User, Truck, BarChart2
+} from 'lucide-react'
 import { fetchWithAuth } from '@/lib/api-client'
 import FormattedNumberInput from '@/components/FormattedNumberInput'
 
@@ -57,7 +62,7 @@ export default function SalesManagementPage() {
   // Invoices state
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [invoicesLoading, setInvoicesLoading] = useState(true)
-  const [invoiceFilters, setInvoiceFilters] = useState({ type: '', status: '' })
+  const [invoiceFilters, setInvoiceFilters] = useState({ type: '', status: '', search: '' })
 
   const [showInvoiceModal, setShowInvoiceModal] = useState(false)
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null)
@@ -90,7 +95,7 @@ export default function SalesManagementPage() {
     fetchProducts()
     fetchCustomers()
     fetchSuppliers()
-  }, [activeTab, invoiceFilters])
+  }, [activeTab, invoiceFilters.type, invoiceFilters.status])
 
   const fetchCustomers = async () => {
     try {
@@ -141,7 +146,6 @@ export default function SalesManagementPage() {
     try {
       const res = await fetchWithAuth('/api/products?limit=1000')
       const data = await res.json()
-      // Handle nested data structure
       const productsArray = data.data?.data || data.data || data || []
       if (Array.isArray(productsArray)) {
         setProducts(productsArray.map((p: any) => ({
@@ -191,7 +195,6 @@ export default function SalesManagementPage() {
     if (invoiceItems.length > 1) {
       setInvoiceItems(invoiceItems.filter((_, i) => i !== index))
     } else {
-      // If it's the last item, just clear the fields instead of removing
       setInvoiceItems([{ productId: '', productName: '', quantity: 1, unitPrice: 0 }])
     }
   }
@@ -304,22 +307,33 @@ export default function SalesManagementPage() {
     }
   }
 
-
-  const getStatusColor = (status: string) => {
+  const getStatusStyle = (status: string) => {
     switch (status) {
-      case 'DRAFT': return 'bg-gray-100 text-gray-800'
-      case 'PENDING': return 'bg-yellow-100 text-yellow-800'
-      case 'SENT': return 'bg-blue-100 text-blue-800'
-      case 'PAID': return 'bg-green-100 text-green-800'
-      case 'OVERDUE': return 'bg-red-100 text-red-800'
-      case 'CANCELLED': return 'bg-gray-100 text-gray-800'
+      case 'DRAFT': return 'bg-slate-50 text-slate-400 border-slate-100'
+      case 'PENDING': return 'bg-amber-50 text-amber-600 border-amber-100'
+      case 'SENT': return 'bg-blue-50 text-blue-600 border-blue-100'
+      case 'PAID': return 'bg-emerald-50 text-emerald-600 border-emerald-100'
+      case 'OVERDUE': return 'bg-red-50 text-red-600 border-red-100'
+      case 'CANCELLED': return 'bg-slate-100 text-slate-500 border-slate-200'
       default: return 'bg-gray-100 text-gray-800'
+    }
+  }
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'DRAFT': return Clock
+      case 'PENDING': return AlertCircle
+      case 'SENT': return Send
+      case 'PAID': return CheckCircle
+      case 'OVERDUE': return X
+      case 'CANCELLED': return Trash2
+      default: return Clock
     }
   }
 
   const getStatusText = (status: string) => {
     const texts: { [key: string]: string } = {
-      'DRAFT': 'Nháp',
+      'DRAFT': 'Bản nháp',
       'PENDING': 'Chờ xử lý',
       'SENT': 'Đã gửi',
       'PAID': 'Đã thanh toán',
@@ -388,406 +402,456 @@ export default function SalesManagementPage() {
     return entries.reduce((sum, e) => sum + (e.quantity * e.price), 0)
   }
 
+  const filteredInvoices = invoices.filter(inv => {
+    const searchStr = invoiceFilters.search.toLowerCase()
+    return inv.invoiceNumber.toLowerCase().includes(searchStr) ||
+      (inv.customer?.user?.name || inv.supplier?.name || '').toLowerCase().includes(searchStr)
+  })
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-8 animate-in fade-in duration-500">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Quản Lý Bán Hàng</h1>
-          <p className="text-sm text-gray-500 mt-1">Hóa đơn và doanh số hàng ngày</p>
+          <h1 className="text-3xl font-black text-slate-900 tracking-tight">Kinh Doanh & Doanh Số</h1>
+          <p className="text-sm font-bold text-slate-400 mt-1 uppercase tracking-widest">Quản Lý Doanh Thu & Hóa Đơn</p>
         </div>
         <div className="flex gap-2">
           {activeTab === 'invoices' && (
-            <>
-              <button
-                onClick={() => openInvoiceModal()}
-                className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Tạo Hóa Đơn
-              </button>
-
-            </>
+            <button
+              onClick={() => openInvoiceModal()}
+              className="bg-blue-600 text-white px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-blue-700 shadow-xl shadow-blue-500/20 transition-all active:scale-95 flex items-center gap-2"
+            >
+              <Plus size={16} />
+              Tạo Hóa Đơn
+            </button>
           )}
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="border-b border-gray-200">
-        <nav className="-mb-px flex space-x-8">
-          <button
-            onClick={() => setActiveTab('invoices')}
-            className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center ${activeTab === 'invoices'
-              ? 'border-blue-500 text-blue-600'
-              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-          >
-            <FileText className="h-4 w-4 mr-2" />
-            Hóa Đơn
-          </button>
-          <button
-            onClick={() => setActiveTab('daily-sales')}
-            className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center ${activeTab === 'daily-sales'
-              ? 'border-blue-500 text-blue-600'
-              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-          >
-            <Receipt className="h-4 w-4 mr-2" />
-            Nhập Doanh Số Ngày
-          </button>
-        </nav>
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        {[
+          { label: 'Doanh Thu Tháng', value: invoices.filter(i => (i.invoiceType || i.type) === 'SALES' && i.status === 'PAID').reduce((sum, i) => sum + i.totalAmount, 0), icon: TrendingUp, color: 'bg-emerald-50 text-emerald-600', sub: 'Tổng Doanh Thu' },
+          { label: 'Hóa Đơn Chờ', value: invoices.filter(i => i.status === 'PENDING').length, icon: Clock, color: 'bg-amber-50 text-amber-600', sub: 'Chờ Xử Lý' },
+          { label: 'Công Nợ Phải Thu', value: invoices.filter(i => (i.invoiceType || i.type) === 'SALES' && i.status === 'OVERDUE').reduce((sum, i) => sum + i.totalAmount, 0), icon: DollarSign, color: 'bg-red-50 text-red-600', sub: 'Nợ Quá Hạn' },
+          { label: 'Tổng Giao Dịch', value: invoices.length, icon: BarChart2, color: 'bg-blue-50 text-blue-600', sub: 'Tổng Khối Lượng' }
+        ].map((stat, i) => (
+          <div key={i} className="bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm">
+            <div className="flex justify-between items-start mb-4">
+              <div className={`p-3 rounded-2xl ${stat.color}`}>
+                <stat.icon size={20} />
+              </div>
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{stat.sub}</span>
+            </div>
+            <div className="text-xl font-black text-slate-900">{stat.value.toLocaleString('vi-VN')}<span className="text-[10px] ml-1 text-slate-400 uppercase">{typeof stat.value === 'number' && stat.value > 1000 ? 'đ' : ''}</span></div>
+            <div className="text-xs font-bold text-slate-400 mt-1 uppercase tracking-tighter">{stat.label}</div>
+          </div>
+        ))}
       </div>
 
-      {/* Invoices Tab */}
-      {activeTab === 'invoices' && (
-        <div className="space-y-4">
-          {/* Filters */}
-          <div className="bg-white p-4 rounded-lg shadow">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Loại</label>
-                <select
-                  value={invoiceFilters.type}
-                  onChange={(e) => setInvoiceFilters({ ...invoiceFilters, type: e.target.value })}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 bg-white"
-                >
-                  <option value="">Tất cả</option>
-                  <option value="SALES">Bán hàng</option>
-                  <option value="PURCHASE">Mua hàng</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Trạng thái</label>
-                <select
-                  value={invoiceFilters.status}
-                  onChange={(e) => setInvoiceFilters({ ...invoiceFilters, status: e.target.value })}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-900 bg-white"
-                >
-                  <option value="">Tất cả</option>
-                  <option value="DRAFT">Nháp</option>
-                  <option value="PENDING">Chờ xử lý</option>
-                  <option value="SENT">Đã gửi</option>
-                  <option value="PAID">Đã thanh toán</option>
-                  <option value="OVERDUE">Quá hạn</option>
-                  <option value="CANCELLED">Đã hủy</option>
-                </select>
-              </div>
-              <div className="flex items-end">
-                <button
-                  onClick={() => setInvoiceFilters({ type: '', status: '' })}
-                  className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
-                >
-                  Xóa bộ lọc
-                </button>
-              </div>
+      {/* Tabs Design */}
+      <div className="flex bg-slate-100 p-1.5 rounded-[22px] w-full md:w-max">
+        <button
+          onClick={() => setActiveTab('invoices')}
+          className={`flex items-center gap-2 px-6 py-2.5 rounded-[18px] text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'invoices' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'
+            }`}
+        >
+          <FileText size={14} />
+          Quản Lý Hóa Đơn
+        </button>
+        <button
+          onClick={() => setActiveTab('daily-sales')}
+          className={`flex items-center gap-2 px-6 py-2.5 rounded-[18px] text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'daily-sales' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'
+            }`}
+        >
+          <TrendingUp size={14} />
+          Báo Cáo Doanh Số Ngày
+        </button>
+      </div>
+
+      {/* Content Area */}
+      {activeTab === 'invoices' ? (
+        <div className="space-y-6">
+          {/* Invoice Filter Bar */}
+          <div className="p-4 bg-white rounded-[32px] border border-slate-100 shadow-sm flex flex-col md:flex-row gap-4 items-center">
+            <div className="relative flex-1 group">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
+              <input
+                type="text"
+                placeholder="Tìm mã hóa đơn, tên khách hàng hoặc nhà cung cấp..."
+                value={invoiceFilters.search}
+                onChange={(e) => setInvoiceFilters({ ...invoiceFilters, search: e.target.value })}
+                className="w-full pl-12 pr-4 py-3 bg-slate-50 border-none rounded-2xl text-sm font-medium focus:ring-2 focus:ring-blue-500/20"
+              />
+            </div>
+            <div className="flex gap-2 w-full md:w-auto">
+              <select
+                value={invoiceFilters.type}
+                onChange={(e) => setInvoiceFilters({ ...invoiceFilters, type: e.target.value })}
+                className="flex-1 md:w-40 px-4 py-3 bg-slate-50 border-none rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-400 focus:ring-2 focus:ring-blue-500/20"
+              >
+                <option value="">Tất cả loại hình</option>
+                <option value="SALES">Bán hàng</option>
+                <option value="PURCHASE">Mua hàng</option>
+              </select>
+              <select
+                value={invoiceFilters.status}
+                onChange={(e) => setInvoiceFilters({ ...invoiceFilters, status: e.target.value })}
+                className="flex-1 md:w-40 px-4 py-3 bg-slate-50 border-none rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-400 focus:ring-2 focus:ring-blue-500/20"
+              >
+                <option value="">Mọi trạng thái</option>
+                <option value="DRAFT">Bản nháp</option>
+                <option value="PENDING">Đang xử lý</option>
+                <option value="SENT">Đã gửi</option>
+                <option value="PAID">Hoàn thành</option>
+                <option value="OVERDUE">Quá hạn</option>
+                <option value="CANCELLED">Đã hủy</option>
+              </select>
             </div>
           </div>
 
           {/* Invoices Table */}
-          {invoicesLoading ? (
-            <div className="flex items-center justify-center h-64">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-            </div>
-          ) : (
-            <div className="bg-white shadow overflow-hidden sm:rounded-md">
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
+          <div className="bg-white rounded-[32px] border border-slate-100 shadow-sm overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-slate-100">
+                <thead className="bg-slate-50/50">
+                  <tr>
+                    <th className="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Hóa Đơn</th>
+                    <th className="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Loại Hình</th>
+                    <th className="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Đối Tác</th>
+                    <th className="px-6 py-4 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest">Giá Trị</th>
+                    <th className="px-6 py-4 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">Trạng Thái</th>
+                    <th className="px-6 py-4 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest">Thao Tác</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {invoicesLoading ? (
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Mã HĐ</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Loại</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Khách hàng/NCC</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Số tiền</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Trạng thái</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Hạn thanh toán</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Hành động</th>
+                      <td colSpan={6} className="px-6 py-12 text-center">
+                        <div className="w-8 h-8 border-4 border-blue-600/20 border-t-blue-600 rounded-full animate-spin mx-auto"></div>
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {invoices.length === 0 ? (
-                      <tr>
-                        <td colSpan={7} className="px-6 py-8 text-center text-gray-500">
-                          Chưa có hóa đơn nào. Nhấn "Tạo Hóa Đơn" để bắt đầu.
-                        </td>
-                      </tr>
-                    ) : (
-                      invoices.map((invoice) => (
-                        <tr key={invoice.id}>
+                  ) : filteredInvoices.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="px-6 py-12 text-center text-slate-400 font-bold italic">
+                        Không tìm thấy hóa đơn nào
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredInvoices.map((invoice) => {
+                      const StatusIcon = getStatusIcon(invoice.status)
+                      return (
+                        <tr key={invoice.id} className="hover:bg-blue-50/30 transition-colors group">
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm font-medium text-gray-900">{invoice.invoiceNumber}</div>
-                            <div className="text-sm text-gray-500">{new Date(invoice.createdAt).toLocaleDateString('vi-VN')}</div>
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-blue-600 group-hover:text-white transition-all">
+                                <FileText size={20} />
+                              </div>
+                              <div>
+                                <div className="text-sm font-black text-slate-900 group-hover:text-blue-600 transition-colors uppercase tracking-tight">{invoice.invoiceNumber}</div>
+                                <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">{new Date(invoice.createdAt).toLocaleDateString('vi-VN')}</div>
+                              </div>
+                            </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${(invoice.invoiceType || invoice.type) === 'SALES' ? 'bg-green-100 text-green-800' : 'bg-purple-100 text-purple-800'
-                              }`}>
-                              {(invoice.invoiceType || invoice.type) === 'SALES' ? 'Bán' : 'Mua'}
+                            <span className={`px-3 py-1 text-[9px] font-black rounded-full uppercase tracking-widest border ${(invoice.invoiceType || invoice.type) === 'SALES' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-purple-50 text-purple-600 border-purple-100'}`}>
+                              {(invoice.invoiceType || invoice.type) === 'SALES' ? 'Bán Hàng' : 'Nhập Hàng'}
                             </span>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm font-medium text-gray-900">
-                              {invoice.customer?.user?.name || invoice.supplier?.name || '-'}
-                            </div>
-                            <div className="text-sm text-gray-500">
-                              {invoice.customer?.user?.email || invoice.supplier?.email || ''}
+                            <div className="flex items-center gap-2">
+                              {(invoice.invoiceType || invoice.type) === 'SALES' ? <User size={12} className="text-blue-400" /> : <Truck size={12} className="text-purple-400" />}
+                              <div className="text-xs font-bold text-slate-600">
+                                {invoice.customer?.user?.name || invoice.supplier?.name || 'N/A'}
+                              </div>
                             </div>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                            {invoice.totalAmount.toLocaleString('vi-VN')}đ
+                          <td className="px-6 py-4 whitespace-nowrap text-right">
+                            <div className="text-sm font-black text-slate-900 tracking-tight">
+                              {invoice.totalAmount.toLocaleString('vi-VN')}<span className="text-[10px] ml-0.5 text-slate-400 uppercase">đ</span>
+                            </div>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(invoice.status)}`}>
+                          <td className="px-6 py-4 whitespace-nowrap text-center">
+                            <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${getStatusStyle(invoice.status)}`}>
+                              <StatusIcon size={12} />
                               {getStatusText(invoice.status)}
-                            </span>
+                            </div>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString('vi-VN') : '-'}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                            <div className="flex space-x-2">
+                          <td className="px-6 py-4 whitespace-nowrap text-right">
+                            <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                               <button
-                                type="button"
                                 onClick={() => openInvoiceModal(invoice)}
-                                className="text-gray-600 hover:text-gray-900"
+                                className="p-2 bg-slate-50 text-slate-400 rounded-xl hover:bg-slate-900 hover:text-white transition-all shadow-sm"
+                                title="Xem Chi Tiết"
                               >
-                                Xem
+                                <Eye size={16} />
                               </button>
-
                               {['DRAFT', 'PENDING'].includes(invoice.status) && (
                                 <button
-                                  type="button"
                                   onClick={() => updateInvoiceStatus(invoice.id, 'SENT')}
-                                  className="text-blue-600 hover:text-blue-900"
+                                  className="p-2 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-600 hover:text-white transition-all shadow-sm"
                                 >
-                                  Gửi
+                                  <Send size={16} />
                                 </button>
                               )}
-                              {['PENDING', 'SENT', 'DRAFT', 'OVERDUE'].includes(invoice.status) && (
+                              {['SENT', 'OVERDUE'].includes(invoice.status) && (
                                 <button
-                                  type="button"
                                   onClick={() => updateInvoiceStatus(invoice.id, 'PAID')}
-                                  className="text-green-600 hover:text-green-900"
+                                  className="p-2 bg-emerald-50 text-emerald-600 rounded-xl hover:bg-emerald-600 hover:text-white transition-all shadow-sm"
                                 >
-                                  Đã TT
+                                  <CheckCircle size={16} />
                                 </button>
                               )}
-                              {invoice.status !== 'CANCELLED' && invoice.status !== 'PAID' && (
-                                <button
-                                  type="button"
-                                  onClick={() => updateInvoiceStatus(invoice.id, 'CANCELLED')}
-                                  className="text-red-600 hover:text-red-900"
-                                >
-                                  Hủy
-                                </button>
-                              )}
-                              {invoice.status !== 'PAID' && (
-                                <button
-                                  type="button"
-                                  onClick={() => deleteInvoice(invoice.id)}
-                                  className="text-red-600 hover:text-red-900"
-                                  title="Xóa hóa đơn"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </button>
-                              )}
+                              <button
+                                onClick={() => deleteInvoice(invoice.id)}
+                                className="p-2 bg-red-50 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all shadow-sm"
+                              >
+                                <Trash2 size={16} />
+                              </button>
                             </div>
                           </td>
                         </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
+                      )
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      ) : (
+        /* Daily Sales UI */
+        <div className="bg-white rounded-[32px] border border-slate-100 shadow-sm overflow-hidden p-8 animate-in slide-in-from-right duration-500">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8 pb-8 border-b border-slate-50">
+            <div className="flex items-center gap-4">
+              <div className="p-4 bg-purple-50 text-purple-600 rounded-[22px]">
+                <Receipt size={24} />
+              </div>
+              <div>
+                <h2 className="text-xl font-black text-slate-900 uppercase tracking-tighter">Báo cáo doanh số nhanh</h2>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-0.5">Quick Daily Sales Entry</p>
               </div>
             </div>
-          )}
-        </div>
-      )}
-
-      {/* Daily Sales Tab */}
-      {activeTab === 'daily-sales' && (
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="mb-6">
-            <label className="block text-sm font-medium mb-2">Ngày bán</label>
-            <input
-              type="date"
-              value={saleDate}
-              onChange={(e) => setSaleDate(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+            <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100">
+              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 px-1">Ngày hạch toán</label>
+              <input
+                type="date"
+                value={saleDate}
+                onChange={(e) => setSaleDate(e.target.value)}
+                className="bg-transparent border-none text-sm font-black text-slate-900 focus:ring-0 cursor-pointer"
+              />
+            </div>
           </div>
 
-          <div className="space-y-4 mb-6">
+          <div className="space-y-4">
             {entries.map((entry, index) => (
-              <div key={index} className="grid grid-cols-12 gap-3 items-end">
-                <div className="col-span-5">
-                  <label className="block text-sm font-medium mb-2">Sản phẩm</label>
+              <div key={index} className="grid grid-cols-1 md:grid-cols-12 gap-4 p-6 bg-slate-50/50 rounded-3xl border border-slate-100 items-end">
+                <div className="md:col-span-4">
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Sản phẩm / Dịch vụ</label>
                   <select
                     value={entry.productId}
                     onChange={(e) => updateEntry(index, 'productId', e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                    className="w-full px-4 py-3 bg-white border-none rounded-2xl text-sm font-bold text-slate-900 focus:ring-2 focus:ring-blue-500/20"
                   >
                     <option value="">-- Chọn sản phẩm --</option>
                     {products.map(p => (
-                      <option key={p.id} value={p.id}>
-                        {p.name} - {p.price.toLocaleString('vi-VN')}đ/{p.unit}
-                      </option>
+                      <option key={p.id} value={p.id}>{p.name} ({p.unit})</option>
                     ))}
                   </select>
                 </div>
 
-                <div className="col-span-2">
-                  <label className="block text-sm font-medium mb-2">Số lượng</label>
+                <div className="md:col-span-2">
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Số lượng</label>
                   <FormattedNumberInput
                     value={entry.quantity || 0}
                     onChange={(val) => updateEntry(index, 'quantity', val)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                    className="w-full px-4 py-3 bg-white border-none rounded-2xl text-sm font-bold text-slate-900 focus:ring-2 focus:ring-blue-500/20"
                   />
                 </div>
 
-                <div className="col-span-2">
-                  <label className="block text-sm font-medium mb-2">Đơn giá</label>
+                <div className="md:col-span-2">
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Đơn giá bán</label>
                   <FormattedNumberInput
                     value={entry.price || 0}
                     onChange={(val) => updateEntry(index, 'price', val)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                    className="w-full px-4 py-3 bg-white border-none rounded-2xl text-sm font-bold text-slate-900 focus:ring-2 focus:ring-blue-500/20 text-emerald-600"
                   />
                 </div>
 
-                <div className="col-span-2">
-                  <label className="block text-sm font-medium mb-2">Thành tiền</label>
-                  <div className="px-4 py-2 bg-gray-50 rounded-lg font-semibold text-blue-600">
-                    {(entry.quantity * entry.price).toLocaleString('vi-VN')}đ
+                <div className="md:col-span-3">
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Thành tiền</label>
+                  <div className="px-6 py-3 bg-white rounded-2xl text-sm font-black text-blue-600 border border-blue-50">
+                    {(entry.quantity * entry.price).toLocaleString('vi-VN')} <span className="text-[10px] ml-1 uppercase">đ</span>
                   </div>
                 </div>
 
-                <div className="col-span-1">
+                <div className="md:col-span-1">
                   <button
                     onClick={() => removeEntry(index)}
                     disabled={entries.length === 1}
-                    className="w-full p-2 text-red-500 hover:bg-red-50 rounded-lg disabled:opacity-30"
+                    className="w-full p-3 text-slate-300 hover:text-red-500 hover:bg-white rounded-xl transition-all disabled:opacity-0"
                   >
-                    <Trash2 className="w-5 h-5 mx-auto" />
+                    <Trash2 size={20} className="mx-auto" />
                   </button>
                 </div>
               </div>
             ))}
           </div>
 
-          <button
-            onClick={addEntry}
-            className="mb-6 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg flex items-center gap-2"
-          >
-            <Plus className="w-5 h-5" />
-            Thêm sản phẩm
-          </button>
+          <div className="flex flex-col md:flex-row justify-between items-center mt-8 pt-8 border-t border-slate-50 gap-6">
+            <button
+              onClick={addEntry}
+              className="px-6 py-3 bg-slate-100 text-slate-600 rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-slate-200 transition-all flex items-center gap-2"
+            >
+              <Plus size={16} />
+              Thêm dòng mới
+            </button>
 
-          <div className="border-t pt-4 mb-6">
-            <div className="flex justify-between items-center text-xl font-bold">
-              <span>Tổng cộng:</span>
-              <span className="text-blue-600">{calculateTotal().toLocaleString('vi-VN')}đ</span>
+            <div className="flex items-center gap-8 w-full md:w-auto">
+              <div>
+                <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Tổng thanh toán</span>
+                <span className="text-3xl font-black text-slate-900 tracking-tighter">
+                  {calculateTotal().toLocaleString('vi-VN')}<span className="text-xs ml-1 text-slate-400 uppercase tracking-widest font-bold">VNĐ</span>
+                </span>
+              </div>
+              <button
+                onClick={handleDailySalesSubmit}
+                disabled={salesLoading}
+                className="bg-emerald-600 text-white px-10 py-5 rounded-[22px] font-black text-sm uppercase tracking-widest hover:bg-emerald-700 shadow-xl shadow-emerald-100 transition-all active:scale-95 flex items-center gap-3 disabled:opacity-50"
+              >
+                <Save size={18} />
+                {salesLoading ? 'Đang hạch toán...' : 'Lưu báo cáo'}
+              </button>
             </div>
           </div>
-
-          <button
-            onClick={handleDailySalesSubmit}
-            disabled={salesLoading}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg flex items-center justify-center gap-2"
-          >
-            <Save className="w-5 h-5" />
-            {salesLoading ? 'Đang lưu...' : 'Lưu doanh số'}
-          </button>
         </div>
       )}
 
-      {/* Create Invoice Modal */}
+      {/* Invoice Modal Overlay */}
       {showInvoiceModal && (
-        <div className="fixed inset-0 bg-gray-100 bg-opacity-75 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-3xl max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold">Tạo Hóa Đơn Mới</h3>
-              <button onClick={() => setShowInvoiceModal(false)}><X className="h-5 w-5" /></button>
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-300">
+          <div className="bg-white rounded-[40px] shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden">
+            <div className="px-10 py-8 flex justify-between items-center border-b border-slate-50">
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-blue-50 text-blue-600 rounded-2xl">
+                  <FileText size={24} />
+                </div>
+                <div>
+                  <h3 className="text-xl font-black text-slate-900 uppercase tracking-tighter">{editingInvoice ? 'Chi tiết hóa đơn' : 'Lập hóa đơn mới'}</h3>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-0.5">Invoice Generator System</p>
+                </div>
+              </div>
+              <button onClick={() => setShowInvoiceModal(false)} className="p-3 hover:bg-slate-50 rounded-2xl transition-all text-slate-400">
+                <X size={24} />
+              </button>
             </div>
 
-            <form onSubmit={handleInvoiceSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Loại Hóa Đơn *</label>
-                  <select
-                    value={invoiceForm.type}
-                    onChange={(e) => setInvoiceForm({ ...invoiceForm, type: e.target.value as 'SALES' | 'PURCHASE' })}
-                    className="mt-1 w-full border rounded-lg px-3 py-2"
+            <form onSubmit={handleInvoiceSubmit} className="flex-1 overflow-y-auto p-10 space-y-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 bg-slate-50/50 p-8 rounded-[32px] border border-slate-100">
+                <div className="space-y-6">
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Loại chứng từ *</label>
+                    <div className="flex bg-white p-1 rounded-2xl border border-slate-100">
+                      <button
+                        type="button"
+                        onClick={() => setInvoiceForm({ ...invoiceForm, type: 'SALES' })}
+                        className={`flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${invoiceForm.type === 'SALES' ? 'bg-blue-600 text-white shadow-lg shadow-blue-100' : 'text-slate-400 hover:text-slate-600'}`}
+                      >
+                        Bán hàng
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setInvoiceForm({ ...invoiceForm, type: 'PURCHASE' })}
+                        className={`flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${invoiceForm.type === 'PURCHASE' ? 'bg-purple-600 text-white shadow-lg shadow-purple-100' : 'text-slate-400 hover:text-slate-600'}`}
+                      >
+                        Mua hàng
+                      </button>
+                    </div>
+                  </div>
+
+                  {invoiceForm.type === 'SALES' ? (
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Người mua hàng *</label>
+                      <select
+                        value={invoiceForm.customerId}
+                        onChange={(e) => setInvoiceForm({ ...invoiceForm, customerId: e.target.value })}
+                        className="w-full px-4 py-4 bg-white border border-slate-100 rounded-2xl text-sm font-bold text-slate-900 focus:ring-2 focus:ring-blue-500/20 outline-none"
+                        required
+                      >
+                        <option value="">-- Chọn khách hàng --</option>
+                        {customers.map(c => (
+                          <option key={c.id} value={c.id}>{c.user?.name || c.id}</option>
+                        ))}
+                      </select>
+                    </div>
+                  ) : (
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Nhà cung cấp hàng hóa *</label>
+                      <select
+                        value={invoiceForm.supplierId}
+                        onChange={(e) => setInvoiceForm({ ...invoiceForm, supplierId: e.target.value })}
+                        className="w-full px-4 py-4 bg-white border border-slate-100 rounded-2xl text-sm font-bold text-slate-900 focus:ring-2 focus:ring-blue-500/20 outline-none"
+                        required
+                      >
+                        <option value="">-- Chọn nhà cung cấp --</option>
+                        {suppliers.map(s => (
+                          <option key={s.id} value={s.id}>{s.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="col-span-2">
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Thời hạn thanh toán</label>
+                    <input
+                      type="date"
+                      value={invoiceForm.dueDate}
+                      onChange={(e) => setInvoiceForm({ ...invoiceForm, dueDate: e.target.value })}
+                      className="w-full px-4 py-4 bg-white border border-slate-100 rounded-2xl text-sm font-bold text-slate-900 focus:ring-2 focus:ring-blue-500/20 outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Thuế (%)</label>
+                    <input
+                      type="number"
+                      value={invoiceForm.tax}
+                      onChange={(e) => setInvoiceForm({ ...invoiceForm, tax: Number(e.target.value) })}
+                      className="w-full px-4 py-4 bg-white border border-slate-100 rounded-2xl text-sm font-bold text-slate-900 focus:ring-2 focus:ring-blue-500/20 outline-none"
+                      min={0}
+                      max={100}
+                    />
+                  </div>
+                  <div className="flex flex-col justify-end pb-1">
+                    <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-1">Status Policy</span>
+                    <span className="text-[11px] font-bold text-slate-500 italic">Net 30 Payment Terms Applied</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="flex items-center justify-between mb-4 px-2">
+                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Danh mục hàng hóa / Dịch vụ</h4>
+                  <button
+                    type="button"
+                    onClick={addInvoiceItem}
+                    className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-600 hover:text-white transition-all shadow-sm shadow-blue-50"
                   >
-                    <option value="SALES">Bán Hàng</option>
-                    <option value="PURCHASE">Mua Hàng</option>
-                  </select>
+                    <Plus size={14} />
+                    Thêm hàng hóa
+                  </button>
                 </div>
 
-                {invoiceForm.type === 'SALES' ? (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Khách Hàng *</label>
-                    <select
-                      value={invoiceForm.customerId}
-                      onChange={(e) => setInvoiceForm({ ...invoiceForm, customerId: e.target.value })}
-                      className="mt-1 w-full border rounded-lg px-3 py-2"
-                      required
-                    >
-                      <option value="">Chọn khách hàng</option>
-                      {customers.map(c => (
-                        <option key={c.id} value={c.id}>{c.user?.name || c.id} ({c.user?.email || ''})</option>
-                      ))}
-                    </select>
-                  </div>
-                ) : (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Nhà Cung Cấp *</label>
-                    <select
-                      value={invoiceForm.supplierId}
-                      onChange={(e) => setInvoiceForm({ ...invoiceForm, supplierId: e.target.value })}
-                      className="mt-1 w-full border rounded-lg px-3 py-2"
-                      required
-                    >
-                      <option value="">Chọn nhà cung cấp</option>
-                      {suppliers.map(s => (
-                        <option key={s.id} value={s.id}>{s.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Hạn Thanh Toán</label>
-                  <input
-                    type="date"
-                    value={invoiceForm.dueDate}
-                    onChange={(e) => setInvoiceForm({ ...invoiceForm, dueDate: e.target.value })}
-                    className="mt-1 w-full border rounded-lg px-3 py-2"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Thuế VAT (%)</label>
-                  <input
-                    type="number"
-                    value={invoiceForm.tax}
-                    onChange={(e) => setInvoiceForm({ ...invoiceForm, tax: Number(e.target.value) })}
-                    className="mt-1 w-full border rounded-lg px-3 py-2"
-                    min={0}
-                    max={100}
-                  />
-                </div>
-              </div>
-
-              {/* Invoice Items */}
-              <div className="border-t pt-4">
-                <h4 className="font-medium mb-3">Sản Phẩm</h4>
                 <div className="space-y-3">
                   {invoiceItems.map((item, index) => (
-                    <div key={index} className="grid grid-cols-12 gap-2 items-end">
-                      <div className="col-span-5">
+                    <div key={index} className="grid grid-cols-12 gap-3 items-end p-4 bg-slate-50/30 rounded-2xl border border-slate-100">
+                      <div className="col-span-6">
                         <select
                           value={item.productId}
                           onChange={(e) => updateInvoiceItem(index, 'productId', e.target.value)}
-                          className="w-full border rounded-lg px-3 py-2 text-sm"
+                          className="w-full px-3 py-3 bg-white border border-slate-100 rounded-xl text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-blue-500/20"
                           required
                         >
                           <option value="">Chọn sản phẩm</option>
@@ -798,71 +862,82 @@ export default function SalesManagementPage() {
                       </div>
                       <div className="col-span-2">
                         <FormattedNumberInput
-                          value={item.quantity || 0}
+                          value={item.quantity}
                           onChange={(val) => updateInvoiceItem(index, 'quantity', val)}
-                          className="w-full border rounded-lg px-3 py-2 text-sm"
+                          className="w-full px-3 py-3 bg-white border border-slate-100 rounded-xl text-xs font-bold text-slate-900 outline-none text-center"
                           placeholder="SL"
                         />
                       </div>
                       <div className="col-span-3">
                         <FormattedNumberInput
-                          value={item.unitPrice || 0}
+                          value={item.unitPrice}
                           onChange={(val) => updateInvoiceItem(index, 'unitPrice', val)}
-                          className="w-full border rounded-lg px-3 py-2 text-sm"
+                          className="w-full px-3 py-3 bg-white border border-slate-100 rounded-xl text-xs font-bold text-slate-900 outline-none"
                           placeholder="Đơn giá"
                         />
                       </div>
-                      <div className="col-span-2 flex items-center gap-2">
-                        <span className="text-sm font-medium text-blue-600">
-                          {(item.quantity * item.unitPrice).toLocaleString('vi-VN')}đ
-                        </span>
+                      <div className="col-span-1">
                         <button
                           type="button"
                           onClick={() => removeInvoiceItem(index)}
-                          className="text-red-500 hover:text-red-700"
+                          className="w-full p-2.5 text-slate-300 hover:text-red-500 transition-all"
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <Trash2 size={18} />
                         </button>
                       </div>
                     </div>
                   ))}
                 </div>
+              </div>
 
+              <div className="flex flex-col md:flex-row justify-between items-start gap-8 pt-8 border-t border-slate-100">
+                <div className="flex-1 w-full">
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Ghi chú hạch toán</label>
+                  <textarea
+                    value={invoiceForm.note}
+                    onChange={(e) => setInvoiceForm({ ...invoiceForm, note: e.target.value })}
+                    className="w-full px-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-medium text-slate-700 outline-none focus:ring-2 focus:ring-blue-500/20 resize-none h-32"
+                    placeholder="Nhập thông tin ghi chú hoặc điều khoản thanh toán cụ thể..."
+                  />
+                </div>
+
+                <div className="w-full md:w-80 space-y-3 bg-slate-50 p-6 rounded-[32px] border border-slate-100">
+                  <div className="flex justify-between items-center text-xs font-bold text-slate-500 uppercase tracking-widest">
+                    <span>Tạm tính</span>
+                    <span>{calculateInvoiceTotal().subtotal.toLocaleString('vi-VN')} đ</span>
+                  </div>
+                  <div className="flex justify-between items-center text-xs font-bold text-slate-500 uppercase tracking-widest">
+                    <span>VAT ({invoiceForm.tax}%)</span>
+                    <span>{calculateInvoiceTotal().tax.toLocaleString('vi-VN')} đ</span>
+                  </div>
+                  <div className="h-px bg-slate-200 my-2"></div>
+                  <div className="flex justify-between items-center text-[10px] font-black text-blue-600 uppercase tracking-widest pt-1">
+                    <span>Tổng thanh toán</span>
+                    <span className="text-2xl tracking-tighter text-slate-900">{calculateInvoiceTotal().total.toLocaleString('vi-VN')}<span className="text-xs ml-0.5 text-slate-400">đ</span></span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4 pb-4">
                 <button
                   type="button"
-                  onClick={addInvoiceItem}
-                  className="mt-3 px-3 py-1 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg flex items-center gap-1"
+                  onClick={() => setShowInvoiceModal(false)}
+                  className="px-8 py-4 rounded-2xl text-xs font-black uppercase tracking-widest text-slate-400 hover:bg-slate-50 transition-all"
                 >
-                  <Plus className="h-4 w-4" /> Thêm sản phẩm
+                  Hủy bỏ
                 </button>
-              </div>
-
-              {/* Totals */}
-              <div className="border-t pt-4 space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span>Tạm tính:</span>
-                  <span>{calculateInvoiceTotal().subtotal.toLocaleString('vi-VN')}đ</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span>Thuế VAT ({invoiceForm.tax}%):</span>
-                  <span>{calculateInvoiceTotal().tax.toLocaleString('vi-VN')}đ</span>
-                </div>
-                <div className="flex justify-between font-bold text-lg">
-                  <span>Tổng cộng:</span>
-                  <span className="text-blue-600">{calculateInvoiceTotal().total.toLocaleString('vi-VN')}đ</span>
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-3 mt-6">
-                <button type="button" onClick={() => setShowInvoiceModal(false)} className="px-4 py-2 border rounded-lg hover:bg-gray-50">Hủy</button>
-                <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Tạo Hóa Đơn</button>
+                <button
+                  type="submit"
+                  className="px-10 py-4 bg-blue-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-blue-700 shadow-xl shadow-blue-100 transition-all active:scale-95 flex items-center gap-2"
+                >
+                  <Save size={18} />
+                  Lưu & Hạch toán
+                </button>
               </div>
             </form>
           </div>
         </div>
       )}
-
-
     </div>
   )
 }
