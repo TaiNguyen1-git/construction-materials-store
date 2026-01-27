@@ -6,6 +6,7 @@
 
 import { useState, useEffect, use } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import {
     ShieldCheck, Star, MapPin,
     Briefcase, CheckCircle2, ArrowLeft, ArrowRight,
@@ -25,7 +26,27 @@ export default function ContractorPortfolio({ params }: { params: Promise<{ id: 
     const [contractor, setContractor] = useState<any>(null)
     const [showLoginModal, setShowLoginModal] = useState(false)
     const [showQuoteModal, setShowQuoteModal] = useState(false)
+    const [showChatModal, setShowChatModal] = useState(false)
+    const [guestContact, setGuestContact] = useState({ name: '', phone: '', message: '' })
     const [activeTab, setActiveTab] = useState('about')
+    const router = useRouter()
+
+    const handleChatClick = () => {
+        const token = typeof window !== 'undefined' ? (localStorage.getItem('access_token') || sessionStorage.getItem('access_token')) : null
+
+        if (token) {
+            router.push(`/messages?partnerId=${id}`)
+        } else {
+            setShowChatModal(true)
+        }
+    }
+
+    const handleGuestSubmit = (e: React.FormEvent) => {
+        e.preventDefault()
+        toast.success('Đã gửi tin nhắn đến nhà thầu!')
+        setShowChatModal(false)
+        setGuestContact({ name: '', phone: '', message: '' })
+    }
 
     useEffect(() => {
         fetchContractor()
@@ -274,13 +295,13 @@ export default function ContractorPortfolio({ params }: { params: Promise<{ id: 
                                         Yêu cầu báo giá
                                         <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                                     </button>
-                                    <Link
-                                        href={`/contact?contractor=${contractor.displayName}`}
-                                        className="w-full py-5 bg-white text-slate-700 font-black rounded-2xl border-2 border-gray-100 hover:border-primary-600 hover:text-primary-600 transition-all flex items-center justify-center gap-3 shadow-md"
+                                    <button
+                                        onClick={handleChatClick}
+                                        className="w-full py-5 bg-white text-slate-700 font-black rounded-2xl border-2 border-gray-100 hover:border-blue-600 hover:text-blue-600 transition-all flex items-center justify-center gap-3 shadow-md group"
                                     >
-                                        <MessageSquare className="w-6 h-6" />
+                                        <MessageSquare className="w-6 h-6 group-hover:fill-blue-100" />
                                         Gửi tin nhắn trực tiếp
-                                    </Link>
+                                    </button>
                                 </div>
 
                                 <div className="space-y-5 mb-8">
@@ -358,8 +379,69 @@ export default function ContractorPortfolio({ params }: { params: Promise<{ id: 
                         <div className="w-24 h-24 bg-red-50 rounded-[32px] flex items-center justify-center mx-auto mb-8"><Heart className="w-12 h-12 text-red-500 fill-red-500" /></div>
                         <h3 className="text-3xl font-black text-gray-900 mb-4">Đăng nhập tài khoản</h3>
                         <p className="text-lg text-gray-500 font-medium mb-10 leading-relaxed">Bạn cần đăng nhập để lưu nhà thầu vào danh sách yêu thích và theo dõi tiến độ công trình.</p>
-                        <Link href="/login" className="block w-full py-5 bg-primary-600 text-white font-black rounded-2xl mb-4 shadow-xl shadow-primary-100 hover:bg-primary-700 transition-colors">Đăng nhập ngay</Link>
+                        <Link href="/login" className="block w-full py-5 bg-blue-600 text-white font-black rounded-2xl mb-4 shadow-xl shadow-blue-200 hover:bg-blue-700 transition-colors">Đăng nhập ngay</Link>
                         <button onClick={() => setShowLoginModal(false)} className="text-sm font-black text-gray-400 hover:text-gray-900 border-b-2 border-transparent hover:border-gray-900 transition-all">Đóng lại</button>
+                    </div>
+                </div>
+            )}
+
+            {showChatModal && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+                    <div className="bg-white rounded-[32px] shadow-2xl max-w-lg w-full p-8 animate-in fade-in zoom-in duration-300 relative">
+                        <button onClick={() => setShowChatModal(false)} className="absolute top-6 right-6 p-2 text-gray-400 hover:text-gray-900 rounded-full hover:bg-gray-100 transition-all"><X className="w-5 h-5" /></button>
+
+                        <div className="text-center mb-8">
+                            <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center mx-auto mb-4 text-blue-600">
+                                <MessageSquare className="w-8 h-8" />
+                            </div>
+                            <h3 className="text-2xl font-black text-gray-900">Liên hệ nhà thầu</h3>
+                            <p className="text-gray-500 mt-2 font-medium">Vui lòng đăng nhập để chat trực tiếp hoặc để lại thông tin.</p>
+                        </div>
+
+                        <div className="space-y-6">
+                            <Link
+                                href="/login"
+                                className="w-full py-4 bg-blue-600 text-white font-black rounded-2xl shadow-lg shadow-blue-200 hover:bg-blue-700 transition-all flex items-center justify-center gap-2"
+                            >
+                                <ArrowRight className="w-5 h-5" />
+                                Đăng nhập để Chat ngay
+                            </Link>
+
+                            <div className="relative">
+                                <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-100"></div></div>
+                                <div className="relative flex justify-center text-xs uppercase"><span className="bg-white px-2 text-gray-400 font-bold tracking-widest">Hoặc để lại tin nhắn</span></div>
+                            </div>
+
+                            <form onSubmit={handleGuestSubmit} className="space-y-4">
+                                <div className="grid grid-cols-2 gap-4">
+                                    <input
+                                        required
+                                        placeholder="Họ tên của bạn"
+                                        className="w-full p-3 bg-gray-50 rounded-xl border border-gray-100 font-bold text-sm outline-none focus:border-blue-500"
+                                        value={guestContact.name}
+                                        onChange={e => setGuestContact({ ...guestContact, name: e.target.value })}
+                                    />
+                                    <input
+                                        required
+                                        placeholder="Số điện thoại"
+                                        className="w-full p-3 bg-gray-50 rounded-xl border border-gray-100 font-bold text-sm outline-none focus:border-blue-500"
+                                        value={guestContact.phone}
+                                        onChange={e => setGuestContact({ ...guestContact, phone: e.target.value })}
+                                    />
+                                </div>
+                                <textarea
+                                    required
+                                    placeholder="Nội dung cần trao đổi..."
+                                    rows={3}
+                                    className="w-full p-3 bg-gray-50 rounded-xl border border-gray-100 font-bold text-sm outline-none focus:border-blue-500 resize-none"
+                                    value={guestContact.message}
+                                    onChange={e => setGuestContact({ ...guestContact, message: e.target.value })}
+                                />
+                                <button type="submit" className="w-full py-3 bg-blue-600 text-white font-black rounded-xl hover:bg-blue-700 transition-all shadow-lg">
+                                    Gửi tin nhắn liên hệ
+                                </button>
+                            </form>
+                        </div>
                     </div>
                 </div>
             )}
