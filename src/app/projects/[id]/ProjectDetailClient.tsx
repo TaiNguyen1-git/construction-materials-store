@@ -36,20 +36,19 @@ interface Project {
     applications: any[]
 }
 
-export default function ProjectDetailClient({ params }: { params: Promise<{ id: string }> }) {
-    const productId = (params as any).id; // Fallback or use standard retrieval
+export default function ProjectDetailClient({ projectId }: { projectId: string }) {
     const [project, setProject] = useState<Project | null>(null)
     const [loading, setLoading] = useState(true)
     const [showApplyModal, setShowApplyModal] = useState(false)
     const [isOwner, setIsOwner] = useState(false)
 
     useEffect(() => {
-        if (productId) fetchProject()
-    }, [productId])
+        if (projectId) fetchProject()
+    }, [projectId])
 
     const fetchProject = async () => {
         try {
-            const res = await fetch(`/api/marketplace/projects/${productId}`)
+            const res = await fetch(`/api/marketplace/projects/${projectId}`)
             if (res.ok) {
                 const data = await res.json()
                 if (data.success) {
@@ -71,7 +70,7 @@ export default function ProjectDetailClient({ params }: { params: Promise<{ id: 
     const handleApplyStandards = async (materials: string) => {
         try {
             const token = localStorage.getItem('access_token')
-            const res = await fetch(`/api/marketplace/projects/${productId}`, {
+            const res = await fetch(`/api/marketplace/projects/${projectId}`, {
                 method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json',

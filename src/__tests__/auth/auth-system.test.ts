@@ -14,7 +14,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 // Mock Next.js request/response
 const createMockRequest = (options: {
     method?: string
-    body?: any
+    body?: unknown
     headers?: Record<string, string>
     cookies?: Record<string, string>
     ip?: string
@@ -183,8 +183,8 @@ describe('BroadcastChannel Communication', () => {
         if (typeof BroadcastChannel !== 'undefined') {
             const channel = new BroadcastChannel('auth_channel')
 
-            const receivedMessages: any[] = []
-            channel.onmessage = (event) => {
+            const receivedMessages: unknown[] = []
+            channel.onmessage = (event: MessageEvent<unknown>) => {
                 receivedMessages.push(event.data)
             }
 

@@ -8,9 +8,6 @@ import { prisma } from '@/lib/prisma'
 import { AuthService } from '@/lib/auth'
 import { createSuccessResponse, createErrorResponse } from '@/lib/api-types'
 import bcrypt from 'bcryptjs'
-import jwt from 'jsonwebtoken'
-
-const JWT_SECRET = process.env.JWT_SECRET || 'smartbuild-secret-key'
 
 export async function POST(request: NextRequest) {
     try {
@@ -102,7 +99,7 @@ export async function POST(request: NextRequest) {
                     multi: true
                 }]
             })
-        } catch (e) {
+        } catch {
             // Ignore if collection doesn't exist or no matches
             console.log('No guest applications to update')
         }

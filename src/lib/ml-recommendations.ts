@@ -21,7 +21,7 @@ export class MLRecommendationsService {
    * Initialize/train the CF model (call on server start or periodically)
    */
   static async initialize(): Promise<void> {
-    const result = await collaborativeFiltering.train()
+    const _result = await collaborativeFiltering.train()
   }
 
   /**
@@ -30,7 +30,7 @@ export class MLRecommendationsService {
   static async getHybridRecommendations(
     productId?: string,
     customerId?: string,
-    type: 'RELATED' | 'PERSONALIZED' | 'SIMILAR' = 'RELATED',
+    _type: 'RELATED' | 'PERSONALIZED' | 'SIMILAR' = 'RELATED',
     limit: number = 10
   ) {
     try {

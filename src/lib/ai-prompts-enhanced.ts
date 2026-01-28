@@ -223,8 +223,8 @@ export interface ChatContext {
     totalOrders?: number
   }
   currentPage?: string
-  productKnowledge?: any[]
-  orderHistory?: any[]
+  productKnowledge?: unknown[]
+  orderHistory?: unknown[]
   sessionContext?: {
     previousQueries?: string[]
     currentIntent?: string
@@ -353,23 +353,23 @@ export function getPromptForIntent(intent: string): string {
 export function detectIntent(query: string): string {
   const lowerQuery = query.toLowerCase()
 
-  if (lowerQuery.includes('tính') || lowerQuery.includes('calculate') || 
-      lowerQuery.includes('cần bao nhiêu')) {
+  if (lowerQuery.includes('tính') || lowerQuery.includes('calculate') ||
+    lowerQuery.includes('cần bao nhiêu')) {
     return 'material_calculation'
   }
 
   if (lowerQuery.includes('so sánh') || lowerQuery.includes('compare') ||
-      lowerQuery.includes('khác nhau') || lowerQuery.includes('difference')) {
+    lowerQuery.includes('khác nhau') || lowerQuery.includes('difference')) {
     return 'product_comparison'
   }
 
   if (lowerQuery.includes('tcvn') || lowerQuery.includes('tcxd') ||
-      lowerQuery.includes('tiêu chuẩn') || lowerQuery.includes('standard')) {
+    lowerQuery.includes('tiêu chuẩn') || lowerQuery.includes('standard')) {
     return 'technical_support'
   }
 
   if (lowerQuery.includes('đặt hàng') || lowerQuery.includes('order') ||
-      lowerQuery.includes('mua') || lowerQuery.includes('buy')) {
+    lowerQuery.includes('mua') || lowerQuery.includes('buy')) {
     return 'order_assistance'
   }
 
@@ -379,10 +379,10 @@ export function detectIntent(query: string): string {
 export function enhancePromptWithIntent(
   basePrompt: string,
   query: string,
-  context: ChatContext
+  /* _context: ChatContext */
 ): string {
   const intent = detectIntent(query)
   const intentPrompt = getPromptForIntent(intent)
-  
+
   return `${basePrompt}\n\n--- DETECTED INTENT: ${intent.toUpperCase()} ---\n${intentPrompt}`
 }

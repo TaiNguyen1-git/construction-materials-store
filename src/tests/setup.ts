@@ -21,15 +21,15 @@ if (typeof globalThis.BroadcastChannel === 'undefined') {
             this.name = name
         }
 
-        postMessage(_data: any) {
+        postMessage(_data: unknown) {
             // No-op in test environment
         }
 
-        addEventListener(_type: string, _listener: any) {
+        addEventListener(_type: string, _listener: EventListenerOrEventListenerObject | null) {
             // No-op in test environment
         }
 
-        removeEventListener(_type: string, _listener: any) {
+        removeEventListener(_type: string, _listener: EventListenerOrEventListenerObject | null) {
             // No-op in test environment
         }
 
@@ -38,7 +38,7 @@ if (typeof globalThis.BroadcastChannel === 'undefined') {
         }
     }
 
-    globalThis.BroadcastChannel = MockBroadcastChannel as any
+    globalThis.BroadcastChannel = MockBroadcastChannel as unknown as typeof BroadcastChannel
 }
 
 // Suppress console.log in tests unless explicitly needed

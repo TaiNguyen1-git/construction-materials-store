@@ -276,7 +276,7 @@ describe('Auth API Integration', () => {
             expect(sessionsData.sessions.length).toBeGreaterThan(0)
 
             // Current session should be marked
-            const currentSession = sessionsData.sessions.find((s: any) => s.isCurrent)
+            const currentSession = sessionsData.sessions.find((s: { isCurrent: boolean }) => s.isCurrent)
             expect(currentSession).toBeDefined()
         })
     })

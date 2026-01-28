@@ -50,7 +50,7 @@ export class StatisticalForecastingService {
         const values = this.prepareData(data)
 
         // Calculate data characteristics
-        const stats = this.calculateStatistics(values)
+        const _stats = this.calculateStatistics(values)
         const hasSeasonality = this.detectSeasonality(values, seasonalPeriod)
         const trend = this.detectTrend(values)
 

@@ -1699,12 +1699,27 @@ model ContractorProfile {
   // Relationships
   reviews         ContractorReview[]
   orders          Order[]
+  savedProjects   SavedProject[]
 
   @@map("contractor_profiles")
   @@index([isVerified])
   @@index([city])
   @@index([avgRating])
   @@index([trustScore])
+}
+
+model SavedProject {
+  id           String              @id @default(auto()) @map("_id") @db.ObjectId
+  contractorId String              @db.ObjectId
+  projectId    String              @db.ObjectId
+  savedAt      DateTime            @default(now())
+
+  contractor   ContractorProfile   @relation(fields: [contractorId], references: [id])
+  project      ConstructionProject @relation(fields: [projectId], references: [id])
+
+  @@map("saved_projects")
+  @@unique([contractorId, projectId])
+  @@index([contractorId])
 }
 
 model Cart {
@@ -1913,6 +1928,7 @@ model ConstructionProject {
   workerReports   WorkerReport[]
   siteMaterialRequests SiteMaterialRequest[]
   expenses             ProjectExpense[]
+  savedBy              SavedProject[]
   
   @@map("construction_projects")
   @@index([status])

@@ -18,6 +18,7 @@ interface MaterialFeatures {
 interface RecognitionResult {
   confidence: number
   materialType: string
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   matchedProducts: any[]
   features: MaterialFeatures
   suggestions: string[]
@@ -123,18 +124,18 @@ export class AIRecognitionService {
     try {
       const aiResponse = await AIService.analyzeImage(imageData, prompt)
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let features: any = {}
 
       try {
         const cleanedText = aiResponse.replace(/```json\s*|\s*```/g, '').trim()
         features = JSON.parse(cleanedText)
-      } catch (e) {
+      } catch {
         const jsonMatch = aiResponse.match(/\{[\s\S]*\}/)
         if (jsonMatch) features = JSON.parse(jsonMatch[0])
       }
 
-      if (features.visualScaleReasoning) {
-      }
+
 
       return {
         category: features.category || 'unknown',
@@ -176,6 +177,7 @@ export class AIRecognitionService {
   /**
    * Find matching products in database
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private static async findMatchingProducts(
     materialType: string,
     features: MaterialFeatures
@@ -183,6 +185,7 @@ export class AIRecognitionService {
     try {
       const keywords = materialType.toLowerCase()
       const specificName = features.specificName?.toLowerCase() || ''
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let categoryFilter: any = {}
 
       if (keywords.includes('xi măng') || keywords.includes('cement')) {
@@ -309,6 +312,7 @@ export class AIRecognitionService {
   /**
    * Get complementary products for cross-selling
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private static async getComplementaryProducts(features: MaterialFeatures): Promise<any[]> {
     try {
       const category = features.category
@@ -374,6 +378,7 @@ export class AIRecognitionService {
    */
   private static calculateConfidence(
     features: MaterialFeatures,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     matchedProducts: any[]
   ): number {
     let confidence = 0.6 // Base confidence
@@ -401,6 +406,7 @@ export class AIRecognitionService {
    */
   private static generateSuggestions(
     materialType: string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     matchedProducts: any[]
   ): string[] {
     const suggestions: string[] = []

@@ -62,7 +62,7 @@ export default async function Page({ params }: Props) {
                 datePosted: project.createdAt.toISOString(),
                 budget: project.estimatedBudget || undefined
             }} />
-            <ProjectDetailClient params={Promise.resolve({ id })} />
+            <ProjectDetailClient projectId={id} />
         </>
     )
 }

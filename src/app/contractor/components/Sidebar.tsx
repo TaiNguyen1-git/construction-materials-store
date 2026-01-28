@@ -41,7 +41,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
             title: 'Tổng quan',
             items: [
                 { href: '/contractor/dashboard', icon: Home, label: 'Dashboard' },
-                { href: '/projects', icon: Briefcase, label: 'Tìm việc mới' },
+                { href: '/contractor/projects/find', icon: Briefcase, label: 'Tìm việc mới' },
             ]
         },
         {

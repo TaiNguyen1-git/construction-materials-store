@@ -107,8 +107,8 @@ export class ReorderAlertService {
                 try {
                     const sent = await this.sendReorderEmail(supplier, supplierAlerts)
                     if (sent) emailsSent++
-                } catch (e: any) {
-                    errors.push(`Failed to email ${supplier.name}: ${e.message}`)
+                } catch (e: unknown) {
+                    errors.push(`Failed to email ${supplier.name}: ${(e as Error).message}`)
                 }
             }
 
@@ -125,9 +125,9 @@ export class ReorderAlertService {
             })
 
             return { alerts, emailsSent, errors }
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Reorder alert check failed:', error)
-            errors.push(error.message)
+            errors.push((error as Error).message)
             return { alerts, emailsSent, errors }
         }
     }
@@ -136,6 +136,7 @@ export class ReorderAlertService {
      * Send reorder email to supplier
      */
     private static async sendReorderEmail(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         supplier: any,
         alerts: ReorderAlert[]
     ): Promise<boolean> {

@@ -1,4 +1,4 @@
-import { ScrollText, Check, AlertCircle, Info, ArrowUpRight, Building2 } from 'lucide-react'
+import { ScrollText, Check, AlertCircle, ArrowUpRight, Building2 } from 'lucide-react'
 import Link from 'next/link'
 
 export default function TermsPage() {
@@ -22,7 +22,7 @@ export default function TermsPage() {
                     </div>
                     <div className="hidden sm:block w-px h-8 bg-neutral-200"></div>
                     <p className="max-w-md text-sm leading-relaxed font-medium italic">
-                        "Chúng tôi cam kết xây dựng một nền tảng minh bạch và tin cậy cho mọi dự án xây dựng của bạn."
+                        &quot;Chúng tôi cam kết xây dựng một nền tảng minh bạch và tin cậy cho mọi dự án xây dựng của bạn.&quot;
                     </p>
                 </div>
             </section>

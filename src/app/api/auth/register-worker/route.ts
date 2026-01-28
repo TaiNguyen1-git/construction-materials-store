@@ -36,8 +36,8 @@ export async function POST(request: NextRequest) {
                     email,
                     password: hashedPassword,
                     name,
-                    role: 'CONTRACTOR' as any, // Cast to any to bypass strict enum check if needed
-                }
+                    role: 'CONTRACTOR'
+                } as any // Cast the whole data object to any to bypass strict type check if needed, but 'CONTRACTOR' is likely correct
             })
 
             // Create Customer/Profile entry

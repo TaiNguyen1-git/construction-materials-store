@@ -108,7 +108,7 @@ export default function ContractorHeader({ sidebarOpen, setSidebarOpen, user }: 
     return (
         <nav className="fixed top-0 left-0 right-0 z-30 bg-white/95 backdrop-blur-sm border-b border-gray-100 shadow-sm">
             <div className="px-4 py-3">
-                <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center justify-between gap-4 h-10">
                     {/* Left: Logo & Sidebar Toggle */}
                     <div className="flex items-center gap-3 flex-shrink-0">
                         <button

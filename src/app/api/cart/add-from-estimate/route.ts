@@ -106,7 +106,6 @@ export async function POST(request: NextRequest) {
         const addedItems: any[] = []
         const notFoundItems: string[] = []
         let totalAdded = 0
-        let subtotalAdded = 0
 
         for (const material of materialsToAdd) {
             const productKey = material.productId || material.name
@@ -166,8 +165,6 @@ export async function POST(request: NextRequest) {
                     quantity: material.quantity,
                     action: 'added'
                 })
-
-                subtotalAdded += subtotal
             }
 
             totalAdded += material.quantity

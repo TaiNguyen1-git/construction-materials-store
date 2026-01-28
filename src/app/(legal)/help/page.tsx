@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { HelpCircle, Search, MessageSquare, Book, Settings, User, ChevronRight, ChevronDown, Rocket, ShieldCheck, CreditCard } from 'lucide-react'
+import { HelpCircle, Search, MessageSquare, Book, Settings, User, ChevronDown, Rocket, ShieldCheck, CreditCard } from 'lucide-react'
 import Link from 'next/link'
 
 export default function HelpPage() {
@@ -112,7 +112,7 @@ export default function HelpPage() {
                     <div className="space-y-6">
                         <div className="p-6 rounded-2xl bg-blue-50/30 border border-blue-100">
                             <h4 className="text-blue-700 mt-0">Khởi tạo dự án đầu tiên</h4>
-                            <p className="text-sm font-medium text-slate-600 italic">Bấm vào 'Tạo dự án mới', tải lên bản vẽ và AI sẽ tự động phân loại các hạng mục cần thi công.</p>
+                            <p className="text-sm font-medium text-slate-600 italic">Bấm vào &apos;Tạo dự án mới&apos;, tải lên bản vẽ và AI sẽ tự động phân loại các hạng mục cần thi công.</p>
                         </div>
                         <div className="p-6 rounded-2xl bg-white border border-slate-100 italic">
                             <h4 className="mt-0">Tìm kiếm thầu thợ</h4>
@@ -173,8 +173,8 @@ export default function HelpPage() {
                             <div
                                 key={i}
                                 className={`p-6 rounded-2xl border transition-all cursor-pointer ${expandedFaq === i
-                                        ? 'bg-blue-50/30 border-blue-200'
-                                        : 'bg-white border-slate-100 hover:border-blue-200 hover:bg-slate-50'
+                                    ? 'bg-blue-50/30 border-blue-200'
+                                    : 'bg-white border-slate-100 hover:border-blue-200 hover:bg-slate-50'
                                     }`}
                                 onClick={() => setExpandedFaq(expandedFaq === i ? null : i)}
                             >

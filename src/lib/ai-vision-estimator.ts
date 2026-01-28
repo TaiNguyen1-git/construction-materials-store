@@ -263,7 +263,7 @@ Return ONLY JSON:
         let rawData;
         try {
             rawData = JSON.parse(jsonMatch[0]);
-        } catch (e) {
+        } catch {
             throw new Error('Failed to parse AI JSON response.');
         }
 
@@ -277,7 +277,7 @@ Return ONLY JSON:
         // Use validated data or merge with raw for flexibility
         const data = zodValidation.success ? zodValidation.data : rawData;
 
-        const rooms: RoomDimension[] = (data.rooms || []).map((r: any) => ({
+        const rooms: RoomDimension[] = (data.rooms || []).map((r: { name?: string; length?: number; width?: number; area?: number }) => ({
             name: r.name || 'Phòng',
             length: r.length || 0,
             width: r.width || 0,
@@ -417,7 +417,7 @@ async function calculateMaterials(
     rooms: RoomDimension[],
     style: 'nhà_cấp_4' | 'nhà_phố' | 'biệt_thự',
     wallPerimeter: number,
-    roofType: string
+    _roofType: string
 ): Promise<MaterialEstimate[]> {
     const materials: MaterialEstimate[] = []
     const std = (CONSTRUCTION_STANDARDS as Record<string, ConstructionStandard | object>)[style] as ConstructionStandard || CONSTRUCTION_STANDARDS.nhà_cấp_4
@@ -425,7 +425,7 @@ async function calculateMaterials(
 
     if (type === 'general') {
         // Bricks: Average 100 bricks/m2 of wall area
-        const wallArea = wallPerimeter * 3.5
+        // const _wallArea = wallPerimeter * 3.5
         materials.push({
             productName: 'Gạch ống 8×8×18cm',
             quantity: Math.ceil(area * std.bricks),
@@ -760,7 +760,7 @@ CHỈ trả về JSON, không có text giải thích:
 
         try {
             data = JSON.parse(cleanedText)
-        } catch (parseError) {
+        } catch {
             // Fallback: Try to extract dimensions from description manually
             const dimensionRegex = /(\d+(?:[.,]\d+)?)\s*[xX×]\s*(\d+(?:[.,]\d+)?)\s*m?/g
             const matches = [...description.matchAll(dimensionRegex)]

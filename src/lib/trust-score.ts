@@ -13,6 +13,13 @@ import { prisma } from './prisma'
  * 
  * Range: 10 - 100
  */
+
+interface BasicReview {
+    rating: number;
+    priceAccuracy?: number;
+    materialQuality?: number;
+}
+
 export async function updateContractorTrustScore(contractorId: string) {
     try {
         const profile = await prisma.contractorProfile.findUnique({
@@ -30,7 +37,7 @@ export async function updateContractorTrustScore(contractorId: string) {
             select: { contractorVerified: true }
         })
 
-        const reviews = profile.reviews as any[]
+        const reviews = profile.reviews as unknown as BasicReview[]
         const reviewCount = reviews.length
 
         // Base score
@@ -107,7 +114,7 @@ export async function getTrustScoreBreakdown(contractorId: string) {
         select: { contractorVerified: true }
     })
 
-    const reviews = profile.reviews as any[]
+    const reviews = profile.reviews as unknown as BasicReview[]
     const reviewCount = reviews.length
 
     const avgRating = reviewCount > 0

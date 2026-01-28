@@ -4,7 +4,7 @@
  */
 
 // In-memory conversation state storage
-const conversationCache = new Map<string, any>()
+const conversationCache = new Map<string, ConversationState>()
 
 export type ConversationFlow =
   | 'ORDER_CREATION'      // Creating order from material list
@@ -17,9 +17,16 @@ export interface ConversationState {
   sessionId: string
   flow: ConversationFlow
   step: number
-  data: Record<string, any>
+  data: Record<string, any> // Keep any for flexibility in multi-flow data
   createdAt: Date
   expiresAt: Date
+}
+
+export interface FlowResponseResult {
+  shouldContinue: boolean
+  isConfirmed?: boolean
+  isCancelled?: boolean
+  nextPrompt?: string
 }
 
 // In-memory store (fallback when Redis not available)
@@ -266,7 +273,7 @@ export interface OCRInvoiceData {
 
 export async function startOCRInvoiceFlow(
   sessionId: string,
-  parsedInvoice: any
+  parsedInvoice: Record<string, unknown>
 ): Promise<ConversationState> {
   return await setConversationState(sessionId, 'OCR_INVOICE', 1, {
     parsedInvoice,
@@ -298,12 +305,7 @@ export async function startCRUDConfirmationFlow(
 export async function processFlowResponse(
   sessionId: string,
   userMessage: string
-): Promise<{
-  shouldContinue: boolean
-  isConfirmed?: boolean
-  isCancelled?: boolean
-  nextPrompt?: string
-}> {
+): Promise<FlowResponseResult> {
   const state = await getConversationState(sessionId)
 
   if (!state) {
@@ -352,7 +354,7 @@ async function processOrderCreationResponse(
   sessionId: string,
   userMessage: string,
   state: ConversationState
-): Promise<any> {
+): Promise<FlowResponseResult> {
   const currentStep = state.data.currentStep
   const lowerMessage = userMessage.toLowerCase().trim()
 
@@ -604,7 +606,7 @@ async function processOCRInvoiceResponse(
   sessionId: string,
   userMessage: string,
   state: ConversationState
-): Promise<any> {
+): Promise<FlowResponseResult> {
   // Simple confirmation
   return {
     shouldContinue: true,
@@ -619,7 +621,7 @@ async function processCRUDConfirmationResponse(
   sessionId: string,
   userMessage: string,
   state: ConversationState
-): Promise<any> {
+): Promise<FlowResponseResult> {
   // Simple confirmation
   return {
     shouldContinue: true,

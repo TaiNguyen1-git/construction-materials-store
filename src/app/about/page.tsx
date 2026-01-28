@@ -1,7 +1,8 @@
 'use client'
 
 import Link from 'next/link'
-import { Package, Truck, Users, Star, Shield, Clock, Award, CheckCircle2, Target, Eye, ArrowRight, Linkedin, Twitter, Mail } from 'lucide-react'
+import { Shield, Clock, Award, CheckCircle2, Target, Eye, ArrowRight, Linkedin, Twitter, Mail } from 'lucide-react'
+import Image from 'next/image'
 import Header from '@/components/Header'
 
 export default function AboutPage() {
@@ -12,10 +13,12 @@ export default function AboutPage() {
       {/* Premium Hero Section - Bright Blue Theme (Fixed Legibility) */}
       <section className="relative h-[80vh] flex items-center overflow-hidden">
         <div className="absolute inset-0 bg-primary-700">
-          <img
+          <Image
             src="https://images.unsplash.com/photo-1504307651254-35680f356dfd?q=80&w=2070&auto=format&fit=crop"
             alt="Modern Construction"
-            className="w-full h-full object-cover opacity-20 scale-105 animate-slow-zoom"
+            fill
+            className="object-cover opacity-20 scale-105 animate-slow-zoom"
+            priority
           />
           {/* Deepened gradient for better text contrast */}
           <div className="absolute inset-0 bg-gradient-to-br from-primary-800 via-primary-700/90 to-blue-600/90" />
@@ -97,7 +100,7 @@ export default function AboutPage() {
                 <Eye className="w-12 h-12 mb-6" />
                 <h3 className="text-2xl font-black mb-4">Sứ mệnh</h3>
                 <p className="text-primary-100 leading-relaxed font-medium">
-                  "Mang đến những sản phẩm chất lượng nhất với giá thành hợp lý nhất, thông qua việc ứng dụng công nghệ để loại bỏ mọi lãng phí trong chuỗi cung ứng."
+                  &quot;Mang đến những sản phẩm chất lượng nhất với giá thành hợp lý nhất, thông qua việc ứng dụng công nghệ để loại bỏ mọi lãng phí trong chuỗi cung ứng.&quot;
                 </p>
               </div>
               <Link href="/projects" className="mt-8 inline-flex items-center gap-2 font-bold hover:gap-3 transition-all">
@@ -184,7 +187,7 @@ export default function AboutPage() {
             ].map((member, idx) => (
               <div key={idx} className="group cursor-pointer">
                 <div className="relative aspect-[4/5] rounded-[3rem] overflow-hidden mb-8 shadow-2xl shadow-primary-500/10 border-4 border-white">
-                  <img src={member.image} alt={member.name} className="w-full h-full object-cover grayscale opacity-90 group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-700 group-hover:scale-105" />
+                  <Image src={member.image} alt={member.name} fill className="object-cover grayscale opacity-90 group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-700 group-hover:scale-105" />
                   <div className="absolute inset-0 bg-primary-600/20 mix-blend-overlay opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
                   <div className="absolute inset-0 bg-gradient-to-t from-primary-900/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
                   <div className="absolute bottom-8 left-0 right-0 flex justify-center gap-4 translate-y-10 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-500 delay-100">
@@ -214,7 +217,7 @@ export default function AboutPage() {
       <section className="bg-primary-600 py-24 text-white relative overflow-hidden">
         <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-20"></div>
         <div className="max-w-4xl mx-auto px-4 relative z-10 text-center">
-          <h2 className="text-4xl md:text-5xl font-black mb-8 leading-tight italic">"Chúng tôi xây dựng không chỉ là những bức tường, mà là niềm tin cho mọi kiến trúc sư và chủ đầu tư."</h2>
+          <h2 className="text-4xl md:text-5xl font-black mb-8 leading-tight italic">&quot;Chúng tôi xây dựng không chỉ là những bức tường, mà là niềm tin cho mọi kiến trúc sư và chủ đầu tư.&quot;</h2>
           <div className="flex flex-col sm:flex-row gap-6 justify-center items-center">
             <Link href="/contact" className="px-10 py-5 bg-white text-primary-600 rounded-full font-black hover:scale-105 transition-all shadow-2xl">
               Liên Hệ Hợp Tác

@@ -1,4 +1,4 @@
-import { BookOpen, CheckCircle, Scale, Building, HardHat, FileText } from 'lucide-react'
+import { BookOpen, CheckCircle, Scale, HardHat, FileText } from 'lucide-react'
 import Link from 'next/link'
 
 export default function StandardsPage() {
@@ -22,7 +22,7 @@ export default function StandardsPage() {
                     </div>
                     <div className="hidden sm:block w-px h-8 bg-neutral-200"></div>
                     <p className="max-w-md text-sm leading-relaxed font-medium italic">
-                        "Chúng tôi nâng cao tiêu chuẩn sống thông qua việc kiểm soát khắt khe chất lượng đầu vào của mọi công trình."
+                        &quot;Chúng tôi nâng cao tiêu chuẩn sống thông qua việc kiểm soát khắt khe chất lượng đầu vào của mọi công trình.&quot;
                     </p>
                 </div>
             </section>

@@ -54,13 +54,13 @@ export async function GET(request: NextRequest) {
     ])
 
     // Calculate total products manually
-    const categoriesWithCounts = (categories as any[]).map(category => {
+    const categoriesWithCounts = categories.map(category => {
       // Find products directly in this category
       const directProducts = allProducts.filter(p => p.categoryId === category.id)
       const directCount = directProducts.length
 
       // Find products in children categories
-      const childrenIds = (category.children || []).map((c: any) => c.id)
+      const childrenIds = (category.children || []).map((c: { id: string }) => c.id)
       const childrenProducts = allProducts.filter(p => childrenIds.includes(p.categoryId))
       const childrenCount = childrenProducts.length
 
@@ -74,7 +74,7 @@ export async function GET(request: NextRequest) {
       // Ensure we have a valid image URL (some might be placeholders)
       const categoryImage = category.image || fallbackImage
 
-      const cleanChildren = (category.children || []).map((child: any) => {
+      const cleanChildren = (category.children || []).map((child: { id: string, name: string, isActive: boolean }) => {
         const childDirectProducts = allProducts.filter(p => p.categoryId === child.id)
         return {
           ...child,
@@ -164,11 +164,12 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     )
 
-  } catch (error: any) {
-    console.error('Create category error:', error)
+  } catch (error: unknown) {
+    const err = error as any // Keep as any for P2002 check if not importing Prisma
+    console.error('Create category error:', err)
 
     // Handle unique constraint error (duplicate name)
-    if (error.code === 'P2002') {
+    if (err.code === 'P2002') {
       return NextResponse.json(
         createErrorResponse('Danh mục này đã tồn tại', 'DUPLICATE_ERROR'),
         { status: 409 }

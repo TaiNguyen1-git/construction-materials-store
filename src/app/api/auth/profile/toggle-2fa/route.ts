@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
                     hasSetTwoFactor: true,
                     otpCode: null,
                     otpExpiresAt: null
-                } as any
+                }
             })
 
             return NextResponse.json({ success: true, message: 'Đã kích hoạt xác thực 2 lớp' })
@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
             // Turning OFF 2FA
             await prisma.user.update({
                 where: { id: user.id },
-                data: { is2FAEnabled: false, hasSetTwoFactor: true } as any
+                data: { is2FAEnabled: false, hasSetTwoFactor: true }
             })
 
             return NextResponse.json({ success: true, message: 'Đã tắt xác thực 2 lớp' })

@@ -37,7 +37,7 @@ export const getWorkingModelConfig = async () => {
 
       workingModelName = AI_CONFIG.GEMINI.MODEL;
       return { client, modelName: workingModelName };
-    } catch (error) {
+    } catch {
       // If 429, we might accept it as "working" but rate limited, but better to find one that works now?
       // Actually, if 2.5 returns 429, it exists. We should probably stick with it if it's the user preference, 
       // but if we want reliability, maybe fallback.
@@ -59,7 +59,7 @@ export const getWorkingModelConfig = async () => {
 
       workingModelName = modelName;
       return { client, modelName };
-    } catch (error) {
+    } catch {
       // Special case: 429 means it exists but we are out of quota. 
       // We might want to use it anyway if it is the best model? 
       // No, for reliability we should keep searching for a 200 OK one.
@@ -84,6 +84,15 @@ export interface OCRResponse {
   extractedText: string
   processedData: Record<string, unknown>
   confidence: number
+}
+
+// Define type for order request
+export interface AIOrderRequest {
+  items: Array<{ productName: string; quantity: number; unit: string }>;
+  customerName?: string | null;
+  phone?: string | null;
+  deliveryAddress?: string | null;
+  vatInfo?: { companyName: string; taxId: string; companyAddress: string } | null;
 }
 
 interface GeminiPart {
@@ -119,7 +128,7 @@ export class AIService {
         : "Tôi đã hiểu. Tôi sẽ đóng vai trò là trợ lý ảo của cửa hàng vật liệu xây dựng và hỗ trợ khách hàng nhiệt tình, chuyên nghiệp."
 
       // Prepare the conversation history for Gemini
-      let contents: GeminiContent[] = [
+      const contents: GeminiContent[] = [
         {
           role: "user",
           parts: [{ text: systemPrompt }]
@@ -278,7 +287,7 @@ export class AIService {
         productRecommendations: structured.productRecommendations || [],
         confidence: 0.9
       }
-    } catch (error) {
+    } catch {
       // Fallback to basic structure
       return {
         response,
@@ -344,7 +353,7 @@ export class AIService {
   }
 
   // Get smart recommendations using Hybrid Search (RAG)
-  static async getProductRecommendations(query: string, context?: any): Promise<any[]> {
+  static async getProductRecommendations(query: string): Promise<Record<string, unknown>[]> {
     try {
       const { RAGService } = await import('./rag-service')
 
@@ -422,8 +431,8 @@ export class AIService {
         // Remove any markdown code block markers if present
         const cleanedText = sentimentText.replace(/```json\s*|\s*```/g, '').trim()
         sentiment = JSON.parse(cleanedText)
-      } catch (parseError) {
-        console.error('Failed to parse Gemini sentiment response:', parseError)
+      } catch {
+        console.error('Failed to parse Gemini sentiment response:', sentimentText)
         // Try to extract JSON from the text
         const jsonMatch = sentimentText.match(/\{.*\}/)
 
@@ -448,7 +457,7 @@ export class AIService {
   }
 
   // Extract order details from natural language request using Gemini
-  static async parseOrderRequest(message: string): Promise<any> {
+  static async parseOrderRequest(message: string): Promise<AIOrderRequest | null> {
     try {
       const { client, modelName } = await getWorkingModelConfig();
       if (!client) throw new Error('Client init failed');
@@ -496,16 +505,16 @@ export class AIService {
         const cleanedText = text.replace(/```json\s*|\s*```/g, '').trim()
         data = JSON.parse(cleanedText)
 
-      } catch (parseError) {
+      } catch {
         const jsonMatch = text.match(/\{[\s\S]*\}/)
         if (jsonMatch) {
           try {
             data = JSON.parse(jsonMatch[0])
-          } catch (e) { }
+          } catch { }
         }
       }
 
-      return data
+      return data as AIOrderRequest | null
     } catch (error) {
       console.error('Gemini order parsing error:', error)
       return null
@@ -513,7 +522,7 @@ export class AIService {
   }
 
   // Extract material calculation parameters from user query using Gemini
-  static async extractMaterialCalculationParams(query: string): Promise<any> {
+  static async extractMaterialCalculationParams(query: string): Promise<Record<string, unknown> | null> {
     try {
       const { client, modelName } = await getWorkingModelConfig();
       if (!client) throw new Error('Client init failed');
@@ -564,12 +573,12 @@ export class AIService {
         const cleanedText = text.replace(/```json\s*|\s*```/g, '').trim()
         params = JSON.parse(cleanedText)
 
-      } catch (parseError) {
+      } catch {
         const jsonMatch = text.match(/\{[\s\S]*\}/)
         if (jsonMatch) {
           try {
             params = JSON.parse(jsonMatch[0])
-          } catch (e) { }
+          } catch { }
         }
       }
 
@@ -581,7 +590,7 @@ export class AIService {
   }
 
   // Forecast demand using Statistical Methods (replaced Gemini due to rate limits)
-  static async forecastDemand(historyData: { date: string; quantity?: number; value?: number }[]): Promise<any> {
+  static async forecastDemand(historyData: { date: string; quantity?: number; value?: number }[]): Promise<Record<string, unknown>> {
 
     try {
       // Import statistical forecasting service
@@ -667,19 +676,20 @@ export class AIService {
       userHistory?: Record<string, unknown>[],
       cartItems?: (Record<string, unknown> & { productId?: string; id?: string })[]
     }
-  ): Promise<any[]> {
+  ): Promise<Record<string, unknown>[]> {
 
     try {
       // Import collaborative filtering service
       const { collaborativeFiltering } = await import('./cf-recommendations')
-      const { prisma } = await import('./prisma')
 
-      let recommendations: any[] = []
+
+      let recommendations: Record<string, unknown>[] = []
 
       // If viewing a product, get similar products
       if (context.viewedProduct?.id) {
         const similar = await collaborativeFiltering.getSimilarProducts(context.viewedProduct.id, 5)
         const enriched = await collaborativeFiltering.enrichRecommendations(similar)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         recommendations = enriched.map((p: any) => ({
           name: p.name,
           reason: p.recommendationReason || 'Sản phẩm liên quan',
@@ -689,9 +699,10 @@ export class AIService {
 
       // If user has cart items, get frequently bought together
       if (context.cartItems && context.cartItems.length > 0) {
-        const cartIds = context.cartItems.map((c: any) => c.productId || c.id).filter(Boolean)
+        const cartIds = context.cartItems.map((c: Record<string, unknown> & { productId?: string; id?: string }) => c.productId || c.id).filter((id): id is string => !!id)
         const fbt = await collaborativeFiltering.getFrequentlyBoughtTogether(cartIds, 5)
         const enriched = await collaborativeFiltering.enrichRecommendations(fbt)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const fbtRecs = enriched.map((p: any) => ({
           name: p.name,
           reason: p.recommendationReason || 'Thường mua cùng',
@@ -704,6 +715,7 @@ export class AIService {
       if (recommendations.length === 0) {
         const popular = await collaborativeFiltering.getPopularProducts(5)
         const enriched = await collaborativeFiltering.enrichRecommendations(popular)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         recommendations = enriched.map((p: any) => ({
           name: p.name,
           reason: 'Sản phẩm bán chạy',
@@ -722,7 +734,7 @@ export class AIService {
   static async optimizeLogistics(
     orders: Record<string, unknown>[],
     vehicles: Record<string, unknown>[]
-  ): Promise<any> {
+  ): Promise<Record<string, unknown> | null> {
 
     try {
       const { client, modelName } = await getWorkingModelConfig();
@@ -760,7 +772,7 @@ export class AIService {
         const cleanedText = text.replace(/```json\s*|\s*```/g, '').trim()
         plan = JSON.parse(cleanedText)
 
-      } catch (e) {
+      } catch {
         // Fallback logic could be added here
       }
       return plan;
@@ -771,7 +783,7 @@ export class AIService {
   }
 
   // Analyze credit risk for debt management
-  static async analyzeCreditRisk(customerData: Record<string, unknown>): Promise<any> {
+  static async analyzeCreditRisk(customerData: Record<string, unknown>): Promise<Record<string, unknown> | null> {
 
     try {
       const { client, modelName } = await getWorkingModelConfig();
@@ -807,7 +819,7 @@ export class AIService {
       try {
         const cleanedText = text.replace(/```json\s*|\s*```/g, '').trim()
         analysis = JSON.parse(cleanedText)
-      } catch (e) { }
+      } catch { }
       return analysis;
 
     } catch (error) {
@@ -889,7 +901,7 @@ export class AIService {
       try {
         const cleanedText = text.replace(/```json\s*|\s*```/g, '').trim();
         invoiceData = JSON.parse(cleanedText);
-      } catch (parseError) {
+      } catch {
         // Try to find JSON block
         const jsonMatch = text.match(/\{[\s\S]*\}/);
         if (jsonMatch) {

@@ -39,13 +39,13 @@ export const ChatbotResponseSchema = z.object({
     invoiceNumber: z.string().optional(),
     invoiceDate: z.string().optional(),
     supplierName: z.string().optional(),
-    items: z.array(z.any()).optional(),
+    items: z.array(z.unknown()).optional(),
     totalAmount: z.number().optional(),
     confidence: z.number().optional(),
   }).optional(),
-  orderData: z.any().optional(),
-  calculationData: z.record(z.any()).optional(),
-  data: z.any().optional(),
+  orderData: z.unknown().optional(),
+  calculationData: z.record(z.unknown()).optional(),
+  data: z.unknown().optional(),
 });
 
 export const InvoiceDataSchema = z.object({
@@ -84,7 +84,7 @@ export const registerSchema = z.object({
 /**
  * Common request validation helper
  */
-export function validateRequest<T>(schema: z.ZodSchema<T>, data: any) {
+export function validateRequest<T>(schema: z.ZodSchema<T>, data: unknown) {
   const result = schema.safeParse(data);
   if (result.success) {
     return { success: true, data: result.data, errors: null };

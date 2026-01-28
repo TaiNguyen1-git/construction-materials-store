@@ -53,7 +53,7 @@ export const validateURL = (url: string): boolean => {
   try {
     new URL(url);
     return true;
-  } catch (_) {
+  } catch {
     return false;
   }
 };
@@ -71,13 +71,13 @@ export interface ValidationResult {
 }
 
 // Validate form fields
-export const validateForm = (fields: Record<string, any>, rules: Record<string, Function[]>): ValidationResult => {
+export const validateForm = (fields: Record<string, unknown>, rules: Record<string, ((value: unknown) => boolean)[]>): ValidationResult => {
   const errors: string[] = [];
-  
+
   for (const fieldName in rules) {
     const fieldValue = fields[fieldName];
     const fieldRules = rules[fieldName];
-    
+
     for (const rule of fieldRules) {
       if (!rule(fieldValue)) {
         errors.push(`${fieldName} is invalid`);
@@ -85,7 +85,7 @@ export const validateForm = (fields: Record<string, any>, rules: Record<string, 
       }
     }
   }
-  
+
   return {
     isValid: errors.length === 0,
     errors,

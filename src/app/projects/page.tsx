@@ -144,27 +144,30 @@ export default function PublicProjectsPage() {
 
             {/* Filter & Search Bar */}
             <div className="max-w-7xl mx-auto px-4 -mt-8 relative z-20">
-                <div className="bg-white rounded-3xl shadow-xl shadow-slate-200/50 p-4 border border-slate-100 grid grid-cols-1 md:grid-cols-12 gap-4">
-                    <div className="md:col-span-12 lg:col-span-5 relative group">
-                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-primary-600 transition-colors" />
+                <div className="bg-white rounded-3xl shadow-xl shadow-slate-200/50 p-2 pl-4 border border-slate-100 flex flex-col lg:flex-row items-center gap-2">
+                    <div className="w-full lg:w-[400px] relative group shrink-0">
+                        <Search className="absolute left-0 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-primary-600 transition-colors pointer-events-none" />
                         <input
                             type="text"
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
                             placeholder="Tìm kiếm dự án, địa điểm..."
-                            className="w-full pl-12 pr-4 py-4 bg-slate-50 border-none rounded-2xl outline-none focus:ring-2 focus:ring-primary-500 font-bold text-slate-700 transition-all"
+                            className="w-full pl-8 pr-4 py-3 bg-transparent border-none outline-none font-bold text-slate-700 placeholder:text-slate-400 placeholder:font-medium"
                         />
                     </div>
-                    <div className="md:col-span-12 lg:col-span-7 flex flex-wrap items-center gap-2 overflow-x-auto pb-1 md:pb-0">
+
+                    <div className="w-px h-8 bg-slate-100 hidden lg:block mx-2"></div>
+
+                    <div className="w-full flex items-center gap-2 overflow-x-auto no-scrollbar pb-2 lg:pb-0 mask-gradient-right">
                         {CATEGORIES.map(cat => (
                             <button
                                 key={cat.id}
                                 onClick={() => setActiveCategory(cat.id)}
-                                className={`flex items-center gap-2 px-6 py-4 rounded-2xl font-black text-xs uppercase tracking-wider transition-all whitespace-nowrap ${activeCategory === cat.id
-                                    ? 'bg-primary-600 text-white shadow-lg shadow-primary-200 scale-105'
-                                    : 'bg-white text-slate-500 hover:bg-slate-50 border border-slate-100'}`}
+                                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-[11px] uppercase tracking-wider transition-all whitespace-nowrap border ${activeCategory === cat.id
+                                    ? 'bg-primary-600 border-primary-600 text-white shadow-md shadow-primary-200'
+                                    : 'bg-white border-slate-200 text-slate-500 hover:border-primary-200 hover:text-primary-600'}`}
                             >
-                                <cat.icon className="w-4 h-4" />
+                                <cat.icon className="w-3.5 h-3.5" />
                                 {cat.name}
                             </button>
                         ))}

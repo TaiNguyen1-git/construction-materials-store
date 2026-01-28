@@ -43,8 +43,16 @@ interface BusinessDocument {
     status: 'pending' | 'verified' | 'rejected'
 }
 
+interface FeaturedProject {
+    id: number
+    title: string
+    image: string
+    year: string
+}
+
 export default function ContractorProfilePage() {
     const [sidebarOpen, setSidebarOpen] = useState(true)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const [user, setUser] = useState<any>(null)
     const [loading, setLoading] = useState(false)
     const [saving, setSaving] = useState(false)
@@ -70,7 +78,7 @@ export default function ContractorProfilePage() {
         yearsExperience: '0'
     })
 
-    const [featuredProjects, setFeaturedProjects] = useState<any[]>([])
+    const [featuredProjects, setFeaturedProjects] = useState<FeaturedProject[]>([])
 
     // Documents state
     const [documents, setDocuments] = useState<BusinessDocument[]>([])

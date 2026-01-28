@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { createSuccessResponse, createErrorResponse } from '@/lib/api-types'
 import { z } from 'zod'
-import { AIService } from '@/lib/ai-service'
+
+import { AIService, type AIOrderRequest } from '@/lib/ai-service'
 import { isAIEnabled } from '@/lib/ai-config'
 import { RAGService } from '@/lib/rag-service'
 import { buildEnhancedPrompt, buildUserMessage, type ChatContext } from '@/lib/ai-prompts-enhanced'
@@ -13,8 +14,9 @@ import { materialCalculator } from '@/lib/material-calculator-service'
 import { ADMIN_WELCOME_MESSAGE, CUSTOMER_WELCOME_MESSAGE } from '@/lib/ai-prompts-admin'
 
 // ===== NEW IMPORTS =====
-import { detectIntent, requiresManagerRole } from '@/lib/chatbot/intent-detector'
-import { extractEntities, parseOrderItems } from '@/lib/chatbot/entity-extractor'
+import { detectIntent, requiresManagerRole, type IntentResult } from '@/lib/chatbot/intent-detector'
+import { extractEntities, parseOrderItems, type OrderItem, type ExtractedEntities } from '@/lib/chatbot/entity-extractor'
+import { type ConversationState, type OrderCreationData } from '@/lib/chatbot/conversation-state'
 
 import { executeAction } from '@/lib/chatbot/action-handler'
 import { executeAnalyticsQuery } from '@/lib/chatbot/analytics-engine'
@@ -32,6 +34,14 @@ import {
 import { checkRateLimit, getRateLimitIdentifier, RateLimitConfigs, formatRateLimitError } from '@/lib/rate-limiter'
 import { generateChatbotFallbackResponse } from '@/app/api/chatbot/fallback-responses'
 import { checkRuleBasedResponse } from '@/lib/chatbot/rule-based-responses'
+
+interface BotOrderItem {
+  productName?: string;
+  productId?: string;
+  quantity?: number;
+  unit?: string;
+  selectedProduct?: { name: string; id: string };
+}
 
 // ===== HELPER: Filter placeholder guest info =====
 const PLACEHOLDER_NAMES = [
@@ -117,14 +127,14 @@ export async function POST(request: NextRequest) {
       rateLimitConfig = {
         windowMs: RateLimitConfigs.OCR.windowMs,
         max: 30
-      } as any
+      }
       rateLimitEndpoint = 'ocr'
     } else if (isAdmin) {
       // Admin queries (analytics, CRUD)
       rateLimitConfig = {
         windowMs: RateLimitConfigs.ANALYTICS.windowMs,
         max: 30
-      } as any
+      }
       rateLimitEndpoint = 'admin'
     }
 
@@ -251,7 +261,7 @@ export async function POST(request: NextRequest) {
           createSuccessResponse({
             message: '🛒 **Xác nhận đặt hàng**\n\n' +
               'Danh sách sản phẩm:\n' +
-              (currentState.data.items || []).map((item: any, idx: number) =>
+              (currentState.data.items || []).map((item: { productName?: string, name?: string, quantity?: number, unit?: string }, idx: number) =>
                 `${idx + 1}. ${item.productName || item.name}: ${item.quantity || 1} ${item.unit || 'bao'}`
               ).join('\n') +
               '\n\n✅ Vui lòng xác nhận đặt hàng hoặc hủy bỏ.',
@@ -295,7 +305,7 @@ export async function POST(request: NextRequest) {
         // Check if we have pending product clarifications
         if (flowData.pendingProductSelection) {
           // Parse user selection (number or product name)
-          const selectedProducts: any[] = []
+          const selectedProducts: Array<Record<string, unknown>> = []
 
           for (const pending of flowData.pendingProductSelection) {
             const userChoice = message.toLowerCase().trim()
@@ -310,7 +320,7 @@ export async function POST(request: NextRequest) {
               }
             } else {
               // Try to match by product name
-              selectedProduct = pending.products.find((p: any) =>
+              selectedProduct = pending.products.find((p: { name: string, id: string }) =>
                 p.name.toLowerCase().includes(userChoice) ||
                 userChoice.includes(p.name.toLowerCase())
               )
@@ -318,7 +328,7 @@ export async function POST(request: NextRequest) {
 
             if (selectedProduct) {
               // Update the item with selected product
-              const originalItem = flowData.items.find((item: any) =>
+              const originalItem = flowData.items.find((item: Record<string, unknown>) =>
                 item.productName === pending.item.productName
               )
               if (originalItem) {
@@ -337,11 +347,12 @@ export async function POST(request: NextRequest) {
 
           // Update flow data with selected products
           await updateFlowData(sessionId, {
-            items: flowData.items.map((item: any) => {
-              const selected = selectedProducts.find((s: any) =>
-                s.productName === item.productName ||
-                (s.selectedProduct && s.selectedProduct.name === item.productName)
-              )
+            items: flowData.items.map((item: BotOrderItem) => {
+              const selected = selectedProducts.find((s) => {
+                const sItem = s as unknown as BotOrderItem;
+                return sItem.productName === item.productName ||
+                  (sItem.selectedProduct && sItem.selectedProduct.name === item.productName)
+              })
               return selected || item
             }),
             pendingProductSelection: null,
@@ -354,11 +365,12 @@ export async function POST(request: NextRequest) {
             createSuccessResponse({
               message: '🛒 **Xác nhận đặt hàng**\n\n' +
                 'Danh sách sản phẩm:\n' +
-                selectedProducts.map((item, idx) =>
-                  `${idx + 1}. ${item.selectedProduct?.name || item.productName}: ${item.quantity} ${item.unit}`
-                ).join('\n') +
+                selectedProducts.map((item, idx) => {
+                  const sItem = item as unknown as BotOrderItem;
+                  return `${idx + 1}. ${sItem.selectedProduct?.name || sItem.productName}: ${sItem.quantity} ${sItem.unit}`
+                }).join('\n') +
                 '\n\n✅ Xác nhận đặt hàng?' +
-                (needsInfo ? '\n\n⚠️ *Bạn chưa đăng nhập. Chúng tôi sẽ hỏi thông tin giao hàng sau khi xác nhận.*' : ''),
+                (needsInfo ? '\n\n⚠️ *Bạn chưa đăng nhập. Chúng tôi sẽ hỏi thông tin giao hàng còn thiếu sau khi xác nhận.*' : ''),
               suggestions: needsInfo ? ['Xác nhận', 'Đăng nhập', 'Hủy'] : ['Xác nhận', 'Chỉnh sửa', 'Hủy'],
               confidence: 1.0,
               sessionId,
@@ -889,7 +901,7 @@ export async function POST(request: NextRequest) {
                 ).join('\n') +
                 infoSummary +
                 '\n\n✅ Xác nhận đặt hàng?' +
-                (needsInfo ? '\n\n⚠️ *Bạn chưa đăng nhập. Chúng tôi sẽ hỏi thêm thông tin giao hàng còn thiếu sau khi xác nhận.*' : ''),
+                (needsInfo ? '\n\n⚠️ *Bạn chưa đăng nhập. Chúng tôi sẽ hỏi thông tin giao hàng còn thiếu sau khi xác nhận.*' : ''),
               suggestions: needsInfo ? ['Xác nhận', 'Đăng nhập', 'Hủy'] : ['Xác nhận', 'Chỉnh sửa', 'Hủy'],
               confidence: 0.95,
               sessionId,
@@ -1047,7 +1059,7 @@ export async function POST(request: NextRequest) {
 
       if (parsedItems.length > 0) {
         // Check if we need to clarify product variants
-        const itemsToClarify: Array<{ item: any, products: any[] }> = []
+        const itemsToClarify: Array<{ item: OrderItem, products: Record<string, unknown>[] }> = []
 
         for (const item of parsedItems) {
           // Search for products matching this item name
@@ -1087,10 +1099,11 @@ export async function POST(request: NextRequest) {
               // Multiple variants found - ask user to choose
               clarificationMessages.push(
                 `🔍 Tìm thấy **${products.length}** loại **${item.productName}**:\n\n` +
-                products.map((p, idx) =>
-                  `${idx + 1}. ${p.name} - ${p.price.toLocaleString('vi-VN')}đ/${p.unit}`
-                ).join('\n') +
-                `\n\n💡 Bạn muốn chọn loại nào? (Ví dụ: "1" hoặc "${products[0].name}")`
+                products.map((p, idx) => {
+                  const product = p as { name: string; price: number; unit: string };
+                  return `${idx + 1}. ${product.name} - ${product.price.toLocaleString('vi-VN')}đ/${product.unit}`;
+                }).join('\n') +
+                `\n\n💡 Bạn muốn chọn loại nào? (Ví dụ: "1" hoặc "${(products[0] as { name: string }).name}")`
               )
             } else if (products.length === 0) {
               // No products found
@@ -1344,7 +1357,7 @@ export async function POST(request: NextRequest) {
             })
           )
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error('Product search error:', error)
       }
     }
@@ -1366,7 +1379,7 @@ export async function POST(request: NextRequest) {
           })) || []
 
           // Also try to extract guest info from the message for later use
-          let guestInfoFromMessage: any = undefined
+          let guestInfoFromMessage: Record<string, string> | undefined = undefined
           try {
             const parsedInfo = await AIService.parseOrderRequest(message)
             if (parsedInfo && (parsedInfo.customerName || parsedInfo.phone || parsedInfo.deliveryAddress)) {
@@ -1524,7 +1537,7 @@ export async function POST(request: NextRequest) {
 
 // ===== HELPER FUNCTIONS =====
 
-async function handleAdminOrderManagement(message: string, entities: any, sessionId: string) {
+async function handleAdminOrderManagement(message: string, entities: ExtractedEntities, sessionId: string) {
   try {
     const lower = message.toLowerCase()
 
@@ -1800,11 +1813,11 @@ async function handleAdminOrderManagement(message: string, entities: any, sessio
         timestamp: new Date().toISOString()
       })
     )
-  } catch (error: any) {
-    console.error('Order management error:', error)
+  } catch (error: unknown) {
+    const err = error as Error
     return NextResponse.json(
       createSuccessResponse({
-        message: `❌ Lỗi khi truy vấn đơn hàng: ${error.message}`,
+        message: `❌ Lỗi khi truy vấn đơn hàng: ${err.message}`,
         suggestions: ['Thử lại', 'Trợ giúp'],
         confidence: 0.5,
         sessionId,
@@ -1814,7 +1827,7 @@ async function handleAdminOrderManagement(message: string, entities: any, sessio
   }
 }
 
-async function handleAdminInventoryCheck(message: string, entities: any, sessionId: string) {
+async function handleAdminInventoryCheck(message: string, entities: ExtractedEntities, sessionId: string) {
   try {
     const lower = message.toLowerCase()
 
@@ -1931,11 +1944,11 @@ async function handleAdminInventoryCheck(message: string, entities: any, session
         }
       })
     )
-  } catch (error: any) {
-    console.error('Inventory check error:', error)
+  } catch (error: unknown) {
+    const err = error as Error
     return NextResponse.json(
       createSuccessResponse({
-        message: `❌ Lỗi khi kiểm tra tồn kho: ${error.message}`,
+        message: `❌ Lỗi khi kiểm tra tồn kho: ${err.message}`,
         suggestions: ['Thử lại', 'Trợ giúp'],
         confidence: 0.5,
         sessionId,
@@ -2054,11 +2067,12 @@ async function handleOCRInvoiceFlow(sessionId: string, image: string, message?: 
         ocrData: parsedInvoice
       })
     )
-  } catch (error: any) {
-    console.error('OCR error:', error)
+  } catch (error: unknown) {
+    const err = error as Error
+    console.error('OCR error:', err)
     return NextResponse.json(
       createSuccessResponse({
-        message: `❌ Lỗi xử lý ảnh: ${error.message}`,
+        message: `❌ Lỗi xử lý ảnh: ${err.message}`,
         suggestions: ['Thử lại', 'Trợ giúp'],
         confidence: 0.3,
         sessionId,
@@ -2068,7 +2082,7 @@ async function handleOCRInvoiceFlow(sessionId: string, image: string, message?: 
   }
 }
 
-async function handleOCRInvoiceSave(sessionId: string, state: any) {
+async function handleOCRInvoiceSave(sessionId: string, state: ConversationState) {
   try {
     const parsedInvoice = state.data.parsedInvoice
 
@@ -2308,7 +2322,7 @@ function extractProductKeywords(productName: string): string[] {
   return keywords
 }
 
-async function handleOrderCreation(sessionId: string, customerId: string | undefined, state: any) {
+async function handleOrderCreation(sessionId: string, customerId: string | undefined, state: ConversationState) {
   try {
     const flowData = state.data
 
@@ -2617,7 +2631,7 @@ async function handleOrderCreation(sessionId: string, customerId: string | undef
   }
 }
 
-async function handleCRUDExecution(sessionId: string, state: any, userRole: string) {
+async function handleCRUDExecution(sessionId: string, state: ConversationState, userRole: string) {
   try {
     const crudData = state.data
 

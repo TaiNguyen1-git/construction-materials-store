@@ -109,6 +109,7 @@ interface VectorEntry {
 
 class GeminiVectorStore {
   private vectors: VectorEntry[] = []
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private model: any
 
   constructor() {
@@ -358,7 +359,7 @@ export class RAGService {
   }
 
   // Generate augmented prompt with retrieved context
-  static async generateAugmentedPrompt(userQuery: string, conversationHistory?: any[]): Promise<string> {
+  static async generateAugmentedPrompt(userQuery: string, conversationHistory?: unknown[]): Promise<string> {
     // Expand short use-case queries to include product category
     let expandedQuery = userQuery
     const normalizedQuery = normalizeVietnamese(userQuery.toLowerCase())

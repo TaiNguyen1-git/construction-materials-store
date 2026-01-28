@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { Search, MapPin, ArrowRight, Zap, TrendingUp, ShieldCheck, PenTool, LayoutGrid, Brain, CreditCard, Package, ChevronRight, UserPlus, ChevronDown, HardHat, Quote, Star, Sparkles, Clock, X, Plus, ShoppingCart } from 'lucide-react'
+import { Search, MapPin, ArrowRight, Zap, TrendingUp, ShieldCheck, PenTool, LayoutGrid, Brain, CreditCard, Package, ChevronRight, UserPlus, ChevronDown, HardHat, Quote, Star, Sparkles, Clock, Plus, ShoppingCart } from 'lucide-react'
 import dynamic from 'next/dynamic'
 import { Toaster } from 'react-hot-toast'
 
@@ -231,19 +231,7 @@ export default function HomeClient({
       setSearchSuggestions([])
     }
   }, [searchQuery])
-  // Fetch contractor suggestions when typing in contractor search
-  useEffect(() => {
-    if (activeSearchTab === 'contractors' && searchQuery.length > 0) {
-      const timer = setTimeout(() => {
-        fetchContractorSuggestions(searchQuery)
-      }, 300)
-      return () => clearTimeout(timer)
-    } else if (activeSearchTab === 'contractors' && searchQuery.length === 0) {
-      setContractorSuggestions([])
-    }
-  }, [searchQuery, activeSearchTab])
-
-  const fetchContractorSuggestions = async (query: string) => {
+  const fetchContractorSuggestions = useCallback(async (query: string) => {
     setContractorSearchLoading(true)
     try {
       const city = selectedLocation !== 'Toàn quốc' ? selectedLocation : ''
@@ -262,9 +250,21 @@ export default function HomeClient({
     } finally {
       setContractorSearchLoading(false)
     }
-  }
+  }, [selectedLocation])
 
-  const fetchFeaturedContractors = async () => {
+  // Fetch contractor suggestions when typing in contractor search
+  useEffect(() => {
+    if (activeSearchTab === 'contractors' && searchQuery.length > 0) {
+      const timer = setTimeout(() => {
+        fetchContractorSuggestions(searchQuery)
+      }, 300)
+      return () => clearTimeout(timer)
+    } else if (activeSearchTab === 'contractors' && searchQuery.length === 0) {
+      setContractorSuggestions([])
+    }
+  }, [searchQuery, activeSearchTab, fetchContractorSuggestions])
+
+  const fetchFeaturedContractors = useCallback(async () => {
     try {
       const res = await fetch('/api/contractors/search?featured=true&limit=5')
       if (res.ok) {
@@ -276,31 +276,11 @@ export default function HomeClient({
     } catch (error) {
       console.error('Failed to fetch featured contractors:', error)
     }
-  }
+  }, [])
 
-  useEffect(() => {
-    if (featuredProducts.length === 0) fetchFeaturedProducts()
-    if (categories.length === 0) fetchCategories()
-    if (!initialStats) fetchStats()
-    fetchAIRecommendations()
-    if (dbBanners.length === 0) fetchBanners()
-    if (featuredContractors.length === 0) fetchFeaturedContractors()
 
-    const bannerInterval = setInterval(() => {
-      setCurrentBanner((prev) => (prev + 1) % (dbBanners.length > 0 ? dbBanners.length : DEFAULT_BANNERS.length))
-    }, 5000)
 
-    const reviewInterval = setInterval(() => {
-      setContractorIndex((prev) => (prev + 1) % 6) // Scroll up to the 6th position (8 total - 3 visible)
-    }, 5000)
-
-    return () => {
-      clearInterval(bannerInterval)
-      clearInterval(reviewInterval)
-    }
-  }, [isAuthenticated, user])
-
-  const fetchBanners = async () => {
+  const fetchBanners = useCallback(async () => {
     try {
       const res = await fetch('/api/banners')
       if (res.ok) {
@@ -318,12 +298,12 @@ export default function HomeClient({
           setDbBanners(mapped)
         }
       }
-    } catch (error) {
+    } catch (_error) {
       console.error('Failed to fetch banners')
     }
-  }
+  }, [setDbBanners])
 
-  const fetchCategories = async () => {
+  const fetchCategories = useCallback(async () => {
     try {
       const response = await fetch('/api/categories?limit=8')
       if (response.ok) {
@@ -333,9 +313,9 @@ export default function HomeClient({
     } catch (error) {
       console.error('Failed to fetch categories:', error)
     }
-  }
+  }, [setCategories])
 
-  const fetchFeaturedProducts = async () => {
+  const fetchFeaturedProducts = useCallback(async () => {
     setFeaturedLoading(true)
     try {
       let response = await fetch('/api/products?featured=true&limit=8')
@@ -360,9 +340,9 @@ export default function HomeClient({
     } finally {
       setFeaturedLoading(false)
     }
-  }
+  }, [setFeaturedLoading, setFeaturedProducts])
 
-  const fetchStats = async () => {
+  const fetchStats = useCallback(async () => {
     try {
       const response = await fetch('/api/stats')
       if (response.ok) {
@@ -378,9 +358,9 @@ export default function HomeClient({
     } finally {
       setLoading(false)
     }
-  }
+  }, [setStats, setLoading])
 
-  const fetchAIRecommendations = async () => {
+  const fetchAIRecommendations = useCallback(async () => {
     if (!user) return
     try {
       let customerId = null
@@ -407,7 +387,29 @@ export default function HomeClient({
     } catch (error) {
       console.error('Failed to fetch AI recommendations:', error)
     }
-  }
+  }, [user, setAiRecommendedProducts])
+
+  useEffect(() => {
+    if (featuredProducts.length === 0) fetchFeaturedProducts()
+    if (categories.length === 0) fetchCategories()
+    if (!initialStats) fetchStats()
+    fetchAIRecommendations()
+    if (dbBanners.length === 0) fetchBanners()
+    if (featuredContractors.length === 0) fetchFeaturedContractors()
+
+    const bannerInterval = setInterval(() => {
+      setCurrentBanner((prev) => (prev + 1) % (dbBanners.length > 0 ? dbBanners.length : DEFAULT_BANNERS.length))
+    }, 5000)
+
+    const reviewInterval = setInterval(() => {
+      setContractorIndex((prev) => (prev + 1) % 6) // Scroll up to the 6th position (8 total - 3 visible)
+    }, 5000)
+
+    return () => {
+      clearInterval(bannerInterval)
+      clearInterval(reviewInterval)
+    }
+  }, [isAuthenticated, user, categories.length, dbBanners.length, featuredContractors.length, featuredProducts.length, fetchAIRecommendations, fetchBanners, fetchCategories, fetchFeaturedContractors, fetchFeaturedProducts, fetchStats, initialStats])
 
   const addToCart = (product: FeaturedProduct) => {
 
@@ -1243,7 +1245,7 @@ export default function HomeClient({
                         ))}
                       </div>
 
-                      <p className="text-slate-600 italic mb-8 leading-relaxed flex-grow text-sm">"{review.comment}"</p>
+                      <p className="text-slate-600 italic mb-8 leading-relaxed flex-grow text-sm">&quot;{review.comment}&quot;</p>
 
                       <div className="flex items-center gap-4 border-t border-slate-50 pt-6">
                         <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-lg shadow-md uppercase">
@@ -1311,16 +1313,15 @@ export default function HomeClient({
 
                       {/* Logo Image - Fades in on load */}
                       {/* Logo Image - Fades in on load */}
-                      {p.logo && (
-                        <img
+                      {p.logo && !failedLogos.has(key) && (
+                        <Image
                           src={p.logo}
                           alt={p.name}
+                          width={200}
+                          height={48}
                           className={`relative z-10 h-10 md:h-12 object-contain max-w-full drop-shadow-sm group-hover:drop-shadow-md transition-all duration-500 ${isLoaded ? 'opacity-100 scale-100' : 'opacity-0 scale-90'}`}
                           onLoad={() => setLoadedLogos(prev => new Set(prev).add(key))}
-                          onError={(e) => {
-                            setFailedLogos(prev => new Set(prev).add(key))
-                            e.currentTarget.style.display = 'none'
-                          }}
+                          onError={() => setFailedLogos(prev => new Set(prev).add(key))}
                         />
                       )}
                     </div>

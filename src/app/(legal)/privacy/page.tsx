@@ -22,7 +22,7 @@ export default function PrivacyPage() {
                     </div>
                     <div className="hidden sm:block w-px h-8 bg-neutral-200"></div>
                     <p className="max-w-md text-sm leading-relaxed font-medium italic">
-                        "Sự tin tưởng của bạn là ưu tiên hàng đầu của chúng tôi. Dữ liệu của bạn được bảo mật theo tiêu chuẩn ISO."
+                        &quot;Sự tin tưởng của bạn là ưu tiên hàng đầu của chúng tôi. Dữ liệu của bạn được bảo mật theo tiêu chuẩn ISO.&quot;
                     </p>
                 </div>
             </section>
@@ -108,7 +108,7 @@ export default function PrivacyPage() {
                             <span className="flex items-center justify-center h-10 w-10 rounded-xl bg-blue-500 text-white text-base font-black italic shadow-[0_5px_15px_rgba(59,130,246,0.3)]">03</span>
                             Quyền quản lý của bạn
                         </h2>
-                        <p>Bạn luôn có quyền kiểm soát tuyệt đối đối với "tài sản số" của mình:</p>
+                        <p>Bạn luôn có quyền kiểm soát tuyệt đối đối với &quot;tài sản số&quot; của mình:</p>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 not-prose my-8">
                             {[
                                 { label: "Truy cập", content: "Xem lại toàn bộ dữ liệu đã cung cấp bất cứ lúc nào." },

@@ -8,6 +8,8 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { useAuth } from '@/contexts/auth-context'
+import { fetchWithAuth } from '@/lib/api-client'
 import Sidebar from '../components/Sidebar'
 import ContractorHeader from '../components/ContractorHeader'
 import SuggestedProjectsWidget from '../components/SuggestedProjectsWidget'
@@ -17,42 +19,41 @@ import ContractorOnboardingBanner from '@/components/ContractorOnboardingBanner'
 import StatsOverview from '@/components/contractor/StatsOverview'
 import { Building2 } from 'lucide-react'
 import RecentOrdersWidget from '@/components/contractor/RecentOrdersWidget'
+import { ContractorProfile } from '@prisma/client'
+
+interface DashboardStats {
+    activeProjects: number
+    pendingOrders: number
+    unreadNotifications: number
+    totalSpent: number
+    thisMonthSpent: number
+}
 
 export default function ContractorDashboardPage() {
+    const { user, isAuthenticated, isLoading } = useAuth()
     const [sidebarOpen, setSidebarOpen] = useState(true)
-    const [user, setUser] = useState<any>(null)
-    const [profile, setProfile] = useState<any>(null)
+    const [profile, setProfile] = useState<ContractorProfile | null>(null)
     const router = useRouter()
 
-    const [stats, setStats] = useState<any>(null)
+    const [stats, setStats] = useState<DashboardStats | null>(null)
     const [statsLoading, setStatsLoading] = useState(true)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const [recentOrders, setRecentOrders] = useState<any[]>([])
 
     useEffect(() => {
-        const userData = localStorage.getItem('user')
-        if (userData) {
-            const parsedUser = JSON.parse(userData)
-            setUser(parsedUser)
-            fetchProfile()
-            fetchStats()
-        } else {
-            router.push('/login')
+        if (!isLoading) {
+            if (!isAuthenticated) {
+                router.push('/login')
+            } else {
+                fetchProfile()
+                fetchStats()
+            }
         }
-    }, [router])
+    }, [isAuthenticated, isLoading, router])
 
     const fetchProfile = async () => {
         try {
-            const token = localStorage.getItem('access_token')
-            const userStored = localStorage.getItem('user')
-            const userId = userStored ? JSON.parse(userStored).id : null
-
-            const res = await fetch('/api/contractors/profile', {
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'x-user-id': userId || ''
-                }
-            })
-
+            const res = await fetchWithAuth('/api/contractors/profile')
             if (res.ok) {
                 const result = await res.json()
                 setProfile(result.data)
@@ -64,17 +65,7 @@ export default function ContractorDashboardPage() {
 
     const fetchStats = async () => {
         try {
-            const token = localStorage.getItem('access_token')
-            const userStored = localStorage.getItem('user')
-            const userId = userStored ? JSON.parse(userStored).id : null
-
-            const res = await fetch('/api/contractors/dashboard-stats', {
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'x-user-id': userId || ''
-                }
-            })
-
+            const res = await fetchWithAuth('/api/contractors/dashboard-stats')
             const data = await res.json()
             if (data.success) {
                 setStats(data.stats)
@@ -89,16 +80,8 @@ export default function ContractorDashboardPage() {
 
     const handleContactSupport = async () => {
         try {
-            const token = localStorage.getItem('access_token')
-            const userStored = localStorage.getItem('user')
-            const userId = userStored ? JSON.parse(userStored).id : ''
-
-            const res = await fetch('/api/conversations/support', {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'x-user-id': userId
-                }
+            const res = await fetchWithAuth('/api/conversations/support', {
+                method: 'POST'
             })
 
             const data = await res.json()

@@ -22,7 +22,7 @@ export default function PaymentPolicyPage() {
                     </div>
                     <div className="hidden sm:block w-px h-8 bg-neutral-200"></div>
                     <p className="max-w-md text-sm leading-relaxed font-medium italic">
-                        "Giải pháp thanh toán trung gian đảm bảo an toàn cho túi tiền của bạn và tiến độ công trình."
+                        &quot;Giải pháp thanh toán trung gian đảm bảo an toàn cho túi tiền của bạn và tiến độ công trình.&quot;
                     </p>
                 </div>
             </section>

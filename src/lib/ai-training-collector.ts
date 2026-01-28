@@ -16,7 +16,9 @@ export interface OCRTrainingRecord {
   id: string
   imageUrl: string
   extractedText: string
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   processedData: any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   humanCorrections?: any
   confidence: number
   isApproved: boolean
@@ -30,6 +32,7 @@ export interface ChatbotTrainingRecord {
   userRating?: number
   wasHelpful: boolean
   followupActions: string[]
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   sessionContext: any
   createdAt: Date
 }
@@ -41,6 +44,7 @@ export interface RecommendationTrainingRecord {
   wasClicked: boolean
   wasPurchased: boolean
   userRating?: number
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   contextData: any
   createdAt: Date
 }
@@ -52,16 +56,18 @@ export interface InventoryTrainingRecord {
   actualDemand: number
   confidence: number
   accuracyScore: number
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   seasonalFactors: any
   createdAt: Date
 }
 
 export class AITrainingCollector {
-  
+
   /**
    * Thu thập OCR training data
    */
   async collectOCRTrainingData(startDate?: Date, endDate?: Date): Promise<OCRTrainingRecord[]> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const where: any = {}
     if (startDate) where.createdAt = { gte: startDate }
     if (endDate) where.createdAt = { ...where.createdAt, lte: endDate }
@@ -87,6 +93,7 @@ export class AITrainingCollector {
    * Thu thập Chatbot training data
    */
   async collectChatbotTrainingData(startDate?: Date, endDate?: Date): Promise<ChatbotTrainingRecord[]> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const where: any = {
       interactionType: 'CHATBOT'
     }
@@ -114,6 +121,7 @@ export class AITrainingCollector {
    * Thu thập Recommendation training data
    */
   async collectRecommendationTrainingData(startDate?: Date, endDate?: Date): Promise<RecommendationTrainingRecord[]> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const where: any = {
       interactionType: { in: ['PRODUCT_VIEW', 'ADD_TO_CART', 'PURCHASE'] }
     }
@@ -141,6 +149,7 @@ export class AITrainingCollector {
    * Thu thập Inventory prediction training data
    */
   async collectInventoryTrainingData(startDate?: Date, endDate?: Date): Promise<InventoryTrainingRecord[]> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const where: any = {}
     if (startDate) where.predictionDate = { gte: startDate }
     if (endDate) where.predictionDate = { ...where.predictionDate, lte: endDate }
@@ -152,17 +161,17 @@ export class AITrainingCollector {
 
     // Tính actual demand từ order data
     const trainingData: InventoryTrainingRecord[] = []
-    
+
     for (const prediction of predictions) {
       // Get actual sales data cho cùng thời kỳ
       const actualSales = await this.getActualSales(
-        prediction.productId, 
+        prediction.productId,
         prediction.predictionDate,
         prediction.timeframe
       )
-      
+
       const accuracyScore = this.calculateAccuracy(prediction.predictedDemand, actualSales)
-      
+
       trainingData.push({
         productId: prediction.productId,
         predictionDate: prediction.predictionDate,
@@ -202,17 +211,17 @@ export class AITrainingCollector {
    */
   async exportFormatted(format: 'JSON' | 'CSV' | 'JSONL' = 'JSON'): Promise<string> {
     const data = await this.exportAllTrainingData()
-    
+
     switch (format) {
       case 'JSON':
         return JSON.stringify(data, null, 2)
-      
+
       case 'CSV':
         return this.convertToCSV(data)
-      
+
       case 'JSONL':
         return this.convertToJSONL(data)
-      
+
       default:
         return JSON.stringify(data, null, 2)
     }
@@ -231,7 +240,7 @@ export class AITrainingCollector {
   private async getActualSales(productId: string, date: Date, timeframe: string): Promise<number> {
     const endDate = new Date(date)
     const startDate = new Date(date)
-    
+
     // Adjust date range based on timeframe
     switch (timeframe) {
       case 'WEEK':
@@ -244,7 +253,7 @@ export class AITrainingCollector {
         startDate.setMonth(endDate.getMonth() - 3)
         break
     }
-    
+
     const orders = await prisma.orderItem.findMany({
       where: {
         productId,
@@ -254,7 +263,7 @@ export class AITrainingCollector {
         }
       }
     })
-    
+
     return orders.reduce((sum, item) => sum + item.quantity, 0)
   }
 
@@ -263,12 +272,12 @@ export class AITrainingCollector {
     return Math.max(0, 1 - Math.abs(predicted - actual) / actual)
   }
 
-  private convertToCSV(data: TrainingDataExport): string {
+  private convertToCSV(_data: TrainingDataExport): string {
     // Convert to CSV format - implementation depends on specific needs
     return 'CSV format implementation needed'
   }
 
-  private convertToJSONL(data: TrainingDataExport): string {
+  private convertToJSONL(_data: TrainingDataExport): string {
     // Convert to JSONL format - one JSON object per line
     return 'JSONL format implementation needed'
   }

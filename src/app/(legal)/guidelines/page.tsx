@@ -22,7 +22,7 @@ export default function GuidelinesPage() {
                     </div>
                     <div className="hidden sm:block w-px h-8 bg-neutral-200"></div>
                     <p className="max-w-md text-sm leading-relaxed font-medium italic">
-                        "Vì một môi trường kinh doanh vật liệu xây dựng tử tế, minh bạch và chuyên nghiệp."
+                        &quot;Vì một môi trường kinh doanh vật liệu xây dựng tử tế, minh bạch và chuyên nghiệp.&quot;
                     </p>
                 </div>
             </section>

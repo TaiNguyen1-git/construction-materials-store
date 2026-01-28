@@ -1017,6 +1017,7 @@ export class EmailService {
     `
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private static getOrderConfirmationText(data: any): string {
     return `
 Xin chào ${data.name},
@@ -1026,7 +1027,7 @@ Cảm ơn bạn đã đặt hàng tại SmartBuild!
 Đơn hàng: ${data.orderNumber}
 
 Sản phẩm:
-${data.items.map((item: any) => `- ${item.name}: ${item.quantity} x ${item.price.toLocaleString()}đ`).join('\n')}
+${data.items.map((item: { name: string; quantity: number; price: number }) => `- ${item.name}: ${item.quantity} x ${item.price.toLocaleString()}đ`).join('\n')}
 
 Tổng cộng: ${data.totalAmount.toLocaleString()}đ
 
@@ -1269,6 +1270,7 @@ Hotline: 1900-xxxx
   }
 
   // Support Request HTML Template
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private static getSupportRequestHTML(data: any): string {
     const baseUrl = getBaseUrl()
     const ticketId = `#SP-${data.requestId.slice(-8).toUpperCase()}`
@@ -1297,7 +1299,7 @@ Hotline: 1900-xxxx
           <td style="padding: 0 20px 15px 20px;">
             <table style="width: 100%; border-collapse: collapse;">
               <tr>
-                ${data.attachments.map((file: any) => `
+                ${data.attachments.map((file: { fileType: string; fileUrl: string; fileName: string }) => `
                   <td style="padding: 8px; background: #f8fafc; border: 1px solid #e5e7eb; border-radius: 6px; display: inline-block; margin: 0 8px 8px 0; min-width: 140px;">
                     <table style="width: 100%;">
                       <tr>

@@ -100,7 +100,7 @@ export class ReportGenerator {
         const wb = XLSX.utils.book_new()
 
         // Create header rows
-        const headerRows: any[][] = [
+        const headerRows: (string | number | boolean)[][] = [
             [data.title],
             [data.subtitle || ''],
             [`Ngày tạo: ${data.generatedAt.toLocaleDateString('vi-VN')}`],

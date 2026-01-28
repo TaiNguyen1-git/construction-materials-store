@@ -73,7 +73,7 @@ export class WalletService {
                     walletId: wallet.id,
                     amount: commissionAmount,
                     type: 'COMMISSION' as WalletTransactionType,
-                    description: `Hoa hồng giới thiệu từ đơn hàng #${order.orderNumber} của ${(order.customer as any)?.companyName || order.customer?.userId || 'Khách hàng'}`,
+                    description: `Hoa hồng giới thiệu từ đơn hàng #${order.orderNumber} của ${(order.customer as { companyName?: string; userId?: string })?.companyName || order.customer?.userId || 'Khách hàng'}`,
                     relatedOrderId: orderId
                 }
             })

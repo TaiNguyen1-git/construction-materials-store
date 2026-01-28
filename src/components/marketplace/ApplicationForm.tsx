@@ -303,222 +303,272 @@ ${name}`
     if (!isOpen) return null
 
     return (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+        <div className="fixed inset-0 bg-black/25 backdrop-blur-[2px] flex items-center justify-center z-[200] p-4 animate-in fade-in duration-200">
+            <div className="bg-white rounded-3xl max-w-2xl w-full max-h-[85vh] overflow-hidden flex flex-col shadow-2xl animate-in zoom-in-95 duration-200">
                 {/* Header */}
-                <div className="flex items-center justify-between p-6 border-b border-gray-100">
+                <div className="flex items-center justify-between px-8 py-6 border-b border-slate-100 bg-white sticky top-0 z-10">
                     <div>
-                        <h2 className="text-xl font-bold text-gray-900">Ứng tuyển dự án</h2>
-                        <p className="text-sm text-gray-500 mt-0.5">{projectTitle}</p>
+                        <h2 className="text-2xl font-black text-slate-900 tracking-tight">Ứng tuyển dự án</h2>
+                        <p className="text-sm text-slate-500 font-medium mt-1 pr-8 truncate max-w-md">{projectTitle}</p>
                     </div>
-                    <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full">
-                        <X className="w-5 h-5 text-gray-500" />
+                    <button onClick={onClose} className="p-2.5 bg-slate-50 hover:bg-slate-100 text-slate-400 hover:text-slate-600 rounded-full transition-colors">
+                        <X className="w-5 h-5" />
                     </button>
                 </div>
 
                 {/* Step Indicator */}
-                <div className="flex items-center gap-2 px-6 py-4 bg-gray-50 border-b border-gray-100">
-                    <div className={`flex items-center gap-2 ${step >= 1 ? 'text-blue-600' : 'text-gray-400'}`}>
-                        <div className={`w-7 h-7 rounded-full flex items-center justify-center text-sm font-medium ${step >= 1 ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}>1</div>
-                        <span className="text-sm font-medium">Thông tin</span>
-                    </div>
-                    <div className="flex-1 h-px bg-gray-300" />
-                    <div className={`flex items-center gap-2 ${step >= 2 ? 'text-blue-600' : 'text-gray-400'}`}>
-                        <div className={`w-7 h-7 rounded-full flex items-center justify-center text-sm font-medium ${step >= 2 ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}>2</div>
-                        <span className="text-sm font-medium">Báo giá</span>
+                <div className="px-8 py-4 bg-slate-50/50 border-b border-slate-100">
+                    <div className="flex items-center gap-4">
+                        <div className={`flex items-center gap-3 ${step >= 1 ? 'text-blue-600' : 'text-slate-400'}`}>
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shadow-sm transition-all ${step >= 1 ? 'bg-blue-600 text-white ring-4 ring-blue-50' : 'bg-white border border-slate-200 text-slate-400'}`}>1</div>
+                            <span className="text-sm font-bold hidden sm:inline-block">Thông tin cơ bản</span>
+                        </div>
+                        <div className="flex-1 h-1 rounded-full bg-slate-200 overflow-hidden">
+                            <div className={`h-full bg-blue-600 transition-all duration-300 ${step === 2 ? 'w-full' : 'w-0'}`} />
+                        </div>
+                        <div className={`flex items-center gap-3 ${step >= 2 ? 'text-blue-600' : 'text-slate-400'}`}>
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shadow-sm transition-all ${step >= 2 ? 'bg-blue-600 text-white ring-4 ring-blue-50' : 'bg-white border border-slate-200 text-slate-400'}`}>2</div>
+                            <span className="text-sm font-bold hidden sm:inline-block">Báo giá chi tiết</span>
+                        </div>
                     </div>
                 </div>
 
                 {/* Content */}
-                <div className="flex-1 overflow-y-auto p-6">
+                <div className="flex-1 overflow-y-auto p-8">
                     {step === 1 && (
                         <div className="space-y-6">
                             {isLoggedIn ? (
-                                <div className="p-4 bg-green-50 border border-green-200 rounded-xl">
-                                    <div className="flex items-center gap-3">
-                                        <CheckCircle className="w-5 h-5 text-green-600" />
-                                        <div>
-                                            <p className="font-medium text-green-800">Tài khoản đã xác minh</p>
-                                            <p className="text-sm text-green-600">{contractorName || 'Nhà thầu đối tác'}</p>
-                                        </div>
+                                <div className="p-5 bg-emerald-50 border border-emerald-100 rounded-2xl flex items-center gap-4">
+                                    <div className="w-10 h-10 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center shrink-0">
+                                        <CheckCircle className="w-5 h-5" />
+                                    </div>
+                                    <div>
+                                        <p className="font-bold text-emerald-900 text-sm">Tài khoản đã xác minh</p>
+                                        <p className="text-xs font-medium text-emerald-700 mt-0.5">Hồ sơ ứng tuyển của bạn sẽ được đánh dấu uy tín.</p>
+                                    </div>
+                                    <div className="ml-auto text-xs font-bold text-emerald-700 bg-white px-3 py-1.5 rounded-full shadow-sm border border-emerald-100">
+                                        {contractorName || 'Nhà thầu đối tác'}
                                     </div>
                                 </div>
                             ) : (
-                                <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl">
-                                    <div className="flex items-start gap-3">
-                                        <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
-                                        <div>
-                                            <p className="font-medium text-amber-800">Hồ sơ Tự khai báo</p>
-                                            <p className="text-sm text-amber-600">Thông tin chưa được xác minh. Chủ dự án sẽ thấy cảnh báo này.</p>
-                                        </div>
+                                <div className="p-5 bg-amber-50 border border-amber-100 rounded-2xl flex items-start gap-4">
+                                    <div className="w-10 h-10 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center shrink-0">
+                                        <AlertTriangle className="w-5 h-5" />
+                                    </div>
+                                    <div>
+                                        <p className="font-bold text-amber-900 text-sm">Hồ sơ chưa xác minh</p>
+                                        <p className="text-xs font-medium text-amber-700 mt-1 leading-relaxed">Bạn đang ứng tuyển với tư cách Khách. Hãy đăng ký tài khoản sau khi gửi để tăng độ uy tín cho hồ sơ.</p>
                                     </div>
                                 </div>
                             )}
 
                             {!isLoggedIn && (
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1.5">Họ và tên *</label>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                    <div className="space-y-2">
+                                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Họ và tên <span className="text-red-500">*</span></label>
                                         <input
                                             type="text"
                                             value={form.guestName}
                                             onChange={(e) => setForm({ ...form, guestName: e.target.value })}
-                                            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500"
+                                            placeholder="Nguyễn Văn A"
+                                            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all placeholder:text-slate-400"
                                         />
                                     </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1.5">Số điện thoại *</label>
+                                    <div className="space-y-2">
+                                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Số điện thoại <span className="text-red-500">*</span></label>
                                         <input
                                             type="tel"
                                             value={form.guestPhone}
                                             onChange={(e) => setForm({ ...form, guestPhone: e.target.value })}
-                                            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500"
+                                            placeholder="0912..."
+                                            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all placeholder:text-slate-400"
                                         />
                                     </div>
                                 </div>
                             )}
 
-                            <div>
-                                <div className="flex items-center justify-between mb-1.5">
-                                    <label className="block text-sm font-medium text-gray-700">Giới thiệu năng lực *</label>
+                            <div className="space-y-2">
+                                <div className="flex items-center justify-between">
+                                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Thư giới thiệu <span className="text-red-500">*</span></label>
                                     <button
                                         onClick={handleAIGenerate}
-                                        className="text-xs font-semibold text-purple-600 flex items-center gap-1 hover:text-purple-700 transition-colors"
+                                        className="text-xs font-bold text-purple-600 hover:text-purple-700 hover:bg-purple-50 px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5"
                                     >
                                         <Sparkles className="w-3.5 h-3.5" />
-                                        Tạo mẫu thư
+                                        Viết hộ tôi bằng AI
                                     </button>
                                 </div>
-                                <textarea
-                                    value={form.message}
-                                    onChange={(e) => setForm({ ...form, message: e.target.value })}
-                                    rows={5}
-                                    placeholder="Kinh nghiệm, đội ngũ, các dự án tương tự..."
-                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 resize-none"
-                                />
+                                <div className="relative">
+                                    <textarea
+                                        value={form.message}
+                                        onChange={(e) => setForm({ ...form, message: e.target.value })}
+                                        rows={6}
+                                        placeholder="Hãy giới thiệu ngắn gọn về kinh nghiệm và lý do bạn phù hợp với dự án này..."
+                                        className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all resize-none placeholder:text-slate-400 leading-relaxed"
+                                    />
+                                </div>
                             </div>
                         </div>
                     )}
 
                     {step === 2 && (
-                        <div className="space-y-6">
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Báo giá tổng (VNĐ)</label>
-                                    <input
-                                        type="number"
-                                        value={form.proposedBudget}
-                                        onChange={(e) => setForm({ ...form, proposedBudget: e.target.value })}
-                                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500"
-                                    />
+                        <div className="space-y-8">
+                            <div className="grid grid-cols-2 gap-6">
+                                <div className="space-y-2">
+                                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Tổng ngân sách (VNĐ)</label>
+                                    <div className="relative">
+                                        <input
+                                            type="number"
+                                            value={form.proposedBudget}
+                                            onChange={(e) => setForm({ ...form, proposedBudget: e.target.value })}
+                                            placeholder="0"
+                                            className="w-full pl-5 pr-12 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all placeholder:text-slate-400"
+                                        />
+                                        <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">VNĐ</span>
+                                    </div>
                                 </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Thời gian (ngày)</label>
-                                    <input
-                                        type="number"
-                                        value={form.proposedDays}
-                                        onChange={(e) => setForm({ ...form, proposedDays: e.target.value })}
-                                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500"
-                                    />
+                                <div className="space-y-2">
+                                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Thời gian thi công</label>
+                                    <div className="relative">
+                                        <input
+                                            type="number"
+                                            value={form.proposedDays}
+                                            onChange={(e) => setForm({ ...form, proposedDays: e.target.value })}
+                                            placeholder="0"
+                                            className="w-full pl-5 pr-12 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all placeholder:text-slate-400"
+                                        />
+                                        <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">Ngày</span>
+                                    </div>
                                 </div>
                             </div>
 
-                            <div className="p-4 bg-purple-50 border border-purple-100 rounded-xl relative overflow-hidden">
-                                <div className="flex items-center justify-between mb-3 relative z-10">
-                                    <div className="flex items-center gap-2">
-                                        <Sparkles className="w-4 h-4 text-purple-600" />
-                                        <span className="text-sm font-bold text-purple-900">AI Phân tích mức báo giá</span>
+                            {/* AI Analysis Box */}
+                            <div className="bg-gradient-to-br from-purple-50 to-indigo-50 border border-purple-100 rounded-2xl p-5 relative overflow-hidden">
+                                <div className="absolute top-0 right-0 w-32 h-32 bg-purple-100/50 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
+                                <div className="flex items-center justify-between mb-4 relative z-10">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-8 h-8 rounded-lg bg-white shadow-sm flex items-center justify-center">
+                                            <Sparkles className="w-4 h-4 text-purple-600" />
+                                        </div>
+                                        <div>
+                                            <h4 className="text-sm font-bold text-slate-900">Trợ lý AI phân tích</h4>
+                                            <p className="text-[10px] text-slate-500 font-medium">So sánh giá và gợi ý vật tư</p>
+                                        </div>
                                     </div>
                                     <button
                                         onClick={handleAIAdvice}
                                         disabled={aiLoading || !form.proposedBudget}
-                                        className="text-xs font-bold text-white bg-purple-600 px-3 py-1.5 rounded-lg hover:bg-purple-700 disabled:opacity-30"
+                                        className="text-xs font-bold text-white bg-purple-600 shadow-lg shadow-purple-200 px-4 py-2 rounded-xl hover:bg-purple-700 transition-all disabled:opacity-50 disabled:shadow-none active:scale-95"
                                     >
-                                        {aiLoading ? 'Đang phân tích...' : 'Phân tích ngay'}
+                                        {aiLoading ? 'Đang suy nghĩ...' : 'Phân tích ngay'}
                                     </button>
                                 </div>
-                                {aiAdvice ? (
-                                    <div className="text-sm text-purple-800 bg-white/50 p-3 rounded-lg border border-purple-100">
-                                        {aiAdvice}
+
+                                {(aiAdvice || aiProducts) ? (
+                                    <div className="space-y-3 animate-in fade-in slide-in-from-bottom-2">
+                                        {aiAdvice && (
+                                            <div className="bg-white/60 backdrop-blur-sm p-3 rounded-xl border border-purple-100 text-xs font-medium text-slate-700 leading-relaxed">
+                                                {aiAdvice}
+                                            </div>
+                                        )}
+                                        {aiProducts && (
+                                            <div className="bg-white/80 backdrop-blur-sm p-4 rounded-xl border border-dashed border-purple-200">
+                                                <div className="flex items-center gap-2 mb-2 text-purple-700 font-bold text-xs uppercase tracking-wider">
+                                                    <ShoppingCart className="w-3.5 h-3.5" /> Gợi ý tối ưu chi phí
+                                                </div>
+                                                <p className="text-xs text-slate-600 leading-relaxed mb-2">{aiProducts}</p>
+                                                <p className="text-[10px] text-purple-400 font-medium italic">* Sản phẩm có sẵn tại kho SmartBuild</p>
+                                            </div>
+                                        )}
                                     </div>
                                 ) : (
-                                    <p className="text-xs text-purple-600">AI giúp bạn so sánh báo giá thị trường.</p>
-                                )}
-
-                                {aiProducts && (
-                                    <div className="mt-4 pt-4 border-t border-purple-100">
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <ShoppingCart className="w-4 h-4 text-purple-600" />
-                                            <span className="text-xs font-bold text-purple-900 uppercase">Gợi ý vật tư tối ưu (Tiết kiệm 5%)</span>
-                                        </div>
-                                        <div className="text-xs text-purple-700 leading-relaxed bg-white/40 p-3 rounded-lg border border-dashed border-purple-200">
-                                            {aiProducts}
-                                            <div className="mt-2 text-[10px] text-purple-500 italic">* Các sản phẩm trên đều có sẵn tại hệ thống kho của SmartBuild.</div>
-                                        </div>
-                                    </div>
+                                    <p className="text-xs text-slate-400 italic text-center py-2">Nhập ngân sách và bấm phân tích để nhận lời khuyên.</p>
                                 )}
                             </div>
 
                             {/* BoQ Materials Section */}
-                            <div>
-                                <div className="flex items-center justify-between mb-3">
-                                    <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
-                                        <Package className="w-4 h-4" /> Báo giá vật tư
+                            <div className="space-y-4">
+                                <div className="flex items-center justify-between">
+                                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                                        <Package className="w-4 h-4" /> Bảng kê vật tư (Tùy chọn)
                                     </label>
-                                    <button onClick={() => setShowSearch(!showSearch)} className="text-xs text-blue-600 font-medium">+ Thêm vật tư</button>
+                                    <button
+                                        onClick={() => setShowSearch(!showSearch)}
+                                        className="text-xs font-bold text-blue-600 hover:text-blue-700 hover:bg-blue-50 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1"
+                                    >
+                                        <Plus className="w-3.5 h-3.5" /> Thêm vật tư
+                                    </button>
                                 </div>
+
                                 {showSearch && (
-                                    <div className="mb-4 relative">
+                                    <div className="relative animate-in fade-in slide-in-from-top-2">
+                                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
                                         <input
                                             type="text"
                                             value={searchTerm}
                                             onChange={(e) => { setSearchTerm(e.target.value); searchProducts(e.target.value); }}
-                                            placeholder="Tìm sản phẩm..."
-                                            className="w-full px-4 py-2.5 border border-gray-200 rounded-lg"
+                                            placeholder="Nhập tên vật tư (ví dụ: Xi măng, Gạch...)"
+                                            className="w-full pl-10 pr-4 py-3 bg-white border border-blue-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-100 outline-none shadow-sm"
+                                            autoFocus
                                         />
                                         {searchResults.length > 0 && (
-                                            <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 max-h-48 overflow-y-auto">
+                                            <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-slate-100 rounded-xl shadow-xl z-20 max-h-60 overflow-y-auto overflow-hidden ring-1 ring-slate-900/5">
                                                 {searchResults.map(p => (
-                                                    <button key={p.id} onClick={() => addMaterial(p)} className="w-full px-4 py-3 text-left hover:bg-gray-50 flex justify-between">
-                                                        <span className="text-sm">{p.name}</span>
-                                                        <span className="text-xs text-gray-500">{p.price.toLocaleString()}đ</span>
+                                                    <button key={p.id} onClick={() => addMaterial(p)} className="w-full px-4 py-3 text-left hover:bg-slate-50 flex justify-between items-center group transition-colors border-b border-slate-50 last:border-0">
+                                                        <span className="text-sm font-medium text-slate-700 group-hover:text-blue-600">{p.name}</span>
+                                                        <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded-lg group-hover:bg-blue-50 group-hover:text-blue-600">{p.price.toLocaleString()}đ</span>
                                                     </button>
                                                 ))}
                                             </div>
                                         )}
                                     </div>
                                 )}
-                                {materials.length > 0 && (
-                                    <div className="border border-gray-200 rounded-xl overflow-hidden text-sm">
-                                        <table className="w-full">
-                                            <thead className="bg-gray-50 text-gray-600">
+
+                                {materials.length > 0 ? (
+                                    <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+                                        <table className="w-full text-sm">
+                                            <thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-200">
                                                 <tr>
-                                                    <th className="px-4 py-2 text-left">Vật tư</th>
-                                                    <th className="px-4 py-2 text-center w-16">SL</th>
-                                                    <th className="px-4 py-2 text-right">Tổng</th>
-                                                    <th className="w-8"></th>
+                                                    <th className="px-4 py-3 text-left text-xs uppercase tracking-wider">Vật tư</th>
+                                                    <th className="px-2 py-3 text-center w-20 text-xs uppercase tracking-wider">SL</th>
+                                                    <th className="px-4 py-3 text-right text-xs uppercase tracking-wider">Thành tiền</th>
+                                                    <th className="w-10"></th>
                                                 </tr>
                                             </thead>
-                                            <tbody className="divide-y divide-gray-100">
+                                            <tbody className="divide-y divide-slate-100">
                                                 {materials.map(m => (
-                                                    <tr key={m.id}>
-                                                        <td className="px-4 py-2 font-medium">{m.name}</td>
-                                                        <td className="px-4 py-2">
-                                                            <input type="number" value={m.quantity} onChange={(e) => updateMaterialQty(m.id, parseInt(e.target.value))} className="w-full text-center border rounded" />
+                                                    <tr key={m.id} className="bg-white hover:bg-slate-50/50 transition-colors">
+                                                        <td className="px-4 py-3 font-medium text-slate-800">{m.name}</td>
+                                                        <td className="px-2 py-3">
+                                                            <input
+                                                                type="number"
+                                                                value={m.quantity}
+                                                                onChange={(e) => updateMaterialQty(m.id, parseInt(e.target.value) || 0)}
+                                                                className="w-full text-center bg-slate-50 border border-slate-200 rounded-lg py-1 text-slate-700 font-bold focus:border-blue-500 focus:outline-none"
+                                                            />
                                                         </td>
-                                                        <td className="px-4 py-2 text-right">{(m.price * m.quantity).toLocaleString()}đ</td>
-                                                        <td><button onClick={() => removeMaterial(m.id)} className="p-1 text-gray-400 hover:text-red-500"><Trash2 className="w-4 h-4" /></button></td>
+                                                        <td className="px-4 py-3 text-right font-bold text-slate-600">{(m.price * m.quantity).toLocaleString()}đ</td>
+                                                        <td className="text-center">
+                                                            <button onClick={() => removeMaterial(m.id)} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all">
+                                                                <Trash2 className="w-4 h-4" />
+                                                            </button>
+                                                        </td>
                                                     </tr>
                                                 ))}
                                             </tbody>
-                                            <tfoot className="bg-blue-50 font-bold text-blue-800">
+                                            <tfoot className="bg-blue-50/50 border-t border-blue-100">
                                                 <tr>
-                                                    <td colSpan={2} className="px-4 py-2">Tổng vật tư</td>
-                                                    <td className="px-4 py-2 text-right">{totalMaterialCost.toLocaleString()}đ</td>
+                                                    <td colSpan={2} className="px-4 py-3 font-bold text-slate-700">Tổng chi phí vật tư dự kiến</td>
+                                                    <td className="px-4 py-3 text-right font-black text-blue-600">{totalMaterialCost.toLocaleString()}đ</td>
                                                     <td></td>
                                                 </tr>
                                             </tfoot>
                                         </table>
+                                    </div>
+                                ) : (
+                                    <div className="text-center py-8 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                                        <Package className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                                        <p className="text-xs text-slate-400">Chưa có vật tư nào được chọn</p>
                                     </div>
                                 )}
                             </div>
@@ -527,17 +577,36 @@ ${name}`
                 </div>
 
                 {/* Footer */}
-                <div className="p-6 border-t border-gray-100 flex gap-3">
+                <div className="p-6 border-t border-slate-100 bg-white sticky bottom-0 z-10 flex gap-4">
                     {step === 1 ? (
                         <>
-                            <button onClick={onClose} className="flex-1 py-3 border rounded-xl hover:bg-gray-50">Hủy</button>
-                            <button onClick={() => setStep(2)} className="flex-1 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700">Tiếp theo</button>
+                            <button
+                                onClick={onClose}
+                                className="flex-1 py-3.5 border border-slate-200 rounded-2xl font-bold text-slate-600 hover:bg-slate-50 hover:text-slate-800 transition-all"
+                            >
+                                Hủy bỏ
+                            </button>
+                            <button
+                                onClick={() => setStep(2)}
+                                className="flex-1 py-3.5 bg-blue-600 text-white font-bold rounded-2xl hover:bg-blue-700 shadow-lg shadow-blue-200 hover:shadow-blue-300 transition-all active:scale-95 flex items-center justify-center gap-2"
+                            >
+                                Tiếp tục <ArrowRight className="w-4 h-4" />
+                            </button>
                         </>
                     ) : (
                         <>
-                            <button onClick={() => setStep(1)} className="flex-1 py-3 border rounded-xl hover:bg-gray-50">Quay lại</button>
-                            <button onClick={handleSubmit} disabled={submitting} className="flex-1 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 disabled:opacity-50">
-                                {submitting ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : 'Gửi ứng tuyển'}
+                            <button
+                                onClick={() => setStep(1)}
+                                className="flex-1 py-3.5 border border-slate-200 rounded-2xl font-bold text-slate-600 hover:bg-slate-50 hover:text-slate-800 transition-all"
+                            >
+                                Quay lại
+                            </button>
+                            <button
+                                onClick={handleSubmit}
+                                disabled={submitting}
+                                className="flex-1 py-3.5 bg-blue-600 text-white font-bold rounded-2xl hover:bg-blue-700 shadow-lg shadow-blue-200 hover:shadow-blue-300 transition-all active:scale-95 disabled:opacity-70 disabled:shadow-none flex items-center justify-center gap-2"
+                            >
+                                {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <> <Send className="w-4 h-4" /> Gửi ứng tuyển </>}
                             </button>
                         </>
                     )}

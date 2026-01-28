@@ -127,7 +127,7 @@ export async function middleware(request: NextRequest) {
             requestHeaders.set('x-user-email', payload.email)
           }
         }
-      } catch (e) {
+      } catch {
         // Token decode failed - continue without user headers
       }
 
@@ -231,7 +231,7 @@ export async function middleware(request: NextRequest) {
           requestHeaders.set('x-user-email', payload.email)
         }
       }
-    } catch (e) {
+    } catch {
       // Token decode failed - continue without user headers, API will verify properly
       console.warn('[Middleware] Failed to decode token for user headers')
     }

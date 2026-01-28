@@ -8,10 +8,10 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
         }
 
-        // Get contractor profile
-        const profile = await prisma.contractorProfile.findFirst({
-            where: { userId }
-        })
+        // Check if user exists (implicit check by finding stats, but for auth we could check profile)
+        // const profile = await prisma.contractorProfile.findFirst({
+        //     where: { userId }
+        // })
 
         // 1. Get stats counts
         const activeProjectsCount = await prisma.project.count({
@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
 
         // 3. Get recent projects (bids won or invites)
         // Mock for now as project structure might vary
-        const recentProjects: any[] = []
+        // const recentProjects: any[] = []
 
         return NextResponse.json({
             success: true,
