@@ -66,6 +66,7 @@ export async function POST(request: NextRequest) {
                 role: true,
                 emailVerified: true,
                 isActive: true,
+                hasSetTwoFactor: true,
             },
         })
 
@@ -98,6 +99,7 @@ export async function POST(request: NextRequest) {
                 name: user.name,
                 role: user.role,
             },
+            needs2FASetupPrompt: !user.hasSetTwoFactor,
         })
     } catch (error) {
         console.error('[Verify Session] Error:', error)

@@ -96,7 +96,7 @@ export default function ContractorContractsPage() {
 
     return (
         <div className="min-h-screen bg-gray-50 flex flex-col">
-            <Toaster position="top-right" />
+            
             <ContractorHeader sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} user={user} />
             <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
@@ -338,3 +338,4 @@ export default function ContractorContractsPage() {
         </div>
     )
 }
+

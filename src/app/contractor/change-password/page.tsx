@@ -10,7 +10,7 @@ import { useRouter } from 'next/navigation'
 import Sidebar from '../components/Sidebar'
 import ContractorHeader from '../components/ContractorHeader'
 import { KeyRound, Eye, EyeOff, CheckCircle, AlertCircle, Loader2 } from 'lucide-react'
-import toast, { Toaster } from 'react-hot-toast'
+import toast from 'react-hot-toast'
 
 export default function ChangePasswordPage() {
     const router = useRouter()
@@ -102,7 +102,7 @@ export default function ChangePasswordPage() {
 
     return (
         <div className="min-h-screen bg-gray-50 flex flex-col">
-            <Toaster position="top-right" />
+            
             <ContractorHeader sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} user={user} />
             <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
@@ -268,3 +268,4 @@ export default function ChangePasswordPage() {
         </div>
     )
 }
+

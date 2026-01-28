@@ -168,7 +168,7 @@ class EnhancedAuthService {
           isLoading: false,
           error: null,
           tabId: this.tabId,
-          needs2FASetupPrompt: false,
+          needs2FASetupPrompt: !!data.needs2FASetupPrompt,
           showSessionPrompt: false,
           pendingSessionUser: null
         }

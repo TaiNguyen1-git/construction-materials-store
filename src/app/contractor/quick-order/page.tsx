@@ -26,7 +26,7 @@ import {
 import { useContractorCartStore } from '@/stores/contractorCartStore'
 import Sidebar from '../components/Sidebar'
 import ContractorHeader from '../components/ContractorHeader'
-import toast, { Toaster } from 'react-hot-toast'
+import toast from 'react-hot-toast'
 
 interface Product {
     id: string
@@ -205,7 +205,6 @@ export default function QuickOrderPage() {
 
     return (
         <div className="min-h-screen bg-gray-50 flex flex-col">
-            <Toaster position="top-right" />
 
             <ContractorHeader sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} user={user} />
             <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />

@@ -50,7 +50,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const initializeAuth = async () => {
       try {
         const state = await authService.initializeAuth()
-        setAuthState(state)
+
+        // Check if 2FA prompt was already dismissed in this session
+        const isDismissedInSession = sessionStorage.getItem('dismissed_2fa_prompt') === 'true'
+
+        setAuthState({
+          ...state,
+          needs2FASetupPrompt: state.needs2FASetupPrompt && !isDismissedInSession
+        })
       } catch (error) {
         setAuthState({
           user: null,
@@ -85,6 +92,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return response
       }
 
+      const isDismissedInSession = sessionStorage.getItem('dismissed_2fa_prompt') === 'true'
+
       setAuthState(prev => ({
         ...prev,
         user: response.user || null,
@@ -92,7 +101,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isLoading: false,
         error: null,
         tabId: authService.getTabId(),
-        needs2FASetupPrompt: !!response.needs2FASetupPrompt,
+        needs2FASetupPrompt: !!response.needs2FASetupPrompt && !isDismissedInSession,
       }))
       return response
     } catch (error: any) {
@@ -187,7 +196,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const dismiss2FAPrompt = async () => {
-    // authService.removeNeeds2FAPrompt()
+    sessionStorage.setItem('dismissed_2fa_prompt', 'true')
     setAuthState(prev => ({ ...prev, needs2FASetupPrompt: false }))
   }
 

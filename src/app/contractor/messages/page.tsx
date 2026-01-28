@@ -14,7 +14,7 @@ import ContractorHeader from '../components/ContractorHeader'
 import { getAuthHeaders } from '@/lib/api-client'
 import { getFirebaseDatabase } from '@/lib/firebase'
 import { ref, onChildAdded, off, serverTimestamp } from 'firebase/database'
-import toast, { Toaster } from 'react-hot-toast'
+import toast from 'react-hot-toast'
 import ChatCallManager from '@/components/ChatCallManager'
 
 function MessagesContent() {
@@ -343,7 +343,7 @@ function MessagesContent() {
 
     return (
         <div className="h-screen bg-white flex flex-col overflow-hidden">
-            <Toaster position="top-right" />
+            
 
             {user && <ChatCallManager userId={user.id} userName={user.name || 'Người dùng'} />}
 
@@ -593,3 +593,4 @@ export default function MessagesPage() {
         </Suspense>
     )
 }
+
