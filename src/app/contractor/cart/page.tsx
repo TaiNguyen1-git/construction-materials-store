@@ -34,7 +34,7 @@ import ContractorHeader from '../components/ContractorHeader'
 
 export default function ContractorCartPage() {
     const router = useRouter()
-    const [sidebarOpen, setSidebarOpen] = useState(false)
+    const [sidebarOpen, setSidebarOpen] = useState(true)
     const [isProcessing, setIsProcessing] = useState(false)
     const [loading, setLoading] = useState(true)
     const [contractorInfo, setContractorInfo] = useState({

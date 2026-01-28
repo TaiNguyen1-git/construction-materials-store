@@ -214,7 +214,7 @@ export async function POST(request: NextRequest) {
                 )
             }
 
-            // Check stock
+            // Check stock if inventory item exists
             if (product.inventoryItem && product.inventoryItem.availableQuantity < item.quantity) {
                 return NextResponse.json(
                     createErrorResponse(`Insufficient stock for ${product.name}`, 'INSUFFICIENT_STOCK'),
@@ -306,15 +306,22 @@ export async function POST(request: NextRequest) {
                 }
             })
 
-            // Update inventory
+            // Update inventory if exists
             for (const item of orderItems) {
-                await tx.inventoryItem.update({
-                    where: { productId: item.productId },
-                    data: {
-                        availableQuantity: { decrement: item.quantity },
-                        reservedQuantity: { increment: item.quantity }
-                    }
+                const product = await tx.product.findUnique({
+                    where: { id: item.productId },
+                    include: { inventoryItem: true }
                 })
+
+                if (product?.inventoryItem) {
+                    await tx.inventoryItem.update({
+                        where: { productId: item.productId },
+                        data: {
+                            availableQuantity: { decrement: item.quantity },
+                            reservedQuantity: { increment: item.quantity }
+                        }
+                    })
+                }
             }
 
             // Create invoice for the order (contractor debt)
