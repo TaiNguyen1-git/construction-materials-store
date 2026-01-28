@@ -1,6 +1,7 @@
 'use client'
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import { getAuthHeaders } from '@/lib/api-client'
 import authService, { AuthState, LoginCredentials, RegisterData, AuthResponse } from '@/lib/auth-service'
 import { User } from '@prisma/client'
 import SessionPromptModal from '@/components/auth/SessionPromptModal'
@@ -196,8 +197,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const dismiss2FAPrompt = async () => {
-    sessionStorage.setItem('dismissed_2fa_prompt', 'true')
-    setAuthState(prev => ({ ...prev, needs2FASetupPrompt: false }))
+    try {
+      // Call API to persist the dismissal in DB
+      const response = await fetch('/api/auth/profile/dismiss-2fa-prompt', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders() // Include auth tokens
+        }
+      })
+
+      if (response.ok) {
+        setAuthState(prev => ({ ...prev, needs2FASetupPrompt: false }))
+        // Also update local user hint if exists
+        const userHint = localStorage.getItem('user_hint')
+        if (userHint) {
+          const user = JSON.parse(userHint)
+          localStorage.setItem('user_hint', JSON.stringify({ ...user, hasSetTwoFactor: true }))
+        }
+      }
+    } catch (error) {
+      console.error('Failed to dismiss 2FA prompt in DB:', error)
+      // Fallback: still dismiss in UI for the current session even if DB call fails
+      setAuthState(prev => ({ ...prev, needs2FASetupPrompt: false }))
+    }
   }
 
   // Accept pending session and authenticate
