@@ -1,73 +1,90 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { AuthService, JWTPayload } from '@/lib/auth'
-import { createSuccessResponse, createErrorResponse } from '@/lib/api-types'
-import { z } from 'zod'
+import { AuthService, UserRole } from '@/lib/auth'
+import crypto from 'crypto'
 
-const refreshSchema = z.object({
-  refreshToken: z.string().min(1, 'Refresh token is required'),
-})
+function hashToken(token: string): string {
+  return crypto.createHash('sha256').update(token).digest('hex')
+}
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
-    
-    // Validate input
-    const validation = refreshSchema.safeParse(body)
-    if (!validation.success) {
-      return NextResponse.json(
-        createErrorResponse('Invalid input', 'VALIDATION_ERROR', validation.error.issues),
-        { status: 400 }
-      )
-    }
+    const refreshToken = request.cookies.get('refresh_token')?.value
 
-    const { refreshToken } = validation.data
-
-    // Verify refresh token
-    let payload: JWTPayload
-    try {
-      payload = AuthService.verifyRefreshToken(refreshToken)
-    } catch (error) {
+    if (!refreshToken) {
       return NextResponse.json(
-        createErrorResponse('Invalid refresh token', 'INVALID_TOKEN'),
+        { success: false, error: 'Refresh token không tồn tại' },
         { status: 401 }
       )
     }
 
-    // Verify user still exists and is active
+    // Verify refresh token
+    let payload
+    try {
+      payload = AuthService.verifyRefreshToken(refreshToken)
+    } catch {
+      return NextResponse.json(
+        { success: false, error: 'Refresh token không hợp lệ hoặc đã hết hạn' },
+        { status: 401 }
+      )
+    }
+
+    // Find the original user
     const user = await prisma.user.findUnique({
-      where: { id: payload.userId },
+      where: { id: payload.userId }
     })
 
     if (!user || !user.isActive) {
       return NextResponse.json(
-        createErrorResponse('User not found or inactive', 'USER_NOT_FOUND'),
-        { status: 404 }
+        { success: false, error: 'Người dùng không khả dụng' },
+        { status: 401 }
       )
     }
 
-    // Generate new tokens
-    const tokenPayload = {
+    // Generate NEW token pair
+    const { accessToken: newAccessToken, refreshToken: newRefreshToken } = AuthService.generateTokenPair({
       userId: user.id,
       email: user.email,
-      role: user.role,
-    }
-
-    const tokens = AuthService.generateTokenPair({
-      userId: tokenPayload.userId,
-      email: tokenPayload.email,
-      role: tokenPayload.role as any
+      role: user.role as UserRole
     })
 
-    return NextResponse.json(
-      createSuccessResponse(tokens, 'Tokens refreshed successfully'),
-      { status: 200 }
-    )
+    // Update session in DB
+    const newTokenHash = hashToken(newAccessToken)
 
+    // Find the most recent active session for this user to update
+    const session = await prisma.userSession.findFirst({
+      where: { userId: user.id, isActive: true },
+      orderBy: { createdAt: 'desc' }
+    })
+
+    if (session) {
+      await prisma.userSession.update({
+        where: { id: session.id },
+        data: {
+          tokenHash: newTokenHash,
+          lastActivityAt: new Date()
+        }
+      })
+    }
+
+    const response = NextResponse.json({
+      success: true,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role
+      }
+    })
+
+    // Set new cookies
+    AuthService.setAuthCookies(response, newAccessToken, newRefreshToken)
+
+    return response
   } catch (error) {
-    console.error('Token refresh error:', error)
+    console.error('[Refresh Token] Error:', error)
     return NextResponse.json(
-      createErrorResponse('Internal server error', 'INTERNAL_ERROR'),
+      { success: false, error: 'Lỗi hệ thống' },
       { status: 500 }
     )
   }

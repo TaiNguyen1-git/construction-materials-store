@@ -92,7 +92,7 @@ export async function GET(request: NextRequest) {
             success: true,
             sessions: sessionsWithCurrent,
         })
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('[Sessions List] Error:', error)
 
         return NextResponse.json(

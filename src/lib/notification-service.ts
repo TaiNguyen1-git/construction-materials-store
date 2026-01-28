@@ -10,6 +10,7 @@
 
 import { prisma } from './prisma'
 import { pushSystemNotification, pushNotificationToFirebase } from './firebase-notifications'
+import { NotificationType, Priority } from '@prisma/client'
 
 export interface Notification {
   type: 'LOW_STOCK' | 'REORDER_NEEDED' | 'PREDICTION_ALERT' | 'MONTHLY_REMINDER' | 'ORDER_NEW' | 'ORDER_UPDATE' | 'QUOTE_NEW' | 'QUOTE_UPDATE' | 'KYC_PENDING' | 'SMART_REORDER' | 'STOCK_UPDATE' | 'PROJECT_MATCH'
@@ -20,7 +21,7 @@ export interface Notification {
   productName?: string
   orderId?: string
   orderNumber?: string
-  data?: any
+  data?: Record<string, unknown>
 }
 
 /**
@@ -274,14 +275,14 @@ export async function saveNotificationForUser(notification: Notification, userId
   await prisma.notification.create({
     data: {
       userId,
-      type: notification.type as any,
+      type: notification.type as NotificationType,
       title: notification.title,
       message: notification.message,
-      priority: notification.priority as any,
+      priority: notification.priority as Priority,
       read: false,
       referenceId: notification.orderId || notification.productId,
       referenceType: notification.orderId ? 'ORDER' : notification.productId ? 'PRODUCT' : null,
-      metadata: notification.data || {}
+      metadata: (notification.data || {}) as any // Cast to any for Prisma JSON compatibility
     }
   })
 
@@ -328,14 +329,14 @@ export async function saveNotificationForAllManagers(notification: Notification)
     await prisma.notification.createMany({
       data: managers.map(manager => ({
         userId: manager.id,
-        type: notification.type as any,
+        type: notification.type as NotificationType,
         title: notification.title,
         message: notification.message,
-        priority: notification.priority as any,
+        priority: notification.priority as Priority,
         read: false,
         referenceId: notification.orderId || notification.productId,
         referenceType: notification.orderId ? 'ORDER' : notification.productId ? 'PRODUCT' : null,
-        metadata: notification.data || {}
+        metadata: (notification.data || {}) as any // Cast to any for Prisma JSON compatibility
       }))
     })
   }

@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
             message: 'Đổi mật khẩu thành công'
         })
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Change password error:', error)
         return NextResponse.json(
             { success: false, error: 'Lỗi server. Vui lòng thử lại sau.' },

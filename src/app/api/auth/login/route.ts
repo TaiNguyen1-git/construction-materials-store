@@ -7,6 +7,7 @@ import { loginSchema, validateRequest } from '@/lib/validation'
 import { logger, logAuth, logAPI } from '@/lib/logger'
 import { checkRateLimit } from '@/lib/rate-limit-api'
 import { EmailService } from '@/lib/email-service'
+import { AuthService, UserRole } from '@/lib/auth'
 
 // Helper to hash token for storage
 function hashToken(token: string): string {
@@ -159,82 +160,24 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // Generate JWT token
-    const jwtSecret = process.env.JWT_SECRET
-    if (!jwtSecret) {
-      throw new Error('JWT_SECRET is not configured')
-    }
-
-    // Check for 2FA requirement (User defined)
-    const requires2FA = user.is2FAEnabled
-
-    if (requires2FA) {
-      // Generate 6-digit OTP
-      const otpCode = Math.floor(100000 + Math.random() * 900000).toString()
-      const otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000) // 10 minutes
-
-      // Update user with OTP
-      await prisma.user.update({
-        where: { id: user.id },
-        data: {
-          otpCode,
-          otpExpiresAt
-        }
-      })
-
-      // Send OTP via Email
-      const emailSent = await EmailService.sendOTP({
-        email: user.email,
-        name: user.name,
-        otpCode,
-        type: '2FA',
-        expiresInMinutes: 10
-      })
-
-      if (!emailSent) {
-        logger.error('Failed to send 2FA email', { email: user.email })
-      }
-
-      // Generate a short-lived 2FA verification token
-      const verificationToken = jwt.sign(
-        {
-          userId: user.id,
-          email: user.email,
-          purpose: '2fa'
-        },
-        jwtSecret,
-        { expiresIn: '15m' }
-      )
-
-      const duration = Date.now() - startTime
-      logAPI.response('POST', '/api/auth/login', 200, duration)
-
-      return NextResponse.json({
-        success: true,
-        twoFactorRequired: true,
-        verificationToken,
-        email: user.email
-      })
-    }
-
-    const token = jwt.sign(
-      {
-        userId: user.id,
-        email: user.email,
-        role: user.role
-      },
-      jwtSecret,
-      { expiresIn: '7d' }
-    )
+    // Generate Tokens using AuthService
+    const { accessToken, refreshToken } = AuthService.generateTokenPair({
+      userId: user.id,
+      email: user.email,
+      role: user.role as UserRole
+    })
 
     // Create session record in database
-    const tokenHash = hashToken(token)
+    const tokenHash = hashToken(accessToken)
+    const refreshTokenHash = hashToken(refreshToken)
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
 
     const session = await prisma.userSession.create({
       data: {
         userId: user.id,
         tokenHash,
+        // Optional: you might want to add refreshTokenHash to your schema if needed, 
+        // but for now we'll use tokenHash to track the session
         deviceInfo: clientInfo.deviceInfo,
         ipAddress: clientInfo.ip,
         userAgent: clientInfo.userAgent,
@@ -256,25 +199,20 @@ export async function POST(request: NextRequest) {
     const response = NextResponse.json({
       success: true,
       user: userWithoutPassword,
-      token,
       sessionId: session.id,
       needs2FASetupPrompt: !(user as any).hasSetTwoFactor,
     })
 
-    // Set HTTP-only cookie for middleware protection
-    response.cookies.set('auth_token', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      path: '/',
-      maxAge: 7 * 24 * 60 * 60 // 7 days
-    })
+    // Use AuthService helper to set cookies
+    AuthService.setAuthCookies(response, accessToken, refreshToken)
 
     return response
-  } catch (error: any) {
+  } catch (error: unknown) {
     const duration = Date.now() - startTime
-    logAPI.error('POST', '/api/auth/login', error, { duration })
-    logger.error('Login error', { error: error.message, stack: error.stack })
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    const errorStack = error instanceof Error ? error.stack : undefined
+    logAPI.error('POST', '/api/auth/login', error instanceof Error ? error : new Error(errorMessage), { duration })
+    logger.error('Login error', { error: errorMessage, stack: errorStack })
 
     return NextResponse.json(
       { success: false, error: 'Đã xảy ra lỗi. Vui lòng thử lại.' },

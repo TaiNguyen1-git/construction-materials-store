@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { AuthService } from '@/lib/auth'
 import jwt from 'jsonwebtoken'
 
 // Helper to extract token from request
@@ -66,15 +67,11 @@ export async function POST(request: NextRequest) {
             sessionsInvalidated: result.count
         })
 
-        // Clear auth_token cookie for current request
-        response.cookies.set('auth_token', '', {
-            httpOnly: true,
-            expires: new Date(0),
-            path: '/'
-        })
+        // Clear all auth cookies
+        AuthService.clearAuthCookies(response)
 
         return response
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('[Logout All] Error:', error)
 
         return NextResponse.json(

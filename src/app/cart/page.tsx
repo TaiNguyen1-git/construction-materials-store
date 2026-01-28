@@ -113,7 +113,14 @@ export default function CartPage() {
     const tableRows = items.map((item, index) => {
       const isWholesale = item.wholesalePrice && item.minWholesaleQty && item.quantity >= item.minWholesaleQty
       const unitPrice = isWholesale ? item.wholesalePrice! : item.price
-      return [index + 1, item.name.normalize("NFD").replace(/[\u0300-\u036f]/g, ""), item.unit, item.quantity, unitPrice.toLocaleString('vi-VN'), (unitPrice * item.quantity).toLocaleString('vi-VN')]
+      return [
+        index + 1,
+        item.name.normalize("NFD").replace(/[\u0300-\u036f]/g, ""),
+        item.unit.normalize("NFD").replace(/[\u0300-\u036f]/g, ""),
+        item.quantity,
+        unitPrice.toLocaleString('vi-VN'),
+        (unitPrice * item.quantity).toLocaleString('vi-VN')
+      ]
     })
     autoTable(doc, { head: [tableColumn], body: tableRows, startY: 45, theme: 'grid' })
     doc.save(`Bao_Gia_${Date.now()}.pdf`)

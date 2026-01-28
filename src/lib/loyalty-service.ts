@@ -1,5 +1,4 @@
-// Define LoyaltyTier locally since it might not be available in Prisma client immediately
-type LoyaltyTier = 'BRONZE' | 'SILVER' | 'GOLD' | 'PLATINUM' | 'DIAMOND'
+import { Prisma, LoyaltyTier } from '@prisma/client'
 
 interface CustomerData {
   id: string
@@ -78,7 +77,7 @@ export class LoyaltyService {
   // Update customer loyalty status after a purchase
   static async updateCustomerLoyalty(customerId: string, purchaseAmount: number) {
     try {
-      const customer: any = await (prisma as any).customer.findUnique({
+      const customer = await prisma.customer.findUnique({
         where: { id: customerId }
       })
 
@@ -90,7 +89,7 @@ export class LoyaltyService {
       const pointsEarned = this.calculatePoints(purchaseAmount, customer.loyaltyTier || 'BRONZE')
 
       // Update customer loyalty data
-      const updatedCustomer: any = await (prisma as any).customer.update({
+      const updatedCustomer = await prisma.customer.update({
         where: { id: customerId },
         data: {
           totalPurchases: {
@@ -111,7 +110,7 @@ export class LoyaltyService {
       const newTier = this.determineTier((customer.totalPointsEarned || 0) + pointsEarned)
 
       // Update tier
-      const finalCustomer: any = await (prisma as any).customer.update({
+      const finalCustomer = await prisma.customer.update({
         where: { id: customerId },
         data: {
           loyaltyTier: newTier
@@ -124,7 +123,7 @@ export class LoyaltyService {
         (finalCustomer.totalPointsEarned || 0) + pointsEarned
       )
 
-      await (prisma as any).customer.update({
+      await prisma.customer.update({
         where: { id: customerId },
         data: {
           loyaltyPointsToNextTier: pointsToNextTier
@@ -154,7 +153,7 @@ export class LoyaltyService {
   // Redeem loyalty points
   static async redeemPoints(customerId: string, pointsToRedeem: number) {
     try {
-      const customer: any = await (prisma as any).customer.findUnique({
+      const customer = await prisma.customer.findUnique({
         where: { id: customerId }
       })
 
@@ -167,7 +166,7 @@ export class LoyaltyService {
       }
 
       // Update customer points
-      const updatedCustomer: any = await (prisma as any).customer.update({
+      const updatedCustomer = await prisma.customer.update({
         where: { id: customerId },
         data: {
           loyaltyPoints: {
@@ -192,7 +191,7 @@ export class LoyaltyService {
   // Get customer loyalty dashboard data
   static async getCustomerLoyaltyData(customerId: string) {
     try {
-      const customer: any = await (prisma as any).customer.findUnique({
+      const customer = await prisma.customer.findUnique({
         where: { id: customerId },
         include: {
           user: {
@@ -268,7 +267,7 @@ export class LoyaltyService {
   // Generate referral code for customer
   static async generateReferralCode(customerId: string) {
     try {
-      const customer: any = await (prisma as any).customer.findUnique({
+      const customer = await prisma.customer.findUnique({
         where: { id: customerId },
         include: {
           user: {
@@ -296,13 +295,13 @@ export class LoyaltyService {
       let referralCode = baseCode
       let counter = 1
 
-      while (await (prisma as any).customer.findFirst({ where: { referralCode } })) {
+      while (await prisma.customer.findFirst({ where: { referralCode } })) {
         referralCode = baseCode + counter
         counter++
       }
 
       // Update customer with referral code
-      await (prisma as any).customer.update({
+      await prisma.customer.update({
         where: { id: customerId },
         data: { referralCode }
       })
@@ -318,7 +317,7 @@ export class LoyaltyService {
   static async processReferral(referralCode: string, newCustomerId: string) {
     try {
       // Find the customer who provided the referral code
-      const referringCustomer: any = await (prisma as any).customer.findFirst({
+      const referringCustomer = await prisma.customer.findFirst({
         where: { referralCode }
       })
 
@@ -328,7 +327,7 @@ export class LoyaltyService {
       }
 
       // Update the referring customer
-      await (prisma as any).customer.update({
+      await prisma.customer.update({
         where: { id: referringCustomer.id },
         data: {
           totalReferrals: {
@@ -345,7 +344,7 @@ export class LoyaltyService {
       })
 
       // Update the new customer with referredBy
-      await (prisma as any).customer.update({
+      await prisma.customer.update({
         where: { id: newCustomerId },
         data: {
           referredBy: referringCustomer.id
@@ -403,7 +402,7 @@ export class LoyaltyService {
   // Manually adjust customer points (mainly for admin)
   static async adjustPoints(customerId: string, points: number, reason: string, adminId: string) {
     try {
-      const customer: any = await (prisma as any).customer.findUnique({
+      const customer = await prisma.customer.findUnique({
         where: { id: customerId }
       })
 
@@ -412,7 +411,7 @@ export class LoyaltyService {
       }
 
       // Update customer points
-      const updatedCustomer: any = await (prisma as any).customer.update({
+      const updatedCustomer = await prisma.customer.update({
         where: { id: customerId },
         data: {
           loyaltyPoints: {

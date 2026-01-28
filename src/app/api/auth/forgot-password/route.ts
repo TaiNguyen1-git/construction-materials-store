@@ -1,11 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { EmailService } from '@/lib/email-service'
+import { checkRateLimit } from '@/lib/rate-limit-api'
 import crypto from 'crypto'
 
 // POST /api/auth/forgot-password - Request password reset
 export async function POST(request: NextRequest) {
     try {
+        // 🛡️ SECURITY: Rate limit to prevent abuse (3 requests per 15 minutes per IP)
+        const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+            || request.headers.get('x-real-ip')
+            || 'unknown'
+
+        const rateLimitResult = await checkRateLimit(`forgot-password:${ip}`, 'STRICT')
+        if (!rateLimitResult.success) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    error: 'Quá nhiều yêu cầu. Vui lòng thử lại sau.'
+                },
+                { status: 429 }
+            )
+        }
+
         const { email } = await request.json()
 
         if (!email) {
@@ -62,7 +79,7 @@ export async function POST(request: NextRequest) {
             message: 'Nếu email tồn tại trong hệ thống, bạn sẽ nhận được hướng dẫn đặt lại mật khẩu.'
         })
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Forgot password error:', error)
         return NextResponse.json(
             { success: false, error: 'Internal server error' },

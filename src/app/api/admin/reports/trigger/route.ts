@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { EmailService } from '@/lib/email-service'
 import { createSuccessResponse, createErrorResponse } from '@/lib/api-types'
+import { verifyTokenFromRequest } from '@/lib/auth-middleware-api'
 import {
     startOfDay, endOfDay, subDays,
     startOfWeek, endOfWeek, subWeeks,
@@ -13,12 +14,22 @@ import { vi } from 'date-fns/locale'
 
 export async function GET(request: NextRequest) {
     try {
-        // 1. Check for authorization (either Cron Secret or Admin login)
+        // 🛡️ SECURITY FIX: Strict authorization check
         const authHeader = request.headers.get('authorization')
-        const isCron = authHeader === `Bearer ${process.env.CRON_SECRET}`
+        const cronSecret = process.env.CRON_SECRET
+        const isCron = cronSecret && authHeader === `Bearer ${cronSecret}`
 
-        // For manual trigger, we can also check admin token if needed
-        // But for simplicity in this task, we'll allow it if CRON_SECRET matches or if it's a dev trigger
+        // Check for admin token if not a cron request
+        const tokenPayload = verifyTokenFromRequest(request)
+        const isAdmin = tokenPayload?.role === 'MANAGER'
+
+        // Block unauthorized access
+        if (!isCron && !isAdmin) {
+            return NextResponse.json(
+                createErrorResponse('Unauthorized - Admin access or Cron Secret required', 'UNAUTHORIZED'),
+                { status: 401 }
+            )
+        }
 
         const searchParams = request.nextUrl.searchParams
         const type = (searchParams.get('type') || 'DAILY').toUpperCase() as 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY'

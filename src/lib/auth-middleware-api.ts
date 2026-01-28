@@ -20,6 +20,10 @@ export function getTokenFromRequest(request: NextRequest): string | null {
     return authHeader.slice(7)
   }
 
+  // 🛡️ Try cookie (Standard HttpOnly behavior)
+  const cookieToken = request.cookies.get('auth_token')?.value
+  if (cookieToken) return cookieToken
+
   return null
 }
 
@@ -28,29 +32,15 @@ export function getTokenFromRequest(request: NextRequest): string | null {
  */
 export function verifyTokenFromRequest(request: NextRequest): JWTPayload | null {
   try {
-    // 1. Check for pre-authenticated headers (from middleware dev bypass)
-    const userId = request.headers.get('x-user-id')
-    const userRole = request.headers.get('x-user-role')
-
-    if (userId && userRole) {
-      return {
-        userId,
-        email: request.headers.get('x-user-email') || '',
-        role: userRole as any,
-        iat: Date.now(),
-        exp: Date.now() + 3600
-      }
-    }
-
     const token = getTokenFromRequest(request)
 
     if (!token) {
       return null
     }
 
-    const payload = AuthService.verifyAccessToken(token) as JWTPayload
+    const payload = AuthService.verifyAccessToken(token)
     return payload
-  } catch (error: any) {
+  } catch (error: unknown) {
     return null
   }
 }

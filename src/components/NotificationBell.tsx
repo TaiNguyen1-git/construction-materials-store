@@ -4,6 +4,8 @@ import { useState, useEffect, useRef } from 'react'
 import { Bell, X, CheckCircle, AlertTriangle, Info, RefreshCw, Building2, FileText } from 'lucide-react'
 import { getAuthHeaders } from '@/lib/api-client'
 import { useAuth } from '@/contexts/auth-context'
+import type { FirebaseNotification } from '@/lib/firebase-notifications'
+
 
 interface Notification {
   id: string
@@ -16,6 +18,14 @@ interface Notification {
   referenceId?: string
   referenceType?: string
 }
+
+interface RawNotification extends Partial<FirebaseNotification> {
+  id: string
+  isRead?: boolean
+}
+
+
+
 
 export default function NotificationBell() {
   const [notifications, setNotifications] = useState<Notification[]>([])
@@ -104,8 +114,8 @@ export default function NotificationBell() {
           const currentReadIds = readIdsRef.current
 
           const newNotifs = result.data.notifications
-            .filter((n: any) => !currentDeletedIds.has(n.id))
-            .map((n: any) => ({
+            .filter((n: RawNotification) => !currentDeletedIds.has(n.id))
+            .map((n: RawNotification) => ({
               id: n.id,
               title: n.title,
               message: n.message,
@@ -116,6 +126,7 @@ export default function NotificationBell() {
               referenceId: n.referenceId,
               referenceType: n.referenceType
             }))
+
 
           if (loadMore) {
             setNotifications(prev => [...prev, ...newNotifs])
@@ -129,14 +140,15 @@ export default function NotificationBell() {
 
           if (result.data.unreadCount !== undefined) {
             // Adjust count based on local readIds/deletedIds that haven't synced to DB yet
-            const localAdjusted = result.data.notifications.filter((n: any) =>
+            const localAdjusted = result.data.notifications.filter((n: RawNotification) =>
               (currentReadIds.has(n.id) || currentDeletedIds.has(n.id)) &&
               !(n.isRead ?? n.read ?? false)
             ).length;
             setUnreadCount(Math.max(0, result.data.unreadCount - localAdjusted));
           } else {
-            setUnreadCount(newNotifs.filter((n: any) => !n.read).length)
+            setUnreadCount(newNotifs.filter((n: Notification) => !n.read).length)
           }
+
         }
       }
     } catch (error) {
@@ -173,8 +185,8 @@ export default function NotificationBell() {
             const currentReadIds = readIdsRef.current
 
             const notifs: Notification[] = result.data.notifications
-              .filter((n: any) => !currentDeletedIds.has(n.id))
-              .map((n: any) => ({
+              .filter((n: RawNotification) => !currentDeletedIds.has(n.id))
+              .map((n: RawNotification) => ({
                 id: n.id,
                 title: n.title,
                 message: n.message,
@@ -186,13 +198,15 @@ export default function NotificationBell() {
                 referenceType: n.referenceType
               }))
 
+
             setNotifications(notifs)
 
             if (result.data.unreadCount !== undefined) {
-              const localAdjusted = result.data.notifications.filter((n: any) =>
+              const localAdjusted = result.data.notifications.filter((n: RawNotification) =>
                 (currentReadIds.has(n.id) || currentDeletedIds.has(n.id)) &&
                 !(n.isRead ?? n.read ?? false)
               ).length;
+
               setUnreadCount(Math.max(0, result.data.unreadCount - localAdjusted));
             } else {
               setUnreadCount(notifs.filter((n: Notification) => !n.read).length)
@@ -211,25 +225,28 @@ export default function NotificationBell() {
         unsubscribe = subscribeToNotifications(
           user.id,
           user.role,
-          (firebaseNotifs: any[]) => {
+          (firebaseNotifs: FirebaseNotification[]) => {
             firebaseWorking = true // Firebase is working, disable polling
+
 
             const currentDeletedIds = deletedIdsRef.current
             const currentReadIds = readIdsRef.current
 
             const notifs: Notification[] = firebaseNotifs
-              .filter((n: any) => n.id && !currentDeletedIds.has(n.id))
-              .map((n: any) => ({
-                id: n.id || `temp-${Date.now()}-${Math.random()}`,
+              .filter((n: FirebaseNotification) => !!n.id && !currentDeletedIds.has(n.id!))
+              .map((n: FirebaseNotification) => ({
+                id: n.id!,
                 title: n.title,
                 message: n.message,
                 type: n.type,
                 priority: n.priority,
-                read: (n.id && currentReadIds.has(n.id)) ? true : n.read,
+                read: currentReadIds.has(n.id!) ? true : n.read,
                 createdAt: n.createdAt,
                 referenceId: n.referenceId,
                 referenceType: n.referenceType
               }))
+
+
 
             setNotifications(notifs)
             setUnreadCount(notifs.filter((n: Notification) => !n.read).length)

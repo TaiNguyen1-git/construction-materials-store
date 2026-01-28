@@ -1,33 +1,57 @@
 /**
  * API Route: Verify Session
  * 
- * Validates the provided access token and returns session status.
- * Used by new tabs to verify if a shared session is still valid.
+ * Validates the provided access token (from cookies) and returns session status.
+ * Used by new tabs to verify if a shared session is still valid and active.
+ * Implements Session Revocation (checking DB for session status).
  */
 
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { AuthService } from '@/lib/auth'
+import crypto from 'crypto'
+
+function hashToken(token: string): string {
+    return crypto.createHash('sha256').update(token).digest('hex')
+}
 
 export async function POST(request: NextRequest) {
     try {
-        const body = await request.json()
-        const { accessToken } = body
+        // Read access token from cookies (HttpOnly)
+        const accessToken = request.cookies.get('auth_token')?.value
 
         if (!accessToken) {
             return NextResponse.json(
-                { valid: false, error: 'Token không được cung cấp' },
-                { status: 400 }
+                { valid: false, error: 'Phiên làm việc đã hết hạn hoặc không tồn tại' },
+                { status: 401 }
             )
         }
 
-        // Verify the token
+        // Verify the token integrity
         let payload
         try {
             payload = AuthService.verifyAccessToken(accessToken)
         } catch (error) {
             return NextResponse.json(
                 { valid: false, error: 'Token không hợp lệ hoặc đã hết hạn' },
+                { status: 401 }
+            )
+        }
+
+        // 🛡️ SESSION REVOCATION CHECK: Check if session exists and is active in DB
+        const tokenHash = hashToken(accessToken)
+        const session = await prisma.userSession.findFirst({
+            where: {
+                userId: payload.userId,
+                tokenHash: tokenHash,
+                isActive: true,
+                expiresAt: { gt: new Date() }
+            },
+        })
+
+        if (!session) {
+            return NextResponse.json(
+                { valid: false, error: 'Phiên làm việc đã bị thu hồi hoặc hết hạn' },
                 { status: 401 }
             )
         }
@@ -58,6 +82,12 @@ export async function POST(request: NextRequest) {
                 { status: 401 }
             )
         }
+
+        // Update session's last activity
+        await prisma.userSession.update({
+            where: { id: session.id },
+            data: { lastActivityAt: new Date() }
+        })
 
         // Session is valid
         return NextResponse.json({

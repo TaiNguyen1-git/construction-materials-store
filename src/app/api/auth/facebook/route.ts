@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { AuthService, UserRole } from '@/lib/auth'
 import jwt from 'jsonwebtoken'
 import bcrypt from 'bcryptjs'
 import { logger, logAuth, logAPI } from '@/lib/logger'
@@ -60,16 +61,12 @@ export async function POST(request: NextRequest) {
             logger.info('New user created via Facebook login', { userId: user.id, email: user.email })
         }
 
-        // 3. Generate JWT token
-        const token = jwt.sign(
-            {
-                userId: user.id,
-                email: user.email,
-                role: user.role
-            },
-            process.env.JWT_SECRET || 'fallback-secret',
-            { expiresIn: '7d' }
-        )
+        // 3. Generate Token Pair using AuthService
+        const { accessToken: newAccessToken, refreshToken: newRefreshToken } = AuthService.generateTokenPair({
+            userId: user.id,
+            email: user.email,
+            role: user.role as UserRole
+        })
 
         // Log successful login
         logAuth.login(user.id, user.email, true)
@@ -82,25 +79,19 @@ export async function POST(request: NextRequest) {
 
         const response = NextResponse.json({
             success: true,
-            user: userWithoutPassword,
-            token
+            user: userWithoutPassword
         })
 
-        // Set HTTP-only cookie for middleware protection
-        response.cookies.set('auth_token', token, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'lax',
-            path: '/',
-            maxAge: 7 * 24 * 60 * 60 // 7 days
-        })
+        // Set HTTP-only cookies
+        AuthService.setAuthCookies(response, newAccessToken, newRefreshToken)
 
         return response
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         const duration = Date.now() - startTime
-        logAPI.error('POST', '/api/auth/facebook', error, { duration })
-        logger.error('Facebook login error', { error: error.message, stack: error.stack })
+        const err = error instanceof Error ? error : new Error('Unknown error')
+        logAPI.error('POST', '/api/auth/facebook', err, { duration })
+        logger.error('Facebook login error', { error: err.message, stack: err.stack })
 
         return NextResponse.json(
             { success: false, error: 'Internal server error during Facebook login' },

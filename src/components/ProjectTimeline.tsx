@@ -95,9 +95,11 @@ export default function ProjectTimeline({
                 .map((p: TimelinePhase) => p.id)
             setExpandedPhases(new Set(inProgress))
 
-        } catch (err: any) {
-            setError(err.message)
+
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Unknown error')
         } finally {
+
             setLoading(false)
             setAiLoading(false)
         }
@@ -266,10 +268,10 @@ export default function ProjectTimeline({
                     <div
                         key={phase.id}
                         className={`border-2 rounded-2xl overflow-hidden transition-all duration-300 ${phase.status === 'IN_PROGRESS'
-                                ? 'border-orange-200 bg-orange-50/30'
-                                : phase.status === 'COMPLETED'
-                                    ? 'border-green-200 bg-green-50/30'
-                                    : 'border-gray-100 bg-gray-50/30'
+                            ? 'border-orange-200 bg-orange-50/30'
+                            : phase.status === 'COMPLETED'
+                                ? 'border-green-200 bg-green-50/30'
+                                : 'border-gray-100 bg-gray-50/30'
                             }`}
                     >
                         {/* Phase Header */}
@@ -295,8 +297,8 @@ export default function ProjectTimeline({
                                     <h3 className="font-bold text-gray-900">{phase.name}</h3>
                                     <div className="flex items-center gap-3 mt-1">
                                         <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${phase.status === 'COMPLETED' ? 'bg-green-100 text-green-700' :
-                                                phase.status === 'IN_PROGRESS' ? 'bg-orange-100 text-orange-700' :
-                                                    'bg-gray-100 text-gray-500'
+                                            phase.status === 'IN_PROGRESS' ? 'bg-orange-100 text-orange-700' :
+                                                'bg-gray-100 text-gray-500'
                                             }`}>
                                             {getStatusLabel(phase.status)}
                                         </span>

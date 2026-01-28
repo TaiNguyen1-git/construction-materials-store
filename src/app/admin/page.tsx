@@ -33,6 +33,17 @@ interface DashboardData {
   orderStatusDistribution: Array<{ status: string; count: number }>
   recentOrders: Array<{ id: string; orderNumber: string; customer: string; amount: number; status: string; date: string }>
   employeePerformance: Array<{ name: string; completed: number; total: number; rate: string }>
+  predictive?: {
+    next30DaysRevenue: number
+    confidence: number
+    trend: 'increasing' | 'decreasing' | 'stable'
+    stockWarnings: Array<{
+      product: string
+      current: number
+      min: number
+      urgency: 'CRITICAL' | 'WARNING'
+    }>
+  }
 }
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316']
@@ -49,7 +60,9 @@ export default function AdminDashboard() {
     fetchAISummary()
 
     const interval = setInterval(() => {
-      fetchDashboardData(false)
+      if (document.visibilityState === 'visible') {
+        fetchDashboardData(false)
+      }
     }, 30000)
 
     return () => clearInterval(interval)
@@ -215,23 +228,43 @@ export default function AdminDashboard() {
   return (
     <div className="space-y-10 animate-in fade-in duration-700">
       {/* Dynamic AI & Header Layer */}
-      <div className="flex flex-col lg:flex-row gap-6">
-        <div className="flex-1 space-y-2">
-          <div className="flex gap-2 pt-4">
-            <button
-              onClick={handleSendReport}
-              disabled={isSendingReport}
-              className="bg-blue-500 text-white px-5 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest border border-blue-400 hover:bg-blue-600 transition-all flex items-center gap-2 shadow-lg shadow-blue-500/20"
-            >
-              {isSendingReport ? <RefreshCw className="animate-spin" size={12} /> : <FileText size={12} />}
-              Gửi Báo Cáo Ngày
-            </button>
-            <button
-              onClick={() => fetchDashboardData(true)}
-              className="bg-blue-600 text-white px-5 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-700 transition-all active:scale-95 shadow-lg shadow-blue-600/20"
-            >
-              <RefreshCw size={12} />
-            </button>
+      <div className="flex flex-col lg:flex-row gap-6 items-stretch">
+        <div className="flex-1 flex flex-col justify-between gap-6">
+          <div className="flex flex-col md:flex-row justify-between items-start gap-4 pt-2">
+            <div>
+              <h1 className="text-4xl font-black text-slate-900 tracking-tighter">Bảng điều khiển</h1>
+              <p className="text-slate-500 font-bold text-sm mt-1 flex items-center gap-2">
+                <Calendar size={14} className="text-blue-500" />
+                {new Date().toLocaleDateString('vi-VN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={handleSendReport}
+                disabled={isSendingReport}
+                className="bg-white text-blue-600 px-4 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest border border-blue-100 hover:bg-blue-50 transition-all flex items-center gap-2 shadow-sm"
+              >
+                {isSendingReport ? <RefreshCw className="animate-spin" size={14} /> : <FileText size={14} />}
+                Báo Cáo
+              </button>
+              <button
+                onClick={() => fetchDashboardData(true)}
+                className="bg-blue-600 text-white px-4 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-700 transition-all active:scale-95 shadow-lg shadow-blue-600/20"
+              >
+                <RefreshCw size={14} />
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 h-full">
+            {quickActions.map((action, i) => (
+              <Link key={i} href={action.href} className="flex flex-col p-4 bg-white rounded-[24px] border border-slate-100 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all group items-center text-center justify-center h-full min-h-[120px]">
+                <div className={`p-3 rounded-2xl ${action.color} group-hover:scale-110 transition-transform mb-3`}>
+                  <action.icon size={22} />
+                </div>
+                <span className="text-[10px] font-black text-slate-700 uppercase tracking-widest">{action.name}</span>
+              </Link>
+            ))}
           </div>
         </div>
 
@@ -241,23 +274,50 @@ export default function AdminDashboard() {
           <div className="absolute top-0 right-0 p-6 opacity-20 text-white group-hover:scale-110 transition-transform">
             <Sparkles size={80} />
           </div>
-          <div className="relative z-10">
+          <div className="relative z-10 h-full flex flex-col">
             <div className="flex items-center gap-2 mb-4">
               <div className="w-2 h-2 rounded-full bg-white animate-pulse"></div>
-              <span className="text-[10px] font-black text-blue-100 uppercase tracking-[0.2em]">Trợ Lý AI Thông Minh</span>
+              <span className="text-[10px] font-black text-blue-100 uppercase tracking-[0.2em]">Trợ Lý AI & Dự Báo</span>
             </div>
-            {aiSummaryLoading ? (
-              <div className="space-y-3">
-                <div className="h-4 w-full bg-blue-500/50 rounded animate-pulse"></div>
-                <div className="h-4 w-2/3 bg-blue-500/50 rounded animate-pulse"></div>
-              </div>
-            ) : (
-              <p className="text-sm font-bold text-white/90 leading-relaxed italic">
-                "{aiSummary || 'Hệ thống đang sẵn sàng phân tích dữ liệu vận hành. Nhấn làm mới để nhận bản tin tối ưu hóa kinh doanh.'}"
-              </p>
-            )}
-            <div className="mt-6 flex justify-between items-end">
-              <span className="text-[9px] font-bold text-blue-200 uppercase tracking-tighter">Powered by Google DeepMind</span>
+
+            <div className="flex-1">
+              {aiSummaryLoading ? (
+                <div className="space-y-3">
+                  <div className="h-4 w-full bg-blue-500/50 rounded animate-pulse"></div>
+                  <div className="h-4 w-2/3 bg-blue-500/50 rounded animate-pulse"></div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <p className="text-sm font-bold text-white/90 leading-relaxed italic">
+                    "{aiSummary || 'Hệ thống đang sẵn sàng phân tích dữ liệu vận hành.'}"
+                  </p>
+
+                  {data?.predictive && (
+                    <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10">
+                      <div className="flex justify-between items-start mb-2">
+                        <span className="text-[9px] font-black text-blue-200 uppercase tracking-widest">Dự báo 30 ngày tới</span>
+                        <div className={`flex items-center gap-1 text-[10px] font-black ${data?.predictive?.trend === 'increasing' ? 'text-emerald-400' : data?.predictive?.trend === 'decreasing' ? 'text-red-400' : 'text-amber-400'}`}>
+                          {data?.predictive?.trend === 'increasing' ? <ArrowUpRight size={12} /> : data?.predictive?.trend === 'decreasing' ? <ArrowDownRight size={12} /> : <TrendingUp size={12} />}
+                          {data?.predictive?.trend === 'increasing' ? 'Tăng trưởng' : data?.predictive?.trend === 'decreasing' ? 'Suy giảm' : 'Ổn định'}
+                        </div>
+                      </div>
+                      <div className="text-xl font-black tracking-tighter">
+                        {formatCurrency(data?.predictive?.next30DaysRevenue || 0)}
+                      </div>
+                      <div className="mt-2 w-full bg-white/10 h-1 rounded-full overflow-hidden">
+                        <div className="bg-white h-full" style={{ width: `${(data?.predictive?.confidence || 0) * 100}%` }}></div>
+                      </div>
+                      <div className="mt-1 flex justify-between text-[8px] font-bold text-blue-200 uppercase">
+                        <span>Độ tin cậy</span>
+                        <span>{((data?.predictive?.confidence || 0) * 100).toFixed(0)}%</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="mt-6 flex justify-end items-end pt-4 border-t border-white/10">
               <button onClick={fetchAISummary} className="p-2 bg-blue-500/50 rounded-xl hover:bg-white hover:text-blue-600 transition-all">
                 <Zap size={14} className="fill-current" />
               </button>
@@ -331,7 +391,7 @@ export default function AdminDashboard() {
                 <YAxis hide />
                 <Tooltip
                   contentStyle={{ borderRadius: '20px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)', padding: '15px' }}
-                  formatter={(value: any) => [formatCurrency(value), 'Doanh Thu']}
+                  formatter={(value: number) => [formatCurrency(value), 'Doanh Thu']}
                 />
                 <Area type="monotone" dataKey="revenue" stroke="#3b82f6" strokeWidth={4} fillOpacity={1} fill="url(#colorRev)" />
               </AreaChart>
@@ -355,7 +415,7 @@ export default function AdminDashboard() {
                   cornerRadius={10}
                   dataKey="total"
                 >
-                  {data?.salesByCategory.map((entry, index) => (
+                  {data?.salesByCategory?.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
@@ -364,7 +424,7 @@ export default function AdminDashboard() {
             </ResponsiveContainer>
           </div>
           <div className="grid grid-cols-2 gap-3 mt-6 w-full">
-            {data?.salesByCategory.slice(0, 4).map((cat, i) => (
+            {data?.salesByCategory?.slice(0, 4).map((cat, i) => (
               <div key={i} className="flex flex-col p-3 bg-white rounded-2xl border border-slate-100">
                 <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest line-clamp-1">{cat.category}</span>
                 <span className="text-sm font-black text-slate-900 mt-1">{formatNumber(cat.total / 1000000)}M</span>
@@ -396,7 +456,7 @@ export default function AdminDashboard() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                {data?.recentOrders.map((order) => (
+                {data?.recentOrders?.map((order) => (
                   <tr key={order.id} className="hover:bg-slate-50/50 transition-colors group">
                     <td className="px-6 py-4">
                       <div className="text-xs font-black text-slate-900 group-hover:text-blue-600 transition-colors uppercase font-mono">{order.orderNumber}</div>
@@ -433,16 +493,34 @@ export default function AdminDashboard() {
 
         {/* Quick Hub & Notifications */}
         <div className="space-y-6">
-          <h3 className="text-xl font-black text-slate-900 uppercase tracking-tighter italic px-2">Thao Tác Nhanh</h3>
-          <div className="grid grid-cols-2 gap-4">
-            {quickActions.map((action, i) => (
-              <Link key={i} href={action.href} className="flex flex-col p-6 bg-white rounded-[32px] border border-slate-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all group items-center text-center">
-                <div className={`p-4 rounded-2xl ${action.color} group-hover:scale-110 transition-transform mb-4`}>
-                  <action.icon size={24} />
+          <div className="bg-white rounded-[40px] border border-slate-100 p-8 shadow-sm relative overflow-hidden">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-lg font-black text-slate-900 uppercase tracking-tighter italic flex items-center gap-2">
+                <Star className="text-yellow-500" size={18} />
+                Top Bán Chạy
+              </h3>
+              <Link href="/admin/products" className="text-[9px] font-black text-blue-500 uppercase tracking-widest hover:underline">Chi Tiết</Link>
+            </div>
+            <div className="space-y-5">
+              {data?.topProducts?.slice(0, 3).map((product, idx) => (
+                <div key={idx} className="flex items-center justify-between group">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-black text-xs transition-colors ${idx === 0 ? 'bg-yellow-100 text-yellow-600' : 'bg-slate-100 text-slate-500'}`}>#{idx + 1}</div>
+                    <div>
+                      <div className="text-xs font-bold text-slate-900 line-clamp-1 group-hover:text-blue-600 transition-colors">{product.name}</div>
+                      <div className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">{product.quantity} sold</div>
+                    </div>
+                  </div>
+                  <div className="text-xs font-black text-slate-900">{formatNumber(product.revenue / 1000000)}M</div>
                 </div>
-                <span className="text-[10px] font-black text-slate-900 uppercase tracking-widest">{action.name}</span>
-              </Link>
-            ))}
+              ))}
+              {(!data?.topProducts || data.topProducts.length === 0) && (
+                <div className="text-center py-4">
+                  <Package className="w-8 h-8 text-slate-200 mx-auto mb-2" />
+                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Chưa có dữ liệu</p>
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="bg-white rounded-[40px] p-8 space-y-6 shadow-xl border border-amber-100 relative overflow-hidden group">
@@ -451,9 +529,22 @@ export default function AdminDashboard() {
               <h4 className="text-[10px] font-black text-amber-600 uppercase tracking-widest">Cảnh Báo Tồn Kho</h4>
               <AlertTriangle className="text-amber-500" size={16} />
             </div>
-            <div className="relative z-10">
-              <div className="text-4xl font-black text-slate-900 tracking-tighter">{stats.lowStockItems}</div>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Sản phẩm sắp hết hàng</p>
+            <div className="relative z-10 space-y-3">
+              <div className="flex items-baseline gap-2">
+                <div className="text-4xl font-black text-slate-900 tracking-tighter">{data?.predictive?.stockWarnings?.length || stats.lowStockItems}</div>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Sản phẩm sắp hết hàng</p>
+              </div>
+
+              <div className="space-y-2 max-h-[120px] overflow-hidden">
+                {data?.predictive?.stockWarnings?.slice(0, 3).map((w: any, idx: number) => (
+                  <div key={idx} className="flex justify-between items-center text-[10px] font-bold">
+                    <span className="text-slate-600 line-clamp-1 flex-1 mr-2">{w.product}</span>
+                    <span className={`px-1.5 py-0.5 rounded ${w.urgency === 'CRITICAL' ? 'bg-red-50 text-red-500' : 'bg-amber-50 text-amber-500'}`}>
+                      {w.current} left
+                    </span>
+                  </div>
+                ))}
+              </div>
             </div>
             <Link href="/admin/inventory" className="flex items-center justify-between p-4 bg-blue-500 rounded-2xl hover:bg-blue-600 transition-all text-white relative z-10 shadow-lg shadow-blue-500/30">
               <span className="text-[10px] font-black uppercase tracking-widest">Điều Chỉnh Kho</span>

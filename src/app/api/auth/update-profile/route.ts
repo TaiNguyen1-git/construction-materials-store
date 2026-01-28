@@ -6,7 +6,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { verifyTokenFromRequest } from '@/lib/auth-middleware-api'
-import jwt from 'jsonwebtoken'
+import jwt, { JwtPayload } from 'jsonwebtoken'
+
+interface ProfileUpdatePayload extends JwtPayload {
+    userId: string
+    purpose: string
+}
 
 export async function PATCH(request: NextRequest) {
     try {
@@ -57,13 +62,12 @@ export async function PATCH(request: NextRequest) {
                 )
             }
 
-            // Verify Update Token
             try {
-                const decoded: any = jwt.verify(updateToken, process.env.JWT_SECRET!)
+                const decoded = jwt.verify(updateToken, process.env.JWT_SECRET!) as ProfileUpdatePayload
                 if (decoded.userId !== currentUser.id || decoded.purpose !== 'profile_update') {
                     throw new Error('Invalid token')
                 }
-            } catch (err) {
+            } catch {
                 return NextResponse.json(
                     { success: false, error: 'Phiên làm việc không hợp lệ' },
                     { status: 401 }
@@ -98,7 +102,7 @@ export async function PATCH(request: NextRequest) {
             user: updatedUser
         })
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Update profile error:', error)
         return NextResponse.json(
             { success: false, error: 'Lỗi server. Vui lòng thử lại sau.' },

@@ -1,14 +1,15 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, Suspense } from 'react'
 import Header from '@/components/Header'
 import ChatSummaryButton from '@/components/ChatSummaryButton'
 import {
     Send, ArrowLeft, MessageCircle, Paperclip, Image as ImageIcon,
-    FileText, Download, X, Sparkles, UserPlus, Phone, Video, ChevronDown
+    FileText, Download, X, Sparkles, UserPlus, Phone, Video, ChevronDown, Search
 } from 'lucide-react'
 import { useAuth } from '@/contexts/auth-context'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { getFirebaseDatabase } from '@/lib/firebase'
 import { ref, onChildAdded, off } from 'firebase/database'
 import ChatCallManager from '@/components/ChatCallManager'
@@ -21,12 +22,14 @@ interface Conversation {
     projectId: string | null
     projectTitle: string | null
     lastMessage: string | null
-    lastMessageAt: string | null
     unreadCount: number
+    lastMessageAt: string | null
+    createdAt: string
 }
 
 interface Message {
     id: string
+    tempId?: string
     senderId: string
     senderName: string
     content: string | null
@@ -39,7 +42,19 @@ interface Message {
 }
 
 export default function MessagesPage() {
-    const { isAuthenticated, isLoading: authLoading } = useAuth()
+    return (
+        <Suspense fallback={
+            <div className="h-screen bg-gray-50 flex items-center justify-center font-bold text-gray-400">
+                Đang khởi tạo ứng dụng tin nhắn...
+            </div>
+        }>
+            <MessagesClient />
+        </Suspense>
+    )
+}
+
+function MessagesClient() {
+    const { user, isAuthenticated, isLoading: authLoading } = useAuth()
     const [conversations, setConversations] = useState<Conversation[]>([])
     const [selectedConv, setSelectedConv] = useState<string | null>(null)
     const [messages, setMessages] = useState<Message[]>([])
@@ -53,35 +68,102 @@ export default function MessagesPage() {
         type: string;
     } | null>(null)
     const [showScrollButton, setShowScrollButton] = useState(false)
-    const messagesContainerRef = useRef<HTMLDivElement>(null)
     const messagesEndRef = useRef<HTMLDivElement>(null)
     const fileInputRef = useRef<HTMLInputElement>(null)
+    const isSendingRef = useRef(false)
+    const messagesContainerRef = useRef<HTMLDivElement>(null)
 
-    // Get current user from localStorage
+    // Get current user from localStorage or AuthContext
     const [userId, setUserId] = useState<string>('')
     const [userName, setUserName] = useState<string>('')
+    const searchParams = useSearchParams()
+    const partnerId = searchParams.get('partnerId')
 
     useEffect(() => {
-        const uid = localStorage.getItem('user_id') || 'guest_' + Date.now()
-        const uname = localStorage.getItem('user_name') || 'Khách'
-        setUserId(uid)
-        setUserName(uname)
-        fetchConversations(uid)
-    }, [])
+        if (!authLoading) {
+            const uid = user?.id || localStorage.getItem('user_id') || 'guest_' + Date.now()
+            const uname = user?.name || localStorage.getItem('user_name') || 'Khách'
+
+            // Persist guest ID if newly generated
+            if (!user && !localStorage.getItem('user_id')) {
+                localStorage.setItem('user_id', uid)
+            }
+
+            setUserId(uid)
+            setUserName(uname)
+            fetchConversations(uid)
+        }
+    }, [user, authLoading])
+
+    // Auto-select partner from URL
+    useEffect(() => {
+        if (partnerId && userId && conversations.length >= 0 && !loading) {
+            handleAutoConnectPartner()
+        }
+    }, [partnerId, userId, conversations, loading])
+
+    const handleAutoConnectPartner = async () => {
+        // 1. Check if already have a conversation with this partner
+        const existing = conversations.find(c => c.otherUserId === partnerId)
+        if (existing) {
+            if (selectedConv !== existing.id) {
+                selectConversation(existing.id)
+            }
+            return
+        }
+
+        // 2. If not, try to create/ensure it exists
+        try {
+            const res = await fetch('/api/messages', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    senderId: userId,
+                    senderName: userName,
+                    recipientId: partnerId
+                })
+            })
+
+            if (res.ok) {
+                const data = await res.json()
+                if (data.success) {
+                    // Re-fetch conversations to include new one
+                    await fetchConversations(userId)
+                    selectConversation(data.data.conversationId)
+                }
+            }
+        } catch (error) {
+            console.error('Failed to auto-connect partner:', error)
+        }
+    }
 
     const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
-        if (messagesEndRef.current) {
-            messagesEndRef.current.scrollIntoView({ behavior })
+        if (messagesContainerRef.current) {
+            const container = messagesContainerRef.current
+            container.scrollTo({
+                top: container.scrollHeight,
+                behavior
+            })
         }
     }
 
     useEffect(() => {
-        scrollToBottom()
+        if (messages.length === 0) return
+
+        const container = messagesContainerRef.current
+        if (!container) return
+
+        const isAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 300
+
+        if (isSendingRef.current || isAtBottom) {
+            scrollToBottom(isSendingRef.current ? 'smooth' : 'auto')
+            isSendingRef.current = false
+        }
     }, [messages])
 
     const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
         const { scrollTop, scrollHeight, clientHeight } = e.currentTarget
-        setShowScrollButton(scrollHeight - scrollTop - clientHeight > 200)
+        setShowScrollButton(scrollHeight - scrollTop - clientHeight > 300)
     }
 
     const handleCall = (type: 'audio' | 'video' = 'audio') => {
@@ -143,7 +225,18 @@ export default function MessagesPage() {
             const newMsg = snapshot.val()
             if (newMsg) {
                 setMessages(prev => {
-                    if (prev.some(m => m.id === newMsg.id)) return prev
+                    // Check if message already exists by ID or tempId
+                    const isDuplicate = prev.some(m =>
+                        m.id === newMsg.id ||
+                        (newMsg.tempId && m.tempId === newMsg.tempId)
+                    )
+
+                    if (isDuplicate) {
+                        // Replace temp message with real one to update ID and remove sending state if any
+                        return prev.map(m =>
+                            (m.tempId && m.tempId === newMsg.tempId) ? newMsg : m
+                        )
+                    }
                     return [...prev, newMsg]
                 })
             }
@@ -196,45 +289,65 @@ export default function MessagesPage() {
     const sendMessage = async () => {
         if ((!newMessage.trim() && !selectedFile) || !selectedConv) return
 
-        setSending(true)
-        let fileData = null
+        const content = newMessage
+        const fileToUpload = selectedFile?.file
+        const tempId = 'temp-' + Date.now()
 
-        if (selectedFile) {
-            fileData = await uploadFileLoad(selectedFile.file)
+        // 1. Optimistic Update (Instant response)
+        const optimisticMsg: Message = {
+            id: tempId,
+            tempId: tempId,
+            senderId: userId,
+            senderName: userName,
+            content: content || null,
+            fileUrl: selectedFile?.preview || null,
+            fileName: selectedFile?.file.name || null,
+            fileType: selectedFile?.type || null,
+            fileSize: selectedFile?.file.size || 0,
+            isRead: false,
+            createdAt: new Date().toISOString()
+        }
+        setMessages(prev => [...prev, optimisticMsg])
+
+        setNewMessage('')
+        setSelectedFile(null)
+        if (fileInputRef.current) fileInputRef.current.value = ''
+
+        isSendingRef.current = true
+        setSending(true)
+
+        let fileData = null
+        if (fileToUpload) {
+            fileData = await uploadFileLoad(fileToUpload)
             if (!fileData) {
                 alert('Tải file thất bại')
+                setMessages(prev => prev.filter(m => m.tempId !== tempId)) // Rollback
                 setSending(false)
                 return
             }
         }
 
         try {
-            const res = await fetch(`/api/messages/${selectedConv}`, {
+            await fetch(`/api/messages/${selectedConv}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     senderId: userId,
                     senderName: userName,
-                    content: newMessage || null,
+                    content: content || null,
                     fileUrl: fileData ? `/api/files/${fileData.fileId}` : null,
                     fileName: fileData?.fileName,
                     fileType: fileData?.fileType,
-                    fileSize: fileData?.fileSize
+                    fileSize: fileData?.fileSize,
+                    tempId: tempId // Pass tempId for sync
                 })
             })
-
-            if (res.ok) {
-                const data = await res.json()
-                if (data.success) {
-                    setNewMessage('')
-                    setSelectedFile(null)
-                    if (fileInputRef.current) fileInputRef.current.value = ''
-                }
-            }
         } catch (error) {
             console.error('Failed to send message:', error)
+            setMessages(prev => prev.filter(m => m.tempId !== tempId)) // Rollback
         } finally {
             setSending(false)
+            if (isSendingRef.current) setTimeout(() => { isSendingRef.current = false }, 100)
         }
     }
 
@@ -251,115 +364,105 @@ export default function MessagesPage() {
     }
 
     return (
-        <div className="h-screen bg-gray-50 flex flex-col overflow-hidden">
+        <div className="min-h-screen bg-gray-50 flex flex-col">
             <Toaster position="top-right" />
             {userId && <ChatCallManager userId={userId} userName={userName} />}
             <Header />
 
-            <div className="flex-1 max-w-6xl w-full mx-auto px-4 py-6 flex flex-col overflow-hidden">
-                <h1 className="text-2xl font-bold text-gray-800 mb-6 flex-shrink-0">Tin nhắn</h1>
-
-                <div className="bg-white rounded-lg border border-gray-200 overflow-hidden flex-1 flex flex-col shadow-sm min-h-0">
+            <div className="flex-1 max-w-6xl w-full mx-auto px-1 sm:px-4 py-2 sm:py-4 flex flex-col min-h-0">
+                <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden h-[calc(100vh-180px)] min-h-[500px] flex flex-col shadow-2xl mb-8 mt-2">
                     <div className="flex flex-1 min-h-0">
                         {/* Conversation List */}
-                        <div className="w-1/3 border-r border-gray-200 overflow-y-auto bg-gray-50 flex-shrink-0">
-                            {loading ? (
-                                <div className="p-6 text-center text-gray-500">Đang tải...</div>
-                            ) : conversations.length === 0 ? (
-                                <div className="p-12 text-center">
-                                    <MessageCircle className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                                    <p className="text-gray-500">Chưa có tin nhắn</p>
+                        <div className="w-80 border-r border-gray-100 overflow-y-auto bg-white flex-shrink-0 flex flex-col">
+                            <div className="p-4 border-b border-gray-50 flex-shrink-0">
+                                <div className="relative group mb-2">
+                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-blue-600 transition-colors" />
+                                    <input
+                                        type="text"
+                                        placeholder="Tìm cuộc hội thoại..."
+                                        className="w-full pl-10 pr-4 py-2.5 bg-gray-100 border-none rounded-2xl text-xs font-bold focus:ring-2 focus:ring-blue-500 transition-all outline-none"
+                                    />
                                 </div>
-                            ) : (
-                                conversations.map(conv => (
-                                    <button
-                                        key={conv.id}
-                                        onClick={() => selectConversation(conv.id)}
-                                        className={`w-full p-4 text-left border-b border-gray-100 transition-colors hover:bg-white ${selectedConv === conv.id ? 'bg-white border-l-4 border-l-blue-500' : ''
-                                            }`}
-                                    >
-                                        <div className="flex flex-col mb-1 w-full">
-                                            <div className="flex items-center justify-between w-full">
-                                                <span className="font-semibold text-gray-800 truncate mr-2">
-                                                    {conv.otherUserName}
-                                                </span>
-                                                {conv.unreadCount > 0 && (
-                                                    <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0">
-                                                        {conv.unreadCount}
-                                                    </span>
-                                                )}
+                            </div>
+                            <div className="flex-1 overflow-y-auto custom-scrollbar">
+                                {loading ? (
+                                    <div className="p-12 text-center text-gray-400 flex flex-col items-center gap-3">
+                                        <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                                        <span className="text-[10px] font-black uppercase tracking-widest">Đang tải...</span>
+                                    </div>
+                                ) : conversations.length === 0 ? (
+                                    <div className="p-12 text-center">
+                                        <MessageCircle className="w-12 h-12 text-gray-200 mx-auto mb-3" />
+                                        <p className="text-gray-400 text-xs font-bold uppercase tracking-widest">Chưa có tin nhắn</p>
+                                    </div>
+                                ) : (
+                                    conversations.map(conv => (
+                                        <button
+                                            key={conv.id}
+                                            onClick={() => selectConversation(conv.id)}
+                                            className={`w-full p-4 text-left flex items-center gap-3 transition-all border-l-4 ${selectedConv === conv.id
+                                                ? 'bg-blue-50/50 border-l-blue-600'
+                                                : 'border-l-transparent hover:bg-gray-50'
+                                                }`}
+                                        >
+                                            <div className="relative flex-shrink-0">
+                                                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center text-white font-black text-sm shadow-md">
+                                                    {conv.otherUserName.charAt(0)}
+                                                </div>
+                                                <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>
                                             </div>
-                                        </div>
-                                        {conv.projectTitle && (
-                                            <p className="text-xs text-blue-600 font-medium truncate mb-1">
-                                                Dự án: {conv.projectTitle}
-                                            </p>
-                                        )}
-                                        <div className="flex justify-between items-center">
-                                            <p className="text-sm text-gray-500 truncate flex-1">
-                                                {conv.lastMessage || 'Bắt đầu trò chuyện'}
-                                            </p>
-                                            <span className="text-[10px] text-gray-400 ml-2">
-                                                {conv.lastMessageAt ? formatTime(conv.lastMessageAt) : ''}
-                                            </span>
-                                        </div>
-                                    </button>
-                                ))
-                            )}
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex justify-between items-baseline mb-0.5">
+                                                    <span className="font-black text-gray-900 truncate text-[13px] tracking-tight">
+                                                        {conv.otherUserName}
+                                                    </span>
+                                                    <span className="text-[9px] text-gray-400 font-bold ml-2">
+                                                        {conv.lastMessageAt ? formatTime(conv.lastMessageAt) : ''}
+                                                    </span>
+                                                </div>
+                                                <p className={`text-[11px] truncate ${conv.unreadCount > 0 ? 'font-black text-blue-700' : 'text-gray-400 font-medium'}`}>
+                                                    {conv.lastMessage || 'Bắt đầu trò chuyện'}
+                                                </p>
+                                            </div>
+                                            {conv.unreadCount > 0 && (
+                                                <div className="w-5 h-5 bg-blue-600 rounded-full flex items-center justify-center text-[10px] text-white font-black shadow-lg">
+                                                    {conv.unreadCount}
+                                                </div>
+                                            )}
+                                        </button>
+                                    ))
+                                )}
+                            </div>
                         </div>
 
                         {/* Message Area */}
                         <div className="flex-1 flex flex-col bg-white min-w-0">
                             {selectedConv ? (
                                 <>
-                                    {/* Guest Conversion Prompt */}
-                                    {!isAuthenticated && (
-                                        <div className="bg-gradient-to-r from-primary-600 to-indigo-700 p-4 text-white shadow-md relative z-10">
-                                            <div className="flex items-center justify-between gap-4">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="bg-white/20 p-2 rounded-lg backdrop-blur-sm">
-                                                        <Sparkles className="w-5 h-5 text-yellow-300" />
-                                                    </div>
-                                                    <div>
-                                                        <p className="font-black text-sm uppercase tracking-wider">Bản tin khách (Guest Mode)</p>
-                                                        <p className="text-xs text-blue-100 font-medium">Đăng ký tài khoản để lưu trữ lịch sử chat mãi mãi và quản lý dự án chuyên nghiệp hơn!</p>
-                                                    </div>
-                                                </div>
-                                                <Link
-                                                    href="/register"
-                                                    className="bg-white text-primary-700 px-4 py-2 rounded-xl text-xs font-black shadow-lg hover:bg-gray-50 transition-all flex items-center gap-2 whitespace-nowrap"
-                                                >
-                                                    <UserPlus className="w-4 h-4" />
-                                                    Đăng ký ngay
-                                                </Link>
-                                            </div>
-                                        </div>
-                                    )}
-
                                     {/* Chat Header with Status and Call Buttons */}
-                                    <div className="px-6 py-3 border-b bg-white flex items-center justify-between sticky top-0 z-20 shadow-sm backdrop-blur-md bg-white/90">
+                                    <div className="px-6 py-4 border-b bg-white flex items-center justify-between sticky top-0 z-20 shadow-sm">
                                         <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary-600 to-indigo-600 flex items-center justify-center text-white font-bold shadow-sm">
+                                            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center text-white font-black shadow-md">
                                                 {(conversations.find(c => c.id === selectedConv)?.otherUserName || 'U').charAt(0)}
                                             </div>
                                             <div className="min-w-0">
-                                                <div className="font-bold text-gray-900 truncate">
+                                                <h3 className="font-black text-gray-900 truncate tracking-tight text-sm">
                                                     {conversations.find(c => c.id === selectedConv)?.otherUserName || 'Cuộc hội thoại'}
-                                                </div>
+                                                </h3>
                                                 <div className="flex items-center gap-1.5">
-                                                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                                                    <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">Đang hoạt động</p>
+                                                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                                                    <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest">Đang hoạt động</p>
                                                 </div>
                                             </div>
                                         </div>
-                                        <div className="flex items-center gap-1">
-                                            <button onClick={() => handleCall('audio')} className="p-2 text-primary-600 hover:bg-primary-50 rounded-full transition-all" title="Gọi thoại">
+                                        <div className="flex items-center gap-2">
+                                            <button onClick={() => handleCall('audio')} className="p-2.5 text-blue-600 hover:bg-blue-50 rounded-full transition-all" title="Gọi thoại">
                                                 <Phone className="w-5 h-5" />
                                             </button>
-                                            <button onClick={() => handleCall('video')} className="p-2 text-primary-600 hover:bg-primary-50 rounded-full transition-all" title="Gọi video">
+                                            <button onClick={() => handleCall('video')} className="p-2.5 text-blue-600 hover:bg-blue-50 rounded-full transition-all" title="Gọi video">
                                                 <Video className="w-5 h-5" />
                                             </button>
-                                            <div className="w-px h-6 bg-gray-100 mx-2" />
+                                            <div className="w-px h-8 bg-gray-100 mx-1" />
                                             <ChatSummaryButton
                                                 conversationId={selectedConv}
                                                 currentUserId={userId}
@@ -367,18 +470,18 @@ export default function MessagesPage() {
                                         </div>
                                     </div>
 
-                                    {/* Messages */}
+                                    {/* Messages Container */}
                                     <div
                                         ref={messagesContainerRef}
                                         onScroll={handleScroll}
-                                        className="flex-1 overflow-y-auto p-6 space-y-6 bg-gray-50/50 relative custom-scrollbar"
+                                        className="flex-1 overflow-y-auto px-6 py-6 bg-gray-50/30 custom-scrollbar relative"
                                     >
                                         {messages.map((msg, index) => (
                                             <div
-                                                key={msg.id || index}
-                                                className={`flex w-full ${msg.senderId === userId ? 'justify-end' : 'justify-start'} mb-4`}
+                                                key={msg.id || `msg-${index}-${Date.now()}`}
+                                                className={`flex w-full ${msg.senderId === userId ? 'justify-end' : 'justify-start'} mb-2`}
                                             >
-                                                <div className={`max-w-[70%] rounded-2xl px-4 py-3 shadow-md ${msg.senderId === userId
+                                                <div className={`max-w-[75%] rounded-[24px] px-5 py-3 shadow-sm ${msg.senderId === userId
                                                     ? 'bg-blue-600 text-white rounded-br-none'
                                                     : 'bg-white text-gray-800 rounded-bl-none border border-gray-100'
                                                     }`}>
@@ -443,39 +546,37 @@ export default function MessagesPage() {
                                     )}
 
                                     {/* Input Area */}
-                                    <div className="border-t border-gray-200 p-4 bg-white">
+                                    <div className="p-4 bg-white border-t border-gray-100">
                                         {selectedFile && (
-                                            <div className="mb-3 p-2 bg-gray-50 rounded-lg flex items-center justify-between border border-dashed border-gray-300">
+                                            <div className="mb-3 p-3 bg-gray-50 rounded-2xl flex items-center justify-between border-2 border-dashed border-gray-200 animate-in slide-in-from-bottom duration-300">
                                                 <div className="flex items-center gap-3">
                                                     {selectedFile.type === 'image' ? (
-                                                        <img src={selectedFile.preview} className="w-12 h-12 object-cover rounded" />
+                                                        <img src={selectedFile.preview} className="w-12 h-12 object-cover rounded-xl shadow-sm" />
                                                     ) : (
-                                                        <div className="w-12 h-12 bg-blue-100 flex items-center justify-center rounded">
-                                                            <FileText className="text-blue-600" />
+                                                        <div className="w-12 h-12 bg-blue-100 flex items-center justify-center rounded-xl">
+                                                            <FileText className="text-blue-600 w-6 h-6" />
                                                         </div>
                                                     )}
                                                     <div>
-                                                        <p className="text-xs font-medium text-gray-700 max-w-[200px] truncate">
+                                                        <p className="text-xs font-black text-gray-800 max-w-[200px] truncate leading-tight mb-0.5">
                                                             {selectedFile.file.name}
                                                         </p>
-                                                        <p className="text-[10px] text-gray-400">{formatFileSize(selectedFile.file.size)}</p>
+                                                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">{formatFileSize(selectedFile.file.size)}</p>
                                                     </div>
                                                 </div>
                                                 <button
                                                     onClick={() => setSelectedFile(null)}
-                                                    className="p-1 hover:bg-gray-200 rounded-full text-gray-400"
+                                                    className="p-1.5 hover:bg-gray-200 rounded-full text-gray-400 transition-colors"
                                                 >
-                                                    <X className="w-4 h-4" />
+                                                    <X className="w-5 h-5" />
                                                 </button>
                                             </div>
                                         )}
-
-                                        <div className="flex items-end gap-3">
+                                        <div className="flex items-center gap-3 bg-gray-100 p-2 rounded-[32px] focus-within:ring-2 focus-within:ring-blue-500 focus-within:bg-white transition-all shadow-inner">
                                             <button
                                                 onClick={() => fileInputRef.current?.click()}
                                                 disabled={sending || uploading}
-                                                className="p-2.5 text-gray-500 hover:bg-gray-100 rounded-full transition-colors disabled:opacity-50"
-                                                title="Gửi file hoặc ảnh"
+                                                className="p-3 text-gray-500 hover:text-blue-600 hover:bg-white rounded-full transition-all disabled:opacity-50"
                                             >
                                                 <Paperclip className="w-5 h-5" />
                                             </button>
@@ -486,27 +587,23 @@ export default function MessagesPage() {
                                                 className="hidden"
                                                 accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx,.txt"
                                             />
-
-                                            <div className="flex-1 relative">
-                                                <textarea
-                                                    value={newMessage}
-                                                    onChange={e => setNewMessage(e.target.value)}
-                                                    onKeyDown={e => {
-                                                        if (e.key === 'Enter' && !e.shiftKey) {
-                                                            e.preventDefault()
-                                                            sendMessage()
-                                                        }
-                                                    }}
-                                                    placeholder="Nhập tin nhắn..."
-                                                    className="w-full px-4 py-2.5 bg-gray-100 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all resize-none max-h-32 text-sm"
-                                                    rows={1}
-                                                />
-                                            </div>
-
+                                            <textarea
+                                                value={newMessage}
+                                                onChange={e => setNewMessage(e.target.value)}
+                                                onKeyDown={e => {
+                                                    if (e.key === 'Enter' && !e.shiftKey) {
+                                                        e.preventDefault()
+                                                        sendMessage()
+                                                    }
+                                                }}
+                                                placeholder="Nhập tin nhắn..."
+                                                className="flex-1 bg-transparent border-none outline-none focus:ring-0 text-sm font-bold text-gray-800 placeholder:text-gray-400 py-3 resize-none max-h-32 leading-relaxed"
+                                                rows={1}
+                                            />
                                             <button
                                                 onClick={sendMessage}
                                                 disabled={sending || uploading || (!newMessage.trim() && !selectedFile)}
-                                                className="p-2.5 bg-blue-600 text-white rounded-full hover:bg-blue-700 disabled:opacity-50 transition-all shadow-md active:scale-95 flex-shrink-0"
+                                                className="p-3 bg-blue-600 text-white rounded-full hover:bg-blue-700 disabled:opacity-50 transition-all shadow-xl shadow-blue-200 active:scale-90"
                                             >
                                                 {sending || uploading ? (
                                                     <div className="w-5 h-5 border-2 border-white border-t-transparent animate-spin rounded-full" />

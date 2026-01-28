@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { Prisma, CustomerType } from '@prisma/client'
 import { createSuccessResponse, createErrorResponse } from '@/lib/api-types'
 
 // GET /api/customers - Get all customers (PUBLIC - no auth required)
@@ -14,23 +15,30 @@ export async function GET(request: NextRequest) {
     const skip = (page - 1) * limit
 
     // Build filter object
-    const where: any = {}
+    const where: Prisma.CustomerWhereInput = {}
+
+    // Initialize user filter if needed
+    const userFilter: Prisma.UserWhereInput = {}
 
     if (search) {
-      where.user = {
-        OR: [
-          { name: { contains: search, mode: 'insensitive' } },
-          { email: { contains: search, mode: 'insensitive' } },
-        ]
-      }
+      userFilter.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { email: { contains: search, mode: 'insensitive' } },
+      ]
     }
 
     if (status) {
-      where.status = status
+      // Customer model doesn't have status, mapped to User.isActive
+      if (status === 'ACTIVE') userFilter.isActive = true
+      if (status === 'INACTIVE') userFilter.isActive = false
+    }
+
+    if (Object.keys(userFilter).length > 0) {
+      where.user = userFilter
     }
 
     if (type) {
-      where.customerType = type
+      where.customerType = type as CustomerType
     }
 
     const [customers, total] = await Promise.all([
@@ -84,7 +92,7 @@ export async function GET(request: NextRequest) {
       }, 'Customers retrieved successfully'),
       { status: 200 }
     )
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error fetching customers:', error)
     return NextResponse.json(
       createErrorResponse('Failed to fetch customers', 'SERVER_ERROR'),
@@ -153,7 +161,7 @@ export async function POST(request: NextRequest) {
       createSuccessResponse(result, 'Customer created successfully'),
       { status: 201 }
     )
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error creating customer:', error)
     return NextResponse.json(
       createErrorResponse('Failed to create customer', 'SERVER_ERROR'),

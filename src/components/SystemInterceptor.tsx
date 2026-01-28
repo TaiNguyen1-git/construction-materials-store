@@ -7,8 +7,27 @@ import { useRouter, usePathname } from 'next/navigation'
 import toast, { Toaster } from 'react-hot-toast'
 import { getTargetLabel, getTargetPath, MAINTENANCE_TARGETS } from '@/lib/maintenance-targets'
 
+
+interface InterceptorData {
+    type: 'MAINTENANCE' | 'FEATURE' | 'POLICY' | 'DEBT_LOCK' | 'FEEDBACK' | 'INFO';
+    data: {
+        id?: string;
+        title: string;
+        content: string;
+        imageUrl?: string;
+        actionLabel?: string;
+        actionUrl?: string;
+        endTime?: string;
+        targetPath?: string;
+        message?: string;
+        amount?: number;
+        orderId?: string;
+        displayMode?: 'BANNER' | 'MODAL';
+    };
+}
+
 export default function SystemInterceptor() {
-    const [interceptor, setInterceptor] = useState<any>(null)
+    const [interceptor, setInterceptor] = useState<InterceptorData | null>(null)
     const [visible, setVisible] = useState(false)
     const [loading, setLoading] = useState(false)
     const [rating, setRating] = useState(5)
@@ -25,12 +44,12 @@ export default function SystemInterceptor() {
             const json = await res.json()
 
             if (json.data?.type) {
-                const data = json.data
+                const data = json.data as InterceptorData
 
                 // Path/Feature Matching
                 if (data.data?.targetPath) {
                     const targetKey = data.data.targetPath
-                    const targetConfig = (MAINTENANCE_TARGETS as any)[targetKey]
+                    const targetConfig = MAINTENANCE_TARGETS[targetKey]
 
                     if (targetConfig) {
                         const actualPath = targetConfig.path
@@ -65,7 +84,7 @@ export default function SystemInterceptor() {
     }, [pathname, dismissed])
 
 
-    const handleAction = async (action: string, specificData: any = {}) => {
+    const handleAction = async (action: string, specificData: Record<string, unknown> = {}) => {
         // Immediate UI feedback
         if (action === 'DISMISSED' || action === 'SEEN' || action === 'NAVIGATE') {
             setVisible(false)
@@ -73,7 +92,7 @@ export default function SystemInterceptor() {
         }
 
         if (action === 'NAVIGATE' && specificData.url) {
-            router.push(specificData.url)
+            router.push(specificData.url as string)
             return
         }
 
@@ -112,6 +131,7 @@ export default function SystemInterceptor() {
 
 
     if (!visible || !interceptor) return null
+
 
     // ========== RENDER BANNER MODE ==========
     if (interceptor.data?.displayMode === 'BANNER') {

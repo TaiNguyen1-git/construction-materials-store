@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { Prisma } from '@prisma/client'
 import { createSuccessResponse, createErrorResponse } from '@/lib/api-types'
 import { z } from 'zod'
 import { logger } from '@/lib/logger'
@@ -65,14 +66,16 @@ export async function PUT(
     }
 
     // Update order status
-    const updateData: any = {
+    const updateData: Prisma.OrderUpdateInput = {
       status,
       updatedAt: new Date()
     }
 
-    if (trackingNumber) {
-      updateData.trackingNumber = trackingNumber
-    }
+
+    // TODO: Add trackingNumber to Order schema or handle it differently
+    // if (trackingNumber) {
+    //   (updateData as any).trackingNumber = trackingNumber
+    // }
 
     if (note) {
       updateData.notes = note
@@ -96,7 +99,7 @@ export async function PUT(
       updateData.qrExpiresAt = qrExpiry
     }
 
-    const updatedOrder = await (prisma as any).$transaction(async (tx: any) => {
+    const updatedOrder = await prisma.$transaction(async (tx) => {
       // If cancelling, restore inventory
       if (status === 'CANCELLED' && existingOrder.status !== 'CANCELLED') {
         const orderItems = await tx.orderItem.findMany({
@@ -190,38 +193,39 @@ export async function PUT(
     })
 
     // Push status update to Firebase for real-time tracking (non-blocking)
-    pushOrderStatusUpdate(orderId, status, (updatedOrder as any).orderNumber)
+    pushOrderStatusUpdate(orderId, status, updatedOrder.orderNumber)
       .catch(err => console.error('Firebase push error:', err))
 
     // Send notification to customer
     try {
       const { createOrderStatusNotificationForCustomer } = await import('@/lib/notification-service')
       await createOrderStatusNotificationForCustomer({
-        id: (updatedOrder as any).id,
-        orderNumber: (updatedOrder as any).orderNumber,
-        status: (updatedOrder as any).status,
-        customer: (updatedOrder as any).customer ? {
-          userId: (updatedOrder as any).customer.userId
+        id: updatedOrder.id,
+        orderNumber: updatedOrder.orderNumber,
+        status: updatedOrder.status,
+        customer: updatedOrder.customer ? {
+          userId: updatedOrder.customer.userId
         } : null
       })
-    } catch (notifError: any) {
+    } catch (notifError: unknown) {
+      const err = notifError as Error
       logger.error('Error creating order status notification for customer', {
-        error: notifError.message,
+        error: err.message,
         orderId
       })
     }
 
     // Send email to customer when order is confirmed
     if (status === 'CONFIRMED' || status === 'CONFIRMED_AWAITING_DEPOSIT') {
-      const customerEmail = (updatedOrder as any).customer?.user?.email || (updatedOrder as any).guestEmail
-      const customerName = (updatedOrder as any).customer?.user?.name || (updatedOrder as any).guestName || 'Quý khách'
+      const customerEmail = updatedOrder.customer?.user?.email || updatedOrder.guestEmail
+      const customerName = updatedOrder.customer?.user?.name || updatedOrder.guestName || 'Quý khách'
 
       console.log('📧 Email Debug (status route):', {
         customerEmail,
         customerName,
-        guestEmail: (updatedOrder as any).guestEmail,
+        guestEmail: updatedOrder.guestEmail,
         status,
-        orderNumber: (updatedOrder as any).orderNumber
+        orderNumber: updatedOrder.orderNumber
       })
 
       if (customerEmail) {
@@ -229,13 +233,13 @@ export async function PUT(
           EmailService.sendOrderApprovedWithPayment({
             email: customerEmail,
             name: customerName,
-            orderNumber: (updatedOrder as any).orderNumber,
-            orderId: (updatedOrder as any).id,
-            totalAmount: (updatedOrder as any).netAmount,
-            depositAmount: (updatedOrder as any).depositAmount || undefined,
-            paymentMethod: (updatedOrder as any).paymentMethod || 'BANK_TRANSFER',
-            paymentType: (updatedOrder as any).paymentType || 'FULL',
-            items: (updatedOrder as any).orderItems.map((item: any) => ({
+            orderNumber: updatedOrder.orderNumber,
+            orderId: updatedOrder.id,
+            totalAmount: updatedOrder.netAmount,
+            depositAmount: updatedOrder.depositAmount || undefined,
+            paymentMethod: updatedOrder.paymentMethod || 'BANK_TRANSFER',
+            paymentType: updatedOrder.paymentType || 'FULL',
+            items: updatedOrder.orderItems.map((item) => ({
               name: item.product.name,
               quantity: item.quantity,
               price: item.unitPrice
@@ -252,10 +256,11 @@ export async function PUT(
       { status: 200 }
     )
 
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const err = error as Error
     logger.error('Update order status error', {
-      error: error.message,
-      stack: error.stack
+      error: err.message,
+      stack: err.stack
     })
 
     return NextResponse.json(

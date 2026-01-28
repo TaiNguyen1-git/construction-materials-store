@@ -5,9 +5,50 @@ import { usePathname } from 'next/navigation'
 import { MessageCircle, X, Send, Bot, ShoppingCart, AlertCircle, RefreshCw, Camera, Image as ImageIcon, BarChart3, Package, Users, TrendingUp } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useAuth } from '@/contexts/auth-context'
-import ChatOrderSummary from './ChatOrderSummary'
+import ChatOrderSummary, { OrderItem } from './ChatOrderSummary'
 import ChatConfirmDialog from './ChatConfirmDialog'
-import ChatOCRPreview from './ChatOCRPreview'
+import ChatOCRPreview, { InvoiceItem } from './ChatOCRPreview'
+
+
+interface ProductRecommendation {
+  name: string;
+  price?: number;
+  unit?: string;
+  description?: string;
+}
+
+interface OCRData {
+  invoiceNumber?: string;
+  invoiceDate?: string;
+  supplierName?: string;
+  items?: InvoiceItem[];
+  totalAmount?: number;
+  confidence?: number;
+}
+
+
+
+interface OrderData {
+  orderNumber?: string;
+  trackingUrl?: string;
+  items?: OrderItem[];
+  customerInfo?: { name: string; phone: string; address: string };
+  paymentMethod?: string;
+  deliveryMethod?: string;
+  totalAmount?: number;
+}
+
+
+
+
+interface ReportData {
+  dateRange?: { from: string | Date; to: string | Date };
+  totalRevenue?: number;
+  totalOrders?: number;
+  orders?: Array<Record<string, unknown>>;
+  topProducts?: Array<Record<string, unknown>>;
+}
+
 
 interface ChatMessage {
   id: string
@@ -15,16 +56,17 @@ interface ChatMessage {
   userImage?: string // Base64 image uploaded by user
   botMessage: string
   suggestions: string[]
-  productRecommendations?: any[]
+  productRecommendations?: ProductRecommendation[]
   confidence: number
   timestamp: string
   // New fields for enhanced features
-  ocrData?: any
-  calculationData?: any
-  orderData?: any
-  data?: any // Report/analytics data
+  ocrData?: OCRData
+  calculationData?: Record<string, unknown>
+  orderData?: OrderData
+  data?: ReportData // Report/analytics data
   requiresConfirmation?: boolean
 }
+
 
 interface ChatbotProps {
   customerId?: string
@@ -48,9 +90,19 @@ export default function Chatbot({ customerId }: ChatbotProps) {
   const [showOrderSummary, setShowOrderSummary] = useState(false)
   const [showOCRPreview, setShowOCRPreview] = useState(false)
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
-  const [confirmDialogData, setConfirmDialogData] = useState<any>(null)
-  const [pendingOrderData, setPendingOrderData] = useState<any>(null)
-  const [pendingOCRData, setPendingOCRData] = useState<any>(null)
+  const [confirmDialogData, setConfirmDialogData] = useState<{
+    type?: 'info' | 'warning' | 'success';
+    title: string;
+    message: string;
+    confirmText?: string;
+    cancelText?: string;
+    onConfirm?: () => void;
+    onCancel?: () => void;
+  } | null>(null)
+  const [pendingOrderData, setPendingOrderData] = useState<OrderData | null>(null)
+
+  const [pendingOCRData, setPendingOCRData] = useState<OCRData | null>(null)
+
 
   // Check if user is admin/manager
   // Check both user role AND pathname to handle reload cases
@@ -286,7 +338,8 @@ export default function Chatbot({ customerId }: ChatbotProps) {
     sendMessage(suggestion)
   }
 
-  const showDetailedReport = async (reportData: any, sourceMessage: ChatMessage) => {
+  const showDetailedReport = async (reportData: ReportData, sourceMessage: ChatMessage) => {
+
     try {
       if (!reportData.dateRange) {
         toast.error('Không có dữ liệu chi tiết')
@@ -382,7 +435,8 @@ export default function Chatbot({ customerId }: ChatbotProps) {
     }
   }
 
-  const exportReport = async (reportData: any) => {
+  const exportReport = async (reportData: ReportData) => {
+
     try {
       if (!reportData.dateRange) {
         toast.error('Không có dữ liệu báo cáo để xuất')
@@ -563,89 +617,64 @@ export default function Chatbot({ customerId }: ChatbotProps) {
                       }}
                     >
                       {message.botMessage.split('\n').map((line, idx) => {
-                        // Style separator lines
-                        if (line.trim().startsWith('━━')) {
-                          return (
-                            <div key={idx} className="text-gray-300 my-2 font-mono text-xs">
-                              {line}
-                            </div>
-                          )
-                        }
-
-                        // Function to render inline markdown (bold, links, images)
                         const renderInlineMarkdown = (text: string) => {
                           const elements: React.ReactNode[] = []
                           let remaining = text
                           let keyCounter = 0
 
                           while (remaining.length > 0) {
-                            // Check for image ![alt](url)
                             const imgMatch = remaining.match(/^!\[([^\]]*)\]\(([^)]+)\)/)
                             if (imgMatch) {
-                              elements.push(
-                                <img
-                                  key={keyCounter++}
-                                  src={imgMatch[2]}
-                                  alt={imgMatch[1]}
-                                  className="max-w-full rounded-lg my-2"
-                                />
-                              )
-                              remaining = remaining.slice(imgMatch[0].length)
-                              continue
+                              elements.push(<img key={keyCounter++} src={imgMatch[2]} alt={imgMatch[1]} className="max-w-full rounded-lg my-2" />)
+                              remaining = remaining.slice(imgMatch[0].length); continue
                             }
 
-                            // Check for link [text](url)
                             const linkMatch = remaining.match(/^\[([^\]]+)\]\(([^)]+)\)/)
                             if (linkMatch) {
                               elements.push(
-                                <a
-                                  key={keyCounter++}
-                                  href={linkMatch[2]}
-                                  className="text-blue-600 hover:text-blue-800 font-semibold underline"
-                                  target={linkMatch[2].startsWith('http') ? '_blank' : undefined}
-                                  rel={linkMatch[2].startsWith('http') ? 'noopener noreferrer' : undefined}
-                                >
+                                <a key={keyCounter++} href={linkMatch[2]} className="text-blue-600 font-semibold underline" target="_blank" rel="noopener noreferrer">
                                   {linkMatch[1]}
                                 </a>
                               )
-                              remaining = remaining.slice(linkMatch[0].length)
-                              continue
+                              remaining = remaining.slice(linkMatch[0].length); continue
                             }
 
-                            // Check for bold **text**
                             const boldMatch = remaining.match(/^\*\*([^*]+)\*\*/)
                             if (boldMatch) {
-                              elements.push(
-                                <span key={keyCounter++} className="font-bold text-gray-900">
-                                  {boldMatch[1]}
-                                </span>
-                              )
-                              remaining = remaining.slice(boldMatch[0].length)
-                              continue
+                              elements.push(<span key={keyCounter++} className="font-bold text-gray-900">{boldMatch[1]}</span>)
+                              remaining = remaining.slice(boldMatch[0].length); continue
                             }
 
-                            // Find next special character or end
                             const nextSpecial = remaining.search(/\*\*|\[|\!\[/)
                             if (nextSpecial === -1) {
-                              // No more special chars, add rest as text
-                              elements.push(<span key={keyCounter++}>{remaining}</span>)
-                              break
+                              elements.push(<span key={keyCounter++}>{remaining}</span>); break
                             } else if (nextSpecial > 0) {
-                              // Add text before special char
                               elements.push(<span key={keyCounter++}>{remaining.slice(0, nextSpecial)}</span>)
                               remaining = remaining.slice(nextSpecial)
                             } else {
-                              // Special char at start but didn't match, treat as normal char
                               elements.push(<span key={keyCounter++}>{remaining[0]}</span>)
                               remaining = remaining.slice(1)
                             }
                           }
-
                           return elements
                         }
 
+                        if (line.trim().startsWith('━━')) {
+                          return <div key={idx} className="text-gray-300 my-2 font-mono text-xs">{line}</div>
+                        }
+
+                        if (line.trim().startsWith('- ') || line.trim().startsWith('* ') || line.trim().match(/^\d+\.\s/)) {
+                          const isNumbered = !!line.trim().match(/^\d+\.\s/)
+                          return (
+                            <div key={idx} className="flex gap-2 my-1 pl-2">
+                              <span className="text-blue-500 font-bold">{isNumbered ? line.trim().split('.')[0] + '.' : '•'}</span>
+                              <div className="flex-1">{renderInlineMarkdown(line.trim().replace(/^[-*]\s|\d+\.\s/, ''))}</div>
+                            </div>
+                          )
+                        }
+
                         return (
-                          <div key={idx} className={idx > 0 && !line.trim().startsWith('━━') ? 'mt-1' : ''}>
+                          <div key={idx} className={idx > 0 ? 'mt-1' : ''}>
                             {renderInlineMarkdown(line)}
                           </div>
                         )
@@ -738,6 +767,7 @@ export default function Chatbot({ customerId }: ChatbotProps) {
         )}
 
         {/* OCR Preview */}
+
         {showOCRPreview && pendingOCRData && (
           <div className="mt-4">
             <ChatOCRPreview
@@ -746,7 +776,7 @@ export default function Chatbot({ customerId }: ChatbotProps) {
               supplierName={pendingOCRData.supplierName}
               items={pendingOCRData.items || []}
               totalAmount={pendingOCRData.totalAmount}
-              confidence={pendingOCRData.confidence}
+              confidence={pendingOCRData.confidence || 0}
               onConfirm={() => {
                 sendMessage('Xác nhận lưu')
                 setShowOCRPreview(false)
@@ -763,6 +793,7 @@ export default function Chatbot({ customerId }: ChatbotProps) {
             />
           </div>
         )}
+
 
         {/* Order Summary */}
         {showOrderSummary && pendingOrderData && (

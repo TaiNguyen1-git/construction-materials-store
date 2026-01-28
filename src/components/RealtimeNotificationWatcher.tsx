@@ -9,14 +9,31 @@ import { useEffect, useRef, useState } from 'react'
 import toast from 'react-hot-toast'
 import { Bell, ShieldCheck, CheckCircle2, AlertTriangle, Info, Camera, DollarSign } from 'lucide-react'
 
+
+interface Notification {
+    id: string;
+    title: string;
+    message: string;
+    type: string;
+    createdAt?: string;
+}
+
+interface NotificationTheme {
+    icon: React.ReactNode;
+    color: string;
+    ring: string;
+    bg: string;
+}
+
 // Map notification types to colors and icons for a premium look
-const NOTIFICATION_THEMES: Record<string, { icon: any, color: string, ring: string, bg: string }> = {
+const NOTIFICATION_THEMES: Record<string, NotificationTheme> = {
     'ORDER_UPDATE': { icon: <Bell className="w-5 h-5 text-blue-600" />, color: 'bg-blue-600', ring: 'ring-blue-100', bg: 'bg-blue-50' },
     'PAYMENT_RECEIVED': { icon: <DollarSign className="w-5 h-5 text-green-600" />, color: 'bg-green-600', ring: 'ring-green-100', bg: 'bg-green-50' },
     'MILESTONE_COMPLETED': { icon: <CheckCircle2 className="w-5 h-5 text-indigo-600" />, color: 'bg-indigo-600', ring: 'ring-indigo-100', bg: 'bg-indigo-50' },
     'SYSTEM_ALERT': { icon: <AlertTriangle className="w-5 h-5 text-amber-600" />, color: 'bg-amber-600', ring: 'ring-amber-100', bg: 'bg-amber-50' },
     'DEFAULT': { icon: <Info className="w-5 h-5 text-blue-600" />, color: 'bg-blue-600', ring: 'ring-blue-100', bg: 'bg-blue-50' }
 }
+
 
 export default function RealtimeNotificationWatcher() {
     const lastSeenRef = useRef<Set<string>>(new Set())
@@ -48,10 +65,11 @@ export default function RealtimeNotificationWatcher() {
 
                 if (!res.ok) return
 
-                const data = await res.json()
-                const notifications = data.data?.notifications || []
 
-                notifications.forEach((notif: any) => {
+                const data = await res.json()
+                const notifications: Notification[] = data.data?.notifications || []
+
+                notifications.forEach((notif: Notification) => {
                     if (!lastSeenRef.current.has(notif.id)) {
                         lastSeenRef.current.add(notif.id)
 
@@ -76,10 +94,11 @@ export default function RealtimeNotificationWatcher() {
         return () => clearInterval(interval)
     }, [isClient])
 
-    const showPremiumToast = (notif: any) => {
+    const showPremiumToast = (notif: Notification) => {
         const theme = NOTIFICATION_THEMES[notif.type] || NOTIFICATION_THEMES['DEFAULT']
 
         toast.custom((t) => (
+
             <div
                 className={`${t.visible ? 'animate-enter' : 'animate-leave'
                     } max-w-sm w-full bg-white shadow-2xl rounded-2xl pointer-events-auto flex ring-1 ring-black ring-opacity-5 overflow-hidden border border-gray-100`}

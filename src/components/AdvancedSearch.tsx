@@ -71,7 +71,7 @@ export default function AdvancedSearch({ onClose, autoFocus = false }: AdvancedS
         const result = await response.json()
         const products = result.data?.items || result.data || []
 
-        const productSuggestions: SearchSuggestion[] = products.map((product: any) => ({
+        const productSuggestions: SearchSuggestion[] = products.map((product: { id: string; name: string; images?: string[]; price?: number; category?: { name: string } }) => ({
           id: product.id,
           name: product.name,
           type: 'product' as const,
@@ -79,6 +79,7 @@ export default function AdvancedSearch({ onClose, autoFocus = false }: AdvancedS
           price: product.price,
           categoryName: product.category?.name
         }))
+
 
         setSuggestions(productSuggestions)
       }

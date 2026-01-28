@@ -29,12 +29,47 @@ export async function GET(request: NextRequest) {
         })
 
         // Format for frontend
-        const formatted = conversations.map(c => {
+        const formatted = await Promise.all(conversations.map(async (c) => {
             const isParticipant1 = c.participant1Id === userId
+            let otherUserName = isParticipant1 ? c.participant2Name : c.participant1Name
+            const otherUserId = isParticipant1 ? c.participant2Id : c.participant1Id
+
+            // Repair 'Người dùng' or 'Khách' if we can find a better name
+            if (otherUserName === 'Người dùng' || otherUserName === 'Khách' || !otherUserName) {
+                // Try User first
+                const userObj = await prisma.user.findUnique({
+                    where: { id: otherUserId },
+                    select: { name: true }
+                })
+
+                if (userObj?.name && userObj.name !== 'Người dùng' && userObj.name !== 'Khách') {
+                    otherUserName = userObj.name
+                } else {
+                    // Try ContractorProfile
+                    const profile = await prisma.contractorProfile.findUnique({
+                        where: { id: otherUserId },
+                        select: { displayName: true }
+                    })
+                    if (profile?.displayName) {
+                        otherUserName = profile.displayName
+                    }
+                }
+
+                // Persist the repair in DB if we found a better name
+                if (otherUserName && otherUserName !== 'Người dùng' && otherUserName !== 'Khách') {
+                    await prisma.conversation.update({
+                        where: { id: c.id },
+                        data: {
+                            [isParticipant1 ? 'participant2Name' : 'participant1Name']: otherUserName
+                        }
+                    })
+                }
+            }
+
             return {
                 id: c.id,
-                otherUserId: isParticipant1 ? c.participant2Id : c.participant1Id,
-                otherUserName: isParticipant1 ? c.participant2Name : c.participant1Name,
+                otherUserId,
+                otherUserName,
                 projectId: c.projectId,
                 projectTitle: c.projectTitle,
                 lastMessage: c.lastMessage,
@@ -42,7 +77,7 @@ export async function GET(request: NextRequest) {
                 unreadCount: isParticipant1 ? c.unread1 : c.unread2,
                 createdAt: c.createdAt
             }
-        })
+        }))
 
         return NextResponse.json(
             createSuccessResponse({ conversations: formatted }, 'Conversations loaded'),
@@ -88,14 +123,41 @@ export async function POST(request: NextRequest) {
             }
         })
 
+        // Attempt to fetch names if missing
+        let sName = senderName
+        let rName = recipientName
+
+        if (!sName || !rName || sName === 'Khách' || rName === 'Người dùng') {
+            const users = await prisma.user.findMany({
+                where: { id: { in: [senderId, recipientId] } },
+                select: { id: true, name: true }
+            })
+
+            const profiles = await prisma.contractorProfile.findMany({
+                where: { id: { in: [senderId, recipientId] } },
+                select: { id: true, displayName: true }
+            })
+
+            if (!sName || sName === 'Khách') {
+                sName = users.find(u => u.id === senderId)?.name ||
+                    profiles.find(p => p.id === senderId)?.displayName ||
+                    senderName || 'Khách'
+            }
+            if (!rName || rName === 'Người dùng') {
+                rName = users.find(u => u.id === recipientId)?.name ||
+                    profiles.find(p => p.id === recipientId)?.displayName ||
+                    recipientName || 'Người dùng'
+            }
+        }
+
         // Create new conversation if not exists
         if (!conversation) {
             conversation = await prisma.conversation.create({
                 data: {
                     participant1Id: senderId,
-                    participant1Name: senderName || 'Khách',
+                    participant1Name: sName,
                     participant2Id: recipientId,
-                    participant2Name: recipientName || 'Người dùng',
+                    participant2Name: rName,
                     projectId: projectId || null,
                     projectTitle: projectTitle || null
                 }
@@ -110,7 +172,7 @@ export async function POST(request: NextRequest) {
                 data: {
                     conversationId: conversation.id,
                     senderId,
-                    senderName: senderName || 'Khách',
+                    senderName: sName,
                     content: initialMessage
                 }
             })

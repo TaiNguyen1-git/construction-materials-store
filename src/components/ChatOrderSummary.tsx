@@ -2,13 +2,14 @@
 
 import { ShoppingCart, Package, MapPin, CreditCard } from 'lucide-react'
 
-interface OrderItem {
+export interface OrderItem {
   productName: string
   quantity: number
   unit: string
   unitPrice?: number
   totalPrice?: number
 }
+
 
 interface ChatOrderSummaryProps {
   items: OrderItem[]

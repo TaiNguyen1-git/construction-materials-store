@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { AuthService } from '@/lib/auth'
 import { createSuccessResponse, createErrorResponse } from '@/lib/api-types'
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
@@ -106,14 +107,14 @@ export async function POST(request: NextRequest) {
             console.log('No guest applications to update')
         }
 
-        // Generate JWT token
-        const accessToken = jwt.sign(
-            { userId: user.id, role: user.role, customerId: customer.id },
-            JWT_SECRET,
-            { expiresIn: '7d' }
-        )
+        // Generate Token Pair using AuthService
+        const { accessToken, refreshToken } = AuthService.generateTokenPair({
+            userId: user.id,
+            email: user.email || '',
+            role: user.role as any
+        })
 
-        return NextResponse.json(
+        const response = NextResponse.json(
             createSuccessResponse({
                 user: {
                     id: user.id,
@@ -122,11 +123,15 @@ export async function POST(request: NextRequest) {
                     phone: user.phone,
                     role: user.role
                 },
-                customerId: customer.id,
-                accessToken
+                customerId: customer.id
             }, 'Đăng ký thành công! Chào mừng bạn đến SmartBuild'),
             { status: 201 }
         )
+
+        // Set HTTP-only cookies
+        AuthService.setAuthCookies(response, accessToken, refreshToken)
+
+        return response
     } catch (error) {
         console.error('Quick register error:', error)
         return NextResponse.json(

@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
             message: 'Mật khẩu đã được đặt lại thành công. Bạn có thể đăng nhập với mật khẩu mới.'
         })
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Reset password error:', error)
         return NextResponse.json(
             { success: false, error: 'Internal server error' },

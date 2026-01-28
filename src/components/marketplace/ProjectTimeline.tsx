@@ -32,7 +32,8 @@ export default function ProjectTimeline({ milestones, onUpdate, isOwner }: Proje
     const [evidenceNote, setEvidenceNote] = useState('')
     const [viewEvidence, setViewEvidence] = useState<Milestone | null>(null)
 
-    const handleAction = async (milestoneId: string, action: 'RELEASE' | 'COMPLETE', data?: any) => {
+    const handleAction = async (milestoneId: string, action: 'RELEASE' | 'COMPLETE', data?: { note?: string; image?: string }) => {
+
         setUpdating(milestoneId)
         try {
             const token = localStorage.getItem('access_token')

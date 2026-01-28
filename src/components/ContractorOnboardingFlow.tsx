@@ -15,8 +15,17 @@ import toast from 'react-hot-toast'
 import { VIETNAM_LOCATIONS, CONTRACTOR_SKILLS } from '@/lib/vn-data'
 
 interface OnboardingProps {
-    user: any
-    initialProfile?: any
+    user: { id: string; name?: string; mustChangePassword?: boolean }
+    initialProfile?: {
+        displayName?: string
+        companyName?: string
+        bio?: string
+        experienceYears?: number
+        skills?: string[]
+        city?: string
+        district?: string
+        address?: string
+    }
     onComplete: () => void
     onClose?: () => void
 }
@@ -292,7 +301,7 @@ export default function ContractorOnboardingFlow({ user, initialProfile, onCompl
                                     </button>
                                 </div>
                                 <div className="flex flex-wrap gap-2">
-                                    {(profile.skills as string[]).map((skill: string) => (
+                                    {profile.skills.map((skill: string) => (
                                         <span
                                             key={skill}
                                             className="inline-flex items-center gap-1 px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-sm font-bold group"

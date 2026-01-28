@@ -33,7 +33,9 @@ export class RestrictionService {
         type: RestrictionType,
         data: {
             reason: string
-            evidence?: any
+            evidence?: import('@prisma/client').Prisma.InputJsonValue
+
+
             imposedBy: string
             imposedByName?: string
             durationDays?: number // null = permanent

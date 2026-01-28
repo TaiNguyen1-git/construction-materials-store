@@ -56,7 +56,12 @@ export default function Header() {
               onMouseEnter={() => setShowServicesMenu(true)}
               onMouseLeave={() => setShowServicesMenu(false)}
             >
-              <button className="flex items-center gap-2 text-gray-600 hover:text-primary-600 font-semibold whitespace-nowrap text-sm py-2">
+              <button
+                className="flex items-center gap-2 text-gray-600 hover:text-primary-600 font-semibold whitespace-nowrap text-sm py-2"
+                aria-label="Mở menu dịch vụ"
+                aria-haspopup="true"
+                aria-expanded={showServicesMenu}
+              >
                 <Sparkles className="w-4 h-4" />
                 Dịch vụ
                 <ChevronDown className={`w-3 h-3 transition-transform ${showServicesMenu ? 'rotate-180' : ''}`} />
@@ -137,6 +142,7 @@ export default function Header() {
                 }
               }}
               className="relative p-2 hover:bg-gray-100 rounded-lg transition-colors group"
+              aria-label="Xem danh sách yêu thích"
             >
               <Heart className="h-6 w-6 text-gray-700 group-hover:text-red-500 transition-colors" />
               {getTotalItems() > 0 && (
@@ -158,6 +164,9 @@ export default function Header() {
                 <button
                   onClick={() => setShowUserMenu(!showUserMenu)}
                   className="flex items-center space-x-2 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors"
+                  aria-label="Mở menu người dùng"
+                  aria-haspopup="true"
+                  aria-expanded={showUserMenu}
                 >
                   <div className="w-8 h-8 rounded-full bg-gradient-to-r from-primary-600 to-secondary-600 flex items-center justify-center text-white font-semibold">
                     {user.name?.charAt(0).toUpperCase()}

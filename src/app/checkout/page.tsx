@@ -27,6 +27,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
 import toast, { Toaster } from 'react-hot-toast'
+import { getUnitFromProductName } from '@/lib/unit-utils'
 
 // Dynamically import QRPayment to avoid SSR issues
 const QRPayment = dynamic(() => import('@/components/QRPayment'), { ssr: false })
@@ -486,6 +487,10 @@ export default function CheckoutPage() {
                           <button
                             type="button"
                             onClick={() => {
+                              const dynamicUnit = p.unit && p.unit !== 'pcs'
+                                ? p.unit
+                                : getUnitFromProductName(p.name)
+
                               addItem({
                                 id: p.id,
                                 productId: p.id,
@@ -494,9 +499,9 @@ export default function CheckoutPage() {
                                 quantity: 1,
                                 image: p.images?.[0] || '',
                                 sku: p.id.slice(0, 8).toUpperCase(),
-                                unit: p.unit
+                                unit: dynamicUnit
                               });
-                              toast.success(`Đã thêm ${p.name} vào đơn hàng`);
+                              toast.success(`Đã thêm ${p.name} vào đơn hàng (${dynamicUnit})`);
                             }}
                             className="w-full py-2 bg-white border border-gray-200 text-gray-600 rounded-lg text-[10px] font-black hover:bg-primary-600 hover:text-white hover:border-primary-600 transition-all flex items-center justify-center gap-1 shadow-sm"
                           >

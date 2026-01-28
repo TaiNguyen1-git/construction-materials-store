@@ -2,6 +2,7 @@
 import { GoogleGenAI } from '@google/genai'
 import { AI_CONFIG, CHATBOT_SYSTEM_PROMPT, OCR_SYSTEM_PROMPT } from './ai-config'
 import { ADMIN_SYSTEM_PROMPT } from './ai-prompts-admin'
+import { InvoiceData, InvoiceDataSchema } from './validation'
 
 // Initialize Gemini client (if API key is provided)
 const client = AI_CONFIG.GEMINI.API_KEY ? new GoogleGenAI({ apiKey: AI_CONFIG.GEMINI.API_KEY }) : null
@@ -36,12 +37,13 @@ export const getWorkingModelConfig = async () => {
 
       workingModelName = AI_CONFIG.GEMINI.MODEL;
       return { client, modelName: workingModelName };
-    } catch (error: any) {
+    } catch (error) {
       // If 429, we might accept it as "working" but rate limited, but better to find one that works now?
       // Actually, if 2.5 returns 429, it exists. We should probably stick with it if it's the user preference, 
       // but if we want reliability, maybe fallback.
       // For now, if it throws, we try next.
     }
+
   }
 
   // If the configured model fails, try the fallback models
@@ -57,12 +59,13 @@ export const getWorkingModelConfig = async () => {
 
       workingModelName = modelName;
       return { client, modelName };
-    } catch (error: any) {
+    } catch (error) {
       // Special case: 429 means it exists but we are out of quota. 
       // We might want to use it anyway if it is the best model? 
       // No, for reliability we should keep searching for a 200 OK one.
       continue;
     }
+
   }
 
   throw new Error('No working Gemini model found');
@@ -72,22 +75,36 @@ export const getWorkingModelConfig = async () => {
 export interface ChatbotResponse {
   response: string
   suggestions: string[]
-  productRecommendations?: any[]
+  productRecommendations?: Record<string, unknown>[]
   confidence: number
 }
 
 // Define types for OCR responses
 export interface OCRResponse {
   extractedText: string
-  processedData: any
+  processedData: Record<string, unknown>
   confidence: number
 }
+
+interface GeminiPart {
+  text: string;
+}
+
+interface GeminiContent {
+  role: "user" | "model" | "system";
+  parts: GeminiPart[];
+}
+
+interface GeminiResponse {
+  text?: string;
+}
+
 
 export class AIService {
   // Generate chatbot response using Gemini
   static async generateChatbotResponse(
     message: string,
-    context?: any,
+    context?: Record<string, unknown>,
     conversationHistory?: { role: string; content: string }[],
     isAdmin: boolean = false
   ): Promise<ChatbotResponse> {
@@ -102,7 +119,7 @@ export class AIService {
         : "Tôi đã hiểu. Tôi sẽ đóng vai trò là trợ lý ảo của cửa hàng vật liệu xây dựng và hỗ trợ khách hàng nhiệt tình, chuyên nghiệp."
 
       // Prepare the conversation history for Gemini
-      let contents: any[] = [
+      let contents: GeminiContent[] = [
         {
           role: "user",
           parts: [{ text: systemPrompt }]
@@ -112,6 +129,7 @@ export class AIService {
           parts: [{ text: welcomeCtx }]
         }
       ]
+
 
       // Add conversation history if available
       if (conversationHistory && conversationHistory.length > 0) {
@@ -154,11 +172,12 @@ export class AIService {
             }
           });
 
-          const aiResponse = (result as any).text;
+          const aiResponse = (result as GeminiResponse).text;
 
           if (!aiResponse) {
             throw new Error('Empty response from AI')
           }
+
 
           // Extract structured information from the response
           const structuredResponse = await this.extractChatbotStructure(aiResponse)
@@ -231,14 +250,15 @@ export class AIService {
         contents: [{ role: 'user', parts: [{ text: prompt }] }]
       });
 
-      const structuredText = (result as any).text || '{}';
+      const structuredText = (result as GeminiResponse).text || '{}';
 
       // Try to parse the JSON response
-      let structured: any = {}
+      let structured: Partial<ChatbotResponse> = {}
       try {
         // Remove any markdown code block markers if present
         const cleanedText = structuredText.replace(/```json\s*|\s*```/g, '').trim()
         structured = JSON.parse(cleanedText)
+
       } catch (parseError) {
         console.error('Failed to parse Gemini structured response:', parseError)
         // Try to extract JSON from the text
@@ -290,14 +310,15 @@ export class AIService {
         contents: [{ role: 'user', parts: [{ text: prompt }] }]
       });
 
-      const processedText = (result as any).text || '{}';
+      const processedText = (result as GeminiResponse).text || '{}';
 
       // Try to parse the JSON response
-      let processedData: any = {}
+      let processedData: Record<string, unknown> = {}
       try {
         // Remove any markdown code block markers if present
         const cleanedText = processedText.replace(/```json\s*|\s*```/g, '').trim()
         processedData = JSON.parse(cleanedText)
+
       } catch (parseError) {
         console.error('Failed to parse Gemini OCR response:', parseError)
         // Try to extract JSON from the text
@@ -322,41 +343,48 @@ export class AIService {
     }
   }
 
-  // Get product recommendations based on user query
-  // Uses database search instead of Gemini to avoid rate limits
+  // Get smart recommendations using Hybrid Search (RAG)
   static async getProductRecommendations(query: string, context?: any): Promise<any[]> {
     try {
-      // Import prisma dynamically to avoid circular dependencies
-      const { prisma } = await import('./prisma')
+      const { RAGService } = await import('./rag-service')
 
-      // Search products by query
-      const products = await prisma.product.findMany({
-        where: {
-          isActive: true,
-          OR: [
-            { name: { contains: query, mode: 'insensitive' as any } },
-            { description: { contains: query, mode: 'insensitive' as any } },
-            { tags: { hasSome: query.toLowerCase().split(' ') } }
-          ]
-        },
-        include: {
-          category: true,
-          _count: { select: { orderItems: true } }
-        },
-        orderBy: { createdAt: 'desc' },
-        take: 5
-      })
+      // Use RAG Service for hybrid (Semantic + Keyword) search
+      const ragResults = await RAGService.getProductRecommendations(query, 5)
 
-      return products.map(p => ({
+      if (ragResults.length === 0) {
+        // Fallback to basic DB search if RAG returns nothing
+        const { prisma } = await import('./prisma')
+        const fallbackProducts = await prisma.product.findMany({
+          where: {
+            isActive: true,
+            OR: [
+              { name: { contains: query, mode: 'insensitive' } },
+              { description: { contains: query, mode: 'insensitive' } }
+            ]
+          },
+          take: 3
+        })
+
+        return fallbackProducts.map(p => ({
+          name: p.name,
+          description: p.description || '',
+          price: p.price,
+          unit: p.unit,
+          isInStore: true
+        }))
+      }
+
+      return ragResults.map(p => ({
         name: p.name,
         description: p.description || '',
-        price: p.price,
-        unit: p.unit,
-        category: p.category?.name || 'N/A',
-        popularity: p._count.orderItems
+        price: p.pricing.basePrice,
+        unit: p.pricing.unit,
+        category: p.category,
+        brand: p.brand,
+        isInStore: p.supplier === 'Store Inventory'
       }))
     } catch (error) {
-      console.error('Product recommendation error:', error)
+      console.error('Product recommendation hybrid error:', error)
       return []
     }
   }
@@ -386,10 +414,10 @@ export class AIService {
         contents: [{ role: 'user', parts: [{ text: prompt }] }]
       });
 
-      const sentimentText = (result as any).text || '{}';
+      const sentimentText = (result as GeminiResponse).text || '{}';
 
       // Try to parse the JSON response
-      let sentiment: any = { sentiment: 'neutral', confidence: 0.5 }
+      let sentiment: { sentiment?: string; confidence?: number | string } = { sentiment: 'neutral', confidence: 0.5 }
       try {
         // Remove any markdown code block markers if present
         const cleanedText = sentimentText.replace(/```json\s*|\s*```/g, '').trim()
@@ -398,6 +426,7 @@ export class AIService {
         console.error('Failed to parse Gemini sentiment response:', parseError)
         // Try to extract JSON from the text
         const jsonMatch = sentimentText.match(/\{.*\}/)
+
         if (jsonMatch) {
           try {
             sentiment = JSON.parse(jsonMatch[0])
@@ -409,8 +438,9 @@ export class AIService {
 
       return {
         sentiment: sentiment.sentiment || 'neutral',
-        confidence: parseFloat(sentiment.confidence) || 0.5
+        confidence: typeof sentiment.confidence === 'string' ? parseFloat(sentiment.confidence) : (sentiment.confidence || 0.5)
       }
+
     } catch (error) {
       console.error('Gemini sentiment analysis error:', error)
       return { sentiment: 'neutral', confidence: 0.5 }
@@ -458,13 +488,14 @@ export class AIService {
         contents: [{ role: 'user', parts: [{ text: prompt }] }]
       });
 
-      const text = (result as any).text || '{}';
+      const text = (result as GeminiResponse).text || '{}';
 
       // Try to parse the JSON response
-      let data: any = null
+      let data: Record<string, unknown> | null = null
       try {
         const cleanedText = text.replace(/```json\s*|\s*```/g, '').trim()
         data = JSON.parse(cleanedText)
+
       } catch (parseError) {
         const jsonMatch = text.match(/\{[\s\S]*\}/)
         if (jsonMatch) {
@@ -525,13 +556,14 @@ export class AIService {
         contents: [{ role: 'user', parts: [{ text: prompt }] }]
       });
 
-      const text = (result as any).text || '{}';
+      const text = (result as GeminiResponse).text || '{}';
 
       // Try to parse the JSON response
-      let params: any = {}
+      let params: Record<string, unknown> = {}
       try {
         const cleanedText = text.replace(/```json\s*|\s*```/g, '').trim()
         params = JSON.parse(cleanedText)
+
       } catch (parseError) {
         const jsonMatch = text.match(/\{[\s\S]*\}/)
         if (jsonMatch) {
@@ -549,7 +581,8 @@ export class AIService {
   }
 
   // Forecast demand using Statistical Methods (replaced Gemini due to rate limits)
-  static async forecastDemand(historyData: any[]): Promise<any> {
+  static async forecastDemand(historyData: { date: string; quantity?: number; value?: number }[]): Promise<any> {
+
     try {
       // Import statistical forecasting service
       const { statisticalForecasting } = await import('./stats-forecasting')
@@ -615,10 +648,11 @@ export class AIService {
         ]
       });
 
-      const text = (result as any).text || '';
+      const text = (result as GeminiResponse).text || '';
       if (!text) {
         console.warn('⚠️ Gemini Vision returned empty text. Result:', JSON.stringify(result));
       }
+
       return text;
     } catch (error) {
       console.error('Gemini Vision error:', error);
@@ -629,11 +663,12 @@ export class AIService {
   // Get smart recommendations using Collaborative Filtering (replaced Gemini due to rate limits)
   static async getSmartRecommendations(
     context: {
-      viewedProduct?: any,
-      userHistory?: any[],
-      cartItems?: any[]
+      viewedProduct?: { id: string },
+      userHistory?: Record<string, unknown>[],
+      cartItems?: (Record<string, unknown> & { productId?: string; id?: string })[]
     }
   ): Promise<any[]> {
+
     try {
       // Import collaborative filtering service
       const { collaborativeFiltering } = await import('./cf-recommendations')
@@ -685,9 +720,10 @@ export class AIService {
 
   // Optimize logistics/delivery planning
   static async optimizeLogistics(
-    orders: any[],
-    vehicles: any[]
+    orders: Record<string, unknown>[],
+    vehicles: Record<string, unknown>[]
   ): Promise<any> {
+
     try {
       const { client, modelName } = await getWorkingModelConfig();
       if (!client) throw new Error('Client init failed');
@@ -716,12 +752,14 @@ export class AIService {
         contents: [{ role: 'user', parts: [{ text: prompt }] }]
       });
 
-      const text = (result as any).text || '{}';
+      const text = (result as GeminiResponse).text || '{}';
 
-      let plan: any = {}
+
+      let plan: Record<string, unknown> = {}
       try {
         const cleanedText = text.replace(/```json\s*|\s*```/g, '').trim()
         plan = JSON.parse(cleanedText)
+
       } catch (e) {
         // Fallback logic could be added here
       }
@@ -733,7 +771,8 @@ export class AIService {
   }
 
   // Analyze credit risk for debt management
-  static async analyzeCreditRisk(customerData: any): Promise<any> {
+  static async analyzeCreditRisk(customerData: Record<string, unknown>): Promise<any> {
+
     try {
       const { client, modelName } = await getWorkingModelConfig();
       if (!client) throw new Error('Client init failed');
@@ -761,14 +800,16 @@ export class AIService {
         contents: [{ role: 'user', parts: [{ text: prompt }] }]
       });
 
-      const text = (result as any).text || '{}';
+      const text = (result as GeminiResponse).text || '{}';
 
-      let analysis: any = {}
+
+      let analysis: Record<string, unknown> = {}
       try {
         const cleanedText = text.replace(/```json\s*|\s*```/g, '').trim()
         analysis = JSON.parse(cleanedText)
       } catch (e) { }
       return analysis;
+
     } catch (error) {
       console.error('Gemini credit risk error:', error);
       return null;
@@ -776,8 +817,9 @@ export class AIService {
   }
 
 
+
   // Extract invoice data directly from image using Gemini Vision
-  static async extractInvoiceData(imageData: string): Promise<any> {
+  static async extractInvoiceData(imageData: string): Promise<InvoiceData | null> {
     try {
       const { client, modelName } = await getWorkingModelConfig();
       if (!client) throw new Error('Client init failed');
@@ -841,9 +883,9 @@ export class AIService {
         ]
       });
 
-      const text = (result as any).text || '{}';
+      const text = (result as GeminiResponse).text || '{}';
 
-      let invoiceData: any = {};
+      let invoiceData: Record<string, unknown> = {};
       try {
         const cleanedText = text.replace(/```json\s*|\s*```/g, '').trim();
         invoiceData = JSON.parse(cleanedText);
@@ -860,10 +902,27 @@ export class AIService {
       }
 
       // Ensure minimal structure
-      return {
+      const validated = InvoiceDataSchema.safeParse({
         ...invoiceData,
-        rawText: text // Keep raw text for debugging if needed
+        rawText: text
+      });
+
+      if (validated.success) {
+        return validated.data;
+      }
+
+      // Fallback if validation fails but we have some data
+      return {
+        invoiceNumber: (invoiceData.invoiceNumber as string) || null,
+        invoiceDate: (invoiceData.invoiceDate as string) || null,
+        supplierName: (invoiceData.supplierName as string) || null,
+        items: Array.isArray(invoiceData.items) ? invoiceData.items : [],
+        totalAmount: (invoiceData.totalAmount as number) || null,
+        taxAmount: (invoiceData.taxAmount as number) || null,
+        confidence: (invoiceData.confidence as number) || 0.5,
+        rawText: text
       };
+
 
     } catch (error) {
       console.error('Gemini invoice extraction error:', error);

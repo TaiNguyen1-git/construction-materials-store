@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
             updateToken
         })
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Request profile OTP error:', error)
         return NextResponse.json(
             { success: false, error: 'Internal server error' },

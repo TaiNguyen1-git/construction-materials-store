@@ -9,12 +9,24 @@
  */
 
 import { prisma } from './prisma'
-import { MilestoneEscrowStatus } from '@prisma/client'
+import { MilestoneEscrowStatus, Category, OrderCustomerType, CustomerType } from '@prisma/client'
 
-// @ts-ignore - Prisma generated types sometimes take a moment to sync in IDE
-type ExtendedPaymentMilestone = any;
-// @ts-ignore
-type ExtendedQuoteRequest = any;
+// Refined types for SME features
+export interface ExtendedPaymentMilestone {
+    id: string;
+    orderId: string;
+    amount: number;
+    status: MilestoneEscrowStatus;
+    dueDate: Date;
+    description?: string;
+}
+
+export interface ExtendedQuoteRequest {
+    id: string;
+    customerId: string;
+    status: string;
+    items: Array<{ productId: string; quantity: number }>;
+}
 export interface PriceResult {
     productId: string
     basePrice: number
@@ -229,7 +241,7 @@ export class PricingEngine {
         const priceLists = await prisma.priceList.findMany({
             where: {
                 isActive: true,
-                customerTypes: { has: customerType as any },
+                customerTypes: { has: customerType as CustomerType },
                 OR: [
                     { validFrom: null, validTo: null },
                     {
@@ -490,7 +502,7 @@ export class PricingEngine {
                 name: data.name,
                 description: data.description,
                 discountPercent: data.discountPercent,
-                customerTypes: data.customerTypes as any,
+                customerTypes: data.customerTypes as CustomerType[],
                 priority: data.priority || 0,
                 validFrom: data.validFrom,
                 validTo: data.validTo
@@ -499,7 +511,7 @@ export class PricingEngine {
                 name: data.name,
                 description: data.description,
                 discountPercent: data.discountPercent,
-                customerTypes: data.customerTypes as any,
+                customerTypes: data.customerTypes as CustomerType[],
                 priority: data.priority,
                 validFrom: data.validFrom,
                 validTo: data.validTo

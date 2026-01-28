@@ -156,6 +156,7 @@ export async function POST(
             const newMessageRef = push(messagesRef)
             await set(newMessageRef, {
                 id: message.id,
+                tempId: body.tempId || null, // Capture tempId for deduplication
                 senderId,
                 senderName: message.senderName,
                 content: content || null,

@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import { Phone, PhoneOff, Video, VideoOff, Mic, MicOff, X, Maximize2, Minimize2 } from 'lucide-react'
 import { getFirebaseDatabase } from '@/lib/firebase'
 import { ref, onValue, set, remove, onDisconnect } from 'firebase/database'
-import Peer from 'peerjs'
+import Peer, { type MediaConnection } from 'peerjs'
 import toast from 'react-hot-toast'
 
 interface CallData {
@@ -37,7 +37,7 @@ export default function ChatCallManager({ userId, userName }: ChatCallManagerPro
     const localVideoRef = useRef<HTMLVideoElement>(null)
     const remoteVideoRef = useRef<HTMLVideoElement>(null)
     const timerRef = useRef<NodeJS.Timeout | null>(null)
-    const currentCallRef = useRef<any>(null)
+    const currentCallRef = useRef<MediaConnection | { statusUnsubscribe: () => void } | null>(null)
     const localStreamRef = useRef<MediaStream | null>(null)
 
     // Keep ref in sync for listeners
@@ -161,7 +161,7 @@ export default function ChatCallManager({ userId, userName }: ChatCallManagerPro
 
         try {
             if (!audioCtxRef.current) {
-                audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)()
+                audioCtxRef.current = new (window.AudioContext || (window as any).AudioContext)()
             }
 
             const ctx = audioCtxRef.current
@@ -250,7 +250,7 @@ export default function ChatCallManager({ userId, userName }: ChatCallManagerPro
             })
 
             // Store unsubscribe to cleanup later
-            currentCallRef.current = { ...currentCallRef.current, statusUnsubscribe }
+            currentCallRef.current = { statusUnsubscribe }
 
             toast.success(`Đang gọi ${otherUserName}...`)
         } catch (err) {
@@ -289,13 +289,14 @@ export default function ChatCallManager({ userId, userName }: ChatCallManagerPro
             setActiveCall(updatedCall)
 
             // If the PeerJS call arrived BEFORE we accepted, answer it now
-            if (currentCallRef.current && currentCallRef.current.answer && !currentCallRef.current.answerUsed) {
+            const currentCall = currentCallRef.current
+            if (currentCall && 'answer' in currentCall && !('answerUsed' in currentCall && (currentCall as any).answerUsed)) {
                 console.log('Answering delayed PeerJS call')
-                currentCallRef.current.answer(stream)
-                currentCallRef.current.on('stream', (rStream: any) => {
+                currentCall.answer(stream)
+                currentCall.on('stream', (rStream: MediaStream) => {
                     setRemoteStream(rStream)
                 })
-                currentCallRef.current.answerUsed = true
+                    ; (currentCall as any).answerUsed = true
             }
         } catch (err) {
             console.error('Failed to accept call:', err)
@@ -319,7 +320,7 @@ export default function ChatCallManager({ userId, userName }: ChatCallManagerPro
         // Save duration before cleaning up
         const finalDuration = callDuration
         const callType = activeCall?.type
-        const convId = (activeCall as any).conversationId
+        const convId = activeCall?.conversationId
 
         if (targetId) {
             await set(ref(db, `calls/${targetId}`), { ...activeCall, status: 'ended' })
@@ -388,9 +389,10 @@ export default function ChatCallManager({ userId, userName }: ChatCallManagerPro
         if (localVideoRef.current) localVideoRef.current.srcObject = null
         if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null
 
-        if (currentCallRef.current) {
-            if (currentCallRef.current.close) currentCallRef.current.close()
-            if (currentCallRef.current.statusUnsubscribe) currentCallRef.current.statusUnsubscribe()
+        const currentCall = currentCallRef.current
+        if (currentCall) {
+            if ('close' in currentCall) currentCall.close()
+            if ('statusUnsubscribe' in currentCall) currentCall.statusUnsubscribe()
             currentCallRef.current = null
         }
     }
@@ -425,7 +427,7 @@ export default function ChatCallManager({ userId, userName }: ChatCallManagerPro
     useEffect(() => {
         (window as any).__startCall = startCall
         return () => { delete (window as any).__startCall }
-    }, [peer, localStream])
+    }, [peer, localStream, startCall])
 
     if (!incomingCall && !activeCall) return null
 

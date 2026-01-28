@@ -2,13 +2,14 @@
 
 import { FileText, Calendar, Building, Package, DollarSign } from 'lucide-react'
 
-interface InvoiceItem {
+export interface InvoiceItem {
   name: string
   quantity?: number
   unit?: string
   unitPrice?: number
   totalPrice?: number
 }
+
 
 interface ChatOCRPreviewProps {
   invoiceNumber?: string
@@ -41,15 +42,14 @@ export default function ChatOCRPreview({
           <FileText className="w-5 h-5 text-purple-600" />
           <h3 className="font-semibold text-gray-900">Hóa Đơn Nhận Diện</h3>
         </div>
-        <div className={`text-xs px-2 py-1 rounded-full font-medium ${
-          confidence > 0.8 ? 'bg-green-100 text-green-700' :
-          confidence > 0.6 ? 'bg-yellow-100 text-yellow-700' :
-          'bg-red-100 text-red-700'
-        }`}>
+        <div className={`text-xs px-2 py-1 rounded-full font-medium ${confidence > 0.8 ? 'bg-green-100 text-green-700' :
+            confidence > 0.6 ? 'bg-yellow-100 text-yellow-700' :
+              'bg-red-100 text-red-700'
+          }`}>
           {(confidence * 100).toFixed(0)}% tin cậy
         </div>
       </div>
-      
+
       {/* Invoice Info */}
       <div className="grid grid-cols-2 gap-3 text-sm">
         {invoiceNumber && (
@@ -61,7 +61,7 @@ export default function ChatOCRPreview({
             </div>
           </div>
         )}
-        
+
         {invoiceDate && (
           <div className="flex items-center gap-2">
             <Calendar className="w-4 h-4 text-gray-500" />
@@ -73,7 +73,7 @@ export default function ChatOCRPreview({
             </div>
           </div>
         )}
-        
+
         {supplierName && (
           <div className="flex items-center gap-2 col-span-2">
             <Building className="w-4 h-4 text-gray-500" />
@@ -84,14 +84,14 @@ export default function ChatOCRPreview({
           </div>
         )}
       </div>
-      
+
       {/* Items */}
       <div className="space-y-2">
         <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
           <Package className="w-4 h-4" />
           <span>Sản phẩm ({items.length})</span>
         </div>
-        
+
         <div className="max-h-40 overflow-y-auto space-y-2">
           {items.map((item, idx) => (
             <div key={idx} className="bg-gray-50 p-2 rounded text-sm">
@@ -111,7 +111,7 @@ export default function ChatOCRPreview({
           ))}
         </div>
       </div>
-      
+
       {/* Total */}
       {totalAmount && (
         <div className="border-t pt-2">
@@ -126,14 +126,14 @@ export default function ChatOCRPreview({
           </div>
         </div>
       )}
-      
+
       {/* Warnings */}
       {confidence < 0.7 && (
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-2 text-xs text-yellow-800">
           ⚠️ Độ tin cậy thấp. Vui lòng kiểm tra kỹ thông tin trước khi lưu.
         </div>
       )}
-      
+
       {/* Actions */}
       <div className="flex gap-2 pt-2">
         <button

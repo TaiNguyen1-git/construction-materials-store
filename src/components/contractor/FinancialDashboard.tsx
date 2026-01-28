@@ -11,9 +11,31 @@ import {
     Calendar, Briefcase, ShoppingCart, Loader2, AlertCircle
 } from 'lucide-react'
 
+interface FinanceSummary {
+    netWorth: number
+    totalReleased: number
+    totalIncoming: number
+    totalSpent: number
+    unpaidDebt: number
+}
+
+interface FinanceProject {
+    id: string
+    title: string
+    totalAmount: number
+    released: number
+    incoming: number
+}
+
+interface FinanceData {
+    summary: FinanceSummary
+    projects: FinanceProject[]
+}
+
 export default function FinancialDashboard() {
     const [loading, setLoading] = useState(true)
-    const [data, setData] = useState<any>(null)
+    const [data, setData] = useState<FinanceData | null>(null)
+
 
     useEffect(() => {
         fetchFinance()
@@ -115,7 +137,8 @@ export default function FinancialDashboard() {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
-                            {data.projects.map((p: any) => {
+                            {data.projects.map((p: FinanceProject) => {
+
                                 const progress = Math.round((p.released / p.totalAmount) * 100) || 0
                                 return (
                                     <tr key={p.id} className="hover:bg-gray-50 transition-colors">

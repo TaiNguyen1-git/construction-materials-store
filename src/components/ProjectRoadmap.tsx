@@ -44,7 +44,8 @@ interface ProjectRoadmapProps {
     estimateId: string
     projectType: string
     area: number
-    materials: any[]
+    materials: Array<{ name: string; quantity: number; unit?: string }>;
+
     startDate?: string
     onPhaseUpdate?: (phase: ProjectPhase) => void
 }
@@ -116,7 +117,8 @@ export default function ProjectRoadmap({
         // This would call an API to update the phase status
         // For now, we'll just update locally
         setPhases(prev => prev.map(p =>
-            p.id === phaseId ? { ...p, status: newStatus as any } : p
+            p.id === phaseId ? { ...p, status: newStatus as ProjectPhase['status'] } : p
+
         ))
         toast.success('Đã cập nhật trạng thái giai đoạn')
     }
@@ -216,8 +218,8 @@ export default function ProjectRoadmap({
                                         <p className="text-xs text-gray-500">{reminder.message}</p>
                                     </div>
                                     <span className={`text-xs font-bold px-2 py-1 rounded-full ${daysUntil && daysUntil <= 3
-                                            ? 'bg-red-100 text-red-700'
-                                            : 'bg-amber-100 text-amber-700'
+                                        ? 'bg-red-100 text-red-700'
+                                        : 'bg-amber-100 text-amber-700'
                                         }`}>
                                         {daysUntil && daysUntil > 0 ? `${daysUntil} ngày` : 'Hôm nay'}
                                     </span>
@@ -285,8 +287,8 @@ export default function ProjectRoadmap({
                                                 <button
                                                     onClick={(e) => { e.stopPropagation(); updatePhaseStatus(phase.id, 'IN_PROGRESS') }}
                                                     className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 ${phase.status === 'IN_PROGRESS'
-                                                            ? 'bg-blue-500 text-white'
-                                                            : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                                                        ? 'bg-blue-500 text-white'
+                                                        : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
                                                         }`}
                                                 >
                                                     <Play className="w-3 h-3" /> Đang làm
@@ -294,8 +296,8 @@ export default function ProjectRoadmap({
                                                 <button
                                                     onClick={(e) => { e.stopPropagation(); updatePhaseStatus(phase.id, 'COMPLETED') }}
                                                     className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 ${phase.status === 'COMPLETED'
-                                                            ? 'bg-green-500 text-white'
-                                                            : 'bg-green-100 text-green-700 hover:bg-green-200'
+                                                        ? 'bg-green-500 text-white'
+                                                        : 'bg-green-100 text-green-700 hover:bg-green-200'
                                                         }`}
                                                 >
                                                     <CheckCircle className="w-3 h-3" /> Hoàn thành

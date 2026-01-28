@@ -1989,6 +1989,18 @@ async function handleOCRInvoiceFlow(sessionId: string, image: string, message?: 
     // Process OCR using Gemini Vision
     const parsedInvoice = await AIService.extractInvoiceData(image)
 
+    if (!parsedInvoice) {
+      return NextResponse.json(
+        createSuccessResponse({
+          message: `❌ Không thể đọc dữ liệu từ hình ảnh này. Vui lòng chụp rõ hơn hoặc thử lại.`,
+          suggestions: ['Thử lại', 'Trợ giúp'],
+          confidence: 0,
+          sessionId,
+          timestamp: new Date().toISOString()
+        })
+      )
+    }
+
     // Validate (basic check)
     if (!parsedInvoice.items || parsedInvoice.items.length === 0 || !parsedInvoice.totalAmount) {
       // Even if validation fails slightly, we show what we got, but with lower confidence
@@ -2017,8 +2029,8 @@ async function handleOCRInvoiceFlow(sessionId: string, image: string, message?: 
       parsedInvoice.items.forEach((item: any, idx: number) => {
         formattedMsg += `${idx + 1}. ${item.name || 'Sản phẩm'}\n`
         if (item.quantity && item.unit) formattedMsg += `   Số lượng: ${item.quantity} ${item.unit}\n`
-        if (item.unitPrice) formattedMsg += `   Đơn giá: ${item.unitPrice.toLocaleString('vi-VN')}đ\n`
-        if (item.totalPrice) formattedMsg += `   Thành tiền: ${item.totalPrice.toLocaleString('vi-VN')}đ\n`
+        if (item.unitPrice) formattedMsg += `   Đơn giá: ${(item.unitPrice as number).toLocaleString('vi-VN')}đ\n`
+        if (item.totalPrice) formattedMsg += `   Thành tiền: ${(item.totalPrice as number).toLocaleString('vi-VN')}đ\n`
       })
     } else {
       formattedMsg += `⚠️ Không nhận diện được chi tiết sản phẩm\n`
@@ -2030,8 +2042,7 @@ async function handleOCRInvoiceFlow(sessionId: string, image: string, message?: 
     formattedMsg += `\n🎯 Độ tin cậy: ${((parsedInvoice.confidence || 0.9) * 100).toFixed(0)}%`
 
     // Start OCR flow with ParsedInvoice data
-    // Note: ensure startOCRInvoiceFlow accepts this structure or map it
-    startOCRInvoiceFlow(sessionId, parsedInvoice)
+    await startOCRInvoiceFlow(sessionId, parsedInvoice)
 
     return NextResponse.json(
       createSuccessResponse({
@@ -2721,6 +2732,8 @@ async function getConversationHistory(sessionId: string) {
   return formattedHistory
 }
 
+import { aiCache } from '@/lib/ai-cache'
+
 async function generateChatbotResponse(
   message: string,
   context?: any,
@@ -2732,17 +2745,31 @@ async function generateChatbotResponse(
   productRecommendations?: any[];
   confidence: number;
 }> {
-  // Try to use AI service first if enabled
+  // 1. Try to get from Cache (Hybrid Cache strategy)
+  const cachedResponse = aiCache.get(message, { isAdmin, ...context });
+  if (cachedResponse) {
+    console.log('[AI-CACHE] Hit for:', message);
+    return cachedResponse;
+  }
+
+  // 2. Try to use AI service if enabled
   if (isAIEnabled()) {
     try {
-      return await AIService.generateChatbotResponse(message, context, conversationHistory, isAdmin)
+      const response = await AIService.generateChatbotResponse(message, context, conversationHistory, isAdmin);
+
+      // Store in cache if confidence is high
+      if (response.confidence > 0.7) {
+        aiCache.set(message, response, 1000 * 60 * 30, { isAdmin, ...context }); // 30 mins
+      }
+
+      return response;
     } catch (error) {
       console.error('AI Service failed, falling back to static response:', error)
       // Fall through to static response
     }
   }
 
-  // Use the extracted fallback response generator
+  // 3. Use the extracted fallback response generator
   return generateChatbotFallbackResponse(message, isAdmin)
 }
 

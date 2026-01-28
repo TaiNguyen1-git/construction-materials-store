@@ -11,8 +11,8 @@ export default function Footer() {
     const documentationPaths = ['/terms', '/privacy', '/guidelines', '/help', '/payment-policy', '/standards']
     const hideFooter =
         pathname?.startsWith('/admin') ||
+        pathname?.startsWith('/contractor/') && !pathname?.startsWith('/contractors/') ||
         pathname === '/contractor' ||
-        pathname?.startsWith('/contractor/') ||
         documentationPaths.includes(pathname || '')
 
     if (hideFooter) {

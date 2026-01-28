@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { Prisma, OrderStatus, OrderCustomerType } from '@prisma/client'
 import { createSuccessResponse, createErrorResponse } from '@/lib/api-types'
 import { z } from 'zod'
 import { AuthService } from '@/lib/auth'
+import { verifyTokenFromRequest } from '@/lib/auth-middleware-api'
 import { LoyaltyService } from '@/lib/loyalty-service'
 import { logger, logAPI } from '@/lib/logger'
 
@@ -40,9 +42,10 @@ export async function GET(request: NextRequest) {
   const startTime = Date.now()
 
   try {
-    // Get user info from headers (optional for guest orders)
-    const userId = request.headers.get('x-user-id')
-    const userRole = request.headers.get('x-user-role')
+    // 🛡️ SECURITY FIX: Verify JWT token instead of trusting headers (prevents header spoofing)
+    const tokenPayload = verifyTokenFromRequest(request)
+    const userId = tokenPayload?.userId || null
+    const userRole = tokenPayload?.role || null
 
     const { searchParams } = new URL(request.url)
     const page = parseInt(searchParams.get('page') || '1')
@@ -55,7 +58,7 @@ export async function GET(request: NextRequest) {
     const skip = (page - 1) * limit
 
     // Build where clause
-    const where: any = {}
+    const where: Prisma.OrderWhereInput = {}
 
     // Regular customers can only see their own orders
     if (userRole === 'CUSTOMER') {
@@ -76,12 +79,12 @@ export async function GET(request: NextRequest) {
 
     // Filter by status
     if (status) {
-      where.status = status
+      where.status = status as OrderStatus
     }
 
     // Filter by customer type (REGISTERED or GUEST)
     if (customerType) {
-      where.customerType = customerType
+      where.customerType = customerType as OrderCustomerType
     }
 
     // Filter by specific registered customer
@@ -116,7 +119,9 @@ export async function GET(request: NextRequest) {
         // Search in registered customer phone
         {
           customer: {
-            phone: { contains: search, mode: 'insensitive' }
+            user: {
+              phone: { contains: search, mode: 'insensitive' }
+            }
           }
         }
       ]
@@ -185,7 +190,7 @@ export async function GET(request: NextRequest) {
     ])
 
     const response = {
-      orders: orders.map((order: any) => ({
+      orders: orders.map((order) => ({
         ...order,
         customerName: order.customer?.user?.name || order.guestName || 'Guest',
         customerEmail: order.customer?.user?.email || order.guestEmail || 'N/A'
@@ -206,10 +211,11 @@ export async function GET(request: NextRequest) {
       { status: 200 }
     )
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     const duration = Date.now() - startTime
-    logAPI.error('GET', '/api/orders', error, { duration, userId: request.headers.get('x-user-id') })
-    logger.error('Get orders error', { error: error.message, stack: error.stack })
+    const err = error as Error
+    logAPI.error('GET', '/api/orders', err, { duration, userId: request.headers.get('x-user-id') })
+    logger.error('Get orders error', { error: err.message, stack: err.stack })
 
     return NextResponse.json(
       createErrorResponse('Internal server error', 'INTERNAL_ERROR'),
@@ -482,10 +488,11 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     )
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     const duration = Date.now() - startTime
-    logAPI.error('POST', '/api/orders', error, { duration })
-    logger.error('Create order error', { error: error.message, stack: error.stack })
+    const err = error as Error
+    logAPI.error('POST', '/api/orders', err, { duration })
+    logger.error('Create order error', { error: err.message, stack: err.stack })
 
     return NextResponse.json(
       createErrorResponse('Internal server error', 'INTERNAL_ERROR'),

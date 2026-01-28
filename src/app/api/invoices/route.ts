@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { Prisma, InvoiceType, InvoiceStatus } from '@prisma/client'
 import { verifyTokenFromRequest } from '@/lib/auth-middleware-api'
 import { UserRole } from '@/lib/auth'
 
@@ -19,10 +20,10 @@ export async function GET(request: NextRequest) {
     const skip = (page - 1) * limit
 
     // Build filter object
-    const where: any = {}
+    const where: Prisma.InvoiceWhereInput = {}
 
-    if (type) where.invoiceType = type
-    if (status) where.status = status
+    if (type) where.invoiceType = type as InvoiceType
+    if (status) where.status = status as InvoiceStatus
     if (customerId) where.customerId = customerId
     if (supplierId) where.supplierId = supplierId
 
@@ -69,7 +70,7 @@ export async function GET(request: NextRequest) {
         pages: Math.ceil(total / limit)
       }
     })
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error fetching invoices:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
@@ -209,7 +210,7 @@ export async function POST(request: NextRequest) {
     })
 
     return NextResponse.json(invoice, { status: 201 })
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error creating invoice:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }

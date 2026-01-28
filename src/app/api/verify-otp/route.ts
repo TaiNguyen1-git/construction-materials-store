@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { AuthService } from '@/lib/auth'
 import jwt from 'jsonwebtoken'
 import crypto from 'crypto'
 import { logger, logAuth, logAPI } from '@/lib/logger'
@@ -108,19 +109,15 @@ export async function POST(request: NextRequest) {
             data: updateData
         })
 
-        // Generate Final JWT token
-        const token = jwt.sign(
-            {
-                userId: user.id,
-                email: user.email,
-                role: user.role
-            },
-            process.env.JWT_SECRET!,
-            { expiresIn: '7d' }
-        )
+        // Generate NEW token pair using AuthService
+        const { accessToken, refreshToken } = AuthService.generateTokenPair({
+            userId: user.id,
+            email: user.email,
+            role: user.role as any
+        })
 
         const clientInfo = getClientInfo(request)
-        const tokenHash = hashToken(token)
+        const tokenHash = hashToken(accessToken)
         const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
 
         const session = await prisma.userSession.create({
@@ -147,18 +144,12 @@ export async function POST(request: NextRequest) {
         const response = NextResponse.json({
             success: true,
             user: userWithoutPassword,
-            token,
             sessionId: session.id,
             needs2FASetupPrompt: !(user as any).hasSetTwoFactor,
         }, { status: 200 })
 
-        response.cookies.set('auth_token', token, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'lax',
-            path: '/',
-            maxAge: 7 * 24 * 60 * 60 // 7 days
-        })
+        // Use AuthService helper to set cookies
+        AuthService.setAuthCookies(response, accessToken, refreshToken)
 
         return response
 

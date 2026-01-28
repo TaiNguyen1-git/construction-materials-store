@@ -11,10 +11,10 @@ const withPWA = withPWAInit({
 const nextConfig: NextConfig = {
   /* config options here */
   eslint: {
-    ignoreDuringBuilds: true,
+    ignoreDuringBuilds: false,
   },
   typescript: {
-    ignoreBuildErrors: true,
+    ignoreBuildErrors: false,
   },
   experimental: {
     serverActions: {
@@ -25,14 +25,31 @@ const nextConfig: NextConfig = {
   // Vercel handles the output automatically
   // output: 'standalone',
   images: {
+    formats: ['image/avif', 'image/webp'],
     remotePatterns: [
       {
         protocol: 'https',
         hostname: 'images.unsplash.com',
         pathname: '/**',
       },
+      {
+        protocol: 'https',
+        hostname: 'www.hoaphat.com.vn',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'viglacera.com.vn',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'prime.vn',
+        pathname: '/**',
+      }
     ],
     unoptimized: false,
+    minimumCacheTTL: 60,
   },
   // Security Headers
   async headers() {

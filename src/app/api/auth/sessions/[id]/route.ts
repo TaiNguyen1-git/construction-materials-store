@@ -87,7 +87,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
             success: true,
             message: 'Đã thu hồi phiên thành công'
         })
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('[Session Revoke] Error:', error)
 
         return NextResponse.json(

@@ -1,13 +1,15 @@
-export interface ApiResponse<T = any> {
+
+export interface ApiResponse<T = unknown> {
   success: boolean
   data?: T
   message?: string
   error?: {
     code: string
     message: string
-    details?: any
+    details?: unknown
   }
 }
+
 
 export interface PaginationParams {
   page: number
@@ -45,10 +47,11 @@ export const createSuccessResponse = <T>(data: T, message?: string): ApiResponse
   message,
 })
 
+
 export const createErrorResponse = (
   message: string,
   code: string = 'ERROR',
-  details?: any
+  details?: unknown
 ): ApiResponse => ({
   success: false,
   error: {
@@ -58,6 +61,7 @@ export const createErrorResponse = (
   },
 })
 
+
 export const createPaginatedResponse = <T>(
   data: T[],
   total: number,
@@ -65,7 +69,7 @@ export const createPaginatedResponse = <T>(
   limit: number
 ): PaginatedResponse<T> => {
   const totalPages = Math.ceil(total / limit)
-  
+
   return {
     data,
     pagination: {

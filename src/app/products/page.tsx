@@ -19,12 +19,15 @@ import toast, { Toaster } from 'react-hot-toast'
 export const dynamic = 'force-dynamic'
 export const fetchCache = 'force-no-store'
 
+import { getUnitFromProductName } from '@/lib/unit-utils'
+
 interface Product {
   id: string
   name: string
   price: number
   description: string
   sku: string
+  unit?: string
   images: string[]
   category: {
     id: string
@@ -102,18 +105,23 @@ function ProductsPageContent() {
       return
     }
 
+    // Determine the unit: DB value -> Guess from name -> Default pcs
+    const dynamicUnit = product.unit && product.unit !== 'pcs'
+      ? product.unit
+      : getUnitFromProductName(product.name)
+
     addItem({
       id: product.id,
       productId: product.id,
       name: product.name,
       price: product.price,
       sku: product.sku,
-      unit: 'pcs',
+      unit: dynamicUnit,
       image: product.images?.[0],
       maxStock: product.inventoryItem?.availableQuantity
     })
 
-    toast.success('Đã thêm vào giỏ hàng!', {
+    toast.success(`Đã thêm vào giỏ hàng (${dynamicUnit})`, {
       duration: 2000,
     })
   }

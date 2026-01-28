@@ -13,8 +13,13 @@ export const getAuthHeaders = (): HeadersInit => {
   }
 
   // Get user info to provide x-user-id
-  const userStr = localStorage.getItem('user')
-  const user = userStr ? JSON.parse(userStr) : null
+  let user = null
+  try {
+    const userStr = localStorage.getItem('user')
+    user = userStr ? JSON.parse(userStr) : null
+  } catch (e) {
+    console.warn('Failed to parse user from localStorage')
+  }
 
   return {
     'Authorization': `Bearer ${token}`,
@@ -26,39 +31,31 @@ export const getAuthHeaders = (): HeadersInit => {
 import authService from '@/lib/auth-service'
 
 export const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
-  const headers = {
+  const getHeaders = () => ({
     'Content-Type': 'application/json',
     ...getAuthHeaders(),
     ...options.headers,
-  }
+  })
 
   let response = await fetch(url, {
     ...options,
-    headers,
+    headers: getHeaders(),
   })
 
   if (response.status === 401) {
     try {
       // Try to refresh the token
-      const newTokens = await authService.refreshTokenPair()
+      const refreshed = await authService.refreshToken()
 
-      if (newTokens && newTokens.accessToken) {
-        // Retry with new token
-        const newHeaders = {
-          ...headers,
-          'Authorization': `Bearer ${newTokens.accessToken}`,
-          'x-auth-token': newTokens.accessToken,
-        }
-
+      if (refreshed) {
+        // Token was refreshed, retry the request with NEW headers
         response = await fetch(url, {
           ...options,
-          headers: newHeaders,
+          headers: getHeaders(),
         })
       }
     } catch (error) {
       console.error('Token refresh failed:', error)
-      // If refresh fails, we just return the original 401 response
-      // The UI will handle the redirect to login
     }
   }
 

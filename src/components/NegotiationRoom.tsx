@@ -365,7 +365,8 @@ export default function NegotiationRoom({ quoteId, userId, userName, role, initi
     }
 
     // Handlers
-    const handleUpdateItem = (itemId: string, field: string, value: any) => {
+    const handleUpdateItem = (itemId: string, field: keyof BoQItem, value: string | number) => {
+
         if (negotiation?.status === 'locked') return
 
         const currentBoQ = negotiation?.boq || initialBoQ || []

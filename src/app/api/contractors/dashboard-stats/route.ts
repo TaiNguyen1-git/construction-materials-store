@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
         }
 
         // Get contractor profile
-        const profile = await prisma.contractorProfile.findUnique({
+        const profile = await prisma.contractorProfile.findFirst({
             where: { userId }
         })
 
@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
             take: 5,
             orderBy: { createdAt: 'desc' },
             include: {
-                items: {
+                orderItems: {
                     take: 1,
                     include: { product: true }
                 }
@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
 
         // 3. Get recent projects (bids won or invites)
         // Mock for now as project structure might vary
-        const recentProjects = []
+        const recentProjects: any[] = []
 
         return NextResponse.json({
             success: true,
@@ -57,19 +57,20 @@ export async function GET(request: NextRequest) {
                 totalSpent: 125000000, // Mock total spent
                 thisMonthSpent: 15400000 // Mock monthly spent
             },
-            recentOrders: recentOrders.map((o: any) => ({
+            recentOrders: recentOrders.map(o => ({
                 id: o.id,
                 code: o.id.substring(0, 8).toUpperCase(),
                 total: o.totalAmount,
                 status: o.status,
                 date: o.createdAt,
-                itemCount: o.items.length, // this is just 1 from include, need count
-                firstItem: o.items[0]?.product.name || 'Vật tư xây dựng'
+                itemCount: o.orderItems.length, // this is just 1 from include, need count
+                firstItem: o.orderItems[0]?.product.name || 'Vật tư xây dựng'
             }))
         })
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Dashboard stats error:', error)
-        return NextResponse.json({ success: false, error: error.message }, { status: 500 })
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        return NextResponse.json({ success: false, error: errorMessage }, { status: 500 })
     }
 }

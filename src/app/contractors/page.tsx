@@ -60,12 +60,47 @@ export default function ContractorMarketplace() {
         }
     }
 
-    const handleGuestSubmit = (e: React.FormEvent) => {
+    const handleGuestSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
-        toast.success('Đã gửi tin nhắn đến nhà thầu!')
-        setShowChatModal(false)
-        setGuestContact({ name: '', phone: '', message: '' })
-        setChatContractorId(null)
+        if (!guestContact.name || !guestContact.phone || !chatContractorId) return
+
+        try {
+            // Find contractor name
+            const contractor = contractors.find(c => c.id === chatContractorId)
+
+            // Generate or get guest ID
+            let guestId = localStorage.getItem('user_id')
+            if (!guestId || !guestId.startsWith('guest_')) {
+                guestId = 'guest_' + Math.random().toString(36).substr(2, 9)
+                localStorage.setItem('user_id', guestId)
+            }
+            localStorage.setItem('user_name', guestContact.name)
+            localStorage.setItem('user_phone', guestContact.phone)
+
+            // Auto-create/ensure conversation exists via API
+            const res = await fetch('/api/messages', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    senderId: guestId,
+                    senderName: guestContact.name,
+                    recipientId: chatContractorId,
+                    recipientName: contractor?.displayName || 'Nhà thầu',
+                    initialMessage: guestContact.message || `Tôi quan tâm đến dịch vụ của bạn. SĐT liên hệ: ${guestContact.phone}`
+                })
+            })
+
+            if (res.ok) {
+                toast.success('Đang kết nối với nhà thầu...')
+                setShowChatModal(false)
+                router.push(`/messages?partnerId=${chatContractorId}`)
+            } else {
+                toast.error('Không thể khởi tạo cuộc trò chuyện')
+            }
+        } catch (error) {
+            console.error('Guest chat error:', error)
+            toast.error('Lỗi hệ thống khi kết nối')
+        }
     }
 
     useEffect(() => {

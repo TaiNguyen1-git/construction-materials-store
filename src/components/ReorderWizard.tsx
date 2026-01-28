@@ -57,7 +57,8 @@ interface WizardData {
 export default function ReorderWizard() {
     const [data, setData] = useState<WizardData | null>(null)
     const [loading, setLoading] = useState(true)
-    const [urgencyFilter, setUrgencyFilter] = useState<string>('')
+
+    const [urgencyFilter, setUrgencyFilter] = useState<'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | ''>('')
     const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set())
     const [creating, setCreating] = useState(false)
 
@@ -109,7 +110,18 @@ export default function ReorderWizard() {
         setCreating(true)
         try {
             // Group by supplier
-            const bySupplier: { [key: string]: { supplierId: string; supplierName: string; items: any[] } } = {}
+            const bySupplier: {
+                [key: string]: {
+                    supplierId: string;
+                    supplierName: string;
+                    items: {
+                        productId: string;
+                        productName: string;
+                        quantity: number;
+                        unitPrice: number;
+                    }[]
+                }
+            } = {}
 
             data?.recommendations
                 .filter(r => selectedItems.has(r.productId) && r.bestSupplier)
@@ -129,6 +141,7 @@ export default function ReorderWizard() {
                         unitPrice: r.bestSupplier!.unitPrice
                     })
                 })
+
 
             // Create POs for each supplier
             const results = []
@@ -240,11 +253,13 @@ export default function ReorderWizard() {
             <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 bg-white rounded-xl p-4 shadow-sm border border-gray-100">
                 <div className="flex items-center gap-3">
                     <Filter className="w-5 h-5 text-gray-400" />
+
                     <select
                         value={urgencyFilter}
-                        onChange={(e) => setUrgencyFilter(e.target.value)}
+                        onChange={(e) => setUrgencyFilter(e.target.value as 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | '')}
                         className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 font-medium text-sm focus:ring-2 focus:ring-blue-500 outline-none"
                     >
+
                         <option value="">Tất cả mức độ</option>
                         <option value="CRITICAL">🔴 Cần gấp</option>
                         <option value="HIGH">🟠 Ưu tiên cao</option>
@@ -296,8 +311,8 @@ export default function ReorderWizard() {
                                     <button
                                         onClick={() => toggleItem(item.productId)}
                                         className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center shrink-0 mt-1 transition-colors ${isSelected
-                                                ? 'bg-blue-600 border-blue-600 text-white'
-                                                : 'border-gray-300 hover:border-blue-400'
+                                            ? 'bg-blue-600 border-blue-600 text-white'
+                                            : 'border-gray-300 hover:border-blue-400'
                                             }`}
                                     >
                                         {isSelected && <CheckCircle2 className="w-4 h-4" />}

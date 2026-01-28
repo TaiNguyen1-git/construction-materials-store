@@ -1,6 +1,7 @@
 import jwt, { JwtPayload } from 'jsonwebtoken'
 import bcrypt from 'bcryptjs'
 import { cookies } from 'next/headers'
+import { NextRequest, NextResponse } from 'next/server'
 
 // Define enum locally until Prisma client is generated
 export enum UserRole {
@@ -16,12 +17,43 @@ export interface JWTPayload extends JwtPayload {
   role: UserRole
 }
 
+// 🛡️ SECURITY: Fail-fast if JWT secrets are not configured
+const getJwtSecret = () => {
+  const secret = process.env.JWT_SECRET
+  if (!secret || secret === 'your-super-secret-jwt-key') {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('CRITICAL: JWT_SECRET must be configured in production!')
+    }
+    console.warn('⚠️ WARNING: Using default JWT_SECRET. Set JWT_SECRET env var for production!')
+    return 'dev-only-jwt-secret-not-for-production'
+  }
+  return secret
+}
+
+const getJwtRefreshSecret = () => {
+  const secret = process.env.JWT_REFRESH_SECRET
+  if (!secret || secret === 'your-super-secret-refresh-key') {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('CRITICAL: JWT_REFRESH_SECRET must be configured in production!')
+    }
+    console.warn('⚠️ WARNING: Using default JWT_REFRESH_SECRET. Set JWT_REFRESH_SECRET env var for production!')
+    return 'dev-only-refresh-secret-not-for-production'
+  }
+  return secret
+}
+
 export const AUTH_CONFIG = {
-  JWT_SECRET: process.env.JWT_SECRET || 'your-super-secret-jwt-key',
-  JWT_REFRESH_SECRET: process.env.JWT_REFRESH_SECRET || 'your-super-secret-refresh-key',
-  ACCESS_TOKEN_EXPIRES_IN: '1d' as const,
-  REFRESH_TOKEN_EXPIRES_IN: '7d' as const,
+  JWT_SECRET: getJwtSecret(),
+  JWT_REFRESH_SECRET: getJwtRefreshSecret(),
+  ACCESS_TOKEN_EXPIRES_IN: '15m' as const, // Ngắn để an toàn
+  REFRESH_TOKEN_EXPIRES_IN: '7d' as const,  // Dài để duy trì login
   BCRYPT_ROUNDS: 12 as const,
+  COOKIE_OPTIONS: {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax' as const,
+    path: '/',
+  }
 } as const
 
 export class AuthService {
@@ -63,6 +95,29 @@ export class AuthService {
       refreshToken: this.generateRefreshToken(payload),
     }
   }
+
+  /**
+   * Set authentication cookies in the response
+   */
+  static setAuthCookies(response: NextResponse, accessToken: string, refreshToken: string) {
+    response.cookies.set('auth_token', accessToken, {
+      ...AUTH_CONFIG.COOKIE_OPTIONS,
+      maxAge: 15 * 60, // 15 minutes
+    })
+
+    response.cookies.set('refresh_token', refreshToken, {
+      ...AUTH_CONFIG.COOKIE_OPTIONS,
+      maxAge: 7 * 24 * 60 * 60, // 7 days
+    })
+  }
+
+  /**
+   * Clear authentication cookies
+   */
+  static clearAuthCookies(response: NextResponse) {
+    response.cookies.set('auth_token', '', { ...AUTH_CONFIG.COOKIE_OPTIONS, maxAge: 0 })
+    response.cookies.set('refresh_token', '', { ...AUTH_CONFIG.COOKIE_OPTIONS, maxAge: 0 })
+  }
 }
 
 export const hasPermission = (userRole: UserRole, requiredRoles: UserRole[]): boolean => {
@@ -99,22 +154,26 @@ export async function getUser() {
   }
 }
 
-export async function verifyTokenFromRequest(req: any) {
+export async function verifyTokenFromRequest(req: NextRequest): Promise<JWTPayload | null> {
   const authHeader = req.headers.get('authorization')
   let token = authHeader?.split(' ')[1]
 
-  // Fallback to x-user-id for internal testing or specific flows
-  const userId = req.headers.get('x-user-id')
-
+  // Fallback to cookie if header is missing
   if (!token) {
-    if (userId) return { userId, role: 'CONTRACTOR' } // Mock role if only userId provided
+    const cookieStore = await cookies()
+    token = cookieStore.get('auth_token')?.value
+  }
+
+  // 🛡️ SECURITY FIX: Removed dangerous x-user-id fallback that allowed header spoofing
+  // If no valid token is provided, return null - no shortcuts allowed
+  if (!token) {
     return null
   }
 
   try {
     return AuthService.verifyAccessToken(token)
   } catch (error) {
-    if (userId) return { userId, role: 'CONTRACTOR' }
+    // Token verification failed - return null, do NOT fall back to headers
     return null
   }
 }

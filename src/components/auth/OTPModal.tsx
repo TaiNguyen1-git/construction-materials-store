@@ -37,9 +37,10 @@ export default function OTPModal({
 
         try {
             await onVerify(otp)
-        } catch (err: any) {
-            setError(err.message || 'Mã xác thực không chính xác')
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'Mã xác thực không chính xác')
         }
+
     }
 
     return (

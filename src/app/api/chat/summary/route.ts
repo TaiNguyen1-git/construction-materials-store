@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import { AI_CONFIG } from '@/lib/ai-config'
+import { getFirebaseDatabase } from '@/lib/firebase'
+import { ref, push, set } from 'firebase/database'
 
 const genAI = new GoogleGenerativeAI(AI_CONFIG.GEMINI.API_KEY)
 
@@ -13,6 +15,11 @@ export async function POST(request: NextRequest) {
 
         if (!conversationId) {
             return NextResponse.json({ error: 'Missing conversationId' }, { status: 400 })
+        }
+
+        const userId = request.headers.get('x-user-id')
+        if (!userId) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
         // Fetch conversation and messages
@@ -30,6 +37,11 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Conversation not found' }, { status: 404 })
         }
 
+        // Security Check: Ensure requester is a participant
+        if (conversation.participant1Id !== userId && conversation.participant2Id !== userId) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+        }
+
         if (conversation.messages.length < 3) {
             return NextResponse.json({
                 error: 'Cần ít nhất 3 tin nhắn để tạo tóm tắt'
@@ -37,12 +49,19 @@ export async function POST(request: NextRequest) {
         }
 
         // Format messages for AI
+        // Format messages for AI (Truncate long messages to save tokens)
         const messagesText = conversation.messages
-            .map((m: any) => `[${m.senderName}]: ${m.content || '(file đính kèm)'}`)
+            .map((m: any) => {
+                let content = m.content || '(file đính kèm)'
+                if (content.length > 500) content = content.substring(0, 500) + '...'
+                return `[${m.senderName}]: ${content}`
+            })
             .join('\n')
 
-        // Generate summary using AI
-        const model = genAI.getGenerativeModel({ model: AI_CONFIG.GEMINI.MODEL })
+        // Generate summary using AI with fallback logic
+        const models = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-1.5-flash']
+        let responseText = ''
+        let lastError: any = null
 
         const prompt = `
 Bạn là trợ lý pháp lý chuyên tóm tắt các cuộc thương lượng xây dựng. Hãy phân tích cuộc hội thoại sau và trích xuất các thỏa thuận quan trọng.
@@ -70,8 +89,22 @@ Lưu ý:
 - Chỉ trả về JSON, không có text khác
 `
 
-        const result = await model.generateContent(prompt)
-        const responseText = result.response.text()
+        for (const modelName of models) {
+            try {
+                const model = genAI.getGenerativeModel({ model: modelName })
+                const result = await model.generateContent(prompt)
+                responseText = result.response.text()
+                if (responseText) break
+            } catch (err: any) {
+                console.error(`Model ${modelName} failed, trying fallback...`, err.message)
+                lastError = err
+                continue
+            }
+        }
+
+        if (!responseText) {
+            throw lastError || new Error('All AI models failed')
+        }
 
         // Parse AI response
         let summaryData: any = {
@@ -131,6 +164,25 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: 'Missing conversationId' }, { status: 400 })
         }
 
+        const userId = request.headers.get('x-user-id')
+        if (!userId) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        }
+
+        // Verify user is part of the conversation
+        const conversation = await (prisma as any).conversation.findUnique({
+            where: { id: conversationId },
+            select: { participant1Id: true, participant2Id: true }
+        })
+
+        if (!conversation) {
+            return NextResponse.json({ error: 'Conversation not found' }, { status: 404 })
+        }
+
+        if (conversation.participant1Id !== userId && conversation.participant2Id !== userId) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+        }
+
         const summaries = await (prisma as any).chatSummary.findMany({
             where: { conversationId },
             orderBy: { createdAt: 'desc' }
@@ -178,6 +230,22 @@ export async function PATCH(request: NextRequest) {
                 isConfirmed
             }
         })
+
+        // Notify via Firebase for real-time update in UI
+        try {
+            const db = getFirebaseDatabase()
+            const syncRef = ref(db, `conversations/${summary.conversationId}/system_events`)
+            const newEventRef = push(syncRef)
+            await set(newEventRef, {
+                type: 'SUMMARY_UPDATED',
+                summaryId: summary.id,
+                isConfirmed,
+                confirmedBy,
+                updatedAt: new Date().toISOString()
+            })
+        } catch (syncError) {
+            console.error('Firebase summary sync error:', syncError)
+        }
 
         return NextResponse.json({
             success: true,

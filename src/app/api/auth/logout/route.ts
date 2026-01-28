@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { AuthService } from '@/lib/auth'
 import crypto from 'crypto'
 
 // Helper to hash token for lookup
@@ -53,28 +54,20 @@ export async function POST(request: NextRequest) {
             message: 'Đăng xuất thành công'
         })
 
-        // Clear auth_token cookie
-        response.cookies.set('auth_token', '', {
-            httpOnly: true,
-            expires: new Date(0),
-            path: '/'
-        })
+        // Clear all auth cookies
+        AuthService.clearAuthCookies(response)
 
         return response
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('[Logout] Error:', error)
 
-        // Still clear cookie even if database operation fails
+        // Still clear cookies even if database operation fails
         const response = NextResponse.json({
             success: true,
             message: 'Đăng xuất thành công'
         })
 
-        response.cookies.set('auth_token', '', {
-            httpOnly: true,
-            expires: new Date(0),
-            path: '/'
-        })
+        AuthService.clearAuthCookies(response)
 
         return response
     }

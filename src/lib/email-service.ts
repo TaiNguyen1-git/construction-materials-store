@@ -9,6 +9,94 @@ export interface EmailTemplate {
   text?: string
 }
 
+interface OrderItem {
+  name: string
+  quantity: number
+  price: number
+}
+
+interface OrderApprovedData {
+  email: string
+  name: string
+  orderNumber: string
+  orderId: string
+  totalAmount: number
+  depositAmount?: number
+  paymentMethod: string
+  paymentType: string
+  items: OrderItem[]
+}
+
+interface NewOrderEmployeeData {
+  orderNumber: string
+  customerName: string
+  customerPhone?: string
+  totalAmount: number
+  itemCount: number
+}
+
+interface StockAlertData {
+  productName: string
+  sku: string
+  currentStock: number
+  minStock: number
+}
+
+interface AdminReportData {
+  reportType: 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY'
+  periodLabel: string
+  revenue: {
+    total: number
+    orderCount: number
+    averageOrderValue: number
+    growth?: number
+  }
+  stats: {
+    newCustomers: number
+    topProducts: Array<{ name: string; quantity: number; revenue: number }>
+    inventoryStatus: {
+      lowStockItems: number
+      totalValue: number
+    }
+  }
+  employeeKPI: Array<{
+    name: string
+    role: string
+    tasksCompleted: number
+    shiftsWorked: number
+    performanceScore: number
+  }>
+}
+
+interface OrderConfirmationData {
+  email: string
+  name: string
+  orderNumber: string
+  totalAmount: number
+  items: OrderItem[]
+}
+
+interface ShippingNotificationData {
+  email: string
+  name: string
+  orderNumber: string
+  trackingNumber?: string
+}
+
+interface PasswordResetData {
+  email: string
+  name: string
+  resetLink: string
+}
+
+interface OTPData {
+  email: string
+  name: string
+  otpCode: string
+  type: 'VERIFICATION' | '2FA' | 'CHANGE_PROFILE'
+  expiresInMinutes?: number
+}
+
 const BANK_INFO = {
   bankId: '970423', // TPBank
   bankName: 'TPBank',
@@ -313,7 +401,7 @@ export class EmailService {
   // ============ HTML TEMPLATES ============
 
   // Order Approved with Payment Info HTML
-  private static getOrderApprovedHTML(data: any): string {
+  private static getOrderApprovedHTML(data: OrderApprovedData): string {
     const baseUrl = getBaseUrl()
     const trackingUrl = `${baseUrl}/order-tracking?orderId=${data.orderId}`
     const paymentAmount = data.depositAmount || data.totalAmount
@@ -359,7 +447,7 @@ export class EmailService {
                           📦 Chi tiết đơn hàng
                         </td>
                       </tr>
-                      ${data.items.map((item: any) => `
+                      ${data.items.map((item: OrderItem) => `
                       <tr>
                         <td style="padding: 12px 15px; border-bottom: 1px solid #e5e7eb;">${item.name}</td>
                         <td style="padding: 12px 15px; border-bottom: 1px solid #e5e7eb; text-align: right;">${item.quantity} x ${item.price.toLocaleString()}đ</td>
@@ -462,7 +550,7 @@ export class EmailService {
   }
 
   // New Order for Employee HTML
-  private static getNewOrderForEmployeeHTML(data: any): string {
+  private static getNewOrderForEmployeeHTML(data: NewOrderEmployeeData): string {
     const baseUrl = getBaseUrl()
     return `
       <!DOCTYPE html>
@@ -515,7 +603,7 @@ export class EmailService {
   }
 
   // Stock Alert HTML - Enhanced with more details
-  private static getStockAlertHTML(data: any, level: 'warning' | 'critical'): string {
+  private static getStockAlertHTML(data: StockAlertData, level: 'warning' | 'critical'): string {
     const baseUrl = getBaseUrl()
     const bgColor = level === 'critical' ? '#dc2626' : '#f59e0b'
     const emoji = level === 'critical' ? '🚨' : '⚠️'
@@ -715,7 +803,7 @@ export class EmailService {
   }
 
   // Admin Report HTML Template
-  private static getAdminReportHTML(data: any): string {
+  private static getAdminReportHTML(data: AdminReportData): string {
     const revenueColor = data.revenue.growth && data.revenue.growth >= 0 ? '#10b981' : '#ef4444'
     const growthSymbol = data.revenue.growth && data.revenue.growth >= 0 ? '↗' : '↘'
 
@@ -797,7 +885,7 @@ export class EmailService {
                         </tr>
                       </thead>
                       <tbody>
-                        ${data.stats.topProducts.map((p: any) => `
+                        ${data.stats.topProducts.map(p => `
                         <tr>
                           <td style="font-weight: 600;">${p.name}</td>
                           <td style="text-align: center;">${Math.round(p.quantity)}</td>
@@ -821,7 +909,7 @@ export class EmailService {
                         </tr>
                       </thead>
                       <tbody>
-                        ${data.employeeKPI.map((emp: any) => `
+                        ${data.employeeKPI.map(emp => `
                         <tr>
                           <td>
                             <div style="font-weight: 600;">${emp.name}</div>
@@ -873,7 +961,7 @@ export class EmailService {
   }
 
   // HTML Templates
-  private static getOrderConfirmationHTML(data: any): string {
+  private static getOrderConfirmationHTML(data: OrderConfirmationData): string {
     return `
       <!DOCTYPE html>
       <html>
@@ -900,7 +988,7 @@ export class EmailService {
             
             <div class="order-details">
               <h2>Đơn hàng: ${data.orderNumber}</h2>
-              ${data.items.map((item: any) => `
+              ${data.items.map((item: OrderItem) => `
                 <div class="item">
                   <strong>${item.name}</strong><br>
                   Số lượng: ${item.quantity} x ${item.price.toLocaleString()}đ
@@ -950,7 +1038,7 @@ Hotline: 1900-xxxx
     `
   }
 
-  private static getShippingNotificationHTML(data: any): string {
+  private static getShippingNotificationHTML(data: ShippingNotificationData): string {
     return `
       <!DOCTYPE html>
       <html>
@@ -979,7 +1067,7 @@ Hotline: 1900-xxxx
     `
   }
 
-  private static getPasswordResetHTML(data: any): string {
+  private static getPasswordResetHTML(data: PasswordResetData): string {
     return `
       <!DOCTYPE html>
       <html>
@@ -1079,7 +1167,7 @@ Hotline: 1900-xxxx
     `
   }
 
-  private static getOTPHTML(data: { name: string; otpCode: string; type: string; expiresInMinutes?: number }): string {
+  private static getOTPHTML(data: OTPData): string {
     const titleMap: any = {
       VERIFICATION: 'Xác Minh Tài Khoản',
       '2FA': 'Xác Nhận Đăng Nhập',

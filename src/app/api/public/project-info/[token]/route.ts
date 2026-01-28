@@ -21,16 +21,12 @@ export async function GET(
         }
 
         // Milestones not currently supported for this project type
-        const milestones = []
+        const milestones: { id: string; name: string; status: string }[] = []
 
         return NextResponse.json(createSuccessResponse({
             projectName: reportToken.project.title,
             projectId: reportToken.projectId,
-            milestones: milestones.map((m: any) => ({
-                id: m.id,
-                name: m.name,
-                status: m.status
-            }))
+            milestones
         }))
 
     } catch (error) {

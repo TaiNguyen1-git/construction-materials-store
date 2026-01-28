@@ -48,12 +48,27 @@ interface UserRestriction {
     customerId: string
 }
 
+interface AuditLog {
+    id: string
+    action: string
+    entityType: string
+    entityId?: string
+    actorEmail?: string
+    actorRole?: string
+    oldValue?: any
+    newValue?: any
+    reason?: string
+    createdAt: string
+    severity: string
+}
+
 export default function IntegrityDashboard() {
     const [stats, setStats] = useState<IntegrityStats | null>(null)
     const [alerts, setAlerts] = useState<SuspiciousActivity[]>([])
     const [kycQueue, setKycQueue] = useState<KYCDocument[]>([])
     const [restrictions, setRestrictions] = useState<UserRestriction[]>([])
-    const [activeTab, setActiveTab] = useState<'overview' | 'alerts' | 'kyc' | 'restrictions'>('overview')
+    const [auditLogs, setAuditLogs] = useState<AuditLog[]>([])
+    const [activeTab, setActiveTab] = useState<'overview' | 'alerts' | 'kyc' | 'restrictions' | 'audit'>('overview')
     const [loading, setLoading] = useState(true)
 
     useEffect(() => {
@@ -76,9 +91,13 @@ export default function IntegrityDashboard() {
                 const data = await res.json()
                 if (data.success) setKycQueue(data.data.documents)
             } else if (activeTab === 'restrictions') {
-                const res = await fetch('/api/admin/integrity/restrictions')
+                const res = await fetch('/api/admin/integrity?view=restrictions')
                 const data = await res.json()
                 if (data.success) setRestrictions(data.data.restrictions)
+            } else if (activeTab === 'audit') {
+                const res = await fetch('/api/admin/integrity?view=audit-logs')
+                const data = await res.json()
+                if (data.success) setAuditLogs(data.data.logs)
             }
         } catch (error) {
             console.error('Failed to fetch integrity data:', error)
@@ -171,7 +190,8 @@ export default function IntegrityDashboard() {
                             { id: 'overview', label: '📊 Tổng quan', count: null },
                             { id: 'alerts', label: '🚨 Cảnh báo', count: stats?.overview.openAlerts },
                             { id: 'kyc', label: '📋 Duyệt KYC', count: stats?.overview.pendingKYC },
-                            { id: 'restrictions', label: '⛔ Hạn chế', count: stats?.overview.activeRestrictions }
+                            { id: 'restrictions', label: '⛔ Hạn chế', count: stats?.overview.activeRestrictions },
+                            { id: 'audit', label: '🕵️ Audit Logs', count: null }
                         ].map(tab => (
                             <button
                                 key={tab.id}
@@ -393,7 +413,7 @@ export default function IntegrityDashboard() {
                                                     onClick={async () => {
                                                         const reason = prompt('Lý do gỡ hạn chế:')
                                                         if (reason) {
-                                                            await fetch('/api/admin/integrity/restrictions', {
+                                                            await fetch('/api/admin/integrity?view=restrictions', {
                                                                 method: 'PATCH',
                                                                 headers: { 'Content-Type': 'application/json' },
                                                                 body: JSON.stringify({
@@ -413,6 +433,65 @@ export default function IntegrityDashboard() {
                                         </div>
                                     ))
                                 )}
+                            </div>
+                        )}
+
+                        {/* Audit Logs Tab */}
+                        {activeTab === 'audit' && (
+                            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                                <div className="overflow-x-auto">
+                                    <table className="min-w-full divide-y divide-gray-200">
+                                        <thead className="bg-gray-50">
+                                            <tr>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Thời gian</th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Người thực hiện</th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Hành động</th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Đối tượng</th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nội dung thay đổi</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="bg-white divide-y divide-gray-200">
+                                            {auditLogs.length === 0 ? (
+                                                <tr>
+                                                    <td colSpan={5} className="px-6 py-10 text-center text-gray-500">Chưa có dữ liệu audit log</td>
+                                                </tr>
+                                            ) : (
+                                                auditLogs.map(log => (
+                                                    <tr key={log.id} className="hover:bg-gray-50">
+                                                        <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-500">
+                                                            {new Date(log.createdAt).toLocaleString('vi-VN')}
+                                                        </td>
+                                                        <td className="px-6 py-4 whitespace-nowrap">
+                                                            <div className="text-sm font-medium text-gray-900">{log.actorEmail || 'Hệ thống'}</div>
+                                                            <div className="text-xs text-gray-500">{log.actorRole}</div>
+                                                        </td>
+                                                        <td className="px-6 py-4 whitespace-nowrap">
+                                                            <span className={`px-2 py-1 text-xs font-medium rounded ${log.severity === 'CRITICAL' ? 'bg-red-100 text-red-700' :
+                                                                    log.severity === 'WARNING' ? 'bg-orange-100 text-orange-700' :
+                                                                        'bg-blue-100 text-blue-700'
+                                                                }`}>
+                                                                {log.action}
+                                                            </span>
+                                                        </td>
+                                                        <td className="px-6 py-4 whitespace-nowrap">
+                                                            <div className="text-sm text-gray-900">{log.entityType}</div>
+                                                            <div className="text-xs text-gray-500">ID: {log.entityId?.slice(0, 8)}...</div>
+                                                        </td>
+                                                        <td className="px-6 py-4 text-sm text-gray-500">
+                                                            {log.reason && <div className="font-medium text-gray-700">{log.reason}</div>}
+                                                            {log.oldValue && log.newValue && (
+                                                                <div className="mt-1 flex flex-col gap-1 text-[10px]">
+                                                                    <div className="flex gap-1"><span className="text-red-500">Từ:</span> <span className="truncate max-w-[200px]">{JSON.stringify(log.oldValue)}</span></div>
+                                                                    <div className="flex gap-1"><span className="text-green-500">Sang:</span> <span className="truncate max-w-[200px]">{JSON.stringify(log.newValue)}</span></div>
+                                                                </div>
+                                                            )}
+                                                        </td>
+                                                    </tr>
+                                                ))
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
                             </div>
                         )}
                     </>

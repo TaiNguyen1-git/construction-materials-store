@@ -37,8 +37,23 @@ import {
   ChevronRight,
   MessageCircle
 } from 'lucide-react'
+import { LucideIcon } from 'lucide-react'
 import NotificationBell from '@/components/NotificationBell'
 import { useAuth } from '@/contexts/auth-context'
+
+interface NavItem {
+  name: string;
+  href: string;
+  icon: LucideIcon;
+  roles?: string[];
+}
+
+interface NavGroup {
+  name: string;
+  icon?: LucideIcon;
+  roles?: string[];
+  items: NavItem[];
+}
 
 // Nhóm navigation theo category
 export default function AdminLayout({
@@ -53,7 +68,7 @@ export default function AdminLayout({
   const { user, logout } = useAuth()
 
   // Define full navigation items
-  const allGroups = [
+  const allGroups: NavGroup[] = [
     {
       name: 'Điều Hành',
       items: [
@@ -128,7 +143,7 @@ export default function AdminLayout({
     ...group,
     items: group.items.filter(item => {
       // If item has specific role restriction
-      if ((item as any).roles && !(item as any).roles.includes(user?.role as string)) return false
+      if (item.roles && !item.roles.includes(user?.role as string)) return false
       return true
     })
   }))

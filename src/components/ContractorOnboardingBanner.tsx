@@ -10,9 +10,21 @@ import { useState } from 'react'
 import ContractorOnboardingFlow from './ContractorOnboardingFlow'
 
 interface OnboardingBannerProps {
-    user: any
-    profile: any
+    user: { id: string; name?: string; mustChangePassword?: boolean }
+    profile: {
+        onboardingStatus: 'INCOMPLETE' | 'PENDING_REVIEW' | 'REJECTED' | 'VERIFIED'
+        displayName?: string
+        companyName?: string
+        bio?: string
+        experienceYears?: number
+        skills?: string[]
+        city?: string
+        district?: string
+        address?: string
+    }
 }
+
+
 
 export default function ContractorOnboardingBanner({ user, profile }: OnboardingBannerProps) {
     const [showModal, setShowModal] = useState(false)

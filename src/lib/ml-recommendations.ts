@@ -229,7 +229,7 @@ export class MLRecommendationsService {
       const purchasedProductIds = new Set<string>()
 
       orders.forEach(order => {
-        order.orderItems.forEach((item: any) => {
+        order.orderItems.forEach((item) => {
           categories.add(item.product.categoryId)
           purchasedProductIds.add(item.productId)
         })

@@ -59,10 +59,11 @@ export async function GET(
       { status: 200 }
     )
 
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const err = error as Error
     logger.error('Get order error', {
-      error: error.message,
-      stack: error.stack
+      error: err.message,
+      stack: err.stack
     })
 
     return NextResponse.json(
@@ -118,10 +119,11 @@ export async function DELETE(
       { status: 200 }
     )
 
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const err = error as Error
     logger.error('Delete order error', {
-      error: error.message,
-      stack: error.stack
+      error: err.message,
+      stack: err.stack
     })
 
     return NextResponse.json(

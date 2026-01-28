@@ -22,14 +22,14 @@ export class CacheService {
         logCache.miss(key)
         return null
       }
-      
+
       // Check if expired
       if (entry.expires && entry.expires < Date.now()) {
         memoryCache.delete(key)
         logCache.miss(key)
         return null
       }
-      
+
       logCache.hit(key)
       return entry.value
     } catch (error: any) {
@@ -49,17 +49,40 @@ export class CacheService {
 
   static async del(key: string): Promise<void> {
     try {
-      memoryCache.delete(key)
-      logCache.invalidate(key)
+      if (memoryCache.has(key)) {
+        memoryCache.delete(key)
+        logCache.invalidate(key)
+      }
     } catch (error: any) {
       // Silently skip cache on error
     }
   }
 
+  /**
+   * Delete all keys starting with a prefix
+   */
+  static async delByPrefix(prefix: string): Promise<void> {
+    try {
+      let count = 0
+      for (const key of memoryCache.keys()) {
+        if (key.startsWith(prefix)) {
+          memoryCache.delete(key)
+          count++
+        }
+      }
+      if (count > 0) {
+        logger.info(`Invalidated ${count} cache keys with prefix: ${prefix}`, { type: 'cache' })
+      }
+    } catch (error: any) {
+      logger.error(`Error deleting cache by prefix: ${prefix}`, { error: error.message })
+    }
+  }
+
   static async flush(): Promise<void> {
     try {
+      const size = memoryCache.size
       memoryCache.clear()
-      logger.info('Memory cache flushed', { type: 'cache' })
+      logger.info(`Memory cache flushed (${size} keys wiped)`, { type: 'cache' })
     } catch (error: any) {
       // Silently skip cache on error
     }

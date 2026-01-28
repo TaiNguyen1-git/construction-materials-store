@@ -8,7 +8,7 @@ import { verifyTokenFromRequest } from '@/lib/auth-middleware-api'
 
 export async function GET(request: NextRequest) {
     try {
-        const payload = verifyTokenFromRequest(request)
+        const payload = await verifyTokenFromRequest(request)
         const userId = payload?.userId
         const { searchParams } = new URL(request.url)
         const isSummaryMode = searchParams.get('summary') === 'true'

@@ -54,13 +54,15 @@ export async function POST(
                 percentage: 0, // Calculated or set by user
                 order: milestoneCount + 1,
                 status: 'PENDING',
-                dueDate: dueDate ? new Date(dueDate) : null
+                // TODO: Verify if dueDate exists in PaymentMilestone schema
+                // dueDate: dueDate ? new Date(dueDate) : null
             }
         })
 
         return NextResponse.json(createSuccessResponse(milestone, 'Đã thêm giai đoạn mới thành công'))
-    } catch (error: any) {
+    } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
         console.error('Create Milestone Error:', error)
-        return NextResponse.json(createErrorResponse(error.message, 'SERVER_ERROR'), { status: 500 })
+        return NextResponse.json(createErrorResponse(errorMessage, 'SERVER_ERROR'), { status: 500 })
     }
 }

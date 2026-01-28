@@ -24,18 +24,19 @@ export async function middleware(request: NextRequest) {
 
   // No bypass here anymore - follow production flow
 
-  // ===== CRON JOB BYPASS (Vercel Cron) =====
-  // Allow cron trigger endpoint if Authorization matches CRON_SECRET
+  // ===== CRON JOB SECURITY (Vercel Cron) =====
   if (pathname === '/api/admin/reports/trigger') {
     const authHeader = request.headers.get('authorization')
     const cronSecret = process.env.CRON_SECRET
 
-    // Allow if CRON_SECRET matches OR if no CRON_SECRET configured (for testing)
-    if (!cronSecret || authHeader === `Bearer ${cronSecret}`) {
-      return NextResponse.next()
+    if (process.env.NODE_ENV === 'production') {
+      if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
+        return NextResponse.json(
+          { success: false, error: { code: 'UNAUTHORIZED', message: 'Invalid cron secret' } },
+          { status: 401 }
+        )
+      }
     }
-    // If CRON_SECRET configured but doesn't match, still allow public access for testing
-    // The route itself can validate further if needed
     return NextResponse.next()
   }
 
@@ -236,9 +237,42 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  return NextResponse.next({
+  const response = NextResponse.next({
     request: { headers: requestHeaders },
   })
+
+  // 🛡️ Security Headers
+  if (process.env.NODE_ENV === 'production') {
+    response.headers.set('X-DNS-Prefetch-Control', 'on')
+    response.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains')
+    response.headers.set('X-Frame-Options', 'SAMEORIGIN')
+    response.headers.set('X-Content-Type-Options', 'nosniff')
+    response.headers.set('Referrer-Policy', 'origin-when-cross-origin')
+    response.headers.set('X-XSS-Protection', '1; mode=block')
+    response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()')
+
+    // Content Security Policy (Production)
+    const cspHeader = `
+      default-src 'self';
+      script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.google-analytics.com https://www.clarity.ms;
+      style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+      img-src 'self' blob: data: https:;
+      font-src 'self' https://fonts.gstatic.com;
+      object-src 'none';
+      base-uri 'self';
+      form-action 'self';
+      frame-ancestors 'none';
+      upgrade-insecure-requests;
+    `.replace(/\s{2,}/g, ' ').trim()
+
+    response.headers.set('Content-Security-Policy', cspHeader)
+  } else {
+    // Development-friendly headers (allow IP access and HMR)
+    response.headers.set('Access-Control-Allow-Origin', '*')
+    // No upgrade-insecure-requests in dev to allow HTTP access via IP
+  }
+
+  return response
 }
 
 /**

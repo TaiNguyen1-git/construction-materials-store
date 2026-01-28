@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { AuthService, UserRole } from '@/lib/auth'
 import jwt from 'jsonwebtoken'
 import bcrypt from 'bcryptjs'
 import { logger, logAuth, logAPI } from '@/lib/logger'
@@ -64,24 +65,21 @@ export async function POST(request: NextRequest) {
                         }
                     }
                 })
-            } catch (dbError: any) {
-                logger.error('Google login - DB error', { error: dbError.message })
+            } catch (dbError: unknown) {
+                const errMsg = dbError instanceof Error ? dbError.message : 'Unknown error'
+                logger.error('Google login - DB error', { error: errMsg })
                 return NextResponse.json({ success: false, error: 'Database creation failed' }, { status: 500 })
             }
 
             logger.info('New user created via Google login', { email: user.email })
         }
 
-        // 3. Generate JWT token
-        const token = jwt.sign(
-            {
-                userId: user.id,
-                email: user.email,
-                role: user.role
-            },
-            process.env.JWT_SECRET || 'fallback-secret',
-            { expiresIn: '7d' }
-        )
+        // 3. Generate Token Pair using AuthService
+        const { accessToken, refreshToken } = AuthService.generateTokenPair({
+            userId: user.id,
+            email: user.email,
+            role: user.role as UserRole
+        })
 
         // Log successful login
         logAuth.login(user.id, user.email, true)
@@ -94,25 +92,19 @@ export async function POST(request: NextRequest) {
 
         const response = NextResponse.json({
             success: true,
-            user: userWithoutPassword,
-            token
+            user: userWithoutPassword
         })
 
-        // Set HTTP-only cookie for middleware protection
-        response.cookies.set('auth_token', token, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'lax',
-            path: '/',
-            maxAge: 7 * 24 * 60 * 60 // 7 days
-        })
+        // Set HTTP-only cookies
+        AuthService.setAuthCookies(response, accessToken, refreshToken)
 
         return response
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         const duration = Date.now() - startTime
-        logger.error('Google login error', { error: error.message })
-        logAPI.error('POST', '/api/auth/google', error, { duration })
+        const err = error instanceof Error ? error : new Error('Unknown error')
+        logger.error('Google login error', { error: err.message })
+        logAPI.error('POST', '/api/auth/google', err, { duration })
 
         return NextResponse.json(
             { success: false, error: 'Internal server error' },

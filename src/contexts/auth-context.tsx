@@ -1,7 +1,7 @@
 'use client'
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'
-import authService, { AuthState, LoginCredentials, RegisterData, AuthResponse, PendingSession } from '@/lib/auth-service'
+import authService, { AuthState, LoginCredentials, RegisterData, AuthResponse } from '@/lib/auth-service'
 import { User } from '@prisma/client'
 import SessionPromptModal from '@/components/auth/SessionPromptModal'
 import { getDefaultRedirectPath } from '@/lib/auth-redirect'
@@ -14,9 +14,9 @@ interface AuthContextType {
   error: string | null
   tabId: string | null
   needs2FASetupPrompt: boolean
-  pendingSession: PendingSession | null
+  pendingSessionUser: Partial<User> | null
   showSessionPrompt: boolean
-  login: (credentials: LoginCredentials, rememberMe?: boolean) => Promise<AuthResponse | void>
+  login: (credentials: LoginCredentials) => Promise<AuthResponse | void>
   register: (userData: RegisterData) => Promise<AuthResponse | void>
   verifyOTP: (otp: string, verificationToken: string) => Promise<AuthResponse | void>
   resendOTP: (verificationToken: string) => Promise<boolean>
@@ -41,7 +41,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     error: null,
     tabId: null,
     needs2FASetupPrompt: false,
-    pendingSession: null,
+    pendingSessionUser: null,
     showSessionPrompt: false,
   })
 
@@ -59,7 +59,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           error: 'Không thể khởi tạo xác thực',
           tabId: null,
           needs2FASetupPrompt: false,
-          pendingSession: null,
+          pendingSessionUser: null,
           showSessionPrompt: false,
         })
       }
@@ -74,17 +74,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return cleanup
   }, [])
 
-  // NOTE: We intentionally DO NOT listen to storage events for cross-tab sync
-  // This allows each tab to have its own independent session
-  // Only 'logout-all' will affect other tabs via BroadcastChannel
-
   // Login function
-  const login = async (credentials: LoginCredentials, rememberMe: boolean = true) => {
+  const login = async (credentials: LoginCredentials) => {
     try {
       setAuthState(prev => ({ ...prev, isLoading: true, error: null }))
-      const response = await authService.login(credentials, rememberMe)
+      const response = await authService.login(credentials)
 
-      if (response.twoFactorRequired) {
+      if (response.twoFactorRequired || response.verificationRequired) {
         setAuthState(prev => ({ ...prev, isLoading: false }))
         return response
       }
@@ -96,15 +92,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isLoading: false,
         error: null,
         tabId: authService.getTabId(),
-        needs2FASetupPrompt: !!(response as any).needs2FASetupPrompt,
+        needs2FASetupPrompt: !!response.needs2FASetupPrompt,
       }))
       return response
     } catch (error: any) {
-      setAuthState(prev => ({
-        ...prev,
-        isLoading: false,
-        error: error.message || 'Đăng nhập thất bại',
-      }))
+      setAuthState(prev => ({ ...prev, isLoading: false, error: error.message }))
       throw error
     }
   }
@@ -113,37 +105,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const register = async (userData: RegisterData) => {
     try {
       setAuthState(prev => ({ ...prev, isLoading: true, error: null }))
-      const response = await authService.register(userData)
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(userData)
+      })
+      const data = await response.json()
 
-      if (response.verificationRequired) {
+      if (!response.ok) throw new Error(data.error || 'Đăng ký thất bại')
+
+      if (data.verificationRequired) {
         setAuthState(prev => ({ ...prev, isLoading: false }))
-        return response
+        return data
       }
 
       setAuthState(prev => ({
         ...prev,
-        user: response.user || null,
+        user: data.user || null,
         isAuthenticated: true,
         isLoading: false,
         error: null,
-        tabId: authService.getTabId(),
       }))
-      return response
+      return data
     } catch (error: any) {
-      setAuthState(prev => ({
-        ...prev,
-        isLoading: false,
-        error: error.message || 'Đăng ký thất bại',
-      }))
+      setAuthState(prev => ({ ...prev, isLoading: false, error: error.message }))
       throw error
     }
   }
 
-  // Verify OTP function
   const verifyOTP = async (otp: string, verificationToken: string) => {
     try {
       setAuthState(prev => ({ ...prev, isLoading: true, error: null }))
       const response = await authService.verifyOTP(otp, verificationToken)
+
       setAuthState(prev => ({
         ...prev,
         user: response.user || null,
@@ -154,115 +148,72 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }))
       return response
     } catch (error: any) {
-      setAuthState(prev => ({
-        ...prev,
-        isLoading: false,
-        error: error.message || 'Xác thực thất bại',
-      }))
+      setAuthState(prev => ({ ...prev, isLoading: false, error: error.message }))
       throw error
     }
   }
 
-  // Resend OTP function
   const resendOTP = async (verificationToken: string) => {
     return await authService.resendOTP(verificationToken)
   }
 
-  // Logout function (current tab only)
+  // Logout functions
   const logout = async () => {
+    setAuthState(prev => ({ ...prev, isLoading: true }))
     await authService.logout()
-    setAuthState(prev => ({
-      ...prev,
+    setAuthState({
       user: null,
       isAuthenticated: false,
       isLoading: false,
       error: null,
       tabId: authService.getTabId(),
-    }))
+      needs2FASetupPrompt: false,
+      pendingSessionUser: null,
+      showSessionPrompt: false,
+    })
+    window.location.href = '/'
   }
 
-  // Logout all devices/tabs
   const logoutAll = async () => {
+    setAuthState(prev => ({ ...prev, isLoading: true }))
     await authService.logoutAll()
-    setAuthState(prev => ({
-      ...prev,
-      user: null,
-      isAuthenticated: false,
-      isLoading: false,
-      error: null,
-      tabId: authService.getTabId(),
-    }))
   }
 
-  // Clear error function
-  const clearError = () => {
-    setAuthState(prev => ({ ...prev, error: null }))
-  }
+  const clearError = () => setAuthState(prev => ({ ...prev, error: null }))
 
-  // Refresh user data function
   const refreshUser = async () => {
-    try {
-      const state = await authService.initializeAuth()
-      setAuthState(state)
-    } catch (error) {
-      console.error('[Auth] Failed to refresh user:', error)
-    }
+    const state = await authService.initializeAuth()
+    setAuthState(state)
   }
 
-  // Dismiss 2FA onboarding prompt
   const dismiss2FAPrompt = async () => {
-    try {
-      const token = localStorage.getItem('access_token')
-      await fetch('/api/auth/profile/dismiss-2fa-prompt', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      })
-      authService.removeNeeds2FAPrompt()
-      setAuthState(prev => ({ ...prev, needs2FASetupPrompt: false }))
-    } catch (error) {
-      console.error('Failed to dismiss 2FA prompt:', error)
-    }
+    // authService.removeNeeds2FAPrompt()
+    setAuthState(prev => ({ ...prev, needs2FASetupPrompt: false }))
   }
 
   // Accept pending session and authenticate
   const acceptSession = async () => {
-    if (!authState.pendingSession) return
-
     setAuthState(prev => ({ ...prev, isLoading: true }))
 
-    try {
-      const newState = await authService.acceptPendingSession(authState.pendingSession)
-      setAuthState(newState)
+    // Clear guest mode hint
+    authService.setGuestMode(false)
+    localStorage.setItem('auth_active', 'true')
 
-      // Clear guest mode flag if user accepts session
-      sessionStorage.removeItem('guest_mode')
+    // Re-initialize (this will trigger verify-session call which now uses HttpOnly cookies)
+    const newState = await authService.initializeAuth()
+    setAuthState(newState)
 
-      // Redirect based on role if authenticated
-      if (newState.isAuthenticated && newState.user) {
-        const redirectPath = getDefaultRedirectPath(newState.user.role)
-        window.location.href = redirectPath
-      }
-    } catch (error) {
-      console.error('[Auth] Failed to accept session:', error)
-      setAuthState(prev => ({
-        ...prev,
-        isLoading: false,
-        error: 'Không thể xác thực phiên đăng nhập',
-        showSessionPrompt: false,
-        pendingSession: null,
-      }))
+    // Redirect based on role if authenticated
+    if (newState.isAuthenticated && newState.user) {
+      const redirectPath = getDefaultRedirectPath(newState.user.role)
+      window.location.href = redirectPath
     }
   }
 
   // Decline session and browse as guest
   const declineSession = () => {
-    // Set guest mode flag in sessionStorage (tab-specific)
-    sessionStorage.setItem('guest_mode', 'true')
+    authService.setGuestMode(true)
 
-    // Redirect to homepage since user chose to browse as guest
-    // This prevents the redirect loop when on admin pages
     const currentPath = window.location.pathname
     if (currentPath.startsWith('/admin') || currentPath.startsWith('/contractor/dashboard')) {
       window.location.href = '/'
@@ -271,7 +222,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     setAuthState(prev => ({
       ...prev,
-      pendingSession: null,
+      pendingSessionUser: null,
       showSessionPrompt: false,
     }))
   }
@@ -283,7 +234,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isLoading: authState.isLoading,
     error: authState.error,
     tabId: authState.tabId,
-    pendingSession: authState.pendingSession,
+    needs2FASetupPrompt: authState.needs2FASetupPrompt,
+    pendingSessionUser: authState.pendingSessionUser,
     showSessionPrompt: authState.showSessionPrompt,
     login,
     register,
@@ -294,7 +246,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     clearError,
     refreshUser,
     dismiss2FAPrompt,
-    needs2FASetupPrompt: authState.needs2FASetupPrompt,
     acceptSession,
     declineSession,
   }
@@ -303,13 +254,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     <AuthContext.Provider value={contextValue}>
       {children}
 
-      {/* Session Prompt Modal for new tabs */}
-      {authState.showSessionPrompt && authState.pendingSession && (
+      {/* Session Prompt Modal */}
+      {authState.showSessionPrompt && authState.pendingSessionUser && (
         <SessionPromptModal
           isOpen={authState.showSessionPrompt}
-          userEmail={authState.pendingSession.user.email}
-          userName={authState.pendingSession.user.name || 'Người dùng'}
-          userRole={authState.pendingSession.user.role}
+          userEmail={authState.pendingSessionUser.email || ''}
+          userName={authState.pendingSessionUser.name || 'Người dùng'}
+          userRole={(authState.pendingSessionUser as any).role || 'CUSTOMER'}
           onContinue={acceptSession}
           onBrowseAsGuest={declineSession}
           onClose={declineSession}
@@ -319,13 +270,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   )
 }
 
-// Custom hook to use the auth context
-export function useAuth() {
+// Custom hook to use auth
+export const useAuth = () => {
   const context = useContext(AuthContext)
   if (context === undefined) {
     throw new Error('useAuth must be used within an AuthProvider')
   }
   return context
 }
-
-export default AuthContext

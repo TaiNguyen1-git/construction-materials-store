@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { Prisma } from '@prisma/client'
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import crypto from 'crypto'
@@ -108,7 +109,7 @@ export async function POST(request: NextRequest) {
     const hashedPassword = await bcrypt.hash(password, 12)
 
     // Helper function to generate unique referral code
-    const generateUniqueReferralCode = async (tx: any): Promise<string> => {
+    const generateUniqueReferralCode = async (tx: Prisma.TransactionClient): Promise<string> => {
       let referralCode: string = ''
       let isUnique = false
       let attempts = 0
@@ -144,7 +145,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Create user and customer record
-    const result = await prisma.$transaction(async (tx: any) => {
+    const result = await prisma.$transaction(async (tx) => {
       const user = await tx.user.create({
         data: {
           name: sanitizedName,
@@ -198,7 +199,7 @@ export async function POST(request: NextRequest) {
 
           // Update each conversation to use new customer ID
           for (const conv of guestConversations) {
-            const updateData: any = {}
+            const updateData: { participant1Id?: string; participant1Name?: string; participant2Id?: string; participant2Name?: string } = {}
             if (conv.participant1Id === guestId) {
               updateData.participant1Id = customer.id
               updateData.participant1Name = sanitizedName
@@ -338,22 +339,23 @@ export async function POST(request: NextRequest) {
       email: result.user.email,
       verificationToken // Client can use this to identify the session
     }, { status: 201 })
-  } catch (error: any) {
+  } catch (error: unknown) {
     const duration = Date.now() - startTime
-    logAPI.error('POST', '/api/auth/register', error, { duration })
+    const err = error as Error & { code?: string; meta?: { target?: string[] } }
+    logAPI.error('POST', '/api/auth/register', err, { duration })
     logger.error('Registration error', {
-      error: error.message,
-      stack: error.stack,
-      code: error.code,
-      meta: error.meta
+      error: err.message,
+      stack: err.stack,
+      code: err.code,
+      meta: err.meta
     })
 
     // Handle specific Prisma errors
-    if (error.code === 'P2002') {
+    if (err.code === 'P2002') {
       // Unique constraint violation
-      const field = error.meta?.target?.[0] || 'field'
+      const field = err.meta?.target?.[0] || 'field'
       if (field === 'referralCode') {
-        logger.error('Referral code uniqueness violation - this should not happen', { error: error.message })
+        logger.error('Referral code uniqueness violation - this should not happen', { error: err.message })
         return NextResponse.json(
           {
             success: false,

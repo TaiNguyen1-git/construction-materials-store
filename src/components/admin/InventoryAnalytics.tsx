@@ -17,9 +17,14 @@ interface InventoryPrediction {
     predictedDemand: number
     recommendedOrder: number
     confidence: number
-    factors: any
+    factors: {
+        seasonalMultiplier?: number
+        trend?: number
+        dataPoints?: number
+    }
     reason?: string
 }
+
 
 interface Props {
     predictions: InventoryPrediction[]

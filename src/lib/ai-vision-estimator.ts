@@ -13,9 +13,43 @@ const genAI = process.env.GEMINI_API_KEY
     ? new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
     : null
 
+import { EstimatorAIResponseSchema } from '@/lib/validation'
+
+interface ConstructionStandard {
+    cement: number;
+    sand_build: number;
+    sand_fill: number;
+    stone_1x2: number;
+    stone_4x6: number;
+    bricks: number;
+    steel: number;
+    electric_pipes: number;
+    water_pipes: number;
+}
+
+/**
+ * Enhanced ConstructionStandards with strict nested types
+ */
+interface ConstructionStandards {
+    nhà_cấp_4: ConstructionStandard;
+    nhà_phố: ConstructionStandard;
+    biệt_thự: ConstructionStandard;
+    flooring: {
+        cement_leveling_kg_m2: number;
+        sand_leveling_m3_m2: number;
+        tile_wastage: number;
+        grout_kg_m2: number;
+    };
+    painting: {
+        primer_m2_per_liter: number;
+        topcoat_m2_per_liter: number;
+        putty_m2_per_kg: number;
+    };
+    [key: string]: ConstructionStandard | ConstructionStandards['flooring'] | ConstructionStandards['painting'];
+}
+
 // TCVN Construction material standards (Vietnamese market)
-// Based on Norm 1776/BXD & Typical Market Yields
-const CONSTRUCTION_STANDARDS = {
+const CONSTRUCTION_STANDARDS: ConstructionStandards = {
     /**
      * Empirical norms for Vietnamese residential construction (Suất định mức m2 sàn)
      * Adjusted for small footprints (20-40m2) where wall density is higher.
@@ -195,7 +229,8 @@ Return ONLY JSON:
 `
 
         const models = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-3-flash']
-        let lastError: any = null
+        let lastError: Error | null = null
+
         let responseText = ''
 
         for (const modelName of models) {
@@ -204,28 +239,48 @@ Return ONLY JSON:
                 const result = (await withRetry(() => model.generateContent([
                     aiPrompt,
                     ...imageParts
-                ]))) as any
+                ])))
                 responseText = result.response.text()
+
                 if (responseText) break
             } catch (err) {
                 console.error(`Model ${modelName} failed, trying fallback...`, err)
-                lastError = err
+                lastError = err instanceof Error ? err : new Error(String(err))
                 continue
             }
+
         }
 
         if (!responseText) throw lastError || new Error('All models failed')
 
-        // Robust JSON extraction
+        // Robust JSON extraction & Validation
         const jsonMatch = responseText.match(/\{[\s\S]*\}/)
         if (!jsonMatch) {
             console.error('Failed to find JSON in response:', responseText)
             throw new Error('AI response was not in a valid JSON format.')
         }
-        const data = JSON.parse(jsonMatch[0])
 
-        const rooms: RoomDimension[] = data.rooms.map((r: any) => ({
-            ...r,
+        let rawData;
+        try {
+            rawData = JSON.parse(jsonMatch[0]);
+        } catch (e) {
+            throw new Error('Failed to parse AI JSON response.');
+        }
+
+        // Validate with Zod for production-grade reliability
+        const zodValidation = EstimatorAIResponseSchema.safeParse(rawData);
+
+        if (!zodValidation.success) {
+            console.warn('AI Output validation failed, applying structural fallback:', zodValidation.error.format());
+        }
+
+        // Use validated data or merge with raw for flexibility
+        const data = zodValidation.success ? zodValidation.data : rawData;
+
+        const rooms: RoomDimension[] = (data.rooms || []).map((r: any) => ({
+            name: r.name || 'Phòng',
+            length: r.length || 0,
+            width: r.width || 0,
             area: (r.length && r.width) ? r.length * r.width : (r.area || 0),
             height: 3.2
         }))
@@ -261,8 +316,10 @@ Return ONLY JSON:
             wallPerimeter: data.wallPerimeter,
             roofType: data.roofType
         }
-    } catch (error: any) {
+    } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error during analysis'
         console.error('Estimator error:', error)
+
         return {
             success: false,
             projectType,
@@ -272,7 +329,8 @@ Return ONLY JSON:
             totalEstimatedCost: 0,
             confidence: 0,
             validationStatus: 'warning',
-            error: error.message
+            error: errorMessage
+
         }
     }
 }
@@ -317,7 +375,8 @@ export async function recalculateEstimate(
     totalArea: number,
     projectType: string,
     rooms: RoomDimension[],
-    buildingStyle: any,
+    buildingStyle: 'nhà_cấp_4' | 'nhà_phố' | 'biệt_thự',
+
     wallPerimeter: number,
     roofType: string,
     fengShuiAdvice?: string,
@@ -361,7 +420,8 @@ async function calculateMaterials(
     roofType: string
 ): Promise<MaterialEstimate[]> {
     const materials: MaterialEstimate[] = []
-    const std = (CONSTRUCTION_STANDARDS as any)[style] || CONSTRUCTION_STANDARDS.nhà_cấp_4
+    const std = (CONSTRUCTION_STANDARDS as Record<string, ConstructionStandard | object>)[style] as ConstructionStandard || CONSTRUCTION_STANDARDS.nhà_cấp_4
+
 
     if (type === 'general') {
         // Bricks: Average 100 bricks/m2 of wall area
@@ -605,7 +665,8 @@ async function enrichMaterialsWithProducts(materials: MaterialEstimate[]): Promi
 
 export async function estimateFromText(
     description: string,
-    projectType: any = 'general',
+    projectType: 'general' | 'flooring' | 'painting' | 'tiling' = 'general',
+
     birthYear?: string,
     houseDirection?: string
 ): Promise<EstimatorResult> {
@@ -665,18 +726,20 @@ VÍ DỤ đầu ra:
 CHỈ trả về JSON, không có text giải thích:
         `
         const models = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-3-flash']
-        let lastError: any = null
+        let lastError: Error | null = null
+
         let responseText = ''
 
         for (const modelName of models) {
             try {
                 const model = genAI.getGenerativeModel({ model: modelName })
-                const result = (await withRetry(() => model.generateContent(aiPrompt))) as any
+                const result = (await withRetry(() => model.generateContent(aiPrompt)))
                 responseText = result.response.text()
+
                 if (responseText) break
             } catch (err) {
                 console.error(`Model ${modelName} failed, trying fallback...`, err)
-                lastError = err
+                lastError = err instanceof Error ? err : new Error(String(err))
                 continue
             }
         }
@@ -684,7 +747,17 @@ CHỈ trả về JSON, không có text giải thích:
         if (!responseText) throw lastError || new Error('All models failed')
         const cleanedText = responseText.replace(/```json | ```/g, '').trim()
 
-        let data: any
+        let data: {
+            buildingStyle?: 'nhà_cấp_4' | 'nhà_phố' | 'biệt_thự'
+            roofType?: string
+            rooms?: { name: string; length: number; width: number }[]
+            totalArea?: number
+            wallPerimeter?: number
+            confidence?: number
+            notes?: string
+            fengShuiAdvice?: string
+        }
+
         try {
             data = JSON.parse(cleanedText)
         } catch (parseError) {
@@ -716,7 +789,8 @@ CHỈ trả về JSON, không có text giải thích:
             }
         }
 
-        const rooms: RoomDimension[] = (data.rooms || []).map((r: any) => ({
+        const rooms: RoomDimension[] = (data.rooms || []).map((r: { name: string; length: number; width: number }) => ({
+
             ...r,
             area: r.length * r.width,
             height: 3.2
@@ -764,8 +838,10 @@ CHỈ trả về JSON, không có text giải thích:
             rawAnalysis: data.notes || `Phân tích từ mô tả: "${description.substring(0, 100)}..."`,
             fengShuiAdvice: data.fengShuiAdvice
         }
-    } catch (error: any) {
+    } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : 'Lỗi khi phân tích mô tả.'
         console.error('Text estimator error:', error)
+
         return {
             success: false,
             projectType,
@@ -775,7 +851,8 @@ CHỈ trả về JSON, không có text giải thích:
             totalEstimatedCost: 0,
             confidence: 0,
             validationStatus: 'warning',
-            error: error.message || 'Lỗi khi phân tích mô tả.'
+            error: errorMessage
+
         }
     }
 }

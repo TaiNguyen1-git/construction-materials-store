@@ -31,11 +31,6 @@ export default function LoginPage() {
         })
         const data = await res.json()
         if (data.success) {
-          if (typeof window !== 'undefined') {
-            localStorage.setItem('access_token', data.token)
-            localStorage.setItem('user', JSON.stringify(data.user))
-            localStorage.setItem('remember_me', 'true')
-          }
           toast.success('Đăng nhập Google thành công!')
           performPostLoginRedirect(data.user)
         } else {
@@ -65,11 +60,6 @@ export default function LoginPage() {
       })
       const data = await res.json()
       if (data.success) {
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('access_token', data.token)
-          localStorage.setItem('user', JSON.stringify(data.user))
-          localStorage.setItem('remember_me', 'true')
-        }
         toast.success('Đăng nhập Facebook thành công!')
         performPostLoginRedirect(data.user)
       } else {
@@ -118,7 +108,7 @@ export default function LoginPage() {
       const response = await login({
         email: formData.email,
         password: formData.password
-      }, rememberMe) as any
+      }) as any
 
       if (response?.twoFactorRequired || response?.verificationRequired) {
         setTwoFactorData({
@@ -133,17 +123,8 @@ export default function LoginPage() {
       if (response?.user) {
         performPostLoginRedirect(response.user)
       } else {
-        const userData = localStorage.getItem('user')
-        if (userData && userData !== 'undefined') {
-          try {
-            const user = JSON.parse(userData)
-            performPostLoginRedirect(user)
-          } catch (e) {
-            window.location.href = '/'
-          }
-        } else {
-          window.location.href = '/'
-        }
+        // Fallback or retry auth initialization
+        window.location.href = '/'
       }
     } catch (error: any) {
       setLocalErrors({ general: error.message || 'Đăng nhập thất bại' })
@@ -157,10 +138,9 @@ export default function LoginPage() {
     if (otpValue.length !== 6) return
     try {
       if (!twoFactorData?.token) return
-      await verifyOTP(otpValue, twoFactorData.token)
-      const userData = localStorage.getItem('user')
-      if (userData) {
-        performPostLoginRedirect(JSON.parse(userData))
+      const response = await verifyOTP(otpValue, twoFactorData.token) as any
+      if (response?.user) {
+        performPostLoginRedirect(response.user)
       } else {
         window.location.href = '/'
       }

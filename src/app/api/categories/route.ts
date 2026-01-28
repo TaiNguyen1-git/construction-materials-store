@@ -17,12 +17,12 @@ const createCategorySchema = z.object({
 export async function GET(request: NextRequest) {
   try {
     // Try to get from cache first
-    const cacheKey = 'categories:all:v6'
+    const cacheKey = 'categories:all'
     const cachedResult = await CacheService.get(cacheKey)
     if (cachedResult) {
       return NextResponse.json(
         createSuccessResponse(cachedResult, 'Categories retrieved successfully from cache'),
-        { status: 200 }
+        { status: 200, headers: { 'X-Cache': 'HIT' } }
       )
     }
 
@@ -112,12 +112,15 @@ export async function GET(request: NextRequest) {
   }
 }
 
+import { verifyTokenFromRequest } from '@/lib/auth-middleware-api'
+
 // POST /api/categories - Create new category
 export async function POST(request: NextRequest) {
   try {
-    // Check user role from middleware
-    const userRole = request.headers.get('x-user-role')
-    if (userRole !== 'MANAGER') {
+    // 🛡️ Security Hardening: Verify role from authenticated token
+    const auth = verifyTokenFromRequest(request)
+
+    if (!auth || auth.role !== 'MANAGER') {
       return NextResponse.json(
         createErrorResponse('Manager access required', 'FORBIDDEN'),
         { status: 403 }
@@ -153,11 +156,8 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    // Clear categories cache when a new category is added
-    await CacheService.del('categories:all')
-    await CacheService.del('categories:all:v2')
-    await CacheService.del('categories:all:v3')
-    await CacheService.del('categories:all:v4')
+    // Clean only category-related cache (Smart Invalidation)
+    await CacheService.delByPrefix('categories:')
 
     return NextResponse.json(
       createSuccessResponse(category, 'Category created successfully'),

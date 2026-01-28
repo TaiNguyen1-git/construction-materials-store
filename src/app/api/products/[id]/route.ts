@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { PrismaClient } from '@prisma/client'
-
-const prisma = new PrismaClient()
+import { prisma } from '@/lib/prisma'
+import { verifyTokenFromRequest } from '@/lib/auth-middleware-api'
+import { CacheService } from '@/lib/cache'
 
 // Helper to check admin permissions
 function checkAdminPermission(request: NextRequest): { allowed: boolean; userRole: string | null } {
-  const userRole = request.headers.get('x-user-role')
-  const allowed = ['MANAGER', 'EMPLOYEE'].includes(userRole || '')
-  return { allowed, userRole }
+  const auth = verifyTokenFromRequest(request)
+  const allowed = auth ? ['MANAGER', 'EMPLOYEE'].includes(auth.role) : false
+  return { allowed, userRole: auth?.role || null }
 }
 
 export async function GET(
@@ -23,6 +23,12 @@ export async function GET(
         { success: false, error: { code: 'VALIDATION_ERROR', message: 'Product ID is required' } },
         { status: 400 }
       )
+    }
+
+    const cacheKey = `product:${id}`
+    const cachedProduct = await CacheService.get(cacheKey)
+    if (cachedProduct) {
+      return NextResponse.json({ success: true, data: cachedProduct, message: 'Product retrieved from cache' }, { status: 200 })
     }
 
     const product = await prisma.product.findUnique({
@@ -48,6 +54,10 @@ export async function GET(
         }
       }
     })
+
+    if (product) {
+      await CacheService.set(cacheKey, product, 3600) // Cache for 1 hour
+    }
 
 
     if (!product) {
@@ -141,6 +151,10 @@ export async function PUT(
       })
     }
 
+    // Clear cache
+    await CacheService.del(`product:${id}`)
+    await CacheService.delByPrefix('products:')
+
     return NextResponse.json(
       { success: true, data: product, message: 'Product updated successfully' },
       { status: 200 }
@@ -213,6 +227,10 @@ export async function DELETE(
         where: { id }
       })
     })
+
+    // Clear cache
+    await CacheService.del(`product:${id}`)
+    await CacheService.delByPrefix('products:')
 
     return NextResponse.json(
       { success: true, message: 'Sản phẩm đã được xoá hoàn toàn' },

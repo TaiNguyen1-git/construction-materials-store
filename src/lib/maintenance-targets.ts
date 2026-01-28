@@ -2,7 +2,15 @@
 // Danh sách Trang và Tính năng để Chọn trong Admin (User-friendly)
 // Key = Code (lưu vào DB), Value = { label, path, roles }
 
-export const MAINTENANCE_TARGETS = {
+
+export interface MaintenanceTarget {
+    label: string;
+    path: string;
+    roles: string[];
+    group: string;
+}
+
+export const MAINTENANCE_TARGETS: Record<string, MaintenanceTarget> = {
     // ============== TOÀN HỆ THỐNG ==============
     'GLOBAL': {
         label: '🌐 Toàn bộ hệ thống',
@@ -164,15 +172,16 @@ export function getGroupedTargets() {
 
 // Helper: Get label by key
 export function getTargetLabel(key: string): string {
-    return (MAINTENANCE_TARGETS as any)[key]?.label || key
+    return MAINTENANCE_TARGETS[key]?.label || key
 }
 
 // Helper: Get path by key
 export function getTargetPath(key: string): string {
-    return (MAINTENANCE_TARGETS as any)[key]?.path || key
+    return MAINTENANCE_TARGETS[key]?.path || key
 }
 
 // Helper: Get roles by key
 export function getTargetRoles(key: string): string[] {
-    return (MAINTENANCE_TARGETS as any)[key]?.roles || ['ALL']
+    return MAINTENANCE_TARGETS[key]?.roles || ['ALL']
 }
+
