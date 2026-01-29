@@ -9,6 +9,9 @@
  * - GET /api/credit/report/aging - Báo cáo tuổi nợ
  */
 
+/**
+ * Credit API Route - SME Feature 1
+ */
 import { NextRequest, NextResponse } from 'next/server'
 import { creditCheckService } from '@/lib/credit-check-service'
 import { prisma } from '@/lib/prisma'
@@ -148,13 +151,44 @@ export async function PUT(request: NextRequest) {
                 )
             }
 
+            const { id, createdAt, updatedAt, ...cleanData } = configData
+
             const config = await prisma.debtConfiguration.upsert({
-                where: { name: configData.name },
-                create: configData,
-                update: configData
+                where: { name: cleanData.name },
+                create: cleanData,
+                update: cleanData
             })
 
             return NextResponse.json(config)
+        }
+
+        if (action === 'update-customer-credit') {
+            const { customerId, creditLimit, creditHold, maxOverdueDays } = body
+            if (!customerId) {
+                return NextResponse.json({ error: 'Thiếu customerId' }, { status: 400 })
+            }
+
+            const updated = await prisma.customer.update({
+                where: { id: customerId },
+                data: {
+                    creditLimit: creditLimit !== undefined ? parseFloat(creditLimit) : undefined,
+                    creditHold: creditHold !== undefined ? creditHold : undefined,
+                    maxOverdueDays: maxOverdueDays !== undefined ? parseInt(maxOverdueDays) : undefined
+                } as any
+            })
+
+            return NextResponse.json(updated)
+        }
+
+        if (action === 'soft-delete-customer') {
+            const { customerId } = body
+            if (!customerId) return NextResponse.json({ error: 'Thiếu customerId' }, { status: 400 })
+
+            const deleted = await prisma.customer.update({
+                where: { id: customerId },
+                data: { isDeleted: true } as any
+            })
+            return NextResponse.json(deleted)
         }
 
         return NextResponse.json(

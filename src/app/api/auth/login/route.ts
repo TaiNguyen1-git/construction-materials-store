@@ -76,7 +76,15 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const body = await request.json()
+    let body;
+    try {
+      body = await request.json()
+    } catch (e) {
+      return NextResponse.json(
+        { success: false, error: 'Dữ liệu không hợp lệ (Invalid JSON)' },
+        { status: 400 }
+      )
+    }
 
     // Validate with Zod
     const validation = validateRequest(loginSchema, body)
@@ -92,7 +100,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { email, password } = validation.data
+    const { email, password } = validation.data!
 
     // Find user
     const user = await prisma.user.findUnique({

@@ -20,29 +20,33 @@ export async function GET() {
     }
 }
 
+import { getUser } from '@/lib/auth'
+
 // POST /api/loyalty/vouchers - Redeem points for voucher
 export async function POST(request: NextRequest) {
     try {
-        // Get customer ID from headers (same pattern as /api/loyalty)
-        let customerId = request.headers.get('x-customer-id')
-        const userId = request.headers.get('x-user-id')
+        const user = await getUser()
 
-        if (!customerId && userId) {
-            // Try to find customer by userId
-            const customer = await (prisma as any).customer.findFirst({
-                where: { userId }
-            })
-            if (customer) {
-                customerId = customer.id
-            }
-        }
-
-        if (!customerId) {
+        if (!user || user.role !== 'CUSTOMER') {
             return NextResponse.json(
-                { success: false, error: 'Unauthorized - Customer ID required' },
+                { success: false, error: 'Unauthorized or not a customer' },
                 { status: 401 }
             )
         }
+
+        // Find customer by userId
+        const customer = await prisma.customer.findFirst({
+            where: { userId: user.userId }
+        })
+
+        if (!customer) {
+            return NextResponse.json(
+                { success: false, error: 'Customer record not found' },
+                { status: 404 }
+            )
+        }
+
+        const customerId = customer.id
 
         const { voucherValue } = await request.json()
 

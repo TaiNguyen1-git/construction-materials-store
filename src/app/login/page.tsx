@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { Eye, EyeOff, Mail, Lock, ArrowLeft, ShieldCheck, CheckCircle2, Building2, Globe, Shield } from 'lucide-react'
 import { useAuth } from '@/contexts/auth-context'
 import { useGoogleLogin } from '@react-oauth/google'
-import { toast } from 'react-hot-toast'
+import { toast, Toaster } from 'react-hot-toast'
 import { useFacebookSDK, loginWithFacebook } from '@/lib/facebook-sdk'
 import { performPostLoginRedirect } from '@/lib/auth-redirect'
 
@@ -100,11 +100,15 @@ export default function LoginPage() {
   const [otpValue, setOtpValue] = useState('')
   const [isResending, setIsResending] = useState(false)
   const [resendSuccess, setResendSuccess] = useState(false)
+  const [localLoading, setLocalLoading] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLocalErrors({})
+    setLocalLoading(true)
     try {
+      // Use system-provided login to ensure state sync (isAuthenticated)
+      // and trigger loading state for the button
       const response = await login({
         email: formData.email,
         password: formData.password
@@ -113,21 +117,41 @@ export default function LoginPage() {
       if (response?.twoFactorRequired || response?.verificationRequired) {
         setTwoFactorData({
           required: true,
-          email: response.email,
+          email: response.email || formData.email,
           token: response.verificationToken,
           type: response.verificationRequired ? 'verification' : '2fa'
         })
+        setLocalLoading(false)
         return
       }
 
       if (response?.user) {
+        // Success: Redirect - keep localLoading true until navigation
         performPostLoginRedirect(response.user)
+        toast.success('Đăng nhập thành công')
       } else {
-        // Fallback or retry auth initialization
-        window.location.href = '/'
+        setLocalLoading(false)
       }
+
     } catch (error: any) {
-      setLocalErrors({ general: error.message || 'Đăng nhập thất bại' })
+      setLocalLoading(false)
+      console.error('Login error:', error)
+
+      let msg = error.message || 'Đăng nhập thất bại'
+
+      // Handle the enhanced error data from handleAuthSuccess logic
+      if (error.status === 429) {
+        const retryAfterTimestamp = error.retryAfter || (Date.now() / 1000 + 900);
+        const currentTimestamp = Math.floor(Date.now() / 1000);
+        const minutesRemaining = Math.max(1, Math.ceil((retryAfterTimestamp - currentTimestamp) / 60));
+        msg = `Bạn đã thử quá nhiều lần. Vui lòng thử lại sau ${minutesRemaining} phút.`
+      } else if (error.details && Array.isArray(error.details)) {
+        const details = error.details.map((d: any) => d.message).join(', ')
+        msg = `${msg}: ${details}`
+      }
+
+      setLocalErrors({ general: msg })
+      toast.error(msg)
     }
   }
 
@@ -170,6 +194,7 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex bg-white font-sans selection:bg-primary-100 selection:text-primary-900">
+      <Toaster position="top-right" />
       {/* Left: Branding & Visuals (Desktop Only) */}
       <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-neutral-900">
         <div className="absolute inset-0 z-0 scale-105 animate-slow-zoom">
@@ -403,10 +428,10 @@ export default function LoginPage() {
 
                 <button
                   type="submit"
-                  disabled={isLoading}
+                  disabled={isLoading || localLoading}
                   className="w-full flex justify-center items-center gap-3 py-5 px-4 rounded-2xl shadow-2xl shadow-blue-500/20 text-xs font-black uppercase tracking-[0.2em] text-white bg-blue-600 hover:bg-blue-700 transition-all transform active:scale-[0.98] disabled:opacity-50"
                 >
-                  {isLoading ? (
+                  {(isLoading || localLoading) ? (
                     <div className="w-5 h-5 border-3 border-white/30 border-t-white rounded-full animate-spin" />
                   ) : (
                     <span>Đăng nhập hệ thống</span>

@@ -17,6 +17,7 @@ import {
 } from 'lucide-react'
 import NotificationBell from '@/components/NotificationBell'
 import MessagingDropdown from '@/components/MessagingDropdown'
+import { useAuth } from '@/contexts/auth-context'
 
 interface ContractorHeaderProps {
     sidebarOpen: boolean
@@ -26,6 +27,7 @@ interface ContractorHeaderProps {
 
 export default function ContractorHeader({ sidebarOpen, setSidebarOpen, user }: ContractorHeaderProps) {
     const router = useRouter()
+    const { logout } = useAuth()
     const [profileDropdownOpen, setProfileDropdownOpen] = useState(false)
     const dropdownRef = useRef<HTMLDivElement>(null)
 
@@ -83,10 +85,17 @@ export default function ContractorHeader({ sidebarOpen, setSidebarOpen, user }: 
         return () => clearTimeout(timer)
     }, [searchQuery])
 
-    const handleLogout = () => {
-        localStorage.removeItem('access_token')
-        localStorage.removeItem('user')
-        window.location.href = '/contractor'
+    const handleLogout = async () => {
+        try {
+            await logout()
+            // Success: AuthContext will handle redirect to /
+        } catch (error) {
+            console.error('Logout failed:', error)
+            // Fallback: Force clear and redirect if global logout fails
+            localStorage.removeItem('access_token')
+            localStorage.removeItem('user')
+            window.location.href = '/login'
+        }
     }
 
     const SearchResultItem = ({ item, icon: Icon }: any) => (

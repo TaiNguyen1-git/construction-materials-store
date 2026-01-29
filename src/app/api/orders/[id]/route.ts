@@ -11,6 +11,15 @@ export async function GET(
   try {
     const { id: orderId } = await params
 
+    // Validate MongoDB ObjectID format (24 hex characters) to prevent Prisma crashing
+    const objectIdRegex = /^[0-9a-fA-F]{24}$/
+    if (!objectIdRegex.test(orderId)) {
+      return NextResponse.json(
+        createErrorResponse('Mã ID đơn hàng không đúng định dạng', 'INVALID_ID_FORMAT'),
+        { status: 404 }
+      )
+    }
+
     const order = await prisma.order.findUnique({
       where: { id: orderId },
       include: {

@@ -1,6 +1,6 @@
 'use client'
 
-import { ShoppingBag, ArrowRight, Package, Clock, CheckCircle, XCircle } from 'lucide-react'
+import { ShoppingBag, ArrowRight, Package, Clock, CheckCircle, XCircle, Plus } from 'lucide-react'
 import Link from 'next/link'
 
 interface Order {
@@ -91,9 +91,13 @@ export default function RecentOrdersWidget({ orders }: RecentOrdersWidgetProps) 
                 })}
             </div>
 
-            <button className="w-full mt-4 py-2 bg-gray-50 text-gray-600 font-medium text-sm rounded-lg hover:bg-gray-100 transition-colors">
+            <Link
+                href="/contractor/quick-order"
+                className="w-full mt-4 py-2 bg-gray-50 text-gray-600 font-medium text-sm rounded-lg hover:bg-gray-100 transition-colors flex items-center justify-center gap-2"
+            >
+                <Plus className="w-4 h-4" />
                 Tạo đơn hàng mới
-            </button>
+            </Link>
         </div>
     )
 }

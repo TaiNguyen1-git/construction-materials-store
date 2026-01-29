@@ -5,7 +5,6 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { AIService } from '@/lib/ai-service'
 import { creditCheckService } from '@/lib/credit-check-service'
 
 export async function GET(request: NextRequest) {
@@ -67,51 +66,35 @@ export async function GET(request: NextRequest) {
             }))
         }
 
-        // 3. Generate AI summary
-        const prompt = `
-Bạn là trợ lý BI (Business Intelligence) cho cửa hàng vật liệu xây dựng.
-Dựa trên dữ liệu sau, hãy viết một bản tin ngắn gọn (tối đa 80 từ) bằng tiếng Việt cho quản lý:
-
-Dữ liệu:
-- Ngày: ${analysisData.date}
-- Doanh thu hôm qua: ${analysisData.yesterdayRevenue.toLocaleString('vi-VN')}đ (${analysisData.orderCount} đơn)
-- Đơn hàng chờ xử lý: ${analysisData.pendingOrders}
-- Khách hàng nợ xấu (90+ ngày): ${analysisData.criticalDebtCount} khách
-- Tổng nợ quá hạn: ${analysisData.totalOverdue.toLocaleString('vi-VN')}đ
-- Sản phẩm sắp hết: ${analysisData.lowStockCount} mặt hàng
-${analysisData.lowStockItems.length > 0 ? `- Chi tiết hết hàng: ${analysisData.lowStockItems.map(i => i.name).join(', ')}` : ''}
-${analysisData.criticalDebtCustomers.length > 0 ? `- Khách nợ xấu: ${analysisData.criticalDebtCustomers.map(c => `${c.name} (${c.over90.toLocaleString('vi-VN')}đ)`).join(', ')}` : ''}
-
-Yêu cầu:
-- Bắt đầu bằng lời chào ngắn "Chào Admin,"
-- Tóm tắt tình hình kinh doanh
-- Nêu các vấn đề cần chú ý (nếu có)
-- Đề xuất hành động ưu tiên (1-2 gợi ý)
-- Giọng văn chuyên nghiệp nhưng thân thiện
-`
-
+        // 3. Generate Rule-based summary (No AI to save cost/quota)
         let summary = ''
-        try {
-            const aiResponse = await AIService.generateChatbotResponse(prompt, null, [], true)
-            summary = aiResponse.response
+        const dateStr = today.toLocaleDateString('vi-VN', { day: 'numeric', month: 'long' })
 
-            // Check if AI actually returned a valid summary or an error message
-            if (summary.includes("Xin lỗi") || summary.length < 50) {
-                throw new Error("AI returned error message")
-            }
-        } catch (aiError) {
-            console.error('AI summary generation failed or returned error:', aiError)
-            // Fallback to static summary
-            summary = `Chào Admin,
+        // Dynamic content based on status
+        const revenueText = analysisData.yesterdayRevenue > 0
+            ? `Doanh thu hôm qua đạt ${analysisData.yesterdayRevenue.toLocaleString('vi-VN')}đ.`
+            : `Hôm qua chưa ghi nhận doanh thu phát sinh.`
 
-📊 **Tóm tắt ngày ${analysisData.date}:**
-- Doanh thu hôm qua: ${analysisData.yesterdayRevenue.toLocaleString('vi-VN')}đ (${analysisData.orderCount} đơn)
-- Đơn chờ xử lý: ${analysisData.pendingOrders}
-${analysisData.criticalDebtCount > 0 ? `⚠️ Có ${analysisData.criticalDebtCount} khách hàng nợ xấu cần theo dõi.` : '✅ Không có khách nợ xấu.'}
-${analysisData.lowStockCount > 0 ? `📦 ${analysisData.lowStockCount} sản phẩm sắp hết kho.` : '✅ Tồn kho ổn định.'}
+        const orderText = analysisData.orderCount > 0
+            ? `Hệ thống đã xử lý ${analysisData.orderCount} đơn hàng.`
+            : `Không có đơn hàng nào được hoàn tất.`
 
-Chúc một ngày làm việc hiệu quả! 💪`
-        }
+        const issues = []
+        if (analysisData.pendingOrders > 0) issues.push(`đang có ${analysisData.pendingOrders} đơn hàng chờ xác nhận`)
+        if (analysisData.lowStockCount > 0) issues.push(`${analysisData.lowStockCount} sản phẩm sắp hết kho`)
+        if (analysisData.criticalDebtCount > 0) issues.push(`${analysisData.criticalDebtCount} khách hàng nợ quá hạn`)
+
+        const statusMessage = issues.length > 0
+            ? `Cần lưu ý: ${issues.join(', ')}.`
+            : `Các chỉ số vận hành đang ở trạng thái ổn định.`
+
+        const actionItems = []
+        if (analysisData.pendingOrders > 5) actionItems.push("Ưu tiên xử lý đơn hàng tồn đọng")
+        if (analysisData.lowStockCount > 0) actionItems.push("Kiểm tra danh sách nhập hàng")
+        if (analysisData.criticalDebtCount > 0) actionItems.push("Liên hệ đôn đốc thu hồi nợ")
+        if (actionItems.length === 0) actionItems.push("Tiếp tục theo dõi thị trường")
+
+        summary = `Chào Admin, tình hình ngày ${dateStr}: ${revenueText} ${orderText} ${statusMessage} Gợi ý: ${actionItems.join(' & ')}. Chúc một ngày làm việc hiệu quả! 🚀`
 
         return NextResponse.json({
             success: true,

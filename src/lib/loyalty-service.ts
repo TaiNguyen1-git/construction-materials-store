@@ -199,6 +199,11 @@ export class LoyaltyService {
               name: true,
               email: true
             }
+          },
+          loyaltyVouchers: {
+            orderBy: {
+              redeemedAt: 'desc'
+            }
           }
         }
       })
@@ -218,7 +223,8 @@ export class LoyaltyService {
         lastPurchaseDate: customer.lastPurchaseDate,
         totalPurchases: customer.totalPurchases,
         nextTier: this.getNextTier(customer.loyaltyTier || 'BRONZE'),
-        tierBenefits: this.getTierBenefits(customer.loyaltyTier || 'BRONZE')
+        tierBenefits: this.getTierBenefits(customer.loyaltyTier || 'BRONZE'),
+        vouchers: customer.loyaltyVouchers || []
       }
     } catch (error) {
       console.error('Error getting customer loyalty data:', error)
@@ -364,10 +370,10 @@ export class LoyaltyService {
   // Get available voucher options
   static getVoucherOptions() {
     return [
-      { id: 'v50', value: 50000, pointsRequired: 500, label: 'Voucher 50.000đ' },
-      { id: 'v100', value: 100000, pointsRequired: 1000, label: 'Voucher 100.000đ' },
-      { id: 'v200', value: 200000, pointsRequired: 2000, label: 'Voucher 200.000đ' },
-      { id: 'v500', value: 500000, pointsRequired: 5000, label: 'Voucher 500.000đ' }
+      { id: 'v50', voucherValue: 50000, pointsRequired: 500, displayName: 'Voucher 50.000đ', savings: '5%', popular: false, bestValue: false },
+      { id: 'v100', voucherValue: 100000, pointsRequired: 1000, displayName: 'Voucher 100.000đ', savings: '10%', popular: false, bestValue: false },
+      { id: 'v200', voucherValue: 200000, pointsRequired: 2000, displayName: 'Voucher 200.000đ', savings: '15%', popular: false, bestValue: false },
+      { id: 'v500', voucherValue: 500000, pointsRequired: 5000, displayName: 'Voucher 500.000đ', savings: '20%', popular: false, bestValue: true }
     ]
   }
 
@@ -375,7 +381,7 @@ export class LoyaltyService {
   static async redeemPointsForVoucher(customerId: string, voucherValue: number) {
     try {
       const options = this.getVoucherOptions()
-      const option = options.find(o => o.value === voucherValue)
+      const option = options.find(o => o.voucherValue === voucherValue)
 
       if (!option) {
         throw new Error('Voucher value không hợp lệ')
@@ -386,6 +392,18 @@ export class LoyaltyService {
 
       // Generate a dummy voucher code
       const voucherCode = 'LOYL-' + Math.random().toString(36).substring(2, 10).toUpperCase()
+
+      // Save voucher to database
+      await prisma.loyaltyVoucher.create({
+        data: {
+          customerId,
+          code: voucherCode,
+          value: voucherValue,
+          pointsUsed: pointsRequired,
+          status: 'UNUSED',
+          expiryDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days expiry
+        }
+      })
 
       return {
         ...result,
@@ -429,6 +447,19 @@ export class LoyaltyService {
       }
     } catch (error) {
       console.error('Error adjusting points:', error)
+      throw error
+    }
+  }
+
+  // Get customer vouchers
+  static async getCustomerVouchers(customerId: string) {
+    try {
+      return await prisma.loyaltyVoucher.findMany({
+        where: { customerId },
+        orderBy: { redeemedAt: 'desc' }
+      })
+    } catch (error) {
+      console.error('Error fetching customer vouchers:', error)
       throw error
     }
   }

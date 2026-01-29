@@ -146,15 +146,16 @@ export default function AccountProjectsPage() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {projects.map((project) => (
-              <Link
+              <div
                 key={project.id}
-                href={`/account/projects/${project.id}`}
-                className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-xl hover:-translate-y-1 transition-all group"
+                className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-xl hover:-translate-y-1 transition-all group relative"
               >
                 <div className="flex justify-between items-start mb-4">
                   <div>
                     <h3 className="text-lg font-bold text-gray-900 group-hover:text-primary-600 transition-colors">
-                      {project.name}
+                      <Link href={`/account/projects/${project.id}`} className="after:absolute after:inset-0 text-inherit">
+                        {project.name}
+                      </Link>
                     </h3>
                     <div className="flex items-center gap-2 mt-1">
                       <Clock className="w-4 h-4 text-gray-400" />
@@ -171,13 +172,13 @@ export default function AccountProjectsPage() {
                 </div>
 
                 <div className="space-y-4">
-                  <div className="p-3 bg-gray-50 rounded-xl">
+                  <div className="p-3 bg-gray-50 rounded-xl relative z-10">
                     <p className="text-xs text-gray-500 font-bold uppercase mb-1">Nhà thầu phụ trách</p>
                     <div className="flex items-center gap-2">
                       <Building2 className="w-4 h-4 text-primary-600" />
                       <span className="text-sm font-bold text-gray-700">
                         {project.contractor?.user.name || (
-                          <Link href="/contractors" className="text-primary-600 hover:underline flex items-center gap-1">
+                          <Link href="/contractors" className="text-primary-600 hover:underline flex items-center gap-1 relative z-20">
                             Tìm nhà thầu ngay <ChevronRight className="w-3 h-3" />
                           </Link>
                         )}
@@ -208,7 +209,7 @@ export default function AccountProjectsPage() {
                     </div>
                   </div>
                 </div>
-              </Link>
+              </div>
             ))}
           </div>
         )}

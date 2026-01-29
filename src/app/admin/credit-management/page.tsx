@@ -28,7 +28,9 @@ import {
     Settings,
     User,
     Calendar,
-    Briefcase
+    Briefcase,
+    Trash2,
+    RotateCcw
 } from 'lucide-react'
 
 interface DebtAgingReport {
@@ -41,6 +43,7 @@ interface DebtAgingReport {
     days31to60: number
     days61to90: number
     over90: number
+    maxOverdueDays: number
     creditLimit: number
     creditHold: boolean
 }
@@ -65,8 +68,21 @@ export default function CreditManagementPage() {
     const [pendingApprovals, setPendingApprovals] = useState<CreditApproval[]>([])
     const [loading, setLoading] = useState(true)
     const [searchTerm, setSearchTerm] = useState('')
-
     const [configurations, setConfigurations] = useState<any[]>([])
+    const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
+    const [filters, setFilters] = useState({
+        customerType: 'ALL',
+        status: 'ALL',
+        minDebt: ''
+    })
+
+    const [selectedCustomer, setSelectedCustomer] = useState<DebtAgingReport | null>(null)
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+    const [editForm, setEditForm] = useState({
+        creditLimit: 0,
+        creditHold: false,
+        maxOverdueDays: 0
+    })
 
     useEffect(() => {
         loadData()
@@ -140,6 +156,149 @@ export default function CreditManagementPage() {
         }
     }
 
+    const handleSaveAllConfigs = async () => {
+        try {
+            const savePromises = configurations.map(config =>
+                fetch('/api/credit', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'update-config',
+                        configData: config
+                    })
+                })
+            )
+            await Promise.all(savePromises)
+            toast.success('Đã lưu tất cả thay đổi cấu hình')
+            loadData()
+        } catch (error) {
+            console.error('Error saving all configs:', error)
+            toast.error('Lỗi khi lưu cấu hình')
+        }
+    }
+
+    const handleResetConfigs = async () => {
+        if (!confirm('Bạn có chắc chắn muốn đặt lại toàn bộ cấu hình về mặc định?')) return
+
+        const defaultConfigs = [
+            { name: 'Default', maxOverdueDays: 30, creditLimitPercent: 100, warningDays: 7 },
+            { name: 'Contractor', maxOverdueDays: 45, creditLimitPercent: 120, warningDays: 14 },
+            { name: 'Wholesale', maxOverdueDays: 30, creditLimitPercent: 110, warningDays: 7 },
+            { name: 'Regular', maxOverdueDays: 15, creditLimitPercent: 80, warningDays: 5 }
+        ]
+
+        try {
+            const resetPromises = defaultConfigs.map(config =>
+                fetch('/api/credit', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'update-config',
+                        configData: config
+                    })
+                })
+            )
+            await Promise.all(resetPromises)
+            toast.success('Đã đặt lại cấu hình mặc định')
+            loadData()
+        } catch (error) {
+            console.error('Error resetting configs:', error)
+            toast.error('Lỗi khi đặt lại cấu hình')
+        }
+    }
+
+    const handleEditCustomer = (customer: DebtAgingReport) => {
+        setSelectedCustomer(customer)
+        setEditForm({
+            creditLimit: customer.creditLimit,
+            creditHold: customer.creditHold,
+            maxOverdueDays: customer.maxOverdueDays || 0
+        })
+        setIsEditModalOpen(true)
+    }
+
+    const handleUpdateCustomerCredit = async () => {
+        if (!selectedCustomer) return
+
+        try {
+            const res = await fetch('/api/credit', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'update-customer-credit',
+                    customerId: selectedCustomer.customerId,
+                    ...editForm
+                })
+            })
+
+            if (res.ok) {
+                toast.success('Cập nhật tín dụng thành công')
+                setIsEditModalOpen(false)
+                loadData()
+            } else {
+                toast.error('Lỗi khi cập nhật tín dụng')
+            }
+        } catch (error) {
+            console.error('Update credit error:', error)
+            toast.error('Lỗi máy chủ')
+        }
+    }
+
+    const handleResetCustomerCredit = async (customerId: string, customerName: string) => {
+        if (!confirm(`Bạn có chắc chắn muốn ĐẶT LẠI cấu hình tín dụng cho ${customerName}?\n\nHành động này sẽ reset hạn mức và trạng thái khóa của khách hàng này về mặc định.`)) return
+
+        try {
+            const res = await fetch('/api/credit', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'update-customer-credit',
+                    customerId,
+                    creditLimit: 0,
+                    creditHold: false,
+                    maxOverdueDays: 30
+                })
+            })
+
+            if (res.ok) {
+                toast.success(`Đã reset tín dụng cho ${customerName}`)
+                loadData()
+                if (selectedCustomer?.customerId === customerId) setIsEditModalOpen(false)
+            } else {
+                toast.error('Lỗi khi xử lý')
+            }
+        } catch (error) {
+            console.error('Reset credit logic error:', error)
+            toast.error('Lỗi máy chủ')
+        }
+    }
+
+    const handleDeleteCustomerFromList = async (customerId: string, customerName: string) => {
+        if (!confirm(`CẢNH BÁO: Bạn có chắc chắn muốn XÓA khách hàng ${customerName} khỏi danh sách tín dụng?\n\nDữ liệu sẽ bị ẩn khỏi báo cáo này.`)) return
+
+        try {
+            const res = await fetch('/api/credit', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'soft-delete-customer',
+                    customerId
+                })
+            })
+
+            if (res.ok) {
+                toast.success(`Đã xóa ${customerName} khỏi danh sách`)
+                loadData()
+                if (selectedCustomer?.customerId === customerId) setIsEditModalOpen(false)
+            } else {
+                toast.error('Lỗi khi xóa khách hàng')
+            }
+        } catch (error) {
+            console.error('Delete customer error:', error)
+            toast.error('Lỗi máy chủ')
+        }
+    }
+
     const formatCurrency = (amount: number) => {
         return new Intl.NumberFormat('vi-VN', {
             style: 'currency',
@@ -153,9 +312,17 @@ export default function CreditManagementPage() {
     const criticalDebt = agingReport.reduce((sum, r) => sum + r.over90, 0)
     const holdCount = agingReport.filter(r => r.creditHold).length
 
-    const filteredReport = agingReport.filter(r =>
-        r.customerName.toLowerCase().includes(searchTerm.toLowerCase())
-    )
+    const filteredReport = agingReport.filter(r => {
+        const matchesSearch = r.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            r.customerId.toLowerCase().includes(searchTerm.toLowerCase())
+
+        const matchesType = filters.customerType === 'ALL' || r.customerType === filters.customerType
+        const matchesStatus = filters.status === 'ALL' ||
+            (filters.status === 'BLOCK' ? r.creditHold : !r.creditHold)
+        const matchesDebt = !filters.minDebt || r.totalDebt >= parseFloat(filters.minDebt)
+
+        return matchesSearch && matchesType && matchesStatus && matchesDebt
+    })
 
     return (
         <div className="space-y-8 animate-in fade-in duration-500">
@@ -174,6 +341,7 @@ export default function CreditManagementPage() {
                         Làm mới
                     </button>
                     <button
+                        onClick={() => setActiveTab('config')}
                         className="bg-blue-600 text-white px-6 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-700 shadow-xl shadow-blue-500/20 transition-all active:scale-95 flex items-center gap-2"
                     >
                         <Settings className="w-3.5 h-3.5" />
@@ -252,11 +420,70 @@ export default function CreditManagementPage() {
                                 className="w-full pl-12 pr-4 py-3 bg-slate-50 border-none rounded-2xl text-sm font-medium focus:ring-2 focus:ring-blue-500/20"
                             />
                         </div>
-                        <button className="flex items-center gap-2 px-6 py-3 bg-slate-50 text-slate-400 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-100 transition-all">
+                        <button
+                            onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                            className={`flex items-center gap-2 px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${showAdvancedFilters ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' : 'bg-slate-50 text-slate-400 hover:bg-slate-100'
+                                }`}
+                        >
                             <Filter size={14} />
                             Bộ lọc nâng cao
                         </button>
                     </div>
+
+                    {/* Advanced Filter Panel */}
+                    {showAdvancedFilters && (
+                        <div className="p-8 bg-slate-50/50 rounded-[32px] border border-slate-100 shadow-inner grid grid-cols-1 md:grid-cols-3 gap-6 animate-in slide-in-from-top-4 duration-300">
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Loại khách hàng</label>
+                                <select
+                                    value={filters.customerType}
+                                    onChange={(e) => setFilters({ ...filters, customerType: e.target.value })}
+                                    className="w-full bg-white border-none rounded-xl px-4 py-3 text-xs font-bold shadow-sm focus:ring-2 focus:ring-blue-500/20"
+                                >
+                                    <option value="ALL">Tất cả đối tượng</option>
+                                    <option value="CONTRACTOR">Nhà thầu (Contractor)</option>
+                                    <option value="WHOLESALE">Đại lý sỉ (Wholesale)</option>
+                                    <option value="REGULAR">Khách lẻ (Regular)</option>
+                                </select>
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Trạng thái tín dụng</label>
+                                <select
+                                    value={filters.status}
+                                    onChange={(e) => setFilters({ ...filters, status: e.target.value })}
+                                    className="w-full bg-white border-none rounded-xl px-4 py-3 text-xs font-bold shadow-sm focus:ring-2 focus:ring-blue-500/20"
+                                >
+                                    <option value="ALL">Tất cả trạng thái</option>
+                                    <option value="ACTIVE">Đang hoạt động</option>
+                                    <option value="BLOCK">Đã bị khóa (Hold)</option>
+                                </select>
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Số nợ tối thiểu</label>
+                                <div className="relative">
+                                    <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-300" />
+                                    <input
+                                        type="number"
+                                        placeholder="VD: 50.000.000"
+                                        value={filters.minDebt}
+                                        onChange={(e) => setFilters({ ...filters, minDebt: e.target.value })}
+                                        className="w-full pl-10 pr-4 py-3 bg-white border-none rounded-xl text-xs font-bold shadow-sm focus:ring-2 focus:ring-blue-500/20"
+                                    />
+                                </div>
+                            </div>
+                            <div className="md:col-span-3 flex justify-end">
+                                <button
+                                    onClick={() => {
+                                        setFilters({ customerType: 'ALL', status: 'ALL', minDebt: '' });
+                                        setSearchTerm('');
+                                    }}
+                                    className="text-[10px] font-black text-blue-600 uppercase tracking-widest hover:underline"
+                                >
+                                    Xóa tất cả bộ lọc
+                                </button>
+                            </div>
+                        </div>
+                    )}
 
                     {/* Aging Table */}
                     <div className="bg-white rounded-[32px] border border-slate-100 shadow-sm overflow-hidden">
@@ -271,7 +498,8 @@ export default function CreditManagementPage() {
                                         <th className="px-4 py-4 text-right">61-90 ngày</th>
                                         <th className="px-4 py-4 text-right text-red-600">Nợ xấu 90+</th>
                                         <th className="px-6 py-4 text-right">Tổng công nợ</th>
-                                        <th className="px-6 py-4 text-center">Status</th>
+                                        <th className="px-4 py-4 text-center">Tình trạng</th>
+                                        <th className="px-6 py-4 text-center">Thao tác</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-50">
@@ -310,7 +538,7 @@ export default function CreditManagementPage() {
                                                     <div className="text-sm font-black text-slate-900">{formatCurrency(row.totalDebt)}</div>
                                                     <div className="text-[10px] text-slate-300 font-bold">Limit: {formatCurrency(row.creditLimit)}</div>
                                                 </td>
-                                                <td className="px-6 py-4 text-center">
+                                                <td className="px-4 py-4 text-center">
                                                     {row.creditHold ? (
                                                         <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-600 rounded-full text-[9px] font-black uppercase tracking-widest border border-red-100">
                                                             <ShieldAlert size={12} />
@@ -323,11 +551,147 @@ export default function CreditManagementPage() {
                                                         </span>
                                                     )}
                                                 </td>
+                                                <td className="px-6 py-4 text-center">
+                                                    <div className="flex items-center justify-center gap-2">
+                                                        <button
+                                                            onClick={() => handleEditCustomer(row)}
+                                                            className="p-2 text-slate-400 hover:text-blue-600 hover:bg-white rounded-xl transition-all shadow-sm border border-transparent hover:border-slate-100"
+                                                            title="Chỉnh sửa cấu hình"
+                                                        >
+                                                            <Settings size={16} />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleDeleteCustomerFromList(row.customerId, row.customerName)}
+                                                            className="p-2 text-slate-400 hover:text-red-600 hover:bg-white rounded-xl transition-all shadow-sm border border-transparent hover:border-red-100"
+                                                            title="Xóa khỏi danh sách"
+                                                        >
+                                                            <Trash2 size={16} />
+                                                        </button>
+                                                    </div>
+                                                </td>
                                             </tr>
                                         ))
                                     )}
                                 </tbody>
                             </table>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Edit Customer Credit Modal */}
+            {isEditModalOpen && selectedCustomer && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
+                    <div className="bg-white w-full max-w-xl rounded-[40px] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
+                        {/* Modal Header */}
+                        <div className="p-8 bg-slate-50 border-b border-slate-100 flex justify-between items-center">
+                            <div className="flex items-center gap-4">
+                                <div className="p-3 bg-blue-600 text-white rounded-2xl shadow-lg shadow-blue-200">
+                                    <Settings size={22} />
+                                </div>
+                                <div>
+                                    <h3 className="text-xl font-black text-slate-900 uppercase tracking-tighter line-clamp-1">{selectedCustomer.customerName}</h3>
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-0.5">Tùy chỉnh tín dụng cá nhân</p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setIsEditModalOpen(false)}
+                                className="p-2 text-slate-300 hover:text-slate-900 transition-colors"
+                            >
+                                <XCircle size={24} />
+                            </button>
+                        </div>
+
+                        {/* Modal Body */}
+                        <div className="p-10 space-y-8">
+                            {/* Current Debt Context */}
+                            <div className="flex items-center justify-between p-6 bg-blue-50/50 rounded-3xl border border-blue-100">
+                                <div>
+                                    <span className="block text-[10px] font-black text-blue-400 uppercase tracking-widest mb-1">Dư nợ hiện tại</span>
+                                    <span className="text-2xl font-black text-blue-600">{formatCurrency(selectedCustomer.totalDebt)}</span>
+                                </div>
+                                <div className="text-right">
+                                    <span className="block text-[10px] font-black text-blue-400 uppercase tracking-widest mb-1">Loại tài khoản</span>
+                                    <span className="px-3 py-1 bg-white text-blue-600 rounded-full text-[9px] font-black uppercase tracking-widest border border-blue-100 inline-block mt-1">
+                                        {selectedCustomer.customerType}
+                                    </span>
+                                </div>
+                            </div>
+
+                            {/* Form Fields */}
+                            <div className="grid gap-6">
+                                {/* Credit Limit */}
+                                <div className="space-y-3">
+                                    <label className="text-[11px] font-black text-slate-900 uppercase tracking-widest ml-1">Hạn mức tín dụng cá nhân (VND)</label>
+                                    <div className="relative group">
+                                        <DollarSign className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 group-focus-within:text-blue-600" />
+                                        <input
+                                            type="number"
+                                            value={editForm.creditLimit}
+                                            onChange={(e) => setEditForm({ ...editForm, creditLimit: parseFloat(e.target.value) || 0 })}
+                                            className="w-full pl-14 pr-6 py-4 bg-slate-50 border-none rounded-2xl text-sm font-black text-slate-900 focus:ring-4 focus:ring-blue-500/10 transition-all outline-none"
+                                        />
+                                    </div>
+                                    <p className="text-[9px] font-bold text-slate-400 pl-1 uppercase">Hạn mức tối đa khách hàng có thể nợ trước khi bị chặn đơn hàng.</p>
+                                </div>
+
+                                {/* Overdue Days Limit */}
+                                <div className="space-y-3">
+                                    <label className="text-[11px] font-black text-slate-900 uppercase tracking-widest ml-1">Kỳ hạn nợ tối đa (Ngày)</label>
+                                    <div className="relative group">
+                                        <Clock className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 group-focus-within:text-blue-600" />
+                                        <input
+                                            type="number"
+                                            value={editForm.maxOverdueDays}
+                                            onChange={(e) => setEditForm({ ...editForm, maxOverdueDays: parseInt(e.target.value) || 0 })}
+                                            className="w-full pl-14 pr-6 py-4 bg-slate-50 border-none rounded-2xl text-sm font-black text-slate-900 focus:ring-4 focus:ring-blue-500/10 transition-all outline-none"
+                                        />
+                                    </div>
+                                    <p className="text-[9px] font-bold text-slate-400 pl-1 uppercase">Số ngày cho phép nợ trễ hạn trước khi hệ thống tự động khóa tín dụng.</p>
+                                </div>
+
+                                {/* Credit Hold Toggle */}
+                                <div className="flex items-center justify-between p-6 bg-slate-50 rounded-3xl border border-slate-100">
+                                    <div className="space-y-1">
+                                        <span className="block text-[11px] font-black text-slate-900 uppercase tracking-widest">Trạng thái khóa tín dụng</span>
+                                        <span className="text-[10px] font-bold text-slate-400 uppercase">Khóa thủ công toàn bộ giao dịch công nợ.</span>
+                                    </div>
+                                    <button
+                                        onClick={() => setEditForm({ ...editForm, creditHold: !editForm.creditHold })}
+                                        className={`w-16 h-8 rounded-full p-1.5 transition-all duration-300 flex items-center ${editForm.creditHold ? 'bg-red-500 flex-row-reverse' : 'bg-slate-200'
+                                            }`}
+                                    >
+                                        <div className="w-5 h-5 bg-white rounded-full shadow-sm" />
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Modal Footer */}
+                        <div className="p-8 bg-slate-50 flex gap-4">
+                            <button
+                                onClick={() => handleResetCustomerCredit(selectedCustomer.customerId, selectedCustomer.customerName)}
+                                className="px-6 py-4 bg-slate-100 text-slate-500 rounded-2xl font-black text-[10px] uppercase tracking-widest border border-slate-200 hover:bg-slate-200 hover:text-slate-700 transition-all active:scale-95 flex items-center gap-2"
+                                title="Reset về mặc định"
+                            >
+                                <RotateCcw size={14} />
+                                Reset
+                            </button>
+                            <div className="flex-1 flex gap-3">
+
+                                <button
+                                    onClick={() => setIsEditModalOpen(false)}
+                                    className="flex-1 py-4 bg-white text-slate-400 rounded-2xl font-black text-[10px] uppercase tracking-widest border border-slate-200 hover:bg-slate-100 transition-all active:scale-95"
+                                >
+                                    Hủy bỏ
+                                </button>
+                                <button
+                                    onClick={handleUpdateCustomerCredit}
+                                    className="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-blue-500/20 hover:bg-blue-700 transition-all active:scale-95"
+                                >
+                                    Lưu thay đổi
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -397,53 +761,136 @@ export default function CreditManagementPage() {
 
             {activeTab === 'config' && (
                 <div className="bg-white rounded-[40px] shadow-sm border border-slate-100 overflow-hidden animate-in fade-in duration-500">
-                    <div className="p-10 border-b border-slate-50 bg-slate-50/50">
-                        <div className="flex items-center gap-4 mb-2">
-                            <div className="p-3 bg-blue-50 text-blue-600 rounded-2xl">
-                                <Settings size={28} />
+                    <div className="p-10 border-b border-slate-50 bg-slate-50/50 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                        <div>
+                            <div className="flex items-center gap-4 mb-2">
+                                <div className="p-3 bg-blue-50 text-blue-600 rounded-2xl">
+                                    <Settings size={28} />
+                                </div>
+                                <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tighter">Luật kiểm soát tín dụng</h2>
                             </div>
-                            <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tighter">Luật kiểm soát tín dụng</h2>
+                            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">System Credit & Risk Configuration</p>
                         </div>
-                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">System Credit & Risk Configuration</p>
+
+                        <div className="flex items-center gap-3 w-full md:w-auto">
+                            <button
+                                onClick={handleResetConfigs}
+                                className="flex-1 md:flex-none px-6 py-4 bg-white text-slate-500 rounded-2xl font-black text-[10px] uppercase tracking-widest border border-slate-200 hover:bg-slate-50 transition-all active:scale-95 flex items-center justify-center gap-2"
+                            >
+                                <RotateCcw size={14} />
+                                Reset mặc định
+                            </button>
+                            <button
+                                onClick={handleSaveAllConfigs}
+                                className="flex-1 md:flex-none px-10 py-4 bg-blue-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-blue-500/20 hover:bg-blue-700 transition-all active:scale-95 flex items-center justify-center gap-2"
+                            >
+                                <CheckCircle size={14} />
+                                Lưu tất cả cấu hình
+                            </button>
+                        </div>
                     </div>
 
-                    <div className="p-10 grid gap-6 max-w-4xl mx-auto">
-                        {configurations.map((config, idx) => (
-                            <div key={config.name || idx} className="group flex flex-col md:flex-row items-start md:items-center justify-between gap-6 p-8 bg-slate-50/50 hover:bg-white rounded-[32px] border border-slate-100 hover:border-blue-100 transition-all">
-                                <div className="space-y-1 flex-1">
-                                    <label className="block text-[11px] font-black text-slate-900 uppercase tracking-widest mb-1">{config.name.replace(/_/g, ' ')}</label>
-                                    <p className="text-xs font-bold text-slate-400 leading-relaxed uppercase tracking-tighter">{config.description}</p>
-                                </div>
-                                <div className="w-full md:w-64 flex items-center gap-3">
-                                    <input
-                                        type="text"
-                                        className="flex-1 bg-white border-slate-100 rounded-2xl px-5 py-4 text-sm font-black text-blue-600 shadow-inner focus:ring-4 focus:ring-blue-500/10 transition-all outline-none"
-                                        defaultValue={config.value}
-                                        onBlur={(e) => {
-                                            if (e.target.value !== config.value) {
-                                                handleSaveConfig({ ...config, value: e.target.value })
-                                                toast.success(`Đã cập nhật ${config.name}`)
-                                            }
-                                        }}
-                                    />
-                                    <div className="p-2 bg-slate-100 text-slate-400 rounded-lg group-focus-within:bg-blue-600 group-focus-within:text-white transition-all">
-                                        <RefreshCw size={14} />
+                    <div className="p-10 grid gap-8 max-w-5xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-700">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            {configurations.map((config, idx) => (
+                                <div key={config.name || idx} className="bg-white rounded-[32px] p-8 border border-slate-100 hover:border-blue-200 hover:shadow-2xl hover:shadow-blue-500/5 transition-all group">
+                                    <div className="flex items-center gap-3 mb-6">
+                                        <div className="w-10 h-10 bg-slate-50 text-slate-400 group-hover:bg-blue-600 group-hover:text-white rounded-xl flex items-center justify-center transition-all">
+                                            <ShieldCheck size={20} />
+                                        </div>
+                                        <div>
+                                            <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest">{config.name}</h3>
+                                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest italic">Nhóm quy tắc hệ thống</span>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-6">
+                                        {/* Max Overdue Days */}
+                                        <div className="space-y-2">
+                                            <div className="flex justify-between items-center">
+                                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                                                    <Clock size={12} />
+                                                    Số ngày quá hạn tối đa
+                                                </label>
+                                                <span className="text-[10px] font-black text-blue-600">{config.maxOverdueDays} Ngày</span>
+                                            </div>
+                                            <input
+                                                type="number"
+                                                className="w-full bg-slate-50 border-none rounded-2xl px-5 py-4 text-xs font-black text-slate-900 focus:ring-4 focus:ring-blue-500/10 transition-all outline-none"
+                                                value={config.maxOverdueDays}
+                                                onChange={(e) => {
+                                                    const val = parseInt(e.target.value) || 0
+                                                    const newConfigs = [...configurations]
+                                                    newConfigs[idx] = { ...config, maxOverdueDays: val }
+                                                    setConfigurations(newConfigs)
+                                                }}
+                                            />
+                                        </div>
+
+                                        {/* Credit Limit Percent */}
+                                        <div className="space-y-2">
+                                            <div className="flex justify-between items-center">
+                                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                                                    <TrendingUp size={12} />
+                                                    Tỷ lệ hạn mức cho phép (%)
+                                                </label>
+                                                <span className="text-[10px] font-black text-emerald-600">{config.creditLimitPercent}%</span>
+                                            </div>
+                                            <input
+                                                type="number"
+                                                className="w-full bg-slate-50 border-none rounded-2xl px-5 py-4 text-xs font-black text-slate-900 focus:ring-4 focus:ring-blue-500/10 transition-all outline-none"
+                                                value={config.creditLimitPercent}
+                                                onChange={(e) => {
+                                                    const val = parseFloat(e.target.value) || 0
+                                                    const newConfigs = [...configurations]
+                                                    newConfigs[idx] = { ...config, creditLimitPercent: val }
+                                                    setConfigurations(newConfigs)
+                                                }}
+                                            />
+                                        </div>
+
+                                        {/* Warning Days */}
+                                        <div className="space-y-2">
+                                            <div className="flex justify-between items-center">
+                                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                                                    <AlertTriangle size={12} />
+                                                    Ngày bắt đầu cảnh báo
+                                                </label>
+                                                <span className="text-[10px] font-black text-orange-600">{config.warningDays} Ngày</span>
+                                            </div>
+                                            <input
+                                                type="number"
+                                                className="w-full bg-slate-50 border-none rounded-2xl px-5 py-4 text-xs font-black text-slate-900 focus:ring-4 focus:ring-blue-500/10 transition-all outline-none"
+                                                value={config.warningDays}
+                                                onChange={(e) => {
+                                                    const val = parseInt(e.target.value) || 0
+                                                    const newConfigs = [...configurations]
+                                                    newConfigs[idx] = { ...config, warningDays: val }
+                                                    setConfigurations(newConfigs)
+                                                }}
+                                            />
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        ))}
+                            ))}
+                        </div>
+
                         {configurations.length === 0 && (
-                            <div className="text-center py-12 text-slate-400 font-bold uppercase tracking-widest">
-                                Loading configurations...
+                            <div className="text-center py-24 bg-slate-50 rounded-[40px] border border-dashed border-slate-200">
+                                <RefreshCw className="w-12 h-12 text-slate-200 animate-spin mx-auto mb-4" />
+                                <p className="text-sm font-black text-slate-400 uppercase tracking-widest">Đang tải cấu hình...</p>
                             </div>
                         )}
-                        <div className="mt-8 p-8 bg-amber-50 rounded-[32px] border border-amber-100 flex items-start gap-4">
-                            <div className="p-3 bg-amber-100 text-amber-600 rounded-2xl">
+
+                        <div className="p-8 bg-amber-50 rounded-[32px] border border-amber-100 flex items-start gap-4">
+                            <div className="p-3 bg-white text-amber-500 rounded-2xl shadow-sm">
                                 <AlertTriangle size={24} />
                             </div>
                             <div>
                                 <h4 className="text-xs font-black text-amber-900 uppercase tracking-widest mb-1">Cảnh báo hệ thống</h4>
-                                <p className="text-xs font-bold text-amber-600/80 leading-relaxed uppercase tracking-tighter">Mọi thay đổi cấu hình sẽ ảnh hưởng trực tiếp đến việc phê duyệt đơn hàng tự động và tính toán nợ xấu của toàn công ty. Vui lòng kiểm tra kỹ trước khi thoát.</p>
+                                <p className="text-xs font-bold text-amber-600/80 leading-relaxed uppercase tracking-tighter">
+                                    Mọi thay đổi cấu hình sẽ ảnh hưởng trực tiếp đến việc phê duyệt đơn hàng tự động và tính toán nợ xấu của toàn công ty. Vui lòng kiểm tra kỹ trước khi thoát.
+                                </p>
                             </div>
                         </div>
                     </div>

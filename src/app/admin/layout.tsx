@@ -35,7 +35,8 @@ import {
   ShieldAlert,
   Star,
   ChevronRight,
-  MessageCircle
+  MessageCircle,
+  ArrowRight
 } from 'lucide-react'
 import { LucideIcon } from 'lucide-react'
 import NotificationBell from '@/components/NotificationBell'
@@ -183,7 +184,7 @@ export default function AdminLayout({
   }
 
   return (
-    <div className="min-h-screen bg-[#fcfdfe]">
+    <div className="min-h-screen bg-[#F0F2F5] text-slate-900 font-sans">
       {/* Mobile sidebar */}
       {sidebarOpen && (
         <div className="fixed inset-0 z-40 md:hidden">
@@ -253,88 +254,92 @@ export default function AdminLayout({
         </div>
       )}
 
-      <div className={`hidden md:flex md:flex-col md:fixed md:inset-y-0 transition-all duration-300 ease-in-out z-30 ${isCollapsed ? 'md:w-20' : 'md:w-64'}`}>
-        <div className="flex-1 flex flex-col min-h-0 border-r border-gray-100 bg-white/95 backdrop-blur-md shadow-xl shadow-blue-900/5">
-          <div className="flex-1 flex flex-col pt-6 pb-4 overflow-y-auto overflow-x-hidden custom-scrollbar">
-            <div className={`flex items-center flex-shrink-0 px-6 mb-8 transition-all ${isCollapsed ? 'justify-center px-0' : ''}`}>
-              <div className="relative group">
-                <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl blur opacity-25 group-hover:opacity-50 transition duration-1000 group-hover:duration-200"></div>
-                <div className="relative p-2 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-xl shadow-lg ring-1 ring-white/20">
+      <div className={`hidden md:flex md:flex-col md:fixed md:inset-y-0 transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] z-30 ${isCollapsed ? 'md:w-20 px-2' : 'md:w-72 px-4'}`}>
+        <div className="flex-1 flex flex-col min-h-0 border-r border-slate-200/60 bg-white/80 backdrop-blur-2xl shadow-[x-20px_50px_rgba(0,0,0,0.05)] my-4 rounded-[32px] overflow-hidden">
+          <div className="flex-1 flex flex-col pt-8 pb-4 overflow-y-auto overflow-x-hidden custom-scrollbar">
+            {/* Logo Section */}
+            <div className={`flex items-center flex-shrink-0 px-6 mb-10 transition-all duration-500 ${isCollapsed ? 'justify-center px-0' : ''}`}>
+              <div className="relative group cursor-pointer" onClick={() => router.push('/admin')}>
+                <div className="absolute -inset-1.5 bg-gradient-to-r from-blue-600 via-indigo-500 to-blue-600 rounded-2xl blur opacity-20 group-hover:opacity-40 transition duration-1000 group-hover:duration-200 animate-gradient-xy"></div>
+                <div className="relative p-2.5 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl shadow-xl shadow-blue-500/20 ring-1 ring-white/20 transform group-hover:scale-105 transition-transform">
                   <Package className="h-6 w-6 text-white" />
                 </div>
               </div>
               {!isCollapsed && (
-                <div className="ml-4 min-w-0">
-                  <h1 className="text-lg font-black text-gray-900 tracking-tight leading-none">SmartBuild</h1>
-                  <span className="text-[10px] text-blue-600 font-black uppercase tracking-[0.2em]">Hệ thống quản trị</span>
+                <div className="ml-4 min-w-0 flex flex-col">
+                  <h1 className="text-xl font-black text-slate-900 tracking-tighter leading-none mb-1">SmartBuild</h1>
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
+                    <span className="text-[9px] text-slate-400 font-black uppercase tracking-widest">Hệ thống ERP Doanh nghiệp</span>
+                  </div>
                 </div>
               )}
             </div>
-            <nav className="flex-1 px-4 space-y-6">
+
+            <nav className="flex-1 space-y-8">
               {navigationGroups.map((group) => (
-                <div key={group.name} className="space-y-1.5">
+                <div key={group.name} className="space-y-1">
                   {/* Group Header */}
                   {group.items.length > 1 && !isCollapsed && (
                     <button
                       onClick={() => toggleGroup(group.name)}
-                      className="w-full flex items-center justify-between px-2 py-1 text-[10px] font-black text-gray-400 uppercase tracking-widest hover:text-blue-600 transition-colors group/header"
+                      className="w-full flex items-center justify-between px-4 py-1 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] hover:text-blue-600 transition-colors group/header"
                     >
                       <span className="flex items-center gap-2">
-                        <div className="w-1 h-3 bg-gray-200 rounded-full group-hover/header:bg-blue-400 transition-colors" />
                         {group.name}
                       </span>
-                      {expandedGroups.includes(group.name) ? (
-                        <ChevronDown className="h-3 w-3" />
-                      ) : (
-                        <ChevronRight className="h-3 w-3" />
-                      )}
+                      <div className={`transition-transform duration-300 ${expandedGroups.includes(group.name) ? '' : '-rotate-90'}`}>
+                        <ChevronDown className="h-3.5 w-3.5 opacity-50" />
+                      </div>
                     </button>
                   )}
                   {isCollapsed && group.items.length > 1 && (
-                    <div className="h-px bg-gray-100 mx-2 my-4 opacity-50" />
+                    <div className="h-px bg-slate-100 mx-4 my-6 opacity-60" />
                   )}
 
                   {/* Group Items */}
-                  {(expandedGroups.includes(group.name) || isCollapsed) && group.items.map((item) => {
-                    const isActive = pathname === item.href
-                    return (
-                      <Link
-                        key={item.name}
-                        href={item.href}
-                        title={isCollapsed ? item.name : ''}
-                        className={`${isActive
-                          ? 'bg-gradient-to-r from-blue-50 to-transparent text-blue-600 shadow-sm border-l-2 border-blue-600'
-                          : 'text-gray-600 hover:bg-gray-50 hover:text-blue-600 border-l-2 border-transparent'
-                          } group flex items-center ${isCollapsed ? 'justify-center px-0 mx-auto w-10' : 'px-3'} py-2.5 text-sm font-bold rounded-r-xl transition-all duration-300 hover:translate-x-1 active:translate-x-0 group/item`}
-                      >
-                        <item.icon
-                          className={`${isActive ? 'text-blue-600 drop-shadow-[0_0_8px_rgba(37,99,235,0.3)]' : 'text-gray-400 group-hover:text-blue-500'
-                            } flex-shrink-0 h-5 w-5 transition-transform duration-300 group-hover/item:scale-110 ${!isCollapsed ? 'mr-3' : ''}`}
-                        />
-                        {!isCollapsed && <span className="truncate tracking-tight">{item.name}</span>}
-                        {isActive && !isCollapsed && (
-                          <div className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse shadow-[0_0_8px_rgba(37,99,235,0.6)]" />
-                        )}
-                      </Link>
-                    )
-                  })}
+                  <div className={`space-y-1 overflow-hidden transition-all duration-300 ${expandedGroups.includes(group.name) || isCollapsed ? 'max-h-[1000px] opacity-100' : 'max-h-0 opacity-0'}`}>
+                    {group.items.map((item) => {
+                      const isActive = pathname === item.href
+                      return (
+                        <Link
+                          key={item.name}
+                          href={item.href}
+                          title={isCollapsed ? item.name : ''}
+                          className={`${isActive
+                            ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20 ring-1 ring-blue-600/10'
+                            : 'text-slate-600 hover:bg-slate-50 hover:text-blue-600'
+                            } group flex items-center ${isCollapsed ? 'justify-center px-0 mx-auto w-12 h-12' : 'px-4 mx-2'} py-3 text-sm font-bold rounded-2xl transition-all duration-300 group/item`}
+                        >
+                          <item.icon
+                            className={`${isActive ? 'text-white' : 'text-slate-400 group-hover:text-blue-500'
+                              } flex-shrink-0 h-5 w-5 transition-all duration-300 group-hover/item:scale-110 ${!isCollapsed ? 'mr-3' : ''}`}
+                          />
+                          {!isCollapsed && <span className="truncate tracking-tight">{item.name}</span>}
+                          {isActive && !isCollapsed && (
+                            <ArrowRight className="ml-auto w-4 h-4 opacity-70 group-hover:translate-x-1 transition-transform" />
+                          )}
+                        </Link>
+                      )
+                    })}
+                  </div>
                 </div>
               ))}
             </nav>
           </div>
 
-          {/* Bottom Toggle Button */}
-          <div className="p-4 border-t border-gray-200">
+          {/* User & Settings Section */}
+          <div className="p-4 border-t border-slate-100/60 bg-slate-50/50">
             <button
               onClick={() => setIsCollapsed(!isCollapsed)}
-              className="w-full flex items-center justify-center p-2 rounded-lg bg-gray-50 text-gray-500 hover:bg-blue-50 hover:text-blue-600 transition-all group"
+              className="w-full flex items-center justify-center h-10 rounded-xl bg-white border border-slate-100 text-slate-400 hover:text-blue-600 hover:border-blue-100 hover:shadow-sm transition-all group"
             >
               {isCollapsed ? (
                 <PanelLeftOpen className="h-5 w-5" />
               ) : (
-                <div className="flex items-center">
-                  <PanelLeftClose className="h-5 w-5 mr-3" />
-                  <span className="text-sm font-bold">Thu gọn</span>
+                <div className="flex items-center gap-2">
+                  <PanelLeftClose className="h-5 w-5" />
+                  <span className="text-[10px] font-black uppercase tracking-widest">Thu gọn menu</span>
                 </div>
               )}
             </button>
@@ -343,42 +348,56 @@ export default function AdminLayout({
       </div>
 
       {/* Main content */}
-      <div className={`flex flex-col flex-1 transition-all duration-300 ease-in-out ${isCollapsed ? 'md:pl-20' : 'md:pl-64'}`}>
-        <div className="sticky top-0 z-10 md:hidden pl-1 pt-1 sm:pl-3 sm:pt-3">
-          <button
-            type="button"
-            className="-ml-0.5 -mt-0.5 h-12 w-12 inline-flex items-center justify-center rounded-md text-gray-500 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500"
-            onClick={() => setSidebarOpen(true)}
-          >
-            <span className="sr-only">Mở thanh bên</span>
-            <Menu className="h-6 w-6" />
-          </button>
-        </div>
+      <div className={`flex flex-col flex-1 transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] ${isCollapsed ? 'md:pl-20' : 'md:pl-72'}`}>
+        {/* Top Header */}
+        <header className="sticky top-0 z-20 flex flex-shrink-0 h-20 bg-white/60 backdrop-blur-xl border-b border-white/20 px-8 items-center justify-between">
+          <div className="flex items-center md:hidden">
+            <button
+              type="button"
+              className="p-2.5 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200"
+              onClick={() => setSidebarOpen(true)}
+            >
+              <Menu className="h-6 w-6" />
+            </button>
+          </div>
 
-        <main className="flex-1">
-          <div className="py-6">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8">
-              <div className="flex justify-between items-center mb-6">
-                <div className="flex-1"></div>
-                <div className="flex items-center space-x-4">
-                  <NotificationBell />
-                  <Link href="/admin/profile" className="flex items-center text-sm text-gray-700 hover:text-blue-600 transition-colors">
-                    <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center mr-2">
-                      <User className="h-4 w-4 text-blue-600" />
-                    </div>
-                    <span className="font-bold hidden sm:inline">{user?.name || 'Quản Trị'}</span>
-                  </Link>
-                  <button
-                    onClick={handleLogout}
-                    className="flex items-center text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-red-600 transition-all active:scale-95"
-                  >
-                    <LogOut className="h-4 w-4 mr-2" />
-                    Đăng Xuất
-                  </button>
-                </div>
-              </div>
-              {children}
+          {/* Breadcrumbs or Page Title */}
+          <div className="hidden md:flex items-center gap-2">
+            <div className="p-2 bg-slate-100 rounded-lg text-slate-400">
+              <Building className="w-4 h-4" />
             </div>
+            <ChevronRight className="w-4 h-4 text-slate-300" />
+            <span className="text-xs font-black text-slate-400 uppercase tracking-widest">SmartBuild Dashboard</span>
+          </div>
+
+          <div className="flex items-center gap-6">
+            <div className="flex items-center gap-2 p-1 bg-slate-100/50 rounded-2xl border border-slate-200/50">
+              <NotificationBell />
+              <div className="w-px h-6 bg-slate-200/60 mx-1"></div>
+              <Link href="/admin/profile" className="flex items-center gap-3 pl-2 pr-4 py-1.5 rounded-xl hover:bg-white transition-all group">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/20 group-hover:scale-105 transition-transform">
+                  <User className="h-4 w-4 text-white" />
+                </div>
+                <div className="hidden sm:flex flex-col items-start leading-tight">
+                  <span className="text-sm font-black text-slate-700">{user?.name || 'Administrator'}</span>
+                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{user?.role}</span>
+                </div>
+              </Link>
+            </div>
+
+            <button
+              onClick={handleLogout}
+              className="p-3 bg-red-50 text-red-500 hover:bg-red-500 hover:text-white rounded-2xl transition-all shadow-sm border border-red-100"
+              title="Đăng xuất"
+            >
+              <LogOut className="h-5 w-5" />
+            </button>
+          </div>
+        </header>
+
+        <main className="flex-1 p-8 md:p-10 pt-6">
+          <div className="max-w-[1600px] mx-auto">
+            {children}
           </div>
         </main>
       </div>

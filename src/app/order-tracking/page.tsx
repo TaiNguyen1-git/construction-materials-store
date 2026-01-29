@@ -99,16 +99,39 @@ function OrderTrackingContent() {
   const [contractorRecs, setContractorRecs] = useState<any[]>([])
   const [loadingRecs, setLoadingRecs] = useState(false)
   const [isUpdatingContractor, setIsUpdatingContractor] = useState(false)
+  const [suggestions, setSuggestions] = useState<any[]>([])
+  const [showSuggestions, setShowSuggestions] = useState(false)
 
   const orderInputRef = React.useRef(orderInput)
   React.useEffect(() => {
     orderInputRef.current = orderInput
   }, [orderInput])
 
+  // Removed auto-fetch on keystroke to prevent premature API calls and Malformed ObjectID errors
+  // Search only happens on button click or Enter key press via fetchOrder()
+
   useEffect(() => {
-    if (orderInput) {
-      fetchOrder()
+    const fetchSuggestions = async () => {
+      if (orderInput.length < 2) {
+        setSuggestions([])
+        setShowSuggestions(false)
+        return
+      }
+
+      try {
+        const response = await fetch(`/api/orders/suggestions?query=${encodeURIComponent(orderInput)}`)
+        if (response.ok) {
+          const result = await response.json()
+          setSuggestions(result.data || [])
+          setShowSuggestions(result.data?.length > 0)
+        }
+      } catch (err) {
+        console.error('Failed to fetch suggestions:', err)
+      }
     }
+
+    const timer = setTimeout(fetchSuggestions, 300)
+    return () => clearTimeout(timer)
   }, [orderInput])
 
   useEffect(() => {
@@ -320,6 +343,36 @@ function OrderTrackingContent() {
                 placeholder="Nhập mã đơn hàng (ORD-...) hoặc ID..."
                 className="w-full bg-slate-50 border border-slate-100 rounded-[20px] pl-12 pr-4 py-4 text-slate-900 font-bold placeholder-slate-300 focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/5 transition-all outline-none"
               />
+              {/* Suggestions Dropdown */}
+              {showSuggestions && suggestions.length > 0 && (
+                <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                  {suggestions.map((s) => (
+                    <button
+                      key={s.id}
+                      onClick={() => {
+                        setOrderInput(s.orderNumber)
+                        setShowSuggestions(false)
+                        // Trigger fetch with the selected number
+                        setTimeout(() => fetchOrder(), 10)
+                      }}
+                      className="w-full px-5 py-4 flex items-center justify-between hover:bg-blue-50 transition-colors border-b border-slate-50 last:border-0 group/item"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-blue-50 rounded-lg text-blue-600 group-hover/item:bg-blue-600 group-hover/item:text-white transition-colors">
+                          <Package size={14} />
+                        </div>
+                        <div className="text-left">
+                          <p className="text-sm font-black text-slate-900">{s.orderNumber}</p>
+                          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                            {new Date(s.createdAt).toLocaleDateString('vi-VN')} • {s.status}
+                          </p>
+                        </div>
+                      </div>
+                      <ArrowRight size={14} className="text-blue-300 group-hover/item:text-blue-600 group-hover/item:translate-x-1 transition-all" />
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
             <button
               onClick={fetchOrder}

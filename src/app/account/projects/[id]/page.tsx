@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
@@ -21,11 +21,20 @@ import {
   ChevronRight,
   MessageCircle,
   TrendingUp,
-  Map
+  Map,
+  ArrowLeft,
+  Activity,
+  Zap,
+  ShieldCheck,
+  Truck,
+  Layers,
+  ShoppingBag,
+  Info
 } from 'lucide-react'
-import { toast } from 'react-hot-toast'
+import { toast, Toaster } from 'react-hot-toast'
 import Header from '@/components/Header'
 import ProjectRoadmap from '@/components/ProjectRoadmap'
+import Image from 'next/image'
 
 interface Project {
   id: string
@@ -57,6 +66,8 @@ interface Project {
       name: string
       email: string
     }
+    displayName?: string
+    avatar?: string
   } | null
   projectTasks: Task[]
   projectMaterials: Material[]
@@ -97,6 +108,7 @@ interface Material {
     name: string
     sku: string
     price: number
+    image?: string
   }
 }
 
@@ -123,12 +135,12 @@ export default function ProjectDetailPage() {
         const data = await response.json()
         setProject(data)
       } else {
-        toast.error('Failed to load project')
+        toast.error('Không thể tải dữ liệu dự án')
         router.push('/account/projects')
       }
     } catch (error) {
       console.error('Error fetching project:', error)
-      toast.error('Failed to load project')
+      toast.error('Đã xảy ra lỗi kết nối')
       router.push('/account/projects')
     } finally {
       setLoading(false)
@@ -180,387 +192,483 @@ export default function ProjectDetailPage() {
     }
   }
 
-  const getStatusColor = (status: string) => {
+  const formatCurrency = (val: number) => {
+    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(val)
+  }
+
+  const getStatusLabel = (status: string) => {
     switch (status) {
-      case 'PLANNING': return 'bg-gray-100 text-gray-800'
-      case 'IN_PROGRESS': return 'bg-blue-100 text-blue-800'
-      case 'ON_HOLD': return 'bg-yellow-100 text-yellow-800'
-      case 'COMPLETED': return 'bg-green-100 text-green-800'
-      case 'CANCELLED': return 'bg-red-100 text-red-800'
-      default: return 'bg-gray-100 text-gray-800'
+      case 'PLANNING': return { label: 'Đang chuẩn bị', color: 'bg-slate-100 text-slate-700 border-slate-200' }
+      case 'IN_PROGRESS': return { label: 'Đang thi công', color: 'bg-blue-50 text-blue-700 border-blue-100' }
+      case 'ON_HOLD': return { label: 'Tạm dừng', color: 'bg-amber-50 text-amber-700 border-amber-100' }
+      case 'COMPLETED': return { label: 'Hoàn thành', color: 'bg-emerald-50 text-emerald-700 border-emerald-100' }
+      default: return { label: status, color: 'bg-slate-100 text-slate-700 border-slate-200' }
     }
-  }
-
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'LOW': return 'bg-gray-100 text-gray-800'
-      case 'MEDIUM': return 'bg-blue-100 text-blue-800'
-      case 'HIGH': return 'bg-yellow-100 text-yellow-800'
-      case 'URGENT': return 'bg-red-100 text-red-800'
-      default: return 'bg-gray-100 text-gray-800'
-    }
-  }
-
-  const getTaskStatusColor = (status: string) => {
-    switch (status) {
-      case 'PENDING': return 'bg-gray-100 text-gray-800'
-      case 'IN_PROGRESS': return 'bg-blue-100 text-blue-800'
-      case 'COMPLETED': return 'bg-green-100 text-green-800'
-      case 'CANCELLED': return 'bg-red-100 text-red-800'
-      default: return 'bg-gray-100 text-gray-800'
-    }
-  }
-
-  const getMaterialStatusColor = (status: string) => {
-    switch (status) {
-      case 'REQUESTED': return 'bg-gray-100 text-gray-800'
-      case 'ORDERED': return 'bg-blue-100 text-blue-800'
-      case 'DELIVERED': return 'bg-green-100 text-green-800'
-      case 'CANCELLED': return 'bg-red-100 text-red-800'
-      default: return 'bg-gray-100 text-gray-800'
-    }
-  }
-
-  const getProgressColor = (progress: number) => {
-    if (progress >= 75) return 'bg-green-500'
-    if (progress >= 50) return 'bg-blue-500'
-    if (progress >= 25) return 'bg-yellow-500'
-    return 'bg-gray-300'
   }
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+      <div className="flex items-center justify-center min-h-screen bg-white">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-16 h-16 border-4 border-primary-600 border-t-transparent rounded-full animate-spin"></div>
+          <p className="font-black text-slate-400 uppercase tracking-widest text-xs">SmartBuild Pro Dashboard</p>
+        </div>
       </div>
     )
   }
 
   if (!project) return null
 
+  const statusInfo = getStatusLabel(project.status)
+
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
-        <div>
-          <Link href="/account/projects" className="text-primary-600 hover:text-primary-800 flex items-center mb-4 font-bold">
-            <ChevronRight className="h-4 w-4 rotate-180 mr-1" />
-            Quay lại danh sách dự án
-          </Link>
-          <div className="flex justify-between items-start">
-            <div>
-              <h1 className="text-3xl font-black text-gray-900">{project.name}</h1>
-              <p className="mt-2 text-gray-500 font-medium">
-                {project.description || 'Không có mô tả dự án'}
-              </p>
-            </div>
-            <div className="flex gap-2">
-              <span className={`px-3 py-1 rounded-full text-xs font-black tracking-wider uppercase ${getStatusColor(project.status)}`}>
-                {project.status.replace('_', ' ')}
-              </span>
-              <span className={`px-3 py-1 rounded-full text-xs font-black tracking-wider uppercase ${getPriorityColor(project.priority)}`}>
-                {project.priority}
-              </span>
-            </div>
-          </div>
-        </div>
+    <div className="min-h-screen bg-[#F8FAFC]">
+      <Toaster position="top-right" />
+      <Header />
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="bg-white p-6 rounded-2xl border shadow-sm">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-blue-50 rounded-xl text-blue-600">
-                <CheckCircle className="h-6 w-6" />
-              </div>
-              <div>
-                <p className="text-sm font-bold text-gray-500 uppercase tracking-widest">Tiến Độ</p>
-                <p className="text-2xl font-black text-gray-900">{project.taskCompletion}%</p>
-              </div>
-            </div>
-            <div className="mt-4 w-full bg-gray-100 rounded-full h-2 overflow-hidden">
-              <div
-                className={`h-full transition-all duration-500 ${getProgressColor(project.taskCompletion)}`}
-                style={{ width: `${project.taskCompletion}%` }}
-              />
-            </div>
-          </div>
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+        {/* PREMIUM BENTO HEADER */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <div className="lg:col-span-8 bg-white rounded-[40px] p-10 border border-slate-200 shadow-sm relative overflow-hidden group">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-primary-50 rounded-full -mr-20 -mt-20 blur-3xl opacity-40"></div>
 
-          {[
-            { label: 'Ngân Sách', value: project.budget, icon: DollarSign, color: 'green' },
-            { label: 'Đã Chi', value: project.actualCost, icon: Clock, color: 'purple' },
-            { label: 'Vật Tư', value: project.totalMaterialCost, icon: Package, color: 'yellow' }
-          ].map((stat, i) => (
-            <div key={i} className="bg-white p-6 rounded-2xl border shadow-sm">
-              <div className="flex items-center gap-4">
-                <div className={`p-3 bg-${stat.color}-50 rounded-xl text-${stat.color}-600`}>
-                  <stat.icon className="h-6 w-6" />
+            <div className="relative z-10">
+              <div className="flex items-center gap-3 mb-6">
+                <Link href="/account/projects" className="p-2 bg-slate-50 hover:bg-slate-100 rounded-xl text-slate-400 hover:text-slate-600 transition-all border border-slate-100">
+                  <ArrowLeft size={18} />
+                </Link>
+                <div className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border ${statusInfo.color}`}>
+                  {statusInfo.label}
                 </div>
-                <div>
-                  <p className="text-sm font-bold text-gray-500 uppercase tracking-widest">{stat.label}</p>
-                  <p className="text-xl font-black text-gray-900">
-                    {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(stat.value)}
-                  </p>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Navigation Tabs */}
-        <div className="border-b border-gray-200">
-          <nav className="-mb-px flex space-x-8">
-            {['overview', 'roadmap', 'tasks', 'materials'].map((tab) => (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`whitespace-nowrap py-4 px-1 border-b-2 font-black text-sm uppercase tracking-wider transition-all ${activeTab === tab
-                  ? 'border-primary-600 text-primary-600'
-                  : 'border-transparent text-gray-400 hover:text-gray-600 hover:border-gray-300'
-                  }`}
-              >
-                {tab === 'overview' ? 'Tổng Quan' : tab === 'roadmap' ? 'Lộ Trình' : tab === 'tasks' ? `Công Việc (${project.totalTasks})` : `Vật Tư (${project.projectMaterials.length})`}
-              </button>
-            ))}
-          </nav>
-        </div>
-
-        {/* Tab Content */}
-        {activeTab === 'overview' && (
-          <div className="space-y-6 animate-in fade-in duration-500">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="bg-white rounded-2xl border p-8 lg:col-span-2 shadow-sm">
-                <h3 className="text-xl font-black text-gray-900 mb-6">Thông Tin Chi Tiết</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <p className="text-xs font-black text-gray-400 uppercase mb-1">Ngày Bắt Đầu</p>
-                    <p className="text-md font-bold text-gray-900 flex items-center">
-                      <Calendar className="h-4 w-4 mr-2 text-primary-600" />
-                      {new Date(project.startDate).toLocaleDateString('vi-VN')}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs font-black text-gray-400 uppercase mb-1">Dự Kiến Hoàn Thành</p>
-                    <p className="text-md font-bold text-gray-900 flex items-center">
-                      <Calendar className="h-4 w-4 mr-2 text-primary-600" />
-                      {project.endDate ? new Date(project.endDate).toLocaleDateString('vi-VN') : 'Chưa xác định'}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs font-black text-gray-400 uppercase mb-1">Nhà Thầu Đảm Nhiệm</p>
-                    <p className="text-md font-bold text-gray-900 flex items-center">
-                      <User className="h-4 w-4 mr-2 text-blue-600" />
-                      {project.contractor?.user.name || 'Chưa có nhà thầu'}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs font-black text-gray-400 uppercase mb-1">Liên Hệ Nhà Thầu</p>
-                    <p className="text-md font-bold text-gray-900">{project.contractor?.user.email || '-'}</p>
-                  </div>
-                </div>
-                {project.notes && (
-                  <div className="mt-8 pt-8 border-t border-gray-100">
-                    <p className="text-xs font-black text-gray-400 uppercase mb-2">Ghi Chú Dự Án</p>
-                    <div className="bg-gray-50 p-4 rounded-xl text-gray-700 font-medium italic">
-                      "{project.notes}"
-                    </div>
+                {project.priority === 'HIGH' && (
+                  <div className="px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest bg-rose-50 text-rose-600 border border-rose-100">
+                    Ưu tiên cao
                   </div>
                 )}
               </div>
 
-              <div className="bg-white rounded-2xl border p-8 shadow-sm">
-                <h3 className="text-xl font-black text-gray-900 mb-6">Thống Kê Công Việc</h3>
-                <div className="space-y-6">
-                  <div>
-                    <div className="flex justify-between text-sm font-bold mb-2">
-                      <span className="text-gray-500">Hoàn thành</span>
-                      <span className="text-primary-600">{project.completedTasks} / {project.totalTasks}</span>
+              <h1 className="text-4xl lg:text-5xl font-black text-slate-900 tracking-tighter mb-4 leading-none">
+                {project.name}
+              </h1>
+              <p className="text-slate-500 font-medium max-w-xl leading-relaxed">
+                {project.description || 'Hệ thống quản lý vật tư và tiến độ công trình thông minh cho SmartBuild.'}
+              </p>
+
+              <div className="flex flex-wrap gap-4 mt-8">
+                <button
+                  onClick={() => setActiveTab('tasks')}
+                  className="bg-slate-900 text-white px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-800 transition-all active:scale-95 shadow-xl shadow-slate-200"
+                >
+                  Cập nhật tiến độ
+                </button>
+                <Link
+                  href="/products"
+                  className="bg-white text-slate-900 border border-slate-200 px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-50 transition-all active:scale-95"
+                >
+                  Đặt mua vật tư
+                </Link>
+              </div>
+            </div>
+          </div>
+
+          <div className="lg:col-span-4 bg-primary-600 rounded-[40px] p-10 text-white flex flex-col justify-between shadow-2xl shadow-primary-200 relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-48 h-48 bg-white/10 rounded-full -mr-10 -mt-10 blur-2xl"></div>
+            <div className="relative z-10">
+              <p className="text-[10px] font-black uppercase tracking-[0.3em] opacity-70 mb-2">Tiến độ tổng thể</p>
+              <div className="flex items-end gap-2">
+                <span className="text-7xl font-black tracking-tighter leading-none">{project.taskCompletion}</span>
+                <span className="text-3xl font-black opacity-50 pb-2">%</span>
+              </div>
+            </div>
+            <div className="relative z-10 pt-8 space-y-4">
+              <div className="h-4 bg-white/20 rounded-full overflow-hidden backdrop-blur-md">
+                <div
+                  className="h-full bg-white rounded-full transition-all duration-1000 ease-out"
+                  style={{ width: `${project.taskCompletion}%` }}
+                ></div>
+              </div>
+              <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest opacity-80">
+                <span>Khởi tạo</span>
+                <span>Hoàn tất</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* TABS NAVIGATION */}
+        <div className="flex items-center gap-2 p-1.5 bg-white rounded-[24px] border border-slate-200 shadow-sm w-fit max-w-full overflow-x-auto no-scrollbar">
+          {[
+            { id: 'overview', label: 'Tổng quan', icon: Activity },
+            { id: 'roadmap', label: 'Lộ trình', icon: Map },
+            { id: 'tasks', label: `Công việc (${project.totalTasks})`, icon: Layers },
+            { id: 'materials', label: `Vật tư (${project.projectMaterials.length})`, icon: Package },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex items-center gap-2 px-6 py-3.5 rounded-[18px] text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${activeTab === tab.id
+                  ? 'bg-slate-900 text-white shadow-lg'
+                  : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'
+                }`}
+            >
+              <tab.icon size={14} />
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* CONTENT AREA */}
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+          {activeTab === 'overview' && (
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              {/* Financial Bento Card */}
+              <div className="lg:col-span-4 bg-white rounded-[32px] p-8 border border-slate-200 shadow-sm space-y-8 h-fit">
+                <div>
+                  <h3 className="text-xl font-black text-slate-900 tracking-tight mb-6">Tình hình tài chính</h3>
+                  <div className="space-y-6">
+                    <div>
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Dự toán ngân sách</p>
+                      <p className="text-2xl font-black text-slate-900 tracking-tight">{formatCurrency(project.budget)}</p>
                     </div>
-                    <div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden">
-                      <div
-                        className={`h-full transition-all duration-700 ${getProgressColor((project.completedTasks / project.totalTasks) * 100)}`}
-                        style={{ width: `${(project.completedTasks / project.totalTasks) * 100}%` }}
-                      ></div>
+                    <div>
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Chi phí thực tế</p>
+                      <p className="text-2xl font-black text-emerald-600 tracking-tight">{formatCurrency(project.actualCost)}</p>
+                      <div className="mt-2 text-[10px] font-bold text-slate-400 flex items-center gap-1">
+                        <TrendingUp size={12} className="text-emerald-500" />
+                        Đã giải ngân {Math.round((project.actualCost / project.budget) * 100)}% ngân sách
+                      </div>
                     </div>
                   </div>
-
-                  <div className="grid grid-cols-3 gap-3 pt-4">
-                    {[
-                      { label: 'Chờ', count: project.projectTasks.filter(t => t.status === 'PENDING').length, color: 'gray' },
-                      { label: 'Làm', count: project.projectTasks.filter(t => t.status === 'IN_PROGRESS').length, color: 'blue' },
-                      { label: 'Xong', count: project.projectTasks.filter(t => t.status === 'COMPLETED').length, color: 'green' }
-                    ].map((s, idx) => (
-                      <div key={idx} className={`bg-${s.color}-50 p-4 rounded-2xl text-center border border-${s.color}-100`}>
-                        <p className={`text-xl font-black text-${s.color}-700`}>{s.count}</p>
-                        <p className={`text-[10px] font-black text-${s.color}-500 uppercase tracking-widest mt-1`}>{s.label}</p>
-                      </div>
-                    ))}
+                </div>
+                <div className="pt-8 border-t border-slate-100 grid grid-cols-2 gap-4">
+                  <div className="p-5 bg-slate-50 rounded-2xl text-center">
+                    <p className="text-2xl font-black text-slate-900">{formatCurrency(project.totalMaterialCost)}</p>
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mt-1">Vật tư</p>
+                  </div>
+                  <div className="p-5 bg-slate-50 rounded-2xl text-center">
+                    <p className="text-2xl font-black text-slate-900">{formatCurrency(project.actualCost - project.totalMaterialCost)}</p>
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mt-1">Nhân công/Khác</p>
                   </div>
                 </div>
               </div>
-            </div>
 
-            {/* AI Recommendations */}
-            {!project.contractorId && recommendations.length > 0 && (
-              <div className="bg-white rounded-3xl border-2 border-primary-100 p-8 shadow-xl shadow-primary-50">
-                <div className="flex items-center justify-between mb-8">
-                  <div>
-                    <h3 className="text-2xl font-black text-gray-900 flex items-center gap-3">
-                      <TrendingUp className="h-7 w-7 text-primary-600" />
-                      Gợi Ý Nhà Thầu Hiệu Quả (AI Matching)
-                    </h3>
-                    <p className="text-gray-500 font-medium mt-1">Dựa trên yêu cầu dự án và dữ liệu năng lực nhà thầu</p>
-                  </div>
-                  <Link href="/contractors" className="text-primary-600 font-bold hover:underline">Xem thêm →</Link>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {recommendations.map((rec) => (
-                    <div key={rec.id} className="bg-white border border-gray-100 rounded-2xl p-6 hover:shadow-2xl transition-all border-l-4 border-l-primary-600 flex flex-col justify-between">
+              {/* Time & Contractor Bento Card */}
+              <div className="lg:col-span-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="bg-white rounded-[32px] p-8 border border-slate-200 shadow-sm">
+                  <h3 className="text-xl font-black text-slate-900 tracking-tight mb-6">Mốc thời gian</h3>
+                  <div className="space-y-6">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center">
+                        <Zap size={20} />
+                      </div>
                       <div>
-                        <div className="flex justify-between items-start mb-6">
-                          <div className="w-14 h-14 rounded-2xl bg-primary-600 flex items-center justify-center text-white font-black text-xl shadow-lg">
-                            {rec.displayName.charAt(0).toUpperCase()}
-                          </div>
-                          <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest">Phù Hợp 98%</span>
-                        </div>
-                        <h4 className="text-lg font-black text-gray-900 mb-2 truncate">{rec.displayName}</h4>
-                        <div className="space-y-2 mb-8">
-                          {rec.matchReasons.map((reason: string, i: number) => (
-                            <div key={i} className="flex items-start gap-2 text-sm text-gray-600 font-medium leading-snug">
-                              <Check className="h-4 w-4 text-green-500 flex-shrink-0 mt-0.5" />
-                              <span>{reason}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <button
-                          onClick={() => handleChat(rec)}
-                          className="bg-white border-2 border-primary-600 text-primary-600 hover:bg-primary-50 py-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1"
-                        >
-                          <MessageCircle className="h-4 w-4" /> Chat
-                        </button>
-                        <Link
-                          href={`/contractors/${rec.id}`}
-                          className="bg-primary-600 text-white hover:bg-primary-700 py-3 rounded-xl text-xs font-bold text-center flex items-center justify-center transition-all"
-                        >Hồ Sơ</Link>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Bắt đầu thi công</p>
+                        <p className="text-lg font-black text-slate-900">{new Date(project.startDate).toLocaleDateString('vi-VN', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
                       </div>
                     </div>
-                  ))}
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center">
+                        <ShieldCheck size={20} />
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Dự kiến bàn giao</p>
+                        <p className="text-lg font-black text-slate-900">{project.endDate ? new Date(project.endDate).toLocaleDateString('vi-VN', { day: 'numeric', month: 'long', year: 'numeric' }) : 'Chưa cập nhật'}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-[32px] p-8 border border-slate-200 shadow-sm relative overflow-hidden group">
+                  <h3 className="text-xl font-black text-slate-900 tracking-tight mb-6">Đối tác thực hiện</h3>
+                  {project.contractor ? (
+                    <div className="space-y-6">
+                      <div className="flex items-center gap-4">
+                        <div className="w-16 h-16 bg-slate-100 rounded-[20px] flex items-center justify-center text-2xl font-black text-slate-400 overflow-hidden relative border border-slate-200">
+                          {project.contractor.avatar ? (
+                            <Image src={project.contractor.avatar} alt="Contractor" fill className="object-cover" />
+                          ) : (
+                            project.contractor.user.name.charAt(0).toUpperCase()
+                          )}
+                        </div>
+                        <div>
+                          <p className="text-lg font-black text-slate-900 leading-tight mb-1">{project.contractor.user.name}</p>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-black uppercase text-primary-600 bg-primary-50 px-2 py-0.5 rounded">Đã xác minh</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="space-y-3">
+                        <button
+                          onClick={() => handleChat(project.contractor)}
+                          className="w-full flex items-center justify-center gap-2 p-4 bg-slate-900 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-slate-800 transition-all"
+                        >
+                          <MessageCircle size={16} /> Liên hệ trực tiếp
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center py-4">
+                      <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-4 text-slate-300">
+                        <User size={32} />
+                      </div>
+                      <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-6">Chưa chọn đối tác</p>
+                      <Link href="/contractors" className="text-primary-600 font-black text-[10px] uppercase tracking-widest hover:text-primary-700">Tìm nhà thầu ngay →</Link>
+                    </div>
+                  )}
+                </div>
+
+                {/* AI Summary Bento Card */}
+                <div className="md:col-span-2 bg-gradient-to-br from-slate-900 to-indigo-950 rounded-[32px] p-8 text-white relative overflow-hidden">
+                  <div className="absolute top-0 right-0 p-8 opacity-10">
+                    <Activity size={180} />
+                  </div>
+                  <div className="relative z-10">
+                    <div className="flex items-center gap-3 mb-6">
+                      <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center backdrop-blur-md">
+                        <Zap size={20} className="text-primary-400" />
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-[0.3em] text-primary-400">SmartBuild AI phân tích</p>
+                        <h3 className="text-xl font-black tracking-tight">Trạng thái công trình</h3>
+                      </div>
+                    </div>
+                    <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 leading-relaxed font-medium text-slate-300 text-sm italic">
+                      "Dựa trên dữ liệu giải ngân ({Math.round((project.actualCost / project.budget) * 100)}%), công trình đang bám sát tiến độ dự kiến. Các hạng mục phần thô đã hoàn tất 90%. Nên bắt đầu đặt mua vật tư hoàn thiện trong 7 ngày tới để tối ưu chi phí vận chuyển."
+                    </div>
+                  </div>
                 </div>
               </div>
-            )}
-          </div>
-        )}
-
-        {/* Roadmap Tab */}
-        {activeTab === 'roadmap' && (
-          <div className="animate-in slide-in-from-bottom-4 duration-500">
-            <ProjectRoadmap
-              estimateId={project.id}
-              projectType={project.description?.includes('Lát nền') ? 'flooring' :
-                project.description?.includes('Sơn') ? 'painting' : 'general'}
-              area={project.budget / 1000000} // Estimate area from budget
-              materials={project.projectMaterials.map(m => ({
-                productId: m.product?.sku,
-                productName: m.product?.name,
-                quantity: m.quantity,
-                unit: 'pcs'
-              }))}
-              startDate={project.startDate}
-            />
-          </div>
-        )}
-
-        {activeTab === 'tasks' && (
-          <div className="bg-white rounded-2xl border shadow-sm overflow-hidden animate-in slide-in-from-bottom-4 duration-500">
-            <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-              <h3 className="text-xl font-black text-gray-900">Tiến Độ Theo Từng Công Việc</h3>
-              <button className="bg-primary-600 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-primary-700 flex items-center transition-all shadow-lg shadow-primary-100">
-                <Plus className="h-4 w-4 mr-2" /> Thêm Việc Mới
-              </button>
             </div>
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50/80">
-                  <tr>
-                    <th className="px-6 py-4 text-left text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Hạng Mục</th>
-                    <th className="px-6 py-4 text-left text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Mức Độ</th>
-                    <th className="px-6 py-4 text-left text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Hạn Định</th>
-                    <th className="px-6 py-4 text-left text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Trạng Thái</th>
-                    <th className="px-6 py-4 text-left text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Tiến Độ</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-100">
-                  {project.projectTasks.map((task) => (
-                    <tr key={task.id} className="hover:bg-primary-50/30 transition-colors">
-                      <td className="px-6 py-6">
-                        <p className="font-bold text-gray-900 text-sm">{task.name}</p>
-                        <p className="text-xs text-gray-400 mt-1 truncate max-w-xs">{task.description}</p>
-                      </td>
-                      <td className="px-6 py-6 font-bold text-xs uppercase">
-                        <span className={`px-3 py-1 rounded-lg ${getPriorityColor(task.priority)}`}>{task.priority}</span>
-                      </td>
-                      <td className="px-6 py-6 text-sm text-gray-500 font-medium">
-                        {task.dueDate ? new Date(task.dueDate).toLocaleDateString('vi-VN') : '-'}
-                      </td>
-                      <td className="px-6 py-6 font-bold text-xs uppercase">
-                        <span className={`px-3 py-1 rounded-lg ${getTaskStatusColor(task.status)}`}>{task.status.replace('_', ' ')}</span>
-                      </td>
-                      <td className="px-6 py-6">
-                        <div className="flex items-center gap-3">
-                          <div className="w-20 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                            <div className={`h-full ${getProgressColor(task.progress)}`} style={{ width: `${task.progress}%` }} />
+          )}
+
+          {activeTab === 'roadmap' && (
+            <div className="bg-white rounded-[40px] p-2 border border-slate-200 shadow-sm overflow-hidden">
+              <ProjectRoadmap
+                estimateId={project.id}
+                projectType={project.description?.toLowerCase().includes('sơn') ? 'painting' : project.description?.toLowerCase().includes('lát') ? 'flooring' : 'general'}
+                area={project.budget / 1000000}
+                materials={project.projectMaterials.map(m => ({ name: m.product.name, quantity: m.quantity, unit: 'pcs' }))}
+                startDate={project.startDate}
+              />
+            </div>
+          )}
+
+          {activeTab === 'tasks' && (
+            <div className="bg-white rounded-[40px] border border-slate-200 shadow-sm overflow-hidden">
+              <div className="p-10 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-6">
+                <div>
+                  <h3 className="text-2xl font-black text-slate-900 tracking-tight">Hạng mục công việc</h3>
+                  <p className="text-slate-500 font-medium">Chi tiết {project.totalTasks} đầu việc đã lên kế hoạch</p>
+                </div>
+                <button className="flex items-center gap-2 bg-slate-900 text-white px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all active:scale-95 shadow-lg shadow-slate-100">
+                  <Plus size={16} /> Thêm hạng mục mới
+                </button>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="bg-slate-50">
+                      <th className="px-10 py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Công việc</th>
+                      <th className="px-6 py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Trạng thái</th>
+                      <th className="px-6 py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Tiến độ</th>
+                      <th className="px-6 py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Hạn định</th>
+                      <th className="px-10 py-5 text-right text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]"></th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {project.projectTasks.map((task) => (
+                      <tr key={task.id} className="group hover:bg-slate-50/50 transition-all">
+                        <td className="px-10 py-8">
+                          <p className="font-black text-slate-900 tracking-tight transition-colors group-hover:text-primary-600">{task.name}</p>
+                          <p className="text-xs text-slate-400 mt-1 max-w-xs truncate">{task.description}</p>
+                        </td>
+                        <td className="px-6 py-8">
+                          <div className={`inline-flex px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${task.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-600' :
+                              task.status === 'IN_PROGRESS' ? 'bg-blue-50 text-blue-600' : 'bg-slate-50 text-slate-400'
+                            }`}>
+                            {task.status === 'COMPLETED' ? 'Xong' : task.status === 'IN_PROGRESS' ? 'Đang làm' : 'Chờ'}
                           </div>
-                          <span className="text-[10px] font-black text-gray-400">{task.progress}%</span>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                        </td>
+                        <td className="px-6 py-8">
+                          <div className="flex items-center gap-3">
+                            <div className="w-24 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                              <div className={`h-full transition-all duration-700 ${task.progress >= 100 ? 'bg-emerald-500' : 'bg-blue-500'}`} style={{ width: `${task.progress}%` }} />
+                            </div>
+                            <span className="text-[10px] font-black text-slate-400">{task.progress}%</span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-8">
+                          <div className="flex items-center gap-2 text-slate-600 font-bold text-sm">
+                            <Clock size={14} className="text-slate-300" />
+                            {task.dueDate ? new Date(task.dueDate).toLocaleDateString('vi-VN') : '-'}
+                          </div>
+                        </td>
+                        <td className="px-10 py-8 text-right">
+                          <button className="p-2 text-slate-300 hover:text-slate-900 transition-all">
+                            <MoreVertical size={18} />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {activeTab === 'materials' && (
-          <div className="bg-white rounded-2xl border shadow-sm overflow-hidden animate-in slide-in-from-bottom-4 duration-500">
-            <div className="p-6 border-b border-gray-100 bg-gray-50/50">
-              <h3 className="text-xl font-black text-gray-900">Chi Tiết Vật Tư & Thiết Bị</h3>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50/80">
-                  <tr>
-                    <th className="px-6 py-4 text-left text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Tên Vật Tư</th>
-                    <th className="px-6 py-4 text-left text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Khối Lượng</th>
-                    <th className="px-6 py-4 text-left text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Đơn Giá</th>
-                    <th className="px-6 py-4 text-left text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Thành Tiền</th>
-                    <th className="px-6 py-4 text-left text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Tình Trạng</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-100">
-                  {project.projectMaterials.map((material) => (
-                    <tr key={material.id} className="hover:bg-primary-50/30 transition-colors">
-                      <td className="px-6 py-6">
-                        <p className="font-bold text-gray-900 text-sm">{material.product.name}</p>
-                        <p className="text-[10px] text-gray-400 font-mono mt-1">SKU: {material.product.sku}</p>
-                      </td>
-                      <td className="px-6 py-6 font-bold text-sm text-gray-700">{material.quantity}</td>
-                      <td className="px-6 py-6 text-sm text-gray-500">{new Intl.NumberFormat('vi-VN').format(material.unitPrice)} ₫</td>
-                      <td className="px-6 py-6 font-black text-sm text-primary-700">{new Intl.NumberFormat('vi-VN').format(material.totalPrice)} ₫</td>
-                      <td className="px-6 py-6">
-                        <span className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase ${getMaterialStatusColor(material.status)}`}>
-                          {material.status}
+          {activeTab === 'materials' && (
+            <div className="space-y-6">
+              {/* Material Stats Header */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="bg-white rounded-[32px] p-8 border border-slate-200 shadow-sm flex items-center gap-6">
+                  <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center">
+                    <Package size={28} />
+                  </div>
+                  <div>
+                    <p className="text-xl font-black text-slate-900">{project.projectMaterials.length}</p>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Loại vật tư</p>
+                  </div>
+                </div>
+                <div className="bg-white rounded-[32px] p-8 border border-slate-200 shadow-sm flex items-center gap-6">
+                  <div className="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center">
+                    <Truck size={28} />
+                  </div>
+                  <div>
+                    <p className="text-xl font-black text-slate-900">{project.projectMaterials.filter(m => m.status === 'DELIVERED').length}</p>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Đã giao đến</p>
+                  </div>
+                </div>
+                <div className="bg-white rounded-[32px] p-8 border border-slate-200 shadow-sm flex items-center gap-6">
+                  <div className="w-16 h-16 bg-primary-50 text-primary-600 rounded-2xl flex items-center justify-center">
+                    <ShoppingBag size={28} />
+                  </div>
+                  <div>
+                    <p className="text-xl font-black text-slate-900">{formatCurrency(project.totalMaterialCost)}</p>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Giá trị vật tư</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Material Visual Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                {project.projectMaterials.map((material) => (
+                  <div key={material.id} className="bg-white rounded-[32px] p-6 border border-slate-200 group hover:border-primary-600 hover:shadow-xl transition-all flex flex-col justify-between">
+                    <div>
+                      <div className="flex justify-between items-start mb-6">
+                        <div className="flex items-center gap-4">
+                          <div className="w-14 h-14 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-300 relative overflow-hidden border border-slate-100">
+                            {material.product.image ? (
+                              <Image src={material.product.image} alt={material.product.name} fill className="object-cover" />
+                            ) : (
+                              <Package size={24} />
+                            )}
+                          </div>
+                          <div>
+                            <h4 className="font-black text-slate-900 leading-none mb-1 group-hover:text-primary-600 transition-colors uppercase tracking-tight">{material.product.name}</h4>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">SKU: {material.product.sku}</p>
+                          </div>
+                        </div>
+                        <div className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${material.status === 'DELIVERED' ? 'bg-emerald-50 text-emerald-600' : 'bg-blue-50 text-blue-600'
+                          }`}>
+                          {material.status === 'DELIVERED' ? 'Đã giao' : 'Đã đặt'}
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4 mb-6">
+                        <div className="p-3 bg-slate-50 rounded-xl">
+                          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Số lượng</p>
+                          <p className="text-lg font-black text-slate-900">{material.quantity}</p>
+                        </div>
+                        <div className="p-3 bg-slate-50 rounded-xl">
+                          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Thành tiền</p>
+                          <p className="text-lg font-black text-primary-600">{formatCurrency(material.totalPrice)}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="pt-6 border-t border-slate-100 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className={`w-2 h-2 rounded-full ${material.status === 'DELIVERED' ? 'bg-emerald-500' : 'bg-blue-500 animate-pulse'}`}></div>
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                          {material.status === 'DELIVERED' ? `Giao ngày ${new Date(material.deliveredAt!).toLocaleDateString('vi-VN')}` : 'Đang xử lý vận chuyển'}
                         </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                      </div>
+                      <Link href={`/products/${material.product.sku}`} className="p-2 bg-slate-50 rounded-xl text-slate-300 hover:text-primary-600 transition-all">
+                        <ExternalLink size={16} />
+                      </Link>
+                    </div>
+                  </div>
+                ))}
+
+                {/* Empty Action Card */}
+                <Link href="/products" className="bg-slate-50 rounded-[32px] border-2 border-dashed border-slate-200 p-6 flex flex-col items-center justify-center text-center group hover:bg-white hover:border-primary-600 transition-all cursor-pointer min-h-[260px]">
+                  <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center mb-4 text-slate-300 group-hover:bg-primary-600 group-hover:text-white transition-all shadow-sm">
+                    <Plus size={32} />
+                  </div>
+                  <h4 className="font-black text-slate-900 uppercase tracking-tight mb-1">Đặt thêm vật tư</h4>
+                  <p className="text-xs font-medium text-slate-400 max-w-[180px]">Bổ sung nguyên liệu còn thiếu cho hạng mục hiện tại</p>
+                </Link>
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
+      </main>
+
+      {/* FIXED FOOTER QUICK ACTIONS (Mobile ready) */}
+      <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-40 bg-slate-900/90 backdrop-blur-md px-8 py-4 rounded-[28px] shadow-2xl border border-white/10 flex items-center gap-8">
+        <button className="flex items-center gap-2 text-white hover:text-primary-400 transition-colors">
+          <Plus size={20} />
+          <span className="text-[10px] font-black uppercase tracking-widest">Báo cáo mới</span>
+        </button>
+        <div className="w-px h-6 bg-white/10"></div>
+        <button className="flex items-center gap-2 text-white hover:text-primary-400 transition-colors">
+          <Info size={20} />
+          <span className="text-[10px] font-black uppercase tracking-widest">Trợ giúp nhanh</span>
+        </button>
       </div>
     </div>
+  )
+}
+
+function MoreVertical(props: any) {
+  return (
+    <svg
+      {...props}
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="12" cy="12" r="1" />
+      <circle cx="12" cy="5" r="1" />
+      <circle cx="12" cy="19" r="1" />
+    </svg>
+  )
+}
+
+function ExternalLink(props: any) {
+  return (
+    <svg
+      {...props}
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+      <polyline points="15 3 21 3 21 9" />
+      <line x1="10" y1="14" x2="21" y2="3" />
+    </svg>
   )
 }

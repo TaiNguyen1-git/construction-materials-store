@@ -7,6 +7,8 @@
 
 import { prisma } from './prisma'
 
+
+
 export interface CreditCheckResult {
   eligible: boolean
   reason?: string
@@ -31,6 +33,7 @@ export interface DebtAgingReport {
   over90: number       // Trên 90 ngày
   creditLimit: number
   creditHold: boolean
+  maxOverdueDays: number
 }
 
 export class CreditCheckService {
@@ -55,10 +58,10 @@ export class CreditCheckService {
       }
     })
 
-    if (!customer) {
+    if (!customer || (customer as any).isDeleted) {
       return {
         eligible: false,
-        reason: 'Không tìm thấy thông tin khách hàng',
+        reason: 'Không tìm thấy thông tin khách hàng hoặc tài khoản đã bị ngừng cung cấp tín dụng',
         currentDebt: 0,
         creditLimit: 0,
         availableCredit: 0,
@@ -282,27 +285,42 @@ export class CreditCheckService {
   static async generateDebtAgingReport(): Promise<DebtAgingReport[]> {
     const today = new Date()
 
-    // Lấy tất cả khách hàng có nợ
+    // 1. Get all customers who have ANY potential debt
     const customers = await prisma.customer.findMany({
       where: {
+        isDeleted: false,
         OR: [
           { currentBalance: { gt: 0 } },
           {
             invoices: {
               some: {
                 invoiceType: 'SALES',
-                status: { in: ['SENT', 'OVERDUE'] }
+                status: { in: ['SENT', 'OVERDUE', 'DRAFT'] }
+              }
+            }
+          },
+          {
+            orders: {
+              some: {
+                paymentStatus: { in: ['PENDING', 'PARTIAL', 'OVERDUE'] },
+                status: { notIn: ['CANCELLED', 'RETURNED'] }
               }
             }
           }
         ]
-      },
+      } as any,
       include: {
         user: true,
         invoices: {
           where: {
             invoiceType: 'SALES',
-            status: { in: ['SENT', 'OVERDUE'] }
+            status: { in: ['SENT', 'OVERDUE', 'DRAFT'] }
+          }
+        },
+        orders: {
+          where: {
+            paymentStatus: { in: ['PENDING', 'PARTIAL', 'OVERDUE'] },
+            status: { notIn: ['CANCELLED', 'RETURNED'] }
           }
         }
       }
@@ -310,14 +328,22 @@ export class CreditCheckService {
 
     const reports: DebtAgingReport[] = []
 
-    for (const customer of customers) {
+    for (const customer of (customers as any[])) {
       let current = 0
       let days1to30 = 0
       let days31to60 = 0
       let days61to90 = 0
       let over90 = 0
 
+      // Track processed invoice IDs and order IDs to avoid double counting if they are linked
+      const processedInvoiceIds = new Set<string>()
+      const processedOrderIds = new Set<string>()
+
+      // A. Process Invoices (Primary source of debt)
       for (const invoice of customer.invoices) {
+        processedInvoiceIds.add(invoice.id)
+        if (invoice.orderId) processedOrderIds.add(invoice.orderId)
+
         const balance = invoice.balanceAmount
 
         if (!invoice.dueDate) {
@@ -342,21 +368,63 @@ export class CreditCheckService {
         }
       }
 
-      const totalDebt = current + days1to30 + days31to60 + days61to90 + over90
+      // B. Process Orders (that haven't been invoiced or have remaining balance)
+      for (const order of customer.orders) {
+        if (processedOrderIds.has(order.id)) continue
 
-      if (totalDebt > 0) {
+        // Calculate unpaid amount more robustly (matching Contractor Finance logic)
+        // Use || instead of ?? to handle cases where remainingAmount might be 0 but debt exists in netAmount
+        const unpaidAmount = order.remainingAmount || (order.netAmount - (order.depositAmount || 0))
+
+        if (unpaidAmount <= 0) continue
+
+        // Use confirmedAt or createdAt + default terms (e.g. 7 days) as due date for aging
+        const baseDate = order.confirmedAt || order.createdAt
+        const dueDate = new Date(baseDate)
+        dueDate.setDate(dueDate.getDate() + 7) // Assumed 7 days payment term if no invoice
+
+        const diffTime = today.getTime() - dueDate.getTime()
+        const overdueDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+
+        if (overdueDays <= 0) {
+          current += unpaidAmount
+        } else if (overdueDays <= 30) {
+          days1to30 += unpaidAmount
+        } else if (overdueDays <= 60) {
+          days31to60 += unpaidAmount
+        } else if (overdueDays <= 90) {
+          days61to90 += unpaidAmount
+        } else {
+          over90 += unpaidAmount
+        }
+      }
+
+      const totalCalculatedDebt = current + days1to30 + days31to60 + days61to90 + over90
+
+      // The final debt shown is the max of our calculated debt and the currentBalance field
+      const finalTotalDebt = Math.max(totalCalculatedDebt, customer.currentBalance)
+
+      // Sync columns: if currentBalance is higher than calculated debt, 
+      // add the difference to 'current' so columns sum up to finalTotalDebt
+      let finalizedCurrent = current
+      if (customer.currentBalance > totalCalculatedDebt) {
+        finalizedCurrent += (customer.currentBalance - totalCalculatedDebt)
+      }
+
+      if (finalTotalDebt > 0) {
         reports.push({
           customerId: customer.id,
           customerName: customer.user.name,
           customerType: customer.customerType,
-          totalDebt,
-          current,
+          totalDebt: finalTotalDebt,
+          current: finalizedCurrent,
           days1to30,
           days31to60,
           days61to90,
           over90,
           creditLimit: customer.creditLimit,
-          creditHold: customer.creditHold
+          creditHold: customer.creditHold,
+          maxOverdueDays: customer.maxOverdueDays
         })
       }
     }

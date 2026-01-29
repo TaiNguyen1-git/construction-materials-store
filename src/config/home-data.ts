@@ -7,15 +7,15 @@ export const TOP_SEARCHES = [
 
 export const PARTNERS = [
     { name: 'Hòa Phát', logo: 'https://www.hoaphat.com.vn/assets/images/logo.png', color: 'bg-blue-50', text: 'text-blue-700' },
-    { name: 'Hoa Sen', logo: 'https://upload.wikimedia.org/wikipedia/vi/thumb/e/e0/Logo_T%E1%BA%ADp_%C4%91o%C3%A0n_Hoa_Sen.svg/512px-Logo_T%E1%BA%ADp_%C4%91o%C3%A0n_Hoa_Sen.svg.png', color: 'bg-red-50', text: 'text-red-700' },
-    { name: 'Viglacera', logo: 'https://viglacera.com.vn/themes/viglacera/images/logo.png', color: 'bg-blue-50', text: 'text-blue-800' },
-    { name: 'Dulux', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e3/Dulux_logo.svg/512px-Dulux_logo.svg.png', color: 'bg-blue-50', text: 'text-indigo-600' },
-    { name: 'Inax', logo: 'https://www.inax.com.vn/images/logo.png', color: 'bg-blue-50', text: 'text-slate-800' },
+    { name: 'Hoa Sen', logo: '', color: 'bg-red-50', text: 'text-red-700' },
+    { name: 'Viglacera', logo: '', color: 'bg-blue-50', text: 'text-blue-800' },
+    { name: 'Dulux', logo: '', color: 'bg-blue-50', text: 'text-indigo-600' },
+    { name: 'Inax', logo: '', color: 'bg-blue-50', text: 'text-slate-800' },
     { name: 'Vicem Hà Tiên', logo: '', color: 'bg-orange-50', text: 'text-orange-700' },
     { name: 'Pomina', logo: '', color: 'bg-rose-50', text: 'text-rose-700' },
-    { name: 'SCG Build', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e3/SCG_Logo.svg/512px-SCG_Logo.svg.png', color: 'bg-red-50', text: 'text-red-600' },
-    { name: 'Prime Group', logo: 'https://prime.vn/Images/logo.png', color: 'bg-orange-50', text: 'text-orange-600' },
-    { name: 'Tôn Đông Á', logo: 'https://www.tondonga.com.vn/vnt_upload/weblink/logo_tda_2.png', color: 'bg-sky-50', text: 'text-sky-600' }
+    { name: 'SCG Build', logo: '', color: 'bg-red-50', text: 'text-red-600' },
+    { name: 'Prime Group', logo: '', color: 'bg-orange-50', text: 'text-orange-600' },
+    { name: 'Tôn Đông Á', logo: '', color: 'bg-sky-50', text: 'text-sky-600' }
 ];
 
 export const LOCATIONS = ['Toàn quốc', 'Hồ Chí Minh', 'Hà Nội', 'Đồng Nai', 'Bình Dương', 'Long An'];

@@ -16,11 +16,10 @@ export const getWorkingModelConfig = async () => {
     throw new Error('Gemini client not initialized');
   }
 
-  // Try different model names in order of preference
   const modelNames = [
-    'gemini-2.5-flash',          // Priority 1 - User confirmed available
-    'gemini-2.5-flash-lite',     // Priority 2 - User confirmed available
-    'gemini-3-flash',            // Priority 3 - Available but may be new
+    'gemini-2.5-flash',          // Priority 1
+    'gemini-2.5-flash-lite',     // Priority 2
+    'gemini-3-flash',            // Priority 3
   ];
 
   // First try the model specified in the configuration
@@ -203,8 +202,8 @@ export class AIService {
           attempts++
 
           // Fallback Strategy: If primary model fails, try stable model next
-          if (currentModel !== 'models/gemini-1.5-flash' && attempts < maxAttempts) {
-            currentModel = 'models/gemini-1.5-flash'
+          if (currentModel !== 'gemini-1.5-flash' && attempts < maxAttempts) {
+            currentModel = 'gemini-1.5-flash'
             continue
           }
 

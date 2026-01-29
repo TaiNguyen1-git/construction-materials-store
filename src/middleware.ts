@@ -152,8 +152,9 @@ export async function middleware(request: NextRequest) {
     '/api/predictions',
     '/api/notifications',
     '/api/analytics',
-    '/api/suppliers',
-    '/api/recommendations/purchase',
+    '/api/supplier-orders',
+    '/api/contractor',
+    '/api/contractors',
   ]
 
   const protectedPagePatterns = [

@@ -46,6 +46,21 @@ const nextConfig: NextConfig = {
         protocol: 'https',
         hostname: 'prime.vn',
         pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'upload.wikimedia.org',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'www.inax.com.vn',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'www.tondonga.com.vn',
+        pathname: '/**',
       }
     ],
     unoptimized: false,

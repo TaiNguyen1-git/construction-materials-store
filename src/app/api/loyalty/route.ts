@@ -14,33 +14,33 @@ const loyaltyActionSchema = z.object({
   reason: z.string().optional()
 })
 
+import { getUser } from '@/lib/auth'
+
 // GET /api/loyalty - Get customer loyalty dashboard
 export async function GET(request: NextRequest) {
   try {
-    // Get customer ID from headers (in real implementation, this would come from auth middleware)
-    let customerId = request.headers.get('x-customer-id')
-    const userId = request.headers.get('x-user-id')
+    const user = await getUser()
 
-
-    if (!customerId && userId) {
-      // Try to find customer by userId
-      const customer = await prisma.customer.findFirst({
-        where: { userId }
-      })
-      if (customer) {
-        customerId = customer.id
-      } else {
-      }
-    }
-
-    if (!customerId) {
+    if (!user || user.role !== 'CUSTOMER') {
       return NextResponse.json(
-        createErrorResponse('Customer ID required', 'MISSING_CUSTOMER_ID', { receivedUserId: userId, receivedCustomerId: customerId }),
-        { status: 400 }
+        createErrorResponse('Unauthorized or not a customer', 'UNAUTHORIZED'),
+        { status: 401 }
       )
     }
 
-    const loyaltyData = await LoyaltyService.getCustomerLoyaltyData(customerId)
+    // Find customer by userId from session
+    const customer = await prisma.customer.findFirst({
+      where: { userId: user.userId }
+    })
+
+    if (!customer) {
+      return NextResponse.json(
+        createErrorResponse('Customer record not found', 'NOT_FOUND'),
+        { status: 404 }
+      )
+    }
+
+    const loyaltyData = await LoyaltyService.getCustomerLoyaltyData(customer.id)
 
     return NextResponse.json(
       createSuccessResponse(loyaltyData, 'Loyalty dashboard retrieved successfully'),
@@ -59,26 +59,28 @@ export async function GET(request: NextRequest) {
 // POST /api/loyalty - Perform loyalty actions
 export async function POST(request: NextRequest) {
   try {
-    // Get customer ID from headers (in real implementation, this would come from auth middleware)
-    let customerId = request.headers.get('x-customer-id')
-    const userId = request.headers.get('x-user-id')
+    const user = await getUser()
 
-    if (!customerId && userId) {
-      // Try to find customer by userId
-      const customer = await prisma.customer.findFirst({
-        where: { userId }
-      })
-      if (customer) {
-        customerId = customer.id
-      }
-    }
-
-    if (!customerId) {
+    if (!user || user.role !== 'CUSTOMER') {
       return NextResponse.json(
-        createErrorResponse('Customer ID required', 'MISSING_CUSTOMER_ID', { receivedUserId: userId, receivedCustomerId: customerId }),
-        { status: 400 }
+        createErrorResponse('Unauthorized or not a customer', 'UNAUTHORIZED'),
+        { status: 401 }
       )
     }
+
+    // Find customer by userId
+    const customer = await prisma.customer.findFirst({
+      where: { userId: user.userId }
+    })
+
+    if (!customer) {
+      return NextResponse.json(
+        createErrorResponse('Customer record not found', 'NOT_FOUND'),
+        { status: 404 }
+      )
+    }
+
+    const customerId = customer.id
 
     const body = await request.json()
 

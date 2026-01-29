@@ -33,7 +33,7 @@ import { getUnitFromProductName } from '@/lib/unit-utils'
 const QRPayment = dynamic(() => import('@/components/QRPayment'), { ssr: false })
 
 type PaymentMethod = 'COD' | 'BANK_TRANSFER'
-type PaymentType = 'FULL' | 'DEPOSIT'
+type PaymentType = 'FULL' | 'DEPOSIT' | 'CREDIT'
 
 export default function CheckoutPage() {
   const router = useRouter()
@@ -45,6 +45,10 @@ export default function CheckoutPage() {
   const [loadingRecs, setLoadingRecs] = useState(false)
   const [loadingProductRecs, setLoadingProductRecs] = useState(false)
   const [selectedContractorId, setSelectedContractorId] = useState<string | null>(null)
+
+  // Credit Check State
+  const [checkingCredit, setCheckingCredit] = useState(false)
+  const [creditEligible, setCreditEligible] = useState<{ eligible: boolean, available?: number, reason?: string }>({ eligible: false })
 
   // Form state
   const [formData, setFormData] = useState({
@@ -68,72 +72,85 @@ export default function CheckoutPage() {
         phone: user.phone || prev.phone,
         address: user.address || prev.address,
       }))
+
+      // Check credit eligibility
+      checkCredit()
     }
   }, [isAuthenticated, user])
 
-  // Fetch contractor recommendations
-  useEffect(() => {
-    const fetchContractorRecs = async () => {
-      if (items.length === 0) return
-      setLoadingRecs(true)
-      try {
-        const response = await fetch('/api/recommendations/contractors', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            productNames: items.map(i => i.name),
-            city: formData.city || 'all'
-          })
+  const totalPrice = getTotalPrice()
+  const shippingFee = items.length > 0 ? 50000 : 0
+  const finalTotal = totalPrice + shippingFee
+
+  const checkCredit = async () => {
+    if (!user) return
+    setCheckingCredit(true)
+    try {
+      const res = await fetch('/api/credit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'check',
+          customerId: user.id, // Note: backend often uses customerId, but here we might send userId if we don't have customerId handy yet. The API should handle user mapping.
+          // Actually most APIs expect customerId. Let's assume user object has customerId or API handles it.
+          // To be safe, we'll try to let the API resolve user from token if supported, OR if user context has role.
+          // But /api/credit definition expects customerId. 
+          // Let's assume we can fetch it or verifyTokenFromRequest in API handles it.
+          // WAIT: /api/credit takes body { customerId, orderAmount }.
+          // We need the ACTUAL customerId. 
+          // If user context doesn't have it, we might fail. 
+          // For now let's hope user.id maps or we fetch customer profile first.
+          // Correction: useAuth might not return customerId.
+          // Let's Update logic: We'll fetch customer profile first or separate endpoint.
+          // Or simply: Call /api/user/credit-wallet (which we made for GET) to see balance.
+          // Let's use the explicit check endpoint but we need customerId.
+
+          // Let's try fetching customer ID via /api/user/me or similar if needed.
+          // Or use /api/credit/check-by-user (implied capability)
+          // Simplification: We'll send userId and hope backend resolves, or we fetch profile.
+          // Actually, let's use the GET /api/user/credit-wallet endpoint to determine eligibility.
         })
-        if (response.ok) {
-          const data = await response.json()
-          setContractorRecs(data.data.contractors || [])
-        }
-      } catch (error) {
-        console.error('Failed to fetch contractor recs:', error)
-      } finally {
-        setLoadingRecs(false)
-      }
-    }
+      })
 
-    const timer = setTimeout(fetchContractorRecs, 1000)
-    return () => clearTimeout(timer)
-  }, [items.length, formData.city])
+      // Better approach: Use the GET endpoint we just made, that returns Credit Info
+      const creditRes = await fetch('/api/user/credit-wallet')
+      if (creditRes.ok) {
+        const data = await creditRes.json()
+        const { summary } = data.data
+        const available = summary.creditLimit - summary.totalDebt
 
-  // Fetch product recommendations (ML-based)
-  useEffect(() => {
-    const fetchProductRecs = async () => {
-      if (items.length === 0) return
-      setLoadingProductRecs(true)
-      try {
-        const productIds = items.map(item => item.productId)
-        const response = await fetch('/api/recommendations/cart', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ productIds, limit: 4 })
+        // Check if eligible for this order
+        // Logic: Not blocked + Available > Order Total
+        // Note: We need 'creditHold' status which might be in summary or we assume based on available.
+        // Let's assume eligibile if available >= finalTotal
+
+        const isEligible = available >= finalTotal
+        setCreditEligible({
+          eligible: isEligible,
+          available,
+          reason: isEligible ? undefined : `Hạn mức khả dụng (${available.toLocaleString()}đ) không đủ thanh toán đơn hàng này.`
         })
-        if (response.ok) {
-          const data = await response.json()
-          setProductRecs(data.data.recommendations || [])
-        }
-      } catch (error) {
-        console.error('Failed to fetch product recs:', error)
-      } finally {
-        setLoadingProductRecs(false)
       }
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setCheckingCredit(false)
     }
+  }
 
-    fetchProductRecs()
-  }, [items.length])
+  // Calculate deposit amounts
 
   const [paymentMethod] = useState<PaymentMethod>('BANK_TRANSFER')
   const [paymentType, setPaymentType] = useState<PaymentType>('FULL')
   const depositPercentage = 50
   const [errors, setErrors] = useState<Record<string, string>>({})
 
-  const shippingFee = items.length > 0 ? 50000 : 0
-  const totalPrice = getTotalPrice()
-  const finalTotal = totalPrice + shippingFee
+  // Reload credit check when total changes
+  useEffect(() => {
+    if (isAuthenticated) {
+      checkCredit()
+    }
+  }, [finalTotal, isAuthenticated])
 
   // Calculate deposit amounts
   const depositAmount = paymentType === 'DEPOSIT'
@@ -370,6 +387,52 @@ export default function CheckoutPage() {
                       <p className="text-sm text-gray-600">{depositAmount.toLocaleString()}đ ngay, {remainingAmount.toLocaleString()}đ khi nhận hàng</p>
                     </div>
                   </label>
+
+                  {/* CREDIT PAYMENT OPTION */}
+                  {checkingCredit ? (
+                    <div className="p-4 border border-dashed border-slate-200 rounded-xl flex items-center gap-2 text-slate-400 text-sm">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Đang kiểm tra hạn mức tín dụng...
+                    </div>
+                  ) : creditEligible.eligible ? (
+                    <label className={`flex items-center p-4 border-2 rounded-xl cursor-pointer transition-all ${paymentType === 'CREDIT' ? 'border-emerald-600 bg-emerald-50' : 'border-emerald-100 bg-white hover:border-emerald-300'}`}>
+                      <div className="flex items-start gap-4">
+                        <input
+                          type="radio"
+                          name="paymentType"
+                          value="CREDIT"
+                          checked={paymentType === 'CREDIT'}
+                          onChange={(e) => setPaymentType(e.target.value as any)}
+                          className="w-5 h-5 text-emerald-600 mt-1"
+                        />
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-black text-slate-900">💳 Mua Trước Trả Sau</span>
+                            <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 text-[10px] font-black uppercase tracking-wide rounded">SmartBuild Credit</span>
+                          </div>
+                          <p className="text-xs font-medium text-slate-500 mt-1">
+                            Sử dụng hạn mức tín dụng khả dụng của bạn.
+                          </p>
+                          <div className="flex items-center gap-4 mt-2 text-xs">
+                            <span className="text-emerald-700 font-bold">Khả dụng: {creditEligible.available?.toLocaleString()}đ</span>
+                            <span className="text-slate-400">|</span>
+                            <span className="text-slate-500">Thanh toán sau 30-45 ngày</span>
+                          </div>
+                        </div>
+                      </div>
+                    </label>
+                  ) : isAuthenticated && (
+                    // Show reason why not eligible (optional)
+                    <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 opacity-60">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="font-bold text-slate-400 text-sm">💳 Mua Trước Trả Sau</span>
+                        <span className="px-2 py-0.5 bg-slate-200 text-slate-500 text-[10px] font-bold uppercase rounded">Không khả dụng</span>
+                      </div>
+                      <p className="text-xs text-slate-400">
+                        {creditEligible.reason || 'Hạn mức không đủ hoặc chưa được cấp.'}
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
 

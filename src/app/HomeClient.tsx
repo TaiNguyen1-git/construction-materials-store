@@ -443,7 +443,7 @@ export default function HomeClient({
 
       <main className="flex-1">
         {/* Hero Section - Compact & High Impact */}
-        <section className="relative min-h-[550px] flex items-center pt-12 pb-20 z-40 overflow-hidden">
+        <section className="relative min-h-[500px] flex items-center pt-8 pb-32 z-40 overflow-hidden">
           {/* Background Image with Parallax-like effect */}
           <div className="absolute inset-0 z-0 overflow-hidden">
             <Image
@@ -454,7 +454,16 @@ export default function HomeClient({
               priority
             />
             <div className="absolute inset-0 bg-gradient-to-r from-blue-900 via-blue-800 to-slate-900 opacity-90 z-10"></div>
+
+            {/* Decorative Glow Orbs */}
+            <div className="absolute top-1/4 -left-20 w-[400px] h-[400px] bg-blue-500/20 rounded-full blur-[120px] z-10 animate-pulse"></div>
+            <div className="absolute bottom-1/4 -right-20 w-[400px] h-[400px] bg-indigo-500/20 rounded-full blur-[120px] z-10 animate-pulse" style={{ animationDelay: '2s' }}></div>
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[300px] bg-sky-500/10 rounded-full blur-[100px] z-10"></div>
+
             <div className="absolute inset-0 opacity-10 z-10" style={{ backgroundImage: 'radial-gradient(#ffffff 1px, transparent 1px)', backgroundSize: '30px 30px' }}></div>
+
+            {/* Foggy Gradient Transition at bottom */}
+            <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-[#f8fafc] to-transparent z-20"></div>
           </div>
 
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
@@ -705,18 +714,50 @@ export default function HomeClient({
                 </button>
               </div>
 
-              {/* Quick Stats Tags */}
-              <div className="mt-12 flex flex-wrap justify-center gap-10 text-xs text-slate-300 font-bold animate-fade-in-up delay-400">
-                <span className="flex items-center opacity-90 hover:text-white transition-colors cursor-default"><ShieldCheck className="w-5 h-5 mr-2 text-green-400" /> 100% Chính hãng</span>
-                <span className="flex items-center opacity-90 hover:text-white transition-colors cursor-default"><TrendingUp className="w-5 h-5 mr-2 text-blue-400" /> Giá cạnh tranh</span>
-                <span className="flex items-center opacity-90 hover:text-white transition-colors cursor-default"><Zap className="w-5 h-5 mr-2 text-yellow-400" /> Giao hàng 24h</span>
+              {/* Quick Stats Floating Card (Option 1) */}
+              <div className="mt-16 flex justify-center animate-fade-in-up delay-400">
+                <div className="bg-white/10 backdrop-blur-xl border border-white/20 px-8 py-5 rounded-2xl shadow-2xl flex flex-wrap justify-center gap-x-12 gap-y-4">
+                  <div className="flex items-center gap-3 group cursor-default">
+                    <div className="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center border border-green-500/30 group-hover:scale-110 transition-transform">
+                      <ShieldCheck className="w-5 h-5 text-green-400" />
+                    </div>
+                    <div className="text-left">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sản phẩm</p>
+                      <p className="text-sm font-bold text-white">100% Chính hãng</p>
+                    </div>
+                  </div>
+
+                  <div className="w-px h-10 bg-white/10 hidden md:block"></div>
+
+                  <div className="flex items-center gap-3 group cursor-default">
+                    <div className="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center border border-blue-500/30 group-hover:scale-110 transition-transform">
+                      <TrendingUp className="w-5 h-5 text-blue-400" />
+                    </div>
+                    <div className="text-left">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Chính sách</p>
+                      <p className="text-sm font-bold text-white">Giá cạnh tranh</p>
+                    </div>
+                  </div>
+
+                  <div className="w-px h-10 bg-white/10 hidden md:block"></div>
+
+                  <div className="flex items-center gap-3 group cursor-default">
+                    <div className="w-10 h-10 rounded-full bg-yellow-500/20 flex items-center justify-center border border-yellow-500/30 group-hover:scale-110 transition-transform">
+                      <Zap className="w-5 h-5 text-yellow-400" />
+                    </div>
+                    <div className="text-left">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Dịch vụ</p>
+                      <p className="text-sm font-bold text-white">Giao hàng 24h</p>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </section>
 
         {/* Content Section: Category Sidebar + Banner */}
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-12 mb-16 relative z-10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-4 mb-16 relative z-30">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
             {/* Left: Category Sidebar with Mega Menu */}
             <div

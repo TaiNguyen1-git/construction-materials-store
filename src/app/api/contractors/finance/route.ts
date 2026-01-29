@@ -1,8 +1,3 @@
-/**
- * Contractor Finance API
- * Aggregates income from milestones and expenses from material orders
- */
-
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { createSuccessResponse, createErrorResponse } from '@/lib/api-types'
@@ -18,58 +13,99 @@ export async function GET(request: NextRequest) {
 
         const contractorId = customer.id
 
-        // 1. Get Income from Milestones
+        // 1. Get All Projects for this contractor
+        const projects = await prisma.project.findMany({
+            where: {
+                OR: [
+                    { contractorId: contractorId },
+                    { customerId: contractorId }
+                ]
+            }
+        })
+
+        // 2. Get Income from Milestones (via QuoteRequests)
         const quotes = await prisma.quoteRequest.findMany({
             where: { contractorId },
-            include: {
-                milestones: true,
-                project: { select: { id: true, name: true } }
-            }
+            include: { milestones: true }
         })
 
-        let totalIncoming = 0
-        let totalReleased = 0
-        let totalPending = 0
-        const projectIncome: any[] = []
-
-        quotes.forEach((q: any) => {
-            let qTotal = 0
-            if (q.milestones) {
-                q.milestones.forEach((m: any) => {
-                    if (m.status === 'RELEASED') totalReleased += m.amount
-                    else if (m.status === 'ESCROW_PAID' || m.status === 'COMPLETED') totalIncoming += m.amount
-                    else totalPending += m.amount
-                    qTotal += m.amount
-                })
-            }
-            projectIncome.push({
-                id: q.id,
-                projectId: q.projectId,
-                title: q.project?.name || (q.metadata as any)?.projectName || 'Dự án không tên',
-                totalAmount: qTotal,
-                released: q.milestones ? q.milestones.filter((m: any) => m.status === 'RELEASED').reduce((s: number, m: any) => s + m.amount, 0) : 0,
-                incoming: q.milestones ? q.milestones.filter((m: any) => m.status === 'ESCROW_PAID' || m.status === 'COMPLETED').reduce((s: number, m: any) => s + m.amount, 0) : 0
-            })
-        })
-
-        // 2. Get Expenses from Material Orders
+        // 3. Get Expenses from Material Orders
         const orders = await prisma.order.findMany({
             where: { customerId: contractorId }
         })
 
+        // 4. Map everything together
+        const projectFinanceMap = new Map()
+
+        // Initialize with real projects
+        projects.forEach(p => {
+            projectFinanceMap.set(p.id, {
+                id: p.id,
+                title: p.name,
+                totalAmount: Number(p.budget) || 0,
+                released: 0,
+                incoming: 0,
+                expenses: 0
+            })
+        })
+
+        // Aggregate Income
+        quotes.forEach((q: any) => {
+            const pId = q.projectId || 'uncategorized'
+            if (!projectFinanceMap.has(pId)) {
+                projectFinanceMap.set(pId, {
+                    id: pId,
+                    title: (q.metadata as any)?.projectName || 'Dự án vãng lai',
+                    totalAmount: 0,
+                    released: 0,
+                    incoming: 0,
+                    expenses: 0
+                })
+            }
+
+            const entry = projectFinanceMap.get(pId)
+            if (q.milestones) {
+                q.milestones.forEach((m: any) => {
+                    if (m.status === 'RELEASED') entry.released += m.amount
+                    else if (m.status === 'ESCROW_PAID' || m.status === 'COMPLETED' || m.status === 'FUNDED') {
+                        entry.incoming += m.amount
+                    }
+                })
+            }
+        })
+
+        // Aggregate Expenses
+        orders.forEach((o: any) => {
+            const pId = o.projectId || 'uncategorized'
+            if (projectFinanceMap.has(pId)) {
+                projectFinanceMap.get(pId).expenses += o.totalAmount
+            }
+        })
+
+        const projectIncome = Array.from(projectFinanceMap.values())
+
+        // Calculate Totals
+        const totalReleased = projectIncome.reduce((s, p) => s + p.released, 0)
+        const totalIncoming = projectIncome.reduce((s, p) => s + p.incoming, 0)
         const totalSpent = orders.reduce((sum, o) => sum + o.totalAmount, 0)
-        const unpaidDebt = orders.filter(o => o.status === 'PENDING' || o.status === 'CONFIRMED').reduce((sum, o) => sum + o.totalAmount, 0)
+        const unpaidDebt = orders
+            .filter(o => o.paymentStatus !== 'PAID' && o.status !== 'CANCELLED')
+            .reduce((sum, o) => sum + (o.remainingAmount || (o.totalAmount - (o.depositAmount || 0))), 0)
+
+        // Only return projects that have some financial activity or are the contractor's own projects
+        const filteredProjects = projectIncome.filter(p =>
+            p.id !== 'uncategorized' || p.released > 0 || p.incoming > 0 || p.expenses > 0
+        )
 
         return NextResponse.json(createSuccessResponse({
             summary: {
                 netWorth: totalReleased + totalIncoming - totalSpent,
                 totalReleased,
                 totalIncoming,
-                totalPending,
                 totalSpent,
-                unpaidDebt
+                unpaidDebt: unpaidDebt  // This matches the "Financial Hub" debt view
             },
-            projects: projectIncome,
+            projects: filteredProjects,
             recentOrders: orders.slice(0, 5)
         }))
     } catch (error) {

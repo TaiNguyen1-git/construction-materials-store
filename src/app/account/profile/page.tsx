@@ -17,14 +17,15 @@ import {
     Eye,
     EyeOff,
     CheckCircle,
-    ShieldCheck
+    ShieldCheck,
+    LogOut
 } from 'lucide-react'
 import { useAuth } from '@/contexts/auth-context'
 import OTPModal from '@/components/auth/OTPModal'
 
 export default function ProfilePage() {
     const router = useRouter()
-    const { user, isAuthenticated, isLoading: authLoading, refreshUser } = useAuth()
+    const { user, isAuthenticated, isLoading: authLoading, refreshUser, logout } = useAuth()
     const [loading, setLoading] = useState(false)
     const [saving, setSaving] = useState(false)
 
@@ -260,10 +261,23 @@ export default function ProfilePage() {
             <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
                 {/* Header */}
                 <div className="mb-8">
-                    <Link href="/account" className="inline-flex items-center text-gray-600 hover:text-gray-900 mb-4">
-                        <ArrowLeft className="w-5 h-5 mr-2" />
-                        Quay lại
-                    </Link>
+                    <div className="flex items-center justify-between mb-4">
+                        <Link href="/account" className="inline-flex items-center text-gray-600 hover:text-gray-900">
+                            <ArrowLeft className="w-5 h-5 mr-2" />
+                            Quay lại
+                        </Link>
+                        <button
+                            onClick={() => {
+                                if (window.confirm('Bạn có chắc chắn muốn đăng xuất?')) {
+                                    logout()
+                                }
+                            }}
+                            className="flex items-center gap-2 px-4 py-2 bg-white hover:bg-rose-50 rounded-xl border border-gray-200 hover:border-rose-200 text-gray-500 hover:text-rose-600 transition-all font-bold text-xs uppercase tracking-widest shadow-sm active:scale-95"
+                        >
+                            <LogOut size={16} />
+                            Đăng xuất
+                        </button>
+                    </div>
                     <h1 className="text-3xl font-bold bg-gradient-to-r from-primary-600 to-secondary-600 bg-clip-text text-transparent">
                         Thông Tin Cá Nhân
                     </h1>

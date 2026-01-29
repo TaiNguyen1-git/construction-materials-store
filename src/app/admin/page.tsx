@@ -11,7 +11,7 @@ import {
   Package, ShoppingCart, ClipboardList, FileText, AlertTriangle,
   Users, DollarSign, Clock, Star, RefreshCw, Sparkles,
   TrendingUp, ArrowUpRight, ArrowDownRight, Zap, Target,
-  Calendar, Briefcase, Boxes, LayoutGrid, ChevronRight
+  Calendar, Briefcase, Boxes, LayoutGrid, ChevronRight, ArrowRight
 } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 
@@ -43,6 +43,7 @@ interface DashboardData {
       min: number
       urgency: 'CRITICAL' | 'WARNING'
     }>
+    reasoning?: string
   }
 }
 
@@ -226,135 +227,183 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="space-y-10 animate-in fade-in duration-700">
-      {/* Dynamic AI & Header Layer */}
-      <div className="flex flex-col lg:flex-row gap-6 items-stretch">
-        <div className="flex-1 flex flex-col justify-between gap-6">
-          <div className="flex flex-col md:flex-row justify-between items-start gap-4 pt-2">
-            <div>
-              <h1 className="text-4xl font-black text-slate-900 tracking-tighter">Bảng điều khiển</h1>
-              <p className="text-slate-500 font-bold text-sm mt-1 flex items-center gap-2">
-                <Calendar size={14} className="text-blue-500" />
-                {new Date().toLocaleDateString('vi-VN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
-              </p>
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={handleSendReport}
-                disabled={isSendingReport}
-                className="bg-white text-blue-600 px-4 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest border border-blue-100 hover:bg-blue-50 transition-all flex items-center gap-2 shadow-sm"
-              >
-                {isSendingReport ? <RefreshCw className="animate-spin" size={14} /> : <FileText size={14} />}
-                Báo Cáo
-              </button>
-              <button
-                onClick={() => fetchDashboardData(true)}
-                className="bg-blue-600 text-white px-4 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-700 transition-all active:scale-95 shadow-lg shadow-blue-600/20"
-              >
-                <RefreshCw size={14} />
-              </button>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 h-full">
-            {quickActions.map((action, i) => (
-              <Link key={i} href={action.href} className="flex flex-col p-4 bg-white rounded-[24px] border border-slate-100 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all group items-center text-center justify-center h-full min-h-[120px]">
-                <div className={`p-3 rounded-2xl ${action.color} group-hover:scale-110 transition-transform mb-3`}>
-                  <action.icon size={22} />
-                </div>
-                <span className="text-[10px] font-black text-slate-700 uppercase tracking-widest">{action.name}</span>
-              </Link>
-            ))}
+    <div className="space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-1000">
+      {/* Header Section */}
+      <div className="flex flex-col md:flex-row justify-between items-end gap-6 px-2">
+        <div>
+          <h1 className="text-5xl font-black text-slate-900 tracking-tighter mb-2">
+            Hệ thống <span className="text-blue-600 italic">Vận hành</span>
+          </h1>
+          <div className="flex items-center gap-3">
+            <span className="flex items-center gap-1.5 px-3 py-1 bg-blue-50 text-blue-600 rounded-full text-[10px] font-black uppercase tracking-widest border border-blue-100/50">
+              <Calendar size={12} />
+              {new Date().toLocaleDateString('vi-VN', { day: 'numeric', month: 'long', year: 'numeric' })}
+            </span>
+            <span className="w-1 h-1 rounded-full bg-slate-300"></span>
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1">
+              <Clock size={12} /> Cập nhật: {new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+            </span>
           </div>
         </div>
 
-        {/* AI Insight Card - Premium Glass */}
-        {/* AI Insight Card - Premium Glass */}
-        <div className="lg:w-[450px] bg-gradient-to-br from-blue-600 to-indigo-600 rounded-[40px] p-8 text-white relative overflow-hidden group border border-blue-500 shadow-2xl shadow-blue-500/30">
-          <div className="absolute top-0 right-0 p-6 opacity-20 text-white group-hover:scale-110 transition-transform">
-            <Sparkles size={80} />
-          </div>
-          <div className="relative z-10 h-full flex flex-col">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-2 h-2 rounded-full bg-white animate-pulse"></div>
-              <span className="text-[10px] font-black text-blue-100 uppercase tracking-[0.2em]">Trợ Lý AI & Dự Báo</span>
-            </div>
-
-            <div className="flex-1">
-              {aiSummaryLoading ? (
-                <div className="space-y-3">
-                  <div className="h-4 w-full bg-blue-500/50 rounded animate-pulse"></div>
-                  <div className="h-4 w-2/3 bg-blue-500/50 rounded animate-pulse"></div>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <p className="text-sm font-bold text-white/90 leading-relaxed italic">
-                    "{aiSummary || 'Hệ thống đang sẵn sàng phân tích dữ liệu vận hành.'}"
-                  </p>
-
-                  {data?.predictive && (
-                    <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10">
-                      <div className="flex justify-between items-start mb-2">
-                        <span className="text-[9px] font-black text-blue-200 uppercase tracking-widest">Dự báo 30 ngày tới</span>
-                        <div className={`flex items-center gap-1 text-[10px] font-black ${data?.predictive?.trend === 'increasing' ? 'text-emerald-400' : data?.predictive?.trend === 'decreasing' ? 'text-red-400' : 'text-amber-400'}`}>
-                          {data?.predictive?.trend === 'increasing' ? <ArrowUpRight size={12} /> : data?.predictive?.trend === 'decreasing' ? <ArrowDownRight size={12} /> : <TrendingUp size={12} />}
-                          {data?.predictive?.trend === 'increasing' ? 'Tăng trưởng' : data?.predictive?.trend === 'decreasing' ? 'Suy giảm' : 'Ổn định'}
-                        </div>
-                      </div>
-                      <div className="text-xl font-black tracking-tighter">
-                        {formatCurrency(data?.predictive?.next30DaysRevenue || 0)}
-                      </div>
-                      <div className="mt-2 w-full bg-white/10 h-1 rounded-full overflow-hidden">
-                        <div className="bg-white h-full" style={{ width: `${(data?.predictive?.confidence || 0) * 100}%` }}></div>
-                      </div>
-                      <div className="mt-1 flex justify-between text-[8px] font-bold text-blue-200 uppercase">
-                        <span>Độ tin cậy</span>
-                        <span>{((data?.predictive?.confidence || 0) * 100).toFixed(0)}%</span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-
-            <div className="mt-6 flex justify-end items-end pt-4 border-t border-white/10">
-              <button onClick={fetchAISummary} className="p-2 bg-blue-500/50 rounded-xl hover:bg-white hover:text-blue-600 transition-all">
-                <Zap size={14} className="fill-current" />
-              </button>
-            </div>
-          </div>
+        <div className="flex gap-3">
+          <button
+            onClick={handleSendReport}
+            disabled={isSendingReport}
+            className="group flex items-center gap-3 bg-white hover:bg-slate-50 text-slate-700 px-6 py-3.5 rounded-2xl font-black text-[11px] uppercase tracking-widest border border-slate-200 transition-all active:scale-95 shadow-sm"
+          >
+            {isSendingReport ? <RefreshCw className="animate-spin text-blue-600" size={16} /> : <FileText className="text-blue-600 group-hover:scale-110 transition-transform" size={16} />}
+            Xuất Báo Cáo
+          </button>
+          <button
+            onClick={() => fetchDashboardData(true)}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-3.5 rounded-2xl font-black transition-all active:rotate-180 shadow-lg shadow-blue-600/20"
+            title="Làm mới dữ liệu"
+          >
+            <RefreshCw size={18} />
+          </button>
         </div>
       </div>
 
-      {/* Stats Layer - Precise Bento */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6">
+      {/* Bento Grid Layer 1: AI & Quick Actions */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
+        {/* Left: AI Insight (Option 1 & 2 vibe) */}
+        <div className="lg:col-span-7 bg-white rounded-[40px] p-10 relative overflow-hidden group border border-slate-200 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.05)]">
+          <div className="absolute top-0 right-0 w-80 h-80 bg-blue-600/5 rounded-full -mr-20 -mt-20 blur-3xl transition-all duration-700 group-hover:bg-blue-600/10"></div>
+
+          <div className="relative z-10 flex flex-col h-full">
+            <div className="flex items-center justify-between mb-8">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-600/20">
+                  <LayoutGrid size={20} className="text-white" />
+                </div>
+                <div>
+                  <h3 className="text-[11px] font-black text-blue-600 uppercase tracking-[0.2em]">SmartBuild Analytics</h3>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Tóm lược vận hành hệ thống</p>
+                </div>
+              </div>
+              <button
+                onClick={fetchAISummary}
+                className="p-2.5 rounded-xl bg-slate-50 text-slate-400 hover:bg-blue-50 hover:text-blue-600 transition-all border border-slate-100"
+              >
+                <Zap size={16} />
+              </button>
+            </div>
+
+            <div className="bg-slate-50/50 rounded-3xl p-8 border border-slate-100/50 relative group/insight">
+              <div className="absolute -top-3 -left-3">
+                <div className="p-2 bg-white rounded-lg shadow-sm border border-slate-100">
+                  <FileText size={14} className="text-blue-600" />
+                </div>
+              </div>
+              <p className="text-lg font-bold text-slate-700 leading-relaxed">
+                {aiSummaryLoading ? (
+                  <span className="flex items-baseline gap-2">
+                    <span className="h-4 w-4 bg-blue-600/20 rounded-full animate-ping"></span>
+                    Đang tổng hợp dữ liệu...
+                  </span>
+                ) : (
+                  aiSummary || 'Tín hiệu kinh doanh ổn định. Hệ thống không ghi nhận bất thường nào trong 24 giờ qua.'
+                )}
+              </p>
+            </div>
+
+            <div className="mt-8 grid grid-cols-2 gap-6">
+              {data?.predictive && (
+                <>
+                  <div className="space-y-2">
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Dự báo doanh thu (30d)</span>
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-2xl font-black text-slate-900 tracking-tighter">
+                        {formatCurrency(data?.predictive?.next30DaysRevenue || 0)}
+                      </span>
+                      <div className={`flex items-center text-[10px] font-black ${data?.predictive?.trend === 'increasing' ? 'text-emerald-500' : 'text-amber-500'}`}>
+                        {data?.predictive?.trend === 'increasing' ? <ArrowUpRight size={12} /> : <TrendingUp size={12} />}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-end">
+                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Chỉ số tin cậy</span>
+                      <span className={`text-xs font-black leading-none ${(data?.predictive?.confidence || 0) >= 0.7 ? 'text-emerald-500' :
+                        (data?.predictive?.confidence || 0) >= 0.5 ? 'text-amber-500' : 'text-rose-500'
+                        }`}>
+                        {((data?.predictive?.confidence || 0) * 100).toFixed(0)}%
+                      </span>
+                    </div>
+                    <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all duration-1000 ${(data?.predictive?.confidence || 0) >= 0.7 ? 'bg-emerald-500' :
+                          (data?.predictive?.confidence || 0) >= 0.5 ? 'bg-amber-500' : 'bg-rose-500'
+                          }`}
+                        style={{ width: `${(data?.predictive?.confidence || 0) * 100}%` }}
+                      ></div>
+                    </div>
+                    {data?.predictive?.reasoning && (
+                      <p className="text-[8px] text-slate-400 font-bold uppercase tracking-tight truncate hover:whitespace-normal transition-all" title={data.predictive.reasoning as string}>
+                        {data.predictive.reasoning as string}
+                      </p>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Right: Quick Actions Grid */}
+        <div className="lg:col-span-5 grid grid-cols-2 gap-6">
+          {quickActions.map((action, i) => (
+            <Link key={i} href={action.href} className="group relative bg-white hover:bg-blue-600 rounded-[40px] p-8 border border-slate-200 shadow-sm transition-all duration-500 flex flex-col justify-between overflow-hidden">
+              <div className="absolute -right-4 -top-4 w-24 h-24 bg-blue-600/5 group-hover:bg-white/20 rounded-full blur-2xl transition-all"></div>
+
+              <div className={`w-14 h-14 rounded-[20px] ${action.color} shadow-sm flex items-center justify-center transition-all duration-500 group-hover:scale-110 group-hover:bg-white`}>
+                <action.icon size={26} className="group-hover:text-blue-600 transition-colors" />
+              </div>
+
+              <div>
+                <h4 className="text-[11px] font-black text-slate-400 group-hover:text-white/60 uppercase tracking-[0.2em] mb-1 transition-colors">ERP Action</h4>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-black text-slate-900 group-hover:text-white transition-colors">{action.name}</span>
+                  <div className="w-8 h-8 rounded-full border border-slate-200 group-hover:border-white/30 flex items-center justify-center opacity-0 group-hover:opacity-100 -translate-x-4 group-hover:translate-x-0 transition-all duration-500">
+                    <ArrowRight size={14} className="text-white" />
+                  </div>
+                </div>
+              </div>
+            </Link>
+          ))}
+        </div>
+      </div>
+
+      {/* Stats Grid Layer - High Precision Bento */}
+      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-6">
         {statCards.map((stat, index) => (
           <div
             key={index}
-            className={`bg-white rounded-[40px] border border-slate-100 p-8 shadow-sm hover:shadow-xl transition-all group relative overflow-hidden ${stat.isHero ? 'lg:col-span-2' : 'lg:col-span-1'
+            className={`bg-white rounded-[40px] border border-slate-100 p-8 shadow-[0_10px_40px_-15px_rgba(0,0,0,0.03)] hover:shadow-xl hover:-translate-y-1 transition-all group relative overflow-hidden ${stat.isHero ? 'md:col-span-2 lg:col-span-2 ring-2 ring-emerald-500/10' : 'lg:col-span-1'
               }`}
           >
-            {stat.isHero && <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 blur-[60px] pointer-events-none"></div>}
+            {stat.isHero && <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 blur-[60px] pointer-events-none"></div>}
 
-            <div className="flex flex-col h-full justify-between">
-              <div>
-                <dt className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">{stat.title}</dt>
-                <dd className={`font-black text-slate-900 tracking-tighter ${stat.isHero ? 'text-4xl' : 'text-2xl line-clamp-1'}`}>
-                  {stat.value}
-                </dd>
+            <div className="flex flex-col h-full justify-between gap-6">
+              <div className="flex justify-between items-start">
+                <div>
+                  <dt className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">{stat.title}</dt>
+                  <dd className={`font-extrabold text-slate-900 tracking-tighter ${stat.isHero ? 'text-4xl' : 'text-2xl line-clamp-1'}`}>
+                    {stat.value}
+                  </dd>
+                </div>
+                <div className={`p-4 rounded-2xl ${stat.color} transition-all duration-500 group-hover:rotate-12`}>
+                  <stat.icon size={24} />
+                </div>
               </div>
 
-              <div className="flex items-center justify-between mt-6">
-                <div className={`p-3 rounded-2xl ${stat.color} transition-transform group-hover:scale-110 shadow-sm`}>
-                  <stat.icon size={20} />
+              <div className="flex items-center justify-between border-t border-slate-50 pt-4">
+                <div className={`text-[10px] font-black px-2.5 py-1 rounded-lg uppercase tracking-widest ${stat.trend.includes('+') ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-50 text-slate-400'
+                  }`}>
+                  {stat.trend}
                 </div>
-                <div className="text-right">
-                  <div className={`text-[10px] font-black px-2 py-1 rounded-lg uppercase tracking-widest mb-1 ${stat.trend.includes('+') ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-50 text-slate-400'
-                    }`}>
-                    {stat.trend}
-                  </div>
-                  <div className="text-[9px] font-bold text-slate-300 uppercase">{stat.sub}</div>
-                </div>
+                <div className="text-[10px] font-bold text-slate-300 uppercase italic tracking-tighter">{stat.sub}</div>
               </div>
             </div>
           </div>

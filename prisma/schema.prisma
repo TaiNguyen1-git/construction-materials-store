@@ -177,6 +177,7 @@ model Customer {
   
   // Credit Management Fields (SME Feature 1)
   creditHold      Boolean      @default(false)  // Khóa tín dụng
+  isDeleted       Boolean      @default(false)  // Soft delete flag
   lastCreditCheck DateTime?                     // Lần kiểm tra gần nhất
   overdueAmount   Float        @default(0)      // Tổng nợ quá hạn
   maxOverdueDays  Int          @default(0)      // Số ngày quá hạn lâu nhất
@@ -226,6 +227,7 @@ model Customer {
   siteMaterialRequests SiteMaterialRequest[]
   contractorProfile     ContractorProfile?
   wallet                Wallet?
+  loyaltyVouchers       LoyaltyVoucher[]
   
   @@map("customers")
   @@index([customerType])
@@ -242,6 +244,30 @@ enum LoyaltyTier {
   GOLD
   PLATINUM
   DIAMOND
+}
+
+model LoyaltyVoucher {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  customerId    String   @db.ObjectId
+  code          String   @unique
+  value         Float
+  pointsUsed    Int
+  status        VoucherStatus @default(UNUSED)
+  redeemedAt    DateTime @default(now())
+  usedAt        DateTime?
+  expiryDate    DateTime?
+
+  customer      Customer @relation(fields: [customerId], references: [id])
+
+  @@map("loyalty_vouchers")
+  @@index([customerId])
+  @@index([status])
+}
+
+enum VoucherStatus {
+  UNUSED
+  USED
+  EXPIRED
 }
 
 // Work Shift and Attendance
@@ -527,6 +553,8 @@ model Order {
   // Relationships
   customer     Customer?   @relation(fields: [customerId], references: [id])
   contractor   ContractorProfile? @relation(fields: [selectedContractorId], references: [id])
+  projectId    String?     @db.ObjectId
+  project      Project?    @relation(fields: [projectId], references: [id])
   orderItems   OrderItem[]
   invoices     Invoice[]
   orderTracking OrderTracking[]
@@ -977,11 +1005,13 @@ enum OrderStatus {
 enum OrderCustomerType {
   REGISTERED
   GUEST
+  CONTRACTOR
 }
 
 enum OrderPaymentType {
   FULL      // Thanh toán đầy đủ
   DEPOSIT   // Đặt cọc trước
+  CREDIT    // Mua trước trả sau (công nợ)
 }
 
 enum PaymentStatus {
@@ -1128,6 +1158,8 @@ model Project {
   projectTasks    ProjectTask[]
   projectMaterials ProjectMaterial[]
   quoteRequests   QuoteRequest[]
+
+  orders          Order[]
 
   @@map("projects")
   @@index([customerId])

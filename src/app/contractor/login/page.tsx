@@ -18,6 +18,7 @@ import {
     Eye,
     EyeOff
 } from 'lucide-react'
+import { toast, Toaster } from 'react-hot-toast'
 import { getPostLoginRedirectUrl } from '@/lib/auth-redirect'
 
 export default function ContractorLoginPage() {
@@ -35,26 +36,17 @@ export default function ContractorLoginPage() {
         setFormData(prev => ({ ...prev, [name]: value }))
     }
 
-    // Handle "Go Back" button - clear stale auth and use replace() to avoid history loop
     const handleGoBack = () => {
-        // Check if we came from a protected route (has callbackUrl in URL)
         const urlParams = new URLSearchParams(window.location.search)
         const callbackUrl = urlParams.get('callbackUrl')
-
         if (callbackUrl) {
-            // Clear potentially stale auth data to break the redirect loop
             localStorage.removeItem('access_token')
             localStorage.removeItem('user')
             localStorage.removeItem('refresh_token')
             sessionStorage.removeItem('access_token')
             sessionStorage.removeItem('user')
-
-            // Also clear the auth cookie
             document.cookie = 'auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT'
-
         }
-
-        // Use replace() instead of href to prevent back button from returning to login loop
         window.location.replace('/contractor')
     }
 
@@ -70,9 +62,23 @@ export default function ContractorLoginPage() {
                 body: JSON.stringify(formData)
             })
 
-            const data = await res.json()
+            let data;
+            try {
+                data = await res.json()
+            } catch (jsonError) {
+                console.error('JSON Parse Error:', jsonError);
+                throw new Error('Lỗi kết nối máy chủ (Invalid JSON)')
+            }
 
             if (!res.ok) {
+                if (res.status === 429) {
+                    const retryAfterTimestamp = data.retryAfter || (Date.now() / 1000 + 900);
+                    const currentTimestamp = Math.floor(Date.now() / 1000);
+                    const minutesRemaining = Math.max(1, Math.ceil((retryAfterTimestamp - currentTimestamp) / 60));
+
+                    throw new Error(`Bạn đã thử đăng nhập quá nhiều lần. Vui lòng thử lại sau ${minutesRemaining} phút.`);
+                }
+                // Handle specific error cases if needed
                 throw new Error(data.error || 'Đăng nhập thất bại')
             }
 
@@ -81,49 +87,44 @@ export default function ContractorLoginPage() {
                 // Not a contractor - redirect to appropriate page with message
                 if (data.user.role === 'MANAGER' || data.user.role === 'EMPLOYEE') {
                     // Store tokens first
-                    if (data.token) {
-                        localStorage.setItem('access_token', data.token)
-                    }
-                    if (data.user) {
-                        localStorage.setItem('user', JSON.stringify(data.user))
-                    }
-                    // Redirect to admin with info
+                    if (data.token) localStorage.setItem('access_token', data.token)
+                    if (data.user) localStorage.setItem('user', JSON.stringify(data.user))
                     window.location.href = '/admin'
                     return
                 } else {
-                    // Customer - show error and suggest using customer login
                     throw new Error('Tài khoản này không phải là nhà thầu. Vui lòng sử dụng trang đăng nhập khách hàng.')
                 }
             }
 
-            // Save tokens using same keys as main auth system for consistency
+            // Save tokens
             if (data.accessToken) {
                 localStorage.setItem('access_token', data.accessToken)
-                if (data.refreshToken) {
-                    localStorage.setItem('refresh_token', data.refreshToken)
-                }
+                if (data.refreshToken) localStorage.setItem('refresh_token', data.refreshToken)
             } else if (data.token) {
-                // Fallback for legacy API response
                 localStorage.setItem('access_token', data.token)
             }
 
-            if (data.user) {
-                localStorage.setItem('user', JSON.stringify(data.user))
-            }
+            if (data.user) localStorage.setItem('user', JSON.stringify(data.user))
 
-            // Redirect with callback support (only allow contractor paths)
-            const redirectUrl = getPostLoginRedirectUrl(data.user)
-            console.log('[CONTRACTOR LOGIN] Redirecting to:', redirectUrl)
+            // Redirect
+            const redirectUrl = getPostLoginRedirectUrl(data.user) || '/contractor'
+            toast.success('Đăng nhập thành công!')
             window.location.href = redirectUrl
+
         } catch (err: any) {
-            setError(err.message || 'Đã có lỗi xảy ra')
-        } finally {
-            setLoading(false)
+            console.error('Login Error:', err)
+            const message = err.message || 'Đã có lỗi xảy ra'
+            setError(message)
+            toast.error(message)
+            setLoading(false) // Ensure loading is disabled on error
         }
+        // Note: We don't put setLoading(false) in finally because on success we want to keep loading state 
+        // until the redirect happens (prevents UI flicker)
     }
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
+            <Toaster position="top-center" />
             {/* Navigation */}
             <nav className="bg-white/80 backdrop-blur-sm border-b border-gray-100">
                 <div className="max-w-7xl mx-auto px-6 py-4">

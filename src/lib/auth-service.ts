@@ -268,7 +268,16 @@ class EnhancedAuthService {
     })
 
     const data = await response.json()
-    if (response.ok && data.user) {
+
+    if (!response.ok) {
+      const error = new Error(data.error || 'Đăng nhập thất bại') as any
+      error.status = response.status
+      error.retryAfter = data.retryAfter
+      error.details = data.details
+      throw error
+    }
+
+    if (data.user) {
       this.handleAuthSuccess(data.user)
     }
     return data
