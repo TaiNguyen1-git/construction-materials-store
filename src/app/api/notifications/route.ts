@@ -9,7 +9,23 @@ export async function GET(request: NextRequest) {
     const userId = await getUserIdFromRequest(request)
 
     if (!userId) {
-      return NextResponse.json(createErrorResponse('Unauthorized', 'UNAUTHORIZED'), { status: 401 })
+      // For guests or unauthenticated users, return empty list instead of 401
+      // This prevents console errors when polling happens on public pages
+      return NextResponse.json(
+        createSuccessResponse({
+          notifications: [],
+          unreadCount: 0,
+          pagination: {
+            page: 1,
+            limit: 10,
+            total: 0,
+            totalPages: 0,
+            hasNext: false,
+            hasPrev: false
+          }
+        }, 'Success'),
+        { status: 200 }
+      )
     }
 
     const { searchParams } = new URL(request.url)
