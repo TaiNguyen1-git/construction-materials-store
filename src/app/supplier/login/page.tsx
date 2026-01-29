@@ -55,6 +55,9 @@ export default function SupplierLoginPage() {
                 localStorage.setItem('supplier_id', data.data.supplier.id)
                 localStorage.setItem('supplier_name', data.data.supplier.name)
 
+                // Set cookie for middleware
+                document.cookie = `auth_token=${data.data.token}; path=/; max-age=604800; SameSite=Lax`
+
                 toast.success('Đăng nhập thành công!')
 
                 // Check for callbackUrl in URL params
@@ -143,12 +146,7 @@ export default function SupplierLoginPage() {
                     </button>
                 </form>
 
-                {/* Demo */}
-                <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-                    <p className="text-sm text-gray-600 text-center">
-                        <strong>Demo:</strong> Liên hệ admin để nhận tài khoản NCC
-                    </p>
-                </div>
+
             </div>
         </div>
     )

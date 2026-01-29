@@ -66,7 +66,8 @@ export default function SupplierLayout({ children }: { children: React.ReactNode
             <div className="flex">
                 {/* Sidebar */}
                 <aside className={`
-          fixed lg:static inset-y-0 left-0 z-50
+          flex flex-col
+          fixed lg:sticky top-0 h-screen z-50
           w-64 bg-white shadow-lg transform transition-transform duration-300
           ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
         `}>
@@ -108,7 +109,7 @@ export default function SupplierLayout({ children }: { children: React.ReactNode
                     </nav>
 
                     {/* Logout */}
-                    <div className="absolute bottom-0 left-0 right-0 p-4 border-t">
+                    <div className="mt-auto p-4 border-t">
                         <button
                             onClick={handleLogout}
                             className="flex items-center gap-3 px-4 py-3 w-full text-red-600 hover:bg-red-50 rounded-lg transition-colors"

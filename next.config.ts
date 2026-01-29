@@ -61,6 +61,11 @@ const nextConfig: NextConfig = {
         protocol: 'https',
         hostname: 'www.tondonga.com.vn',
         pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'ximanghatien.com.vn',
+        pathname: '/**',
       }
     ],
     unoptimized: false,

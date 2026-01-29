@@ -49,13 +49,13 @@ export async function GET(request: NextRequest) {
 
         const stats = {
             totalOrders: allOrders.length,
-            pendingOrders: allOrders.filter((o: any) => o.status === 'PENDING' || o.status === 'ORDERED').length,
+            pendingOrders: allOrders.filter((o: any) => o.status === 'SENT' || o.status === 'CONFIRMED').length,
             totalRevenue: allOrders
                 .filter((o: any) => o.status === 'RECEIVED')
                 .reduce((sum: number, o: any) => sum + o.totalAmount, 0),
             pendingPayments: allOrders
-                .filter((o: any) => o.paymentStatus !== 'PAID')
-                .reduce((sum: number, o: any) => sum + o.totalAmount, 0)
+                .filter((o: any) => o.status === 'RECEIVED') // Assumption: Received = Payable
+                .reduce((sum: number, o: any) => sum + (o.totalAmount || 0), 0)
         }
 
         // Format recent orders
