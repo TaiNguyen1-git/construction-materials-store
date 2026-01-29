@@ -45,6 +45,7 @@ export async function middleware(request: NextRequest) {
   const publicRoutes = [
     '/api/reviews',
     '/api/notifications',
+    '/api/contractors/public',
   ]
 
   // ===== PUBLIC PAGES (no auth required) =====
