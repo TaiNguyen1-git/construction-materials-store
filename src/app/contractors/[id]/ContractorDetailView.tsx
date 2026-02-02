@@ -59,7 +59,7 @@ export default function ContractorDetailView({ params }: { params: Promise<{ id:
             localStorage.setItem('user_phone', guestContact.phone)
 
             // Auto-create/ensure conversation exists via API
-            const res = await fetch('/api/messages', {
+            const res = await fetch('/api/chat/conversations', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

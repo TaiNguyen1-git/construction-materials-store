@@ -261,6 +261,19 @@ function MessagesContent() {
         return date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
     }
 
+    const formatLastMessage = (content: string | null) => {
+        if (!content) return 'Bắt đầu trò chuyện'
+        if (content.startsWith('[CALL_LOG]:')) {
+            try {
+                const log = JSON.parse(content.replace('[CALL_LOG]:', ''))
+                return log.type === 'video' ? '📽️ Cuộc gọi video' : '📞 Cuộc gọi thoại'
+            } catch (e) {
+                return 'Cuộc gọi'
+            }
+        }
+        return content
+    }
+
     const renderMessageContent = (msg: any) => {
         if (msg.fileUrl) {
             const isImage = msg.fileType?.startsWith('image/')
@@ -297,29 +310,32 @@ function MessagesContent() {
         if (msg.content?.startsWith('[CALL_LOG]:')) {
             try {
                 const log = JSON.parse(msg.content.replace('[CALL_LOG]:', ''))
-                const minutes = Math.floor(log.duration / 60)
-                const seconds = log.duration % 60
-                const durationStr = minutes > 0 ? `${minutes} phút ${seconds} giây` : `${seconds} giây`
+                const mins = Math.floor(log.duration / 60)
+                const secs = log.duration % 60
+                const durationStr = mins > 0 ? `${mins}ph ${secs}s` : `${secs}s`
                 const isVideo = log.type === 'video'
                 const isMe = msg.senderId === user?.id
 
                 return (
-                    <div className={`flex flex-col gap-3 min-w-[200px] ${isMe ? 'text-white' : 'text-gray-800'}`}>
-                        <div className="flex items-center gap-3">
-                            <div className={`p-3 rounded-full ${isMe ? 'bg-white/20' : 'bg-gray-100'}`}>
+                    <div className={`flex flex-col gap-3 min-w-[220px] ${isMe ? 'text-white' : 'text-gray-800'}`}>
+                        <div className="flex items-center gap-4">
+                            <div className={`w-12 h-12 flex items-center justify-center rounded-2xl shadow-inner ${isMe ? 'bg-white/10 backdrop-blur-md' : 'bg-blue-50 text-blue-600'}`}>
                                 {isVideo ? <Video className="w-6 h-6" /> : <Phone className="w-6 h-6" />}
                             </div>
                             <div>
-                                <h4 className="font-bold text-sm">{isVideo ? 'Cuộc gọi video' : 'Cuộc gọi thoại'}</h4>
-                                <p className="text-[11px] opacity-80 font-medium">{durationStr}</p>
+                                <h4 className="font-black text-sm tracking-tight">{isVideo ? 'CUỘC GỌI VIDEO' : 'CUỘC GỌI THOẠI'}</h4>
+                                <div className="flex items-center gap-1.5">
+                                    <div className={`w-1.5 h-1.5 rounded-full ${isMe ? 'bg-green-300' : 'bg-green-500'}`} />
+                                    <p className="text-[11px] opacity-80 font-bold uppercase tracking-widest">{durationStr}</p>
+                                </div>
                             </div>
                         </div>
                         <button
                             onClick={() => handleCall(isVideo ? 'video' : 'audio')}
-                            className={`w-full py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${isMe ? 'bg-white text-blue-600 hover:bg-gray-100' : 'bg-blue-600 text-white hover:bg-blue-700'
+                            className={`w-full py-3 rounded-xl text-[10px] font-black uppercase tracking-[0.15em] transition-all hover:scale-[1.02] active:scale-[0.98] shadow-sm ${isMe ? 'bg-white text-blue-600 hover:bg-white/90' : 'bg-blue-600 text-white hover:bg-blue-700'
                                 }`}
                         >
-                            Gọi lại
+                            GỌI LẠI NGAY
                         </button>
                     </div>
                 )
@@ -394,7 +410,7 @@ function MessagesContent() {
                                             </span>
                                         </div>
                                         <p className={`text-xs truncate ${conv.unread1 > 0 || conv.unread2 > 0 ? 'font-bold text-gray-950' : 'text-gray-500'}`}>
-                                            {conv.lastMessage || 'Bắt đầu trò chuyện'}
+                                            {formatLastMessage(conv.lastMessage)}
                                         </p>
                                     </div>
                                 </button>

@@ -8,8 +8,9 @@ import {
     Save,
     X,
     ChevronRight,
-    AlertCircle,
-    CheckCircle2
+    CheckCircle2,
+    Upload,
+    Loader2
 } from 'lucide-react'
 import Image from 'next/image'
 
@@ -48,8 +49,10 @@ export default function SupplierProducts() {
         availableQuantity: 0,
         categoryId: '',
         description: '',
-        imageUrl: ''
+        imageUrl: '',
+        suggestedCategory: ''
     })
+    const [isUploading, setIsUploading] = useState(false)
 
     const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
 
@@ -153,6 +156,35 @@ export default function SupplierProducts() {
         }
     }
 
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0]
+        if (!file) return
+
+        setIsUploading(true)
+        try {
+            const formData = new FormData()
+            formData.append('file', file)
+
+            const res = await fetch('/api/upload', {
+                method: 'POST',
+                body: formData
+            })
+
+            const data = await res.json()
+            if (data.success) {
+                setCreateData(prev => ({ ...prev, imageUrl: data.fileUrl }))
+                setMessage({ type: 'success', text: 'Tải ảnh lên thành công' })
+                setTimeout(() => setMessage(null), 3000)
+            } else {
+                setMessage({ type: 'error', text: 'Lỗi khi tải ảnh lên: ' + data.error })
+            }
+        } catch (error) {
+            setMessage({ type: 'error', text: 'Lỗi kết nối khi tải ảnh' })
+        } finally {
+            setIsUploading(false)
+        }
+    }
+
     const handleCreate = async () => {
         try {
             // Validation
@@ -167,7 +199,21 @@ export default function SupplierProducts() {
             const payload = {
                 ...createData,
                 supplierId,
-                images: createData.imageUrl ? [createData.imageUrl] : []
+                images: createData.imageUrl ? [createData.imageUrl] : [],
+                description: createData.categoryId === 'OTHER'
+                    ? `[Đề xuất danh mục: ${createData.suggestedCategory}] ${createData.description}`
+                    : createData.description
+            }
+
+            // If OTHER is selected, we need a valid categoryId to satisfy DB constraints
+            // We'll search for an "Uncategorized" category or just the first one as fallback
+            if (payload.categoryId === 'OTHER') {
+                const uncategorized = categories.find(c =>
+                    c.name.toLowerCase().includes('khác') ||
+                    c.name.toLowerCase().includes('uncategorized') ||
+                    c.name.toLowerCase().includes('chờ')
+                )
+                payload.categoryId = uncategorized ? uncategorized.id : (categories[0]?.id || '')
             }
 
             const res = await fetch('/api/supplier/products', {
@@ -183,7 +229,7 @@ export default function SupplierProducts() {
             if (data.success) {
                 setMessage({ type: 'success', text: 'Tạo sản phẩm mới thành công' })
                 setIsCreating(false)
-                setCreateData({ name: '', sku: '', price: 0, availableQuantity: 0, categoryId: '', description: '', imageUrl: '' })
+                setCreateData({ name: '', sku: '', price: 0, availableQuantity: 0, categoryId: '', description: '', imageUrl: '', suggestedCategory: '' })
                 fetchProducts()
                 setTimeout(() => setMessage(null), 3000)
             } else {
@@ -442,8 +488,20 @@ export default function SupplierProducts() {
                                         {categories.map(cat => (
                                             <option key={cat.id} value={cat.id}>{cat.name}</option>
                                         ))}
+                                        <option value="OTHER">-- Khác (Tự đề xuất...) --</option>
                                     </select>
                                 </div>
+                                {createData.categoryId === 'OTHER' && (
+                                    <div className="space-y-2 col-span-2 animate-in slide-in-from-top-2 duration-300">
+                                        <label className="text-xs font-bold text-blue-600 uppercase">Tên danh mục đề xuất *</label>
+                                        <input
+                                            className="w-full px-4 py-3 bg-blue-50 rounded-xl border border-blue-200 focus:ring-2 focus:ring-blue-500 outline-none font-medium text-blue-900 placeholder:text-blue-300"
+                                            placeholder="Nhập tên ngành hàng bạn muốn bổ sung..."
+                                            value={createData.suggestedCategory}
+                                            onChange={e => setCreateData({ ...createData, suggestedCategory: e.target.value })}
+                                        />
+                                    </div>
+                                )}
                                 <div className="space-y-2">
                                     <label className="text-xs font-bold text-slate-500 uppercase">Giá bán (VNĐ) *</label>
                                     <input
@@ -465,12 +523,18 @@ export default function SupplierProducts() {
                                 <div className="space-y-2 col-span-2">
                                     <label className="text-xs font-bold text-slate-500 uppercase">URL Hình ảnh</label>
                                     <div className="flex gap-2">
-                                        <input
-                                            className="flex-1 px-4 py-3 bg-slate-50 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none font-medium"
-                                            placeholder="https://..."
-                                            value={createData.imageUrl}
-                                            onChange={e => setCreateData({ ...createData, imageUrl: e.target.value })}
-                                        />
+                                        <div className="flex-1 relative">
+                                            <input
+                                                className="w-full pl-4 pr-12 py-3 bg-slate-50 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none font-medium"
+                                                placeholder="Dán link ảnh hoặc tải lên..."
+                                                value={createData.imageUrl}
+                                                onChange={e => setCreateData({ ...createData, imageUrl: e.target.value })}
+                                            />
+                                            <label className="absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer p-2 hover:bg-slate-200 rounded-lg transition-colors">
+                                                <input type="file" className="hidden" accept="image/*" onChange={handleFileUpload} disabled={isUploading} />
+                                                {isUploading ? <Loader2 className="w-5 h-5 animate-spin text-blue-600" /> : <Upload className="w-5 h-5 text-slate-400" />}
+                                            </label>
+                                        </div>
                                         {createData.imageUrl && (
                                             <div className="w-12 h-12 rounded-lg relative overflow-hidden bg-slate-100 border border-slate-200">
                                                 <Image src={createData.imageUrl} alt="Preview" fill className="object-cover" />

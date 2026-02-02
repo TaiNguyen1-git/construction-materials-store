@@ -11,6 +11,7 @@ interface CallData {
     callerId: string
     callerName: string
     recipientId: string
+    originalRecipientId?: string // For admin_support calls, stores original target for Firebase path
     status: 'ringing' | 'accepted' | 'rejected' | 'ended'
     type: 'audio' | 'video'
     peerId: string
@@ -21,9 +22,10 @@ interface CallData {
 interface ChatCallManagerProps {
     userId: string
     userName: string
+    listenAdminSupport?: boolean // For Admin to also listen for supplier calls
 }
 
-export default function ChatCallManager({ userId, userName }: ChatCallManagerProps) {
+export default function ChatCallManager({ userId, userName, listenAdminSupport = false }: ChatCallManagerProps) {
     const [incomingCall, setIncomingCall] = useState<CallData | null>(null)
     const [activeCall, setActiveCall] = useState<CallData | null>(null)
     const [localStream, setLocalStream] = useState<MediaStream | null>(null)
@@ -37,8 +39,10 @@ export default function ChatCallManager({ userId, userName }: ChatCallManagerPro
     const localVideoRef = useRef<HTMLVideoElement>(null)
     const remoteVideoRef = useRef<HTMLVideoElement>(null)
     const timerRef = useRef<NodeJS.Timeout | null>(null)
-    const currentCallRef = useRef<MediaConnection | { statusUnsubscribe: () => void } | null>(null)
+    const currentCallRef = useRef<MediaConnection | null>(null)
+    const firebaseStatusUnsubscribeRef = useRef<(() => void) | null>(null)
     const localStreamRef = useRef<MediaStream | null>(null)
+    const isEndingRef = useRef(false)
 
     // Keep ref in sync for listeners
     useEffect(() => {
@@ -94,27 +98,56 @@ export default function ChatCallManager({ userId, userName }: ChatCallManagerPro
                     setIncomingCall(data)
                     playRingtone()
                 } else if (data.status === 'accepted' && activeCall?.callerId === userId) {
-                    // Recipient accepted our call
                     handleCallAcceptedByPartner(data)
+                } else if (data.status === 'accepted' && activeCall && data.type === 'video' && activeCall.type === 'audio') {
+                    handlePeerUpgradedToVideo()
                 } else if (data.status === 'rejected' || data.status === 'ended') {
                     handleCallEndedByPartner()
                 }
-            } else {
-                // If data is removed, call ended
-                if (incomingCall || activeCall) {
-                    handleCallEndedByPartner()
-                }
+            } else if (incomingCall || activeCall) {
+                handleCallEndedByPartner()
             }
         })
+        firebaseStatusUnsubscribeRef.current = unsubscribe
 
         // Clean up on disconnect
         onDisconnect(callRef).remove()
 
+        // Also listen for admin_support calls (for supplier → admin calls)
+        let adminSupportUnsubscribe: (() => void) | null = null
+        if (listenAdminSupport) {
+            const adminSupportRef = ref(db, 'calls/admin_support')
+            adminSupportUnsubscribe = onValue(adminSupportRef, (snapshot) => {
+                const data = snapshot.val() as CallData | null
+                if (!data) {
+                    if (activeCall?.originalRecipientId === 'admin_support') handleCallEndedByPartner()
+                    return
+                }
+
+                if (data.status === 'ringing') {
+                    setIncomingCall({
+                        ...data,
+                        originalRecipientId: 'admin_support',
+                        recipientId: userId
+                    })
+                    playRingtone()
+                } else if (activeCall?.originalRecipientId === 'admin_support') {
+                    if (data.status === 'rejected' || data.status === 'ended') {
+                        handleCallEndedByPartner()
+                    } else if (data.type === 'video' && activeCall.type === 'audio') {
+                        handlePeerUpgradedToVideo()
+                    }
+                }
+            })
+            onDisconnect(adminSupportRef).remove()
+        }
+
         return () => {
             unsubscribe()
+            if (adminSupportUnsubscribe) adminSupportUnsubscribe()
             newPeer.destroy()
         }
-    }, [userId])
+    }, [userId, listenAdminSupport])
 
     // Timer logic
     useEffect(() => {
@@ -243,14 +276,16 @@ export default function ChatCallManager({ userId, userName }: ChatCallManagerPro
                 const data = snapshot.val() as CallData | null
                 if (data && data.status === 'accepted' && data.callerId === userId) {
                     handleCallAcceptedByPartner(data)
-                    // We can stop listening once connected
+                } else if (data && data.status === 'accepted' && data.type === 'video' && activeCall?.type === 'audio') {
+                    handlePeerUpgradedToVideo()
                 } else if (data && (data.status === 'rejected' || data.status === 'ended')) {
+                    handleCallEndedByPartner()
+                } else if (!data && (activeCall || incomingCall)) {
                     handleCallEndedByPartner()
                 }
             })
 
-            // Store unsubscribe to cleanup later
-            currentCallRef.current = { statusUnsubscribe }
+            firebaseStatusUnsubscribeRef.current = statusUnsubscribe
 
             toast.success(`Đang gọi ${otherUserName}...`)
         } catch (err) {
@@ -281,9 +316,9 @@ export default function ChatCallManager({ userId, userName }: ChatCallManagerPro
             const db = getFirebaseDatabase()
             const updatedCall: CallData = { ...incomingCall, status: 'accepted' }
 
-            // Update status in Firebase for BOTH paths if needed, 
-            // but usually we just update the recipient's path which the caller listens to
-            await set(ref(db, `calls/${userId}`), updatedCall)
+            // Update status in Firebase - use original path for admin_support calls
+            const firebasePath = incomingCall.originalRecipientId || userId
+            await set(ref(db, `calls/${firebasePath}`), updatedCall)
 
             setIncomingCall(null)
             setActiveCall(updatedCall)
@@ -307,55 +342,68 @@ export default function ChatCallManager({ userId, userName }: ChatCallManagerPro
     const rejectCall = async () => {
         if (!incomingCall) return
         const db = getFirebaseDatabase()
-        await set(ref(db, `calls/${userId}`), { ...incomingCall, status: 'rejected' })
-        setTimeout(() => remove(ref(db, `calls/${userId}`)), 1000)
+        // Use original path for admin_support calls
+        const firebasePath = incomingCall.originalRecipientId || userId
+        await set(ref(db, `calls/${firebasePath}`), { ...incomingCall, status: 'rejected' })
+        setTimeout(() => remove(ref(db, `calls/${firebasePath}`)), 1000)
         stopAudio()
         setIncomingCall(null)
     }
 
     const endCall = async () => {
+        if (isEndingRef.current) return
+        isEndingRef.current = true
+
         const db = getFirebaseDatabase()
         const targetId = activeCall?.recipientId === userId ? activeCall?.callerId : activeCall?.recipientId
 
-        // Save duration before cleaning up
+        // Save data for log before cleanup
         const finalDuration = callDuration
         const callType = activeCall?.type
         const convId = activeCall?.conversationId
+        const callStatus = activeCall?.status
 
-        if (targetId) {
-            await set(ref(db, `calls/${targetId}`), { ...activeCall, status: 'ended' })
-            setTimeout(() => remove(ref(db, `calls/${targetId}`)), 1000)
-        }
+        // 1. IMMEDIATE UI CLEANUP
+        stopAudio()
+        cleanupStreams()
+        setActiveCall(null)
+        setIncomingCall(null)
+        toast('Cuộc gọi đã kết thúc')
 
-        if (activeCall?.recipientId === userId) {
-            await remove(ref(db, `calls/${userId}`))
-        }
+        // 2. BACKGROUND TASKS
+        try {
+            if (targetId) {
+                set(ref(db, `calls/${targetId}`), { status: 'ended' })
+                setTimeout(() => remove(ref(db, `calls/${targetId}`)), 1000)
+            }
 
-        // Send Call Log to Chat if call was accepted
-        if (convId && activeCall?.status === 'accepted' && finalDuration > 0) {
-            try {
+            if (activeCall?.recipientId === userId) {
+                remove(ref(db, `calls/${userId}`))
+            }
+
+            // Send Call Log to Chat if call was accepted
+            if (convId && callStatus === 'accepted' && finalDuration > 0) {
                 const headers = {
                     'Content-Type': 'application/json',
                     'x-user-id': userId,
                     'Authorization': `Bearer ${localStorage.getItem('access_token')}`
                 }
-                await fetch('/api/chat/messages', {
+                fetch('/api/chat/messages', {
                     method: 'POST',
                     headers,
                     body: JSON.stringify({
                         conversationId: convId,
-                        content: `[CALL_LOG]:{"type":"${callType}","duration":${finalDuration}}`
+                        content: `[CALL_LOG]:{"type":"${callType}","duration":${finalDuration}}`,
+                        senderName: userName
                     })
-                })
-            } catch (err) {
-                console.error('Failed to send call log:', err)
+                }).catch(err => console.error('Failed to send call log:', err))
             }
+        } catch (err) {
+            console.error('Error during call end cleanup:', err)
+        } finally {
+            // Reset ending flag after a delay to prevent bridge overlaps
+            setTimeout(() => { isEndingRef.current = false }, 2000)
         }
-
-        cleanupStreams()
-        stopAudio()
-        setActiveCall(null)
-        setIncomingCall(null)
     }
 
     const handleCallAcceptedByPartner = (data: CallData) => {
@@ -389,11 +437,14 @@ export default function ChatCallManager({ userId, userName }: ChatCallManagerPro
         if (localVideoRef.current) localVideoRef.current.srcObject = null
         if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null
 
-        const currentCall = currentCallRef.current
-        if (currentCall) {
-            if ('close' in currentCall) currentCall.close()
-            if ('statusUnsubscribe' in currentCall) currentCall.statusUnsubscribe()
+        if (currentCallRef.current) {
+            currentCallRef.current.close()
             currentCallRef.current = null
+        }
+
+        if (firebaseStatusUnsubscribeRef.current) {
+            firebaseStatusUnsubscribeRef.current()
+            firebaseStatusUnsubscribeRef.current = null
         }
     }
 
@@ -413,7 +464,72 @@ export default function ChatCallManager({ userId, userName }: ChatCallManagerPro
             if (videoTrack) {
                 videoTrack.enabled = !videoTrack.enabled
                 setIsVideoOff(!videoTrack.enabled)
+            } else {
+                upgradeToVideo()
             }
+        }
+    }
+
+    const upgradeToVideo = async () => {
+        if (!activeCall || !localStream) return
+
+        try {
+            const videoStream = await navigator.mediaDevices.getUserMedia({ video: true })
+            const videoTrack = videoStream.getVideoTracks()[0]
+
+            if (videoTrack) {
+                localStream.addTrack(videoTrack)
+                setLocalStream(new MediaStream(localStream.getTracks())) // Trigger re-render
+                setIsVideoOff(false)
+
+                // Update type in Firebase to notify peer
+                const db = getFirebaseDatabase()
+                const targetId = activeCall.recipientId === userId ? activeCall.callerId : activeCall.recipientId
+                const firebasePath = activeCall.originalRecipientId || (activeCall.recipientId === userId ? userId : targetId)
+
+                const updatedCall: CallData = { ...activeCall, type: 'video' }
+                await set(ref(db, `calls/${firebasePath}`), updatedCall)
+                setActiveCall(updatedCall)
+
+                // Re-call peer with the new stream to force video update in WebRTC
+                if (peer) {
+                    // Close old connection if exists
+                    if (currentCallRef.current && 'close' in currentCallRef.current) {
+                        currentCallRef.current.close()
+                    }
+
+                    const call = peer.call(targetId, localStream)
+                    call.on('stream', (rStream) => {
+                        setRemoteStream(rStream)
+                    })
+                    currentCallRef.current = call
+                }
+
+                toast.success('Đã bật camera')
+            }
+        } catch (err) {
+            console.error('Failed to upgrade to video:', err)
+            toast.error('Không thể truy cập camera')
+        }
+    }
+
+    const handlePeerUpgradedToVideo = async () => {
+        if (!activeCall || !localStream) return
+
+        setActiveCall({ ...activeCall, type: 'video' })
+        toast('Đối phương đã bật camera')
+
+        // Ask for camera permission locally to send our video back
+        try {
+            const videoStream = await navigator.mediaDevices.getUserMedia({ video: true })
+            const videoTrack = videoStream.getVideoTracks()[0]
+            if (videoTrack) {
+                localStream.addTrack(videoTrack)
+                setLocalStream(new MediaStream(localStream.getTracks()))
+                setIsVideoOff(false)
+            }
+        } catch (e) {
+            console.log('Recipient declined camera on upgrade, continuing as audio-only sender')
         }
     }
 
@@ -432,30 +548,33 @@ export default function ChatCallManager({ userId, userName }: ChatCallManagerPro
     if (!incomingCall && !activeCall) return null
 
     return (
-        <div className={`fixed z-[9999] transition-all duration-500 ${isMinimized ? 'bottom-4 right-4 w-64 h-20' : 'inset-0 bg-black/80 flex items-center justify-center p-4'}`}>
+        <div className={`fixed z-[9999] transition-all duration-500 ease-in-out ${isMinimized ? 'bottom-8 right-8 w-72' : 'inset-0 bg-black/80 flex items-center justify-center p-4'}`}>
             {incomingCall && !activeCall && (
-                <div className="bg-white rounded-[32px] p-8 max-w-sm w-full shadow-2xl animate-bounce-subtle">
+                <div className="bg-white/90 backdrop-blur-xl rounded-[40px] p-8 max-w-sm w-full shadow-2xl border border-white/20 animate-in zoom-in duration-300">
                     <div className="flex flex-col items-center text-center">
-                        <div className="w-24 h-24 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white text-4xl font-black mb-6 shadow-xl shadow-indigo-200">
-                            {incomingCall.callerName.charAt(0)}
+                        <div className="relative mb-6">
+                            <div className="w-24 h-24 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-[32px] flex items-center justify-center text-white text-4xl font-black shadow-2xl shadow-blue-200">
+                                {incomingCall.callerName.charAt(0)}
+                            </div>
+                            <div className="absolute -bottom-2 -right-2 w-8 h-8 bg-green-500 rounded-full border-4 border-white animate-pulse" />
                         </div>
-                        <h3 className="text-2xl font-black text-gray-900 mb-2">{incomingCall.callerName}</h3>
-                        <p className="text-gray-500 font-bold mb-8 animate-pulse italic">Đang gọi cho bạn...</p>
+                        <h3 className="text-2xl font-black text-gray-900 mb-1">{incomingCall.callerName}</h3>
+                        <p className="text-blue-600 text-[10px] font-black uppercase tracking-[0.2em] mb-8 animate-pulse">Cuộc gọi đến...</p>
 
                         <div className="flex gap-4 w-full">
                             <button
                                 onClick={rejectCall}
-                                className="flex-1 bg-red-500 hover:bg-red-600 text-white rounded-2xl py-4 flex items-center justify-center gap-2 transition-all shadow-lg shadow-red-100"
+                                title="Từ chối"
+                                className="flex-1 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-2xl py-4 flex items-center justify-center transition-all border border-rose-100"
                             >
                                 <PhoneOff className="w-6 h-6" />
-                                <span className="font-black uppercase text-sm">Từ chối</span>
                             </button>
                             <button
                                 onClick={acceptCall}
-                                className="flex-1 bg-green-500 hover:bg-green-600 text-white rounded-2xl py-4 flex items-center justify-center gap-2 transition-all shadow-lg shadow-green-100"
+                                title="Chấp nhận"
+                                className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white rounded-2xl py-4 flex items-center justify-center transition-all shadow-xl shadow-emerald-200"
                             >
                                 <Phone className="w-6 h-6" />
-                                <span className="font-black uppercase text-sm">Nghe</span>
                             </button>
                         </div>
                     </div>
@@ -463,123 +582,168 @@ export default function ChatCallManager({ userId, userName }: ChatCallManagerPro
             )}
 
             {activeCall && (
-                <div className={`bg-gray-900 rounded-[32px] overflow-hidden shadow-2xl flex flex-col transition-all duration-300 ${isMinimized ? 'w-full h-full' : 'max-w-4xl w-full h-[80vh]'}`}>
-                    {/* Call Header */}
-                    <div className="p-4 bg-gray-800/50 flex items-center justify-between">
+                <div className={`transition-all duration-500 ease-in-out overflow-hidden shadow-2xl ${isMinimized
+                    ? 'bg-slate-900/90 backdrop-blur-xl border border-white/10 rounded-[32px] p-3 w-full'
+                    : 'bg-gray-900 rounded-[40px] w-full max-w-4xl h-[80vh] flex flex-col'
+                    }`}>
+                    {isMinimized ? (
+                        /* Sleek Minimized UI */
                         <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-indigo-500 rounded-full flex items-center justify-center text-white font-bold">
-                                {(activeCall.callerId === userId ? activeCall.recipientId.charAt(0) : activeCall.callerId.charAt(0))}
+                            <div className="relative flex-shrink-0">
+                                <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl flex items-center justify-center text-white font-black text-lg">
+                                    {(activeCall.callerId === userId ? (activeCall.recipientId === 'admin_support' ? 'S' : activeCall.recipientId.charAt(0)) : activeCall.callerName.charAt(0))}
+                                </div>
+                                <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-slate-900" />
                             </div>
-                            <div>
-                                <h4 className="text-white font-bold text-sm">
-                                    {activeCall.callerId === userId ? 'Đang gọi...' : activeCall.callerName}
+
+                            <div className="flex-1 min-w-0">
+                                <h4 className="text-white font-black text-[11px] truncate uppercase tracking-wider">
+                                    {activeCall.callerId === userId ? 'Đang kết nối...' : activeCall.callerName}
                                 </h4>
-                                <p className="text-gray-400 text-[10px] font-mono">{formatDuration(callDuration)}</p>
-                            </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            {isMinimized && (
-                                <>
-                                    <button
-                                        onClick={toggleMute}
-                                        className={`p-2 rounded-full transition-all ${isMuted ? 'bg-red-500 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-700'}`}
-                                    >
-                                        {isMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
-                                    </button>
-                                    <button
-                                        onClick={endCall}
-                                        className="p-2 bg-red-600 hover:bg-red-700 text-white rounded-full transition-all"
-                                    >
-                                        <PhoneOff className="w-4 h-4" />
-                                    </button>
-                                </>
-                            )}
-                            <button onClick={() => setIsMinimized(!isMinimized)} className="p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded-full transition-all">
-                                {isMinimized ? <Maximize2 className="w-4 h-4" /> : <Minimize2 className="w-5 h-5" />}
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* Video Area */}
-                    <div className="flex-1 relative bg-black">
-                        {activeCall.type === 'video' ? (
-                            <>
-                                <video
-                                    ref={remoteVideoRef}
-                                    autoPlay
-                                    playsInline
-                                    className="w-full h-full object-cover"
-                                />
-                                <video
-                                    ref={localVideoRef}
-                                    autoPlay
-                                    playsInline
-                                    muted
-                                    className="absolute bottom-4 right-4 w-32 md:w-48 aspect-video object-cover rounded-xl border-2 border-white/20 shadow-xl"
-                                />
-                            </>
-                        ) : (
-                            <div className="w-full h-full flex flex-col items-center justify-center">
-                                <div className="w-32 h-32 bg-indigo-600 rounded-full flex items-center justify-center text-white text-5xl font-black mb-6 shadow-2xl animate-pulse">
-                                    {(activeCall.callerId === userId ? '?' : activeCall.callerName.charAt(0))}
-                                </div>
-                                <div className="flex gap-1 h-8 items-end">
-                                    {[1, 2, 3, 4, 5].map(i => (
-                                        <div key={i} className="w-1 bg-indigo-400 rounded-full animate-audio-bar" style={{ animationDelay: `${i * 0.1}s` }}></div>
-                                    ))}
+                                <div className="flex items-center gap-1.5">
+                                    <div className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
+                                    <p className="text-gray-400 text-[10px] font-mono tracking-widest">{formatDuration(callDuration)}</p>
                                 </div>
                             </div>
-                        )}
 
-                        {activeCall.status === 'ringing' && (
-                            <div className="absolute inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-                                <p className="text-white font-black text-xl animate-pulse">ĐANG CHỜ KẾT NỐI...</p>
+                            <div className="flex items-center gap-1">
+                                <button
+                                    onClick={toggleMute}
+                                    className={`p-2 rounded-xl transition-all ${isMuted ? 'bg-rose-500 text-white' : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10'}`}
+                                >
+                                    {isMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                                </button>
+                                <button
+                                    onClick={() => setIsMinimized(false)}
+                                    className="p-2 bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 rounded-xl transition-all"
+                                >
+                                    <Maximize2 className="w-4 h-4" />
+                                </button>
+                                <button
+                                    onClick={endCall}
+                                    className="p-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl transition-all"
+                                >
+                                    <PhoneOff className="w-4 h-4" />
+                                </button>
                             </div>
-                        )}
-                    </div>
+                        </div>
+                    ) : (
+                        /* Expanded Full UI */
+                        <>
+                            <div className="p-6 bg-white/5 border-b border-white/5 flex items-center justify-between backdrop-blur-md">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl flex items-center justify-center text-white font-black text-xl">
+                                        {(activeCall.callerId === userId ? (activeCall.recipientId === 'admin_support' ? 'S' : activeCall.recipientId.charAt(0)) : activeCall.callerName.charAt(0))}
+                                    </div>
+                                    <div>
+                                        <h4 className="text-white font-black text-lg">
+                                            {activeCall.callerId === userId ? 'Đang thực hiện cuộc gọi' : activeCall.callerName}
+                                        </h4>
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                                            <p className="text-gray-400 text-xs font-mono tracking-widest uppercase">{formatDuration(callDuration)}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <button onClick={() => setIsMinimized(true)} className="p-3 bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 rounded-2xl transition-all">
+                                    <Minimize2 className="w-6 h-6" />
+                                </button>
+                            </div>
 
-                    {/* Call Controls */}
-                    <div className="p-6 bg-gray-800/80 backdrop-blur-md flex items-center justify-center gap-6">
-                        <button
-                            onClick={toggleMute}
-                            className={`p-4 rounded-full transition-all ${isMuted ? 'bg-red-500 text-white' : 'bg-gray-700 text-gray-200 hover:bg-gray-600'}`}
-                        >
-                            {isMuted ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}
-                        </button>
+                            <div className="flex-1 relative bg-black flex items-center justify-center overflow-hidden">
+                                {activeCall.type === 'video' ? (
+                                    <>
+                                        <video
+                                            ref={remoteVideoRef}
+                                            autoPlay
+                                            playsInline
+                                            className="w-full h-full object-cover opacity-90"
+                                        />
+                                        <div className="absolute top-6 left-6 px-4 py-2 bg-black/40 backdrop-blur-md rounded-xl border border-white/10 text-[10px] font-black text-white uppercase tracking-widest">
+                                            Trực tiếp
+                                        </div>
+                                        <video
+                                            ref={localVideoRef}
+                                            autoPlay
+                                            playsInline
+                                            muted
+                                            className="absolute bottom-6 right-6 w-48 md:w-64 aspect-video object-cover rounded-[24px] border-2 border-white/20 shadow-2xl z-20"
+                                        />
+                                    </>
+                                ) : (
+                                    <div className="w-full h-full flex flex-col items-center justify-center relative">
+                                        <div className="absolute inset-0 bg-gradient-to-b from-blue-600/10 via-transparent to-purple-600/10" />
+                                        <div className="relative">
+                                            <div className="w-40 h-40 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-[48px] flex items-center justify-center text-white text-7xl font-black mb-12 shadow-2xl relative z-10">
+                                                {(activeCall.callerId === userId ? (activeCall.recipientId === 'admin_support' ? 'S' : 'C') : activeCall.callerName.charAt(0))}
+                                            </div>
+                                            <div className="absolute -inset-4 bg-blue-500/20 rounded-[56px] animate-ping duration-1000" />
+                                        </div>
+                                        <div className="flex gap-1.5 h-12 items-center relative z-10">
+                                            {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
+                                                <div key={i} className="w-1.5 bg-blue-400/50 rounded-full animate-audio-bar" style={{ height: '20px', animationDelay: `${i * 0.1}s` }}></div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
 
-                        <button
-                            onClick={endCall}
-                            className="p-5 bg-red-600 hover:bg-red-700 text-white rounded-full transition-all shadow-xl shadow-red-900/40 hover:scale-110 active:scale-90"
-                        >
-                            <PhoneOff className="w-8 h-8" />
-                        </button>
+                                {activeCall.status === 'ringing' && (
+                                    <div className="absolute inset-0 flex items-center justify-center bg-black/60 backdrop-blur-md z-30">
+                                        <div className="text-center">
+                                            <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-6" />
+                                            <p className="text-white font-black text-xl tracking-[0.2em] uppercase">Đang kết nối...</p>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
 
-                        {activeCall.type === 'video' && (
-                            <button
-                                onClick={toggleVideo}
-                                className={`p-4 rounded-full transition-all ${isVideoOff ? 'bg-red-500 text-white' : 'bg-gray-700 text-gray-200 hover:bg-gray-600'}`}
-                            >
-                                {isVideoOff ? <VideoOff className="w-6 h-6" /> : <Video className="w-6 h-6" />}
-                            </button>
-                        )}
-                    </div>
+                            <div className="p-10 bg-white/5 backdrop-blur-xl border-t border-white/5 flex items-center justify-center gap-8">
+                                <button
+                                    onClick={toggleMute}
+                                    className={`p-5 rounded-[24px] transition-all ${isMuted ? 'bg-rose-500 text-white shadow-lg shadow-rose-200/20' : 'bg-white/5 text-gray-200 hover:bg-white/10 border border-white/10'}`}
+                                >
+                                    {isMuted ? <MicOff className="w-7 h-7" /> : <Mic className="w-7 h-7" />}
+                                </button>
+
+                                <button
+                                    onClick={endCall}
+                                    className="p-7 bg-rose-600 hover:bg-rose-700 text-white rounded-[32px] transition-all shadow-2xl shadow-rose-900/40 hover:scale-110 active:scale-90"
+                                >
+                                    <PhoneOff className="w-10 h-10" />
+                                </button>
+
+                                {activeCall.type === 'video' ? (
+                                    <button
+                                        onClick={toggleVideo}
+                                        className={`p-5 rounded-[24px] transition-all ${isVideoOff ? 'bg-rose-500 text-white shadow-lg shadow-rose-200/20' : 'bg-white/5 text-gray-200 hover:bg-white/10 border border-white/10'}`}
+                                    >
+                                        {isVideoOff ? <VideoOff className="w-7 h-7" /> : <Video className="w-7 h-7" />}
+                                    </button>
+                                ) : (
+                                    <button
+                                        onClick={upgradeToVideo}
+                                        className="p-5 rounded-[24px] bg-white/5 text-gray-200 hover:bg-white/10 border border-white/10 transition-all"
+                                        title="Bật camera"
+                                    >
+                                        <Video className="w-7 h-7" />
+                                    </button>
+                                )}
+                            </div>
+                        </>
+                    )}
                 </div>
             )}
 
             <style jsx>{`
-                @keyframes bounce-subtle {
-                    0%, 100% { transform: translateY(0); }
-                    50% { transform: translateY(-10px); }
-                }
-                .animate-bounce-subtle {
-                    animation: bounce-subtle 2s infinite ease-in-out;
-                }
                 @keyframes audio-bar {
-                    0%, 100% { height: 10px; }
-                    50% { height: 32px; }
+                    0%, 100% { height: 12px; opacity: 0.3; }
+                    50% { height: 40px; opacity: 1; }
                 }
                 .animate-audio-bar {
                     animation: audio-bar 0.8s infinite ease-in-out;
+                }
+                .inset-0 {
+                    top: 0; right: 0; bottom: 0; left: 0;
                 }
             `}</style>
         </div>

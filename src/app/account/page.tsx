@@ -24,7 +24,9 @@ import {
   Zap,
   TrendingUp,
   Clock,
-  LogOut
+  LogOut,
+  Building,
+  History as HistoryIcon
 } from 'lucide-react'
 import { useAuth } from '@/contexts/auth-context'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -406,6 +408,24 @@ export default function AccountPage() {
             </div>
           </Link>
 
+          {/* QUẢN LÝ TỔ CHỨC B2B - NEW Bento Card */}
+          <Link href="/account/organization" className="md:col-span-2 lg:col-span-4 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-[40px] p-8 border border-blue-500 group hover:scale-[1.02] transition-all shadow-xl shadow-blue-200 relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:opacity-20 transition-all group-hover:rotate-12">
+              <Building size={120} className="text-white" />
+            </div>
+            <div className="relative z-10 flex flex-col h-full text-white">
+              <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center text-white mb-6 group-hover:bg-white group-hover:text-blue-600 transition-all border border-white/20">
+                <Building size={20} />
+              </div>
+              <h3 className="text-xl font-black tracking-tight uppercase mb-1">Tổ chức B2B</h3>
+              <p className="text-xs text-blue-100 font-medium">Mua hàng cho doanh nghiệp và quản lý đội ngũ của bạn.</p>
+              <div className="mt-auto flex items-center gap-2">
+                <span className="px-3 py-1 bg-white/10 rounded-full text-[9px] font-black uppercase tracking-widest border border-white/10">Trực tuyến</span>
+                <span className="text-[9px] font-black uppercase tracking-widest text-blue-200">Quản lý ngay</span>
+              </div>
+            </div>
+          </Link>
+
           {/* THÔNG TIN CÁ NHÂN - Medium Bento Card */}
           <Link href="/account/profile" className="md:col-span-1 lg:col-span-4 bg-white rounded-[40px] p-8 border border-slate-200 group hover:border-indigo-400 transition-all shadow-sm relative overflow-hidden">
             <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-all">
@@ -497,6 +517,15 @@ export default function AccountPage() {
               iconColor: 'text-rose-600',
               hoverBg: 'group-hover:bg-rose-600'
             },
+            {
+              label: 'Trả hàng',
+              icon: HistoryIcon,
+              href: '/account/returns',
+              count: 'Lịch sử đổi trả',
+              iconBg: 'bg-orange-50',
+              iconColor: 'text-orange-600',
+              hoverBg: 'group-hover:bg-orange-600'
+            },
           ].map((item) => (
             <Link key={item.label} href={item.href} className="md:col-span-1 lg:col-span-3 bg-white rounded-[40px] p-8 border border-slate-200 group hover:border-slate-400 transition-all shadow-sm">
               <div className="flex flex-col h-full items-center text-center">
@@ -530,7 +559,7 @@ export default function AccountPage() {
           </button>
           <p className="mt-6 text-[10px] font-bold text-slate-400 uppercase tracking-widest opacity-50">Phiên bản 2.5.0 • SmartBuild ERP Client</p>
         </div>
-      </div>
-    </div>
+      </div >
+    </div >
   )
 }

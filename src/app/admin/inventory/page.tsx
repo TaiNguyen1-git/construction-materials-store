@@ -1,19 +1,21 @@
 // src/app/admin/inventory/page.tsx
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { toast } from 'react-hot-toast'
 import { fetchWithAuth } from '@/lib/api-client'
 import {
   RefreshCw, AlertTriangle, CheckCircle, Package, ShoppingCart,
   ChevronDown, ChevronUp, Sparkles, Filter, Search, Plus,
   Truck, ArrowRight, BarChart3, Settings, Boxes, LayoutGrid, X,
-  History, Download, ArrowUpRight, ArrowDownRight, User
+  History, Download, ArrowUpRight, ArrowDownRight, User, MapPin
 } from 'lucide-react'
 import Pagination from '@/components/Pagination'
 import InventoryAnalytics from '@/components/admin/InventoryAnalytics'
 import InventoryManagement from '@/components/admin/InventoryManagement'
 import SmartInventoryAlerts from '@/components/admin/SmartInventoryAlerts'
+import WMSManagement from '@/components/admin/WMSManagement'
 
 interface Product {
   id: string
@@ -63,6 +65,14 @@ interface PurchaseRecommendation {
 }
 
 export default function InventoryPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <InventoryContent />
+    </Suspense>
+  )
+}
+
+function InventoryContent() {
   const [products, setProducts] = useState<Product[]>([])
   const [movements, setMovements] = useState<InventoryMovement[]>([])
   const [predictions, setPredictions] = useState<InventoryPrediction[]>([])
@@ -71,11 +81,13 @@ export default function InventoryPage() {
   const [refreshing, setRefreshing] = useState(false)
   const [showAdjustModal, setShowAdjustModal] = useState(false)
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
-  const [activeTab, setActiveTab] = useState<'stock' | 'alerts' | 'analytics' | 'management'>('stock')
+  const [activeTab, setActiveTab] = useState<'stock' | 'alerts' | 'analytics' | 'management' | 'wms'>('stock')
 
   const [filters, setFilters] = useState({ category: '', status: '', lowStock: false, timeframe: 'MONTH' })
   const pageSize = 20
   const [stockPage, setStockPage] = useState(1)
+  const searchParams = useSearchParams()
+  const supplierFilter = searchParams.get('supplier')
   const [searchTerm, setSearchTerm] = useState('')
 
   const [expandedSections, setExpandedSections] = useState({ stock: true, predictions: true, recommendations: true, movements: false })
@@ -161,6 +173,10 @@ export default function InventoryPage() {
     if (filters.category && (p.category as any)?.name !== filters.category && p.category !== filters.category) return false
     if (filters.status && p.status !== filters.status) return false
     if (filters.lowStock && p.stock > p.minStock) return false
+
+    // Supplier filter from URL
+    if (supplierFilter && (p as any).supplierId !== supplierFilter) return false
+
     return true
   })
 
@@ -188,7 +204,9 @@ export default function InventoryPage() {
             <span className="bg-blue-500 text-white p-2 rounded-2xl shadow-lg shadow-blue-200"><Boxes size={24} /></span>
             Quản Lý Kho Hàng
           </h1>
-          <p className="text-sm font-bold text-slate-400 mt-1 uppercase tracking-widest">Giám Sát Chuỗi Cung Ứng Thời Gian Thực</p>
+          <p className="text-sm font-bold text-slate-400 mt-1 uppercase tracking-widest">
+            {supplierFilter ? `Đang lọc theo nhà cung cấp: ${products.find(p => (p as any).supplierId === supplierFilter)?.name || '...'}` : 'Giám Sát Chuỗi Cung Ứng Thời Gian Thực'}
+          </p>
         </div>
         <div className="flex gap-3">
           <button
@@ -239,6 +257,7 @@ export default function InventoryPage() {
           { id: 'stock', label: 'Tổng Quan Tồn Kho', icon: LayoutGrid },
           { id: 'alerts', label: 'Cảnh Báo Thông Minh', icon: Sparkles },
           { id: 'analytics', label: 'Phân Tích Sức Mua', icon: BarChart3 },
+          { id: 'wms', label: 'Vị Trí Kho (WMS)', icon: MapPin },
           { id: 'management', label: 'Cơ Chế Vận Hành', icon: Settings }
         ].map(tab => (
           <button
@@ -379,6 +398,7 @@ export default function InventoryPage() {
 
         {activeTab === 'alerts' && <SmartInventoryAlerts />}
         {activeTab === 'analytics' && <InventoryAnalytics predictions={predictions} onRefresh={fetchData} />}
+        {activeTab === 'wms' && <WMSManagement />} {/* Added WMSManagement component */}
         {activeTab === 'management' && <InventoryManagement recommendations={recommendations} movements={movements} />}
       </div>
 

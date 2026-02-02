@@ -122,6 +122,7 @@ export default function AdminLayout({
       icon: ShieldCheck,
       items: [
         { name: 'Quản Lý Nhà Thầu', href: '/admin/contractors', icon: Users },
+        { name: 'Quản Lý Nhà Cung Cấp', href: '/admin/suppliers', icon: Truck },
         { name: 'Xác Thực Đối Tác', href: '/admin/contractors/verify', icon: ShieldCheck },
       ]
     },

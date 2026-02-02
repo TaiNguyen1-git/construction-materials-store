@@ -9,6 +9,7 @@ import { useState, useEffect } from 'react'
 import { Link2, Copy, CheckCircle2, Clock, Eye, Trash2, Camera, QrCode, ExternalLink, Loader2, AlertTriangle, Download } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { fetchWithAuth } from '@/lib/api-client'
+import { toast } from 'react-hot-toast'
 
 interface WorkerReportWidgetProps {
     projectId: string

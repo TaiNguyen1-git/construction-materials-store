@@ -77,8 +77,8 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    // Set new cookies
-    AuthService.setAuthCookies(response, newAccessToken, newRefreshToken)
+    // Set new cookies (with role for portal-specific cookie)
+    AuthService.setAuthCookies(response, newAccessToken, newRefreshToken, user.role as UserRole)
 
     return response
   } catch (error) {

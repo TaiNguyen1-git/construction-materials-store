@@ -10,7 +10,11 @@ function getTokenFromRequest(request: NextRequest): string | null {
         return authHeader.slice(7)
     }
 
+    // Try all portal-specific cookies
     const cookieToken = request.cookies.get('auth_token')?.value
+        || request.cookies.get('admin_token')?.value
+        || request.cookies.get('contractor_token')?.value
+        || request.cookies.get('supplier_token')?.value
     if (cookieToken) {
         return cookieToken
     }

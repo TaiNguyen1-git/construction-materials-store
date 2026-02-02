@@ -3,6 +3,8 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { MessageSquare, X, Send, ShieldCheck, Phone, Video, Paperclip, Loader2, FileIcon } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { getFirebaseDatabase } from '@/lib/firebase'
+import { ref, onChildAdded, off } from 'firebase/database'
 
 interface Message {
     id: string
@@ -18,6 +20,7 @@ export default function SupplierChatSupport() {
     const [messages, setMessages] = useState<Message[]>([])
     const [newMessage, setNewMessage] = useState('')
     const [isUploading, setIsUploading] = useState(false)
+    const [conversationId, setConversationId] = useState<string | null>(null)
     const scrollRef = useRef<HTMLDivElement>(null)
     const fileInputRef = useRef<HTMLInputElement>(null)
     const [supplierId, setSupplierId] = useState<string | null>(null)
@@ -31,10 +34,42 @@ export default function SupplierChatSupport() {
 
         if (storedId) {
             fetchMessages(storedId)
-            const interval = setInterval(() => fetchMessages(storedId), 5000)
-            return () => clearInterval(interval)
         }
     }, [])
+
+    // Firebase real-time listener for new messages
+    useEffect(() => {
+        if (!conversationId) return
+
+        const db = getFirebaseDatabase()
+        const messagesRef = ref(db, `conversations/${conversationId}/messages`)
+
+        onChildAdded(messagesRef, (snapshot) => {
+            const newMsg = snapshot.val()
+            if (newMsg) {
+                const formattedMsg: Message = {
+                    id: newMsg.id,
+                    message: newMsg.content || '',
+                    isAdmin: newMsg.senderId !== supplierId,
+                    fileUrl: newMsg.fileUrl,
+                    fileType: newMsg.fileType,
+                    createdAt: newMsg.createdAt
+                }
+
+                setMessages(prev => {
+                    // Prevent duplicates
+                    if (prev.some(m => m.id === formattedMsg.id)) {
+                        return prev
+                    }
+                    return [...prev, formattedMsg]
+                })
+            }
+        })
+
+        return () => {
+            off(messagesRef)
+        }
+    }, [conversationId, supplierId])
 
     useEffect(() => {
         if (scrollRef.current) {
@@ -48,8 +83,13 @@ export default function SupplierChatSupport() {
             const data = await res.json()
             if (data.success && data.data) {
                 setMessages(data.data.messages || [])
+                if (data.data.conversationId) {
+                    setConversationId(data.data.conversationId)
+                }
             }
-        } catch (error) { }
+        } catch (error) {
+            console.error('Failed to fetch messages:', error)
+        }
     }
 
     const handleSend = async (fileUrl?: string, fileType?: string) => {
@@ -60,7 +100,7 @@ export default function SupplierChatSupport() {
 
         // Optimistic update
         const tempId = Date.now().toString()
-        const tempMsg = {
+        const tempMsg: Message = {
             id: tempId,
             message: msg || (fileUrl ? 'Đã gửi tệp đính kèm' : ''),
             isAdmin: false,
@@ -83,11 +123,21 @@ export default function SupplierChatSupport() {
                 })
             })
             const data = await res.json()
-            if (data.success) {
-                fetchMessages(supplierId)
+            if (data.success && data.data) {
+                // Replace temp message with real one
+                setMessages(prev => prev.map(m =>
+                    m.id === tempId ? { ...m, id: data.data.id } : m
+                ))
+
+                // Set conversationId if not set
+                if (!conversationId && data.data.conversationId) {
+                    setConversationId(data.data.conversationId)
+                }
             }
         } catch (error) {
-            console.error('Failed to send')
+            console.error('Failed to send:', error)
+            // Remove failed message
+            setMessages(prev => prev.filter(m => m.id !== tempId))
         }
     }
 
@@ -119,12 +169,7 @@ export default function SupplierChatSupport() {
 
     const handleCall = (type: 'audio' | 'video') => {
         if (typeof (window as any).__startCall === 'function' && supplierId) {
-            // Target 'admin' as the recipient. Since this system mimics peer-to-peer, 
-            // we assume there's an active admin with ID 'admin' or we broadcast.
-            // For now, let's assume a fixed admin ID or use a mechanism to notify support.
-            // Since we don't have a real admin ID, we'll try calling 'admin_default' or similar.
-            // In a real app, we'd fetch the available support agent's ID.
-            (window as any).__startCall('admin_support', 'Tổng đài hỗ trợ', 'support_conv', type)
+            (window as any).__startCall('admin_support', 'Tổng đài hỗ trợ', conversationId || 'support_conv', type)
         } else {
             alert('Hệ thống gọi chưa sẵn sàng. Vui lòng tải lại trang.')
         }
@@ -180,8 +225,8 @@ export default function SupplierChatSupport() {
                             {messages.map((msg) => (
                                 <div key={msg.id} className={`flex ${msg.isAdmin ? 'justify-start' : 'justify-end'}`}>
                                     <div className={`max-w-[85%] p-3 rounded-2xl text-sm shadow-sm ${msg.isAdmin
-                                            ? 'bg-white text-slate-800 border border-slate-200 rounded-tl-none'
-                                            : 'bg-gradient-to-br from-blue-600 to-indigo-600 text-white rounded-tr-none'
+                                        ? 'bg-white text-slate-800 border border-slate-200 rounded-tl-none'
+                                        : 'bg-gradient-to-br from-blue-600 to-indigo-600 text-white rounded-tr-none'
                                         }`}>
                                         {msg.fileUrl ? (
                                             <div className="mb-1">
@@ -195,7 +240,37 @@ export default function SupplierChatSupport() {
                                                 )}
                                             </div>
                                         ) : null}
-                                        {msg.message && <p>{msg.message}</p>}
+                                        {msg.message?.startsWith('[CALL_LOG]:') ? (() => {
+                                            try {
+                                                const log = JSON.parse(msg.message.replace('[CALL_LOG]:', ''))
+                                                const mins = Math.floor(log.duration / 60)
+                                                const secs = log.duration % 60
+                                                const durationStr = mins > 0 ? `${mins}ph ${secs}s` : `${secs}s`
+                                                const isVideo = log.type === 'video'
+                                                return (
+                                                    <div className="flex flex-col gap-2 min-w-[140px]">
+                                                        <div className="flex items-center gap-2">
+                                                            <div className={`p-2 rounded-full ${msg.isAdmin ? 'bg-slate-100' : 'bg-white/20'}`}>
+                                                                {isVideo ? <Video className="w-4 h-4" /> : <Phone className="w-4 h-4" />}
+                                                            </div>
+                                                            <div>
+                                                                <p className="font-bold text-[12px]">{isVideo ? 'Cuộc gọi video' : 'Cuộc gọi thoại'}</p>
+                                                                <p className="text-[10px] opacity-70">{durationStr}</p>
+                                                            </div>
+                                                        </div>
+                                                        <button
+                                                            onClick={() => handleCall(isVideo ? 'video' : 'audio')}
+                                                            className={`w-full py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${msg.isAdmin ? 'bg-blue-600 text-white' : 'bg-white text-blue-600'
+                                                                }`}
+                                                        >
+                                                            Gọi lại
+                                                        </button>
+                                                    </div>
+                                                )
+                                            } catch (e) {
+                                                return <p>{msg.message}</p>
+                                            }
+                                        })() : msg.message && <p>{msg.message}</p>}
                                         <span className="text-[10px] opacity-70 mt-1 block text-right">
                                             {new Date(msg.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
                                         </span>

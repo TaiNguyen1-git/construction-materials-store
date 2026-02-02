@@ -1,9 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
+// Admin support ID used for supplier conversations
+const ADMIN_SUPPORT_ID = 'admin_support'
+const ADMIN_SUPPORT_NAME = 'Hỗ trợ SmartBuild'
+
 export async function POST(request: NextRequest) {
     try {
         const userId = request.headers.get('x-user-id')
+        const userRole = request.headers.get('x-user-role')
+
         if (!userId) {
             return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
         }
@@ -15,14 +21,46 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ success: false, error: 'Missing required fields' }, { status: 400 })
         }
 
-        const user = await prisma.user.findUnique({ where: { id: userId } })
-        if (!user) return NextResponse.json({ success: false, error: 'User not found' }, { status: 404 })
+        // Get conversation to determine if it's a supplier chat
+        const conv = await prisma.conversation.findUnique({ where: { id: conversationId } })
+        if (!conv) {
+            return NextResponse.json({ success: false, error: 'Conversation not found' }, { status: 404 })
+        }
+
+        // Check if this is a supplier conversation (has admin_support as participant)
+        const isSupplierConv = conv.participant1Id === ADMIN_SUPPORT_ID || conv.participant2Id === ADMIN_SUPPORT_ID
+        const isAdminUser = userRole === 'MANAGER' || userRole === 'EMPLOYEE'
+
+        // Determine sender ID and name
+        let senderId = userId
+        let senderName = body.senderName || 'Người dùng'
+
+        if (isSupplierConv && isAdminUser) {
+            // Admin sending in supplier conversation - use admin_support identity
+            senderId = ADMIN_SUPPORT_ID
+            senderName = ADMIN_SUPPORT_NAME
+        } else if (!body.senderName) {
+            // Regular user or supplier (if not providing name) - get their info
+            const [user, supplier] = await Promise.all([
+                prisma.user.findUnique({ where: { id: userId } }),
+                prisma.supplier.findUnique({ where: { id: userId } })
+            ])
+
+            if (user) {
+                senderName = user.name
+            } else if (supplier) {
+                senderName = supplier.name
+            } else if (!userId.startsWith('guest_')) {
+                // If not found and not a guest, it might be an issue, but let's not 404
+                // senderName stays 'Người dùng' or body.senderName
+            }
+        }
 
         const message = await prisma.message.create({
             data: {
                 conversationId,
-                senderId: userId,
-                senderName: user.name,
+                senderId,
+                senderName,
                 content: content || '',
                 fileUrl,
                 fileName,
@@ -31,22 +69,19 @@ export async function POST(request: NextRequest) {
             }
         })
 
-        // 1. Update conversation last message and unread counts
-        const conv = await prisma.conversation.findUnique({ where: { id: conversationId } })
-        if (conv) {
-            const isP1 = conv.participant1Id === userId
-            await prisma.conversation.update({
-                where: { id: conversationId },
-                data: {
-                    lastMessage: content || (fileUrl ? 'Đã gửi một tệp đính kèm' : ''),
-                    lastMessageAt: new Date(),
-                    unread1: isP1 ? conv.unread1 : conv.unread1 + 1,
-                    unread2: isP1 ? conv.unread2 + 1 : conv.unread2
-                }
-            })
-        }
+        // Update conversation last message and unread counts
+        const isP1 = conv.participant1Id === senderId
+        await prisma.conversation.update({
+            where: { id: conversationId },
+            data: {
+                lastMessage: content || (fileUrl ? 'Đã gửi một tệp đính kèm' : ''),
+                lastMessageAt: new Date(),
+                unread1: isP1 ? conv.unread1 : conv.unread1 + 1,
+                unread2: isP1 ? conv.unread2 + 1 : conv.unread2
+            }
+        })
 
-        // 2. Push to Firebase Realtime Database for Instant Sync
+        // Push to Firebase Realtime Database for Instant Sync
         try {
             const { getFirebaseDatabase } = await import('@/lib/firebase')
             const { ref, push, set } = await import('firebase/database')
@@ -58,8 +93,8 @@ export async function POST(request: NextRequest) {
             await set(newMessageRef, {
                 id: message.id,
                 tempId: tempId || null,
-                senderId: userId,
-                senderName: user.name,
+                senderId,
+                senderName,
                 content: content || '',
                 fileUrl: fileUrl || null,
                 fileName: fileName || null,
@@ -74,8 +109,9 @@ export async function POST(request: NextRequest) {
 
         return NextResponse.json({ success: true, data: message })
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Send message error:', error)
-        return NextResponse.json({ success: false, error: error.message }, { status: 500 })
+        return NextResponse.json({ success: false, error: error instanceof Error ? error.message : 'Unknown error' }, { status: 500 })
     }
 }
+

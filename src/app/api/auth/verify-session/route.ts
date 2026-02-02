@@ -18,7 +18,12 @@ function hashToken(token: string): string {
 export async function POST(request: NextRequest) {
     try {
         // Read access token from cookies (HttpOnly)
-        const accessToken = request.cookies.get('auth_token')?.value
+        // Check portal-specific cookies FIRST, then fall back to generic auth_token
+        // This prevents reading stale auth_token when a newer portal cookie exists
+        const accessToken = request.cookies.get('admin_token')?.value
+            || request.cookies.get('contractor_token')?.value
+            || request.cookies.get('supplier_token')?.value
+            || request.cookies.get('auth_token')?.value
 
         if (!accessToken) {
             return NextResponse.json(

@@ -26,7 +26,9 @@ export async function GET(request: NextRequest) {
                 bankName: true,
                 bankAccountNumber: true,
                 bankAccountName: true,
-            }
+                city: true,
+                is2FAEnabled: true,
+            } as any
         })
 
         if (!supplier) {

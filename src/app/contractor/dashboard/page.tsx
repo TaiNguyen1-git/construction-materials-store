@@ -17,7 +17,7 @@ import NotificationPrefsWidget from '../components/NotificationPrefsWidget'
 import FinancialDashboard from '@/components/contractor/FinancialDashboard'
 import ContractorOnboardingBanner from '@/components/ContractorOnboardingBanner'
 import StatsOverview from '@/components/contractor/StatsOverview'
-import { Building2 } from 'lucide-react'
+import { Building2, Users as UsersIcon } from 'lucide-react'
 import RecentOrdersWidget from '@/components/contractor/RecentOrdersWidget'
 import { ContractorProfile } from '@prisma/client'
 
@@ -135,20 +135,36 @@ export default function ContractorDashboardPage() {
                             {/* Thông báo - Luôn hiển thị ở trên cùng sidebar */}
                             <NotificationPrefsWidget />
 
-                            {/* Banner hỗ trợ */}
+                            {/* Tổ chức B2B */}
                             <div className="bg-gradient-to-br from-indigo-900 to-primary-900 rounded-2xl p-6 text-white text-center shadow-lg relative overflow-hidden">
                                 <div className="relative z-10">
-                                    <h3 className="font-bold mb-2">Cần hỗ trợ?</h3>
-                                    <p className="text-indigo-100 text-sm mb-4">Đội ngũ CSKH chuyên nghiệp luôn sẵn sàng 24/7</p>
+                                    <h3 className="font-bold mb-2 text-left flex items-center gap-2">
+                                        <UsersIcon className="w-5 h-5 text-indigo-300" />
+                                        Tổ chức B2B
+                                    </h3>
+                                    <p className="text-indigo-100 text-[11px] mb-4 text-left leading-relaxed">Quản lý đội ngũ thợ, phân quyền thu mua và chia sẻ dự án trong tổ chức của bạn.</p>
+                                    <Link href="/contractor/organization" className="block outline-none">
+                                        <button className="bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs font-bold py-2.5 px-4 rounded-xl transition-all w-full backdrop-blur-md">
+                                            Quản lý đội nhóm
+                                        </button>
+                                    </Link>
+                                </div>
+                                <div className="absolute top-[-20px] right-[-20px] opacity-10">
+                                    <Building2 className="w-24 h-24" />
+                                </div>
+                            </div>
+
+                            {/* Banner hỗ trợ */}
+                            <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm relative overflow-hidden">
+                                <div className="relative z-10">
+                                    <h3 className="font-bold mb-2 text-gray-900">Cần hỗ trợ?</h3>
+                                    <p className="text-gray-500 text-xs mb-4">Đội ngũ CSKH chuyên nghiệp luôn sẵn sàng 24/7</p>
                                     <button
                                         onClick={handleContactSupport}
-                                        className="bg-white text-primary-900 text-sm font-bold py-2 px-4 rounded-lg hover:bg-indigo-50 transition-colors w-full shadow-md hover:shadow-lg active:scale-95 transform duration-150"
+                                        className="bg-gray-900 text-white text-sm font-bold py-2 px-4 rounded-lg hover:bg-black transition-colors w-full shadow-md hover:shadow-lg active:scale-95 transform duration-150"
                                     >
                                         Chat ngay
                                     </button>
-                                </div>
-                                <div className="absolute top-0 right-0 p-4 opacity-10">
-                                    <Building2 className="w-16 h-16" />
                                 </div>
                             </div>
                         </div>

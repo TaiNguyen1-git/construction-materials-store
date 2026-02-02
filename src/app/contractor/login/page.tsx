@@ -45,6 +45,8 @@ export default function ContractorLoginPage() {
             localStorage.removeItem('refresh_token')
             sessionStorage.removeItem('access_token')
             sessionStorage.removeItem('user')
+            // Clear contractor-specific cookie
+            document.cookie = 'contractor_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT'
             document.cookie = 'auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT'
         }
         window.location.replace('/contractor')
@@ -105,6 +107,12 @@ export default function ContractorLoginPage() {
             }
 
             if (data.user) localStorage.setItem('user', JSON.stringify(data.user))
+
+            // Set cookie for middleware (contractor-specific)
+            const token = data.accessToken || data.token
+            if (token) {
+                document.cookie = `contractor_token=${token}; path=/; max-age=604800; SameSite=Lax`
+            }
 
             // Redirect
             const redirectUrl = getPostLoginRedirectUrl(data.user) || '/contractor'

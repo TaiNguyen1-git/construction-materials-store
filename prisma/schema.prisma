@@ -103,6 +103,7 @@ model User {
   otpExpiresAt     DateTime?
   is2FAEnabled     Boolean   @default(false)
   hasSetTwoFactor  Boolean   @default(false)
+  twoFactorSecret  String?   // TOTP secret for 2FA
 
   // Relationships
   employee Employee?
@@ -115,6 +116,7 @@ model User {
   @@index([role])
   supplier      Supplier?
   sessions UserSession[]
+  organizationMemberships OrganizationMember[]
 }
 
 // User Session Management (for multi-device/tab support)
@@ -229,6 +231,12 @@ model Customer {
   contractorProfile     ContractorProfile?
   wallet                Wallet?
   loyaltyVouchers       LoyaltyVoucher[]
+  
+  // B2B Organization
+  organizationId        String?      @db.ObjectId
+  organization          Organization? @relation(fields: [organizationId], references: [id])
+  
+  customerReturns       CustomerReturn[]
   
   @@map("customers")
   @@index([customerType])
@@ -444,6 +452,7 @@ model Product {
   inventoryHistory InventoryHistory[]
   cartItems        CartItem[]
   purchaseReturnItems PurchaseReturnItem[]
+  customerReturnItems CustomerReturnItem[]
 
   @@map("products")
   @@index([categoryId])
@@ -475,6 +484,7 @@ model InventoryItem {
   // Relationships
   product   Product             @relation(fields: [productId], references: [id])
   movements InventoryMovement[]
+  binLinks  InventoryBinLink[]
 
   @@map("inventory_items")
   @@index([availableQuantity])
@@ -563,6 +573,12 @@ model Order {
   delivery      OrderDelivery?
   deliveryPhases DeliveryPhase[]
   disputes      Dispute[]
+  customerReturns CustomerReturn[]
+  
+  // B2B Organization support
+  organizationId  String?      @db.ObjectId
+  organization    Organization? @relation(fields: [organizationId], references: [id])
+  b2bApprovalStatus B2BApprovalStatus @default(NOT_REQUIRED)
 
   @@map("orders")
   @@index([customerId])
@@ -697,6 +713,13 @@ model Supplier {
   bankAccountName   String?
 
   userId        String?  @unique @db.ObjectId // Optional: link to User table
+  
+  // 2FA & Profile Status
+  is2FAEnabled      Boolean  @default(false)
+  hasSetTwoFactor   Boolean  @default(false)
+  twoFactorSecret   String?
+  profileComplete   Boolean  @default(false)
+  
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -1187,6 +1210,10 @@ model Project {
   quoteRequests   QuoteRequest[]
 
   orders          Order[]
+
+  // B2B Organization support
+  organizationId  String?      @db.ObjectId
+  organization    Organization? @relation(fields: [organizationId], references: [id])
 
   @@map("projects")
   @@index([customerId])
@@ -1988,6 +2015,10 @@ model ConstructionProject {
   siteMaterialRequests SiteMaterialRequest[]
   expenses             ProjectExpense[]
   savedBy              SavedProject[]
+  
+  // B2B Organization support
+  organizationId  String?      @db.ObjectId
+  organization    Organization? @relation(fields: [organizationId], references: [id])
   
   @@map("construction_projects")
   @@index([status])
@@ -3302,5 +3333,161 @@ enum DocumentStatus {
   REJECTED
   EXPIRED
 }
+
+// ============================================
+// B2B ORGANIZATIONS FLOW
+// ============================================
+
+model Organization {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  name        String
+  taxCode     String?
+  address     String?
+  logo        String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  members     OrganizationMember[]
+  customers   Customer[]
+  orders      Order[]
+  projects    ConstructionProject[]
+  managedProjects Project[]
+  
+  @@map("organizations")
+}
+
+model OrganizationMember {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String   @db.ObjectId
+  userId         String   @db.ObjectId
+  role           OrganizationRole @default(BUYER)
+  joinedAt       DateTime @default(now())
+
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  user           User         @relation(fields: [userId], references: [id])
+
+  @@unique([organizationId, userId])
+  @@map("organization_members")
+}
+
+enum OrganizationRole {
+  OWNER
+  ADMIN
+  BUYER
+}
+
+enum B2BApprovalStatus {
+  NOT_REQUIRED
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+}
+
+enum WarehouseRackType {
+  RACK
+  OPEN_YARD
+  SILO
+  TANK
+  ZONE
+}
+
+enum WarehouseBinType {
+  SHELF_BIN
+  PILE
+  TANK_STORAGE
+  AREA
+}
+
+// ============================================
+// WAREHOUSE MANAGEMENT SYSTEM (WMS)
+// ============================================
+
+model WarehouseRack {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  name        String   // Rack A1, Shelf B2
+  description String?
+  warehouse   String   @default("Main Warehouse")
+  type        WarehouseRackType @default(RACK)
+  bins        WarehouseBin[]
+
+  @@map("warehouse_racks")
+}
+
+model WarehouseBin {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  rackId      String   @db.ObjectId
+  code        String   // A1-01, B2-05
+  capacity    Float?
+  type        WarehouseBinType @default(SHELF_BIN)
+  isActive    Boolean  @default(true)
+
+  rack        WarehouseRack @relation(fields: [rackId], references: [id])
+  stockItems  InventoryBinLink[]
+
+  @@unique([rackId, code])
+  @@map("warehouse_bins")
+}
+
+model InventoryBinLink {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  inventoryItemId String   @db.ObjectId
+  binId           String   @db.ObjectId
+  quantity        Float    @default(0)
+
+  inventoryItem   InventoryItem @relation(fields: [inventoryItemId], references: [id])
+  bin             WarehouseBin  @relation(fields: [binId], references: [id])
+
+  @@unique([inventoryItemId, binId])
+  @@map("inventory_bin_links")
+}
+
+// ============================================
+// CUSTOMER RETURNS FLOW
+// ============================================
+
+model CustomerReturn {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  orderId         String   @db.ObjectId
+  customerId      String   @db.ObjectId
+  reason          String
+  description     String?
+  status          CustomerReturnStatus @default(PENDING)
+  refundAmount    Float    @default(0)
+  evidenceUrls    String[]
+  adminNotes      String?
+  resolvedAt      DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  order           Order    @relation(fields: [orderId], references: [id])
+  customer        Customer @relation(fields: [customerId], references: [id])
+  items           CustomerReturnItem[]
+
+  @@map("customer_returns")
+}
+
+model CustomerReturnItem {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  returnId        String   @db.ObjectId
+  productId       String   @db.ObjectId
+  quantity        Float
+  unitPrice       Float
+
+  customerReturn  CustomerReturn @relation(fields: [returnId], references: [id])
+  product         Product        @relation(fields: [productId], references: [id])
+
+  @@map("customer_return_items")
+}
+
+enum CustomerReturnStatus {
+  PENDING
+  REVIEWING
+  APPROVED
+  REJECTED
+  COMPLETED
+  CANCELLED
+}
+
 
 

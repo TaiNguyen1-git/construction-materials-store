@@ -20,8 +20,11 @@ export function getTokenFromRequest(request: NextRequest): string | null {
     return authHeader.slice(7)
   }
 
-  // 🛡️ Try cookie (Standard HttpOnly behavior)
+  // 🛡️ Try cookie (Standard HttpOnly behavior) - check all portal-specific cookies
   const cookieToken = request.cookies.get('auth_token')?.value
+    || request.cookies.get('admin_token')?.value
+    || request.cookies.get('contractor_token')?.value
+    || request.cookies.get('supplier_token')?.value
   if (cookieToken) return cookieToken
 
   return null

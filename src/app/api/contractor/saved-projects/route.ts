@@ -8,7 +8,11 @@ import { AuthService } from '@/lib/auth'
  */
 export async function GET(request: NextRequest) {
     try {
+        // Try all portal-specific cookies
         const token = request.cookies.get('auth_token')?.value
+            || request.cookies.get('admin_token')?.value
+            || request.cookies.get('contractor_token')?.value
+            || request.cookies.get('supplier_token')?.value
         if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
         const payload = AuthService.verifyAccessToken(token)
@@ -47,7 +51,11 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
     try {
+        // Try all portal-specific cookies
         const token = request.cookies.get('auth_token')?.value
+            || request.cookies.get('admin_token')?.value
+            || request.cookies.get('contractor_token')?.value
+            || request.cookies.get('supplier_token')?.value
         if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
         const payload = AuthService.verifyAccessToken(token)

@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { User, Building, CreditCard, Save, Loader2, Info, Lock } from 'lucide-react'
+import { useState, useEffect, useCallback } from 'react'
+import { Building, CreditCard, Save, Loader2, Info, Lock, MapPin } from 'lucide-react'
 import toast from 'react-hot-toast'
+import TwoFactorAuthSetup from '@/components/supplier/TwoFactorAuthSetup'
 
 export default function SupplierProfilePage() {
     const [profile, setProfile] = useState<any>({
@@ -11,10 +12,12 @@ export default function SupplierProfilePage() {
         email: '',
         phone: '',
         address: '',
+        city: '',
         taxId: '',
         bankName: '',
         bankAccountNumber: '',
         bankAccountName: '',
+        is2FAEnabled: false
     })
     const [passwords, setPasswords] = useState({
         currentPassword: '',
@@ -24,25 +27,26 @@ export default function SupplierProfilePage() {
     const [loading, setLoading] = useState(true)
     const [isSaving, setIsSaving] = useState(false)
 
-    useEffect(() => {
-        const fetchProfile = async () => {
-            const supplierId = localStorage.getItem('supplier_id')
-            if (!supplierId) return
+    const fetchProfile = useCallback(async () => {
+        const supplierId = localStorage.getItem('supplier_id')
+        if (!supplierId) return
 
-            try {
-                const res = await fetch(`/api/supplier/profile?supplierId=${supplierId}`)
-                const result = await res.json()
-                if (result.success) {
-                    setProfile(result.data)
-                }
-            } catch (error) {
-                toast.error('Lỗi tải thông tin')
-            } finally {
-                setLoading(false)
+        try {
+            const res = await fetch(`/api/supplier/profile?supplierId=${supplierId}`)
+            const result = await res.json()
+            if (result.success) {
+                setProfile(result.data)
             }
+        } catch (error) {
+            toast.error('Lỗi tải thông tin')
+        } finally {
+            setLoading(false)
         }
-        fetchProfile()
     }, [])
+
+    useEffect(() => {
+        fetchProfile()
+    }, [fetchProfile])
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setProfile({ ...profile, [e.target.name]: e.target.value })
@@ -147,7 +151,7 @@ export default function SupplierProfilePage() {
                                 name="name"
                                 value={profile.name || ''}
                                 onChange={handleChange}
-                                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600"
                             />
                         </div>
                         <div className="space-y-2">
@@ -156,7 +160,7 @@ export default function SupplierProfilePage() {
                                 name="taxId"
                                 value={profile.taxId || ''}
                                 onChange={handleChange}
-                                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600"
                             />
                         </div>
                         <div className="space-y-2">
@@ -165,16 +169,38 @@ export default function SupplierProfilePage() {
                                 name="contactPerson"
                                 value={profile.contactPerson || ''}
                                 onChange={handleChange}
-                                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600"
                             />
                         </div>
                         <div className="space-y-2">
-                            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Email</label>
+                            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Số điện thoại</label>
                             <input
-                                name="email"
-                                value={profile.email || ''}
+                                name="phone"
+                                value={profile.phone || ''}
                                 onChange={handleChange}
-                                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                            />
+                        </div>
+                        <div className="space-y-2 md:col-span-2">
+                            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                                <MapPin className="w-3 h-3 text-slate-400" /> Địa chỉ kho hàng
+                            </label>
+                            <input
+                                name="address"
+                                value={profile.address || ''}
+                                onChange={handleChange}
+                                placeholder="Số nhà, đường, phường/xã..."
+                                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider italic">Thành phố/Tỉnh</label>
+                            <input
+                                name="city"
+                                value={profile.city || ''}
+                                onChange={handleChange}
+                                placeholder="VD: TP. Hồ Chí Minh"
+                                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600"
                             />
                         </div>
                     </div>
@@ -235,40 +261,47 @@ export default function SupplierProfilePage() {
                         <h2 className="text-xl font-bold text-slate-900">Bảo mật tài khoản</h2>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="space-y-2">
-                            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Mật khẩu hiện tại</label>
-                            <input
-                                type="password"
-                                name="currentPassword"
-                                placeholder="••••••••"
-                                value={passwords.currentPassword}
-                                onChange={handlePasswordChange}
-                                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-rose-500"
-                            />
-                        </div>
-                        <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-slate-100">
+                    <div className="space-y-8">
+                        <TwoFactorAuthSetup
+                            is2FAEnabled={profile.is2FAEnabled}
+                            onStatusChange={fetchProfile}
+                        />
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t border-slate-100">
                             <div className="space-y-2">
-                                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Mật khẩu mới</label>
+                                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Mật khẩu hiện tại</label>
                                 <input
                                     type="password"
-                                    name="newPassword"
-                                    placeholder="Nhập mật khẩu mới"
-                                    value={passwords.newPassword}
+                                    name="currentPassword"
+                                    placeholder="••••••••"
+                                    value={passwords.currentPassword}
                                     onChange={handlePasswordChange}
                                     className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-rose-500"
                                 />
                             </div>
-                            <div className="space-y-2">
-                                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Xác nhận mật khẩu mới</label>
-                                <input
-                                    type="password"
-                                    name="confirmPassword"
-                                    placeholder="Nhập lại mật khẩu mới"
-                                    value={passwords.confirmPassword}
-                                    onChange={handlePasswordChange}
-                                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-rose-500"
-                                />
+                            <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-slate-100">
+                                <div className="space-y-2">
+                                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Mật khẩu mới</label>
+                                    <input
+                                        type="password"
+                                        name="newPassword"
+                                        placeholder="Nhập mật khẩu mới"
+                                        value={passwords.newPassword}
+                                        onChange={handlePasswordChange}
+                                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-rose-500"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Xác nhận mật khẩu mới</label>
+                                    <input
+                                        type="password"
+                                        name="confirmPassword"
+                                        placeholder="Nhập lại mật khẩu mới"
+                                        value={passwords.confirmPassword}
+                                        onChange={handlePasswordChange}
+                                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-rose-500"
+                                    />
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -286,7 +319,7 @@ export default function SupplierProfilePage() {
                     <button
                         type="submit"
                         disabled={isSaving}
-                        className="flex items-center gap-2 px-8 py-4 bg-slate-900 text-white font-bold rounded-2xl hover:bg-slate-800 transition-all shadow-xl active:scale-95 disabled:opacity-70"
+                        className="flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-blue-600 to-indigo-700 text-white font-bold rounded-2xl hover:brightness-110 transition-all shadow-xl shadow-blue-200 active:scale-95 disabled:opacity-70"
                     >
                         {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
                         Lưu thông tin

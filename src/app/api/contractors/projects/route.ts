@@ -19,18 +19,27 @@ export async function GET(request: NextRequest) {
             return NextResponse.json(createErrorResponse('Contractor profile not found', 'NOT_FOUND'), { status: 404 })
         }
 
-        // Fetch projects where the user is either the Contractor OR the Owner (Customer)
-        const projects = await prisma.project.findMany({
+        // Check for organization memberships
+        const memberships = await prisma.organizationMember.findMany({
+            where: { userId: payload.userId },
+            select: { organizationId: true }
+        })
+        const orgIds = memberships.map(m => m.organizationId)
+
+        // Fetch projects where the user is either the Contractor OR the Owner (Customer) OR part of Organization
+        const projects = await (prisma.project as any).findMany({
             where: {
                 OR: [
                     { contractorId: customer.id },
-                    { customerId: customer.id }
+                    { customerId: customer.id },
+                    { organizationId: { in: orgIds } }
                 ]
             },
             include: {
                 customer: {
                     include: { user: true }
-                }
+                },
+                organization: true
             },
             orderBy: {
                 createdAt: 'desc'
@@ -54,7 +63,12 @@ export async function GET(request: NextRequest) {
             taskCompletion: p.progress,
             totalTasks: 0,
             completedTasks: 0,
-            orderCount: 0
+            orderCount: 0,
+            // Organization Info
+            organization: p.organization ? {
+                id: p.organization.id,
+                name: p.organization.name
+            } : null
         }))
 
         return NextResponse.json(createSuccessResponse(mappedProjects))

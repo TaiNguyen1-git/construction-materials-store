@@ -211,8 +211,8 @@ export async function POST(request: NextRequest) {
       needs2FASetupPrompt: !(user as any).hasSetTwoFactor,
     })
 
-    // Use AuthService helper to set cookies
-    AuthService.setAuthCookies(response, accessToken, refreshToken)
+    // Use AuthService helper to set cookies (with role for portal-specific cookie)
+    AuthService.setAuthCookies(response, accessToken, refreshToken, user.role as UserRole)
 
     return response
   } catch (error: unknown) {

@@ -35,6 +35,10 @@ interface Project {
     taskCompletion?: number
     totalTasks?: number
     completedTasks?: number
+    organization?: {
+        id: string
+        name: string
+    }
 }
 
 export default function ContractorProjectsPage() {
@@ -160,6 +164,15 @@ export default function ContractorProjectsPage() {
                                                         project.status === 'COMPLETED' ? 'Hoàn thành' : project.status}
                                             </Badge>
                                         </div>
+
+                                        {project.organization && (
+                                            <div className="mb-2 inline-flex items-center gap-1.5 px-2 py-1 bg-indigo-50 rounded-lg border border-indigo-100">
+                                                <Building2 className="w-3 h-3 text-indigo-600" />
+                                                <span className="text-[10px] font-bold text-indigo-700 uppercase tracking-wide truncate max-w-[150px]">
+                                                    {project.organization.name}
+                                                </span>
+                                            </div>
+                                        )}
 
                                         <div className="mb-4">
                                             <div className="flex justify-between text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">

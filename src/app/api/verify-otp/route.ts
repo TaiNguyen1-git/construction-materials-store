@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { AuthService } from '@/lib/auth'
+import { AuthService, UserRole } from '@/lib/auth'
 import jwt from 'jsonwebtoken'
 import crypto from 'crypto'
 import { logger, logAuth, logAPI } from '@/lib/logger'
@@ -148,8 +148,8 @@ export async function POST(request: NextRequest) {
             needs2FASetupPrompt: !(user as any).hasSetTwoFactor,
         }, { status: 200 })
 
-        // Use AuthService helper to set cookies
-        AuthService.setAuthCookies(response, accessToken, refreshToken)
+        // Use AuthService helper to set cookies (with role for portal-specific cookie)
+        AuthService.setAuthCookies(response, accessToken, refreshToken, user.role as UserRole)
 
         return response
 

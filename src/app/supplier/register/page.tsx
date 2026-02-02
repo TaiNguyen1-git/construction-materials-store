@@ -491,7 +491,7 @@ export default function SupplierRegisterPage() {
                                             required
                                         />
                                         <span className="text-xs text-slate-500 font-medium leading-relaxed">
-                                            Tôi cam kết các thông tin cung cấp là hoàn toàn chính xác và đồng ý với <a href="#" className="font-bold text-blue-600 hover:underline">Điều khoản đối tác NCC</a> của SmartBuild.
+                                            Tôi cam kết các thông tin cung cấp là hoàn toàn chính xác và đồng ý với <Link href="/supplier/terms" target="_blank" className="font-bold text-blue-600 hover:underline">Điều khoản đối tác NCC</Link> của SmartBuild.
                                         </span>
                                     </label>
                                 </div>

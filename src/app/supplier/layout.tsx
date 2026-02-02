@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import SupplierChatSupport from '@/components/supplier/SupplierChatSupport'
+import ProfileHealthModal from '@/components/supplier/ProfileHealthModal'
 import ChatCallManager from '@/components/ChatCallManager'
 import {
     Building2,
@@ -45,7 +46,8 @@ export default function SupplierLayout({ children }: { children: React.ReactNode
     // Don't show authenticated layout on public pages
     const isPublicPage = pathname === '/supplier' ||
         pathname === '/supplier/login' ||
-        pathname?.startsWith('/supplier/register')
+        pathname?.startsWith('/supplier/register') ||
+        pathname === '/supplier/change-password'
 
     useEffect(() => {
         if (isPublicPage) return
@@ -82,6 +84,8 @@ export default function SupplierLayout({ children }: { children: React.ReactNode
         localStorage.removeItem('supplier_token')
         localStorage.removeItem('supplier_id')
         localStorage.removeItem('supplier_name')
+        // Clear supplier-specific cookie
+        document.cookie = 'supplier_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT'
         router.push('/supplier/login')
     }
 
@@ -266,6 +270,7 @@ export default function SupplierLayout({ children }: { children: React.ReactNode
                 </main>
             </div>
 
+            <ProfileHealthModal />
             <SupplierChatSupport />
             {supplierId && <ChatCallManager userId={supplierId} userName={supplierName} />}
         </div>

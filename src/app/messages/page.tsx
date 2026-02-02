@@ -114,12 +114,10 @@ function MessagesClient() {
 
         // 2. If not, try to create/ensure it exists
         try {
-            const res = await fetch('/api/messages', {
+            const res = await fetch('/api/chat/conversations', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    senderId: userId,
-                    senderName: userName,
                     recipientId: partnerId
                 })
             })
@@ -129,7 +127,7 @@ function MessagesClient() {
                 if (data.success) {
                     // Re-fetch conversations to include new one
                     await fetchConversations(userId)
-                    selectConversation(data.data.conversationId)
+                    selectConversation(data.data.id)
                 }
             }
         } catch (error) {
@@ -180,13 +178,11 @@ function MessagesClient() {
 
     const fetchConversations = async (uid: string) => {
         try {
-            const res = await fetch('/api/messages', {
-                headers: { 'x-user-id': uid }
-            })
+            const res = await fetch('/api/chat/conversations')
             if (res.ok) {
                 const data = await res.json()
                 if (data.success) {
-                    setConversations(data.data.conversations)
+                    setConversations(data.data)
                 }
             }
         } catch (error) {
@@ -196,18 +192,29 @@ function MessagesClient() {
         }
     }
 
+    const formatLastMessage = (content: string | null) => {
+        if (!content) return 'Bắt đầu trò chuyện'
+        if (content.startsWith('[CALL_LOG]:')) {
+            try {
+                const log = JSON.parse(content.replace('[CALL_LOG]:', ''))
+                return log.type === 'video' ? '📽️ Cuộc gọi video' : '📞 Cuộc gọi thoại'
+            } catch (e) {
+                return 'Cuộc gọi'
+            }
+        }
+        return content
+    }
+
     const selectConversation = async (convId: string) => {
         setSelectedConv(convId)
         setMessages([])
 
         try {
-            const res = await fetch(`/api/messages/${convId}`, {
-                headers: { 'x-user-id': userId }
-            })
+            const res = await fetch(`/api/chat/conversations/${convId}/messages`)
             if (res.ok) {
                 const data = await res.json()
                 if (data.success) {
-                    setMessages(data.data.messages)
+                    setMessages(data.data)
                 }
             }
         } catch (error) {
@@ -328,17 +335,15 @@ function MessagesClient() {
         }
 
         try {
-            await fetch(`/api/messages/${selectedConv}`, {
+            await fetch('/api/chat/messages', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    senderId: userId,
-                    senderName: userName,
+                    conversationId: selectedConv,
                     content: content || null,
                     fileUrl: fileData ? `/api/files/${fileData.fileId}` : null,
                     fileName: fileData?.fileName,
                     fileType: fileData?.fileType,
-                    fileSize: fileData?.fileSize,
                     tempId: tempId // Pass tempId for sync
                 })
             })
@@ -421,7 +426,7 @@ function MessagesClient() {
                                                     </span>
                                                 </div>
                                                 <p className={`text-[11px] truncate ${conv.unreadCount > 0 ? 'font-black text-blue-700' : 'text-gray-400 font-medium'}`}>
-                                                    {conv.lastMessage || 'Bắt đầu trò chuyện'}
+                                                    {formatLastMessage(conv.lastMessage)}
                                                 </p>
                                             </div>
                                             {conv.unreadCount > 0 && (
@@ -519,7 +524,38 @@ function MessagesClient() {
                                                         </a>
                                                     )}
 
-                                                    {msg.content && <p className="text-sm whitespace-pre-wrap">{msg.content}</p>}
+                                                    {msg.content?.startsWith('[CALL_LOG]:') ? (() => {
+                                                        try {
+                                                            const log = JSON.parse(msg.content.replace('[CALL_LOG]:', ''))
+                                                            const mins = Math.floor(log.duration / 60)
+                                                            const secs = log.duration % 60
+                                                            const durationStr = mins > 0 ? `${mins}ph ${secs}s` : `${secs}s`
+                                                            const isVideo = log.type === 'video'
+                                                            const isMe = msg.senderId === userId
+                                                            return (
+                                                                <div className="flex flex-col gap-3 min-w-[200px]">
+                                                                    <div className="flex items-center gap-3">
+                                                                        <div className={`p-3 rounded-full ${isMe ? 'bg-white/20' : 'bg-blue-50'}`}>
+                                                                            {isVideo ? <Video className="w-5 h-5" /> : <Phone className="w-5 h-5" />}
+                                                                        </div>
+                                                                        <div>
+                                                                            <h4 className="font-bold text-sm">{isVideo ? 'Cuộc gọi video' : 'Cuộc gọi thoại'}</h4>
+                                                                            <p className="text-[11px] opacity-70 font-medium">{durationStr}</p>
+                                                                        </div>
+                                                                    </div>
+                                                                    <button
+                                                                        onClick={() => handleCall(isVideo ? 'video' : 'audio')}
+                                                                        className={`w-full py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${isMe ? 'bg-white text-blue-600 hover:bg-gray-100' : 'bg-blue-600 text-white hover:bg-blue-700'
+                                                                            }`}
+                                                                    >
+                                                                        Gọi lại
+                                                                    </button>
+                                                                </div>
+                                                            )
+                                                        } catch (e) {
+                                                            return <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                                                        }
+                                                    })() : msg.content && <p className="text-sm whitespace-pre-wrap">{msg.content}</p>}
 
                                                     <div className={`flex items-center justify-end gap-1 mt-1 ${msg.senderId === userId ? 'text-blue-100' : 'text-gray-400'}`}>
                                                         <span className="text-[10px]">

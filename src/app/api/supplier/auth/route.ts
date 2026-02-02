@@ -22,9 +22,10 @@ export async function POST(request: NextRequest) {
             )
         }
 
-        // Find supplier by email
+        // Find supplier by email and include user relation
         const supplier = await prisma.supplier.findFirst({
-            where: { email: email.toLowerCase() }
+            where: { email: email.toLowerCase() },
+            include: { user: true } // Include linked user record
         })
 
         if (!supplier) {
@@ -34,14 +35,22 @@ export async function POST(request: NextRequest) {
             )
         }
 
-        // Check if supplier has password set
-        // For demo, we'll use a simple check
-        // In production, you'd have a password field in the Supplier model
-        const storedPassword = (supplier as any).password || 'supplier123'
+        let isValidPassword = false
+        let mustChangePassword = false
 
-        // Simple password check (in production, use bcrypt)
-        const isValidPassword = password === storedPassword ||
-            (storedPassword.startsWith('$2') && bcrypt.compareSync(password, storedPassword))
+        if (supplier.user) {
+            // If linked to a User record, use User's password and status
+            const isMatch = await bcrypt.compare(password, supplier.user.password)
+            if (isMatch) {
+                isValidPassword = true
+                mustChangePassword = supplier.user.mustChangePassword
+            }
+        } else {
+            // Fallback to legacy Supplier password
+            const storedPassword = supplier.password || 'supplier123'
+            isValidPassword = password === storedPassword ||
+                (storedPassword.startsWith('$2') && await bcrypt.compare(password, storedPassword))
+        }
 
         if (!isValidPassword) {
             return NextResponse.json(
@@ -50,12 +59,27 @@ export async function POST(request: NextRequest) {
             )
         }
 
+        // Check 2FA status
+        if ((supplier as any).is2FAEnabled) {
+            return NextResponse.json(
+                createSuccessResponse({
+                    status: '2FA_REQUIRED',
+                    supplierId: supplier.id,
+                    email: supplier.email
+                }, 'Vui lòng nhập mã xác thực 2 lớp'),
+                { status: 200 }
+            )
+        }
+
         // Generate token
         const token = jwt.sign(
             {
                 supplierId: supplier.id,
+                userId: supplier.id, // For compatibility with verifyTokenFromRequest
                 email: supplier.email,
-                type: 'supplier'
+                role: 'SUPPLIER', // For compatibility with verifyTokenFromRequest
+                type: 'supplier',
+                mustChangePassword // Add to token payload
             },
             JWT_SECRET,
             { expiresIn: '7d' }
@@ -68,7 +92,8 @@ export async function POST(request: NextRequest) {
                     id: supplier.id,
                     name: supplier.name,
                     email: supplier.email,
-                    phone: supplier.phone
+                    phone: supplier.phone,
+                    mustChangePassword
                 }
             }, 'Đăng nhập thành công'),
             { status: 200 }

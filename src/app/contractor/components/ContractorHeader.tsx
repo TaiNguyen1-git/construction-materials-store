@@ -79,12 +79,15 @@ export default function ContractorHeader({ sidebarOpen, setSidebarOpen }: Omit<C
     const handleLogout = async () => {
         try {
             await logout()
+            // Clear contractor-specific cookie
+            document.cookie = 'contractor_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT'
             // Success: AuthContext will handle redirect to /
         } catch (error) {
             console.error('Logout failed:', error)
             // Fallback: Force clear and redirect if global logout fails
             localStorage.removeItem('access_token')
             localStorage.removeItem('user')
+            document.cookie = 'contractor_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT'
             window.location.href = '/login'
         }
     }

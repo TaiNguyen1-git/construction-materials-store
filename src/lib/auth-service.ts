@@ -177,7 +177,20 @@ class EnhancedAuthService {
       // 4. Try Refresh if 401
       if (verifyRes.status === 401) {
         const refreshed = await this.refreshToken()
-        if (refreshed) return this.initializeAuth()
+        if (refreshed && this.user) {
+          // Return authenticated state directly using data from refresh
+          // Don't call initializeAuth() again as cookies haven't been applied yet
+          return {
+            user: this.user,
+            isAuthenticated: true,
+            isLoading: false,
+            error: null,
+            tabId: this.tabId,
+            needs2FASetupPrompt: false,
+            showSessionPrompt: false,
+            pendingSessionUser: null
+          }
+        }
       }
 
       // 5. If verify failed but localStorage has shared user, show prompt

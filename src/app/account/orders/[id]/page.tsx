@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { use } from 'react'
 import Header from '@/components/Header'
 import Link from 'next/link'
-import { ArrowLeft, Package, MapPin, CreditCard, Truck, Calendar, Clock, CheckCircle } from 'lucide-react'
+import { ArrowLeft, Package, MapPin, CreditCard, Truck, Calendar, Clock, CheckCircle, History } from 'lucide-react'
 import Image from 'next/image'
 
 interface OrderDetail {
@@ -138,6 +138,15 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                 })}
               </p>
             </div>
+
+            {(order.status === 'DELIVERED' || order.status === 'COMPLETED') && (
+              <Link
+                href={`/account/orders/${order.id}/return`}
+                className="bg-rose-50 text-rose-600 px-6 py-3 rounded-xl border border-rose-100 font-black text-[10px] uppercase tracking-widest hover:bg-rose-600 hover:text-white transition-all shadow-sm active:scale-95 flex items-center gap-2"
+              >
+                <History className="w-4 h-4" /> Yêu cầu trả hàng
+              </Link>
+            )}
           </div>
         </div>
 
@@ -159,8 +168,8 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                 <div key={step.key} className="flex flex-col items-center">
                   <div
                     className={`w-12 h-12 rounded-full flex items-center justify-center mb-2 transition-all ${step.completed
-                        ? 'bg-primary-600 text-white'
-                        : 'bg-gray-200 text-gray-400'
+                      ? 'bg-primary-600 text-white'
+                      : 'bg-gray-200 text-gray-400'
                       } ${step.current ? 'ring-4 ring-primary-200 scale-110' : ''}`}
                   >
                     <step.icon className="h-6 w-6" />

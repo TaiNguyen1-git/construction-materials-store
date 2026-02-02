@@ -5,7 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { AuthService } from '@/lib/auth'
+import { AuthService, UserRole } from '@/lib/auth'
 import { createSuccessResponse, createErrorResponse } from '@/lib/api-types'
 import bcrypt from 'bcryptjs'
 
@@ -125,8 +125,8 @@ export async function POST(request: NextRequest) {
             { status: 201 }
         )
 
-        // Set HTTP-only cookies
-        AuthService.setAuthCookies(response, accessToken, refreshToken)
+        // Set HTTP-only cookies (with role for portal-specific cookie)
+        AuthService.setAuthCookies(response, accessToken, refreshToken, user.role as UserRole)
 
         return response
     } catch (error) {

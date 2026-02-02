@@ -95,8 +95,8 @@ export async function POST(request: NextRequest) {
             user: userWithoutPassword
         })
 
-        // Set HTTP-only cookies
-        AuthService.setAuthCookies(response, accessToken, refreshToken)
+        // Set HTTP-only cookies (with role for portal-specific cookie)
+        AuthService.setAuthCookies(response, accessToken, refreshToken, user.role as UserRole)
 
         return response
 

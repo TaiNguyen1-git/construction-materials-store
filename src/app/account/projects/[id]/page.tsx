@@ -170,12 +170,10 @@ export default function ProjectDetailPage() {
 
   const handleChat = async (contractor: any) => {
     try {
-      const res = await fetch('/api/messages', {
+      const res = await fetch('/api/chat/conversations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          senderId: localStorage.getItem('user_id'),
-          senderName: localStorage.getItem('user_name'),
           recipientId: contractor.customerId,
           recipientName: contractor.displayName,
           projectId: project?.id,
@@ -307,8 +305,8 @@ export default function ProjectDetailPage() {
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={`flex items-center gap-2 px-6 py-3.5 rounded-[18px] text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${activeTab === tab.id
-                  ? 'bg-slate-900 text-white shadow-lg'
-                  : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'
+                ? 'bg-slate-900 text-white shadow-lg'
+                : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'
                 }`}
             >
               <tab.icon size={14} />
@@ -485,7 +483,7 @@ export default function ProjectDetailPage() {
                         </td>
                         <td className="px-6 py-8">
                           <div className={`inline-flex px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${task.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-600' :
-                              task.status === 'IN_PROGRESS' ? 'bg-blue-50 text-blue-600' : 'bg-slate-50 text-slate-400'
+                            task.status === 'IN_PROGRESS' ? 'bg-blue-50 text-blue-600' : 'bg-slate-50 text-slate-400'
                             }`}>
                             {task.status === 'COMPLETED' ? 'Xong' : task.status === 'IN_PROGRESS' ? 'Đang làm' : 'Chờ'}
                           </div>
