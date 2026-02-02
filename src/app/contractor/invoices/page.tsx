@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react'
 import Sidebar from '../components/Sidebar'
 import ContractorHeader from '../components/ContractorHeader'
+import { useAuth } from '@/contexts/auth-context'
+import { fetchWithAuth } from '@/lib/api-client'
 import { Receipt, Download, FileText, CheckCircle, Clock, AlertTriangle, Eye } from 'lucide-react'
 import FormModal from '@/components/FormModal'
 
@@ -48,23 +50,23 @@ interface InvoiceDetail extends Invoice {
 }
 
 export default function ContractorInvoicesPage() {
+    const { user } = useAuth()
     const [sidebarOpen, setSidebarOpen] = useState(true)
-    const [user, setUser] = useState<any>(null)
     const [invoices, setInvoices] = useState<Invoice[]>([])
     const [loading, setLoading] = useState(true)
     const [viewingInvoice, setViewingInvoice] = useState<InvoiceDetail | null>(null)
 
     // ... (keep useEffect & fetchInvoices) ...
     useEffect(() => {
-        // Simulate user fetching
-        setUser({ name: 'John Doe', email: 'john@example.com' })
-        fetchInvoices()
-    }, [])
+        if (user) {
+            fetchInvoices()
+        }
+    }, [user])
 
     const fetchInvoices = async () => {
         setLoading(true)
         try {
-            const res = await fetch('/api/enterprise/invoices')
+            const res = await fetchWithAuth('/api/enterprise/invoices')
             if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`)
 
             const data = await res.json()
@@ -92,7 +94,7 @@ export default function ContractorInvoicesPage() {
 
     const handleViewInvoice = async (invoice: Invoice) => {
         try {
-            const res = await fetch(`/api/enterprise/invoices/${invoice.id}`)
+            const res = await fetchWithAuth(`/api/enterprise/invoices/${invoice.id}`)
             const data = await res.json()
             if (data.success) {
                 setViewingInvoice(data.data.invoice)
@@ -120,7 +122,7 @@ export default function ContractorInvoicesPage() {
 
     return (
         <div className="min-h-screen bg-gray-50 flex flex-col">
-            <ContractorHeader sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} user={user} />
+            <ContractorHeader sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
             <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
             <main className={`flex-1 pt-[73px] transition-all duration-300 ${sidebarOpen ? 'lg:ml-64' : 'ml-0'}`}>

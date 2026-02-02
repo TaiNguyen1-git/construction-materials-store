@@ -14,11 +14,11 @@ import { getFirebaseDatabase } from '@/lib/firebase'
 import { ref, onChildAdded, off } from 'firebase/database'
 import toast, { Toaster } from 'react-hot-toast'
 import ChatCallManager from '@/components/ChatCallManager'
+import { useAuth } from '@/contexts/auth-context'
 
 function MessagesContent() {
     const searchParams = useSearchParams()
-    const router = useRouter()
-    const [user, setUser] = useState<any>(null)
+    const { user } = useAuth()
     const [conversations, setConversations] = useState<any[]>([])
     const [selectedId, setSelectedId] = useState<string | null>(searchParams.get('id'))
     const [loading, setLoading] = useState(true)
@@ -37,15 +37,10 @@ function MessagesContent() {
 
     // Initial Auth & Conversations
     useEffect(() => {
-        const userData = localStorage.getItem('user')
-        if (userData) {
-            setUser(JSON.parse(userData))
-        } else {
-            router.push('/login')
-            return
+        if (user) {
+            fetchConversations()
         }
-        fetchConversations()
-    }, [])
+    }, [user])
 
     // Handle deep link selection from URL
     useEffect(() => {

@@ -5,7 +5,6 @@ import { prisma } from '@/lib/prisma'
 import { createSuccessResponse, createErrorResponse } from '@/lib/api-types'
 import { verifyTokenFromRequest } from '@/lib/auth-middleware-api'
 
-
 export async function GET(request: NextRequest) {
     try {
         const payload = await verifyTokenFromRequest(request)
@@ -15,9 +14,15 @@ export async function GET(request: NextRequest) {
 
         const now = new Date()
 
-        // SUMMARY MODE: Return all active targeted announcements for landing page notification
+        // 1. Check System Announcements
+        const systemAnnouncement = (prisma as any).systemAnnouncement;
+
         if (isSummaryMode) {
-            const allActive = await (prisma as any).systemAnnouncement.findMany({
+            if (!systemAnnouncement) {
+                return NextResponse.json(createSuccessResponse({ isSummary: true, items: [] }))
+            }
+
+            const allActive = await systemAnnouncement.findMany({
                 where: {
                     isActive: true,
                     startTime: { lte: now },
@@ -25,7 +30,7 @@ export async function GET(request: NextRequest) {
                         { endTime: { gte: now } },
                         { endTime: null }
                     ],
-                    targetPath: { not: null } // Only those with specific targets
+                    targetPath: { not: null }
                 },
                 select: {
                     id: true,
@@ -43,7 +48,7 @@ export async function GET(request: NextRequest) {
         }
 
         // NORMAL MODE: Return single most important blocker
-        const activeAnnouncement = await (prisma as any).systemAnnouncement.findFirst({
+        const activeAnnouncement = systemAnnouncement ? await systemAnnouncement.findFirst({
             where: {
                 isActive: true,
                 startTime: { lte: now },
@@ -65,7 +70,7 @@ export async function GET(request: NextRequest) {
             orderBy: [
                 { createdAt: 'desc' }
             ]
-        })
+        }) : null
 
         if (activeAnnouncement) {
             return NextResponse.json(createSuccessResponse({
@@ -95,7 +100,6 @@ export async function GET(request: NextRequest) {
         }
 
         // 3. Check Pending Feedback
-        // Check for recent delivered order (last 7 days) that has no review
         if (customer) {
             const recentOrder = await prisma.order.findFirst({
                 where: {
@@ -107,10 +111,10 @@ export async function GET(request: NextRequest) {
             })
 
             if (recentOrder) {
-                // Check if reviewed
-                const review = await (prisma as any).productReview.findFirst({
+                const productReview = (prisma as any).productReview;
+                const review = productReview ? await productReview.findFirst({
                     where: { orderId: recentOrder.id }
-                })
+                }) : true;
 
                 if (!review) {
                     return NextResponse.json(createSuccessResponse({
@@ -124,12 +128,12 @@ export async function GET(request: NextRequest) {
             }
         }
 
-        // 4. Check Policy Update Consent (Skipped for now)
-
         return NextResponse.json(createSuccessResponse(null))
 
-    } catch (error) {
+    } catch (error: any) {
         console.error('Interceptor Check Error:', error)
-        return NextResponse.json(createErrorResponse('Lỗi kiểm tra hệ thống', 'SERVER_ERROR'), { status: 500 })
+        return NextResponse.json(createErrorResponse(
+            process.env.NODE_ENV === 'development' ? error.message : 'Lỗi kiểm tra hệ thống'
+        ), { status: 500 })
     }
 }

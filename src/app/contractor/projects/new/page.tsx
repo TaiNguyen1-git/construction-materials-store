@@ -9,12 +9,13 @@ import toast from 'react-hot-toast'
 import { VIETNAM_LOCATIONS } from '@/lib/vn-data'
 import { fetchWithAuth } from '@/lib/api-client'
 import ContractorHeader from '../../components/ContractorHeader'
+import { useAuth } from '@/contexts/auth-context'
 
 export default function NewProjectPage() {
+    const { user, logout } = useAuth()
     const router = useRouter()
     const [loading, setLoading] = useState(false)
     const [sidebarOpen, setSidebarOpen] = useState(true)
-    const [user, setUser] = useState<any>(null)
 
     const [formData, setFormData] = useState({
         title: '',
@@ -29,12 +30,7 @@ export default function NewProjectPage() {
         contactPhone: ''
     })
 
-    useEffect(() => {
-        const userData = localStorage.getItem('user')
-        if (userData) {
-            setUser(JSON.parse(userData))
-        }
-    }, [])
+    // No basic useEffect needed as user is handled by useAuth
 
     const projectTypes = [
         { value: 'NEW_BUILD', label: 'Xây mới' },
@@ -43,10 +39,9 @@ export default function NewProjectPage() {
         { value: 'OTHER', label: 'Khác' }
     ]
 
-    const handleLogout = () => {
-        localStorage.removeItem('access_token')
-        localStorage.removeItem('user')
-        window.location.href = '/contractor'
+    const handleLogout = async () => {
+        await logout()
+        router.push('/contractor')
     }
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -83,7 +78,7 @@ export default function NewProjectPage() {
 
     return (
         <div className="min-h-screen bg-gray-50">
-            <ContractorHeader sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} user={user} />
+            <ContractorHeader sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
             <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
             <main className={`flex-1 pt-[73px] transition-all duration-300 ${sidebarOpen ? 'lg:ml-64' : 'ml-0'}`}>

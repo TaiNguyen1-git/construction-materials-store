@@ -35,6 +35,8 @@ import {
     Trash2,
     ChevronDown
 } from 'lucide-react'
+import { fetchWithAuth } from '@/lib/api-client'
+import { useAuth } from '@/contexts/auth-context'
 
 interface Order {
     id: string
@@ -49,8 +51,8 @@ interface Order {
 }
 
 export default function ContractorOrdersPage() {
+    const { user } = useAuth()
     const [sidebarOpen, setSidebarOpen] = useState(true)
-    const [user, setUser] = useState<any>(null)
     const [orders, setOrders] = useState<Order[]>([])
     const [statusFilter, setStatusFilter] = useState('all')
     const [loading, setLoading] = useState(true)
@@ -64,34 +66,22 @@ export default function ContractorOrdersPage() {
     const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false)
 
     useEffect(() => {
-        const userData = localStorage.getItem('user')
-        if (userData) {
-            setUser(JSON.parse(userData))
+        if (user) {
+            fetchOrders()
         }
-        fetchOrders()
-    }, [statusFilter, page])
+    }, [statusFilter, page, user])
 
     const fetchOrders = async () => {
         setLoading(true)
         setError(null)
         try {
-            const token = localStorage.getItem('access_token')
-            const userStored = localStorage.getItem('user')
-            const userId = userStored ? JSON.parse(userStored).id : null
-
             const params = new URLSearchParams({
                 page: page.toString(),
                 limit: '20',
                 ...(statusFilter !== 'all' && { status: statusFilter })
             })
 
-            const response = await fetch(`/api/contractors/orders?${params}`, {
-                headers: {
-                    'Content-Type': 'application/json',
-                    ...(token && { 'Authorization': `Bearer ${token}` }),
-                    ...(userId && { 'x-user-id': userId })
-                }
-            })
+            const response = await fetchWithAuth(`/api/contractors/orders?${params}`)
 
             if (!response.ok) {
                 throw new Error('Failed to fetch orders')
@@ -237,7 +227,7 @@ export default function ContractorOrdersPage() {
 
     return (
         <div className="min-h-screen bg-gray-50 flex flex-col">
-            <ContractorHeader sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} user={user} />
+            <ContractorHeader sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
             <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
             {/* Main Content */}

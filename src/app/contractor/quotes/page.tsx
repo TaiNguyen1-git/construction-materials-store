@@ -28,6 +28,8 @@ import {
 } from 'lucide-react'
 import Sidebar from '../components/Sidebar'
 import ContractorHeader from '../components/ContractorHeader'
+import { fetchWithAuth } from '@/lib/api-client'
+import { useAuth } from '@/contexts/auth-context'
 
 interface QuoteRequest {
     id: string
@@ -51,9 +53,8 @@ interface QuoteRequest {
 }
 
 export default function ContractorQuotesPage() {
-    const router = useRouter()
+    const { user } = useAuth()
     const [quotes, setQuotes] = useState<QuoteRequest[]>([])
-    const [user, setUser] = useState<any>(null)
     const [loading, setLoading] = useState(true)
     const [sidebarOpen, setSidebarOpen] = useState(true)
     const [selectedQuote, setSelectedQuote] = useState<QuoteRequest | null>(null)
@@ -76,29 +77,15 @@ export default function ContractorQuotesPage() {
     const totalPrice = items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0)
 
     useEffect(() => {
-        const userData = localStorage.getItem('user')
-        if (userData) {
-            setUser(JSON.parse(userData))
-        } else {
-            router.push('/contractor/login')
-            return
+        if (user) {
+            fetchQuotes()
         }
-        fetchQuotes()
-    }, [])
+    }, [user])
 
     const fetchQuotes = async () => {
         try {
             setLoading(true)
-            const token = localStorage.getItem('access_token')
-            const userData = localStorage.getItem('user')
-            const userId = userData ? JSON.parse(userData).id : null
-
-            const res = await fetch('/api/quotes?type=received', {
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'x-user-id': userId || ''
-                }
-            })
+            const res = await fetchWithAuth('/api/quotes?type=received')
             if (res.ok) {
                 const data = await res.json()
                 if (data.success) {
@@ -135,16 +122,10 @@ export default function ContractorQuotesPage() {
 
         setSubmitting(true)
         try {
-            const token = localStorage.getItem('access_token')
-            const userData = localStorage.getItem('user')
-            const userId = userData ? JSON.parse(userData).id : null
-
-            const res = await fetch(`/api/quotes/${selectedQuote.id}`, {
+            const res = await fetchWithAuth(`/api/quotes/${selectedQuote.id}`, {
                 method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`,
-                    'x-user-id': userId || ''
                 },
                 body: JSON.stringify({
                     status: action === 'CREATE_CHANGE_ORDER' ? undefined : 'REPLIED',
@@ -196,7 +177,7 @@ export default function ContractorQuotesPage() {
 
     return (
         <div className="min-h-screen bg-gray-50">
-            <ContractorHeader sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} user={user} />
+            <ContractorHeader sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
             <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
             <main className={`flex-1 pt-[73px] transition-all duration-300 ${sidebarOpen ? 'lg:ml-64' : 'ml-0'}`}>

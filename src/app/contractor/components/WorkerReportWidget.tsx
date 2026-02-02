@@ -7,8 +7,8 @@
 
 import { useState, useEffect } from 'react'
 import { Link2, Copy, CheckCircle2, Clock, Eye, Trash2, Camera, QrCode, ExternalLink, Loader2, AlertTriangle, Download } from 'lucide-react'
-import toast from 'react-hot-toast'
 import { Badge } from '@/components/ui/badge'
+import { fetchWithAuth } from '@/lib/api-client'
 
 interface WorkerReportWidgetProps {
     projectId: string
@@ -31,10 +31,7 @@ export default function WorkerReportWidget({ projectId }: WorkerReportWidgetProp
         if (projectId === 'active') {
             const fetchProjects = async () => {
                 try {
-                    const token = localStorage.getItem('access_token')
-                    const res = await fetch('/api/contractors/projects', {
-                        headers: { 'Authorization': `Bearer ${token}` }
-                    })
+                    const res = await fetchWithAuth('/api/contractors/projects')
                     if (res.ok) {
                         const data = await res.json()
                         setProjects(data.data || [])
@@ -58,18 +55,13 @@ export default function WorkerReportWidget({ projectId }: WorkerReportWidgetProp
 
         setLoading(true)
         try {
-            const token = localStorage.getItem('access_token')
             // Fetch reports waiting for approval for this project
-            const repRes = await fetch(`/api/contractors/projects/${selectedProjectId}/reports`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            })
+            const repRes = await fetchWithAuth(`/api/contractors/projects/${selectedProjectId}/reports`)
             const repData = await repRes.json()
             if (repRes.ok) setReports(repData.data || [])
 
             // Fetch active links for this project
-            const tokRes = await fetch(`/api/contractors/projects/${selectedProjectId}/report-token`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            })
+            const tokRes = await fetchWithAuth(`/api/contractors/projects/${selectedProjectId}/report-token`)
             const tokData = await tokRes.json()
             if (tokRes.ok) {
                 const tokensArr = Array.isArray(tokData.data?.tokens) ? tokData.data.tokens : (tokData.data?.token ? [tokData.data] : [])
@@ -91,10 +83,8 @@ export default function WorkerReportWidget({ projectId }: WorkerReportWidgetProp
 
         setGenerating(true)
         try {
-            const token = localStorage.getItem('access_token')
-            const res = await fetch(`/api/contractors/projects/${selectedProjectId}/report-token`, {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${token}` }
+            const res = await fetchWithAuth(`/api/contractors/projects/${selectedProjectId}/report-token`, {
+                method: 'POST'
             })
             if (res.ok) {
                 toast.success('Đã tạo link báo cáo mới')
@@ -143,12 +133,10 @@ export default function WorkerReportWidget({ projectId }: WorkerReportWidgetProp
 
     const handleReportAction = async (reportId: string, status: 'APPROVED' | 'REJECTED') => {
         try {
-            const token = localStorage.getItem('access_token')
-            const res = await fetch(`/api/contractors/reports/${reportId}`, {
+            const res = await fetchWithAuth(`/api/contractors/reports/${reportId}`, {
                 method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
                 },
                 body: JSON.stringify({ status })
             })

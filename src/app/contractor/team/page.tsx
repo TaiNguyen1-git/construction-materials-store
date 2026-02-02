@@ -6,10 +6,12 @@ import toast from 'react-hot-toast'
 import Link from 'next/link'
 import Sidebar from '../components/Sidebar'
 import ContractorHeader from '../components/ContractorHeader'
+import { useAuth } from '@/contexts/auth-context'
+import { fetchWithAuth } from '@/lib/api-client'
 
 export default function ContractorTeamPage() {
+    const { user } = useAuth()
     const [sidebarOpen, setSidebarOpen] = useState(false)
-    const [user, setUser] = useState<any>(null)
 
     useEffect(() => {
         // Only open by default on large screens
@@ -33,10 +35,7 @@ export default function ContractorTeamPage() {
     const fetchData = async () => {
         setLoading(true)
         try {
-            const token = localStorage.getItem('access_token')
-            const res = await fetch('/api/contractors/team-dashboard', {
-                headers: { 'Authorization': `Bearer ${token}` }
-            })
+            const res = await fetchWithAuth('/api/contractors/team-dashboard')
             if (res.ok) {
                 const json = await res.json()
                 setData({
@@ -52,21 +51,17 @@ export default function ContractorTeamPage() {
     }
 
     useEffect(() => {
-        const userData = localStorage.getItem('user')
-        if (userData) {
-            setUser(JSON.parse(userData))
+        if (user) {
+            fetchData()
         }
-        fetchData()
-    }, [])
+    }, [user])
 
     const handleGenerateToken = async (projectId: string) => {
         try {
-            const token = localStorage.getItem('access_token')
-            const res = await fetch(`/api/contractors/projects/${projectId}/report-token`, {
+            const res = await fetchWithAuth(`/api/contractors/projects/${projectId}/report-token`, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
+                    'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({ action: 'CREATE' })
             })
@@ -174,7 +169,7 @@ export default function ContractorTeamPage() {
 
     return (
         <div className="min-h-screen bg-gray-50 flex flex-col">
-            <ContractorHeader sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} user={user} />
+            <ContractorHeader sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
             <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
             {/* Main Content */}

@@ -3,13 +3,14 @@
 import { useState, useEffect } from 'react'
 import Sidebar from '../components/Sidebar'
 import ContractorHeader from '../components/ContractorHeader'
+import { useAuth } from '@/contexts/auth-context'
 import { Shield, AlertTriangle, FileText, CheckCircle, Clock, Download, X } from 'lucide-react'
 import FormModal from '@/components/FormModal'
 import { toast } from 'react-hot-toast'
 
 export default function ContractorInsurancePage() {
+    const { user } = useAuth()
     const [sidebarOpen, setSidebarOpen] = useState(true)
-    const [user, setUser] = useState<any>(null)
     const [viewingPolicy, setViewingPolicy] = useState<any>(null)
     const [reportingClaim, setReportingClaim] = useState<any>(null)
     const [showBuyModal, setShowBuyModal] = useState(false)
@@ -23,12 +24,7 @@ export default function ContractorInsurancePage() {
         estimatedLoss: ''
     })
 
-    useEffect(() => {
-        const userData = localStorage.getItem('user')
-        if (userData) {
-            setUser(JSON.parse(userData))
-        }
-    }, [])
+    // No basic useEffect needed as user is handled by useAuth
 
     const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files.length > 0) {
@@ -136,8 +132,8 @@ export default function ContractorInsurancePage() {
 
     return (
         <div className="min-h-screen bg-gray-50 flex flex-col">
-            
-            <ContractorHeader sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} user={user} />
+
+            <ContractorHeader sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
             <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
             <main className={`flex-1 pt-[73px] transition-all duration-300 ${sidebarOpen ? 'lg:ml-64' : 'ml-0'}`}>

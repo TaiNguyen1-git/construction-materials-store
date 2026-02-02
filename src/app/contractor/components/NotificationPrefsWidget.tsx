@@ -8,18 +8,9 @@
 import { useState, useEffect } from 'react'
 import { Bell, MapPin, Wrench, Check, X, Loader2, ChevronDown, ToggleLeft, ToggleRight } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { fetchWithAuth } from '@/lib/api-client'
 
-// Helper function to fetch with auth token
-const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
-    const token = localStorage.getItem('access_token')
-    return fetch(url, {
-        ...options,
-        headers: {
-            ...options.headers,
-            'Authorization': token ? `Bearer ${token}` : ''
-        }
-    })
-}
+// Helper function removed in favor of centralized api-client
 
 interface NotificationPrefs {
     skills: string[]

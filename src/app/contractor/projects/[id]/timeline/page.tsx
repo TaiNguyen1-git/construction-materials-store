@@ -11,26 +11,21 @@ import { ArrowLeft, Building2, Menu, User, LogOut } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import Sidebar from '../../../components/Sidebar'
 import ProjectTimeline from '@/components/ProjectTimeline'
+import { useAuth } from '@/contexts/auth-context'
 
 export default function ContractorProjectTimelinePage({
     params
 }: {
     params: Promise<{ id: string }>
 }) {
+    const { user, logout } = useAuth()
     const { id } = use(params)
     const [sidebarOpen, setSidebarOpen] = useState(false)
-    const [user, setUser] = useState<any>(null)
 
-    useEffect(() => {
-        const userData = localStorage.getItem('user')
-        if (userData) {
-            setUser(JSON.parse(userData))
-        }
-    }, [])
+    // No basic useEffect needed as user is handled by useAuth
 
-    const handleLogout = () => {
-        localStorage.removeItem('access_token')
-        localStorage.removeItem('user')
+    const handleLogout = async () => {
+        await logout()
         window.location.href = '/contractor'
     }
 

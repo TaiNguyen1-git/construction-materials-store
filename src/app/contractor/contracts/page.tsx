@@ -11,6 +11,7 @@ import Sidebar from '../components/Sidebar'
 import FormModal from '@/components/FormModal'
 import { Toaster } from 'react-hot-toast'
 import ContractorHeader from '../components/ContractorHeader'
+import { useAuth } from '@/contexts/auth-context'
 import {
     Building2,
     Package,
@@ -44,16 +45,12 @@ interface Contract {
 }
 
 export default function ContractorContractsPage() {
+    const { user } = useAuth()
     const [sidebarOpen, setSidebarOpen] = useState(true)
-    const [user, setUser] = useState<any>(null)
     const [contracts, setContracts] = useState<Contract[]>([])
     const [selectedContract, setSelectedContract] = useState<Contract | null>(null)
 
     useEffect(() => {
-        const userData = localStorage.getItem('user')
-        if (userData) {
-            setUser(JSON.parse(userData))
-        }
         setContracts([
             {
                 id: '1',
@@ -96,8 +93,8 @@ export default function ContractorContractsPage() {
 
     return (
         <div className="min-h-screen bg-gray-50 flex flex-col">
-            
-            <ContractorHeader sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} user={user} />
+
+            <ContractorHeader sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
             <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
             {/* Main Content */}

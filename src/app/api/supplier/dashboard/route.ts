@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { createSuccessResponse, createErrorResponse } from '@/lib/api-types'
+import { PurchaseOrderStatus } from '@prisma/client'
 
 export async function GET(request: NextRequest) {
     try {
@@ -30,8 +31,49 @@ export async function GET(request: NextRequest) {
             )
         }
 
-        // Get purchase orders for this supplier
-        const purchaseOrders = await (prisma.purchaseOrder as any).findMany({
+        // 1. Total Orders
+        const totalOrders = await prisma.purchaseOrder.count({
+            where: { supplierId }
+        })
+
+        // 2. Pending Orders (SENT or CONFIRMED)
+        const pendingOrders = await prisma.purchaseOrder.count({
+            where: {
+                supplierId,
+                status: {
+                    in: [PurchaseOrderStatus.SENT, PurchaseOrderStatus.CONFIRMED]
+                }
+            }
+        })
+
+        // 3. Revenue (Status = RECEIVED) - "Assumption: Received = Payable" from original code
+        const revenueAgg = await prisma.purchaseOrder.aggregate({
+            _sum: {
+                totalAmount: true
+            },
+            where: {
+                supplierId,
+                status: PurchaseOrderStatus.RECEIVED
+            }
+        })
+        const totalRevenue = revenueAgg._sum.totalAmount || 0
+
+        // 4. Pending Payments (Same logic as revenue in original code? Or should it be unchecked?)
+        // Original Logic:
+        // pendingPayments: allOrders.filter(o => o.status === 'RECEIVED').reduce...
+        // This implies Pending Payment = Total Revenue (which assumes nothing is paid yet?)
+        // Keeping logic identical to original for consistency, but using optimized query.
+        const pendingPayments = totalRevenue
+
+        const stats = {
+            totalOrders,
+            pendingOrders,
+            totalRevenue,
+            pendingPayments
+        }
+
+        // Get recent purchase orders
+        const purchaseOrders = await prisma.purchaseOrder.findMany({
             where: { supplierId },
             include: {
                 purchaseItems: {
@@ -42,25 +84,9 @@ export async function GET(request: NextRequest) {
             take: 10
         })
 
-        // Calculate stats
-        const allOrders = await (prisma.purchaseOrder as any).findMany({
-            where: { supplierId }
-        })
-
-        const stats = {
-            totalOrders: allOrders.length,
-            pendingOrders: allOrders.filter((o: any) => o.status === 'SENT' || o.status === 'CONFIRMED').length,
-            totalRevenue: allOrders
-                .filter((o: any) => o.status === 'RECEIVED')
-                .reduce((sum: number, o: any) => sum + o.totalAmount, 0),
-            pendingPayments: allOrders
-                .filter((o: any) => o.status === 'RECEIVED') // Assumption: Received = Payable
-                .reduce((sum: number, o: any) => sum + (o.totalAmount || 0), 0)
-        }
-
         // Format recent orders
-        const recentOrders = purchaseOrders.flatMap((po: any) =>
-            (po.purchaseItems || []).map((item: any) => ({
+        const recentOrders = purchaseOrders.flatMap((po) =>
+            (po.purchaseItems || []).map((item) => ({
                 orderNumber: po.orderNumber,
                 productName: item.product?.name || 'N/A',
                 quantity: item.quantity,

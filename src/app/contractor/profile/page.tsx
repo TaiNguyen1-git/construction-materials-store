@@ -33,6 +33,8 @@ import {
 import Sidebar from '../components/Sidebar'
 import ContractorHeader from '../components/ContractorHeader'
 import toast from 'react-hot-toast'
+import { useAuth } from '@/contexts/auth-context'
+import { fetchWithAuth } from '@/lib/api-client'
 
 interface BusinessDocument {
     id: string
@@ -51,9 +53,8 @@ interface FeaturedProject {
 }
 
 export default function ContractorProfilePage() {
+    const { user } = useAuth()
     const [sidebarOpen, setSidebarOpen] = useState(true)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const [user, setUser] = useState<any>(null)
     const [loading, setLoading] = useState(false)
     const [saving, setSaving] = useState(false)
     const fileInputRef = useRef<HTMLInputElement>(null)
@@ -86,24 +87,10 @@ export default function ContractorProfilePage() {
 
     // Load profile data
     useEffect(() => {
-        const userData = localStorage.getItem('user')
-        if (userData) {
-            setUser(JSON.parse(userData))
-        }
-
         const loadProfile = async () => {
             setLoading(true)
             try {
-                const token = localStorage.getItem('access_token')
-                const userStored = localStorage.getItem('user')
-                const userId = userStored ? JSON.parse(userStored).id : null
-
-                const res = await fetch('/api/contractors/profile', {
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'x-user-id': userId || ''
-                    }
-                })
+                const res = await fetchWithAuth('/api/contractors/profile')
 
                 if (res.ok) {
                     const result = await res.json()
@@ -137,8 +124,11 @@ export default function ContractorProfilePage() {
                 setLoading(false)
             }
         }
-        loadProfile()
-    }, [])
+
+        if (user) {
+            loadProfile()
+        }
+    }, [user])
 
     // Handle input change
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -150,16 +140,10 @@ export default function ContractorProfilePage() {
     const handleSave = async () => {
         setSaving(true)
         try {
-            const token = localStorage.getItem('access_token')
-            const userStored = localStorage.getItem('user')
-            const userId = userStored ? JSON.parse(userStored).id : null
-
-            const res = await fetch('/api/contractors/profile', {
+            const res = await fetchWithAuth('/api/contractors/profile', {
                 method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`,
-                    'x-user-id': userId || ''
                 },
                 body: JSON.stringify({
                     companyName: profile.companyName,
@@ -272,8 +256,8 @@ export default function ContractorProfilePage() {
 
     return (
         <div className="min-h-screen bg-gray-50 flex flex-col">
-            
-            <ContractorHeader sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} user={user} />
+
+            <ContractorHeader sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
             <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
             {/* Main Content */}

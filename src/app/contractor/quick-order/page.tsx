@@ -26,6 +26,7 @@ import {
 import { useContractorCartStore } from '@/stores/contractorCartStore'
 import Sidebar from '../components/Sidebar'
 import ContractorHeader from '../components/ContractorHeader'
+import { useAuth } from '@/contexts/auth-context'
 import toast from 'react-hot-toast'
 
 interface Product {
@@ -51,11 +52,10 @@ const formatCurrency = (amount: number) => {
 }
 
 export default function QuickOrderPage() {
+    const { user } = useAuth()
     const router = useRouter()
     const { addItem, getTotalItems } = useContractorCartStore()
-
     const [sidebarOpen, setSidebarOpen] = useState(true)
-    const [user, setUser] = useState<any>(null)
     const [products, setProducts] = useState<Product[]>([])
     const [loading, setLoading] = useState(true)
     const [searchQuery, setSearchQuery] = useState('')
@@ -66,12 +66,8 @@ export default function QuickOrderPage() {
     const [selectedProducts, setSelectedProducts] = useState<SelectedProduct[]>([])
     const [submitting, setSubmitting] = useState(false)
 
-    // Load products and user
+    // Load products
     useEffect(() => {
-        const userData = localStorage.getItem('user')
-        if (userData) {
-            setUser(JSON.parse(userData))
-        }
 
         const fetchProducts = async () => {
             try {
@@ -206,7 +202,7 @@ export default function QuickOrderPage() {
     return (
         <div className="min-h-screen bg-gray-50 flex flex-col">
 
-            <ContractorHeader sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} user={user} />
+            <ContractorHeader sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
             <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
             {/* Main Content - 2 Sections */}

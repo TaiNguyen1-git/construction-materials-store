@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 import { fetchWithAuth } from '@/lib/api-client'
 import { Badge } from '@/components/ui/badge'
+import { useAuth } from '@/contexts/auth-context'
 
 interface Project {
     id: string
@@ -37,17 +38,13 @@ interface Project {
 }
 
 export default function ContractorProjectsPage() {
+    const { user } = useAuth()
     const [sidebarOpen, setSidebarOpen] = useState(true)
     const [projects, setProjects] = useState<Project[]>([])
     const [loading, setLoading] = useState(true)
     const [search, setSearch] = useState('')
-    const [user, setUser] = useState<any>(null)
 
     useEffect(() => {
-        const userData = localStorage.getItem('user')
-        if (userData) {
-            setUser(JSON.parse(userData))
-        }
         fetchProjects()
     }, [])
 
@@ -87,7 +84,7 @@ export default function ContractorProjectsPage() {
 
     return (
         <div className="min-h-screen bg-gray-50 flex flex-col">
-            <ContractorHeader sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} user={user} />
+            <ContractorHeader sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
 
             <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 

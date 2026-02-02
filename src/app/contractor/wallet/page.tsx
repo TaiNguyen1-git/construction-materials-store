@@ -20,10 +20,12 @@ import {
     Building2
 } from 'lucide-react'
 import { toast } from 'react-hot-toast'
+import { useAuth } from '@/contexts/auth-context'
+import { fetchWithAuth } from '@/lib/api-client'
 
 export default function ContractorWalletPage() {
+    const { user } = useAuth()
     const [sidebarOpen, setSidebarOpen] = useState(true)
-    const [user, setUser] = useState<any>(null)
     const [data, setData] = useState<any>(null)
     const [loading, setLoading] = useState(true)
     const [showWithdrawModal, setShowWithdrawModal] = useState(false)
@@ -37,27 +39,14 @@ export default function ContractorWalletPage() {
     const router = useRouter()
 
     useEffect(() => {
-        const userData = localStorage.getItem('user')
-        if (userData) {
-            setUser(JSON.parse(userData))
+        if (user) {
             fetchWalletData()
-        } else {
-            router.push('/login')
         }
-    }, [router])
+    }, [user])
 
     const fetchWalletData = async () => {
         try {
-            const token = localStorage.getItem('access_token')
-            const userStored = localStorage.getItem('user')
-            const userId = userStored ? JSON.parse(userStored).id : null
-
-            const res = await fetch('/api/contractors/wallet', {
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'x-user-id': userId || ''
-                }
-            })
+            const res = await fetchWithAuth('/api/contractors/wallet')
 
             const result = await res.json()
             if (result.success) {
@@ -96,16 +85,10 @@ export default function ContractorWalletPage() {
 
         setWithdrawing(true)
         try {
-            const token = localStorage.getItem('access_token')
-            const userStored = localStorage.getItem('user')
-            const userId = userStored ? JSON.parse(userStored).id : null
-
-            const res = await fetch('/api/contractors/wallet/withdraw', {
+            const res = await fetchWithAuth('/api/contractors/wallet/withdraw', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`,
-                    'x-user-id': userId || ''
                 },
                 body: JSON.stringify({
                     amount,
@@ -140,7 +123,7 @@ export default function ContractorWalletPage() {
 
     return (
         <div className="min-h-screen bg-gray-50 flex flex-col">
-            <ContractorHeader sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} user={user} />
+            <ContractorHeader sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
             <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
             {/* Withdraw Modal */}

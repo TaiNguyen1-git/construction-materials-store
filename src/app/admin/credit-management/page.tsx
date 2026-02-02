@@ -32,6 +32,7 @@ import {
     Trash2,
     RotateCcw
 } from 'lucide-react'
+import { useAuth } from '@/contexts/auth-context'
 
 interface DebtAgingReport {
     customerId: string
@@ -63,6 +64,7 @@ interface CreditApproval {
 }
 
 export default function CreditManagementPage() {
+    const { user } = useAuth()
     const [activeTab, setActiveTab] = useState<'aging' | 'approvals' | 'config'>('aging')
     const [agingReport, setAgingReport] = useState<DebtAgingReport[]>([])
     const [pendingApprovals, setPendingApprovals] = useState<CreditApproval[]>([])
@@ -121,8 +123,7 @@ export default function CreditManagementPage() {
 
     const handleApproval = async (approvalId: string, approved: boolean) => {
         try {
-            const userDataStr = localStorage.getItem('user')
-            const adminId = userDataStr ? JSON.parse(userDataStr).id : 'system'
+            const adminId = user?.id || 'system'
 
             await fetch('/api/credit', {
                 method: 'PUT',

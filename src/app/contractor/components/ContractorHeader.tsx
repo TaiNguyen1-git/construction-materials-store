@@ -25,9 +25,9 @@ interface ContractorHeaderProps {
     user: any
 }
 
-export default function ContractorHeader({ sidebarOpen, setSidebarOpen, user }: ContractorHeaderProps) {
+export default function ContractorHeader({ sidebarOpen, setSidebarOpen }: Omit<ContractorHeaderProps, 'user'>) {
+    const { user, logout } = useAuth()
     const router = useRouter()
-    const { logout } = useAuth()
     const [profileDropdownOpen, setProfileDropdownOpen] = useState(false)
     const dropdownRef = useRef<HTMLDivElement>(null)
 
@@ -58,16 +58,7 @@ export default function ContractorHeader({ sidebarOpen, setSidebarOpen, user }: 
             if (searchQuery.length >= 2) {
                 setSearchLoading(true)
                 try {
-                    const token = localStorage.getItem('access_token')
-                    const userStr = localStorage.getItem('user')
-                    const userId = userStr ? JSON.parse(userStr).id : ''
-
-                    const res = await fetch(`/api/contractors/search?q=${encodeURIComponent(searchQuery)}`, {
-                        headers: {
-                            'Authorization': `Bearer ${token}`,
-                            'x-user-id': userId
-                        }
-                    })
+                    const res = await fetch(`/api/contractors/search?q=${encodeURIComponent(searchQuery)}`)
                     const data = await res.json()
                     if (data.success) {
                         setSearchResults(data.results)

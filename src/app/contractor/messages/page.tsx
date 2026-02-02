@@ -11,17 +11,17 @@ import {
 } from 'lucide-react'
 import Sidebar from '../components/Sidebar'
 import ContractorHeader from '../components/ContractorHeader'
-import { getAuthHeaders } from '@/lib/api-client'
+import { fetchWithAuth } from '@/lib/api-client'
 import { getFirebaseDatabase } from '@/lib/firebase'
 import { ref, onChildAdded, off, serverTimestamp } from 'firebase/database'
 import toast from 'react-hot-toast'
 import ChatCallManager from '@/components/ChatCallManager'
+import { useAuth } from '@/contexts/auth-context'
 
 function MessagesContent() {
     const searchParams = useSearchParams()
-    const router = useRouter()
+    const { user } = useAuth()
     const [sidebarOpen, setSidebarOpen] = useState(true)
-    const [user, setUser] = useState<any>(null)
     const [conversations, setConversations] = useState<any[]>([])
     const [selectedId, setSelectedId] = useState<string | null>(searchParams.get('id'))
     const [loading, setLoading] = useState(true)
@@ -40,15 +40,10 @@ function MessagesContent() {
 
     // Initial Auth & Conversations
     useEffect(() => {
-        const userData = localStorage.getItem('user')
-        if (userData) {
-            setUser(JSON.parse(userData))
-        } else {
-            router.push('/contractor/login')
-            return
+        if (user) {
+            fetchConversations()
         }
-        fetchConversations()
-    }, [])
+    }, [user])
 
     // Handle deep link selection from URL
     useEffect(() => {
@@ -112,9 +107,7 @@ function MessagesContent() {
 
     const fetchConversations = async () => {
         try {
-            const res = await fetch('/api/chat/conversations', {
-                headers: getAuthHeaders()
-            })
+            const res = await fetchWithAuth('/api/chat/conversations')
             if (res.ok) {
                 const json = await res.json()
                 setConversations(json.data)
@@ -132,9 +125,7 @@ function MessagesContent() {
 
     const fetchMessages = async (convId: string, quiet = false) => {
         try {
-            const res = await fetch(`/api/chat/conversations/${convId}/messages`, {
-                headers: getAuthHeaders()
-            })
+            const res = await fetchWithAuth(`/api/chat/conversations/${convId}/messages`)
             if (res.ok) {
                 const json = await res.json()
                 if (json.data.length !== messages.length || !quiet) {
@@ -178,11 +169,9 @@ function MessagesContent() {
         scrollToBottom()
 
         try {
-            const headers = getAuthHeaders()
-            const res = await fetch('/api/chat/messages', {
+            const res = await fetchWithAuth('/api/chat/messages', {
                 method: 'POST',
                 headers: {
-                    ...headers,
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
@@ -343,11 +332,11 @@ function MessagesContent() {
 
     return (
         <div className="h-screen bg-white flex flex-col overflow-hidden">
-            
+
 
             {user && <ChatCallManager userId={user.id} userName={user.name || 'Người dùng'} />}
 
-            <ContractorHeader sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} user={user} />
+            <ContractorHeader sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
             <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
             {/* Main Chat Interface - Fixed height based on viewport to match Admin precision */}

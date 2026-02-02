@@ -26,7 +26,8 @@ interface Invoice {
 
 interface Customer {
   id: string
-  user: { name: string; email: string }
+  name: string
+  email: string
 }
 
 interface Supplier {
@@ -582,7 +583,7 @@ export default function SalesManagementPage() {
                             <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                               <button
                                 onClick={() => openInvoiceModal(invoice)}
-                                className="p-2 bg-slate-50 text-slate-400 rounded-xl hover:bg-slate-900 hover:text-white transition-all shadow-sm"
+                                className="p-2 bg-sky-50 text-sky-500 rounded-xl hover:bg-sky-500 hover:text-white transition-all shadow-sm"
                                 title="Xem Chi Tiết"
                               >
                                 <Eye size={16} />
@@ -781,7 +782,7 @@ export default function SalesManagementPage() {
                       >
                         <option value="">-- Chọn khách hàng --</option>
                         {customers.map(c => (
-                          <option key={c.id} value={c.id}>{c.user?.name || c.id}</option>
+                          <option key={c.id} value={c.id}>{c.name || c.id}</option>
                         ))}
                       </select>
                     </div>

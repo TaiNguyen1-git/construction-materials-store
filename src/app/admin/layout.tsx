@@ -36,7 +36,8 @@ import {
   Star,
   ChevronRight,
   MessageCircle,
-  ArrowRight
+  ArrowRight,
+  RotateCcw
 } from 'lucide-react'
 import { LucideIcon } from 'lucide-react'
 import NotificationBell from '@/components/NotificationBell'
@@ -86,6 +87,7 @@ export default function AdminLayout({
       items: [
         { name: 'Tồn Kho & Sản Phẩm', href: '/admin/inventory', icon: Package },
         { name: 'Hàng Hóa & Đại Lý', href: '/admin/products', icon: Package },
+        { name: 'Quản Lý Hoàn Trả', href: '/admin/returns', icon: RotateCcw },
       ]
     },
     {

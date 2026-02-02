@@ -11,11 +11,13 @@ import Sidebar from '../components/Sidebar'
 import ContractorHeader from '../components/ContractorHeader'
 import { KeyRound, Eye, EyeOff, CheckCircle, AlertCircle, Loader2 } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { useAuth } from '@/contexts/auth-context'
+import { fetchWithAuth } from '@/lib/api-client'
 
 export default function ChangePasswordPage() {
+    const { user } = useAuth()
     const router = useRouter()
     const [sidebarOpen, setSidebarOpen] = useState(true)
-    const [user, setUser] = useState<any>(null)
     const [loading, setLoading] = useState(false)
 
     const [form, setForm] = useState({
@@ -30,14 +32,7 @@ export default function ChangePasswordPage() {
         confirm: false
     })
 
-    useEffect(() => {
-        const userData = localStorage.getItem('user')
-        if (userData) {
-            setUser(JSON.parse(userData))
-        } else {
-            router.push('/login')
-        }
-    }, [router])
+    // No basic useEffect needed as user is handled by useAuth
 
     const validatePassword = (password: string) => {
         const checks = {
@@ -72,12 +67,10 @@ export default function ChangePasswordPage() {
 
         setLoading(true)
         try {
-            const token = localStorage.getItem('access_token')
-            const res = await fetch('/api/auth/change-password', {
+            const res = await fetchWithAuth('/api/auth/change-password', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
                 },
                 body: JSON.stringify({
                     currentPassword: form.currentPassword,
@@ -102,8 +95,8 @@ export default function ChangePasswordPage() {
 
     return (
         <div className="min-h-screen bg-gray-50 flex flex-col">
-            
-            <ContractorHeader sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} user={user} />
+
+            <ContractorHeader sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
             <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
             <main className={`flex-1 pt-[73px] transition-all duration-300 ${sidebarOpen ? 'lg:ml-64' : 'ml-0'}`}>
@@ -202,10 +195,10 @@ export default function ChangePasswordPage() {
                                         value={form.confirmPassword}
                                         onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })}
                                         className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-100 outline-none transition-all ${form.confirmPassword && !passwordsMatch
-                                                ? 'border-red-300 focus:border-red-400'
-                                                : form.confirmPassword && passwordsMatch
-                                                    ? 'border-green-300 focus:border-green-400'
-                                                    : 'border-gray-200 focus:border-blue-400'
+                                            ? 'border-red-300 focus:border-red-400'
+                                            : form.confirmPassword && passwordsMatch
+                                                ? 'border-green-300 focus:border-green-400'
+                                                : 'border-gray-200 focus:border-blue-400'
                                             }`}
                                         placeholder="Nhập lại mật khẩu mới"
                                     />

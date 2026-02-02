@@ -70,10 +70,14 @@ export async function middleware(request: NextRequest) {
   ]
 
   // Contractor landing page and auth pages are public
-  const publicContractorPages = [
+  const publicPartnerPages = [
     '/contractor',           // Landing page
     '/contractor/login',     // Login page
     '/contractor/register',  // Register page
+    '/supplier',             // Landing page
+    '/supplier/login',       // Login page
+    '/supplier/register',    // Register page
+    '/supplier/register/success', // Success page
   ]
 
   // Check if page is public
@@ -82,10 +86,10 @@ export async function middleware(request: NextRequest) {
     (page !== '/' && pathname.startsWith(page + '/'))
   )
 
-  // Check if it's a public contractor page (exact match only)
-  const isPublicContractorPage = publicContractorPages.some(page => pathname === page)
+  // Check if it's a public partner page (exact match only)
+  const isPublicPartnerPage = publicPartnerPages.some(page => pathname === page)
 
-  if (isPublicPage || isPublicContractorPage) {
+  if (isPublicPage || isPublicPartnerPage) {
     return NextResponse.next()
   }
 

@@ -24,15 +24,17 @@ import {
 } from 'lucide-react'
 import { useContractorCartStore } from '@/stores/contractorCartStore'
 import Sidebar from '../components/Sidebar'
+import ContractorHeader from '../components/ContractorHeader'
+import { useAuth } from '@/contexts/auth-context'
+import { fetchWithAuth } from '@/lib/api-client'
 import toast from 'react-hot-toast'
 
 const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount)
 }
 
-import ContractorHeader from '../components/ContractorHeader'
-
 export default function ContractorCartPage() {
+    const { user } = useAuth()
     const router = useRouter()
     const [sidebarOpen, setSidebarOpen] = useState(true)
     const [isProcessing, setIsProcessing] = useState(false)
@@ -62,30 +64,17 @@ export default function ContractorCartPage() {
     const totalPrice = getTotalPrice()
     const totalItems = getTotalItems()
 
-    const [user, setUser] = useState<any>(null)
 
-    // Fetch user and profile
+    // Fetch profile
     useEffect(() => {
-        const userData = localStorage.getItem('user')
-        if (userData) {
-            setUser(JSON.parse(userData))
+        if (user) {
+            fetchContractorProfile()
         }
-        fetchContractorProfile()
-    }, [])
+    }, [user])
 
     const fetchContractorProfile = async () => {
         try {
-            const token = localStorage.getItem('access_token')
-            const userStored = localStorage.getItem('user')
-            const userId = userStored ? JSON.parse(userStored).id : null
-
-            const response = await fetch('/api/contractors/profile', {
-                headers: {
-                    'Content-Type': 'application/json',
-                    ...(token && { 'Authorization': `Bearer ${token}` }),
-                    ...(userId && { 'x-user-id': userId })
-                }
-            })
+            const response = await fetchWithAuth('/api/contractors/profile')
 
             if (response.ok) {
                 const data = await response.json()
@@ -123,16 +112,10 @@ export default function ContractorCartPage() {
 
         setIsProcessing(true)
         try {
-            const token = localStorage.getItem('access_token')
-            const user = localStorage.getItem('user')
-            const userId = user ? JSON.parse(user).id : null
-
-            const response = await fetch('/api/contractors/orders', {
+            const response = await fetchWithAuth('/api/contractors/orders', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    ...(token && { 'Authorization': `Bearer ${token}` }),
-                    ...(userId && { 'x-user-id': userId })
                 },
                 body: JSON.stringify({
                     items: items.map(item => ({
@@ -164,7 +147,7 @@ export default function ContractorCartPage() {
 
     return (
         <div className="min-h-screen bg-gray-50 flex flex-col">
-            <ContractorHeader sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} user={user} />
+            <ContractorHeader sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
             <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
             {/* Main Content */}

@@ -11,6 +11,8 @@ import Link from 'next/link'
 import Sidebar from '../components/Sidebar'
 import ContractorHeader from '../components/ContractorHeader'
 import QRPayment from '@/components/QRPayment'
+import { useAuth } from '@/contexts/auth-context'
+import { fetchWithAuth } from '@/lib/api-client'
 import {
     LayoutDashboard,
     TrendingUp,
@@ -35,8 +37,8 @@ import React from 'react'
 import { formatCurrency } from '@/lib/utils'
 
 export default function ContractorFinancialHub() {
+    const { user } = useAuth()
     const [sidebarOpen, setSidebarOpen] = useState(true)
-    const [user, setUser] = useState<any>(null)
     const [loading, setLoading] = useState(true)
     const [data, setData] = useState<any>(null)
 
@@ -49,21 +51,15 @@ export default function ContractorFinancialHub() {
     const [requestLoading, setRequestLoading] = useState(false)
 
     useEffect(() => {
-        const userData = localStorage.getItem('user')
-        if (userData) {
-            setUser(JSON.parse(userData))
+        if (user) {
+            fetchFinancialData()
         }
-        fetchFinancialData()
-    }, [])
+    }, [user])
 
     const fetchFinancialData = async () => {
         setLoading(true)
         try {
-            // In a real app, this would be a specialized API endpoint
-            // For now, we reuse the profile endpoint or use a new one
-            // Let's assume we have a new endpoint: /api/contractor/financial-hub
-            // If not, we might need to fallback to /api/contractors/profile and enrich it
-            const res = await fetch('/api/contractor/financial-hub')
+            const res = await fetchWithAuth('/api/contractor/financial-hub')
             if (res.ok) {
                 const result = await res.json()
                 setData(result.data)
@@ -85,7 +81,7 @@ export default function ContractorFinancialHub() {
         e.preventDefault()
         setRequestLoading(true)
         try {
-            const res = await fetch('/api/credit/request-increase', {
+            const res = await fetchWithAuth('/api/credit/request-increase', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -124,7 +120,7 @@ export default function ContractorFinancialHub() {
 
     return (
         <div className="min-h-screen bg-[#F8FAFC]">
-            <ContractorHeader sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} user={user} />
+            <ContractorHeader sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
             <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
             <main className={`transition-all duration-300 pt-[60px] ${sidebarOpen ? 'lg:ml-64' : 'ml-0'}`}>

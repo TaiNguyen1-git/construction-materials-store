@@ -1,22 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import jwt from 'jsonwebtoken'
-import { UserRole } from '@/lib/auth'
-
-// Mock token verification for development
-const verifyToken = async (request: NextRequest) => {
-  const token = request.headers.get('authorization')?.replace('Bearer ', '') ||
-    request.cookies.get('access_token')?.value
-
-  if (!token) return null
-
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret') as any
-    return decoded
-  } catch {
-    return null
-  }
-}
+import { verifyTokenFromRequest } from '@/lib/auth-middleware-api'
 
 // GET /api/invoices/[id] - Get invoice by ID
 export async function GET(
@@ -25,7 +9,7 @@ export async function GET(
 ) {
   const { id } = await params
   try {
-    const user = await verifyToken(request)
+    const user = verifyTokenFromRequest(request)
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -75,8 +59,8 @@ export async function PUT(
 ) {
   const { id } = await params
   try {
-    const user = await verifyToken(request)
-    if (!user || !['MANAGER', 'EMPLOYEE'].includes(user.role)) {
+    const user = verifyTokenFromRequest(request)
+    if (!user || !['MANAGER', 'EMPLOYEE', 'ADMIN'].includes(user.role)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -145,8 +129,8 @@ export async function DELETE(
 ) {
   const { id } = await params
   try {
-    const user = await verifyToken(request)
-    if (!user || !['MANAGER', 'EMPLOYEE'].includes(user.role)) {
+    const user = verifyTokenFromRequest(request)
+    if (!user || !['MANAGER', 'EMPLOYEE', 'ADMIN'].includes(user.role)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 

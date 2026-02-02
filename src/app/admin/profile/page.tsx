@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/contexts/auth-context'
 import { User, Mail, Phone, MapPin, Lock, Save, Eye, EyeOff, AlertCircle, CheckCircle, Shield, ShieldCheck, Loader2 } from 'lucide-react'
+import { fetchWithAuth } from '@/lib/api-client'
 import OTPModal from '@/components/auth/OTPModal'
 import toast, { Toaster } from 'react-hot-toast'
 
@@ -131,12 +132,10 @@ export default function AdminProfilePage() {
         else setIsLoading(true)
 
         try {
-            const token = localStorage.getItem('access_token')
-            const res = await fetch('/api/auth/profile/toggle-2fa', {
+            const res = await fetchWithAuth('/api/auth/profile/toggle-2fa', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
                 },
                 body: JSON.stringify({ enabled: isEnabling, otp })
             })

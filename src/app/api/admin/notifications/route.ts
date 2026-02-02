@@ -9,18 +9,19 @@ import { createSuccessResponse, createErrorResponse } from '@/lib/api-types'
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json()
-        const { userId, title, message, type, priority, metadata } = body
+        const { userId, supplierId, title, message, type, priority, metadata } = body
 
-        if (!userId || !title || !message) {
+        if ((!userId && !supplierId) || !title || !message) {
             return NextResponse.json(
                 createErrorResponse('Missing required fields', 'VALIDATION_ERROR'),
                 { status: 400 }
             )
         }
 
-        const notification = await prisma.notification.create({
+        const notification = await (prisma as any).notification.create({
             data: {
                 userId,
+                supplierId,
                 title,
                 message,
                 type: type || 'WARNING',

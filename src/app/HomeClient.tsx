@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { Search, MapPin, ArrowRight, Zap, TrendingUp, ShieldCheck, PenTool, LayoutGrid, Brain, CreditCard, Package, ChevronRight, UserPlus, ChevronDown, HardHat, Quote, Star, Sparkles, Clock, Plus, ShoppingCart } from 'lucide-react'
+import { Search, MapPin, ArrowRight, Zap, TrendingUp, ShieldCheck, PenTool, LayoutGrid, Brain, CreditCard, Package, ChevronRight, UserPlus, ChevronDown, HardHat, Quote, Star, Sparkles, Clock, Plus, ShoppingCart, Building2 } from 'lucide-react'
 import dynamic from 'next/dynamic'
 import { Toaster } from 'react-hot-toast'
 
@@ -1471,6 +1471,89 @@ export default function HomeClient({
             </div>
           </section>
         )}
+
+        {/* Partner Ecosystem Section */}
+        <section className="relative py-24 bg-white overflow-hidden">
+          <div className="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent"></div>
+
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+            <div className="text-center max-w-3xl mx-auto mb-16">
+              <h2 className="text-sm font-black text-blue-600 uppercase tracking-[0.3em] mb-4">Hệ sinh thái SmartBuild</h2>
+              <h3 className="text-3xl md:text-4xl font-black text-slate-900 leading-tight">
+                Kết nối <span className="text-blue-600">Đối tác</span> chiến lược hiện đại
+              </h3>
+              <p className="mt-4 text-slate-500 font-medium">
+                Chúng tôi xây dựng nền tảng minh bạch và hiệu quả cho tất cả các bên tham gia vào chuỗi cung ứng xây dựng.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              {/* Supplier Card */}
+              <div className="group relative bg-slate-50 rounded-[2.5rem] p-10 border border-slate-100 overflow-hidden hover:shadow-2xl hover:shadow-blue-500/10 transition-all duration-500">
+                <div className="absolute -right-10 -top-10 w-40 h-40 bg-blue-100 rounded-full blur-[80px] group-hover:bg-blue-200 transition-colors"></div>
+                <div className="relative z-10">
+                  <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center shadow-lg mb-8 group-hover:scale-110 transition-transform duration-500">
+                    <Building2 className="w-8 h-8 text-blue-600" />
+                  </div>
+                  <h4 className="text-2xl font-black text-slate-900 mb-4 tracking-tight uppercase">Dành Cho Nhà Cung Cấp</h4>
+                  <p className="text-slate-500 font-medium mb-8 leading-relaxed">
+                    Mở rộng thị trường, quản lý đơn hàng thông minh và tối ưu hóa quy trình phân phối vật tư đến trực tiếp các công trình.
+                  </p>
+                  <ul className="space-y-3 mb-10">
+                    {[
+                      "Phân phối hàng hóa 4.0",
+                      "Quản lý kho & tồn kho realtime",
+                      "Báo cáo phân tích kinh doanh AI",
+                      "Thanh toán nhanh chóng & bảo mật"
+                    ].map((item, i) => (
+                      <li key={i} className="flex items-center gap-2 text-sm font-bold text-slate-600">
+                        <ShieldCheck className="w-4 h-4 text-blue-500" /> {item}
+                      </li>
+                    ))}
+                  </ul>
+                  <Link
+                    href="/supplier"
+                    className="inline-flex items-center gap-2 px-8 py-4 bg-blue-600 text-white font-black text-xs uppercase tracking-widest rounded-2xl hover:bg-blue-700 hover:gap-4 transition-all shadow-lg shadow-blue-500/25"
+                  >
+                    Xem giải pháp NCC <ArrowRight className="w-4 h-4" />
+                  </Link>
+                </div>
+              </div>
+
+              {/* Contractor Card */}
+              <div className="group relative bg-[#fff7ed] rounded-[2.5rem] p-10 border border-orange-100 overflow-hidden hover:shadow-2xl hover:shadow-orange-500/10 transition-all duration-500">
+                <div className="absolute -right-10 -top-10 w-40 h-40 bg-orange-100 rounded-full blur-[80px] group-hover:bg-orange-200 transition-colors"></div>
+                <div className="relative z-10">
+                  <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center shadow-lg mb-8 group-hover:scale-110 transition-transform duration-500">
+                    <HardHat className="w-8 h-8 text-orange-600" />
+                  </div>
+                  <h4 className="text-2xl font-black text-slate-900 mb-4 tracking-tight uppercase">Dành Cho Nhà Thầu</h4>
+                  <p className="text-slate-500 font-medium mb-8 leading-relaxed">
+                    Xây dựng hồ sơ uy tín, nhận dự án mới mỗi ngày và quản lý vật tư công trình chuyên nghiệp với công cụ AI.
+                  </p>
+                  <ul className="space-y-3 mb-10">
+                    {[
+                      "Tiếp cận hàng nghìn dự án mới",
+                      "Mua vật tư với giá ưu đãi dự án",
+                      "Công cụ dự toán vật liệu thông minh",
+                      "Quản lý đội ngũ & tiến độ thi công"
+                    ].map((item, i) => (
+                      <li key={i} className="flex items-center gap-2 text-sm font-bold text-slate-600">
+                        <ShieldCheck className="w-4 h-4 text-orange-500" /> {item}
+                      </li>
+                    ))}
+                  </ul>
+                  <Link
+                    href="/contractor"
+                    className="inline-flex items-center gap-2 px-8 py-4 bg-orange-600 text-white font-black text-xs uppercase tracking-widest rounded-2xl hover:bg-orange-700 hover:gap-4 transition-all shadow-lg shadow-orange-500/25"
+                  >
+                    Xem giải pháp Nhà Thầu <ArrowRight className="w-4 h-4" />
+                  </Link>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
 
         {/* Footer CTA */}
         <section className="bg-slate-900 text-white py-16">

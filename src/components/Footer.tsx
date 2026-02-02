@@ -11,6 +11,7 @@ export default function Footer() {
     const documentationPaths = ['/terms', '/privacy', '/guidelines', '/help', '/payment-policy', '/standards']
     const hideFooter =
         pathname?.startsWith('/admin') ||
+        pathname?.startsWith('/supplier') ||
         pathname?.startsWith('/contractor/') && !pathname?.startsWith('/contractors/') ||
         pathname === '/contractor' ||
         documentationPaths.includes(pathname || '')
@@ -58,8 +59,16 @@ export default function Footer() {
                         <ul className="space-y-2 text-[11px] font-medium text-gray-400">
                             <li><Link href="/about" className="hover:text-primary-400 transition-colors">Về SmartBuild</Link></li>
                             <li><Link href="/contact" className="hover:text-primary-400 transition-colors">Liên hệ chuyên gia</Link></li>
-                            <li><Link href="#" className="hover:text-primary-400 transition-colors">Chính sách bảo hành</Link></li>
                             <li><Link href="#" className="hover:text-primary-400 transition-colors">Hướng dẫn thanh toán</Link></li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h3 className="text-[10px] font-black text-orange-400 mb-4 uppercase tracking-[0.2em]">Đối Tác</h3>
+                        <ul className="space-y-2 text-[11px] font-medium text-gray-400">
+                            <li><Link href="/contractor" className="hover:text-orange-400 transition-colors">Giải pháp Nhà Thầu</Link></li>
+                            <li><Link href="/supplier" className="hover:text-blue-400 transition-colors">Giải pháp Nhà Cung Cấp</Link></li>
+                            <li><Link href="/contractor/register" className="hover:text-orange-300 transition-colors">Đăng ký Nhà Thầu</Link></li>
+                            <li><Link href="/supplier/register" className="hover:text-blue-300 transition-colors">Đăng ký Nhà Cung Cấp</Link></li>
                         </ul>
                     </div>
                 </div>

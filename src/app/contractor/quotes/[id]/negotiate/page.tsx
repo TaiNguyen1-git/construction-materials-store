@@ -6,37 +6,22 @@ import NegotiationRoom from '@/components/NegotiationRoom'
 import { Loader2, ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
 import { toast } from 'react-hot-toast'
+import { fetchWithAuth } from '@/lib/api-client'
+import { useAuth } from '@/contexts/auth-context'
 
 export default function ContractorNegotiatePage() {
     const params = useParams()
-    const router = useRouter()
     const id = params?.id as string
+    const { user } = useAuth()
     const [quote, setQuote] = useState<any>(null)
     const [loading, setLoading] = useState(true)
-    const [user, setUser] = useState<any>(null)
 
     useEffect(() => {
         const fetchData = async () => {
+            if (!user) return
             try {
-                // Get User Info from localStorage (consistent with other pages)
-                const userData = localStorage.getItem('user')
-                const token = localStorage.getItem('access_token')
-
-                if (!userData || !token) {
-                    router.push('/contractor/login')
-                    return
-                }
-
-                const parsedUser = JSON.parse(userData)
-                setUser(parsedUser)
-
-                // Fetch Quote Data with Auth Headers
-                const quoteRes = await fetch(`/api/quotes/${id}`, {
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'x-user-id': parsedUser.id
-                    }
-                })
+                // Fetch Quote Data with fetchWithAuth
+                const quoteRes = await fetchWithAuth(`/api/quotes/${id}`)
 
                 if (!quoteRes.ok) {
                     throw new Error('Failed to fetch quote')
@@ -45,20 +30,22 @@ export default function ContractorNegotiatePage() {
                 const quoteData = await quoteRes.json()
                 if (!quoteData.success) {
                     toast.error('Không tìm thấy báo giá')
-                    router.push('/contractor/quotes')
                     return
                 }
                 setQuote(quoteData.data)
             } catch (err) {
                 console.error(err)
-                toast.error('Lỗi khi tải dữ liệu. Vui lòng đăng nhập lại.')
+                toast.error('Lỗi khi tải dữ liệu.')
             } finally {
                 setLoading(false)
             }
         }
 
-        if (id) fetchData()
-    }, [id, router])
+        if (id && user) fetchData()
+        else if (id && !user) {
+            // Wait for user to be loaded from useAuth
+        }
+    }, [id, user])
 
     if (loading) {
         return (

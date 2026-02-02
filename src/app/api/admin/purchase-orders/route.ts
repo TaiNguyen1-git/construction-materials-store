@@ -216,28 +216,42 @@ export async function POST(request: NextRequest) {
                 }
             })
 
+            // Create in-app notification for supplier
+            if (autoSend) {
+                try {
+                    await (prisma as any).notification.create({
+                        data: {
+                            supplierId,
+                            title: '📝 Đơn đặt hàng mới',
+                            message: `Bạn có đơn đặt hàng mới #${purchaseOrder.orderNumber} từ SmartBuild.`,
+                            type: 'INFO',
+                            priority: 'HIGH',
+                            referenceId: purchaseOrder.id,
+                            referenceType: 'PURCHASE_ORDER'
+                        }
+                    })
+                } catch (notiError) {
+                    console.error('Failed to create notification:', notiError)
+                }
+            }
+
             // Send email to supplier if autoSend
             if (autoSend && supplier.email) {
                 try {
-                    const emailHtml = generatePurchaseOrderEmailContent(purchaseOrder)
-                    const transporter = nodemailer.createTransport({
-                        host: process.env.SMTP_HOST || 'smtp.gmail.com',
-                        port: parseInt(process.env.SMTP_PORT || '587'),
-                        secure: false,
-                        auth: {
-                            user: process.env.SMTP_USER,
-                            pass: process.env.SMTP_PASSWORD
-                        }
-                    })
-                    await transporter.sendMail({
-                        from: `"SmartBuild" <${process.env.SMTP_USER}>`,
-                        to: supplier.email,
-                        subject: `[SmartBuild] Đơn đặt hàng #${purchaseOrder.orderNumber}`,
-                        html: emailHtml
+                    const { EmailService } = await import('@/lib/email-service')
+                    await EmailService.sendNewPurchaseOrderToSupplier({
+                        supplierEmail: supplier.email,
+                        supplierName: supplier.name,
+                        orderNumber: purchaseOrder.orderNumber,
+                        totalAmount: purchaseOrder.netAmount,
+                        items: purchaseOrder.purchaseItems.map((i: any) => ({
+                            name: i.product?.name || 'N/A',
+                            quantity: i.quantity,
+                            price: i.unitPrice
+                        }))
                     })
                 } catch (emailError) {
                     console.error('Failed to send email to supplier:', emailError)
-                    // Don't fail the whole request if email fails
                 }
             }
 

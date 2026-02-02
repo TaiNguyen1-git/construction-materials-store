@@ -113,6 +113,7 @@ model User {
 
   @@map("users")
   @@index([role])
+  supplier      Supplier?
   sessions UserSession[]
 }
 
@@ -442,6 +443,7 @@ model Product {
   inventoryPredictions InventoryPrediction[]
   inventoryHistory InventoryHistory[]
   cartItems        CartItem[]
+  purchaseReturnItems PurchaseReturnItem[]
 
   @@map("products")
   @@index([categoryId])
@@ -630,6 +632,7 @@ model Invoice {
   balanceAmount Float         @default(0)
   paymentTerms  String?
   notes         String?
+  vatInvoiceUrl String?
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 
@@ -686,8 +689,19 @@ model Supplier {
   rating        Int?     @default(0)
   isActive      Boolean  @default(true)
   notes         String?
+  password      String?    // Added for portal login
+  
+  // Bank Details
+  bankName          String?
+  bankAccountNumber String?
+  bankAccountName   String?
+
+  userId        String?  @unique @db.ObjectId // Optional: link to User table
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+
+  // Relationships
+  user             User?              @relation(fields: [userId], references: [id])
 
   // Relationships
   products         Product[]
@@ -695,11 +709,17 @@ model Supplier {
   purchaseOrders   PurchaseOrder[]
   supplierProducts SupplierProduct[]
   deliveryRatings  SupplierDeliveryRating[]
+  promotions       SupplierPromotion[]
+  returns          PurchaseReturn[]
+  documents        SupplierDocument[]
+  disputes         Dispute[]
 
   @@map("suppliers")
   @@index([name])
   @@index([isActive])
 }
+
+
 
 // Track quality ratings for each supplier delivery
 model SupplierDeliveryRating {
@@ -757,6 +777,7 @@ model PurchaseOrder {
   // Relationships
   supplier      Supplier        @relation(fields: [supplierId], references: [id])
   purchaseItems PurchaseItem[]
+  returns       PurchaseReturn[]
 
   @@map("purchase_orders")
   @@index([supplierId])
@@ -798,6 +819,7 @@ model Payment {
   status        PaymentStatus @default(PENDING)
   transactionId String?
   reference     String?
+  beneficiaryInfo Json?       // Snapshot of bank details at time of payment
   paymentDate   DateTime      @default(now())
   notes         String?
   createdAt     DateTime      @default(now())
@@ -924,6 +946,7 @@ enum UserRole {
   EMPLOYEE
   CUSTOMER
   CONTRACTOR
+  SUPPLIER
 }
 
 enum CustomerType {
@@ -1055,6 +1078,8 @@ enum PurchaseOrderStatus {
   SENT
   CONFIRMED
   RECEIVED
+  RETURNED
+  PARTIALLY_RETURNED
   CANCELLED
 }
 
@@ -1079,7 +1104,8 @@ enum InteractionType {
 // Notifications Model
 model Notification {
   id          String     @id @default(auto()) @map("_id") @db.ObjectId
-  userId      String?
+  userId      String?     @db.ObjectId
+  supplierId  String?     @db.ObjectId
   title       String
   message     String
   type        NotificationType @default(INFO)
@@ -1096,6 +1122,7 @@ model Notification {
 
   @@map("notifications")
   @@index([userId])
+  @@index([supplierId])
   @@index([type])
   @@index([priority])
   @@index([read])
@@ -2321,6 +2348,7 @@ model Dispute {
   
   customerId      String?  @db.ObjectId // Involved customer
   contractorId    String?  @db.ObjectId // Involved contractor
+  supplierId      String?  @db.ObjectId // Involved supplier
   
   reason          String
   description     String
@@ -2338,6 +2366,7 @@ model Dispute {
   order           Order?   @relation(fields: [orderId], references: [id])
   customer        Customer? @relation(fields: [customerId], references: [id])
   contractor      ContractorProfile? @relation(fields: [contractorId], references: [id])
+  supplier        Supplier? @relation(fields: [supplierId], references: [id])
   
   @@map("disputes")
   @@index([status])
@@ -2366,6 +2395,7 @@ enum DisputeType {
   CUSTOMER_TO_CONTRACTOR
   CONTRACTOR_TO_CUSTOMER
   CONTRACTOR_TO_STORE
+  SUPPLIER_TO_STORE
 }
 
 model DisputeEvidence {
@@ -3164,6 +3194,113 @@ enum SensitiveDataType {
   ADDRESS               // Địa chỉ
   KYC_IMAGE             // Ảnh KYC (CCCD, selfie)
   SIGNATURE             // Chữ ký
+}
+
+
+// ============================================
+// SUPPLIER PORTAL EXTENSIONS
+// ============================================
+
+// Quản lý khuyến mãi từ NCC
+model SupplierPromotion {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  supplierId      String   @db.ObjectId
+  name            String
+  description     String?
+  discountPercent Float?   // Giảm theo %
+  discountAmount  Float?   // Giảm theo số tiền
+  minOrderAmount  Float    @default(0)
+  startDate       DateTime
+  endDate         DateTime
+  status          PromotionStatus @default(PENDING) // PENDING, APPROVED, REJECTED, ACTIVE, EXPIRED
+  appliedProducts String[] @db.ObjectId // List of product IDs applied
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  supplier        Supplier @relation(fields: [supplierId], references: [id])
+
+  @@map("supplier_promotions")
+  @@index([supplierId])
+  @@index([status])
+}
+
+enum PromotionStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  ACTIVE
+  EXPIRED
+}
+
+// Quản lý hàng trả về từ PO
+model PurchaseReturn {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  purchaseOrderId String   @db.ObjectId
+  supplierId      String   @db.ObjectId
+  reason          String
+  status          ReturnStatus @default(PENDING) // PENDING, RECEIVED, REFUNDED, CANCELLED
+  totalRefundAmount Float  @default(0)
+  evidenceUrls    String[]
+  processingMethod String? // REFUND, DEBT_DEDUCTION, REPLACEMENT
+  items           PurchaseReturnItem[]
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id])
+  supplier        Supplier      @relation(fields: [supplierId], references: [id])
+
+  @@map("purchase_returns")
+  @@index([purchaseOrderId])
+  @@index([supplierId])
+}
+
+model PurchaseReturnItem {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  returnId        String   @db.ObjectId
+  productId       String   @db.ObjectId
+  quantity        Float
+  unitPrice       Float
+  reason          String?
+  condition       String? // Mới, Lỗi, Đã khui, ...
+
+  purchaseReturn  PurchaseReturn @relation(fields: [returnId], references: [id], onDelete: Cascade)
+  product         Product        @relation(fields: [productId], references: [id])
+
+  @@map("purchase_return_items")
+}
+
+enum ReturnStatus {
+  PENDING
+  RECEIVED
+  REFUNDED
+  CANCELLED
+}
+
+// Quản lý chứng từ NCC
+model SupplierDocument {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  supplierId      String   @db.ObjectId
+  name            String   // GPKD, CO/CQ, Hợp đồng, v.v.
+  type            String   // PDF, IMAGE
+  fileUrl         String
+  status          DocumentStatus @default(PENDING) // PENDING, VERIFIED, REJECTED, EXPIRED
+  expiryDate      DateTime?
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  supplier        Supplier @relation(fields: [supplierId], references: [id])
+
+  @@map("supplier_documents")
+  @@index([supplierId])
+  @@index([status])
+}
+
+enum DocumentStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+  EXPIRED
 }
 
 

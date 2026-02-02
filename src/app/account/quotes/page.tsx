@@ -25,6 +25,8 @@ import {
     Zap
 } from 'lucide-react'
 import Link from 'next/link'
+import { useAuth } from '@/contexts/auth-context'
+import { fetchWithAuth } from '@/lib/api-client'
 
 interface QuoteRequest {
     id: string
@@ -76,6 +78,7 @@ interface QuoteRequest {
 }
 
 export default function CustomerQuotesPage() {
+    const { user } = useAuth()
     const [quotes, setQuotes] = useState<QuoteRequest[]>([])
     const [loading, setLoading] = useState(true)
     const [selectedQuote, setSelectedQuote] = useState<QuoteRequest | null>(null)
@@ -86,22 +89,15 @@ export default function CustomerQuotesPage() {
     const [activeMilestone, setActiveMilestone] = useState<any>(null)
 
     useEffect(() => {
-        fetchQuotes()
-    }, [])
+        if (user) {
+            fetchQuotes()
+        }
+    }, [user])
 
     const fetchQuotes = async () => {
         try {
             setLoading(true)
-            const token = localStorage.getItem('access_token')
-            const userData = localStorage.getItem('user')
-            const userId = userData ? JSON.parse(userData).id : ''
-
-            const res = await fetch('/api/quotes?type=sent', {
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'x-user-id': userId
-                }
-            })
+            const res = await fetchWithAuth('/api/quotes?type=sent')
             if (res.ok) {
                 const data = await res.json()
                 if (data.success) {
@@ -118,12 +114,10 @@ export default function CustomerQuotesPage() {
     const requestOtp = async () => {
         if (!selectedQuote) return
         try {
-            const token = localStorage.getItem('access_token')
-            const res = await fetch(`/api/quotes/${selectedQuote.id}`, {
+            const res = await fetchWithAuth(`/api/quotes/${selectedQuote.id}`, {
                 method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
                 },
                 body: JSON.stringify({ action: 'REQUEST_OTP' })
             })
@@ -141,12 +135,10 @@ export default function CustomerQuotesPage() {
         if (!selectedQuote || otpValue.length !== 6) return
         setVerifying(true)
         try {
-            const token = localStorage.getItem('access_token')
-            const res = await fetch(`/api/quotes/${selectedQuote.id}/verify`, {
+            const res = await fetchWithAuth(`/api/quotes/${selectedQuote.id}/verify`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
                 },
                 body: JSON.stringify({ otp: otpValue })
             })
@@ -169,12 +161,10 @@ export default function CustomerQuotesPage() {
 
     const handleAction = async (id: string, status: string) => {
         try {
-            const token = localStorage.getItem('access_token')
-            const res = await fetch(`/api/quotes/${id}`, {
+            const res = await fetchWithAuth(`/api/quotes/${id}`, {
                 method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
                 },
                 body: JSON.stringify({ status })
             })
@@ -191,12 +181,10 @@ export default function CustomerQuotesPage() {
     const handlePayment = async (milestoneId: string) => {
         if (!selectedQuote) return
         try {
-            const token = localStorage.getItem('access_token')
-            const res = await fetch(`/api/quotes/pay`, {
+            const res = await fetchWithAuth(`/api/quotes/pay`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
                 },
                 body: JSON.stringify({
                     milestoneId,

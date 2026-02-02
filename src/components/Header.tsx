@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { Package, Heart, User, LogOut, ChevronDown, Home, Tag, Info, Phone, LogIn, UserPlus, Calculator, HardHat, FolderKanban, Sparkles } from 'lucide-react'
+import { Package, Heart, User, LogOut, ChevronDown, Home, Tag, Info, Phone, LogIn, UserPlus, Calculator, HardHat, FolderKanban, Sparkles, Building2 } from 'lucide-react'
 import CartIcon from './CartIcon'
 import NotificationBell from './NotificationBell'
 import { useWishlistStore } from '@/stores/wishlistStore'
@@ -105,13 +105,24 @@ export default function Header() {
                   <div className="border-t border-gray-100 my-1"></div>
                   <Link
                     href="/contractor"
-                    className="flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gradient-to-r hover:from-orange-50 hover:to-yellow-50 transition-colors rounded-b-xl"
+                    className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gradient-to-r hover:from-orange-50 hover:to-yellow-50 transition-colors"
                     onClick={() => setShowServicesMenu(false)}
                   >
                     <HardHat className="h-5 w-5 mr-3 text-orange-600" />
                     <div>
                       <div className="font-bold text-orange-600">Dành Cho Nhà Thầu</div>
                       <div className="text-xs text-gray-500">Đăng ký & quản lý hồ sơ</div>
+                    </div>
+                  </Link>
+                  <Link
+                    href="/supplier"
+                    className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 transition-colors rounded-b-xl"
+                    onClick={() => setShowServicesMenu(false)}
+                  >
+                    <Building2 className="h-5 w-5 mr-3 text-blue-600" />
+                    <div>
+                      <div className="font-bold text-blue-600">Hợp Tác Nhà Cung Cấp</div>
+                      <div className="text-xs text-gray-500">Giải pháp cung ứng vật tư 4.0</div>
                     </div>
                   </Link>
                 </div>

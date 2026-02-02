@@ -6,6 +6,7 @@
  */
 
 import { useState, useEffect } from 'react'
+import { toast } from 'react-hot-toast'
 import {
     FileText,
     Plus,
@@ -30,7 +31,8 @@ import {
     MapPin,
     ArrowUpRight,
     LayoutGrid,
-    List
+    List,
+    Loader2
 } from 'lucide-react'
 
 interface Contract {
@@ -69,13 +71,82 @@ export default function ContractManagementPage() {
     const [contracts, setContracts] = useState<Contract[]>([])
     const [priceLists, setPriceLists] = useState<PriceList[]>([])
     const [loading, setLoading] = useState(true)
-    const [showCreateModal, setShowCreateModal] = useState(false)
     const [searchTerm, setSearchTerm] = useState('')
     const [statusFilter, setStatusFilter] = useState('')
+
+    // Contract Modal State
+    const [showContractModal, setShowContractModal] = useState(false)
+    const [selectedContract, setSelectedContract] = useState<Contract | null>(null)
+    const [isEditMode, setIsEditMode] = useState(false)
+    const [isViewMode, setIsViewMode] = useState(false)
+    const [isModalLoading, setIsModalLoading] = useState(false)
+
+    // Price List Modal State
+    const [showPriceListModal, setShowPriceListModal] = useState(false)
+    const [selectedPriceList, setSelectedPriceList] = useState<PriceList | null>(null)
+
+    // Form Data
+    const [customers, setCustomers] = useState<any[]>([])
+    const [products, setProducts] = useState<any[]>([])
+
+    // Contract Form
+    const [contractFormData, setContractFormData] = useState({
+        customerId: '',
+        name: '',
+        description: '',
+        contractType: 'FIXED_PRICE',
+        validFrom: new Date().toISOString().split('T')[0],
+        validTo: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        creditTermDays: 30,
+        specialCreditLimit: 0,
+        products: [] as any[]
+    })
+
+    // Price List Form
+    const [priceListFormData, setPriceListFormData] = useState({
+        code: '',
+        name: '',
+        description: '',
+        discountPercent: 0,
+        priority: 0,
+        customerTypes: ['REGULAR'],
+        isActive: true
+    })
 
     useEffect(() => {
         loadData()
     }, [activeTab])
+
+    useEffect(() => {
+        loadOptions()
+    }, [])
+
+    const loadOptions = async () => {
+        try {
+            const [custRes, prodRes] = await Promise.all([
+                fetch('/api/customers?limit=1000'),
+                fetch('/api/products?limit=1000')
+            ])
+
+            if (custRes.ok) {
+                const custJson = await custRes.json()
+                // Handle various response structures: 
+                // 1. { data: { data: [] } } (Paginated Success)
+                // 2. { data: [] } (Simple Success)
+                // 3. [] (Direct Array)
+                const custArray = custJson.data?.data || custJson.data || (Array.isArray(custJson) ? custJson : [])
+                setCustomers(custArray)
+            }
+
+            if (prodRes.ok) {
+                const prodJson = await prodRes.json()
+                const prodArray = prodJson.data?.data || prodJson.data || (Array.isArray(prodJson) ? prodJson : [])
+                setProducts(prodArray)
+            }
+        } catch (error) {
+            console.error('Error loading options:', error)
+        }
+    }
 
     const loadData = async () => {
         setLoading(true)
@@ -83,14 +154,16 @@ export default function ContractManagementPage() {
             if (activeTab === 'contracts') {
                 const res = await fetch('/api/contracts')
                 const data = await res.json()
-                setContracts(data)
+                setContracts(Array.isArray(data) ? data : [])
             } else {
                 const res = await fetch('/api/price-lists')
                 const data = await res.json()
-                setPriceLists(data)
+                setPriceLists(Array.isArray(data) ? data : [])
             }
         } catch (error) {
             console.error('Error loading data:', error)
+            setContracts([])
+            setPriceLists([])
         }
         setLoading(false)
     }
@@ -109,6 +182,198 @@ export default function ContractManagementPage() {
             loadData()
         } catch (error) {
             console.error('Error activating contract:', error)
+        }
+    }
+
+    const fetchContractDetails = async (contractId: string) => {
+        try {
+            const res = await fetch(`/api/contracts?contractId=${contractId}`)
+            if (res.ok) {
+                const data = await res.json()
+                return data
+            }
+        } catch (error) {
+            console.error('Error fetching contract details:', error)
+        }
+        return null
+    }
+
+    const handleViewContract = async (contract: Contract) => {
+        // Mở modal ngay lập tức với trạng thái loading
+        setIsViewMode(true)
+        setIsEditMode(false)
+        setShowContractModal(true)
+        setIsModalLoading(true)
+
+        const details = await fetchContractDetails(contract.id)
+
+        if (details) {
+            setSelectedContract(details)
+            setContractFormData({
+                customerId: details.customerId,
+                name: details.name,
+                description: details.description || '',
+                contractType: details.contractType,
+                validFrom: details.validFrom?.split('T')[0] || '',
+                validTo: details.validTo?.split('T')[0] || '',
+                creditTermDays: details.creditTermDays,
+                specialCreditLimit: details.specialCreditLimit || 0,
+                products: details.contractPrices?.map((cp: any) => ({
+                    productId: cp.productId,
+                    fixedPrice: cp.fixedPrice || 0,
+                    discountPercent: cp.discountPercent || 0
+                })) || []
+            })
+        } else {
+            toast.error('Không thể tải thông tin chi tiết')
+            setShowContractModal(false)
+        }
+        setIsModalLoading(false)
+    }
+
+    const handleEditContract = async (contract: Contract) => {
+        // Mở modal ngay lập tức với trạng thái loading
+        setIsEditMode(true)
+        setIsViewMode(false)
+        setShowContractModal(true)
+        setIsModalLoading(true)
+
+        const details = await fetchContractDetails(contract.id)
+
+        if (details) {
+            setSelectedContract(details)
+            setContractFormData({
+                customerId: details.customerId,
+                name: details.name,
+                description: details.description || '',
+                contractType: details.contractType,
+                validFrom: details.validFrom?.split('T')[0] || '',
+                validTo: details.validTo?.split('T')[0] || '',
+                creditTermDays: details.creditTermDays,
+                specialCreditLimit: details.specialCreditLimit || 0,
+                products: details.contractPrices?.map((cp: any) => ({
+                    productId: cp.productId,
+                    fixedPrice: cp.fixedPrice || 0,
+                    discountPercent: cp.discountPercent || 0
+                })) || []
+            })
+        } else {
+            toast.error('Không thể tải thông tin chi tiết')
+            setShowContractModal(false)
+        }
+        setIsModalLoading(false)
+    }
+
+    const handleCreateContract = () => {
+        setSelectedContract(null)
+        setIsEditMode(false)
+        setIsViewMode(false)
+        setContractFormData({
+            customerId: '',
+            name: '',
+            description: '',
+            contractType: 'FIXED_PRICE',
+            validFrom: new Date().toISOString().split('T')[0],
+            validTo: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+            creditTermDays: 30,
+            specialCreditLimit: 0,
+            products: [{ productId: '', fixedPrice: 0, discountPercent: 0 }]
+        })
+        setShowContractModal(true)
+    }
+
+    const handleSaveContract = async () => {
+        try {
+            const method = isEditMode ? 'PUT' : 'POST'
+            const body = isEditMode
+                ? { action: 'update', contractId: selectedContract?.id, data: contractFormData }
+                : contractFormData
+
+            const res = await fetch('/api/contracts', {
+                method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            })
+
+            if (res.ok) {
+                toast.success(isEditMode ? 'Đã cập nhật hợp đồng' : 'Đã tạo hợp đồng mới')
+                setShowContractModal(false)
+                loadData()
+            } else {
+                const err = await res.json()
+                toast.error(err.error || 'Lỗi xử lý')
+            }
+        } catch (error) {
+            toast.error('Lỗi kết nối')
+        }
+    }
+
+    const handleDeleteContract = async (contractId: string) => {
+        if (!window.confirm('Bạn có chắc muốn xóa hợp đồng này và tất cả bảng giá liên quan?')) return
+        try {
+            const res = await fetch(`/api/contracts?contractId=${contractId}`, {
+                method: 'DELETE'
+            })
+            if (res.ok) {
+                toast.success('Đã xóa hợp đồng thành công')
+                loadData()
+            } else {
+                toast.error('Lỗi khi xóa hợp đồng')
+            }
+        } catch (error) {
+            toast.error('Lỗi kết nối server')
+        }
+    }
+
+    const handleEditPriceList = (priceList: PriceList) => {
+        setSelectedPriceList(priceList)
+        setPriceListFormData({
+            code: priceList.code,
+            name: priceList.name,
+            description: priceList.description || '',
+            discountPercent: priceList.discountPercent,
+            priority: priceList.priority,
+            customerTypes: priceList.customerTypes,
+            isActive: priceList.isActive
+        })
+        setShowPriceListModal(true)
+    }
+
+    const handleSavePriceList = async () => {
+        try {
+            const res = await fetch('/api/price-lists', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(priceListFormData)
+            })
+
+            if (res.ok) {
+                toast.success('Đã lưu bảng giá')
+                setShowPriceListModal(false)
+                loadData()
+            } else {
+                const err = await res.json()
+                toast.error(err.error || 'Lỗi xử lý')
+            }
+        } catch (error) {
+            toast.error('Lỗi kết nối')
+        }
+    }
+
+    const handleDeletePriceList = async (priceListId: string) => {
+        if (!window.confirm('Bạn có chắc muốn xóa bảng giá này?')) return
+        try {
+            const res = await fetch(`/api/price-lists?id=${priceListId}`, {
+                method: 'DELETE'
+            })
+            if (res.ok) {
+                toast.success('Đã xóa bảng giá thành công')
+                loadData()
+            } else {
+                toast.error('Lỗi khi xóa bảng giá')
+            }
+        } catch (error) {
+            toast.error('Lỗi kết nối server')
         }
     }
 
@@ -176,9 +441,9 @@ export default function ContractManagementPage() {
 
     const filteredContracts = contracts.filter(c => {
         const searchInput = searchTerm.toLowerCase()
-        const matchSearch = c.name.toLowerCase().includes(searchInput) ||
-            c.contractNumber.toLowerCase().includes(searchInput) ||
-            c.customer.user.name.toLowerCase().includes(searchInput)
+        const matchSearch = (c.name || '').toLowerCase().includes(searchInput) ||
+            (c.contractNumber || '').toLowerCase().includes(searchInput) ||
+            (c.customer?.user?.name || '').toLowerCase().includes(searchInput)
         const matchStatus = !statusFilter || c.status === statusFilter
         return matchSearch && matchStatus
     })
@@ -196,7 +461,7 @@ export default function ContractManagementPage() {
                 </div>
                 <div className="flex gap-3">
                     <button
-                        onClick={() => setShowCreateModal(true)}
+                        onClick={handleCreateContract}
                         className="bg-blue-600 text-white px-6 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-700 shadow-xl shadow-blue-500/20 transition-all active:scale-95 flex items-center gap-2"
                     >
                         <Plus size={16} />
@@ -331,7 +596,7 @@ export default function ContractManagementPage() {
                                                         <td className="px-6 py-4 whitespace-nowrap">
                                                             <div className="flex items-center gap-2">
                                                                 <Users size={12} className="text-blue-400" />
-                                                                <span className="text-xs font-bold text-slate-600">{contract.customer.user.name}</span>
+                                                                <span className="text-xs font-bold text-slate-600">{contract.customer?.user?.name || 'N/A'}</span>
                                                             </div>
                                                         </td>
                                                         <td className="px-4 py-4 text-center">
@@ -362,21 +627,34 @@ export default function ContractManagementPage() {
                                                         </td>
                                                         <td className="px-6 py-4 text-right">
                                                             <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                                <button className="p-2 bg-slate-50 text-slate-400 rounded-xl hover:bg-slate-900 hover:text-white transition-all shadow-sm">
+                                                                <button
+                                                                    onClick={() => handleViewContract(contract)}
+                                                                    className="p-2 bg-sky-50 text-sky-500 rounded-xl hover:bg-sky-500 hover:text-white transition-all shadow-sm"
+                                                                    title="Xem Chi Tiết"
+                                                                >
                                                                     <Eye size={16} />
                                                                 </button>
-                                                                <button className="p-2 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-600 hover:text-white transition-all shadow-sm">
+                                                                <button
+                                                                    onClick={() => handleEditContract(contract)}
+                                                                    className="p-2 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-600 hover:text-white transition-all shadow-sm"
+                                                                    title="Chỉnh Sửa"
+                                                                >
                                                                     <Edit size={16} />
                                                                 </button>
                                                                 {contract.status === 'DRAFT' && (
                                                                     <button
                                                                         onClick={() => handleActivateContract(contract.id)}
                                                                         className="p-2 bg-emerald-50 text-emerald-600 rounded-xl hover:bg-emerald-600 hover:text-white transition-all shadow-sm"
+                                                                        title="Kích Hoạt"
                                                                     >
                                                                         <CheckCircle size={16} />
                                                                     </button>
                                                                 )}
-                                                                <button className="p-2 bg-red-50 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all shadow-sm">
+                                                                <button
+                                                                    onClick={() => handleDeleteContract(contract.id)}
+                                                                    className="p-2 bg-red-50 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all shadow-sm"
+                                                                    title="Xóa Bỏ"
+                                                                >
                                                                     <Trash2 size={16} />
                                                                 </button>
                                                             </div>
@@ -460,11 +738,17 @@ export default function ContractManagementPage() {
                                             </div>
 
                                             <div className="grid grid-cols-2 gap-3 mt-6">
-                                                <button className="py-3.5 bg-blue-600 text-white rounded-[20px] font-black text-[10px] uppercase tracking-widest hover:bg-blue-700 transition-all flex items-center justify-center gap-2">
+                                                <button
+                                                    onClick={() => handleEditPriceList(priceList)}
+                                                    className="py-3.5 bg-blue-600 text-white rounded-[20px] font-black text-[10px] uppercase tracking-widest hover:bg-blue-700 transition-all flex items-center justify-center gap-2"
+                                                >
                                                     <Edit size={12} />
                                                     Cập nhật
                                                 </button>
-                                                <button className="py-3.5 bg-slate-100 text-slate-400 rounded-[20px] font-black text-[10px] uppercase tracking-widest hover:bg-red-50 hover:text-red-600 transition-all flex items-center justify-center gap-2">
+                                                <button
+                                                    onClick={() => handleDeletePriceList(priceList.id)}
+                                                    className="py-3.5 bg-slate-100 text-slate-400 rounded-[20px] font-black text-[10px] uppercase tracking-widest hover:bg-red-50 hover:text-red-600 transition-all flex items-center justify-center gap-2"
+                                                >
                                                     <Trash2 size={12} />
                                                     Xóa bỏ
                                                 </button>
@@ -476,6 +760,241 @@ export default function ContractManagementPage() {
                         </div>
                     )}
                 </>
+            )}
+            {/* Contract Modal */}
+            {showContractModal && (
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+                    <div className="bg-white rounded-[40px] w-full max-w-4xl shadow-2xl relative animate-in zoom-in duration-300 max-h-[90vh] flex flex-col">
+                        <div className="p-8 border-b border-slate-100 flex justify-between items-center">
+                            <div>
+                                <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tight">
+                                    {isViewMode ? 'Chi tiết hợp đồng' : isEditMode ? 'Chỉnh sửa hợp đồng' : 'Soạn thảo hợp đồng mới'}
+                                </h3>
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Enterprise Contract Lifecycle Management</p>
+                            </div>
+                            <button onClick={() => setShowContractModal(false)} className="p-3 bg-slate-50 text-slate-400 rounded-2xl hover:bg-red-50 hover:text-red-500 transition-all">
+                                <XCircle size={24} />
+                            </button>
+                        </div>
+
+                        <div className="p-8 overflow-y-auto flex-1 space-y-8">
+                            {isModalLoading ? (
+                                <div className="space-y-8 animate-pulse">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        {[1, 2].map(i => (
+                                            <div key={i} className="space-y-4">
+                                                <div className="h-3 w-24 bg-slate-100 rounded-full"></div>
+                                                <div className="h-14 w-full bg-slate-50 rounded-3xl"></div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                        {[1, 2, 3].map(i => (
+                                            <div key={i} className="space-y-4">
+                                                <div className="h-3 w-20 bg-slate-100 rounded-full"></div>
+                                                <div className="h-14 w-full bg-slate-50 rounded-3xl"></div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <div className="space-y-4">
+                                        <div className="h-3 w-48 bg-slate-100 rounded-full"></div>
+                                        <div className="space-y-3">
+                                            {[1, 2].map(i => (
+                                                <div key={i} className="h-16 w-full bg-slate-50 rounded-3xl"></div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            ) : (
+                                <>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Khách hàng Đối tác</label>
+                                            <select
+                                                disabled={isViewMode}
+                                                value={contractFormData.customerId}
+                                                onChange={(e) => setContractFormData({ ...contractFormData, customerId: e.target.value })}
+                                                className="w-full px-5 py-4 bg-slate-50 border-none rounded-3xl text-sm font-bold focus:ring-4 focus:ring-blue-500/10 transition-all"
+                                            >
+                                                <option value="">Chọn khách hàng...</option>
+                                                {Array.isArray(customers) && customers.map(c => (
+                                                    <option key={c.id} value={c.id}>{c.user?.name || c.name}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Tên Hợp đồng</label>
+                                            <input
+                                                readOnly={isViewMode}
+                                                type="text"
+                                                value={contractFormData.name}
+                                                onChange={(e) => setContractFormData({ ...contractFormData, name: e.target.value })}
+                                                className="w-full px-5 py-4 bg-slate-50 border-none rounded-3xl text-sm font-bold focus:ring-4 focus:ring-blue-500/10 transition-all"
+                                                placeholder="VD: Hợp đồng cung ứng sắt thép 2025"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Ngày Hiệu lực</label>
+                                            <input
+                                                readOnly={isViewMode}
+                                                type="date"
+                                                value={contractFormData.validFrom}
+                                                onChange={(e) => setContractFormData({ ...contractFormData, validFrom: e.target.value })}
+                                                className="w-full px-5 py-4 bg-slate-50 border-none rounded-3xl text-sm font-bold"
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Ngày Hết hạn</label>
+                                            <input
+                                                readOnly={isViewMode}
+                                                type="date"
+                                                value={contractFormData.validTo}
+                                                onChange={(e) => setContractFormData({ ...contractFormData, validTo: e.target.value })}
+                                                className="w-full px-5 py-4 bg-slate-50 border-none rounded-3xl text-sm font-bold"
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Thời hạn nợ (Ngày)</label>
+                                            <input
+                                                readOnly={isViewMode}
+                                                type="number"
+                                                value={contractFormData.creditTermDays}
+                                                onChange={(e) => setContractFormData({ ...contractFormData, creditTermDays: parseInt(e.target.value) })}
+                                                className="w-full px-5 py-4 bg-slate-50 border-none rounded-3xl text-sm font-bold"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-4">
+                                        <div className="flex justify-between items-center">
+                                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Danh mục Sản phẩm & Giá đặc thù</label>
+                                            {!isViewMode && (
+                                                <button
+                                                    onClick={() => setContractFormData({ ...contractFormData, products: [...contractFormData.products, { productId: '', fixedPrice: 0, discountPercent: 0 }] })}
+                                                    className="text-blue-500 text-[10px] font-black uppercase hover:underline"
+                                                >+ Thêm sản phẩm</button>
+                                            )}
+                                        </div>
+
+                                        {contractFormData.products.length === 0 ? (
+                                            <div className="py-8 text-center bg-slate-50 rounded-3xl border border-dashed border-slate-200">
+                                                <p className="text-[10px] font-black text-slate-400 uppercase">Hợp đồng chưa bao gồm danh mục giá đặc thù</p>
+                                            </div>
+                                        ) : (
+                                            <div className="space-y-3">
+                                                {contractFormData.products.map((p, idx) => (
+                                                    <div key={idx} className="flex gap-3 items-center bg-white p-4 rounded-3xl border border-slate-100 shadow-sm">
+                                                        <div className="flex-1">
+                                                            <select
+                                                                disabled={isViewMode}
+                                                                value={p.productId}
+                                                                onChange={(e) => {
+                                                                    const newProds = [...contractFormData.products]
+                                                                    newProds[idx].productId = e.target.value
+                                                                    setContractFormData({ ...contractFormData, products: newProds })
+                                                                }}
+                                                                className="w-full bg-slate-50 border-none rounded-2xl text-xs font-bold py-3"
+                                                            >
+                                                                <option value="">Chọn sản phẩm...</option>
+                                                                {Array.isArray(products) && products.map(prod => (
+                                                                    <option key={prod.id} value={prod.id}>{prod.name} ({prod.sku})</option>
+                                                                ))}
+                                                            </select>
+                                                        </div>
+                                                        <div className="w-32">
+                                                            <div className="relative">
+                                                                <input
+                                                                    readOnly={isViewMode}
+                                                                    type="number"
+                                                                    placeholder="Giá"
+                                                                    value={p.fixedPrice}
+                                                                    onChange={(e) => {
+                                                                        const newProds = [...contractFormData.products]
+                                                                        newProds[idx].fixedPrice = parseFloat(e.target.value)
+                                                                        setContractFormData({ ...contractFormData, products: newProds })
+                                                                    }}
+                                                                    className="w-full bg-slate-50 border-none rounded-2xl text-xs font-bold py-3 pr-8"
+                                                                />
+                                                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-black">₫</span>
+                                                            </div>
+                                                        </div>
+                                                        {!isViewMode && (
+                                                            <button
+                                                                onClick={() => {
+                                                                    const newProds = contractFormData.products.filter((_, i) => i !== idx)
+                                                                    setContractFormData({ ...contractFormData, products: newProds })
+                                                                }}
+                                                                className="p-3 text-red-400 hover:bg-red-50 rounded-2xl transition-all"
+                                                            >
+                                                                <Trash2 size={16} />
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                </>
+                            )}
+                        </div>
+
+                        <div className="p-8 border-t border-slate-100 flex justify-end gap-3 bg-slate-50/50 rounded-b-[40px]">
+                            <button onClick={() => setShowContractModal(false)} className="px-6 py-3 text-[10px] font-black uppercase text-slate-400 hover:text-slate-600">Đóng</button>
+                            {!isViewMode && (
+                                <button onClick={handleSaveContract} className="bg-blue-600 text-white px-8 py-3 rounded-2xl text-[10px] font-black uppercase shadow-lg shadow-blue-500/20 active:scale-95 transition-all">Lưu hợp đồng</button>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Price List Modal */}
+            {showPriceListModal && (
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-[40px] w-full max-w-lg shadow-2xl relative animate-in slide-in-from-bottom duration-300">
+                        <div className="p-8 border-b border-slate-100">
+                            <h3 className="text-2xl font-black text-slate-900 uppercase">Cấu hình bảng giá</h3>
+                        </div>
+                        <div className="p-8 space-y-6">
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Tên bảng giá</label>
+                                <input
+                                    type="text"
+                                    value={priceListFormData.name}
+                                    onChange={(e) => setPriceListFormData({ ...priceListFormData, name: e.target.value })}
+                                    className="w-full px-5 py-4 bg-slate-50 border-none rounded-3xl text-sm font-bold"
+                                />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Chiết khấu (%)</label>
+                                    <input
+                                        type="number"
+                                        value={priceListFormData.discountPercent}
+                                        onChange={(e) => setPriceListFormData({ ...priceListFormData, discountPercent: parseFloat(e.target.value) })}
+                                        className="w-full px-5 py-4 bg-slate-50 border-none rounded-3xl text-sm font-bold"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Độ ưu tiên</label>
+                                    <input
+                                        type="number"
+                                        value={priceListFormData.priority}
+                                        onChange={(e) => setPriceListFormData({ ...priceListFormData, priority: parseInt(e.target.value) })}
+                                        className="w-full px-5 py-4 bg-slate-50 border-none rounded-3xl text-sm font-bold"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                        <div className="p-8 border-t border-slate-100 flex justify-end gap-3 bg-slate-50/50 rounded-b-[40px]">
+                            <button onClick={() => setShowPriceListModal(false)} className="px-6 py-3 text-[10px] font-black uppercase text-slate-400 hover:text-slate-600">Hủy</button>
+                            <button onClick={handleSavePriceList} className="bg-purple-600 text-white px-8 py-3 rounded-2xl text-[10px] font-black uppercase shadow-lg shadow-purple-500/20 active:scale-95 transition-all">Cập nhật bảng giá</button>
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     )

@@ -1452,4 +1452,97 @@ Hotline: 1900-xxxx
       </html>
     `
   }
+
+  // Supplier: New Purchase Order Notification
+  static async sendNewPurchaseOrderToSupplier(data: {
+    supplierEmail: string
+    supplierName: string
+    orderNumber: string
+    totalAmount: number
+    items: Array<{ name: string; quantity: number; price: number }>
+  }) {
+    const template: EmailTemplate = {
+      to: data.supplierEmail,
+      subject: `🛒 Đơn đặt hàng mới từ SmartBuild: ${data.orderNumber}`,
+      html: this.getSupplierPOHTML(data),
+      text: `Chào ${data.supplierName}, bạn có đơn đặt hàng mới ${data.orderNumber} từ SmartBuild.`
+    }
+    return this.sendEmail(template)
+  }
+
+  // Admin/Store: Supplier Status Update
+  static async sendSupplierStatusUpdate(data: {
+    orderNumber: string
+    supplierName: string
+    status: string
+  }) {
+    const adminEmail = process.env.ADMIN_NOTIFICATION_EMAIL
+    if (!adminEmail) return false
+
+    const statusLabels: Record<string, string> = {
+      CONFIRMED: 'Đã xác nhận đơn',
+      RECEIVED: 'Đã giao hàng và kho đã nhận',
+      CANCELLED: 'Đã hủy đơn'
+    }
+
+    const template: EmailTemplate = {
+      to: adminEmail,
+      subject: `📢 Cập nhật từ nhà cung cấp ${data.supplierName}: ${data.orderNumber}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; padding: 20px;">
+          <h2>Cập nhật trạng thái đơn hàng (PO)</h2>
+          <p>Nhà cung cấp <b>${data.supplierName}</b> đã cập nhật trạng thái cho đơn hàng <b>${data.orderNumber}</b>.</p>
+          <p>Trạng thái mới: <span style="color: blue; font-weight: bold;">${statusLabels[data.status] || data.status}</span></p>
+          <hr />
+          <p>Vui lòng kiểm tra hệ thống quản trị để biết thêm chi tiết.</p>
+        </div>
+      `,
+      text: `NCC ${data.supplierName} đã cập nhật ${data.orderNumber} sang ${data.status}`
+    }
+    return this.sendEmail(template)
+  }
+
+  private static getSupplierPOHTML(data: any): string {
+    const baseUrl = getBaseUrl()
+    return `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
+        <div style="background: #1e3a8a; color: white; padding: 20px; text-align: center;">
+          <h1>Đơn Đặt Hàng Mới</h1>
+          <p>Mã đơn: ${data.orderNumber}</p>
+        </div>
+        <div style="padding: 20px;">
+          <p>Chào ${data.supplierName},</p>
+          <p>SmartBuild đã tạo một đơn đặt hàng mới dành cho bạn. Chi tiết như sau:</p>
+          <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+            <thead>
+              <tr style="background: #f8fafc;">
+                <th style="padding: 10px; border: 1px solid #e2e8f0; text-align: left;">Sản phẩm</th>
+                <th style="padding: 10px; border: 1px solid #e2e8f0; text-align: center;">SL</th>
+                <th style="padding: 10px; border: 1px solid #e2e8f0; text-align: right;">Đơn giá</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${data.items.map((item: any) => `
+                <tr>
+                  <td style="padding: 10px; border: 1px solid #e2e8f0;">${item.name}</td>
+                  <td style="padding: 10px; border: 1px solid #e2e8f0; text-align: center;">${item.quantity}</td>
+                  <td style="padding: 10px; border: 1px solid #e2e8f0; text-align: right;">${item.price.toLocaleString()}đ</td>
+                </tr>
+              `).join('')}
+            </tbody>
+            <tfoot>
+              <tr>
+                <td colspan="2" style="padding: 10px; font-weight: bold; text-align: right;">Tổng cộng:</td>
+                <td style="padding: 10px; font-weight: bold; text-align: right; color: #dc2626;">${data.totalAmount.toLocaleString()}đ</td>
+              </tr>
+            </tfoot>
+          </table>
+          <div style="text-align: center; margin-top: 30px;">
+            <p>Vui lòng đăng nhập vào Portal NCC để xác nhận đơn hàng này.</p>
+            <a href="${baseUrl}/supplier" style="display: inline-block; background: #1e3a8a; color: white; padding: 12px 25px; border-radius: 6px; text-decoration: none; font-weight: bold;">Đến Cổng NCC</a>
+          </div>
+        </div>
+      </div>
+    `
+  }
 }

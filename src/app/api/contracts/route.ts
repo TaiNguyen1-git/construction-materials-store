@@ -255,15 +255,29 @@ export async function PUT(request: NextRequest) {
     }
 }
 
-// DELETE /api/contracts - Xóa sản phẩm khỏi hợp đồng
+// DELETE /api/contracts - Xóa hợp đồng hoặc sản phẩm khỏi hợp đồng
 export async function DELETE(request: NextRequest) {
     try {
         const { searchParams } = new URL(request.url)
         const contractPriceId = searchParams.get('contractPriceId')
+        const contractId = searchParams.get('contractId')
+
+        if (contractId) {
+            // Xóa toàn bộ hợp đồng và các bảng giá liên quan
+            await prisma.$transaction([
+                prisma.contractPrice.deleteMany({
+                    where: { contractId }
+                }),
+                prisma.contract.delete({
+                    where: { id: contractId }
+                })
+            ])
+            return NextResponse.json({ success: true, message: 'Đã xóa hợp đồng' })
+        }
 
         if (!contractPriceId) {
             return NextResponse.json(
-                { error: 'Thiếu contractPriceId' },
+                { error: 'Thiếu contractPriceId hoặc contractId' },
                 { status: 400 }
             )
         }

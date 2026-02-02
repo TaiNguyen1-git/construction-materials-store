@@ -32,6 +32,34 @@ export default function SupplierInvoicesPage() {
         return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount)
     }
 
+    const handleUploadVAT = async (id: string, file: File) => {
+        try {
+            const formData = new FormData()
+            formData.append('file', file)
+
+            const uploadRes = await fetch('/api/upload', {
+                method: 'POST',
+                body: formData
+            })
+            const uploadData = await uploadRes.json()
+
+            if (uploadData.success) {
+                const patchRes = await fetch('/api/supplier/invoices/vat-attachment', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id, vatInvoiceUrl: uploadData.fileUrl })
+                })
+                const patchData = await patchRes.json()
+                if (patchData.success) {
+                    toast.success('Đã tải lên hóa đơn VAT')
+                    fetchInvoices()
+                }
+            }
+        } catch (error) {
+            toast.error('Lỗi khi tải lên file')
+        }
+    }
+
     if (loading) {
         return (
             <div className="flex items-center justify-center h-64">
@@ -56,6 +84,7 @@ export default function SupplierInvoicesPage() {
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Hạn Thanh Toán</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tổng Tiền</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Còn Nợ</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">VAT</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Trạng Thái</th>
                         </tr>
                     </thead>
@@ -73,9 +102,33 @@ export default function SupplierInvoicesPage() {
                                     <td className="px-6 py-4 font-bold text-gray-900">{formatCurrency(inv.totalAmount)}</td>
                                     <td className="px-6 py-4 text-red-600 font-medium">{formatCurrency(inv.balanceAmount)}</td>
                                     <td className="px-6 py-4">
+                                        {inv.vatInvoiceUrl ? (
+                                            <a
+                                                href={inv.vatInvoiceUrl}
+                                                target="_blank"
+                                                className="text-green-600 flex items-center gap-1 hover:underline text-xs font-medium"
+                                            >
+                                                <CheckCircle className="w-4 h-4" /> Xem hóa đơn
+                                            </a>
+                                        ) : (
+                                            <label className="cursor-pointer text-blue-600 hover:text-blue-800 text-xs font-medium flex items-center gap-1">
+                                                <FileText className="w-4 h-4" /> Tải lên
+                                                <input
+                                                    type="file"
+                                                    className="hidden"
+                                                    accept="image/*,.pdf"
+                                                    onChange={(e) => {
+                                                        const file = e.target.files?.[0]
+                                                        if (file) handleUploadVAT(inv.id, file)
+                                                    }}
+                                                />
+                                            </label>
+                                        )}
+                                    </td>
+                                    <td className="px-6 py-4">
                                         <span className={`px-2 py-1 text-xs rounded-full ${inv.status === 'PAID' ? 'bg-green-100 text-green-800' :
-                                                inv.status === 'OVERDUE' ? 'bg-red-100 text-red-800' :
-                                                    'bg-yellow-100 text-yellow-800'
+                                            inv.status === 'OVERDUE' ? 'bg-red-100 text-red-800' :
+                                                'bg-yellow-100 text-yellow-800'
                                             }`}>
                                             {inv.status}
                                         </span>
@@ -84,7 +137,7 @@ export default function SupplierInvoicesPage() {
                             ))
                         ) : (
                             <tr>
-                                <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
+                                <td colSpan={7} className="px-6 py-12 text-center text-gray-500">
                                     Chưa có hóa đơn nào
                                 </td>
                             </tr>
