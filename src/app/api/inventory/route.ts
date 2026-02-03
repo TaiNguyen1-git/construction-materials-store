@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { Prisma } from '@prisma/client'
 import { createSuccessResponse, createErrorResponse, createPaginatedResponse } from '@/lib/api-types'
 import { requireAuth } from '@/lib/auth-middleware-api'
 import { z } from 'zod'
@@ -70,22 +71,23 @@ export async function GET(request: NextRequest) {
     const skip = (page - 1) * limit
 
     // Build where clause
-    const where: any = {}
+    const where: Prisma.InventoryItemWhereInput = {}
 
-    if (search) {
-      where.product = {
-        OR: [
+    if (search || category) {
+      const pWhere: Prisma.ProductWhereInput = {}
+
+      if (search) {
+        pWhere.OR = [
           { name: { contains: search, mode: 'insensitive' } },
           { sku: { contains: search, mode: 'insensitive' } },
         ]
       }
-    }
 
-    if (category) {
-      where.product = {
-        ...where.product,
-        categoryId: category
+      if (category) {
+        pWhere.category = { id: category }
       }
+
+      where.product = { is: pWhere }
     }
 
     if (lowStock) {

@@ -319,7 +319,7 @@ function InventoryContent() {
                   className={`px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border ${filters.lowStock ? 'bg-red-50 text-red-600 border-red-100' : 'bg-slate-50 text-slate-400 border-slate-100 hover:bg-slate-100'
                     }`}
                 >
-                  Low Stock Focus
+                  Lọc Hàng Sắp Hết
                 </button>
               </div>
             </div>

@@ -1,9 +1,36 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { Prisma } from '@prisma/client'
 import { createSuccessResponse, createErrorResponse } from '@/lib/api-types'
 import { requireEmployee, requireManager } from '@/lib/auth-middleware-api'
 import { z } from 'zod'
 import { mlPredictionService } from '@/lib/ml-prediction'
+
+interface PredictionFactors {
+  productId?: string
+  currentStock: number
+  safetyStock: number
+  method: string
+  seasonalMultiplier?: number
+  trend?: number
+  dataPoints?: number
+  historicalAverage?: number
+  variability?: number
+}
+
+interface InventoryPredictionResult {
+  productId: string
+  productName: string
+  category: string
+  currentStock: number
+  minStockLevel: number
+  predictedDemand: number
+  confidence: number
+  factors: PredictionFactors
+  recommendedOrder: number
+  method: string
+  reason: string
+}
 
 const predictionQuerySchema = z.object({
   productId: z.string().optional(),
@@ -150,7 +177,7 @@ async function calculateSeasonalFactorsFromData(productId?: string): Promise<num
     twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2)
 
     // Build where clause for order items
-    const orderItemsWhere: any = {}
+    const orderItemsWhere: Prisma.OrderItemWhereInput = {}
     if (productId) {
       orderItemsWhere.productId = productId
     }
@@ -395,7 +422,7 @@ export async function GET(request: NextRequest) {
 
     const { productId, timeframe, includeSeasonality, minConfidence, method } = validation.data
 
-    let predictions: any[] = []
+    let predictions: InventoryPredictionResult[] = []
 
     // First, try to get existing predictions from DB
     const existingPredictions = await prisma.inventoryPrediction.findMany({
@@ -429,9 +456,10 @@ export async function GET(request: NextRequest) {
         minStockLevel: pred.product.inventoryItem?.minStockLevel || 0,
         predictedDemand: pred.predictedDemand,
         confidence: pred.confidence,
-        factors: pred.factors,
-        recommendedOrder: pred.recommendedOrder,
-        method: pred.method || 'STATISTICAL'
+        factors: pred.factors as any, // Cast Json to any for simple factor access
+        recommendedOrder: pred.recommendedOrder || 0,
+        method: pred.method || 'STATISTICAL',
+        reason: generatePredictionReason(pred.factors, pred.timeframe)
       }))
 
       // Filter by min confidence

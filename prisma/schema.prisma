@@ -862,9 +862,9 @@ model Payment {
 // Product Reviews and Ratings
 model ProductReview {
   id         String   @id @default(auto()) @map("_id") @db.ObjectId
-  productId  String
-  customerId String
-  orderId    String?
+  productId  String   @db.ObjectId
+  customerId String   @db.ObjectId
+  orderId    String?  @db.ObjectId
   rating     Int      // 1-5 stars
   title      String?
   review     String?
@@ -933,7 +933,7 @@ model CustomerInteraction {
 
 model InventoryPrediction {
   id              String   @id @default(auto()) @map("_id") @db.ObjectId
-  productId       String
+  productId       String   @db.ObjectId
   predictionDate  DateTime @default(now())
   targetDate      DateTime @default(now()) // Date we're predicting for
   timeframe       String   // WEEK, MONTH, QUARTER
