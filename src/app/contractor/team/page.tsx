@@ -14,34 +14,39 @@ export default function ContractorTeamPage() {
     const [sidebarOpen, setSidebarOpen] = useState(false)
 
     useEffect(() => {
-        // Only open by default on large screens
         if (window.innerWidth >= 1024) {
             setSidebarOpen(true)
         }
     }, [])
-    const DEFAULT_MEMBERS = [
-        { name: 'Nguyễn Văn Hùng', role: 'Thợ chính (Cai thợ)', status: 'ACTIVE', projects: 2 },
-        { name: 'Trần Minh Đức', role: 'Thợ điện nước', status: 'ACTIVE', projects: 1 },
-        { name: 'Lê Hoàng Nam', role: 'Thợ xây', status: 'ON_LEAVE', projects: 0 }
-    ]
 
     const [activeTab, setActiveTab] = useState<'LINKS' | 'REQUESTS' | 'MEMBERS'>('REQUESTS')
-    const [data, setData] = useState<any>({ projects: [], requests: [], reports: [], members: DEFAULT_MEMBERS })
+    const [data, setData] = useState<any>({ projects: [], requests: [], reports: [] })
+    const [organizations, setOrganizations] = useState<any[]>([])
     const [loading, setLoading] = useState(true)
-    const [showMemberModal, setShowMemberModal] = useState(false)
-    const [editingMember, setEditingMember] = useState<any>(null)
-    const [memberForm, setMemberForm] = useState({ name: '', role: '', status: 'ACTIVE', projects: 0 })
+
+    // Organization Create State
+    const [showOrgModal, setShowOrgModal] = useState(false)
+    const [createOrgData, setCreateOrgData] = useState({ name: '', taxCode: '', address: '' })
+    const [submittingOrg, setSubmittingOrg] = useState(false)
+
+    // Member Invite State (Future feature)
+    const [showInviteModal, setShowInviteModal] = useState(false)
 
     const fetchData = async () => {
         setLoading(true)
         try {
-            const res = await fetchWithAuth('/api/contractors/team-dashboard')
-            if (res.ok) {
-                const json = await res.json()
-                setData({
-                    ...json.data,
-                    members: json.data.members?.length > 0 ? json.data.members : DEFAULT_MEMBERS
-                })
+            // 1. Fetch Dashboard Data
+            const dashRes = await fetchWithAuth('/api/contractors/team-dashboard')
+            if (dashRes.ok) {
+                const json = await dashRes.json()
+                setData(json.data)
+            }
+
+            // 2. Fetch Organizations
+            const orgRes = await fetchWithAuth('/api/organizations')
+            if (orgRes.ok) {
+                const json = await orgRes.json()
+                setOrganizations(json.data || [])
             }
         } catch (error) {
             console.error(error)
@@ -55,6 +60,31 @@ export default function ContractorTeamPage() {
             fetchData()
         }
     }, [user])
+
+    const handleCreateOrg = async (e: React.FormEvent) => {
+        e.preventDefault()
+        setSubmittingOrg(true)
+        try {
+            const res = await fetchWithAuth('/api/organizations', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(createOrgData)
+            })
+            if (res.ok) {
+                toast.success('Đã tạo tổ chức mới thành công!')
+                setShowOrgModal(false)
+                setCreateOrgData({ name: '', taxCode: '', address: '' })
+                fetchData() // Refresh list
+            } else {
+                const err = await res.json()
+                toast.error(err.error || 'Có lỗi xảy ra')
+            }
+        } catch (err) {
+            toast.error('Lỗi kết nối')
+        } finally {
+            setSubmittingOrg(false)
+        }
+    }
 
     const handleGenerateToken = async (projectId: string) => {
         try {
@@ -81,6 +111,7 @@ export default function ContractorTeamPage() {
                 await navigator.clipboard.writeText(link)
                 toast.success('Đã copy link báo cáo')
             } else {
+                // Fallback
                 const textArea = document.createElement("textarea")
                 textArea.value = link
                 textArea.style.position = "fixed"
@@ -123,7 +154,6 @@ export default function ContractorTeamPage() {
     }
 
     const handleApproveRequest = async (id: string, items: any[]) => {
-        // Here we would call an API, but for demo UI we'll just toast
         toast.promise(
             new Promise((resolve) => setTimeout(resolve, 1000)),
             {
@@ -137,34 +167,6 @@ export default function ContractorTeamPage() {
             ...data,
             requests: data.requests.filter((r: any) => r.id !== id)
         })
-    }
-
-    const handleAddMember = () => {
-        setEditingMember(null)
-        setMemberForm({ name: '', role: '', status: 'ACTIVE', projects: 0 })
-        setShowMemberModal(true)
-    }
-
-    const handleEditMember = (member: any) => {
-        setEditingMember(member)
-        setMemberForm({ ...member })
-        setShowMemberModal(true)
-    }
-
-    const handleSaveMember = () => {
-        if (!memberForm.name || !memberForm.role) return toast.error('Vui lòng điền đủ thông tin')
-
-        let newMembers = [...(data.members || [])]
-        if (editingMember) {
-            newMembers = newMembers.map(m => m.name === editingMember.name ? memberForm : m)
-            toast.success('Đã cập nhật thành viên')
-        } else {
-            newMembers.push(memberForm)
-            toast.success('Đã thêm thành viên mới')
-        }
-
-        setData({ ...data, members: newMembers })
-        setShowMemberModal(false)
     }
 
     return (
@@ -201,7 +203,7 @@ export default function ContractorTeamPage() {
                             className={`pb-3 px-1 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'MEMBERS' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-400 hover:text-gray-600'}`}
                         >
                             <Users className="w-4 h-4" />
-                            Thành viên Đội
+                            Thành viên Đội (B2B)
                         </button>
                     </div>
 
@@ -334,81 +336,110 @@ export default function ContractorTeamPage() {
 
                             {activeTab === 'MEMBERS' && (
                                 <div className="space-y-6">
-                                    <div className="flex justify-between items-center">
-                                        <div>
-                                            <h3 className="text-lg font-bold text-gray-900">Quản lý nhân sự</h3>
-                                            <p className="text-sm text-gray-500">Mời và phân quyền cho các thành viên trong đội của bạn.</p>
-                                        </div>
-                                        <button onClick={handleAddMember} className="px-4 py-2 bg-blue-600 text-white rounded-xl font-bold text-sm hover:bg-blue-700 transition-all flex items-center gap-2 shadow-lg shadow-blue-100">
-                                            <Plus className="w-5 h-5" /> Mời Thành Viên
-                                        </button>
-                                    </div>
-
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                        {(data.members || []).map((member: any, idx: number) => (
-                                            <div key={idx} className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:border-blue-200 transition-all group">
-                                                <div className="flex items-center gap-4 mb-4">
-                                                    <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center text-gray-400 font-bold text-xl group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors">
-                                                        {member.name.charAt(0)}
-                                                    </div>
-                                                    <div className="flex-1 min-w-0">
-                                                        <h4 className="font-bold text-gray-900 truncate">{member.name}</h4>
-                                                        <p className="text-xs text-gray-500 font-medium">{member.role}</p>
-                                                    </div>
-                                                    <div className={`w-2 h-2 rounded-full ${member.status === 'ACTIVE' ? 'bg-green-500' :
-                                                        member.status === 'ON_LEAVE' ? 'bg-orange-500' :
-                                                            'bg-red-500'
-                                                        }`} title={
-                                                            member.status === 'ACTIVE' ? 'Đang làm' :
-                                                                member.status === 'ON_LEAVE' ? 'Nghỉ phép' : 'Nghỉ việc'
-                                                        } />
-                                                </div>
-                                                <div className="flex items-center justify-between text-xs font-bold pt-4 border-t border-gray-50">
-                                                    <div className="text-gray-400 uppercase tracking-widest">{member.projects} Dự án</div>
-                                                    <button onClick={() => handleEditMember(member)} className="text-blue-600 hover:underline">Quản lý</button>
-                                                </div>
+                                    {/* Empty State */}
+                                    {organizations.length === 0 ? (
+                                        <div className="bg-white rounded-2xl p-8 text-center border border-gray-200">
+                                            <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                                                <Users className="w-8 h-8 text-blue-500" />
                                             </div>
-                                        ))}
-                                    </div>
+                                            <h3 className="text-lg font-bold text-gray-900 mb-2">Chưa có tổ chức B2B</h3>
+                                            <p className="text-gray-500 mb-6 max-w-md mx-auto">
+                                                Tạo tổ chức để quản lý nhân sự, phân quyền duyệt đơn hàng và theo dõi hoạt động của đội nhóm chuyên nghiệp hơn.
+                                            </p>
+                                            <button
+                                                onClick={() => setShowOrgModal(true)}
+                                                className="px-6 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-100 flex items-center gap-2 mx-auto"
+                                            >
+                                                <Plus className="w-5 h-5" /> Tạo Đội Nhóm B2B
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-8">
+                                            {organizations.map(org => (
+                                                <div key={org.id} className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+                                                    <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                                                        <div className="flex items-center gap-4">
+                                                            <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center text-blue-600 font-bold text-xl border border-gray-200">
+                                                                {org.name.charAt(0).toUpperCase()}
+                                                            </div>
+                                                            <div>
+                                                                <h3 className="font-bold text-gray-900 text-lg">{org.name}</h3>
+                                                                <p className="text-xs text-gray-500 font-medium">{org.memberCount} thành viên</p>
+                                                            </div>
+                                                        </div>
+                                                        <Link href={`/account/organization/${org.id}`} className="text-blue-600 font-bold text-sm hover:underline flex items-center gap-1">
+                                                            Quản lý chi tiết <ExternalLink className="w-4 h-4" />
+                                                        </Link>
+                                                    </div>
+
+                                                    {/* We could list simplified members here if the API returned them directly,
+                                                        but for now we redirect to the specialized page for full management */}
+                                                    <div className="p-8 text-center bg-white">
+                                                        <p className="text-gray-500 mb-4">Quản lý nâng cao: thêm nhân viên, phân quyền duyệt đơn, hạn mức chi tiêu.</p>
+                                                        <Link href={`/account/organization/${org.id}`}>
+                                                            <button className="px-5 py-2.5 border-2 border-slate-100 hover:border-blue-500 hover:text-blue-600 rounded-xl font-bold text-slate-600 transition-all">
+                                                                Mở Dashboard Tổ chức
+                                                            </button>
+                                                        </Link>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </>
                     )}
                 </div>
 
-                {/* Member Form Modal */}
-                {showMemberModal && (
+                {/* Create Organization Modal */}
+                {showOrgModal && (
                     <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4 backdrop-blur-sm">
                         <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
-                            <div className="p-6 bg-blue-600 text-white flex justify-between items-center">
-                                <h3 className="font-black uppercase tracking-tight">{editingMember ? 'Chỉnh sửa thành viên' : 'Thêm thành viên mới'}</h3>
-                                <button onClick={() => setShowMemberModal(false)}><X className="w-6 h-6" /></button>
+                            <div className="p-6 bg-gradient-to-r from-blue-600 to-indigo-600 text-white flex justify-between items-center">
+                                <h3 className="font-black uppercase tracking-tight">Tạo Đội Nhóm B2B</h3>
+                                <button onClick={() => setShowOrgModal(false)}><X className="w-6 h-6" /></button>
                             </div>
-                            <div className="p-6 space-y-4">
+                            <form onSubmit={handleCreateOrg} className="p-6 space-y-4">
                                 <div className="space-y-1">
-                                    <label className="text-[10px] font-black text-gray-400 uppercase ml-2">Họ và tên</label>
-                                    <input type="text" value={memberForm.name} onChange={(e) => setMemberForm({ ...memberForm, name: e.target.value })} placeholder="Nguyễn Văn A" className="w-full px-4 py-3 bg-gray-50 rounded-2xl font-bold outline-none border border-transparent focus:border-blue-200 transition-all" />
+                                    <label className="text-[10px] font-black text-gray-400 uppercase ml-2">Tên Đội / Công ty</label>
+                                    <input
+                                        type="text"
+                                        value={createOrgData.name}
+                                        onChange={(e) => setCreateOrgData({ ...createOrgData, name: e.target.value })}
+                                        placeholder="Ví dụ: Đội thi công A"
+                                        className="w-full px-4 py-3 bg-gray-50 rounded-2xl font-bold outline-none border border-transparent focus:border-blue-200 transition-all"
+                                        required
+                                    />
                                 </div>
                                 <div className="space-y-1">
-                                    <label className="text-[10px] font-black text-gray-400 uppercase ml-2">Vai trò / Chuyên môn</label>
-                                    <input type="text" value={memberForm.role} onChange={(e) => setMemberForm({ ...memberForm, role: e.target.value })} placeholder="Ví dụ: Thợ điện, Cai thợ..." className="w-full px-4 py-3 bg-gray-50 rounded-2xl font-bold outline-none border border-transparent focus:border-blue-200 transition-all" />
+                                    <label className="text-[10px] font-black text-gray-400 uppercase ml-2">Mã số thuế (Tùy chọn)</label>
+                                    <input
+                                        type="text"
+                                        value={createOrgData.taxCode}
+                                        onChange={(e) => setCreateOrgData({ ...createOrgData, taxCode: e.target.value })}
+                                        placeholder="Để trống nếu không có"
+                                        className="w-full px-4 py-3 bg-gray-50 rounded-2xl font-bold outline-none border border-transparent focus:border-blue-200 transition-all"
+                                    />
                                 </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-1">
-                                        <label className="text-[10px] font-black text-gray-400 uppercase ml-2">Trạng thái</label>
-                                        <select value={memberForm.status} onChange={(e) => setMemberForm({ ...memberForm, status: e.target.value })} className="w-full px-4 py-3 bg-gray-50 rounded-2xl font-bold outline-none">
-                                            <option value="ACTIVE">Đang làm</option>
-                                            <option value="ON_LEAVE">Nghỉ phép</option>
-                                            <option value="INACTIVE">Đã nghỉ việc</option>
-                                        </select>
-                                    </div>
-                                    <div className="space-y-1">
-                                        <label className="text-[10px] font-black text-gray-400 uppercase ml-2">Số dự án</label>
-                                        <input type="number" value={memberForm.projects} onChange={(e) => setMemberForm({ ...memberForm, projects: parseInt(e.target.value) || 0 })} className="w-full px-4 py-3 bg-gray-50 rounded-2xl font-bold outline-none" />
-                                    </div>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-black text-gray-400 uppercase ml-2">Địa chỉ</label>
+                                    <input
+                                        type="text"
+                                        value={createOrgData.address}
+                                        onChange={(e) => setCreateOrgData({ ...createOrgData, address: e.target.value })}
+                                        placeholder="Địa chỉ trụ sở"
+                                        className="w-full px-4 py-3 bg-gray-50 rounded-2xl font-bold outline-none border border-transparent focus:border-blue-200 transition-all"
+                                    />
                                 </div>
-                                <button onClick={handleSaveMember} className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-lg shadow-blue-100">Lưu thông tin</button>
-                            </div>
+                                <button
+                                    type="submit"
+                                    disabled={submittingOrg}
+                                    className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-lg shadow-blue-100 flex justify-center items-center gap-2"
+                                >
+                                    {submittingOrg ? <RefreshCw className="w-5 h-5 animate-spin" /> : 'Tạo ngay'}
+                                </button>
+                            </form>
                         </div>
                     </div>
                 )}

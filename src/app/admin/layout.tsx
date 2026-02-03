@@ -14,6 +14,7 @@ import {
   X,
   User,
   Building,
+  Building2,
   ClipboardList,
   Truck,
   CreditCard,
@@ -96,6 +97,7 @@ export default function AdminLayout({
       items: [
         { name: 'Đơn Hàng & Dự Án', href: '/admin/orders', icon: ShoppingCart },
         { name: 'Khách Hàng & Đánh Giá', href: '/admin/customers', icon: Users },
+        { name: 'Quản Lý Tổ Chức (B2B)', href: '/admin/organizations', icon: Building2 },
         { name: 'Phân Tích Bán Hàng', href: '/admin/sales-management', icon: LineChart },
       ]
     },

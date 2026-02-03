@@ -18,9 +18,10 @@ const signSchema = z.object({
 
 export async function POST(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const { id } = await params
         const userId = request.headers.get('x-user-id')
         if (!userId) {
             return NextResponse.json(createErrorResponse('Unauthorized', 'UNAUTHORIZED'), { status: 401 })
@@ -44,7 +45,7 @@ export async function POST(
             || 'Unknown'
 
         const result = await EContractService.signContract(
-            params.id,
+            id,
             party,
             {
                 method,
@@ -82,10 +83,11 @@ export async function POST(
 // GET - Get contract details
 export async function GET(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
-        const contract = await EContractService.getContract(params.id)
+        const { id } = await params
+        const contract = await EContractService.getContract(id)
 
         if (!contract) {
             return NextResponse.json(

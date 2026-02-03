@@ -66,6 +66,11 @@ export default function SystemInterceptor() {
                     }
                 }
 
+                // Prevent Debt Lock from blocking the Payment Page
+                if (data.type === 'DEBT_LOCK' && pathname.startsWith('/contractor/debt')) {
+                    return
+                }
+
                 setInterceptor(data)
                 setVisible(true)
                 return
@@ -272,7 +277,7 @@ export default function SystemInterceptor() {
                         </div>
 
                         <button
-                            onClick={() => window.open('/contractor/billing', '_blank')}
+                            onClick={() => router.push('/contractor/debt')}
                             className="w-full py-5 bg-rose-600 text-white text-sm font-black rounded-[22px] shadow-2xl shadow-rose-200 transition-all hover:bg-rose-700 active:scale-[0.98] uppercase tracking-[0.2em]"
                         >
                             Thanh toán ngay

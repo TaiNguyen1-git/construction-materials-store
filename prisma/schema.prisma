@@ -117,6 +117,7 @@ model User {
   supplier      Supplier?
   sessions UserSession[]
   organizationMemberships OrganizationMember[]
+  sentInvitations         OrganizationInvitation[]
 }
 
 // User Session Management (for multi-device/tab support)
@@ -3353,6 +3354,7 @@ model Organization {
   orders      Order[]
   projects    ConstructionProject[]
   managedProjects Project[]
+  invitations OrganizationInvitation[]
   
   @@map("organizations")
 }
@@ -3375,6 +3377,33 @@ enum OrganizationRole {
   OWNER
   ADMIN
   BUYER
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  EXPIRED
+}
+
+model OrganizationInvitation {
+  id              String           @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId  String           @db.ObjectId
+  email           String
+  role            OrganizationRole @default(BUYER)
+  intendedUserRole UserRole        @default(CUSTOMER)
+  invitedById     String           @db.ObjectId
+  status          InvitationStatus @default(PENDING)
+  token           String           @unique
+  expiresAt       DateTime
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  organization    Organization     @relation(fields: [organizationId], references: [id])
+  invitedBy       User             @relation(fields: [invitedById], references: [id])
+
+  @@unique([organizationId, email])
+  @@map("organization_invitations")
 }
 
 enum B2BApprovalStatus {

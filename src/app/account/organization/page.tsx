@@ -137,8 +137,8 @@ export default function OrganizationPage() {
                                             <h3 className="text-2xl font-black text-slate-900 tracking-tight">{org.name}</h3>
                                             <div className="flex items-center gap-2">
                                                 <span className={`px-2 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-widest ${org.userRole === 'OWNER' ? 'bg-purple-100 text-purple-600' :
-                                                        org.userRole === 'ADMIN' ? 'bg-blue-100 text-blue-600' :
-                                                            'bg-slate-100 text-slate-600'
+                                                    org.userRole === 'ADMIN' ? 'bg-blue-100 text-blue-600' :
+                                                        'bg-slate-100 text-slate-600'
                                                     }`}>
                                                     {org.userRole}
                                                 </span>
@@ -158,13 +158,14 @@ export default function OrganizationPage() {
                                         </div>
                                     </div>
 
+                                    {/* Updated: 2024-02-03 08:45 */}
                                     <div className="flex gap-3 pt-6 border-t border-slate-50">
                                         <Link href={`/account/organization/${org.id}`} className="flex-1">
-                                            <button className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-black transition-all shadow-lg active:scale-95">
+                                            <button className="w-full bg-blue-400 text-white py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-500 transition-all shadow-lg shadow-blue-100 active:scale-95">
                                                 Quản lý thành viên
                                             </button>
                                         </Link>
-                                        <Link href={`/account/organization/${org.id}/orders`} className="flex-1">
+                                        <Link href={`/account/organization/${org.id}/approvals`} className="flex-1">
                                             <button className="w-full bg-white border border-slate-200 text-slate-600 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:border-blue-400 hover:text-blue-600 transition-all shadow-sm active:scale-95">
                                                 Duyệt đơn hàng
                                             </button>

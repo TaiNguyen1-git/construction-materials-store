@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {
+        const { id: conversationId } = await params
         const userId = request.headers.get('x-user-id')
         if (!userId) {
             return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
         }
 
-        const conversationId = params.id
         const { searchParams } = new URL(request.url)
         // Pagination could be added here (skip/take)
 

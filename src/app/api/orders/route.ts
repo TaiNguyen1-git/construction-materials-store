@@ -284,12 +284,38 @@ export async function POST(request: NextRequest) {
 
     // Determine customer ID for registered users
     let customerId: string | null = null
+    // B2B Logic variables
+    let organizationId: string | null = null
+    let b2bApprovalStatus: 'NOT_REQUIRED' | 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED' = 'NOT_REQUIRED'
+    let orderStatus: OrderStatus = 'PENDING'
+
     if (userId && userRole === 'CUSTOMER') {
       const customer = await prisma.customer.findFirst({
         where: { userId }
       })
       if (customer) {
         customerId = customer.id
+
+        // --- B2B LOGIC START ---
+        // Check if user belongs to an organization
+        const orgMember = await prisma.organizationMember.findFirst({
+          where: { userId },
+          include: { organization: true }
+        })
+
+        if (orgMember && orgMember.organization.isActive) {
+          organizationId = orgMember.organizationId
+
+          // Logic: If BUYER -> Requires Approval
+          if (orgMember.role === 'BUYER') {
+            b2bApprovalStatus = 'PENDING_APPROVAL'
+            orderStatus = 'PENDING_CONFIRMATION' // Hold order
+          } else {
+            // OWNER or ADMIN -> No approval needed
+            b2bApprovalStatus = 'NOT_REQUIRED'
+          }
+        }
+        // --- B2B LOGIC END ---
 
         // --- DEBT MANAGEMENT CHECK ---
         // Verify credit eligibility before proceeding
@@ -324,10 +350,12 @@ export async function POST(request: NextRequest) {
     // Create order with transaction
     const order = await prisma.$transaction(async (tx) => {
       // Create the order
-      // Determine initial status based on payment type
-      const initialStatus = data.paymentType === 'DEPOSIT'
-        ? 'PENDING_CONFIRMATION'  // Deposit orders need admin confirmation
-        : 'PENDING'               // Full payment orders go straight to pending
+      // Determine initial status based on payment type AND B2B logic
+      let initialStatus: OrderStatus = orderStatus // Default from B2B logic
+
+      if (data.paymentType === 'DEPOSIT' && initialStatus === 'PENDING') {
+        initialStatus = 'PENDING_CONFIRMATION' // Deposit orders also need check
+      }
 
       // Calculate QR expiration time (15 minutes from now)
       const qrExpiresAt = new Date(Date.now() + 15 * 60 * 1000)
@@ -337,6 +365,8 @@ export async function POST(request: NextRequest) {
           orderNumber,
           customerType: data.customerType,
           customerId,
+          organizationId, // Link order to organization
+          b2bApprovalStatus, // Set approval status
           guestName: data.guestName,
           guestEmail: data.guestEmail,
           guestPhone: data.guestPhone,

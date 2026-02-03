@@ -4,15 +4,15 @@ import { verifyTokenFromRequest } from '@/lib/auth'
 
 export async function DELETE(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const { id: conversationId } = await params
         const decoded = await verifyTokenFromRequest(request)
         if (!decoded) {
             return NextResponse.json({ message: 'Unauthorized' }, { status: 401 })
         }
 
-        const conversationId = params.id
 
         // Check if conversation exists
         const conversation = await prisma.conversation.findUnique({

@@ -289,6 +289,24 @@ export class EmailService {
     return this.sendEmail(template)
   }
 
+  // Send Organization Invitation
+  static async sendOrganizationInvitation(data: {
+    email: string
+    organizationName: string
+    inviterName: string
+    registerLink: string
+    role: string
+  }) {
+    const template: EmailTemplate = {
+      to: data.email,
+      subject: `🏢 Mời tham gia tổ chức ${data.organizationName} - SmartBuild B2B`,
+      html: this.getOrganizationInvitationHTML(data),
+      text: `Xin chào,\n\nBạn được mời tham gia tổ chức ${data.organizationName} bởi ${data.inviterName} với vai trò ${data.role}.\nNhấp vào link sau để hoàn tất đăng ký: ${data.registerLink}`
+    }
+
+    return this.sendEmail(template)
+  }
+
   // Generic Notification Email (for multi-channel notifications)
   static async sendGenericNotificationEmail(data: {
     email: string
@@ -1543,6 +1561,66 @@ Hotline: 1900-xxxx
           </div>
         </div>
       </div>
+    `
+  }
+
+  private static getOrganizationInvitationHTML(data: any): string {
+    const roleLabel = data.role === 'ADMIN' ? 'Quản trị viên' : data.role === 'OWNER' ? 'Chủ sở hữu' : 'Người mua hàng (Buyer)';
+
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head><meta charset="utf-8"></head>
+      <body style="margin: 0; padding: 20px; background-color: #f4f7fa; font-family: 'Segoe UI', Arial, sans-serif;">
+        <table style="max-width: 600px; margin: 0 auto; background: #fff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
+          <tr>
+            <td style="background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); padding: 40px; text-align: center;">
+              <h1 style="color: #fff; margin: 0; font-size: 24px;">🏢 Lời Mời Tham Gia Tổ Chức</h1>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 40px;">
+              <p style="font-size: 16px; color: #1e293b; margin-bottom: 20px;">Xin chào,</p>
+              <p style="font-size: 15px; color: #4b5563; line-height: 1.6;">
+                Bạn đã được mời tham gia tổ chức <strong>${data.organizationName}</strong> trên hệ thống <strong>SmartBuild</strong> bởi thành viên <strong>${data.inviterName}</strong>.
+              </p>
+              
+              <div style="background: #f8fafc; padding: 20px; border-radius: 12px; margin: 25px 0;">
+                <table style="width: 100%;">
+                  <tr>
+                    <td style="color: #64748b; font-size: 14px; padding-bottom: 5px;">Vai trò của bạn:</td>
+                    <td style="color: #1d4ed8; font-weight: 700; text-align: right;">${roleLabel}</td>
+                  </tr>
+                  <tr>
+                    <td style="color: #64748b; font-size: 14px;">Tổ chức:</td>
+                    <td style="color: #1e293b; font-weight: 600; text-align: right;">${data.organizationName}</td>
+                  </tr>
+                </table>
+              </div>
+              
+              <p style="font-size: 15px; color: #4b5563; line-height: 1.6;">
+                Vui lòng nhấn vào nút bên dưới để hoàn tất việc đăng ký tài khoản và gia nhập đội ngũ.
+              </p>
+              
+              <div style="text-align: center; margin-top: 35px;">
+                <a href="${data.registerLink}" style="display: inline-block; background: #2563eb; color: #fff; padding: 16px 45px; border-radius: 50px; text-decoration: none; font-weight: 700; font-size: 16px; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);">
+                  Chấp Nhận Lời Mời & Đăng Ký
+                </a>
+              </div>
+              
+              <p style="font-size: 13px; color: #94a3b8; margin-top: 35px; border-top: 1px solid #f1f5f9; padding-top: 20px;">
+                * Link này có hiệu lực trong vòng 7 ngày. Nếu bạn không thực hiện đăng ký, lời mời sẽ bị hủy bỏ.
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="background: #f8fafc; padding: 20px; text-align: center; color: #94a3b8; font-size: 12px;">
+              SmartBuild - Hệ thống quản lý vật liệu xây dựng thông minh
+            </td>
+          </tr>
+        </table>
+      </body>
+      </html>
     `
   }
 }

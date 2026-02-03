@@ -18,7 +18,11 @@ export async function POST(request: NextRequest) {
             return NextResponse.json(createErrorResponse('Unauthorized', 'UNAUTHORIZED'), { status: 401 })
         }
 
-        const body = await request.json()
+        const text = await request.text();
+        if (!text) {
+            return NextResponse.json(createErrorResponse('Empty body', 'BAD_REQUEST'), { status: 400 });
+        }
+        const body = JSON.parse(text);
         const { announcementId, action, data } = body
 
         // 1. Record the action for General Announcements

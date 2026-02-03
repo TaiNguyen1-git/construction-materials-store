@@ -20,6 +20,15 @@ export default function RegisterPage() {
     password: '',
     confirmPassword: ''
   })
+  const [invitationData, setInvitationData] = useState<any>(null)
+  const [isContractorForm, setIsContractorForm] = useState(false)
+  const [contractorInfo, setContractorInfo] = useState({
+    displayName: '',
+    companyName: '',
+    experienceYears: '',
+    skills: [] as string[],
+    city: ''
+  })
   const [localErrors, setLocalErrors] = useState<Record<string, string>>({})
   const [verificationData, setVerificationData] = useState<{
     required: boolean
@@ -30,13 +39,38 @@ export default function RegisterPage() {
   const [isResending, setIsResending] = useState(false)
   const [resendSuccess, setResendSuccess] = useState(false)
 
-  // Check for existing guest session
+  // Check for existing guest session and invitations
   useEffect(() => {
     const storedGuestId = localStorage.getItem('user_id')
     if (storedGuestId && storedGuestId.startsWith('guest_')) {
       setGuestId(storedGuestId)
     }
+
+    // Check for invitation token
+    const urlParams = new URLSearchParams(window.location.search)
+    const token = urlParams.get('invitation')
+    if (token) {
+      fetchInvitation(token)
+    }
   }, [])
+
+  const fetchInvitation = async (token: string) => {
+    try {
+      const res = await fetch(`/api/invitations/${token}`)
+      const data = await res.json()
+      if (data.success) {
+        setInvitationData(data.data)
+        setFormData(prev => ({ ...prev, email: data.data.email }))
+        if (data.data.intendedUserRole === 'CONTRACTOR') {
+          setIsContractorForm(true)
+        }
+      } else {
+        toast.error(data.error || 'Lời mời không hợp lệ')
+      }
+    } catch (err) {
+      toast.error('Lỗi khi tải thông tin lời mời')
+    }
+  }
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {}
@@ -65,7 +99,9 @@ export default function RegisterPage() {
         email: formData.email,
         phone: formData.phone,
         password: formData.password,
-        guestId: guestId || undefined
+        guestId: guestId || undefined,
+        invitationToken: invitationData?.token,
+        contractorInfo: isContractorForm ? contractorInfo : undefined
       }) as any
 
       if (response?.verificationRequired) {
@@ -227,6 +263,26 @@ export default function RegisterPage() {
                   <p className="text-[11px] text-indigo-700 mt-0.5 leading-relaxed font-medium">
                     Chúng tôi sẽ tự động kết nối lịch sử chat và báo giá tạm thời vào tài khoản mới của bạn.
                   </p>
+                </div>
+              </div>
+            )}
+
+            {/* Invitation Banner */}
+            {invitationData && (
+              <div className="mb-6 bg-blue-50 p-5 rounded-[32px] border border-blue-100 flex items-start gap-4 shadow-sm">
+                <div className="bg-blue-600 p-3 rounded-2xl shadow-lg shadow-blue-200 shrink-0">
+                  <Building2 className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-blue-900 text-sm italic uppercase tracking-tight">
+                    Lời mời gia nhập {invitationData.organization.name}
+                  </h3>
+                  <p className="text-[11px] text-blue-700 mt-1 leading-relaxed font-semibold">
+                    Được mời bởi: <span className="text-blue-900 font-black">{invitationData.invitedBy.name}</span>
+                  </p>
+                  <div className="mt-2 inline-block bg-blue-100 text-blue-800 text-[10px] font-black px-2 py-1 rounded-md uppercase">
+                    Vai trò: {invitationData.role}
+                  </div>
                 </div>
               </div>
             )}
@@ -417,6 +473,70 @@ export default function RegisterPage() {
                     {localErrors.confirmPassword && <p className="text-red-500 text-[10px] font-bold uppercase ml-2">{localErrors.confirmPassword}</p>}
                   </div>
                 </div>
+
+                {/* Contractor Specific Fields */}
+                {isContractorForm && (
+                  <div className="p-6 bg-neutral-50 rounded-[32px] border border-neutral-100 space-y-4 animate-fade-in">
+                    <div className="flex items-center gap-2 mb-2 text-blue-600">
+                      <HardHat className="h-5 w-5" />
+                      <h3 className="text-xs font-black uppercase tracking-widest">Hồ sơ năng lực nhà thầu</h3>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider ml-1">Tên đội thợ / Công ty *</label>
+                      <input
+                        type="text"
+                        required
+                        value={contractorInfo.displayName}
+                        onChange={(e) => setContractorInfo({ ...contractorInfo, displayName: e.target.value })}
+                        className="block w-full px-4 py-3 bg-white border border-neutral-200 rounded-2xl focus:border-blue-500 focus:ring-4 focus:ring-blue-500/5 transition-all outline-none font-bold text-sm"
+                        placeholder="Ví dụ: Đội thợ Xây dựng ABC"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider ml-1">Số năm kinh nghiệm *</label>
+                        <input
+                          type="number"
+                          required
+                          value={contractorInfo.experienceYears}
+                          onChange={(e) => setContractorInfo({ ...contractorInfo, experienceYears: e.target.value })}
+                          className="block w-full px-4 py-3 bg-white border border-neutral-200 rounded-2xl focus:border-blue-500 focus:ring-4 focus:ring-blue-500/5 transition-all outline-none font-bold text-sm"
+                          placeholder="3"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider ml-1">Thành phố *</label>
+                        <input
+                          type="text"
+                          required
+                          value={contractorInfo.city}
+                          onChange={(e) => setContractorInfo({ ...contractorInfo, city: e.target.value })}
+                          className="block w-full px-4 py-3 bg-white border border-neutral-200 rounded-2xl focus:border-blue-500 focus:ring-4 focus:ring-blue-500/5 transition-all outline-none font-bold text-sm"
+                          placeholder="Hà Nội"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider ml-1">Kỹ năng chính (Xử lý, Điện, Nước...)</label>
+                      <input
+                        type="text"
+                        placeholder="Nhập kỹ năng, ngăn cách bởi dấu phẩy"
+                        onBlur={(e) => {
+                          const skills = e.target.value.split(',').map(s => s.trim()).filter(s => s !== '')
+                          setContractorInfo({ ...contractorInfo, skills })
+                        }}
+                        className="block w-full px-4 py-3 bg-white border border-neutral-200 rounded-2xl focus:border-blue-500 focus:ring-4 focus:ring-blue-500/5 transition-all outline-none font-bold text-sm"
+                      />
+                    </div>
+
+                    <p className="text-[10px] text-neutral-400 font-medium italic">
+                      * Hồ sơ sẽ được quản lý tổ chức phê duyệt sau khi bạn đăng ký thành công.
+                    </p>
+                  </div>
+                )}
 
                 <div className="pt-2">
                   <label className="flex items-start gap-3 cursor-pointer group select-none">

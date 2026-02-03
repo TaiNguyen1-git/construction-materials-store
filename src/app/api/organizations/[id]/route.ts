@@ -1,30 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { verifyTokenFromRequest } from '@/lib/auth-middleware-api'
+import crypto from 'crypto'
+import { EmailService } from '@/lib/email-service'
 
 export async function GET(
     req: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
-        const userId = req.headers.get('x-user-id')
+        const { id } = await params
+        const payload = verifyTokenFromRequest(req)
+        const userId = payload?.userId
         if (!userId) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
 
-        // Check if user is a member
-        const membership = await prisma.organizationMember.findUnique({
-            where: {
-                organizationId_userId: {
-                    organizationId: params.id,
-                    userId
-                }
-            }
-        })
+        // Check if user is a member or a system administrator
+        const isAdmin = payload?.role === 'MANAGER' || payload?.role === 'EMPLOYEE'
 
-        if (!membership) {
-            return NextResponse.json({ success: false, error: 'Access denied' }, { status: 403 })
+        if (!isAdmin) {
+            const membership = await prisma.organizationMember.findUnique({
+                where: {
+                    organizationId_userId: {
+                        organizationId: id,
+                        userId
+                    }
+                }
+            })
+
+            if (!membership) {
+                return NextResponse.json({ success: false, error: 'Access denied' }, { status: 403 })
+            }
         }
 
         const organization = await prisma.organization.findUnique({
-            where: { id: params.id },
+            where: { id },
             include: {
                 members: {
                     include: {
@@ -32,8 +41,23 @@ export async function GET(
                             select: {
                                 id: true,
                                 name: true,
-                                email: true
+                                email: true,
+                                phone: true,
+                                role: true,
+                                customer: {
+                                    include: {
+                                        contractorProfile: true
+                                    }
+                                }
                             }
+                        }
+                    }
+                },
+                invitations: {
+                    where: { status: 'PENDING' },
+                    include: {
+                        invitedBy: {
+                            select: { name: true }
                         }
                     }
                 },
@@ -51,17 +75,21 @@ export async function GET(
 
 export async function PATCH(
     req: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
-        const userId = req.headers.get('x-user-id')
+        const { id } = await params
+        const payload = verifyTokenFromRequest(req)
+        const userId = payload?.userId
+        if (!userId) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
+
         const body = await req.json()
 
         const membership = await prisma.organizationMember.findUnique({
             where: {
                 organizationId_userId: {
-                    organizationId: params.id,
-                    userId: userId || ''
+                    organizationId: id,
+                    userId
                 }
             }
         })
@@ -71,7 +99,7 @@ export async function PATCH(
         }
 
         const updated = await prisma.organization.update({
-            where: { id: params.id },
+            where: { id },
             data: {
                 name: body.name,
                 taxCode: body.taxCode,
@@ -88,18 +116,22 @@ export async function PATCH(
 
 export async function POST(
     req: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
-        const userId = req.headers.get('x-user-id')
+        const { id } = await params
+        const payload = verifyTokenFromRequest(req)
+        const userId = payload?.userId
+        if (!userId) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
+
         const body = await req.json()
         const { action, targetUserId, role } = body
 
         const membership = await prisma.organizationMember.findUnique({
             where: {
                 organizationId_userId: {
-                    organizationId: params.id,
-                    userId: userId || ''
+                    organizationId: id,
+                    userId
                 }
             }
         })
@@ -113,12 +145,63 @@ export async function POST(
             const userToInvite = await prisma.user.findUnique({ where: { email } })
 
             if (!userToInvite) {
-                return NextResponse.json({ success: false, error: 'User not found' }, { status: 404 })
+                // Check if already invited
+                const existingInvite = await prisma.organizationInvitation.findUnique({
+                    where: { organizationId_email: { organizationId: id, email } }
+                })
+
+                if (existingInvite && existingInvite.status === 'PENDING') {
+                    return NextResponse.json({ success: false, error: 'Lời mời đã được gửi trước đó' }, { status: 400 })
+                }
+
+                // Create Invitation
+                const token = crypto.randomBytes(32).toString('hex')
+                const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
+
+                const invitation = await prisma.organizationInvitation.create({
+                    data: {
+                        organizationId: id,
+                        email,
+                        role: role || 'BUYER',
+                        intendedUserRole: body.intendedUserRole || 'CUSTOMER',
+                        invitedById: userId,
+                        token,
+                        expiresAt
+                    },
+                    include: { organization: true, invitedBy: true }
+                })
+
+                // Send Email
+                const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'
+                const registerLink = `${baseUrl}/register?invitation=${token}`
+
+                await EmailService.sendOrganizationInvitation({
+                    email,
+                    organizationName: invitation.organization.name,
+                    inviterName: invitation.invitedBy.name,
+                    registerLink,
+                    role: role || 'BUYER'
+                })
+
+                return NextResponse.json({
+                    success: true,
+                    message: 'Đã gửi lời mời tham gia qua email cho thành viên mới',
+                    data: invitation
+                })
+            }
+
+            // Existing user logic
+            const existingMember = await prisma.organizationMember.findUnique({
+                where: { organizationId_userId: { organizationId: id, userId: userToInvite.id } }
+            })
+
+            if (existingMember) {
+                return NextResponse.json({ success: false, error: 'Người dùng đã là thành viên' }, { status: 400 })
             }
 
             const newMember = await prisma.organizationMember.create({
                 data: {
-                    organizationId: params.id,
+                    organizationId: id,
                     userId: userToInvite.id,
                     role: role || 'BUYER'
                 }
@@ -126,11 +209,28 @@ export async function POST(
             return NextResponse.json({ success: true, data: newMember })
         }
 
+        if (action === 'revoke-invitation') {
+            const { invitationId } = body
+            await prisma.organizationInvitation.delete({
+                where: { id: invitationId }
+            })
+            return NextResponse.json({ success: true, message: 'Đã thu hồi lời mời' })
+        }
+
+        if (action === 'confirm-contractor') {
+            const { profileId, status } = body // VERIFIED or REJECTED
+            await prisma.contractorProfile.update({
+                where: { id: profileId },
+                data: { onboardingStatus: status }
+            })
+            return NextResponse.json({ success: true, message: 'Đã cập nhật trạng thái hồ sơ' })
+        }
+
         if (action === 'update-role') {
             const updated = await prisma.organizationMember.update({
                 where: {
                     organizationId_userId: {
-                        organizationId: params.id,
+                        organizationId: id,
                         userId: targetUserId
                     }
                 },
@@ -143,7 +243,7 @@ export async function POST(
             await prisma.organizationMember.delete({
                 where: {
                     organizationId_userId: {
-                        organizationId: params.id,
+                        organizationId: id,
                         userId: targetUserId
                     }
                 }

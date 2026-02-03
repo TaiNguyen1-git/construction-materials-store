@@ -32,9 +32,10 @@ const updateSchema = z.object({
 
 export async function PATCH(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const { id } = await params
         const userId = request.headers.get('x-user-id')
         if (!userId) {
             return NextResponse.json(createErrorResponse('Unauthorized', 'UNAUTHORIZED'), { status: 401 })
@@ -61,7 +62,7 @@ export async function PATCH(
                         { status: 400 }
                     )
                 }
-                result = await DeliveryPhaseService.updateStatus(params.id, data.status, {
+                result = await DeliveryPhaseService.updateStatus(id, data.status, {
                     trackingNumber: data.trackingNumber,
                     carrierName: data.carrierName,
                     deliveryProof: data.deliveryProof,
@@ -78,7 +79,7 @@ export async function PATCH(
                     )
                 }
                 result = await DeliveryPhaseService.processDeposit(
-                    params.id,
+                    id,
                     data.paidAmount,
                     data.paymentMethod
                 )
@@ -91,7 +92,7 @@ export async function PATCH(
                         { status: 400 }
                     )
                 }
-                result = await DeliveryPhaseService.escrowPhase(params.id, data.walletId)
+                result = await DeliveryPhaseService.escrowPhase(id, data.walletId)
                 break
 
             case 'CONFIRM_RELEASE':
@@ -102,7 +103,7 @@ export async function PATCH(
                     )
                 }
                 result = await DeliveryPhaseService.confirmAndRelease(
-                    params.id,
+                    id,
                     userId,
                     data.recipientWalletId
                 )
@@ -137,10 +138,11 @@ export async function PATCH(
 // GET - Get phase details
 export async function GET(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
-        const phase = await DeliveryPhaseService.getPhase(params.id)
+        const { id } = await params
+        const phase = await DeliveryPhaseService.getPhase(id)
 
         if (!phase) {
             return NextResponse.json(

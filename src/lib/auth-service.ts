@@ -35,6 +35,14 @@ export interface RegisterData {
   phone: string
   password: string
   guestId?: string
+  invitationToken?: string
+  contractorInfo?: {
+    displayName?: string
+    companyName?: string
+    experienceYears?: string
+    skills?: string[]
+    city?: string
+  }
 }
 
 export interface AuthResponse {

@@ -13,10 +13,10 @@ const changeContractorSchema = z.object({
  */
 export async function PATCH(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
-        const orderId = params.id
+        const { id: orderId } = await params
         const body = await request.json()
         const { contractorId } = changeContractorSchema.parse(body)
 

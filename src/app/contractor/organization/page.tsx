@@ -31,16 +31,10 @@ export default function ContractorOrganizationPage() {
     const [submitting, setSubmitting] = useState(false)
 
     useEffect(() => {
-        if (!authLoading && !isAuthenticated) {
-            router.push('/login')
-        }
-    }, [authLoading, isAuthenticated, router])
-
-    useEffect(() => {
-        if (user) {
+        if (user && isAuthenticated) {
             fetchOrganizations()
         }
-    }, [user])
+    }, [user, isAuthenticated])
 
     const fetchOrganizations = async () => {
         try {
@@ -109,6 +103,14 @@ export default function ContractorOrganizationPage() {
                             <p className="text-slate-500 font-medium">Quản lý đội ngũ thợ, phân quyền và chia sẻ dự án.</p>
                         </div>
 
+                        {!isAuthenticated && !authLoading && (
+                            <div className="bg-red-50 border border-red-100 rounded-2xl p-4 text-red-600 text-sm font-bold flex items-center gap-3">
+                                <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                                Vui lòng đăng nhập để quản lý tổ chức.
+                                <Link href="/login" className="ml-auto underline">Đăng nhập ngay</Link>
+                            </div>
+                        )}
+
                         <button
                             onClick={() => setShowCreateModal(true)}
                             className="bg-blue-600 text-white px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-blue-700 shadow-xl shadow-blue-100 transition-all active:scale-95 flex items-center gap-3"
@@ -175,11 +177,11 @@ export default function ContractorOrganizationPage() {
 
                                         <div className="flex gap-3 pt-6 border-t border-slate-50">
                                             <Link href={`/contractor/organization/${org.id}`} className="flex-1">
-                                                <button className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-black transition-all shadow-lg active:scale-95">
+                                                <button className="w-full bg-blue-500 text-white py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-600 transition-all shadow-lg shadow-blue-200 active:scale-95">
                                                     Quản lý thành viên
                                                 </button>
                                             </Link>
-                                            <Link href={`/contractor/organization/${org.id}/orders`} className="flex-1">
+                                            <Link href={`/contractor/organization/${org.id}/approvals`} className="flex-1">
                                                 <button className="w-full bg-white border border-slate-200 text-slate-600 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:border-blue-400 hover:text-blue-600 transition-all shadow-sm active:scale-95">
                                                     Duyệt đơn hàng
                                                 </button>

@@ -1,9 +1,13 @@
+
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { verifyTokenFromRequest } from '@/lib/auth-middleware-api'
 
 export async function POST(req: NextRequest) {
     try {
-        const userId = req.headers.get('x-user-id')
+        const payload = verifyTokenFromRequest(req)
+        const userId = payload?.userId
+
         if (!userId) {
             return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
         }
@@ -54,7 +58,9 @@ export async function POST(req: NextRequest) {
 
 export async function GET(req: NextRequest) {
     try {
-        const userId = req.headers.get('x-user-id')
+        const payload = verifyTokenFromRequest(req)
+        const userId = payload?.userId
+
         if (!userId) {
             return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
         }

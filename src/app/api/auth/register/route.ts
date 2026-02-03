@@ -235,6 +235,62 @@ export async function POST(request: NextRequest) {
         }
       }
 
+      // Handle Organization Invitation if present
+      const invitationToken = body.invitationToken
+      if (invitationToken) {
+        const invitation = await tx.organizationInvitation.findUnique({
+          where: { token: invitationToken },
+          include: { organization: true }
+        })
+
+        if (invitation && invitation.status === 'PENDING' && invitation.email === email.toLowerCase()) {
+          // If invited as contractor, ensure user role is CONTRACTOR and handle profile
+          if (invitation.intendedUserRole === 'CONTRACTOR') {
+            // Update user role to CONTRACTOR
+            await tx.user.update({
+              where: { id: user.id },
+              data: { role: 'CONTRACTOR' }
+            })
+
+            // If contractor info is provided, create profile
+            if (body.contractorInfo) {
+              await tx.contractorProfile.create({
+                data: {
+                  customerId: customer.id,
+                  displayName: body.contractorInfo.displayName || user.name,
+                  companyName: body.contractorInfo.companyName,
+                  experienceYears: parseInt(body.contractorInfo.experienceYears) || 0,
+                  skills: body.contractorInfo.skills || [],
+                  city: body.contractorInfo.city,
+                  onboardingStatus: 'PENDING_REVIEW' // Require manager confirmation as per user request
+                }
+              })
+            }
+          }
+
+          // Link to Organization
+          await tx.organizationMember.create({
+            data: {
+              organizationId: invitation.organizationId,
+              userId: user.id,
+              role: invitation.role
+            }
+          })
+
+          // Mark invitation as accepted
+          await tx.organizationInvitation.update({
+            where: { id: invitation.id },
+            data: { status: 'ACCEPTED' }
+          })
+
+          logger.info('New user joined organization via invitation', {
+            userId: user.id,
+            orgId: invitation.organizationId,
+            role: invitation.role
+          })
+        }
+      }
+
       return { user, customer }
     })
 

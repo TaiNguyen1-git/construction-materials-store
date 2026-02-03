@@ -18,7 +18,8 @@ import ContractorHeader from '../../components/ContractorHeader'
 
 export default function ContractorOrganizationDetailsPage() {
     const { id } = useParams()
-    const { user } = useAuth()
+    const { user, isAuthenticated, isLoading: authLoading } = useAuth()
+    const router = useRouter()
 
     // Layout State
     const [sidebarOpen, setSidebarOpen] = useState(true)
@@ -30,8 +31,10 @@ export default function ContractorOrganizationDetailsPage() {
     const [currentUserRole, setCurrentUserRole] = useState<string>('BUYER')
 
     useEffect(() => {
-        if (id) fetchOrgDetails()
-    }, [id])
+        if (id && !authLoading && isAuthenticated) {
+            fetchOrgDetails()
+        }
+    }, [id, authLoading, isAuthenticated])
 
     const fetchOrgDetails = async () => {
         try {
@@ -138,6 +141,14 @@ export default function ContractorOrganizationDetailsPage() {
                             </h1>
                             <p className="text-slate-500 font-medium">Quản lý và cấp quyền cho các thành viên trong tổ chức.</p>
                         </div>
+
+                        {!isAuthenticated && !authLoading && (
+                            <div className="bg-red-50 border border-red-100 rounded-2xl p-4 text-red-600 text-sm font-bold flex items-center gap-3">
+                                <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                                Vui lòng đăng nhập lại để xem thông tin tổ chức.
+                                <Link href="/login" className="ml-auto underline">Đăng nhập ngay</Link>
+                            </div>
+                        )}
                     </div>
 
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
