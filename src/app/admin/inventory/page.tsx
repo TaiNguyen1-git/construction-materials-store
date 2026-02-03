@@ -349,13 +349,15 @@ function InventoryContent() {
                         const stockStatus = getStockStatus(product)
                         return (
                           <tr key={product.id} className="hover:bg-blue-50/20 transition-colors group">
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-blue-600 group-hover:text-white transition-all">
+                            <td className="px-6 py-4">
+                              <div className="flex items-start gap-3">
+                                <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-blue-600 group-hover:text-white transition-all shrink-0">
                                   <Package size={18} />
                                 </div>
-                                <div>
-                                  <div className="text-sm font-black text-slate-900 group-hover:text-blue-600 transition-colors uppercase tracking-tight">{product.name}</div>
+                                <div className="max-w-[250px]">
+                                  <div className="text-sm font-black text-slate-900 group-hover:text-blue-600 transition-colors uppercase tracking-tight line-clamp-2 leading-tight py-0.5" title={product.name}>
+                                    {product.name}
+                                  </div>
                                   <div className="text-[10px] font-mono text-slate-400 font-bold uppercase tracking-widest mt-0.5">#{product.sku}</div>
                                 </div>
                               </div>
