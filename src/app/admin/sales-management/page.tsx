@@ -518,12 +518,12 @@ export default function SalesManagementPage() {
               <table className="min-w-full divide-y divide-slate-100">
                 <thead className="bg-slate-50/50">
                   <tr>
-                    <th className="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Hóa Đơn</th>
+                    <th className="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Hóa Đơn / Ngày Tạo</th>
                     <th className="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Loại Hình</th>
                     <th className="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Đối Tác</th>
                     <th className="px-6 py-4 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest">Giá Trị</th>
                     <th className="px-6 py-4 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">Trạng Thái</th>
-                    <th className="px-6 py-4 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest">Thao Tác</th>
+                    <th className="px-6 py-4 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest sticky right-0 bg-[#f8fafc] z-20 shadow-[-10px_0_15px_-3px_rgba(0,0,0,0.02)]">Hành động</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
@@ -560,10 +560,10 @@ export default function SalesManagementPage() {
                               {(invoice.invoiceType || invoice.type) === 'SALES' ? 'Bán Hàng' : 'Nhập Hàng'}
                             </span>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
+                          <td className="px-6 py-4">
                             <div className="flex items-center gap-2">
                               {(invoice.invoiceType || invoice.type) === 'SALES' ? <User size={12} className="text-blue-400" /> : <Truck size={12} className="text-purple-400" />}
-                              <div className="text-xs font-bold text-slate-600">
+                              <div className="text-xs font-bold text-slate-600 max-w-[150px] line-clamp-1" title={invoice.customer?.user?.name || invoice.supplier?.name || 'N/A'}>
                                 {invoice.customer?.user?.name || invoice.supplier?.name || 'N/A'}
                               </div>
                             </div>
@@ -574,16 +574,16 @@ export default function SalesManagementPage() {
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-center">
-                            <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${getStatusStyle(invoice.status)}`}>
+                            <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${getStatusStyle(invoice.status)} shadow-sm`}>
                               <StatusIcon size={12} />
                               {getStatusText(invoice.status)}
                             </div>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-right">
-                            <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <td className="px-6 py-4 whitespace-nowrap text-right sticky right-0 bg-white group-hover:bg-[#f1f5f9] z-10 transition-colors shadow-[-10px_0_15px_-3px_rgba(0,0,0,0.02)]">
+                            <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all duration-300 transform group-hover:translate-x-0 translate-x-4">
                               <button
                                 onClick={() => openInvoiceModal(invoice)}
-                                className="p-2 bg-sky-50 text-sky-500 rounded-xl hover:bg-sky-500 hover:text-white transition-all shadow-sm"
+                                className="p-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all shadow-md hover:shadow-lg hover:shadow-blue-200 active:scale-95"
                                 title="Xem Chi Tiết"
                               >
                                 <Eye size={16} />
@@ -591,7 +591,8 @@ export default function SalesManagementPage() {
                               {['DRAFT', 'PENDING'].includes(invoice.status) && (
                                 <button
                                   onClick={() => updateInvoiceStatus(invoice.id, 'SENT')}
-                                  className="p-2 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-600 hover:text-white transition-all shadow-sm"
+                                  className="p-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-all shadow-md hover:shadow-lg hover:shadow-indigo-200 active:scale-95"
+                                  title="Gửi Hóa Đơn"
                                 >
                                   <Send size={16} />
                                 </button>
@@ -599,14 +600,16 @@ export default function SalesManagementPage() {
                               {['SENT', 'OVERDUE'].includes(invoice.status) && (
                                 <button
                                   onClick={() => updateInvoiceStatus(invoice.id, 'PAID')}
-                                  className="p-2 bg-emerald-50 text-emerald-600 rounded-xl hover:bg-emerald-600 hover:text-white transition-all shadow-sm"
+                                  className="p-2 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-all shadow-md hover:shadow-lg hover:shadow-emerald-200 active:scale-95"
+                                  title="Thanh Toán"
                                 >
                                   <CheckCircle size={16} />
                                 </button>
                               )}
                               <button
                                 onClick={() => deleteInvoice(invoice.id)}
-                                className="p-2 bg-red-50 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all shadow-sm"
+                                className="p-2 bg-red-50 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all border border-red-100 active:scale-95"
+                                title="Xóa"
                               >
                                 <Trash2 size={16} />
                               </button>

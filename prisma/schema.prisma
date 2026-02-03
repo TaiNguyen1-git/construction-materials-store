@@ -468,7 +468,7 @@ model Product {
 
 model InventoryItem {
   id               String    @id @default(auto()) @map("_id") @db.ObjectId
-  productId        String    @unique
+  productId        String    @unique @db.ObjectId
   quantity         Float     @default(0)
   reservedQuantity Float     @default(0)
   availableQuantity Float    @default(0)
@@ -495,8 +495,8 @@ model InventoryItem {
 
 model InventoryMovement {
   id            String       @id @default(auto()) @map("_id") @db.ObjectId
-  productId     String
-  inventoryId   String
+  productId     String       @db.ObjectId
+  inventoryId   String       @db.ObjectId
   movementType  MovementType
   quantity      Float
   previousStock Float
@@ -593,8 +593,8 @@ model Order {
 
 model OrderItem {
   id          String  @id @default(auto()) @map("_id") @db.ObjectId
-  orderId     String
-  productId   String
+  orderId     String  @db.ObjectId
+  productId   String  @db.ObjectId
   quantity    Float
   unitPrice   Float
   totalPrice  Float
@@ -635,9 +635,9 @@ model Invoice {
   id            String        @id @default(auto()) @map("_id") @db.ObjectId
   invoiceNumber String        @unique
   invoiceType   InvoiceType
-  orderId       String?
-  customerId    String?
-  supplierId    String?
+  orderId       String?       @db.ObjectId
+  customerId    String?       @db.ObjectId
+  supplierId    String?       @db.ObjectId
   issueDate     DateTime      @default(now())
   dueDate       DateTime?
   status        InvoiceStatus @default(DRAFT)
@@ -670,8 +670,8 @@ model Invoice {
 
 model InvoiceItem {
   id          String  @id @default(auto()) @map("_id") @db.ObjectId
-  invoiceId   String
-  productId   String
+  invoiceId   String  @db.ObjectId
+  productId   String  @db.ObjectId
   description String?
   quantity    Float
   unitPrice   Float
