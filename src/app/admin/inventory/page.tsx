@@ -160,9 +160,24 @@ function InventoryContent() {
   }
 
   const getStockStatus = (product: Product) => {
-    if (product.stock <= 0) return { color: 'bg-red-50 text-red-600 border-red-100', text: 'Hết Hàng', icon: AlertTriangle }
-    if (product.stock <= product.minStock) return { color: 'bg-amber-50 text-amber-600 border-amber-100', text: 'Sắp Hết', icon: AlertTriangle }
-    return { color: 'bg-emerald-50 text-emerald-600 border-emerald-100', text: 'Ổn Định', icon: CheckCircle }
+    if (product.stock <= 0) return (
+      <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-red-50 text-red-600 border border-red-100 rounded-full text-[9px] font-black uppercase tracking-widest whitespace-nowrap">
+        <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></span>
+        Hết Hàng
+      </span>
+    )
+    if (product.stock <= product.minStock) return (
+      <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 text-amber-600 border border-amber-100 rounded-full text-[9px] font-black uppercase tracking-widest whitespace-nowrap">
+        <AlertTriangle className="w-3 h-3" />
+        Sắp Hết
+      </span>
+    )
+    return (
+      <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-full text-[9px] font-black uppercase tracking-widest whitespace-nowrap">
+        <CheckCircle className="w-3 h-3" />
+        Ổn Định
+      </span>
+    )
   }
 
   const formatCurrency = (v: number | undefined | null) => (!v || isNaN(v) ? '0đ' : `${Math.round(v).toLocaleString('vi-VN')}đ`)
@@ -314,14 +329,14 @@ function InventoryContent() {
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-slate-100">
                   <thead className="bg-slate-50/50">
-                    <tr className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                      <th className="px-6 py-4 text-left">Hàng Hóa / SKU</th>
-                      <th className="px-6 py-4 text-left">Phân Loại</th>
-                      <th className="px-4 py-4 text-right">Tồn Kho</th>
-                      <th className="px-4 py-4 text-center">Định Mức</th>
-                      <th className="px-4 py-4 text-center">Status</th>
-                      <th className="px-4 py-4 text-right">Tổng Giá Trị</th>
-                      <th className="px-6 py-4 text-right">Actions</th>
+                    <tr>
+                      <th className="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Hàng Hóa / SKU</th>
+                      <th className="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Phân Loại</th>
+                      <th className="px-4 py-4 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest">Tồn Kho</th>
+                      <th className="px-4 py-4 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">Định Mức</th>
+                      <th className="px-4 py-4 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">Trạng thái</th>
+                      <th className="px-4 py-4 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest">Tổng Giá Trị</th>
+                      <th className="px-6 py-4 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest sticky right-0 bg-[#f8fafc] z-20 shadow-[-10px_0_15px_-3px_rgba(0,0,0,0.02)]">Hành động</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50">
@@ -356,21 +371,20 @@ function InventoryContent() {
                               <div className="text-xs font-bold text-slate-400 bg-slate-50 inline-block px-3 py-1 rounded-full">{product.minStock} (Tối thiểu)</div>
                             </td>
                             <td className="px-4 py-4 text-center whitespace-nowrap">
-                              <span className={`px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${stockStatus.color}`}>
-                                {stockStatus.text}
-                              </span>
+                              {stockStatus}
                             </td>
                             <td className="px-4 py-4 text-right whitespace-nowrap">
                               <div className="text-sm font-black text-slate-900">{formatCurrency((product.stock || 0) * (product.price || 0))}</div>
                             </td>
-                            <td className="px-6 py-4 text-right whitespace-nowrap">
-                              <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <td className="px-6 py-4 whitespace-nowrap text-right sticky right-0 bg-white group-hover:bg-[#f1f5f9] z-10 transition-colors shadow-[-10px_0_15px_-3px_rgba(0,0,0,0.02)]">
+                              <div className="flex justify-end items-center gap-2 opacity-0 group-hover:opacity-100 transition-all duration-300 transform group-hover:translate-x-0 translate-x-4">
                                 <button
                                   onClick={() => { setSelectedProduct(product); setAdjustForm({ ...adjustForm, productId: product.id }); setShowAdjustModal(true) }}
-                                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-lg shadow-blue-200"
+                                  className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-700 hover:shadow-lg hover:shadow-blue-200 transition-all active:scale-95 shadow-md"
+                                  title="Điều chỉnh tồn kho"
                                 >
                                   Điều Chỉnh
-                                  <ArrowRight size={14} />
+                                  <ArrowRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
                                 </button>
                               </div>
                             </td>

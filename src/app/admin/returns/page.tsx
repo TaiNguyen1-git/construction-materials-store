@@ -219,15 +219,35 @@ export default function AdminReturnsPage() {
     const getStatusBadge = (status: string) => {
         switch (status) {
             case 'PENDING':
-                return <span className="bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-xs font-semibold">Chờ xử lý</span>
+                return (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 text-amber-600 border border-amber-100 rounded-full text-[10px] font-black uppercase tracking-widest whitespace-nowrap">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                        Chờ xử lý
+                    </span>
+                )
             case 'RECEIVED':
-                return <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-xs font-semibold">Đã nhận lại</span>
+                return (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-50 text-blue-600 border border-blue-100 rounded-full text-[10px] font-black uppercase tracking-widest whitespace-nowrap">
+                        <Truck className="w-3 h-3" />
+                        Đã nhận lại
+                    </span>
+                )
             case 'REFUNDED':
-                return <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-xs font-semibold">Đã hoàn tiền</span>
+                return (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-full text-[10px] font-black uppercase tracking-widest whitespace-nowrap">
+                        <CheckCircle className="w-3 h-3" />
+                        Đã hoàn tiền
+                    </span>
+                )
             case 'CANCELLED':
-                return <span className="bg-gray-100 text-gray-800 px-3 py-1 rounded-full text-xs font-semibold">Đã hủy</span>
+                return (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-slate-50 text-slate-400 border border-slate-100 rounded-full text-[10px] font-black uppercase tracking-widest whitespace-nowrap">
+                        <XCircle className="w-3 h-3" />
+                        Đã hủy
+                    </span>
+                )
             default:
-                return <span>{status}</span>
+                return <span className="text-xs font-bold text-slate-400 uppercase">{status}</span>
         }
     }
 
@@ -263,15 +283,15 @@ export default function AdminReturnsPage() {
 
                 <div className="overflow-x-auto">
                     <table className="w-full text-left">
-                        <thead className="bg-gray-50 border-b border-gray-200">
+                        <thead className="bg-slate-50/50">
                             <tr>
-                                <th className="p-4 font-medium text-gray-600">Mã yêu cầu</th>
-                                <th className="p-4 font-medium text-gray-600">Nhà cung cấp</th>
-                                <th className="p-4 font-medium text-gray-600">Đơn nhập gốc</th>
-                                <th className="p-4 font-medium text-gray-600">Lý do</th>
-                                <th className="p-4 font-medium text-gray-600 text-right">Giá trị hoàn (VNĐ)</th>
-                                <th className="p-4 font-medium text-gray-600">Trạng thái</th>
-                                <th className="p-4 font-medium text-gray-600">Ngày tạo</th>
+                                <th className="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Mã yêu cầu</th>
+                                <th className="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Nhà cung cấp</th>
+                                <th className="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Đơn nhập gốc</th>
+                                <th className="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Lý do</th>
+                                <th className="px-6 py-4 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest">Giá trị hoàn (VNĐ)</th>
+                                <th className="px-6 py-4 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">Trạng thái</th>
+                                <th className="px-6 py-4 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest">Ngày tạo</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
@@ -285,21 +305,40 @@ export default function AdminReturnsPage() {
                                 </tr>
                             ) : (
                                 returns.map((r) => (
-                                    <tr key={r.id} className="hover:bg-gray-50">
-                                        <td className="p-4 font-medium text-blue-600">
-                                            #{r.id.substring(r.id.length - 6).toUpperCase()}
+                                    <tr key={r.id} className="hover:bg-blue-50/30 transition-colors group border-b border-slate-50 last:border-0">
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                            <span className="text-xs font-black text-blue-600 font-mono tracking-tighter bg-blue-50 px-2.5 py-1 rounded-lg">
+                                                #{r.id.substring(r.id.length - 6).toUpperCase()}
+                                            </span>
                                         </td>
-                                        <td className="p-4">{r.supplier?.name}</td>
-                                        <td className="p-4 text-gray-500">{r.purchaseOrder?.orderNumber}</td>
-                                        <td className="p-4 max-w-xs truncate" title={r.reason}>{r.reason}</td>
-                                        <td className="p-4 text-right font-medium">
-                                            {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(r.totalRefundAmount)}
+                                        <td className="px-6 py-4">
+                                            <div className="text-sm font-bold text-slate-900 line-clamp-1 group-hover:text-blue-600 transition-colors uppercase tracking-tight">
+                                                {r.supplier?.name}
+                                            </div>
                                         </td>
-                                        <td className="p-4">
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-500">
+                                                <FileText className="w-3.5 h-3.5 text-indigo-400" />
+                                                {r.purchaseOrder?.orderNumber}
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <p className="text-xs font-bold text-slate-500 line-clamp-1 italic max-w-xs" title={r.reason}>
+                                                "{r.reason}"
+                                            </p>
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-right">
+                                            <div className="text-sm font-black text-slate-900 tracking-tight">
+                                                {new Intl.NumberFormat('vi-VN').format(r.totalRefundAmount)}<span className="text-[10px] ml-0.5 text-slate-400">₫</span>
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-center">
                                             {getStatusBadge(r.status)}
                                         </td>
-                                        <td className="p-4 text-gray-500">
-                                            {new Date(r.createdAt).toLocaleDateString('vi-VN')}
+                                        <td className="px-6 py-4 whitespace-nowrap text-right">
+                                            <span className="text-xs font-bold text-slate-400">
+                                                {new Date(r.createdAt).toLocaleDateString('vi-VN')}
+                                            </span>
                                         </td>
                                     </tr>
                                 ))
