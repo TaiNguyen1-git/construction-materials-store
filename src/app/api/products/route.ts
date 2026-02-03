@@ -79,28 +79,26 @@ export async function GET(request: NextRequest) {
     // Build where clause
     const where: Prisma.ProductWhereInput = {}
 
-    // Handle search query - Use Prisma's contains directly for MongoDB
-    // MongoDB with Prisma supports contains which is case-sensitive by default
-    // We'll search with multiple variations to catch different cases
+    // Handle search query
     if (searchQuery) {
       const normalizedQuery = searchQuery.trim()
-
       logger.info('Searching products', { searchQuery: normalizedQuery })
 
-      // Build comprehensive OR condition
-      // Prisma's MongoDB connector supports case-insensitive filtering with 'mode: insensitive'
       where.OR = [
         { name: { contains: normalizedQuery, mode: 'insensitive' } },
         { description: { contains: normalizedQuery, mode: 'insensitive' } },
         { sku: { contains: normalizedQuery, mode: 'insensitive' } },
         { tags: { hasSome: [normalizedQuery] } }
       ]
-
-      // Also ensure we only get active products
-      where.isActive = { not: false }
     }
-    else {
-      // No search query - only show active products by default
+
+    // Handle isActive filter - priority: explicit param > default
+    if (isActive !== undefined) {
+      where.isActive = isActive
+    } else if (params.isActive === 'all') {
+      // Show all - don't add isActive filter
+    } else {
+      // Default: only active
       where.isActive = { not: false }
     }
 
@@ -141,11 +139,6 @@ export async function GET(request: NextRequest) {
       where.price = {}
       if (minPrice !== undefined) where.price.gte = minPrice
       if (maxPrice !== undefined) where.price.lte = maxPrice
-    }
-
-    // Only add isActive filter if explicitly provided
-    if (isActive === true || isActive === false) {
-      where.isActive = isActive
     }
 
     // Only add featured filter if explicitly provided

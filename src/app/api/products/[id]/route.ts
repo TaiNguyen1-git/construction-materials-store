@@ -175,7 +175,7 @@ export async function PUT(
   }
 }
 
-// DELETE /api/products/[id] - Soft delete product (deactivate)
+// DELETE /api/products/[id] - Soft delete product (deactivate) or hard delete if possible
 export async function DELETE(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
@@ -209,45 +209,74 @@ export async function DELETE(
       )
     }
 
-    // Hard delete: Delete related InventoryItem first, then delete the Product
-    // This properly removes product from all counts
-    await prisma.$transaction(async (tx) => {
-      // 1. Delete InventoryItem (if exists)
-      await tx.inventoryItem.deleteMany({
-        where: { productId: id }
+    try {
+      // Hard delete: Try to delete everything related to inventory first, then delete the Product
+      await prisma.$transaction(async (tx) => {
+        // 1. Delete InventoryItem (if exists)
+        await tx.inventoryItem.deleteMany({
+          where: { productId: id }
+        })
+
+        // 2. Delete associated inventory movements (if any)
+        await tx.inventoryMovement.deleteMany({
+          where: { productId: id }
+        })
+
+        // 3. Delete the product itself
+        await tx.product.delete({
+          where: { id }
+        })
       })
 
-      // 2. Delete associated inventory movements (if any)
-      await tx.inventoryMovement.deleteMany({
-        where: { productId: id }
-      })
+      // Clear cache
+      await CacheService.del(`product:${id}`)
+      await CacheService.delByPrefix('products:')
 
-      // 3. Delete the product itself
-      await tx.product.delete({
-        where: { id }
-      })
-    })
+      return NextResponse.json(
+        { success: true, message: 'Sản phẩm đã được xoá hoàn toàn' },
+        { status: 200 }
+      )
+    } catch (error: any) {
+      // If there's a relation violation (product used in orders, purchases, etc.)
+      // Fallback to soft delete (deactivation)
+      if (error.code === 'P2003' || error.message?.toLowerCase().includes('violate') || error.message?.toLowerCase().includes('relation')) {
+        console.warn('Relations exist, falling back to deactivation for product:', id)
 
-    // Clear cache
-    await CacheService.del(`product:${id}`)
-    await CacheService.delByPrefix('products:')
+        await prisma.product.update({
+          where: { id },
+          data: { isActive: false }
+        })
 
-    return NextResponse.json(
-      { success: true, message: 'Sản phẩm đã được xoá hoàn toàn' },
-      { status: 200 }
-    )
+        // Clear cache even for soft delete
+        await CacheService.del(`product:${id}`)
+        await CacheService.delByPrefix('products:')
+
+        return NextResponse.json(
+          {
+            success: true,
+            message: 'Sản phẩm đã có lịch sử giao dịch nên không thể xoá hoàn toàn. Hệ thống đã tự động chuyển sang trạng thái "Ngừng bán".',
+            isSoftDeleted: true
+          },
+          { status: 200 }
+        )
+      }
+
+      // If it's another error, throw it to be handled by the outer catch
+      throw error
+    }
   } catch (error) {
-    console.error('Error deactivating product:', error)
+    console.error('Error deleting product:', error)
 
     return NextResponse.json(
       {
         success: false,
         error: {
           code: 'INTERNAL_ERROR',
-          message: error instanceof Error ? error.message : 'Failed to deactivate product'
+          message: error instanceof Error ? error.message : 'Failed to delete product'
         }
       },
       { status: 500 }
     )
   }
 }
+

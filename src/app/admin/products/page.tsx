@@ -171,7 +171,7 @@ export default function ProductsSuppliersPage() {
     try {
       setProductsLoading(true)
       // Fetch all products (no limit) for accurate total count
-      const response = await fetchWithAuth('/api/products?limit=1000')
+      const response = await fetchWithAuth('/api/products?limit=1000&isActive=all')
       if (response.ok) {
         const data = await response.json()
         // Handle nested data structure from API
@@ -285,7 +285,8 @@ export default function ProductsSuppliersPage() {
       })
 
       if (response.ok) {
-        toast.success('Đã ngừng bán sản phẩm')
+        const data = await response.json()
+        toast.success(data.message || 'Đã ngừng bán sản phẩm')
         setDeletingProduct(null)
         fetchProducts()
       } else {
