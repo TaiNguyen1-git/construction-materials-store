@@ -552,7 +552,8 @@ async function calculateMaterials(
 async function enrichMaterialsWithProducts(materials: MaterialEstimate[]): Promise<MaterialEstimate[]> {
     const productMap = new Map<string, MaterialEstimate>()
 
-    for (const m of materials) {
+    // Parallelize database lookups for significant speedup
+    const enrichedResults = await Promise.all(materials.map(async (m) => {
         let searchName = m.productName.split('(')[0].trim()
         let excludeKeywords: string[] = []
 
@@ -593,6 +594,10 @@ async function enrichMaterialsWithProducts(materials: MaterialEstimate[]): Promi
             })
         }
 
+        return { material: m, product }
+    }))
+
+    for (const { material: m, product } of enrichedResults) {
         const key = product ? product.id : m.productName
         const existing = productMap.get(key)
 

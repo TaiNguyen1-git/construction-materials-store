@@ -7,6 +7,7 @@ import {
     Calendar, ArrowRight, Bell, Send, Mail
 } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { fetchWithAuth } from '@/lib/api-client'
 
 interface InventoryAlert {
     productId: string
@@ -50,10 +51,7 @@ export default function SmartInventoryAlerts() {
     const fetchAlerts = async () => {
         setLoading(true)
         try {
-            const token = localStorage.getItem('access_token')
-            const res = await fetch(`/api/admin/inventory/smart-alerts?daysAhead=${daysAhead}`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            })
+            const res = await fetchWithAuth(`/api/admin/inventory/smart-alerts?daysAhead=${daysAhead}`)
 
             if (res.ok) {
                 const data = await res.json()
@@ -95,12 +93,10 @@ export default function SmartInventoryAlerts() {
 
         setCreatingOrder(true)
         try {
-            const token = localStorage.getItem('access_token')
-            const res = await fetch('/api/admin/purchase-orders', {
+            const res = await fetchWithAuth('/api/admin/purchase-orders', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
+                    'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
                     productIds: Array.from(selectedProducts),

@@ -16,3 +16,8 @@ export function formatCurrency(amount: number): string {
     currency: 'VND',
   }).format(amount)
 }
+
+export function formatNumber(amount: number | undefined | null): string {
+  if (amount === undefined || amount === null) return '0';
+  return amount.toLocaleString('vi-VN');
+}

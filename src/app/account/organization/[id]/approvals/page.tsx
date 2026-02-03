@@ -85,57 +85,59 @@ export default function OrganizationApprovalsPage() {
     const isAdmin = currentUserRole === 'OWNER' || currentUserRole === 'ADMIN'
 
     return (
-        <div className="min-h-screen bg-[#F8FAFC] py-12">
-            <div className="max-w-5xl mx-auto px-6 space-y-8">
+        <div className="min-h-screen bg-slate-50/50 py-20 pb-40">
+            <div className="max-w-6xl mx-auto px-6 space-y-12">
                 {/* Header */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                    <div className="space-y-4">
-                        <Link href="/account/organization" className="inline-flex items-center text-slate-400 hover:text-blue-600 font-black text-[10px] uppercase tracking-widest bg-white px-4 py-2 rounded-xl shadow-sm border border-slate-100 transition-all">
-                            <ArrowLeft className="h-4 w-4 mr-2" /> Quay lại danh sách
+                <div className="flex flex-col md:flex-row md:items-end justify-between gap-8">
+                    <div className="space-y-6">
+                        <Link href={`/account/organization/${id}`} className="inline-flex items-center text-slate-400 hover:text-indigo-600 font-black text-[10px] uppercase tracking-[0.2em] bg-white px-5 py-2.5 rounded-2xl shadow-sm border border-slate-100 transition-all hover:gap-3">
+                            <ArrowLeft className="h-4 w-4 mr-1 transition-all" /> Quay lại tổ chức
                         </Link>
-                        <h1 className="text-4xl font-black text-slate-900 tracking-tighter uppercase leading-none">
-                            📦 Duyệt Đơn Hàng
-                        </h1>
-                        <p className="text-slate-500 font-medium">Quản lý các yêu cầu mua hàng từ thành viên.</p>
+                        <div>
+                            <h1 className="text-5xl font-black text-slate-900 tracking-tighter uppercase italic leading-none mb-4">
+                                📦 PHÊ DUYỆT <span className="text-indigo-600">ĐƠN HÀNG</span>
+                            </h1>
+                            <p className="text-slate-500 font-medium text-lg">Quản lý và xét duyệt các yêu cầu mua vật tư từ đội ngũ của bạn.</p>
+                        </div>
                     </div>
                 </div>
 
                 {/* Tabs */}
-                <div className="flex bg-white p-1 rounded-2xl border border-slate-100 shadow-sm w-fit">
+                <div className="flex bg-white p-2 rounded-[1.5rem] border border-slate-100 shadow-sm w-fit">
                     <button
                         onClick={() => setActiveTab('pending')}
-                        className={`px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'pending' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-400 hover:bg-slate-50'}`}
+                        className={`px-8 py-3.5 rounded-[1.25rem] text-[11px] font-black uppercase tracking-widest transition-all ${activeTab === 'pending' ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-100' : 'text-slate-400 hover:bg-slate-50'}`}
                     >
-                        Cần Duyệt
+                        Đang Chờ Duyệt
                     </button>
                     <button
                         onClick={() => setActiveTab('all')}
-                        className={`px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'all' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-400 hover:bg-slate-50'}`}
+                        className={`px-8 py-3.5 rounded-[1.25rem] text-[11px] font-black uppercase tracking-widest transition-all ${activeTab === 'all' ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-100' : 'text-slate-400 hover:bg-slate-50'}`}
                     >
-                        Tất cả đơn hàng
+                        Lịch Sử Tất Cả
                     </button>
                 </div>
 
                 {/* List */}
-                <div className="bg-white rounded-[40px] border border-slate-100 shadow-sm overflow-hidden min-h-[400px]">
+                <div className="bg-white rounded-[2.5rem] border border-slate-50 shadow-[0_20px_50px_rgba(0,0,0,0.03)] overflow-hidden min-h-[500px]">
                     {loading ? (
-                        <div className="h-full flex items-center justify-center py-20">
-                            <Loader2 className="w-10 h-10 animate-spin text-blue-600" />
+                        <div className="h-full flex items-center justify-center py-40">
+                            <Loader2 className="w-12 h-12 animate-spin text-indigo-600" />
                         </div>
                     ) : orders.length > 0 ? (
                         <div className="divide-y divide-slate-50">
                             {orders.map((order) => (
-                                <div key={order.id} className="p-8 hover:bg-slate-50/50 transition-colors flex flex-col md:flex-row gap-6 md:items-center justify-between group">
-                                    <div className="flex gap-4">
-                                        <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600 border border-blue-100 shrink-0">
-                                            <Package size={24} />
+                                <div key={order.id} className="p-10 hover:bg-slate-50/50 transition-all duration-300 flex flex-col md:flex-row gap-8 md:items-center justify-between group">
+                                    <div className="flex gap-6">
+                                        <div className="w-20 h-20 bg-indigo-50/50 rounded-[1.5rem] flex items-center justify-center text-indigo-600 border border-indigo-100 shrink-0 group-hover:bg-indigo-600 group-hover:text-white transition-all">
+                                            <Package size={30} />
                                         </div>
                                         <div>
-                                            <div className="flex items-center gap-3 mb-1">
-                                                <span className="font-black text-slate-900 text-lg">{order.orderNumber}</span>
-                                                <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-widest ${order.b2bApprovalStatus === 'PENDING_APPROVAL' ? 'bg-amber-100 text-amber-600' :
-                                                    order.b2bApprovalStatus === 'APPROVED' ? 'bg-green-100 text-green-600' :
-                                                        order.b2bApprovalStatus === 'REJECTED' ? 'bg-red-100 text-red-600' :
+                                            <div className="flex items-center gap-4 mb-2">
+                                                <span className="font-black text-slate-900 text-xl tracking-tight italic">{order.orderNumber}</span>
+                                                <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${order.b2bApprovalStatus === 'PENDING_APPROVAL' ? 'bg-amber-100 text-amber-600' :
+                                                    order.b2bApprovalStatus === 'APPROVED' ? 'bg-emerald-100 text-emerald-600' :
+                                                        order.b2bApprovalStatus === 'REJECTED' ? 'bg-rose-100 text-rose-600' :
                                                             'bg-slate-100 text-slate-500'
                                                     }`}>
                                                     {order.b2bApprovalStatus === 'PENDING_APPROVAL' ? 'Chờ duyệt' :
@@ -143,17 +145,19 @@ export default function OrganizationApprovalsPage() {
                                                             order.b2bApprovalStatus === 'REJECTED' ? 'Đã từ chối' : 'Không yêu cầu'}
                                                 </span>
                                             </div>
-                                            <div className="text-sm text-slate-500 font-medium space-y-1">
-                                                <p>Người tạo: <span className="text-slate-900 font-bold">{order.createdBy.name}</span></p>
-                                                <p>Ngày tạo: {new Date(order.createdAt).toLocaleDateString()} • {order.itemCount} sản phẩm</p>
+                                            <div className="text-sm text-slate-500 font-bold space-y-1">
+                                                <p className="uppercase tracking-tight">Người tạo: <span className="text-slate-900">{order.createdBy.name}</span></p>
+                                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest flex items-center gap-2">
+                                                    <Clock size={12} /> {new Date(order.createdAt).toLocaleDateString('vi-VN')} • {order.itemCount} sản phẩm
+                                                </p>
                                             </div>
                                         </div>
                                     </div>
 
-                                    <div className="flex items-center gap-6 ml-auto">
+                                    <div className="flex items-center gap-8 ml-auto">
                                         <div className="text-right">
-                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Tổng tiền</p>
-                                            <p className="text-xl font-black text-blue-600 tracking-tight">
+                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 leading-none">Tổng ngân sách</p>
+                                            <p className="text-2xl font-black text-indigo-600 tracking-tighter">
                                                 {formatCurrency(order.totalAmount)}
                                             </p>
                                         </div>

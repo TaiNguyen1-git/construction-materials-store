@@ -12,6 +12,7 @@ import ComparisonBar from '@/components/ComparisonBar'
 import ReviewsSection from '@/components/ReviewsSection'
 import { useCartStore } from '@/stores/cartStore'
 import toast, { Toaster } from 'react-hot-toast'
+import { formatNumber } from '@/lib/utils'
 
 interface Product {
     id: string
@@ -218,7 +219,7 @@ export default function ProductDetailView({ params }: { params: Promise<{ id: st
                         <div className="flex items-center justify-between bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
                             <div className="flex items-baseline gap-2">
                                 <span className="text-3xl font-black text-primary-600">
-                                    {product.price?.toLocaleString()}đ
+                                    {formatNumber(product.price)}đ
                                 </span>
                                 <span className="text-xs font-bold text-gray-400">/ {product.unit}</span>
                             </div>
@@ -269,7 +270,7 @@ export default function ProductDetailView({ params }: { params: Promise<{ id: st
                                         <Image src={p.images?.[0]} alt={p.name} fill className="object-contain" />
                                     </div>
                                     <h3 className="text-[10px] font-bold line-clamp-1">{p.name}</h3>
-                                    <p className="text-xs font-black text-primary-600">{p.price.toLocaleString()}đ</p>
+                                    <p className="text-xs font-black text-primary-600">{formatNumber(p.price)}đ</p>
                                 </div>
                             ))}
                         </div>

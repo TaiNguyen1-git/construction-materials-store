@@ -87,7 +87,7 @@ export default function SmartNudge({ pageType, contextData }: SmartNudgeProps) {
                 break
 
             default:
-                setNudgeMessage('Cần giúp đỡ? Chat với AI để được tư vấn miễn phí!')
+                setNudgeMessage('Cần giúp đỡ? Chat with AI to get free advice!')
                 setNudgeAction({ label: 'Bắt đầu chat', href: '/chat' })
         }
 
@@ -103,8 +103,8 @@ export default function SmartNudge({ pageType, contextData }: SmartNudgeProps) {
     if (!isVisible || isDismissed) return null
 
     return (
-        <div className="fixed bottom-6 right-6 z-50 max-w-sm animate-in slide-in-from-bottom-4 duration-500">
-            <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden">
+        <div className="fixed bottom-32 right-6 z-[60] max-w-sm animate-in slide-in-from-bottom-4 duration-500 pointer-events-none">
+            <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden pointer-events-auto">
                 {/* Header */}
                 <div className="bg-gradient-to-r from-indigo-600 to-purple-600 px-4 py-3 flex items-center justify-between">
                     <div className="flex items-center gap-2 text-white">

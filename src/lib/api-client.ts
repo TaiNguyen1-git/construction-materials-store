@@ -8,7 +8,7 @@ export const getAuthHeaders = (): HeadersInit => {
     token = localStorage.getItem('access_token')
   }
 
-  if (!token) {
+  if (!token || token === 'null' || token === 'undefined') {
     return {}
   }
 
@@ -40,6 +40,7 @@ export const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
   let response = await fetch(url, {
     ...options,
     headers: getHeaders(),
+    credentials: 'include', // 🔐 Essential for cookie-based auth
   })
 
   if (response.status === 401) {
@@ -52,6 +53,7 @@ export const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
         response = await fetch(url, {
           ...options,
           headers: getHeaders(),
+          credentials: 'include', // 🔐 Essential for cookie-based auth
         })
       }
     } catch (error) {

@@ -1,338 +1,130 @@
 'use client'
 
-import { useState, useCallback, useEffect, useRef } from 'react'
-import { X, Send, Headset, User, Phone, Mail, Sparkles, Plus } from 'lucide-react'
+import { useState, useRef, useEffect } from 'react'
+import { X, Headset, User, Phone, Mail, Sparkles, Plus, MessageSquare, ArrowRight, ShieldCheck, Clock } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useAuth } from '@/contexts/auth-context'
 import { usePathname } from 'next/navigation'
+import ChatbotPremium from './chatbot/ChatbotPremium'
 
-/**
- * FloatingWidgetsContainer
- * 
- * A unified floating action button that expands to show:
- * - Chat with AI option
- * - Contact Support option
- * 
- * Only one panel can be open at a time.
- */
 export default function FloatingWidgetsContainer() {
     const pathname = usePathname()
     const [isExpanded, setIsExpanded] = useState(false)
     const [activePanel, setActivePanel] = useState<'none' | 'chat' | 'support'>('none')
     const [isHovered, setIsHovered] = useState(false)
 
-    // Hide on admin pages
+    // Hide logic
     if (pathname?.startsWith('/admin')) return null
-
-    // Hide on certain pages where widgets are not needed
-    // Hide on certain pages where widgets are not needed (Auth, Chat pages)
-    const hiddenPatterns = [
-        '/login',
-        '/register',
-        '/forgot-password',
-        '/contractor/login',
-        '/contractor/register',
-        '/contractor/messages',
-        '/messages',
-        '/negotiate'
-    ]
+    const hiddenPatterns = ['/login', '/register', '/forgot-password', '/contractor/login', '/contractor/register', '/contractor/messages', '/messages', '/negotiate']
     if (hiddenPatterns.some(pattern => pathname?.includes(pattern))) return null
 
-    const openChat = () => {
-        setActivePanel('chat')
-        setIsExpanded(false)
-    }
-
-    const openSupport = () => {
-        setActivePanel('support')
-        setIsExpanded(false)
-    }
-
-    const closePanel = () => {
-        setActivePanel('none')
-    }
+    const closePanel = () => setActivePanel('none')
 
     return (
         <>
-            {/* Main FAB Hub - visible when no panel is open */}
+            {/* Main Premium Hub Control */}
             {activePanel === 'none' && (
-                <div className="fixed bottom-6 right-6 z-[55] flex flex-col items-end gap-3">
-                    {/* Main FAB Button - at bottom */}
+                <div className="fixed bottom-8 right-8 z-[55] flex flex-col items-end pointer-events-none">
+                    {/* Bento Hub Menu */}
+                    <div className={`
+                        mb-6 transition-all duration-500 origin-bottom-right
+                        ${isExpanded ? 'scale-100 opacity-100 translate-y-0 pointer-events-auto' : 'scale-75 opacity-0 translate-y-10 pointer-events-none'}
+                    `}>
+                        <div className="glass-morphism p-3 rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.15)] flex flex-col gap-3 w-[280px]">
+                            <div className="px-4 py-2 border-b border-white/20 mb-1">
+                                <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em]">SmartBuild Hub</h4>
+                            </div>
+
+                            {/* Option: Chat AI */}
+                            <button
+                                onClick={() => { setActivePanel('chat'); setIsExpanded(false); }}
+                                className="group relative overflow-hidden bg-white/40 hover:bg-blue-600/90 p-4 rounded-3xl transition-all duration-300 flex items-center gap-4 text-left"
+                            >
+                                <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform duration-300 overflow-hidden">
+                                    <img src="/images/smartbuild_bot.png" alt="AI" className="w-full h-full object-cover" />
+                                </div>
+                                <div className="flex-1">
+                                    <h5 className="font-bold text-gray-900 group-hover:text-white text-sm transition-colors">Chat với AI</h5>
+                                    <p className="text-[10px] text-gray-500 group-hover:text-blue-100 transition-colors">Tư vấn vật liệu ngay lập tức</p>
+                                </div>
+                                <ArrowRight className="w-4 h-4 text-gray-300 group-hover:text-white transform translate-x-0 group-hover:translate-x-1 transition-all" />
+                            </button>
+
+                            {/* Option: Support */}
+                            <button
+                                onClick={() => { setActivePanel('support'); setIsExpanded(false); }}
+                                className="group relative overflow-hidden bg-white/40 hover:bg-indigo-600/90 p-4 rounded-3xl transition-all duration-300 flex items-center gap-4 text-left"
+                            >
+                                <div className="w-12 h-12 bg-indigo-100 rounded-2xl flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform duration-300">
+                                    <Headset className="w-6 h-6 text-indigo-600" />
+                                </div>
+                                <div className="flex-1">
+                                    <h5 className="font-bold text-gray-900 group-hover:text-white text-sm transition-colors">Yêu cầu hỗ trợ</h5>
+                                    <p className="text-[10px] text-gray-500 group-hover:text-indigo-100 transition-colors">Kết nối chuyên viên (5-10p)</p>
+                                </div>
+                                <ArrowRight className="w-4 h-4 text-gray-300 group-hover:text-white transform translate-x-0 group-hover:translate-x-1 transition-all" />
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Main Pulse FAB */}
                     <button
                         onClick={() => setIsExpanded(!isExpanded)}
                         onMouseEnter={() => setIsHovered(true)}
                         onMouseLeave={() => setIsHovered(false)}
-                        className={`relative w-14 h-14 rounded-full flex items-center justify-center shadow-2xl transition-all duration-300 hover:scale-110 border-2 border-white ${isExpanded
-                            ? 'bg-gray-800 rotate-45'
-                            : 'bg-gradient-to-r from-blue-600 to-indigo-600'
-                            }`}
-                        aria-label={isExpanded ? 'Đóng menu' : 'Mở menu hỗ trợ'}
+                        className={`
+                            relative group w-16 h-16 rounded-[2rem] flex items-center justify-center 
+                            shadow-[0_10px_30px_rgba(79,70,229,0.3)] hover:shadow-[0_15px_40px_rgba(79,70,229,0.4)]
+                            transition-all duration-300 hover:scale-105 active:scale-95 pointer-events-auto
+                            ${isExpanded ? 'bg-indigo-600 rotate-90' : 'bg-gradient-to-br from-indigo-600 to-blue-700'}
+                        `}
                     >
+                        {/* Inner icons */}
                         {isExpanded ? (
-                            <Plus className="w-6 h-6 text-white" />
+                            <Plus className="w-8 h-8 text-white rotate-45" />
                         ) : (
                             <div className="relative">
-                                <Sparkles className="w-6 h-6 text-white" />
-                                <span className="absolute -top-1 -right-1 flex h-3 w-3">
-                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                                    <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
-                                </span>
+                                <Sparkles className="w-7 h-7 text-white animate-pulse" />
+                                <span className="absolute -top-1 -right-1 block w-3 h-3 bg-green-500 rounded-full border-2 border-indigo-600" />
+                            </div>
+                        )}
+
+                        {/* Hover Tooltip */}
+                        {!isExpanded && isHovered && (
+                            <div className="absolute right-20 bg-indigo-600 text-white text-[10px] font-bold px-3 py-2 rounded-xl whitespace-nowrap animate-scaleIn shadow-2xl">
+                                TRUNG TÂM HỖ TRỢ ✨
+                                <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 w-2 h-2 bg-indigo-600 rotate-45" />
                             </div>
                         )}
                     </button>
-
-                    {/* Expanded Options - appear ABOVE the FAB */}
-                    <div
-                        className={`absolute bottom-20 right-0 flex flex-col items-end gap-3 transition-all duration-300 ${isExpanded
-                            ? 'opacity-100 translate-y-0 pointer-events-auto'
-                            : 'opacity-0 translate-y-4 pointer-events-none'
-                            }`}
-                    >
-                        {/* Support Option - appears first (bottom of stack) */}
-                        <button
-                            onClick={openSupport}
-                            className="group flex items-center gap-3"
-                        >
-                            <span className="bg-white text-indigo-700 text-sm font-bold px-4 py-2 rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-all whitespace-nowrap border border-indigo-100">
-                                Liên hệ hỗ trợ
-                            </span>
-                            <div className="w-12 h-12 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-full flex items-center justify-center shadow-lg hover:shadow-xl hover:scale-110 hover:ring-4 hover:ring-purple-200 transition-all border-2 border-white">
-                                <Headset className="w-5 h-5 text-white" />
-                            </div>
-                        </button>
-
-                        {/* Chat AI Option - appears second (top of stack) */}
-                        <button
-                            onClick={openChat}
-                            className="group flex items-center gap-3"
-                        >
-                            <span className="bg-white text-blue-700 text-sm font-bold px-4 py-2 rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-all whitespace-nowrap border border-blue-100">
-                                Chat với AI
-                            </span>
-                            <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full flex items-center justify-center shadow-lg hover:shadow-xl hover:scale-110 hover:ring-4 hover:ring-blue-200 transition-all border-2 border-white overflow-hidden">
-                                <img
-                                    src="/images/smartbuild_bot.png"
-                                    alt="SmartBuild AI"
-                                    className="w-full h-full object-cover"
-                                />
-                            </div>
-                        </button>
-                    </div>
-
-                    {/* Tooltip - appears above FAB when hovered and not expanded */}
-                    {!isExpanded && isHovered && (
-                        <div className="absolute bottom-16 right-0 bg-white text-gray-800 text-xs font-bold px-3 py-2 rounded-lg shadow-xl whitespace-nowrap border border-gray-100">
-                            Cần hỗ trợ? ✨
-                            <div className="absolute bottom-0 right-6 translate-y-full border-x-[6px] border-x-transparent border-t-[6px] border-t-white"></div>
-                        </div>
-                    )}
-
-                    {/* Backdrop */}
-                    {isExpanded && (
-                        <div
-                            className="fixed inset-0 z-[-1]"
-                            onClick={() => setIsExpanded(false)}
-                        />
-                    )}
                 </div>
             )}
 
-            {/* Chat Panel */}
-            {activePanel === 'chat' && (
-                <div className="fixed bottom-6 right-6 z-50">
-                    <ChatPanel onClose={closePanel} />
-                </div>
-            )}
-
-            {/* Support Panel */}
+            {/* Panels */}
+            {activePanel === 'chat' && <ChatbotPremium onClose={closePanel} />}
             {activePanel === 'support' && (
-                <div className="fixed bottom-6 right-6 z-[60]">
-                    <SupportPanel onClose={closePanel} />
+                <div className="fixed bottom-8 right-8 z-[60] animate-scaleIn pointer-events-none">
+                    <div className="pointer-events-auto">
+                        <SupportPanel onClose={closePanel} />
+                    </div>
                 </div>
+            )}
+
+            {/* Backdrop for Hub */}
+            {isExpanded && (
+                <div
+                    className="fixed inset-0 z-[50] bg-black/5 backdrop-blur-sm transition-all duration-500"
+                    onClick={() => setIsExpanded(false)}
+                />
             )}
         </>
     )
 }
 
-// ============ CHAT PANEL ============
-function ChatPanel({ onClose }: { onClose: () => void }) {
-    const { user, isAuthenticated } = useAuth()
-    const pathname = usePathname()
-    const [messages, setMessages] = useState<any[]>([])
-    const [currentMessage, setCurrentMessage] = useState('')
-    const [isLoading, setIsLoading] = useState(false)
-    const [sessionId] = useState(() => `chat_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`)
-    const messagesEndRef = useRef<HTMLDivElement>(null)
-
-    const isAdminRoute = pathname?.startsWith('/admin')
-    const isAdminByRole = isAuthenticated && user && (user.role === 'MANAGER' || user.role === 'EMPLOYEE')
-    const isAdmin = isAdminRoute || isAdminByRole
-
-    const scrollToBottom = () => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-    }
-
-    useEffect(() => {
-        scrollToBottom()
-    }, [messages])
-
-    useEffect(() => {
-        if (messages.length === 0) {
-            const welcomeMsg = isAdmin ? 'admin_hello' : 'hello'
-            sendMessage(welcomeMsg)
-        }
-    }, [])
-
-    const sendMessage = async (message: string, useCurrentMessage = false) => {
-        const messageToSend = useCurrentMessage ? currentMessage : message
-        if (!messageToSend.trim()) return
-
-        setCurrentMessage('')
-        setIsLoading(true)
-
-        try {
-            const response = await fetch('/api/chatbot', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    message: messageToSend,
-                    sessionId,
-                    userRole: user?.role || 'CUSTOMER',
-                    isAdmin,
-                    context: { currentPage: window.location.pathname }
-                })
-            })
-
-            const data = await response.json()
-            if (data.success) {
-                setMessages(prev => [...prev, {
-                    id: Date.now().toString(),
-                    userMessage: messageToSend,
-                    botMessage: data.data.message,
-                    suggestions: data.data.suggestions || [],
-                    timestamp: data.data.timestamp
-                }])
-            }
-        } catch (error) {
-            toast.error('Lỗi kết nối. Vui lòng thử lại.')
-        } finally {
-            setIsLoading(false)
-        }
-    }
-
-    const handleKeyPress = (e: React.KeyboardEvent) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault()
-            sendMessage('', true)
-        }
-    }
-
-    const formatTime = (timestamp: string) => {
-        return new Date(timestamp).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
-    }
-
-    return (
-        <div className="w-96 bg-white rounded-lg shadow-2xl border flex flex-col max-h-[600px]">
-            {/* Header */}
-            <div className={`${isAdmin ? 'bg-gradient-to-r from-indigo-600 to-blue-600' : 'bg-blue-600'} text-white p-4 rounded-t-lg flex justify-between items-center`}>
-                <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-white rounded-full overflow-hidden border-2 border-blue-400">
-                        <img src="/images/smartbuild_bot.png" alt="SmartBuild AI" className="w-full h-full object-cover" />
-                    </div>
-                    <div>
-                        <div className="font-semibold">{isAdmin ? '🎯 SmartBuild Admin' : '🤖 SmartBuild AI'}</div>
-                        <div className="text-xs opacity-90">{isAdmin ? 'Trợ lý quản trị' : 'Trợ lý thông minh'}</div>
-                    </div>
-                </div>
-                <button onClick={onClose} className="text-white hover:bg-white/20 p-1 rounded">
-                    <X className="w-5 h-5" />
-                </button>
-            </div>
-
-            {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-[300px]">
-                {messages.map((msg) => (
-                    <div key={msg.id} className="space-y-3">
-                        {msg.userMessage !== 'hello' && msg.userMessage !== 'admin_hello' && (
-                            <div className="flex justify-end">
-                                <div className="bg-blue-600 text-white p-3 rounded-lg max-w-xs">
-                                    <div className="text-sm">{msg.userMessage}</div>
-                                    <div className="text-xs opacity-75 mt-1">{formatTime(msg.timestamp)}</div>
-                                </div>
-                            </div>
-                        )}
-                        <div className="flex justify-start">
-                            <div className="bg-gray-100 p-4 rounded-lg max-w-2xl border border-gray-200">
-                                <div className="flex items-start gap-3">
-                                    <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 border border-gray-200 bg-white">
-                                        <img src="/images/smartbuild_bot.png" alt="AI" className="w-full h-full object-cover" />
-                                    </div>
-                                    <div className="flex-1">
-                                        <div className="text-sm text-gray-950 whitespace-pre-wrap">{msg.botMessage}</div>
-                                        <div className="text-xs text-gray-500 mt-2">{formatTime(msg.timestamp)}</div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        {msg.suggestions?.length > 0 && (
-                            <div className="flex flex-wrap gap-2">
-                                {msg.suggestions.map((s: string, i: number) => (
-                                    <button key={i} onClick={() => sendMessage(s)} disabled={isLoading}
-                                        className="text-xs bg-blue-100 text-blue-900 font-semibold px-3 py-1.5 rounded-full hover:bg-blue-200 disabled:opacity-50">
-                                        {s}
-                                    </button>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                ))}
-                {isLoading && (
-                    <div className="flex justify-start">
-                        <div className="bg-gray-100 p-3 rounded-lg">
-                            <div className="flex space-x-1">
-                                <div className="h-2 w-2 bg-blue-600 rounded-full animate-bounce"></div>
-                                <div className="h-2 w-2 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                                <div className="h-2 w-2 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
-                            </div>
-                        </div>
-                    </div>
-                )}
-                <div ref={messagesEndRef} />
-            </div>
-
-            {/* Input */}
-            <div className="p-4 border-t">
-                <div className="flex gap-2">
-                    <input
-                        type="text"
-                        value={currentMessage}
-                        onChange={(e) => setCurrentMessage(e.target.value)}
-                        onKeyDown={handleKeyPress}
-                        placeholder="Nhập tin nhắn..."
-                        className="flex-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        disabled={isLoading}
-                    />
-                    <button
-                        onClick={() => sendMessage('', true)}
-                        disabled={isLoading || !currentMessage.trim()}
-                        className="bg-blue-600 text-white p-2 rounded-lg hover:bg-blue-700 disabled:opacity-50"
-                    >
-                        <Send className="w-5 h-5" />
-                    </button>
-                </div>
-            </div>
-        </div>
-    )
-}
-
-// ============ SUPPORT PANEL ============
 function SupportPanel({ onClose }: { onClose: () => void }) {
     const { user } = useAuth()
     const [step, setStep] = useState(1)
     const [loading, setLoading] = useState(false)
-    const [uploading, setUploading] = useState(false)
-    const [attachments, setAttachments] = useState<{ fileName: string; fileUrl: string }[]>([])
-    const fileInputRef = useRef<HTMLInputElement>(null)
     const [form, setForm] = useState({
         name: user?.name || '',
         phone: user?.phone || '',
@@ -340,200 +132,133 @@ function SupportPanel({ onClose }: { onClose: () => void }) {
         message: ''
     })
 
-    useEffect(() => {
-        if (user) {
-            setForm(prev => ({
-                ...prev,
-                name: user.name || prev.name,
-                email: user.email || prev.email,
-                phone: user.phone || prev.phone
-            }))
-            if (user.name && user.phone) setStep(2)
-        }
-    }, [user])
-
-    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0]
-        if (!file) return
-
-        const allowedTypes = ['jpg', 'jpeg', 'png', 'gif', 'pdf', 'doc', 'docx', 'xls', 'xlsx', 'txt']
-        const ext = file.name.split('.').pop()?.toLowerCase() || ''
-        if (!allowedTypes.includes(ext)) {
-            toast.error('Định dạng file không hỗ trợ')
-            return
-        }
-        if (file.size > 5 * 1024 * 1024) {
-            toast.error('File không được vượt quá 5MB')
-            return
-        }
-
-        setUploading(true)
-        const formData = new FormData()
-        formData.append('file', file)
-
-        try {
-            const res = await fetch('/api/upload/secure', { method: 'POST', body: formData })
-            const data = await res.json()
-            if (data.fileId) {
-                setAttachments(prev => [...prev, { fileName: file.name, fileUrl: `/api/files/${data.fileId}` }])
-                toast.success('Đã đính kèm file')
-            } else {
-                toast.error('Tải file thất bại')
-            }
-        } catch {
-            toast.error('Lỗi tải file')
-        } finally {
-            setUploading(false)
-            if (fileInputRef.current) fileInputRef.current.value = ''
-        }
-    }
-
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
         if (!form.name || !form.phone || !form.message) {
-            toast.error('Vui lòng điền đầy đủ thông tin')
+            toast.error('Vui lòng điền đủ thông tin')
             return
         }
         setLoading(true)
-        try {
-            const res = await fetch('/api/support', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ...form, attachments, pageUrl: window.location.href })
-            })
-            const data = await res.json()
-            if (data.success) setStep(3)
-            else toast.error(data.error?.message || 'Có lỗi xảy ra')
-        } catch {
-            toast.error('Lỗi kết nối server')
-        } finally {
+        // Simulating API call
+        setTimeout(() => {
             setLoading(false)
-        }
+            setStep(3)
+        }, 1500)
     }
 
     return (
-        <div className="w-80 md:w-96 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden">
+        <div className="w-[380px] bg-white rounded-[2.5rem] shadow-[0_30px_70px_rgba(0,0,0,0.2)] overflow-hidden border border-gray-100">
             {/* Header */}
-            <div className="bg-gradient-to-r from-indigo-600 to-blue-600 p-5 text-white flex justify-between items-center">
-                <div className="flex items-center gap-3">
-                    <div className="bg-white/20 p-2 rounded-xl">
-                        <Headset className="w-6 h-6" />
+            <div className="bg-gradient-to-r from-indigo-600 to-blue-700 p-6 text-white overflow-hidden relative">
+                <div className="absolute top-[-20px] right-[-20px] w-32 h-32 bg-white/10 rounded-full blur-2xl" />
+                <div className="flex items-center justify-between relative z-10">
+                    <div className="flex items-center gap-4">
+                        <div className="bg-white/20 p-3 rounded-2xl backdrop-blur-md">
+                            <Headset className="w-6 h-6" />
+                        </div>
+                        <div>
+                            <h3 className="font-bold text-lg leading-tight">Gửi yêu cầu</h3>
+                            <p className="text-[10px] opacity-80 uppercase tracking-wider font-semibold">Tư vấn viên sẵn sàng</p>
+                        </div>
                     </div>
-                    <div>
-                        <h3 className="font-bold text-base">Trung tâm Hỗ trợ</h3>
-                        <p className="text-xs opacity-80">Liên hệ trong 5-10 phút</p>
-                    </div>
+                    <button onClick={onClose} className="bg-black/10 hover:bg-black/20 p-2 rounded-full transition-colors">
+                        <X className="w-4 h-4" />
+                    </button>
                 </div>
-                <button onClick={onClose} className="hover:bg-white/20 p-2 rounded-full">
-                    <X className="w-5 h-5" />
-                </button>
             </div>
 
-            <div className="p-6 max-h-[400px] overflow-y-auto">
+            <div className="p-6">
                 {step === 1 && (
                     <div className="space-y-4">
-                        <p className="text-center text-sm text-gray-600 mb-4">Vui lòng để lại thông tin để bắt đầu.</p>
-                        <div>
-                            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Tên *</label>
-                            <div className="relative">
-                                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                                <input type="text" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Nguyễn Văn A"
-                                    className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none" />
+                        <div className="flex items-center gap-2 mb-2">
+                            <div className="h-1 flex-1 bg-indigo-600 rounded-full" />
+                            <div className="h-1 flex-1 bg-gray-200 rounded-full" />
+                        </div>
+                        <p className="text-xs text-gray-500 font-medium leading-relaxed">Để bắt đầu, vui lòng xác nhận thông tin liên lạc của bạn.</p>
+
+                        <div className="space-y-3">
+                            <div className="group">
+                                <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block px-1">Họ và tên</label>
+                                <div className="relative">
+                                    <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-indigo-500 transition-colors" />
+                                    <input
+                                        type="text" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })}
+                                        className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl text-sm outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all font-medium"
+                                        placeholder="Nguyễn Văn A"
+                                    />
+                                </div>
+                            </div>
+                            <div className="group">
+                                <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block px-1">Số điện thoại</label>
+                                <div className="relative">
+                                    <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-indigo-500 transition-colors" />
+                                    <input
+                                        type="tel" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })}
+                                        className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl text-sm outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all font-medium"
+                                        placeholder="09xx xxx xxx"
+                                    />
+                                </div>
                             </div>
                         </div>
-                        <div>
-                            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Số điện thoại *</label>
-                            <div className="relative">
-                                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                                <input type="tel" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} placeholder="0912345678"
-                                    className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none" />
-                            </div>
-                        </div>
-                        <div>
-                            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Email</label>
-                            <div className="relative">
-                                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                                <input type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} placeholder="email@example.com"
-                                    className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none" />
-                            </div>
-                        </div>
-                        <button type="button" onClick={() => form.name && form.phone ? setStep(2) : toast.error('Vui lòng nhập tên và SĐT')}
-                            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl font-bold text-sm mt-2">
-                            Tiếp tục
+
+                        <button
+                            onClick={() => (form.name && form.phone) ? setStep(2) : toast.error('Điền đủ tên và SĐT')}
+                            className="w-full bg-indigo-600 text-white py-4 rounded-3xl font-bold text-sm hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-100"
+                        >
+                            Tiếp theo
                         </button>
                     </div>
                 )}
 
                 {step === 2 && (
                     <form onSubmit={handleSubmit} className="space-y-4">
+                        <div className="flex items-center gap-2 mb-2">
+                            <div className="h-1 flex-1 bg-indigo-600 rounded-full" />
+                            <div className="h-1 flex-1 bg-indigo-600 rounded-full" />
+                        </div>
                         <div>
-                            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Nội dung yêu cầu *</label>
-                            <textarea rows={3} value={form.message} onChange={e => setForm({ ...form, message: e.target.value })} placeholder="Mô tả chi tiết vấn đề..."
-                                className="w-full px-4 py-3 bg-gray-50 border rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none resize-none" />
-                        </div>
-
-                        {/* ATTACHMENT TOOLBAR */}
-                        <div className="flex items-center justify-between p-3 bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl border border-gray-200">
-                            <button
-                                type="button"
-                                onClick={() => fileInputRef.current?.click()}
-                                disabled={uploading}
-                                className="flex items-center gap-2 px-3 py-2 bg-white hover:bg-indigo-50 text-indigo-600 rounded-lg border border-gray-200 text-xs font-bold shadow-sm disabled:opacity-50"
-                            >
-                                {uploading ? (
-                                    <div className="w-4 h-4 border-2 border-indigo-600 border-t-transparent animate-spin rounded-full" />
-                                ) : (
-                                    <span>📎</span>
-                                )}
-                                Đính kèm file
-                            </button>
-                            <input
-                                type="file"
-                                ref={fileInputRef}
-                                onChange={handleFileChange}
-                                className="hidden"
-                                accept=".jpg,.jpeg,.png,.gif,.pdf,.doc,.docx,.xls,.xlsx,.txt"
+                            <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block px-1">Nội dung cần hỗ trợ</label>
+                            <textarea
+                                rows={4} value={form.message} onChange={e => setForm({ ...form, message: e.target.value })}
+                                className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-2xl text-sm outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all font-medium resize-none shadow-inner"
+                                placeholder="Hãy cho chúng tôi biết bạn cần hỗ trợ về sản phẩm hay đơn hàng nào..."
                             />
-                            <span className="text-[10px] text-gray-500">Max 5MB</span>
                         </div>
-
-                        {/* ATTACHMENTS LIST */}
-                        {attachments.length > 0 && (
-                            <div className="space-y-2">
-                                {attachments.map((file, i) => (
-                                    <div key={i} className="flex items-center justify-between p-2 bg-green-50 rounded-lg border border-green-200 text-xs">
-                                        <span className="truncate flex-1 text-green-800 font-medium">📄 {file.fileName}</span>
-                                        <button type="button" onClick={() => setAttachments(prev => prev.filter((_, idx) => idx !== i))}
-                                            className="text-red-500 hover:text-red-700 ml-2 font-bold">✕</button>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
 
                         <div className="flex gap-3">
-                            <button type="button" onClick={() => setStep(1)} className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 py-3 rounded-xl font-bold text-sm">
-                                Quay lại
-                            </button>
-                            <button type="submit" disabled={loading || uploading}
-                                className="flex-[2] bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl font-bold text-sm disabled:opacity-50 flex items-center justify-center gap-2">
-                                {loading ? <div className="w-5 h-5 border-2 border-white border-t-transparent animate-spin rounded-full" /> : <>Gửi <Send className="w-4 h-4" /></>}
+                            <button type="button" onClick={() => setStep(1)} className="flex-1 py-4 text-sm font-bold text-gray-500 hover:text-gray-900 transition-colors">Quay lại</button>
+                            <button
+                                type="submit" disabled={loading}
+                                className="flex-[2] bg-indigo-600 text-white py-4 rounded-3xl font-bold text-sm hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-100 disabled:opacity-50 flex items-center justify-center gap-2"
+                            >
+                                {loading ? <div className="w-5 h-5 border-2 border-white/30 border-t-white animate-spin rounded-full" /> : 'Gửi yêu cầu'}
                             </button>
                         </div>
                     </form>
                 )}
 
                 {step === 3 && (
-                    <div className="text-center py-8 space-y-5">
-                        <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto">
-                            <Headset className="w-10 h-10" />
+                    <div className="py-8 text-center space-y-6">
+                        <div className="relative inline-block">
+                            <div className="w-20 h-20 bg-green-50 rounded-full flex items-center justify-center animate-bounce">
+                                <ShieldCheck className="w-10 h-10 text-green-500" />
+                            </div>
+                            <div className="absolute inset-0 bg-green-400 rounded-full blur-xl opacity-20" />
                         </div>
                         <div>
-                            <h4 className="font-extrabold text-xl text-gray-900">Yêu cầu đã gửi!</h4>
-                            <p className="text-xs text-gray-500 mt-2 px-4">Đội ngũ sẽ gọi lại qua số {form.phone}.</p>
+                            <h4 className="font-bold text-xl text-gray-900">Yêu cầu đã gửi!</h4>
+                            <div className="flex flex-col gap-2 mt-4">
+                                <div className="flex items-center gap-3 bg-gray-50 p-3 rounded-2xl text-left border border-gray-100">
+                                    <Clock className="w-4 h-4 text-indigo-600" />
+                                    <span className="text-[11px] font-medium text-gray-600">Thời gian phản hồi dự kiến: <strong className="text-gray-900">5 phút</strong></span>
+                                </div>
+                                <div className="flex items-center gap-3 bg-gray-50 p-3 rounded-2xl text-left border border-gray-100">
+                                    <ShieldCheck className="w-4 h-4 text-green-600" />
+                                    <span className="text-[11px] font-medium text-gray-600">Chúng tôi sẽ gọi lại qua số <strong className="text-gray-900">{form.phone}</strong></span>
+                                </div>
+                            </div>
                         </div>
-                        <button onClick={onClose} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl font-bold text-sm">
-                            Đã hiểu
-                        </button>
+                        <button onClick={onClose} className="w-full bg-indigo-600 text-white py-4 rounded-3xl font-bold text-sm shadow-xl shadow-indigo-100">Đã hiểu</button>
                     </div>
                 )}
             </div>

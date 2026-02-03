@@ -271,8 +271,17 @@ export async function middleware(request: NextRequest) {
 
 function extractToken(request: NextRequest): string | null {
   const { pathname } = request.nextUrl
+
+  // Check Authorization header first, but VALIDATE the token
   const authHeader = request.headers.get('authorization')
-  if (authHeader?.startsWith('Bearer ')) return authHeader.slice(7)
+  if (authHeader?.startsWith('Bearer ')) {
+    const headerToken = authHeader.slice(7)
+    // 🛡️ SECURITY: Skip invalid token strings from client malfunctions
+    if (headerToken && headerToken !== 'null' && headerToken !== 'undefined' && headerToken !== '[object Object]') {
+      return headerToken
+    }
+    // Invalid header token - fall through to cookie extraction
+  }
 
   const sharedAPIs = ['/api/chat']
   if (sharedAPIs.some(api => pathname.startsWith(api))) {
@@ -283,11 +292,25 @@ function extractToken(request: NextRequest): string | null {
   }
 
   let cookieName = 'auth_token'
-  if (pathname.startsWith('/admin') || pathname.startsWith('/api/admin')) cookieName = 'admin_token'
+  const isAdminPath = pathname.startsWith('/admin') ||
+    pathname.startsWith('/api/admin') ||
+    pathname.startsWith('/api/inventory') ||
+    pathname.startsWith('/api/predictions')
+
+  if (isAdminPath) cookieName = 'admin_token'
   else if (pathname.startsWith('/supplier') || pathname.startsWith('/api/supplier')) cookieName = 'supplier_token'
   else if (pathname.startsWith('/contractor') || pathname.startsWith('/api/contractor')) cookieName = 'contractor_token'
 
-  return request.cookies.get(cookieName)?.value || request.cookies.get('auth_token')?.value || null
+  const token = request.cookies.get(cookieName)?.value ||
+    request.cookies.get('admin_token')?.value ||
+    request.cookies.get('auth_token')?.value ||
+    null
+
+  if (!token || token === 'null' || token === 'undefined' || token === '[object Object]') {
+    return null
+  }
+
+  return token
 }
 
 export const config = {

@@ -424,13 +424,13 @@ export async function GET(request: NextRequest) {
 
     let predictions: InventoryPredictionResult[] = []
 
-    // First, try to get existing predictions from DB
+    // First, try to get existing predictions from DB (within last 7 days for better cache hit)
     const existingPredictions = await prisma.inventoryPrediction.findMany({
       where: {
         ...(productId && { productId }),
         timeframe,
         predictionDate: {
-          gte: new Date(Date.now() - 24 * 60 * 60 * 1000) // Last 24 hours
+          gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) // Last 7 days (extended from 24h)
         }
       },
       include: {

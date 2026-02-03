@@ -119,8 +119,13 @@ function InventoryContent() {
         setProducts(transformed)
       }
       if (movementsRes.ok) setMovements((await movementsRes.json()).data || [])
-      if (predictionsRes.ok) setPredictions(((await predictionsRes.json()).data?.predictions) || [])
+      if (predictionsRes.ok) {
+        const predData = await predictionsRes.json()
+        setPredictions(predData.data?.predictions || [])
+      }
       if (recommendationsRes.ok) setRecommendations(((await recommendationsRes.json()).data?.recommendations) || [])
+
+
     } catch (e) {
       console.error(e)
       toast.error('Failed to load data')

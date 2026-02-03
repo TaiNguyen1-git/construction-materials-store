@@ -102,7 +102,7 @@ export default function WMSManagement() {
                 </div>
                 <button
                     onClick={() => setShowAddRack(true)}
-                    className="bg-slate-900 text-white px-6 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-600 transition-all shadow-lg active:scale-95 flex items-center gap-2"
+                    className="bg-blue-600 text-white px-6 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-700 transition-all shadow-lg active:scale-95 flex items-center gap-2"
                 >
                     <Plus size={16} /> Thêm dãy kệ
                 </button>

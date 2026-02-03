@@ -28,6 +28,7 @@ import {
 } from 'lucide-react'
 import toast, { Toaster } from 'react-hot-toast'
 import { useState, useMemo } from 'react'
+import { formatNumber } from '@/lib/utils'
 
 export default function WishlistPage() {
   const {
@@ -400,7 +401,7 @@ export default function WishlistPage() {
                       )}
 
                       <p className="text-2xl font-black text-primary-600 tracking-tighter mb-4">
-                        {item.price.toLocaleString()}đ
+                        {formatNumber(item.price)}đ
                       </p>
                     </div>
 
@@ -511,7 +512,7 @@ export default function WishlistPage() {
             <h4 className="font-black text-slate-900 leading-tight line-clamp-1 tracking-tight mb-1 text-sm">
               {draggedItem.name}
             </h4>
-            <p className="text-primary-600 font-black text-lg">{draggedItem.price.toLocaleString()}đ</p>
+            <p className="text-primary-600 font-black text-lg">{formatNumber(draggedItem.price)}đ</p>
           </div>
         )
       }

@@ -5,7 +5,7 @@
  * Upload floor plan images or describe your project to get material estimates
  */
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
@@ -27,7 +27,9 @@ import {
     Camera,
     FolderPlus,
     Sparkles,
-    Info
+    Info,
+    ChevronDown,
+    X
 } from 'lucide-react'
 import toast, { Toaster } from 'react-hot-toast'
 import { useCartStore, CartItem } from '@/stores/cartStore'
@@ -87,6 +89,7 @@ export default function EstimatorPage() {
     const [loading, setLoading] = useState(false)
     const [result, setResult] = useState<EstimatorResult | null>(null)
     const [isReviewing, setIsReviewing] = useState(false)
+    const [showInputPanel, setShowInputPanel] = useState(true)
 
     // Editable data for confirmation
     const [reviewArea, setReviewArea] = useState<number>(0)
@@ -103,6 +106,49 @@ export default function EstimatorPage() {
     const [projectName, setProjectName] = useState('')
     const [birthYear, setBirthYear] = useState('')
     const [houseDirection, setHouseDirection] = useState('Đông Nam')
+    const [showDetailedModal, setShowDetailedModal] = useState(false)
+    const [loadingPhase, setLoadingPhase] = useState(0)
+    const [loadingTip, setLoadingTip] = useState(0)
+
+    const LOADING_PHASES = [
+        "Đang nhận diện sơ đồ mặt bằng...",
+        "Đang hệ thống hóa thông số kỹ thuật...",
+        "Đang bóc tách khối lượng vật liệu...",
+        "Đang tính toán đơn giá theo thị trường...",
+        "Đang hoàn tất bảng dự toán chi tiết..."
+    ]
+
+    const LOADING_TIPS = [
+        "Nên đặt dư 5-7% vật liệu để dự phòng hao hụt trong quá trình thi công thực tế.",
+        "Sử dụng màu sơn sáng có thể giúp không gian trông rộng hơn 20% so với thực tế.",
+        "Bố trí cửa sổ đối diện giúp lưu thông khí tự nhiên tốt nhất cho căn nhà.",
+        "SmartBuild hỗ trợ kết nối trực tiếp với nhà thầu để tối ưu chi phí thi công.",
+        "Gạch khổ lớn 80x80cm đang là xu hướng giúp mặt sàn sang trọng và ít mạch nối."
+    ]
+
+    // Effect for Cinematic Loader
+    useEffect(() => {
+        let phaseInterval: any;
+        let tipInterval: any;
+
+        if (loading) {
+            phaseInterval = setInterval(() => {
+                setLoadingPhase(prev => (prev + 1) % LOADING_PHASES.length);
+            }, 2500);
+
+            tipInterval = setInterval(() => {
+                setLoadingTip(prev => (prev + 1) % LOADING_TIPS.length);
+            }, 4500);
+        } else {
+            setLoadingPhase(0);
+            setLoadingTip(0);
+        }
+
+        return () => {
+            clearInterval(phaseInterval);
+            clearInterval(tipInterval);
+        };
+    }, [loading]);
     const fileInputRef = useRef<HTMLInputElement>(null)
 
     // Cart store for adding estimated materials (regular user cart)
@@ -176,6 +222,7 @@ export default function EstimatorPage() {
                     toast.success('Đã bóc tách xong bản vẽ, vui lòng xác nhận lại diện tích!')
                 } else {
                     setResult(data.data)
+                    setShowInputPanel(false) // Automatically hide input panel on success
                     toast.success('Đã phân tích xong!')
                 }
             } else {
@@ -214,6 +261,7 @@ export default function EstimatorPage() {
             if (data.success) {
                 setResult(data.data)
                 setIsReviewing(false)
+                setShowInputPanel(false) // Automatically hide input panel on success
                 toast.success('Dự toán vật liệu đã được cập nhật chính xác!')
             } else {
                 toast.error(data.error || 'Có lỗi xảy ra')
@@ -335,14 +383,15 @@ export default function EstimatorPage() {
 
             {/* Project Creation Modal */}
             {showProjectModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-gray-100 animate-in zoom-in-95 duration-200">
-                        <div className="bg-gradient-to-r from-indigo-600 to-purple-600 p-6 text-white">
-                            <h2 className="text-xl font-bold flex items-center gap-2">
-                                <FolderPlus className="w-6 h-6" />
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-md p-4 animate-in fade-in duration-300">
+                    <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-md overflow-hidden border border-slate-100 animate-in zoom-in-95 duration-500">
+                        <div className="bg-gradient-to-br from-indigo-600 to-blue-700 p-10 text-white relative overflow-hidden">
+                            <div className="absolute -right-10 -top-10 w-40 h-40 bg-white/10 rounded-full blur-3xl"></div>
+                            <h2 className="text-2xl font-black flex items-center gap-3 relative z-10 uppercase tracking-tight">
+                                <FolderPlus className="w-8 h-8 text-blue-200" />
                                 Tạo Dự Án Mới
                             </h2>
-                            <p className="text-indigo-100 text-sm mt-1">Lưu trữ dự toán và theo dõi tiến độ công trình</p>
+                            <p className="text-blue-100 text-xs mt-2 font-medium opacity-80 relative z-10 uppercase tracking-widest">Lưu trữ dự toán & quản lý tiến độ</p>
                         </div>
 
                         <div className="p-6 space-y-4">
@@ -404,216 +453,491 @@ export default function EstimatorPage() {
                 </div>
             )}
 
+            {/* Detailed Estimate Modal */}
+            {showDetailedModal && result && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-md p-4 md:p-10 animate-in fade-in duration-300">
+                    <div className="bg-white rounded-[3rem] shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden border border-slate-100 animate-in zoom-in-95 duration-500 flex flex-col">
+                        <div className="bg-gradient-to-br from-slate-900 to-indigo-950 p-8 text-white flex justify-between items-center relative overflow-hidden flex-shrink-0">
+                            <div className="absolute -right-20 -top-20 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl"></div>
+                            <div className="relative z-10 flex gap-4 items-center">
+                                <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center backdrop-blur-md">
+                                    <Package className="w-6 h-6 text-indigo-300" />
+                                </div>
+                                <div>
+                                    <h2 className="text-2xl font-black uppercase italic tracking-tighter">Bảng Khối Lượng Chi Tiết</h2>
+                                    <p className="text-white/40 text-[10px] font-black uppercase tracking-[0.3em]">AI-Generated Material Breakdown #EST-{(result as any).id || 'PRO'}</p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setShowDetailedModal(false)}
+                                className="w-12 h-12 bg-white/5 hover:bg-white/10 rounded-full flex items-center justify-center transition-colors group relative z-10"
+                            >
+                                <X className="w-6 h-6 group-hover:scale-110 transition-transform" />
+                            </button>
+                        </div>
+
+                        <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
+                            <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+                                {/* Left Side: Summary info */}
+                                <div className="lg:col-span-4 space-y-6">
+                                    <div className="bg-slate-50 rounded-[2rem] p-6 border border-slate-100">
+                                        <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Thông tin dự án</h3>
+                                        <div className="space-y-3">
+                                            <div className="flex justify-between items-center text-xs">
+                                                <span className="text-slate-500">Diện tích sàn:</span>
+                                                <span className="font-bold text-slate-900">{result.totalArea.toFixed(1)} m²</span>
+                                            </div>
+                                            <div className="flex justify-between items-center text-xs">
+                                                <span className="text-slate-500">Dự toán ngân sách:</span>
+                                                <span className="font-black text-indigo-600">{formatCurrency(result.totalEstimatedCost)}</span>
+                                            </div>
+                                            <div className="flex justify-between items-center text-xs">
+                                                <span className="text-slate-500">Số loại vật phẩm:</span>
+                                                <span className="font-bold text-slate-900">{result.materials.length} mục</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="bg-indigo-50/30 rounded-[2rem] p-6 border border-indigo-100">
+                                        <h3 className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-4">Mẹo chuyên gia</h3>
+                                        <p className="text-xs text-indigo-900/70 leading-relaxed italic">
+                                            "Kết quả bóc tách dựa trên trung bình thị trường. Bạn nên đặt dư ra khoảng 5-7% so với con số này để trừ hao lãng phí trong quá trình thi công."
+                                        </p>
+                                    </div>
+                                </div>
+
+                                {/* Right Side: Table */}
+                                <div className="lg:col-span-8">
+                                    <div className="rounded-[1.5rem] border border-slate-100 overflow-hidden shadow-sm bg-white">
+                                        <table className="w-full text-left border-collapse">
+                                            <thead>
+                                                <tr className="bg-slate-50/80">
+                                                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Hạng mục</th>
+                                                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Khối lượng</th>
+                                                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Thành tiền</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-slate-50">
+                                                {result.materials.map((m, i) => (
+                                                    <tr key={i} className="hover:bg-indigo-50/20 transition-colors group">
+                                                        <td className="px-6 py-5">
+                                                            <div className="font-black text-slate-800 uppercase text-xs tracking-tight group-hover:text-indigo-600 transition-colors">{m.productName}</div>
+                                                            <div className="text-[10px] text-slate-400 mt-1 line-clamp-1 italic">{m.reason}</div>
+                                                        </td>
+                                                        <td className="px-6 py-5 text-right">
+                                                            <div className="font-black text-slate-900 text-sm">{m.quantity.toLocaleString('vi-VN')}</div>
+                                                            <div className="text-[10px] text-slate-400 font-bold uppercase">{m.unit}</div>
+                                                        </td>
+                                                        <td className="px-6 py-5 text-right">
+                                                            {m.price ? (
+                                                                <div className="font-black text-indigo-600 text-sm">{formatCurrency(m.price * m.quantity)}</div>
+                                                            ) : (
+                                                                <div className="text-[10px] font-black text-slate-300 uppercase italic">Liên Hệ</div>
+                                                            )}
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="p-8 border-t border-slate-50 bg-slate-50/50 flex flex-col sm:flex-row justify-between items-center gap-6 flex-shrink-0">
+                            <div className="text-slate-400 text-xs italic font-medium">Báo giá mang tính chất tham khảo, chưa bao gồm phí vận chuyển và nhân công.</div>
+                            <div className="flex gap-4 w-full sm:w-auto">
+                                <button
+                                    onClick={handleAddAllToCart}
+                                    className="flex-1 sm:flex-none px-8 py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-xl shadow-emerald-100 flex items-center justify-center gap-3"
+                                >
+                                    <ShoppingCart className="w-5 h-5" /> THÊM TẤT CẢ VÀO GIỎ
+                                </button>
+                                <button
+                                    onClick={() => window.print()}
+                                    className="flex-1 sm:flex-none px-8 py-4 bg-white text-slate-900 border border-slate-200 rounded-2xl font-black text-xs uppercase tracking-widest transition-all hover:bg-slate-50 flex items-center justify-center gap-3"
+                                >
+                                    <Upload className="w-5 h-5 rotate-180" /> TẢI PDF
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Global Header */}
             <SiteHeader />
 
             <main className="max-w-7xl mx-auto px-4 py-8">
-                {/* Page Header - High Density */}
-                <div className="mb-8 flex items-center gap-3">
-                    <div className="w-10 h-10 bg-gradient-to-br from-primary-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-primary-100">
-                        <Calculator className="w-5 h-5 text-white" />
-                    </div>
-                    <div>
-                        <h1 className="text-xl font-black text-gray-900 leading-none mb-1">AI ESTIMATOR</h1>
-                        <p className="text-xs text-gray-500 font-bold uppercase tracking-widest">Dự toán vật liệu thông minh</p>
-                    </div>
-                </div>
+                {/* Result Section (MOVED TO TOP) */}
+                {result && (
+                    <div className="mb-12 space-y-8 animate-in slide-in-from-top-4 duration-700">
+                        {/* Summary Header */}
+                        <div className="flex flex-col md:flex-row gap-6 items-start justify-between">
+                            <div className="flex items-center gap-4">
+                                <div className="w-14 h-14 bg-emerald-100 rounded-2xl flex items-center justify-center shadow-lg shadow-emerald-100/50">
+                                    <CheckCircle className="w-7 h-7 text-emerald-600" />
+                                </div>
+                                <div>
+                                    <p className="text-[10px] text-emerald-600 font-black uppercase tracking-[0.3em] mb-1">Kết quả phân tích</p>
+                                    <h2 className="text-3xl font-black text-slate-900 tracking-tighter">DỰ TOÁN ĐÃ SẴN SÀNG</h2>
+                                </div>
+                            </div>
 
-                <div className="grid lg:grid-cols-12 gap-6 items-start">
-                    {/* Input Panel */}
-                    <div className="lg:col-span-5 space-y-4">
-                        {/* Project Type Selection */}
-                        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-                            <h2 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-3">Loại công việc</h2>
-                            <div className="grid grid-cols-4 gap-2">
-                                {PROJECT_TYPES.map((type) => (
-                                    <button
-                                        key={type.id}
-                                        onClick={() => setProjectType(type.id)}
-                                        className={`p-2 rounded-lg border transition-all flex flex-col items-center gap-1.5 ${projectType === type.id
-                                            ? 'border-primary-500 bg-primary-50'
-                                            : 'border-gray-100 hover:border-gray-200'
-                                            }`}
-                                    >
-                                        <div className={`w-8 h-8 ${type.color} rounded-lg flex items-center justify-center`}>
-                                            <type.icon className="w-4 h-4 text-white" />
-                                        </div>
-                                        <span className={`text-[10px] font-bold ${projectType === type.id ? 'text-primary-700' : 'text-gray-500'}`}>
-                                            {type.name}
-                                        </span>
-                                    </button>
-                                ))}
+                            <div className="flex items-center gap-4 bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+                                <div className="text-right">
+                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Độ tin cậy AI</p>
+                                    <div className="flex gap-1 mt-1">
+                                        {[1, 2, 3, 4, 5].map((star) => (
+                                            <div key={star} className={`w-3.5 h-3.5 rounded-sm ${star <= (result.confidence * 5) ? 'bg-indigo-600 shadow-[0_0_8px_rgba(79,70,229,0.4)]' : 'bg-slate-100'}`}></div>
+                                        ))}
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
-                        {/* Input Mode Toggle */}
-                        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-                            <div className="flex gap-1.5 mb-4 bg-gray-50 p-1 rounded-lg">
-                                <button
-                                    onClick={() => setInputMode('text')}
-                                    className={`flex-1 py-2 px-3 rounded-md text-[11px] font-black transition-all flex items-center justify-center gap-1.5 ${inputMode === 'text'
-                                        ? 'bg-white text-primary-600 shadow-sm'
-                                        : 'text-gray-400 hover:text-gray-600'
-                                        }`}
-                                >
-                                    <Ruler className="w-3.5 h-3.5" />
-                                    MÔ TẢ DỰ ÁN
-                                </button>
-                                <button
-                                    onClick={() => setInputMode('image')}
-                                    className={`flex-1 py-2 px-3 rounded-md text-[11px] font-black transition-all flex items-center justify-center gap-1.5 ${inputMode === 'image'
-                                        ? 'bg-white text-primary-600 shadow-sm'
-                                        : 'text-gray-400 hover:text-gray-600'
-                                        }`}
-                                >
-                                    <ImageIcon className="w-3.5 h-3.5" />
-                                    TẢI BẢN VẼ
-                                </button>
-                            </div>
+                        {/* CTA: View Details Modal - Elite Redesign */}
+                        <div className="bg-white rounded-[3rem] p-8 md:p-12 border border-slate-100 shadow-[0_40px_100px_-20px_rgba(0,0,0,0.05)] relative overflow-hidden group">
+                            <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-50/50 rounded-full blur-3xl -mr-48 -mt-48 group-hover:bg-indigo-100/50 transition-colors duration-1000"></div>
+                            <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-50/30 rounded-full blur-3xl -ml-32 -mb-32"></div>
 
-                            {inputMode === 'text' ? (
-                                <div className="animate-in fade-in duration-300">
-                                    <textarea
-                                        value={description}
-                                        onChange={(e) => setDescription(e.target.value)}
-                                        placeholder="Mô tả dự án của bạn (VD: Lát sân vườn 6x8m, xây tường rào dài 20m cao 2.5m...)"
-                                        className="w-full h-24 border border-gray-100 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-300 focus:ring-1 focus:ring-primary-500 focus:border-transparent resize-none leading-relaxed"
-                                    />
-                                    <p className="text-[10px] text-gray-400 mt-2 font-medium">
-                                        💡 Mẹo: Mô tả càng chi tiết về diện tích và chiều cao, AI tính toán càng chính xác.
+                            <div className="relative z-10 grid lg:grid-cols-12 gap-12 items-center">
+                                {/* Left Side: Information */}
+                                <div className="lg:col-span-7 space-y-6 text-center lg:text-left">
+                                    <div className="inline-flex items-center gap-2.5 bg-indigo-50 px-4 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest text-indigo-600 border border-indigo-100/50">
+                                        <Sparkles className="w-3.5 h-3.5" /> Phân tích AI hoàn tất
+                                    </div>
+                                    <h3 className="text-4xl md:text-5xl font-black leading-[1.4] tracking-tighter text-slate-900">
+                                        Bảng Phân Tích <br />
+                                        <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-blue-600 italic py-2 pr-6 inline-block">Khối Lượng Chi Tiết</span>
+                                    </h3>
+                                    <p className="text-slate-500 text-lg max-w-md leading-relaxed font-medium">
+                                        Hệ thống đã đề xuất <span className="text-indigo-600 font-bold">{result.materials.length} loại vật tư</span> tối ưu cho dự án của bạn.
+                                        Tất cả số liệu đã sẵn sàng để quý khách kiểm tra.
                                     </p>
-                                </div>
-                            ) : (
-                                <div className="animate-in fade-in duration-300">
-                                    <input
-                                        ref={fileInputRef}
-                                        type="file"
-                                        accept="image/*"
-                                        multiple
-                                        onChange={handleImageUpload}
-                                        className="hidden"
-                                    />
 
-                                    {imagesPreview.length > 0 ? (
-                                        <div className="space-y-2">
-                                            <div className="grid grid-cols-3 gap-2">
-                                                {imagesPreview.map((src, idx) => (
-                                                    <div key={idx} className="relative group aspect-square">
-                                                        <img
-                                                            src={src}
-                                                            alt={`Preview ${idx + 1}`}
-                                                            className="w-full h-full object-cover bg-gray-50 rounded-lg border border-gray-100"
-                                                        />
-                                                        <button
-                                                            onClick={() => {
-                                                                setImagesPreview(prev => prev.filter((_, i) => i !== idx))
-                                                                setImagesBase64(prev => prev.filter((_, i) => i !== idx))
-                                                            }}
-                                                            className="absolute -top-1.5 -right-1.5 bg-red-500 text-white w-5 h-5 rounded-full hover:bg-red-600 flex items-center justify-center text-xs shadow-lg transition-transform group-hover:scale-110"
-                                                        >
-                                                            ×
-                                                        </button>
-                                                    </div>
-                                                ))}
-                                                <button
-                                                    onClick={() => fileInputRef.current?.click()}
-                                                    className="aspect-square border-2 border-dashed border-gray-100 rounded-lg flex items-center justify-center hover:bg-primary-50 hover:border-primary-300 transition-all"
-                                                >
-                                                    <Plus className="w-5 h-5 text-gray-400" />
-                                                </button>
-                                            </div>
+                                    {/* Quick Stats Inline */}
+                                    <div className="flex flex-wrap justify-center lg:justify-start gap-4 pt-4">
+                                        <div className="flex items-center gap-2 px-4 py-2 bg-slate-50 rounded-xl border border-slate-100">
+                                            <Ruler className="w-4 h-4 text-slate-400" />
+                                            <span className="text-xs font-bold text-slate-600">{result.totalArea.toFixed(1)} m² Sàn</span>
                                         </div>
-                                    ) : (
-                                        <button
-                                            onClick={() => fileInputRef.current?.click()}
-                                            className="w-full h-32 border-2 border-dashed border-gray-100 rounded-xl flex flex-col items-center justify-center gap-2 hover:border-primary-300 hover:bg-primary-50/50 transition-all group"
-                                        >
-                                            <div className="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
-                                                <Upload className="w-5 h-5 text-primary-600" />
-                                            </div>
-                                            <div className="text-center">
-                                                <p className="text-xs font-black text-gray-700 uppercase tracking-tighter">Bấm để tải bản vẽ lên</p>
-                                                <p className="text-[10px] text-gray-400">Hệ thống chấp nhận file ảnh mặt bằng hoặc ảnh chụp thực tế</p>
-                                            </div>
-                                        </button>
-                                    )}
-                                </div>
-                            )}
-
-                            {/* Feng Shui Input Section (Optional) */}
-                            <div className="mt-4 pt-4 border-t border-gray-50">
-                                <details className="group">
-                                    <summary className="list-none cursor-pointer flex items-center gap-2 text-[11px] font-bold text-gray-500 hover:text-primary-600 transition-colors">
-                                        <Sparkles className="w-3.5 h-3.5" />
-                                        <span>TƯ VẤN PHONG THỦY (TÙY CHỌN)</span>
-                                        <Plus className="w-3 h-3 group-open:rotate-45 transition-transform ml-auto" />
-                                    </summary>
-
-                                    <div className="grid grid-cols-2 gap-3 mt-3 animate-in fade-in slide-in-from-top-1">
-                                        <div>
-                                            <label className="text-[10px] font-medium text-gray-400 mb-1 block">Năm sinh khách hàng</label>
-                                            <input
-                                                type="number"
-                                                value={birthYear}
-                                                onChange={(e) => setBirthYear(e.target.value)}
-                                                placeholder="VD: 1988"
-                                                className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:ring-1 focus:ring-primary-500 focus:border-transparent outline-none"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="text-[10px] font-medium text-gray-400 mb-1 block">Hướng công trình</label>
-                                            <select
-                                                value={houseDirection}
-                                                onChange={(e) => setHouseDirection(e.target.value)}
-                                                className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:ring-1 focus:ring-primary-500 focus:border-transparent outline-none bg-white"
-                                            >
-                                                <option value="">-- Chọn hướng --</option>
-                                                <option value="Đông">Đông</option>
-                                                <option value="Tây">Tây</option>
-                                                <option value="Nam">Nam</option>
-                                                <option value="Bắc">Bắc</option>
-                                                <option value="Đông Nam">Đông Nam</option>
-                                                <option value="Đông Bắc">Đông Bắc</option>
-                                                <option value="Tây Nam">Tây Nam</option>
-                                                <option value="Tây Bắc">Tây Bắc</option>
-                                            </select>
+                                        <div className="flex items-center gap-2 px-4 py-2 bg-slate-50 rounded-xl border border-slate-100">
+                                            <Package className="w-4 h-4 text-slate-400" />
+                                            <span className="text-xs font-bold text-slate-600">{result.materials.length} Vật tư</span>
                                         </div>
                                     </div>
-                                </details>
+                                </div>
+
+                                {/* Right Side: Actions */}
+                                <div className="lg:col-span-5 flex flex-col gap-5 w-full">
+                                    <button
+                                        onClick={() => setShowDetailedModal(true)}
+                                        className="w-full px-12 py-7 bg-white text-indigo-600 border-2 border-indigo-600/20 hover:border-indigo-600 rounded-[2.5rem] font-black text-sm uppercase tracking-[0.2em] transition-all shadow-[0_20px_50px_-15px_rgba(79,70,229,0.15)] hover:shadow-indigo-200/50 flex items-center justify-center gap-4 group/btn active:scale-95"
+                                    >
+                                        XEM CHI TIẾT DỰ TOÁN
+                                        <div className="w-8 h-8 bg-indigo-50 rounded-full flex items-center justify-center group-hover/btn:translate-x-1 group-hover/btn:bg-indigo-600 group-hover/btn:text-white transition-all">
+                                            <ArrowRight className="w-4 h-4" />
+                                        </div>
+                                    </button>
+
+                                    <div className="grid grid-cols-2 gap-4">
+                                        {isAuthenticated ? (
+                                            <button
+                                                onClick={() => {
+                                                    setProjectName(`Dự án ${PROJECT_TYPES.find(t => t.id === projectType)?.name} - ${new Date().toLocaleDateString('vi-VN')}`)
+                                                    setShowProjectModal(true)
+                                                }}
+                                                className="px-6 py-4 bg-slate-50 hover:bg-white border border-slate-100 hover:border-indigo-200 rounded-3xl text-[10px] font-black uppercase tracking-widest text-slate-600 hover:text-indigo-600 transition-all flex flex-col items-center justify-center gap-2 shadow-sm"
+                                            >
+                                                <FolderPlus className="w-6 h-6 mb-1 opacity-70" /> LƯU DỰ ÁN
+                                            </button>
+                                        ) : (
+                                            <button
+                                                onClick={() => setShowLoginModal(true)}
+                                                className="px-6 py-4 bg-indigo-50/50 hover:bg-white border border-indigo-100 hover:border-indigo-400 rounded-3xl text-[10px] font-black uppercase tracking-widest text-indigo-600 transition-all flex flex-col items-center justify-center gap-2 shadow-sm"
+                                            >
+                                                <Sparkles className="w-6 h-6 mb-1" /> MỞ KHÓA DỰ ÁN
+                                            </button>
+                                        )}
+                                        <button
+                                            onClick={handleAddAllToCart}
+                                            disabled={addingToCart || !result.materials.some(m => m.productId)}
+                                            className="px-6 py-4 bg-emerald-50/50 hover:bg-white border border-emerald-100 hover:border-emerald-400 rounded-3xl text-[10px] font-black uppercase tracking-widest text-emerald-600 transition-all flex flex-col items-center justify-center gap-2 shadow-sm disabled:opacity-30"
+                                        >
+                                            <ShoppingCart className="w-6 h-6 mb-1" /> GIỎ HÀNG
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
 
-                            <button
-                                onClick={handleEstimate}
-                                disabled={loading}
-                                className="w-full mt-4 bg-gradient-to-r from-primary-600 to-indigo-600 hover:from-primary-700 hover:to-indigo-700 disabled:from-gray-300 disabled:to-gray-300 text-white py-3 rounded-lg text-sm font-black transition-all flex items-center justify-center gap-2 shadow-lg shadow-primary-100"
-                            >
-                                {loading ? (
-                                    <>
-                                        <Loader2 className="w-4 h-4 animate-spin" />
-                                        ĐANG PHÂN TÍCH...
-                                    </>
-                                ) : (
-                                    <>
-                                        <Calculator className="w-4 h-4" />
-                                        PHÂN TÍCH VẬT LIỆU AI
-                                    </>
-                                )}
-                            </button>
-                            <div className="mt-6 pt-4 border-t border-gray-50 text-center">
-                                <p className="text-[10px] text-gray-400 font-bold uppercase mb-2">Hoặc đăng tin tìm nhà thầu ngay</p>
-                                <Link
-                                    href="/projects/post"
-                                    className="inline-flex items-center gap-2 text-xs font-black text-primary-600 hover:text-primary-700 transition-colors"
-                                >
-                                    ĐIỀN THÔNG TIN THỦ CÔNG <ArrowRight className="w-3.5 h-3.5" />
-                                </Link>
-                            </div>
+                            {/* Decoration */}
+                            <div className="absolute left-1/2 bottom-0 -translate-x-1/2 w-1/3 h-1 bg-gradient-to-r from-transparent via-indigo-600/30 to-transparent"></div>
                         </div>
                     </div>
+                )}
 
-                    {/* Results Panel */}
-                    <div className="lg:col-span-7 space-y-4">
-                        {isReviewing && (
+                {/* Page Header (Hides when results are prominent if desired, but here we keep it) */}
+                {!result && (
+                    <div className="mb-12 flex items-center gap-4">
+                        <div className="w-14 h-14 bg-gradient-to-br from-indigo-600 to-blue-600 rounded-2xl flex items-center justify-center shadow-xl shadow-indigo-100">
+                            <Calculator className="w-7 h-7 text-white" />
+                        </div>
+                        <div>
+                            <h1 className="text-3xl font-black text-slate-900 leading-none mb-2 tracking-tighter uppercase">AI Material Estimator</h1>
+                            <p className="text-[11px] text-slate-400 font-black uppercase tracking-[0.3em]">Bóc tách khối lượng tự động bằng trí tuệ nhân tạo</p>
+                        </div>
+                    </div>
+                )}
+
+                <div className="grid lg:grid-cols-12 gap-10 items-start">
+                    {/* Input Panel (Collapsible/Hidden when used) */}
+                    <div className={`lg:col-span-12 xl:col-span-5 space-y-6 ${!showInputPanel && result ? 'hidden lg:block lg:opacity-50 lg:hover:opacity-100 transition-opacity' : ''}`}>
+                        {/* Toggle to show/hide input panel if result exists */}
+                        {result && (
+                            <button
+                                onClick={() => setShowInputPanel(!showInputPanel)}
+                                className="w-full flex items-center justify-between px-8 py-4 bg-white rounded-2xl border border-slate-100 shadow-sm text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-indigo-600 transition-colors"
+                            >
+                                {showInputPanel ? 'Ẩn bảng nhập liệu' : 'Hiện bảng nhập liệu để tính lại'}
+                                <ChevronDown className={`w-4 h-4 transition-transform ${showInputPanel ? 'rotate-180' : ''}`} />
+                            </button>
+                        )}
+
+                        {showInputPanel && (
+                            <div className="space-y-6 animate-in fade-in slide-in-from-left-4 duration-500">
+                                {/* Project Type Selection */}
+                                <div className="bg-white rounded-[2rem] shadow-xl border border-slate-50 p-8">
+                                    <h2 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-6">Bước 1: Chọn quy mô công việc</h2>
+                                    <div className="grid grid-cols-4 gap-3">
+                                        {PROJECT_TYPES.map((type) => (
+                                            <button
+                                                key={type.id}
+                                                onClick={() => setProjectType(type.id)}
+                                                className={`p-3 rounded-2xl border transition-all flex flex-col items-center gap-2.5 ${projectType === type.id
+                                                    ? 'border-indigo-600 bg-indigo-50 shadow-lg shadow-indigo-100/50'
+                                                    : 'border-slate-50 hover:border-indigo-200 hover:bg-slate-50'
+                                                    }`}
+                                            >
+                                                <div className={`w-10 h-10 ${type.color} rounded-xl flex items-center justify-center shadow-md`}>
+                                                    <type.icon className="w-5 h-5 text-white" />
+                                                </div>
+                                                <span className={`text-[10px] font-black uppercase tracking-tighter ${projectType === type.id ? 'text-indigo-700' : 'text-slate-500'}`}>
+                                                    {type.name}
+                                                </span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Input Mode Toggle */}
+                                <div className="bg-white rounded-[2rem] shadow-xl border border-slate-50 p-8">
+                                    <div className="flex gap-2 mb-6 bg-slate-50 p-1.5 rounded-2xl border border-slate-100">
+                                        <button
+                                            onClick={() => setInputMode('text')}
+                                            className={`flex-1 py-3 px-4 rounded-xl text-[10px] font-black transition-all flex items-center justify-center gap-2 uppercase tracking-widest ${inputMode === 'text'
+                                                ? 'bg-white text-indigo-600 shadow-xl'
+                                                : 'text-slate-400 hover:text-slate-600'
+                                                }`}
+                                        >
+                                            <Ruler className="w-4 h-4" />
+                                            MÔ TẢ DỰ ÁN
+                                        </button>
+                                        <button
+                                            onClick={() => setInputMode('image')}
+                                            className={`flex-1 py-3 px-4 rounded-xl text-[10px] font-black transition-all flex items-center justify-center gap-2 uppercase tracking-widest ${inputMode === 'image'
+                                                ? 'bg-white text-indigo-600 shadow-xl'
+                                                : 'text-slate-400 hover:text-slate-600'
+                                                }`}
+                                        >
+                                            <ImageIcon className="w-4 h-4" />
+                                            TẢI BẢN VẼ
+                                        </button>
+                                    </div>
+
+                                    {inputMode === 'text' ? (
+                                        <div className="animate-in fade-in duration-500">
+                                            <textarea
+                                                value={description}
+                                                onChange={(e) => setDescription(e.target.value)}
+                                                placeholder="Mô tả dự án của bạn (VD: Lát sân vườn 6x8m, xây tường rào dài 20m cao 2.5m...)"
+                                                className="w-full h-32 bg-slate-50 border border-slate-100 rounded-2xl px-5 py-4 text-sm text-slate-900 placeholder-slate-400 focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none transition-all resize-none leading-relaxed font-medium"
+                                            />
+                                            <p className="text-[10px] text-slate-400 mt-4 font-black uppercase tracking-widest flex items-center gap-2">
+                                                <Sparkles className="w-3 h-3 text-indigo-400" /> 💡 Mẹo: Mô tả chi tiết diện tích để AI tính chính xác hơn.
+                                            </p>
+                                        </div>
+                                    ) : (
+                                        <div className="animate-in fade-in duration-300">
+                                            <input
+                                                ref={fileInputRef}
+                                                type="file"
+                                                accept="image/*"
+                                                multiple
+                                                onChange={handleImageUpload}
+                                                className="hidden"
+                                            />
+
+                                            {imagesPreview.length > 0 ? (
+                                                <div className="space-y-2">
+                                                    <div className="grid grid-cols-3 gap-2">
+                                                        {imagesPreview.map((src, idx) => (
+                                                            <div key={idx} className="relative group aspect-square">
+                                                                <img
+                                                                    src={src}
+                                                                    alt={`Preview ${idx + 1}`}
+                                                                    className="w-full h-full object-cover bg-gray-50 rounded-lg border border-gray-100"
+                                                                />
+                                                                <button
+                                                                    onClick={() => {
+                                                                        setImagesPreview(prev => prev.filter((_, i) => i !== idx))
+                                                                        setImagesBase64(prev => prev.filter((_, i) => i !== idx))
+                                                                    }}
+                                                                    className="absolute -top-1.5 -right-1.5 bg-red-500 text-white w-5 h-5 rounded-full hover:bg-red-600 flex items-center justify-center text-xs shadow-lg transition-transform group-hover:scale-110"
+                                                                >
+                                                                    <X className="w-3 h-3" />
+                                                                </button>
+                                                            </div>
+                                                        ))}
+                                                        <button
+                                                            onClick={() => fileInputRef.current?.click()}
+                                                            className="aspect-square border-2 border-dashed border-gray-100 rounded-lg flex items-center justify-center hover:bg-primary-50 hover:border-primary-300 transition-all font-black text-slate-300"
+                                                        >
+                                                            <Plus className="w-5 h-5" />
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <button
+                                                    onClick={() => fileInputRef.current?.click()}
+                                                    className="w-full h-48 border-2 border-dashed border-slate-200 rounded-[2rem] flex flex-col items-center justify-center gap-4 hover:border-indigo-400 hover:bg-indigo-50/30 transition-all group overflow-hidden relative"
+                                                >
+                                                    <div className="w-16 h-16 bg-indigo-50 rounded-3xl flex items-center justify-center group-hover:scale-110 group-hover:bg-indigo-600 group-hover:text-white transition-all shadow-lg border border-indigo-100 group-hover:border-indigo-600">
+                                                        <Upload className="w-7 h-7" />
+                                                    </div>
+                                                    <div className="text-center">
+                                                        <p className="text-xs font-black text-slate-700 uppercase tracking-widest">Bấm để tải bản vẽ lên</p>
+                                                        <p className="text-[10px] text-slate-400 font-bold mt-1">Hệ thống nhận diện mặt bằng & ảnh chụp</p>
+                                                    </div>
+                                                </button>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {/* Feng Shui Input Section (Optional) */}
+                                    <div className="mt-4 pt-4 border-t border-gray-50">
+                                        <details className="group">
+                                            <summary className="list-none cursor-pointer flex items-center gap-2 text-[11px] font-bold text-gray-500 hover:text-primary-600 transition-colors">
+                                                <Sparkles className="w-3.5 h-3.5" />
+                                                <span>TƯ VẤN PHONG THỦY (TÙY CHỌN)</span>
+                                                <Plus className="w-3 h-3 group-open:rotate-45 transition-transform ml-auto" />
+                                            </summary>
+
+                                            <div className="grid grid-cols-2 gap-3 mt-3 animate-in fade-in slide-in-from-top-1">
+                                                <div>
+                                                    <label className="text-[10px] font-medium text-gray-400 mb-1 block">Năm sinh khách hàng</label>
+                                                    <input
+                                                        type="number"
+                                                        value={birthYear}
+                                                        onChange={(e) => setBirthYear(e.target.value)}
+                                                        placeholder="VD: 1988"
+                                                        className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:ring-1 focus:ring-primary-500 focus:border-transparent outline-none"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="text-[10px] font-medium text-gray-400 mb-1 block">Hướng công trình</label>
+                                                    <select
+                                                        value={houseDirection}
+                                                        onChange={(e) => setHouseDirection(e.target.value)}
+                                                        className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:ring-1 focus:ring-primary-500 focus:border-transparent outline-none bg-white"
+                                                    >
+                                                        <option value="">-- Chọn hướng --</option>
+                                                        <option value="Đông">Đông</option>
+                                                        <option value="Tây">Tây</option>
+                                                        <option value="Nam">Nam</option>
+                                                        <option value="Bắc">Bắc</option>
+                                                        <option value="Đông Nam">Đông Nam</option>
+                                                        <option value="Đông Bắc">Đông Bắc</option>
+                                                        <option value="Tây Nam">Tây Nam</option>
+                                                        <option value="Tây Bắc">Tây Bắc</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                        </details>
+                                    </div>
+
+                                    <button
+                                        onClick={handleEstimate}
+                                        disabled={loading}
+                                        className="w-full mt-4 bg-gradient-to-r from-primary-600 to-indigo-600 hover:from-primary-700 hover:to-indigo-700 disabled:from-gray-300 disabled:to-gray-300 text-white py-3 rounded-lg text-sm font-black transition-all flex items-center justify-center gap-2 shadow-lg shadow-primary-100"
+                                    >
+                                        {loading ? (
+                                            <span className="flex items-center gap-2">
+                                                <Loader2 className="w-4 h-4 animate-spin" />
+                                                ĐANG PHÂN TÍCH...
+                                            </span>
+                                        ) : (
+                                            <span className="flex items-center gap-2">
+                                                <Calculator className="w-4 h-4" />
+                                                PHÂN TÍCH VẬT LIỆU AI
+                                            </span>
+                                        )}
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Secondary Results / Details Panel */}
+                    <div className="lg:col-span-12 xl:col-span-7 space-y-4">
+                        {loading && (
+                            <div className="bg-white rounded-[3rem] shadow-2xl border border-slate-50 p-12 text-center h-[500px] flex flex-col items-center justify-center relative overflow-hidden animate-in fade-in duration-500">
+                                {/* Cinematic Background Scan Effect */}
+                                <div className="absolute inset-0 z-0 opacity-5 pointer-events-none">
+                                    <div className="w-full h-1 bg-gradient-to-r from-transparent via-indigo-600 to-transparent absolute top-0 animate-[scan_3s_ease-in-out_infinite]"></div>
+                                    <div className="w-full h-[1px] bg-slate-200 absolute top-1/4"></div>
+                                    <div className="w-full h-[1px] bg-slate-200 absolute top-1/2"></div>
+                                    <div className="w-full h-[1px] bg-slate-200 absolute top-3/4"></div>
+                                    <div className="h-full w-[1px] bg-slate-200 absolute left-1/4"></div>
+                                    <div className="h-full w-[1px] bg-slate-200 absolute left-1/2"></div>
+                                    <div className="h-full w-[1px] bg-slate-200 absolute left-3/4"></div>
+                                </div>
+
+                                <div className="relative z-10 w-full space-y-12">
+                                    {/* Phase Text */}
+                                    <div className="space-y-4">
+                                        <h3 className="text-3xl font-black text-slate-900 tracking-tighter uppercase animate-pulse">
+                                            {LOADING_PHASES[loadingPhase]}
+                                        </h3>
+                                        <div className="w-48 h-1 bg-slate-100 mx-auto rounded-full overflow-hidden">
+                                            <div className="h-full bg-indigo-600 transition-all duration-1000 ease-out shadow-[0_0_10px_rgba(79,70,229,0.5)]" style={{ width: `${((loadingPhase + 1) / LOADING_PHASES.length) * 100}%` }}></div>
+                                        </div>
+                                    </div>
+
+                                    {/* Expert Tip Section */}
+                                    <div className="max-w-md mx-auto space-y-3">
+                                        <p className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.3em] opacity-60">Có thể bạn chưa biết</p>
+                                        <div className="h-20 flex items-center justify-center">
+                                            <p
+                                                key={loadingTip}
+                                                className="text-slate-500 text-sm font-medium italic leading-relaxed animate-in slide-in-from-bottom-2 duration-1000"
+                                            >
+                                                "{LOADING_TIPS[loadingTip]}"
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <style jsx>{`
+                                        @keyframes scan {
+                                            0% { top: -10%; }
+                                            100% { top: 110%; }
+                                        }
+                                    `}</style>
+                                </div>
+                            </div>
+                        )}
+
+                        {!loading && isReviewing && (
                             <div className="bg-white rounded-xl shadow-xl border-2 border-primary-100 p-6 animate-in slide-in-from-right-4 duration-500 space-y-6">
                                 <div className="flex items-start gap-4 border-b border-gray-100 pb-4">
                                     <div className="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center flex-shrink-0">
@@ -632,7 +956,7 @@ export default function EstimatorPage() {
                                             {imagesPreview.length > 0 && (
                                                 <div className="w-1/3 aspect-[4/3] rounded-xl overflow-hidden border border-gray-100 shadow-inner bg-gray-50 flex-shrink-0">
                                                     <img src={imagesPreview[0]} className="w-full h-full object-cover" alt="Floor plan reference" />
-                                                    <div className="text-[8px] bg-black/50 text-white text-center py-0.5 mt-[-16px] relative z-10 font-bold">BẢN VẼ GỐC</div>
+                                                    <div className="text-[8px] bg-black/50 text-white text-center py-0.5 mt-[-16px] relative z-10 font-bold uppercase">Bản vẽ gốc</div>
                                                 </div>
                                             )}
                                             <div className={imagesPreview.length > 0 ? "w-2/3" : "w-full"}>
@@ -736,13 +1060,13 @@ export default function EstimatorPage() {
                                     <button
                                         onClick={handleFinalRecalculate}
                                         disabled={loading}
-                                        className="flex-grow bg-slate-900 hover:bg-black text-white py-4 rounded-xl text-xs font-black uppercase tracking-widest shadow-xl shadow-slate-200 flex items-center justify-center gap-2 transition-transform active:scale-95"
+                                        className="flex-grow bg-white hover:bg-slate-50 text-slate-900 border border-slate-200 py-4 rounded-xl text-xs font-black uppercase tracking-widest shadow-xl shadow-slate-100 flex items-center justify-center gap-2 transition-all active:scale-95"
                                     >
                                         {loading ? (
-                                            <Loader2 className="w-5 h-5 animate-spin" />
+                                            <Loader2 className="w-5 h-5 animate-spin text-indigo-600" />
                                         ) : (
                                             <>
-                                                <CheckCircle className="w-5 h-5 text-emerald-400" />
+                                                <CheckCircle className="w-5 h-5 text-emerald-600" />
                                                 Xác nhận & Tính toán vật liệu
                                             </>
                                         )}
@@ -752,36 +1076,34 @@ export default function EstimatorPage() {
                         )}
 
                         {result ? (
-                            <>
-                                {/* Prediction & Confidence */}
-                                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 animate-in slide-in-from-right-4 duration-500">
-                                    <div className="flex items-center justify-between mb-6">
-                                        <div className="flex items-center gap-2">
-                                            <div className="w-2 h-6 bg-primary-600 rounded-full"></div>
-                                            <h2 className="text-sm font-black text-slate-900 uppercase tracking-tighter">Tổng quan Dự toán AI</h2>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Độ tin cậy</span>
-                                            <div className="flex gap-0.5">
-                                                {[1, 2, 3, 4, 5].map((star) => (
-                                                    <div key={star} className={`w-3 h-3 rounded-sm ${star <= (result.confidence * 5) ? 'bg-emerald-500' : 'bg-gray-200'}`}></div>
-                                                ))}
-                                            </div>
+                            <div className="animate-in slide-in-from-right-4 duration-500 space-y-4">
+                                {/* Details Overview Card */}
+                                <div className="bg-white rounded-[2rem] shadow-xl border border-slate-50 p-8">
+                                    <div className="flex items-center justify-between mb-8">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-3 h-8 bg-indigo-600 rounded-full"></div>
+                                            <h2 className="text-xl font-black text-slate-900 tracking-tight uppercase tracking-tight">Cơ sở bốc tách</h2>
                                         </div>
                                     </div>
 
-                                    <div className="grid grid-cols-2 gap-3 mb-4">
-                                        <div className="bg-primary-50 px-4 py-3 rounded-xl border border-primary-100">
-                                            <p className="text-[10px] font-black text-primary-600 uppercase tracking-tighter mb-1">Tổng diện tích xây dựng</p>
-                                            <p className="text-xl font-black text-slate-900">{(result.totalArea || 0).toFixed(1)} <span className="text-xs">m²</span></p>
+                                    <div className="grid grid-cols-2 gap-4 mb-8">
+                                        <div className="bg-indigo-50/50 p-6 rounded-3xl border border-indigo-100 shadow-sm group">
+                                            <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-2 group-hover:translate-x-1 transition-transform">Diện tích sàn xây dựng</p>
+                                            <div className="flex items-baseline gap-2">
+                                                <span className="text-3xl font-black text-indigo-950">{(result.totalArea || 0).toFixed(1)}</span>
+                                                <span className="text-sm font-black text-indigo-400 uppercase">m² sàn</span>
+                                            </div>
                                         </div>
-                                        <div className="bg-indigo-50 px-4 py-3 rounded-xl border border-indigo-100">
-                                            <p className="text-[10px] font-black text-indigo-600 uppercase tracking-tighter mb-1">Ngân sách dự kiến (Vật tư tại kho)</p>
-                                            <p className="text-xl font-black text-slate-900">
-                                                {result.totalEstimatedCost > 0
-                                                    ? formatCurrency(result.totalEstimatedCost).replace(/₫/g, '')
-                                                    : '...'} <span className="text-xs">₫</span>
-                                            </p>
+                                        <div className="bg-emerald-50/50 p-6 rounded-3xl border border-emerald-100 shadow-sm group">
+                                            <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-2 group-hover:translate-x-1 transition-transform">Ngân sách dự kiến</p>
+                                            <div className="flex items-baseline gap-2">
+                                                <span className="text-3xl font-black text-emerald-950">
+                                                    {result.totalEstimatedCost > 0
+                                                        ? formatCurrency(result.totalEstimatedCost).replace(/₫/g, '')
+                                                        : '...'}
+                                                </span>
+                                                <span className="text-sm font-black text-emerald-400 uppercase">VND</span>
+                                            </div>
                                         </div>
                                     </div>
 
@@ -810,254 +1132,15 @@ export default function EstimatorPage() {
                                         </div>
                                     )}
                                 </div>
-
-                                {/* BẢN TỔNG HỢP CHI TIẾT (New Section requested by user) */}
-                                <div className="bg-white rounded-[32px] shadow-2xl shadow-slate-200/50 border border-slate-100 p-8 md:p-10 animate-in fade-in slide-in-from-bottom-4 duration-700 relative overflow-hidden">
-                                    <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-primary-600 via-indigo-600 to-primary-600"></div>
-
-                                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-10 border-b border-slate-100 pb-8">
-                                        <div>
-                                            <h2 className="text-2xl font-black text-slate-900 tracking-tight mb-1">BẢN TỔNG HỢP DỰ TOÁN</h2>
-                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">Hệ thống bóc tách tự động SmartBuild v2.0</p>
-                                        </div>
-                                        <div className="text-right">
-                                            <div className="text-xs font-bold text-slate-500 mb-1">Mã dự toán: #EST-{Math.random().toString(36).substring(7).toUpperCase()}</div>
-                                            <div className="text-xs font-bold text-slate-500">Ngày tạo: {new Date().toLocaleDateString('vi-VN')}</div>
-                                        </div>
-                                    </div>
-
-                                    {/* 1. Giả định chung */}
-                                    <section className="space-y-2">
-                                        <h3 className="text-[11px] font-black text-primary-600 uppercase tracking-tighter">1. GIẢ ĐỊNH CHUNG</h3>
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-1 text-xs text-slate-600">
-                                            <div className="flex justify-between border-b border-slate-50 py-1">
-                                                <span>Diện tích xây dựng:</span>
-                                                <span className="font-bold text-slate-800">{(result.totalArea || 0).toFixed(1)} m²</span>
-                                            </div>
-                                            <div className="flex justify-between border-b border-slate-50 py-1">
-                                                <span>Kết cấu dự kiến:</span>
-                                                <span className="font-bold text-slate-800">{result.buildingStyle === 'biệt_thự' ? 'BTCT Khung chịu lực' : 'BTCT / Tường gạch'}</span>
-                                            </div>
-                                            <div className="flex justify-between border-b border-slate-50 py-1">
-                                                <span>Quy mô:</span>
-                                                <span className="font-bold text-slate-800">{result.rooms.length} phòng chức năng</span>
-                                            </div>
-                                            <div className="flex justify-between border-b border-slate-50 py-1">
-                                                <span>Chất lượng vật liệu:</span>
-                                                <span className="font-bold text-slate-800">Mức phổ thông - Trung bình</span>
-                                            </div>
-                                        </div>
-                                        <p className="text-[10px] italic text-slate-400 mt-2">
-                                            * Ghi chú: Nếu thực tế thi công khác với bản vẽ (về phần mái, móng cọc hoặc lệch tầng), khối lượng vật tư sẽ có sự thay đổi tương ứng.
-                                        </p>
-                                    </section>
-
-                                    {/* 2. Dự toán vật liệu chính */}
-                                    <section className="space-y-2">
-                                        <h3 className="text-[11px] font-black text-primary-600 uppercase tracking-tighter">2. DỰ TOÁN VẬT LIỆU CHÍNH (PHẦN THÔ)</h3>
-                                        <div className="overflow-hidden rounded-lg border border-gray-100">
-                                            <table className="w-full text-xs text-left">
-                                                <thead className="bg-gray-50 text-[10px] font-black text-gray-500 uppercase tracking-tighter">
-                                                    <tr>
-                                                        <th className="px-4 py-2">Loại vật tư</th>
-                                                        <th className="px-4 py-2">Khối lượng ước tính</th>
-                                                        <th className="px-4 py-2">Ghi chú kỹ thuật</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody className="divide-y divide-gray-50">
-                                                    {['Xi măng', 'Cát', 'Đá', 'Thép', 'Gạch'].map((itemName) => {
-                                                        const item = result.materials.find(m => m.productName.toLowerCase().includes(itemName.toLowerCase()))
-                                                        if (!item) return null
-                                                        return (
-                                                            <tr key={itemName} className="hover:bg-gray-50/50">
-                                                                <td className="px-4 py-2 font-bold text-slate-700">{itemName}</td>
-                                                                <td className="px-4 py-2 text-slate-900 font-bold">{item.quantity} {item.unit}</td>
-                                                                <td className="px-4 py-2 text-slate-500 text-[10px]">{item.reason}</td>
-                                                            </tr>
-                                                        )
-                                                    })}
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    </section>
-
-                                    {/* 3. Vật liệu hoàn thiện (Tham khảo) */}
-                                    <section className="space-y-2">
-                                        <h3 className="text-[11px] font-black text-primary-600 uppercase tracking-tighter">3. VẬT LIỆU HOÀN THIỆN CƠ BẢN (THAM KHẢO)</h3>
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs text-slate-600">
-                                            <ul className="list-disc list-inside space-y-1">
-                                                <li>Hệ thống điện: ~{Math.ceil(result.totalArea * 3)}m dây & ống</li>
-                                                <li>Hệ thống nước: ~{Math.ceil(result.totalArea * 2)}m ống các loại</li>
-                                            </ul>
-                                            <ul className="list-disc list-inside space-y-1">
-                                                <li>Gạch lát sàn: ~{result.totalArea.toFixed(0)} m²</li>
-                                                <li>Gạch ốp tường: ~{(result.totalArea * 0.7).toFixed(0)} m²</li>
-                                            </ul>
-                                        </div>
-                                    </section>
-
-                                    {/* 4. Tổng kết chi phí */}
-                                    <section className="space-y-4 pt-4">
-                                        <h3 className="text-[11px] font-black text-primary-600 uppercase tracking-widest border-l-4 border-primary-600 pl-3">4. ƯỚC TÍNH NGÂN SÁCH VẬT LIỆU</h3>
-                                        <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-3xl p-8 text-white relative overflow-hidden shadow-2xl">
-                                            <div className="relative z-10">
-                                                <div className="flex justify-between items-center opacity-60 mb-6">
-                                                    <span className="text-xs font-bold uppercase tracking-[0.2em]">Hạng mục thi công</span>
-                                                    <span className="text-xs font-bold uppercase tracking-[0.2em]">Dự thảo ngân sách</span>
-                                                </div>
-                                                <div className="space-y-4">
-                                                    <div className="flex justify-between items-center text-sm">
-                                                        <span className="text-white/70">Vật tư phần thô:</span>
-                                                        <span className="font-bold">{formatCurrency(result.totalEstimatedCost * 0.7)}</span>
-                                                    </div>
-                                                    <div className="flex justify-between items-center text-sm">
-                                                        <span className="text-white/70">Vật tư hoàn thiện & Phụ trợ:</span>
-                                                        <span className="font-bold">{formatCurrency(result.totalEstimatedCost * 0.3)}</span>
-                                                    </div>
-                                                    <div className="h-px bg-white/10 my-6"></div>
-                                                    <div className="flex justify-between items-end">
-                                                        <div>
-                                                            <p className="text-[10px] font-black text-primary-400 uppercase tracking-widest mb-1">Tổng cộng ước tính (+/- 10%)</p>
-                                                            <h4 className="text-3xl font-black tracking-tighter">
-                                                                {formatCurrency(result.totalEstimatedCost)}
-                                                            </h4>
-                                                        </div>
-                                                        <div className="text-right">
-                                                            <div className="inline-flex items-center gap-2 bg-white/10 px-3 py-1.5 rounded-full text-[10px] font-bold">
-                                                                <CheckCircle className="w-3 h-3 text-emerald-400" /> CHƯA BAO GỒM NHÂN CÔNG
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <Sparkles className="absolute -bottom-10 -right-10 w-48 h-48 text-white/5 rotate-12" />
-                                        </div>
-                                    </section>
-                                </div>
-
-                                {/* Materials Grid - Optimized */}
-                                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 animate-in slide-in-from-right-4 duration-700">
-                                    <div className="flex justify-between items-center mb-4">
-                                        <h2 className="text-[11px] font-black text-gray-400 uppercase tracking-widest">DANH SÁCH VẬT LIỆU</h2>
-                                        <span className="text-[9px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-100 italic">Bấm vào mục (i) để xem chi tiết kỹ thuật</span>
-                                    </div>
-
-                                    <div className="grid gap-2">
-                                        {(result as any).materials.map((material: any, i: number) => (
-                                            <div key={i} className={`flex items-center justify-between p-4 rounded-2xl border transition-all duration-300 group ${material.isInStore ? 'bg-white border-slate-100 hover:border-primary-300 hover:shadow-xl hover:shadow-primary-100/20' : 'bg-slate-50 border-slate-100 opacity-80'}`}>
-                                                <div className="flex items-center gap-4">
-                                                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center border transition-all duration-500 ${material.isInStore ? 'bg-primary-50 border-primary-100 group-hover:bg-primary-600 group-hover:scale-110' : 'bg-slate-100 border-slate-200'}`}>
-                                                        <Package className={`w-6 h-6 ${material.isInStore ? 'text-primary-600 group-hover:text-white' : 'text-slate-400'}`} />
-                                                    </div>
-                                                    <div>
-                                                        {material.isInStore ? (
-                                                            <div className="flex items-center gap-2 mb-0.5 relative group/info">
-                                                                <Link href={`/products/${material.productId}`} className="font-black text-sm text-slate-800 hover:text-primary-600 transition-colors line-clamp-1 uppercase tracking-tight">
-                                                                    {material.productName}
-                                                                </Link>
-                                                                <Info className="w-3.5 h-3.5 text-slate-300 hover:text-primary-500 cursor-help" />
-
-                                                                {/* Tooltip */}
-                                                                <div className="absolute left-0 bottom-full mb-3 hidden group-hover/info:block z-50 w-72 p-4 bg-slate-900 text-white text-[11px] rounded-2xl shadow-2xl animate-in fade-in zoom-in-95">
-                                                                    <div className="flex items-center gap-2 mb-2 pb-2 border-b border-white/10">
-                                                                        <Sparkles className="w-4 h-4 text-primary-400" />
-                                                                        <span className="font-black text-primary-400 uppercase tracking-widest">Cơ sở tính toán</span>
-                                                                    </div>
-                                                                    <p className="leading-relaxed opacity-90 font-medium">{material.reason}</p>
-                                                                    <div className="absolute left-6 top-full w-0 h-0 border-l-[8px] border-l-transparent border-r-[8px] border-r-transparent border-t-[8px] border-t-slate-900"></div>
-                                                                </div>
-                                                            </div>
-                                                        ) : (
-                                                            <div className="flex items-center gap-2 mb-0.5 relative group/info">
-                                                                <span className="font-black text-sm text-slate-400 line-clamp-1 uppercase tracking-tight italic">
-                                                                    {material.productName}
-                                                                </span>
-                                                                <Info className="w-3.5 h-3.5 text-slate-200 cursor-help" />
-
-                                                                {/* Tooltip for non-store items */}
-                                                                <div className="absolute left-0 bottom-full mb-3 hidden group-hover/info:block z-50 w-72 p-4 bg-slate-900 text-white text-[11px] rounded-2xl shadow-2xl animate-in fade-in zoom-in-95">
-                                                                    <div className="flex items-center gap-2 mb-2 pb-2 border-b border-white/10">
-                                                                        <AlertCircle className="w-4 h-4 text-amber-400" />
-                                                                        <span className="font-black text-amber-400 uppercase tracking-widest">Thông tin thị trường</span>
-                                                                    </div>
-                                                                    <p className="leading-relaxed opacity-90 font-medium">{material.reason}</p>
-                                                                    <p className="mt-3 text-[10px] text-gray-500 italic border-t border-white/5 pt-2">* Sản phẩm đang được cập nhật vào kho.</p>
-                                                                    <div className="absolute left-6 top-full w-0 h-0 border-l-[8px] border-l-transparent border-r-[8px] border-r-transparent border-t-[8px] border-t-slate-900"></div>
-                                                                </div>
-                                                            </div>
-                                                        )}
-                                                        <div className="flex items-center gap-2">
-                                                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${material.isInStore ? 'bg-primary-50 text-primary-600' : 'bg-slate-100 text-slate-500'}`}>
-                                                                {material.isInStore ? 'CÓ TRONG KHO' : 'LIÊN HỆ BÁO GIÁ'}
-                                                            </span>
-                                                            <span className="text-[10px] text-slate-400 font-medium">| {material.unit}</span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <div className="text-right">
-                                                    <div className="flex flex-col items-end">
-                                                        <span className="text-lg font-black text-slate-900 leading-none">
-                                                            {material.quantity.toLocaleString('vi-VN')}
-                                                        </span>
-                                                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">{material.unit}</span>
-                                                    </div>
-                                                    {material.isInStore && (
-                                                        <div className="mt-2 text-primary-600 font-black text-xs md:text-sm">
-                                                            {formatCurrency(material.price * material.quantity)}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-
-                                    <div className="grid grid-cols-2 gap-3 mt-6">
-                                        <button
-                                            onClick={handleAddAllToCart}
-                                            disabled={addingToCart || !result.materials.some(m => m.productId)}
-                                            className="bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-200 text-white py-3 rounded-lg text-[11px] font-black uppercase transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-50"
-                                        >
-                                            {addingToCart ? (
-                                                <Loader2 className="w-4 h-4 animate-spin" />
-                                            ) : (
-                                                <>
-                                                    <ShoppingCart className="w-4 h-4" />
-                                                    VÀO GIỎ HÀNG
-                                                </>
-                                            )}
-                                        </button>
-
-                                        {isAuthenticated ? (
-                                            <button
-                                                onClick={() => {
-                                                    setProjectName(`Dự án ${PROJECT_TYPES.find(t => t.id === projectType)?.name} - ${new Date().toLocaleDateString('vi-VN')}`)
-                                                    setShowProjectModal(true)
-                                                }}
-                                                className="bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-lg text-[11px] font-black uppercase transition-all flex items-center justify-center gap-2 shadow-lg shadow-indigo-50"
-                                            >
-                                                <FolderPlus className="w-4 h-4" />
-                                                LƯU DỰ ÁN
-                                            </button>
-                                        ) : (
-                                            <button
-                                                onClick={() => setShowLoginModal(true)}
-                                                className="bg-indigo-100 text-indigo-700 hover:bg-indigo-200 py-3 rounded-lg text-[11px] font-black uppercase transition-all flex items-center justify-center gap-2"
-                                            >
-                                                <Sparkles className="w-4 h-4" />
-                                                MỞ KHÓA Dự Án
-                                            </button>
-                                        )}
-                                    </div>
-                                </div>
-                            </>
+                            </div>
                         ) : (
-                            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-12 text-center">
-                                <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                                    <Calculator className="w-10 h-10 text-gray-400" />
+                            <div className="bg-white rounded-[2rem] shadow-sm border border-slate-50 p-12 text-center h-full flex flex-col items-center justify-center border-dashed">
+                                <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                                    <Calculator className="w-10 h-10 text-slate-200" />
                                 </div>
-                                <h3 className="text-lg font-semibold text-gray-700 mb-2">Chưa có kết quả</h3>
-                                <p className="text-gray-500">
-                                    Nhập mô tả hoặc upload ảnh bản vẽ để bắt đầu dự toán vật liệu
+                                <h3 className="text-lg font-black text-slate-400 uppercase tracking-widest mb-2">Chờ phân tích</h3>
+                                <p className="text-slate-400 text-xs font-medium max-w-[200px] leading-relaxed italic">
+                                    Quý khách vui lòng chọn loại hình & tải thông tin ở bảng bên trái.
                                 </p>
                             </div>
                         )}

@@ -149,8 +149,8 @@ export default function OrganizationDetailsPage() {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center">
-                <Loader2 className="w-10 h-10 animate-spin text-blue-600" />
+            <div className="min-h-screen bg-white flex items-center justify-center">
+                <Loader2 className="w-12 h-12 animate-spin text-indigo-600" />
             </div>
         )
     }
@@ -158,18 +158,20 @@ export default function OrganizationDetailsPage() {
     const isAdmin = currentUserRole === 'OWNER' || currentUserRole === 'ADMIN'
 
     return (
-        <div className="min-h-screen bg-[#F8FAFC] py-12">
-            <div className="max-w-6xl mx-auto px-6 space-y-8">
+        <div className="min-h-screen bg-slate-50/30 py-20 pb-40">
+            <div className="max-w-6xl mx-auto px-6 space-y-12">
                 {/* Header */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                    <div className="space-y-4">
-                        <Link href="/account/organization" className="inline-flex items-center text-slate-400 hover:text-blue-600 font-black text-[10px] uppercase tracking-widest bg-white px-4 py-2 rounded-xl shadow-sm border border-slate-100 transition-all">
-                            <ArrowLeft className="h-4 w-4 mr-2" /> Quay lại danh sách
+                <div className="flex flex-col md:flex-row md:items-end justify-between gap-8">
+                    <div className="space-y-6">
+                        <Link href="/account/organization" className="inline-flex items-center text-slate-400 hover:text-indigo-600 font-black text-[10px] uppercase tracking-[0.2em] bg-white px-5 py-2.5 rounded-2xl shadow-sm border border-slate-100 transition-all hover:gap-3">
+                            <ArrowLeft className="h-4 w-4 mr-1 transition-all" /> Quay lại danh sách
                         </Link>
-                        <h1 className="text-4xl font-black text-slate-900 tracking-tighter uppercase leading-none">
-                            👥 {org?.name}
-                        </h1>
-                        <p className="text-slate-500 font-medium">Quản lý thành viên và xem xét hồ sơ năng lực nhà thầu.</p>
+                        <div>
+                            <h1 className="text-5xl font-black text-slate-900 tracking-tighter uppercase italic leading-none mb-4">
+                                👥 {org?.name}
+                            </h1>
+                            <p className="text-slate-500 font-medium text-lg">Quản lý thành viên B2B và phê duyệt hồ sơ năng lực dự án.</p>
+                        </div>
                     </div>
                 </div>
 
@@ -177,10 +179,11 @@ export default function OrganizationDetailsPage() {
                     {/* Main Content Area */}
                     <div className="lg:col-span-2 space-y-8">
                         {/* Members List */}
-                        <div className="bg-white rounded-[40px] border border-slate-100 shadow-sm overflow-hidden">
-                            <div className="p-8 border-b border-slate-50 flex items-center justify-between bg-white">
-                                <h3 className="text-xl font-black text-slate-900 tracking-tight uppercase">Thành viên hoạt động ({org?.members?.length || 0})</h3>
-                                <Users size={20} className="text-slate-300" />
+                        <div className="bg-white rounded-[2.5rem] border border-slate-50 shadow-[0_20px_50px_rgba(0,0,0,0.03)] overflow-hidden">
+                            <div className="p-10 border-b border-slate-50 flex items-center justify-between bg-white relative overflow-hidden group">
+                                <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-50 rounded-full blur-3xl -mr-10 -mt-10 group-hover:scale-110 transition-transform"></div>
+                                <h3 className="text-xl font-black text-slate-900 tracking-tight uppercase relative z-10">Thành viên Đội Nhóm ({org?.members?.length || 0})</h3>
+                                <Users size={24} className="text-slate-200 relative z-10" />
                             </div>
 
                             <div className="divide-y divide-slate-50">
@@ -189,47 +192,47 @@ export default function OrganizationDetailsPage() {
                                     const needsReview = profile && profile.onboardingStatus === 'PENDING_REVIEW';
 
                                     return (
-                                        <div key={member.id} className={`p-6 hover:bg-slate-50/50 transition-colors ${needsReview ? 'bg-amber-50/30' : ''}`}>
-                                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                                                <div className="flex items-center gap-4">
-                                                    <div className="w-12 h-12 bg-slate-100 rounded-2xl flex items-center justify-center font-black text-slate-400 border border-slate-200">
-                                                        {member.user.name.charAt(0).toUpperCase()}
+                                        <div key={member.id} className={`p-8 hover:bg-slate-50/50 transition-all duration-300 ${needsReview ? 'bg-amber-50/20' : ''}`}>
+                                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+                                                <div className="flex items-center gap-5">
+                                                    <div className="w-14 h-14 bg-gradient-to-br from-slate-50 to-slate-100 rounded-2xl flex items-center justify-center font-black text-slate-400 border border-slate-100 shadow-sm text-xl uppercase italic">
+                                                        {member.user.name.charAt(0)}
                                                     </div>
                                                     <div>
-                                                        <div className="flex items-center gap-2">
-                                                            <p className="font-black text-slate-900">{member.user.name}</p>
+                                                        <div className="flex items-center gap-2 mb-0.5">
+                                                            <p className="font-black text-slate-900 text-lg leading-none">{member.user.name}</p>
                                                             {member.user.role === 'CONTRACTOR' && (
-                                                                <HardHat size={14} className="text-blue-500" />
+                                                                <div className="w-5 h-5 bg-indigo-100 rounded-full flex items-center justify-center"><HardHat size={10} className="text-indigo-600" /></div>
                                                             )}
                                                         </div>
-                                                        <p className="text-xs text-slate-400 font-medium">{member.user.email}</p>
+                                                        <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">{member.user.email}</p>
                                                     </div>
                                                 </div>
 
-                                                <div className="flex items-center gap-4">
+                                                <div className="flex items-center gap-6">
                                                     <div className="flex flex-col items-end">
-                                                        <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-widest ${member.role === 'OWNER' ? 'bg-purple-100 text-purple-600' :
-                                                                member.role === 'ADMIN' ? 'bg-blue-100 text-blue-600' :
-                                                                    'bg-slate-100 text-slate-600'
+                                                        <span className={`px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-[0.1em] ${member.role === 'OWNER' ? 'bg-purple-100 text-purple-600 shadow-sm shadow-purple-50' :
+                                                            member.role === 'ADMIN' ? 'bg-indigo-100 text-indigo-600 shadow-sm shadow-indigo-50' :
+                                                                'bg-slate-100 text-slate-500 shadow-sm shadow-slate-50'
                                                             }`}>
                                                             {member.role === 'OWNER' ? 'Chủ sở hữu' : member.role === 'ADMIN' ? 'Quản trị viên' : 'Nhân viên'}
                                                         </span>
-                                                        <p className="text-[8px] text-slate-300 font-bold uppercase mt-1">Tham gia {new Date(member.joinedAt).toLocaleDateString()}</p>
+                                                        <p className="text-[10px] text-slate-300 font-black uppercase tracking-widest mt-2">{new Date(member.joinedAt).toLocaleDateString('vi-VN')}</p>
                                                     </div>
 
                                                     {isAdmin && member.userId !== user?.id && member.role !== 'OWNER' && (
-                                                        <div className="flex gap-2">
+                                                        <div className="flex items-center gap-3 pl-6 border-l border-slate-100">
                                                             <select
                                                                 value={member.role}
                                                                 onChange={(e) => handleUpdateRole(member.userId, e.target.value)}
-                                                                className="bg-transparent border-none text-[10px] font-black uppercase tracking-widest text-blue-600 cursor-pointer outline-none"
+                                                                className="bg-slate-50 px-3 py-1.5 rounded-lg border-none text-[10px] font-black uppercase tracking-widest text-indigo-600 cursor-pointer outline-none hover:bg-indigo-50 transition-colors"
                                                             >
                                                                 <option value="ADMIN">ADMIN</option>
                                                                 <option value="BUYER">BUYER</option>
                                                             </select>
                                                             <button
                                                                 onClick={() => handleRemove(member.userId)}
-                                                                className="p-2 text-rose-300 hover:text-rose-600 transition-colors"
+                                                                className="w-10 h-10 rounded-xl bg-rose-50 text-rose-300 hover:text-rose-600 hover:bg-rose-100 transition-all flex items-center justify-center shadow-sm"
                                                             >
                                                                 <Trash2 size={16} />
                                                             </button>

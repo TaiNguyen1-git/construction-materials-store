@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Filter, X, ChevronDown } from 'lucide-react'
+import { Filter, X, ChevronDown, ArrowRight } from 'lucide-react'
 
 interface Category {
   id: string
@@ -73,110 +73,112 @@ export default function ProductFilters({ categories }: ProductFiltersProps) {
   const hasActiveFilters = selectedCategory || minPrice || maxPrice || sortBy
 
   return (
-    <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
+    <div className="bg-white rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.03)] p-8 border border-slate-50 sticky top-24">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-2">
-          <Filter className="h-5 w-5 text-primary-600" />
-          <h2 className="text-xl font-bold text-gray-900">Bộ Lọc</h2>
-          {hasActiveFilters && (
-            <span className="bg-primary-100 text-primary-600 px-2 py-1 rounded-full text-xs font-semibold">
-              Đang lọc
-            </span>
-          )}
+      <div className="flex items-center justify-between mb-10 pb-6 border-b border-slate-50">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600">
+            <Filter className="h-5 w-5" />
+          </div>
+          <div>
+            <h2 className="text-sm font-black text-slate-900 uppercase tracking-widest leading-none mb-1">Bộ Lọc</h2>
+            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Tối ưu tìm kiếm</p>
+          </div>
         </div>
-        <button
-          onClick={() => setShowFilters(!showFilters)}
-          className="lg:hidden p-2 hover:bg-gray-100 rounded-lg transition-colors"
-        >
-          <ChevronDown className={`h-5 w-5 transition-transform ${showFilters ? 'rotate-180' : ''}`} />
-        </button>
+        {hasActiveFilters && (
+          <div className="w-2 h-2 bg-indigo-500 rounded-full animate-pulse"></div>
+        )}
       </div>
 
       {/* Filters */}
-      <div className={`space-y-6 ${!showFilters ? 'hidden lg:block' : ''}`}>
+      <div className={`space-y-8 ${!showFilters ? 'hidden lg:block' : ''}`}>
         {/* Category Filter */}
         <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-2">
+          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3 ml-1">
             Danh Mục
           </label>
-          <select
-            value={selectedCategory}
-            onChange={(e) => setSelectedCategory(e.target.value)}
-            className="w-full border-2 border-gray-300 rounded-lg px-4 py-2 text-gray-900 bg-white focus:border-primary-500 focus:ring-2 focus:ring-primary-200 transition-all outline-none"
-          >
-            <option value="" className="text-gray-900">Tất cả danh mục</option>
-            {categories.map((category) => (
-              <option key={category.id} value={category.id} className="text-gray-900">
-                {category.name}
-              </option>
-            ))}
-          </select>
+          <div className="relative group">
+            <select
+              value={selectedCategory}
+              onChange={(e) => setSelectedCategory(e.target.value)}
+              className="w-full appearance-none bg-slate-50/50 border border-slate-100 rounded-2xl px-5 py-3.5 text-sm font-bold text-slate-900 focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/5 transition-all outline-none cursor-pointer"
+            >
+              <option value="">Tất cả danh mục</option>
+              {categories.map((category) => (
+                <option key={category.id} value={category.id}>
+                  {category.name}
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="absolute right-5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none group-hover:text-indigo-500 transition-colors" />
+          </div>
         </div>
 
         {/* Price Range Filter */}
         <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-2">
-            Khoảng Giá
+          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3 ml-1">
+            Khoảng Giá (VND)
           </label>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
+          <div className="flex items-center gap-3">
+            <div className="flex-1">
               <input
                 type="number"
                 value={minPrice}
                 onChange={(e) => setMinPrice(e.target.value)}
                 placeholder="Từ"
-                className="w-full border-2 border-gray-300 rounded-lg px-3 py-2 text-gray-900 bg-white placeholder-gray-400 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 transition-all outline-none"
+                className="w-full bg-slate-50/50 border border-slate-100 rounded-2xl px-4 py-3.5 text-sm font-bold text-slate-900 placeholder-slate-300 focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/5 transition-all outline-none"
                 min="0"
               />
             </div>
-            <div>
+            <div className="h-[1px] w-4 bg-slate-200"></div>
+            <div className="flex-1">
               <input
                 type="number"
                 value={maxPrice}
                 onChange={(e) => setMaxPrice(e.target.value)}
                 placeholder="Đến"
-                className="w-full border-2 border-gray-300 rounded-lg px-3 py-2 text-gray-900 bg-white placeholder-gray-400 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 transition-all outline-none"
+                className="w-full bg-slate-50/50 border border-slate-100 rounded-2xl px-4 py-3.5 text-sm font-bold text-slate-900 placeholder-slate-300 focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/5 transition-all outline-none"
                 min="0"
               />
             </div>
-          </div>
-          <div className="mt-2 text-xs text-gray-500">
-            Giá tính bằng VNĐ
           </div>
         </div>
 
         {/* Sort By */}
         <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-2">
+          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3 ml-1">
             Sắp Xếp Theo
           </label>
-          <select
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value)}
-            className="w-full border-2 border-gray-300 rounded-lg px-4 py-2 text-gray-900 bg-white focus:border-primary-500 focus:ring-2 focus:ring-primary-200 transition-all outline-none"
-          >
-            <option value="" className="text-gray-900">Mặc định</option>
-            <option value="price-asc" className="text-gray-900">Giá: Thấp đến Cao</option>
-            <option value="price-desc" className="text-gray-900">Giá: Cao đến Thấp</option>
-            <option value="name-asc" className="text-gray-900">Tên: A-Z</option>
-            <option value="name-desc" className="text-gray-900">Tên: Z-A</option>
-            <option value="newest" className="text-gray-900">Mới nhất</option>
-          </select>
+          <div className="relative group">
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="w-full appearance-none bg-slate-50/50 border border-slate-100 rounded-2xl px-5 py-3.5 text-sm font-bold text-slate-900 focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/5 transition-all outline-none cursor-pointer"
+            >
+              <option value="">Mặc định</option>
+              <option value="price-asc">Giá: Thấp đến Cao</option>
+              <option value="price-desc">Giá: Cao đến Thấp</option>
+              <option value="name-asc">Tên: A-Z</option>
+              <option value="name-desc">Tên: Z-A</option>
+              <option value="newest">Mới nhất</option>
+            </select>
+            <ChevronDown className="absolute right-5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none group-hover:text-indigo-500 transition-colors" />
+          </div>
         </div>
 
         {/* Action Buttons */}
-        <div className="space-y-3 pt-4 border-t border-gray-200">
+        <div className="space-y-3 pt-6">
           <button
             onClick={applyFilters}
-            className="w-full bg-primary-600 text-white py-3 rounded-lg hover:bg-primary-700 transition-colors font-semibold"
+            className="w-full bg-white text-indigo-600 border border-indigo-100 py-4 rounded-2xl hover:bg-indigo-50 transition-all font-black text-[11px] uppercase tracking-[0.2em] shadow-xl shadow-indigo-100/20 active:scale-95 flex items-center justify-center gap-2 group"
           >
-            Áp Dụng Bộ Lọc
+            ÁP DỤNG BỘ LỌC
+            <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
           </button>
           {hasActiveFilters && (
             <button
               onClick={clearFilters}
-              className="w-full bg-white text-gray-700 py-3 rounded-lg border-2 border-gray-300 hover:bg-gray-50 transition-colors font-semibold flex items-center justify-center gap-2"
+              className="w-full bg-white text-rose-500 py-4 rounded-2xl border border-rose-100 hover:bg-rose-50 transition-all font-black text-[11px] uppercase tracking-[0.2em] flex items-center justify-center gap-2"
             >
               <X className="h-4 w-4" />
               Xóa Bộ Lọc

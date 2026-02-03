@@ -249,7 +249,7 @@ export default function CheckoutPage() {
         throw new Error(result.error?.message || 'Đặt hàng thất bại')
       }
     } catch (error: any) {
-      alert(error.message || 'Có lỗi xảy ra khi đặt hàng. Vui lòng thử lại!')
+      toast.error(error.message || 'Có lỗi xảy ra khi đặt hàng. Vui lòng thử lại!')
     } finally {
       setIsProcessing(false)
     }
@@ -325,44 +325,63 @@ export default function CheckoutPage() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className="lg:col-span-2 space-y-6">
               {/* Customer Info */}
-              <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
-                <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-2">
-                  <User className="h-6 w-6 text-primary-600" />
+              <div className="bg-white rounded-[2rem] shadow-xl p-8 border border-slate-100">
+                <h2 className="text-2xl font-bold text-slate-900 mb-8 flex items-center gap-3">
+                  <div className="bg-indigo-50 p-2.5 rounded-2xl">
+                    <User className="h-6 w-6 text-indigo-600" />
+                  </div>
                   Thông Tin Khách Hàng
                 </h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">Họ và Tên *</label>
-                    <input type="text" name="fullName" value={formData.fullName} onChange={handleInputChange} className={`w-full border-2 ${errors.fullName ? 'border-red-500' : 'border-gray-300'} rounded-lg px-4 py-3 focus:border-primary-500 transition-all outline-none text-gray-900`} placeholder="Nguyễn Văn A" />
-                    {errors.fullName && <p className="text-red-500 text-sm mt-1">{errors.fullName}</p>}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Họ và Tên *</label>
+                    <input type="text" name="fullName" value={formData.fullName} onChange={handleInputChange} className={`w-full bg-slate-50 border ${errors.fullName ? 'border-rose-500' : 'border-slate-100'} rounded-2xl px-5 py-3.5 focus:border-indigo-500 transition-all outline-none text-slate-900 font-medium`} placeholder="Nguyễn Văn A" />
+                    {errors.fullName && <p className="text-rose-500 text-[10px] font-bold mt-1 px-1">{errors.fullName}</p>}
                   </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">Email *</label>
-                    <input type="email" name="email" value={formData.email} onChange={handleInputChange} className={`w-full border-2 ${errors.email ? 'border-red-500' : 'border-gray-300'} rounded-lg px-4 py-3 focus:border-primary-500 transition-all outline-none text-gray-900`} placeholder="email@example.com" />
-                    {errors.email && <p className="text-red-500 text-sm mt-1">{errors.email}</p>}
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Email *</label>
+                    <input type="email" name="email" value={formData.email} onChange={handleInputChange} className={`w-full bg-slate-50 border ${errors.email ? 'border-rose-500' : 'border-slate-100'} rounded-2xl px-5 py-3.5 focus:border-indigo-500 transition-all outline-none text-slate-900 font-medium`} placeholder="email@example.com" />
+                    {errors.email && <p className="text-rose-500 text-[10px] font-bold mt-1 px-1">{errors.email}</p>}
                   </div>
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">Số Điện Thoại *</label>
-                    <input type="tel" name="phone" value={formData.phone} onChange={handleInputChange} className={`w-full border-2 ${errors.phone ? 'border-red-500' : 'border-gray-300'} rounded-lg px-4 py-3 focus:border-primary-500 transition-all outline-none text-gray-900`} placeholder="0123456789" />
-                    {errors.phone && <p className="text-red-500 text-sm mt-1">{errors.phone}</p>}
+                  <div className="md:col-span-2 space-y-1.5">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Số Điện Thoại *</label>
+                    <input type="tel" name="phone" value={formData.phone} onChange={handleInputChange} className={`w-full bg-slate-50 border ${errors.phone ? 'border-rose-500' : 'border-slate-100'} rounded-2xl px-5 py-3.5 focus:border-indigo-500 transition-all outline-none text-slate-900 font-medium`} placeholder="0123456789" />
+                    {errors.phone && <p className="text-rose-500 text-[10px] font-bold mt-1 px-1">{errors.phone}</p>}
                   </div>
                 </div>
               </div>
 
               {/* Shipping Address */}
-              <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
-                <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-2">
-                  <MapPin className="h-6 w-6 text-primary-600" />
+              <div className="bg-white rounded-[2rem] shadow-xl p-8 border border-slate-100">
+                <h2 className="text-2xl font-bold text-slate-900 mb-8 flex items-center gap-3">
+                  <div className="bg-indigo-50 p-2.5 rounded-2xl">
+                    <MapPin className="h-6 w-6 text-indigo-600" />
+                  </div>
                   Địa Chỉ Giao Hàng
                 </h2>
-                <div className="space-y-4">
-                  <input type="text" name="address" value={formData.address} onChange={handleInputChange} className={`w-full border-2 ${errors.address ? 'border-red-500' : 'border-gray-300'} rounded-lg px-4 py-3 focus:border-primary-500 transition-all outline-none text-gray-900`} placeholder="Số nhà, tên đường..." />
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <input type="text" name="ward" value={formData.ward} onChange={handleInputChange} className="w-full border-2 border-gray-300 rounded-lg px-4 py-3 outline-none text-gray-900" placeholder="Phường/Xã" />
-                    <input type="text" name="district" value={formData.district} onChange={handleInputChange} className="w-full border-2 border-gray-300 rounded-lg px-4 py-3 outline-none text-gray-900" placeholder="Quận/Huyện" />
-                    <input type="text" name="city" value={formData.city} onChange={handleInputChange} className={`w-full border-2 ${errors.city ? 'border-red-500' : 'border-gray-300'} rounded-lg px-4 py-3 outline-none text-gray-900`} placeholder="Tỉnh/Thành Phố *" />
+                <div className="space-y-5">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Địa chỉ cụ thể *</label>
+                    <input type="text" name="address" value={formData.address} onChange={handleInputChange} className={`w-full bg-slate-50 border ${errors.address ? 'border-rose-500' : 'border-slate-100'} rounded-2xl px-5 py-3.5 focus:border-indigo-500 transition-all outline-none text-slate-900 font-medium`} placeholder="Số nhà, tên đường..." />
                   </div>
-                  <textarea name="notes" value={formData.notes} onChange={handleInputChange} rows={3} className="w-full border-2 border-gray-300 rounded-lg px-4 py-3 outline-none text-gray-900" placeholder="Ghi chú đơn hàng..." />
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Phường/Xã</label>
+                      <input type="text" name="ward" value={formData.ward} onChange={handleInputChange} className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-5 py-3.5 outline-none text-slate-900 font-medium focus:border-indigo-500" placeholder="Phường/Xã" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Quận/Huyện</label>
+                      <input type="text" name="district" value={formData.district} onChange={handleInputChange} className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-5 py-3.5 outline-none text-slate-900 font-medium focus:border-indigo-500" placeholder="Quận/Huyện" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Thành phố *</label>
+                      <input type="text" name="city" value={formData.city} onChange={handleInputChange} className={`w-full bg-slate-50 border ${errors.city ? 'border-rose-500' : 'border-slate-100'} rounded-2xl px-5 py-3.5 outline-none text-slate-900 font-medium focus:border-indigo-500`} placeholder="Tỉnh/Thành Phố *" />
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Ghi chú (Tùy chọn)</label>
+                    <textarea name="notes" value={formData.notes} onChange={handleInputChange} rows={3} className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-5 py-3.5 outline-none text-slate-900 font-medium focus:border-indigo-500 resize-none" placeholder="Ghi chú đơn hàng..." />
+                  </div>
                 </div>
               </div>
 
@@ -580,37 +599,69 @@ export default function CheckoutPage() {
 
             {/* Right Column - Summary */}
             <div className="lg:col-span-1">
-              <div className="bg-white rounded-2xl shadow-xl p-6 sticky top-24 border-2 border-primary-100">
-                <h2 className="text-2xl font-bold text-gray-900 mb-6">Đơn Hàng</h2>
-                <div className="space-y-3 mb-6 max-h-64 overflow-y-auto">
+              <div className="bg-white rounded-[2.5rem] shadow-2xl p-8 sticky top-24 border border-slate-100">
+                <h2 className="text-2xl font-black text-slate-900 mb-8">Đơn Hàng</h2>
+                <div className="space-y-4 mb-8 max-h-64 overflow-y-auto pr-2 custom-scrollbar">
                   {items.map((item) => (
-                    <div key={item.productId} className="flex justify-between text-sm">
-                      <div className="flex-1"><p className="font-semibold text-gray-900">{item.name}</p><p className="text-gray-500">{item.quantity} x {item.price.toLocaleString()}đ</p></div>
-                      <p className="font-semibold text-gray-900">{(item.price * item.quantity).toLocaleString()}đ</p>
+                    <div key={item.productId} className="flex justify-between text-sm gap-4">
+                      <div className="flex-1">
+                        <p className="font-bold text-slate-800 line-clamp-1">{item.name}</p>
+                        <p className="text-slate-400 text-[11px] font-medium">{item.quantity} {item.unit} x {item.price.toLocaleString()}₫</p>
+                      </div>
+                      <p className="font-black text-slate-900">{(item.price * item.quantity).toLocaleString()}₫</p>
                     </div>
                   ))}
                 </div>
-                <div className="border-t pt-4 space-y-2">
-                  <div className="flex justify-between text-gray-600"><span>Tạm tính</span><span>{totalPrice.toLocaleString()}đ</span></div>
-                  <div className="flex justify-between text-gray-600"><span>Vận chuyển</span><span>{shippingFee.toLocaleString()}đ</span></div>
+                <div className="border-t border-slate-50 pt-6 space-y-3">
+                  <div className="flex justify-between text-slate-500 font-medium">
+                    <span className="text-sm uppercase tracking-widest text-[10px] font-black">Tạm tính</span>
+                    <span className="font-bold">{totalPrice.toLocaleString()}₫</span>
+                  </div>
+                  <div className="flex justify-between text-slate-500 font-medium">
+                    <span className="text-sm uppercase tracking-widest text-[10px] font-black">Vận chuyển</span>
+                    <span className="font-bold">{shippingFee.toLocaleString()}₫</span>
+                  </div>
 
                   {/* Selected Contractor Preview */}
                   {selectedContractorId && (() => {
                     const contractor = contractorRecs.find(c => c.id === selectedContractorId);
                     return contractor ? (
-                      <div className="flex justify-between text-indigo-600 font-medium py-1">
-                        <span className="flex items-center gap-1"><Building size={14} /> {contractor.displayName}</span>
-                        <span className="text-xs italic bg-indigo-50 px-2 py-0.5 rounded">Báo giá sau</span>
+                      <div className="flex justify-between text-indigo-600 font-bold py-2 px-3 bg-indigo-50 rounded-xl">
+                        <span className="flex items-center gap-2 text-xs truncate">
+                          <Building className="h-3.5 w-3.5" />
+                          {contractor.displayName}
+                        </span>
+                        <span className="text-[10px] uppercase tracking-tighter">Báo giá sau</span>
                       </div>
                     ) : null;
                   })()}
 
-                  <div className="border-t pt-2 flex justify-between text-xl font-black"><span>Tổng cộng</span><span className="text-primary-600">{finalTotal.toLocaleString()}đ</span></div>
+                  <div className="border-t border-slate-50 pt-4 flex justify-between items-end">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5">Tổng thanh toán</span>
+                    <span className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-blue-600 leading-none">
+                      {finalTotal.toLocaleString()}<span className="text-sm ml-0.5">₫</span>
+                    </span>
+                  </div>
                 </div>
-                <button type="submit" disabled={isProcessing} className="w-full mt-6 bg-primary-600 text-white py-4 rounded-xl font-bold text-lg flex items-center justify-center gap-2 shadow-lg disabled:opacity-50">
-                  {isProcessing ? <><Loader2 className="h-5 w-5 animate-spin" /> Đang xử lý...</> : <><CheckCircle size={20} /> Đặt Hàng</>}
+
+                <button
+                  type="submit"
+                  disabled={isProcessing}
+                  className="w-full mt-8 bg-indigo-600 hover:bg-indigo-700 text-white py-4.5 rounded-[1.5rem] font-black text-sm uppercase tracking-widest flex items-center justify-center gap-3 shadow-xl shadow-indigo-100 transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50"
+                >
+                  {isProcessing ? (
+                    <><Loader2 className="h-5 w-5 animate-spin" /> ĐANG XỬ LÝ...</>
+                  ) : (
+                    <><CheckCircle size={20} /> ĐẶT HÀNG NGAY</>
+                  )}
                 </button>
-                <Link href="/cart" className="w-full mt-3 bg-white text-gray-700 py-3 rounded-xl border-2 border-slate-200 font-semibold text-center flex items-center justify-center gap-2"><ArrowLeft size={18} /> Quay Lại</Link>
+
+                <Link
+                  href="/cart"
+                  className="w-full mt-4 bg-slate-50 text-slate-500 py-3 rounded-2xl font-bold text-xs uppercase tracking-widest text-center flex items-center justify-center gap-2 hover:bg-slate-100 transition-colors"
+                >
+                  <ArrowLeft size={14} strokeWidth={3} /> Quay Lại Giỏ Hàng
+                </Link>
               </div>
             </div>
           </div>
