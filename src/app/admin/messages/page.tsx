@@ -14,6 +14,8 @@ import { getFirebaseDatabase } from '@/lib/firebase'
 import { ref, onChildAdded, off } from 'firebase/database'
 import toast, { Toaster } from 'react-hot-toast'
 import ChatCallManager from '@/components/ChatCallManager'
+import CustomerContextPanel from '@/components/chatbot/CustomerContextPanel'
+import LiveTypingIndicator, { updateTypingStatus } from '@/components/chatbot/LiveTypingIndicator'
 import { useAuth } from '@/contexts/auth-context'
 
 function MessagesContent() {
@@ -30,6 +32,7 @@ function MessagesContent() {
     // Menu Dropdown State
     const [showMenu, setShowMenu] = useState(false)
     const [showScrollButton, setShowScrollButton] = useState(false)
+    const [showCustomerPanel, setShowCustomerPanel] = useState(true) // Customer Context Panel
     const menuRef = useRef<HTMLDivElement>(null)
     const fileInputRef = useRef<HTMLInputElement>(null)
     const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -254,12 +257,8 @@ function MessagesContent() {
         setShowMenu(false)
 
         if (action === 'info') {
-            const otherUserName = user?.id === selectedConv.participant1Id ? selectedConv.participant2Name : selectedConv.participant1Name
-            const otherUserId = user?.id === selectedConv.participant1Id ? selectedConv.participant2Id : selectedConv.participant1Id
-            toast.success(`Thông tin: ${otherUserName}\nID: ${otherUserId}`, {
-                duration: 4000,
-                icon: '👤'
-            })
+            // Toggle Customer Context Panel
+            setShowCustomerPanel(prev => !prev)
         } else if (action === 'report') {
             toast.success('Cảm ơn bạn đã báo cáo. Chúng tôi sẽ xem xét nội dung này sớm nhất có thể.', {
                 duration: 4000,
@@ -380,6 +379,17 @@ function MessagesContent() {
         return <p className="text-sm leading-relaxed">{msg.content}</p>
     }
 
+    // Get other participant ID for customer context
+    const getOtherParticipantId = () => {
+        if (!selectedConv) return null
+        return user?.id === selectedConv.participant1Id
+            ? selectedConv.participant2Id
+            : selectedConv.participant1Id
+    }
+
+    const otherParticipantId = getOtherParticipantId()
+    const isGuestChat = otherParticipantId?.startsWith('guest_') || false
+
     return (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex h-[calc(100vh-160px)]">
             <Toaster position="top-right" />
@@ -479,7 +489,7 @@ function MessagesContent() {
                                 {showMenu && (
                                     <div className="absolute right-6 top-[60px] w-56 bg-white rounded-2xl shadow-2xl border border-gray-100 py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
                                         <button onClick={() => handleMenuAction('info')} className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-3 font-medium">
-                                            <User className="w-4 h-4 text-gray-400" /> Xem thông tin
+                                            <User className="w-4 h-4 text-gray-400" /> {showCustomerPanel ? 'Ẩn thông tin KH' : 'Xem thông tin KH'}
                                         </button>
                                         <button onClick={() => handleMenuAction('report')} className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-3 font-medium">
                                             <Flag className="w-4 h-4 text-gray-400" /> Báo cáo
@@ -603,6 +613,15 @@ function MessagesContent() {
                     </div>
                 )}
             </div>
+
+            {/* Customer Context Panel - Right Side */}
+            {selectedConv && showCustomerPanel && otherParticipantId && (
+                <CustomerContextPanel
+                    customerId={otherParticipantId}
+                    isGuest={isGuestChat}
+                    onClose={() => setShowCustomerPanel(false)}
+                />
+            )}
         </div>
     )
 }

@@ -76,8 +76,8 @@ export default function MessageBubble({
 
     return (
         <div className="space-y-3">
-            {/* User Message */}
-            {(!isHelloMessage || message.userImage) && (
+            {/* User Message - Only show if there's content */}
+            {(message.userMessage || message.userImage) && !isHelloMessage && (
                 <div className="flex justify-end">
                     <div
                         className={`
@@ -95,7 +95,7 @@ export default function MessageBubble({
                                 className="max-w-[180px] rounded-lg mb-2"
                             />
                         )}
-                        {message.userMessage && !isHelloMessage && (
+                        {message.userMessage && (
                             <div className="text-sm">{message.userMessage}</div>
                         )}
                         <div className="text-[10px] opacity-70 mt-1 text-right">
@@ -105,76 +105,78 @@ export default function MessageBubble({
                 </div>
             )}
 
-            {/* Bot Message */}
-            <div className="flex justify-start gap-2">
-                {/* Avatar */}
-                <div className="flex-shrink-0 w-8 h-8 rounded-full overflow-hidden border border-gray-200 bg-white">
-                    <img
-                        src="/images/smartbuild_bot.png"
-                        alt="AI"
-                        className="w-full h-full object-cover"
-                    />
-                </div>
-
-                <div className="max-w-[85%] space-y-2">
-                    {/* Message bubble */}
-                    <div className="bg-white p-4 rounded-2xl rounded-tl-sm border border-gray-100 shadow-sm">
-                        <div className="text-sm text-gray-800 leading-relaxed">
-                            {renderContent(message.botMessage)}
-                        </div>
-                        <div className="text-[10px] text-gray-400 mt-2">
-                            {formatTime(message.timestamp)}
-                        </div>
+            {/* Bot Message - Only show if there's content */}
+            {message.botMessage && (
+                <div className="flex justify-start gap-2">
+                    {/* Avatar */}
+                    <div className="flex-shrink-0 w-8 h-8 rounded-full overflow-hidden border border-gray-200 bg-white">
+                        <img
+                            src="/images/smartbuild_bot.png"
+                            alt="AI"
+                            className="w-full h-full object-cover"
+                        />
                     </div>
 
-                    {/* Product Recommendations */}
-                    {message.productRecommendations && message.productRecommendations.length > 0 && (
-                        <div className="space-y-2">
-                            <div className="text-xs text-gray-500 font-medium">
-                                Sản phẩm đề xuất:
+                    <div className="max-w-[85%] space-y-2">
+                        {/* Message bubble */}
+                        <div className="bg-white p-4 rounded-2xl rounded-tl-sm border border-gray-100 shadow-sm">
+                            <div className="text-sm text-gray-800 leading-relaxed">
+                                {renderContent(message.botMessage)}
                             </div>
-                            {message.productRecommendations.map((product: ProductRecommendation, index: number) => (
-                                <div
-                                    key={index}
-                                    className="bg-blue-50 p-3 rounded-xl border border-blue-100 hover:bg-blue-100 transition-colors cursor-pointer"
-                                >
-                                    <div className="font-semibold text-gray-900 text-sm">
-                                        {product.name}
-                                    </div>
-                                    <div className="text-blue-600 font-bold text-sm mt-1">
-                                        {product.price?.toLocaleString('vi-VN')}đ/{product.unit}
-                                    </div>
-                                    <button className="text-blue-600 hover:text-blue-800 text-xs mt-2 flex items-center gap-1">
-                                        <ShoppingCart className="w-3 h-3" />
-                                        Xem chi tiết
-                                    </button>
-                                </div>
-                            ))}
+                            <div className="text-[10px] text-gray-400 mt-2">
+                                {formatTime(message.timestamp)}
+                            </div>
                         </div>
-                    )}
 
-                    {/* Suggestions */}
-                    {message.suggestions && message.suggestions.length > 0 && (
-                        <div className="flex flex-wrap gap-2 pt-1">
-                            {message.suggestions.map((suggestion: string, index: number) => (
-                                <button
-                                    key={index}
-                                    onClick={() => onSuggestionClick(suggestion, message)}
-                                    disabled={isLoading}
-                                    className={`
+                        {/* Product Recommendations */}
+                        {message.productRecommendations && message.productRecommendations.length > 0 && (
+                            <div className="space-y-2">
+                                <div className="text-xs text-gray-500 font-medium">
+                                    Sản phẩm đề xuất:
+                                </div>
+                                {message.productRecommendations.map((product: ProductRecommendation, index: number) => (
+                                    <div
+                                        key={index}
+                                        className="bg-blue-50 p-3 rounded-xl border border-blue-100 hover:bg-blue-100 transition-colors cursor-pointer"
+                                    >
+                                        <div className="font-semibold text-gray-900 text-sm">
+                                            {product.name}
+                                        </div>
+                                        <div className="text-blue-600 font-bold text-sm mt-1">
+                                            {product.price?.toLocaleString('vi-VN')}đ/{product.unit}
+                                        </div>
+                                        <button className="text-blue-600 hover:text-blue-800 text-xs mt-2 flex items-center gap-1">
+                                            <ShoppingCart className="w-3 h-3" />
+                                            Xem chi tiết
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        {/* Suggestions */}
+                        {message.suggestions && message.suggestions.length > 0 && (
+                            <div className="flex flex-wrap gap-2 pt-1">
+                                {message.suggestions.map((suggestion: string, index: number) => (
+                                    <button
+                                        key={index}
+                                        onClick={() => onSuggestionClick(suggestion, message)}
+                                        disabled={isLoading}
+                                        className={`
                                         text-xs px-3 py-1.5 rounded-full font-medium transition-colors
                                         disabled:opacity-50 disabled:cursor-not-allowed
                                         bg-white border border-gray-200 text-gray-700 
                                         hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700
-                                    `}
-                                >
-                                    {suggestion}
-                                </button>
-                            ))}
-                        </div>
-                    )}
+                                `}
+                                    >
+                                        {suggestion}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </div>
                 </div>
-            </div>
+            )}
         </div>
     )
 }

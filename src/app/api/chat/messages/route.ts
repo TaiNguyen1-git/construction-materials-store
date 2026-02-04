@@ -7,15 +7,16 @@ const ADMIN_SUPPORT_NAME = 'Hỗ trợ SmartBuild'
 
 export async function POST(request: NextRequest) {
     try {
-        const userId = request.headers.get('x-user-id')
+        const body = await request.json()
+        const { conversationId, content, fileUrl, fileName, fileType, tempId, senderId: bodySenderId, senderName: bodySenderName } = body
+
+        // Get userId from header or body (for guests)
+        let userId = request.headers.get('x-user-id') || bodySenderId
         const userRole = request.headers.get('x-user-role')
 
         if (!userId) {
             return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
         }
-
-        const body = await request.json()
-        const { conversationId, content, fileUrl, fileName, fileType, tempId } = body
 
         if (!conversationId || (!content && !fileUrl)) {
             return NextResponse.json({ success: false, error: 'Missing required fields' }, { status: 400 })
@@ -33,13 +34,13 @@ export async function POST(request: NextRequest) {
 
         // Determine sender ID and name
         let senderId = userId
-        let senderName = body.senderName || 'Người dùng'
+        let senderName = bodySenderName || 'Người dùng'
 
         if (isSupplierConv && isAdminUser) {
             // Admin sending in supplier conversation - use admin_support identity
             senderId = ADMIN_SUPPORT_ID
             senderName = ADMIN_SUPPORT_NAME
-        } else if (!body.senderName) {
+        } else if (!bodySenderName) {
             // Regular user or supplier (if not providing name) - get their info
             const [user, supplier] = await Promise.all([
                 prisma.user.findUnique({ where: { id: userId } }),
@@ -102,8 +103,53 @@ export async function POST(request: NextRequest) {
                 createdAt: message.createdAt.toISOString(),
                 isRead: false
             })
+
+            // Trigger Web Push Notification if sending to Admin Support
+            console.log('[CHAT_MSG] Push check:', { isSupplierConv, isAdminUser, senderId, userId })
+            if (isSupplierConv && !isAdminUser) {
+                console.log('[CHAT_MSG] Triggering push notification lookup...')
+                // Fetch all admins with push subscriptions
+                const adminSubscriptions = await prisma.userPushSubscription.findMany({
+                    where: {
+                        user: {
+                            role: { in: ['MANAGER', 'EMPLOYEE'] }
+                        }
+                    }
+                })
+                console.log('[CHAT_MSG] Found admin subscriptions:', adminSubscriptions.length)
+
+                if (adminSubscriptions.length > 0) {
+                    const webpush = (await import('@/lib/webpush')).default
+                    const payload = JSON.stringify({
+                        title: `Khách hảng mới: ${senderName}`,
+                        body: content || (fileUrl ? 'Đã gửi một tệp đính kèm' : 'Đang gửi tin nhắn...'),
+                        icon: '/images/smartbuild_bot.png',
+                        url: `/admin/messages?id=${conversationId}`
+                    })
+
+                    // Send push to all registered admins
+                    adminSubscriptions.forEach((sub: any) => {
+                        // We don't necessarily need to await each one synchronously 
+                        // but we should handle individual failures
+                        webpush.sendNotification(
+                            {
+                                endpoint: sub.endpoint,
+                                keys: sub.keys as any
+                            },
+                            payload
+                        ).catch((err: any) => {
+                            if (err.statusCode === 410 || err.statusCode === 404) {
+                                // Subscription has expired or is no longer valid
+                                prisma.userPushSubscription.delete({ where: { id: sub.id } }).catch(() => { })
+                            }
+                            console.error('Push failed for sub:', sub.id, err.message)
+                        })
+                    })
+                }
+            }
+
         } catch (fbError) {
-            console.error('Firebase sync failed:', fbError)
+            console.error('Firebase/Push sync failed:', fbError)
             // Still return success as DB write was successful
         }
 

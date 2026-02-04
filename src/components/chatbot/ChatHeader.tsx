@@ -7,13 +7,17 @@ interface ChatHeaderProps {
     isExpanded: boolean;
     onClose: () => void;
     onToggleExpand: () => void;
+    isHuman?: boolean;
+    onSwitchToAI?: () => void;
 }
 
 export default function ChatHeader({
     isAdmin,
     isExpanded,
     onClose,
-    onToggleExpand
+    onToggleExpand,
+    isHuman,
+    onSwitchToAI
 }: ChatHeaderProps) {
     return (
         <div
@@ -21,7 +25,9 @@ export default function ChatHeader({
                 flex-shrink-0
                 ${isAdmin
                     ? 'bg-gradient-to-r from-indigo-600 to-purple-600'
-                    : 'bg-gradient-to-r from-blue-600 to-blue-500'
+                    : (isHuman
+                        ? 'bg-gradient-to-r from-emerald-600 to-teal-500'
+                        : 'bg-gradient-to-r from-blue-600 to-blue-500')
                 }
                 text-white p-4 
             `}
@@ -32,8 +38,8 @@ export default function ChatHeader({
                     <div className="relative">
                         <div className="w-10 h-10 bg-white rounded-full overflow-hidden border-2 border-white/30 shadow-md">
                             <img
-                                src="/images/smartbuild_bot.png"
-                                alt="SmartBuild AI"
+                                src={isHuman ? "/images/support_agent.png" : "/images/smartbuild_bot.png"}
+                                alt="Avatar"
                                 className="w-full h-full object-cover"
                             />
                         </div>
@@ -43,24 +49,36 @@ export default function ChatHeader({
 
                     <div>
                         <div className="font-bold text-base flex items-center gap-2">
-                            {isAdmin ? 'SmartBuild Admin' : 'SmartBuild AI'}
+                            {isAdmin
+                                ? 'SmartBuild Admin'
+                                : (isHuman ? 'Nhân viên hỗ trợ' : 'SmartBuild AI')}
                             <span className={`
                                 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold
-                                ${isAdmin ? 'bg-purple-500/30' : 'bg-blue-400/30'}
+                                ${isAdmin ? 'bg-purple-500/30' : (isHuman ? 'bg-emerald-800/30' : 'bg-blue-400/30')}
                             `}>
-                                {isAdmin ? '🎯 Pro' : '✨ AI'}
+                                {isAdmin ? '🎯 Pro' : (isHuman ? '👨‍💼 Support' : '✨ AI')}
                             </span>
                         </div>
                         <div className="text-xs text-white/80">
                             {isAdmin
                                 ? 'Trợ lý quản trị hệ thống'
-                                : 'Trợ lý vật liệu thông minh'
+                                : (isHuman ? 'Đang kết nối trực tiếp' : 'Trợ lý vật liệu thông minh')
                             }
                         </div>
                     </div>
                 </div>
 
                 <div className="flex items-center gap-1">
+                    {/* End Chat Button (Human Mode) */}
+                    {isHuman && onSwitchToAI && (
+                        <button
+                            onClick={onSwitchToAI}
+                            className="bg-white/20 hover:bg-white/30 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg mr-2 transition-colors uppercase tracking-wider"
+                        >
+                            Kết thúc
+                        </button>
+                    )}
+
                     {/* Expand/Collapse button */}
                     <button
                         onClick={onToggleExpand}

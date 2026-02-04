@@ -82,3 +82,60 @@ export interface ConfirmDialogData {
     onConfirm?: () => void;
     onCancel?: () => void;
 }
+
+// ============================================================
+// HYBRID CHAT TYPES - AI <-> Live Agent switching
+// ============================================================
+
+export type ChatMode = 'AI' | 'HUMAN';
+
+export interface LiveChatMessage {
+    id: string;
+    conversationId: string;
+    senderId: string;
+    senderName: string;
+    content: string;
+    fileUrl?: string;
+    fileName?: string;
+    fileType?: string;
+    createdAt: string;
+    isRead: boolean;
+    isSending?: boolean;
+    tempId?: string;
+}
+
+export interface GuestIdentity {
+    id: string;          // guest_xxxxx
+    name: string;        // "Khách #xxxxx" 
+    createdAt: string;
+}
+
+export interface CustomerContext {
+    id: string;
+    name: string;
+    email?: string;
+    phone?: string;
+    membershipTier?: 'BRONZE' | 'SILVER' | 'GOLD' | 'PLATINUM';
+    totalSpent: number;
+    totalOrders: number;
+    recentOrders: CustomerOrder[];
+    isGuest: boolean;
+}
+
+export interface CustomerOrder {
+    id: string;
+    orderNumber: string;
+    createdAt: string;
+    status: string;
+    totalAmount: number;
+    itemCount: number;
+}
+
+export interface HybridChatState {
+    mode: ChatMode;
+    conversationId: string | null;
+    isConnecting: boolean;
+    agentName: string | null;
+    agentAvatar: string | null;
+    waitingPosition?: number;
+}

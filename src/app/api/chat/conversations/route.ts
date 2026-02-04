@@ -127,17 +127,34 @@ export async function POST(req: NextRequest) {
 
         if (!conversation) {
             // Get user names if not provided
-            const [user1, user2] = await Promise.all([
-                prisma.user.findUnique({ where: { id: currentUserId }, select: { name: true } }),
-                prisma.user.findUnique({ where: { id: recipientId }, select: { name: true } })
-            ])
+            // Special handling for 'admin_support' channel - it's not a real user ID
+            const isAdminSupportChannel = recipientId === 'admin_support'
+
+            let user1Name = userName || 'Người dùng'
+            let user2Name = recipientName || 'Hỗ trợ khách hàng'
+
+            // Only query users if they have valid ObjectIDs (24 hex chars)
+            const isValidObjectId = (id: string) => /^[a-f\d]{24}$/i.test(id)
+
+            if (!isAdminSupportChannel) {
+                const [user1, user2] = await Promise.all([
+                    isValidObjectId(currentUserId)
+                        ? prisma.user.findUnique({ where: { id: currentUserId }, select: { name: true } })
+                        : null,
+                    isValidObjectId(recipientId)
+                        ? prisma.user.findUnique({ where: { id: recipientId }, select: { name: true } })
+                        : null
+                ])
+                user1Name = user1?.name || userName || 'Người dùng'
+                user2Name = user2?.name || recipientName || 'Người dùng'
+            }
 
             conversation = await prisma.conversation.create({
                 data: {
                     participant1Id: currentUserId,
-                    participant1Name: user1?.name || userName || 'Người dùng',
+                    participant1Name: user1Name,
                     participant2Id: recipientId,
-                    participant2Name: recipientName || user2?.name || 'Người dùng',
+                    participant2Name: user2Name,
                     projectId: projectId || null,
                     projectTitle: projectTitle || null
                 }
@@ -149,7 +166,7 @@ export async function POST(req: NextRequest) {
                     data: {
                         conversationId: conversation.id,
                         senderId: currentUserId,
-                        senderName: user1?.name || userName || 'Người dùng',
+                        senderName: user1Name,
                         content: body.initialMessage,
                         isRead: false
                     }

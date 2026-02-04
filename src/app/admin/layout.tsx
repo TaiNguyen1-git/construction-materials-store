@@ -42,6 +42,7 @@ import {
 } from 'lucide-react'
 import { LucideIcon } from 'lucide-react'
 import NotificationBell from '@/components/NotificationBell'
+import AdminPushManager from '@/components/admin/AdminPushManager'
 import { useAuth } from '@/contexts/auth-context'
 
 interface NavItem {
@@ -377,6 +378,8 @@ export default function AdminLayout({
 
           <div className="flex items-center gap-6">
             <div className="flex items-center gap-2 p-1 bg-slate-100/50 rounded-2xl border border-slate-200/50">
+              <AdminPushManager />
+              <div className="w-px h-6 bg-slate-200/60 mx-1"></div>
               <NotificationBell />
               <div className="w-px h-6 bg-slate-200/60 mx-1"></div>
               <Link href="/admin/profile" className="flex items-center gap-3 pl-2 pr-4 py-1.5 rounded-xl hover:bg-white transition-all group">

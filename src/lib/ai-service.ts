@@ -109,6 +109,32 @@ interface GeminiResponse {
 
 
 export class AIService {
+  // Pre-defined responses for simple messages (no AI call needed)
+  private static readonly QUICK_RESPONSES: Record<string, ChatbotResponse> = {
+    // Greetings
+    'alo': { response: 'Chào bạn! Mình là SmartBuild AI 🤖 Bạn cần tư vấn vật liệu xây dựng hay tính toán dự toán công trình nào không ạ?', suggestions: ['Tìm hiểu vật liệu', 'Tư vấn vật liệu', 'Tính toán vật liệu'], confidence: 1 },
+    'hello': { response: 'Xin chào! Mình là trợ lý SmartBuild AI 👋 Bạn muốn mình giúp gì hôm nay ạ?', suggestions: ['Xem sản phẩm', 'Tư vấn công trình', 'Dự toán chi phí'], confidence: 1 },
+    'hi': { response: 'Hi bạn! 👋 Mình có thể giúp gì cho bạn hôm nay?', suggestions: ['Tư vấn vật liệu', 'Xem giá', 'Hỗ trợ đơn hàng'], confidence: 1 },
+    'xin chào': { response: 'Chào bạn! 😊 Mình là SmartBuild AI, sẵn sàng hỗ trợ bạn về vật liệu xây dựng. Bạn cần tư vấn gì ạ?', suggestions: ['Tìm sản phẩm', 'Tư vấn công trình', 'Xem khuyến mãi'], confidence: 1 },
+    'chào': { response: 'Chào bạn! 👋 Bạn đang quan tâm đến vật liệu gì hôm nay ạ?', suggestions: ['Xi măng', 'Cát đá', 'Gạch ngói', 'Thép'], confidence: 1 },
+    'hey': { response: 'Hey! 👋 Mình có thể giúp gì cho bạn?', suggestions: ['Tư vấn mua hàng', 'Xem giá', 'Hỗ trợ'], confidence: 1 },
+    // Thank you
+    'cảm ơn': { response: 'Không có gì ạ! 😊 Nếu cần thêm hỗ trợ gì, cứ nhắn mình nhé!', suggestions: ['Hỏi thêm', 'Xem sản phẩm khác', 'Tạm biệt'], confidence: 1 },
+    'thank': { response: 'Rất vui được giúp bạn! 🙏 Cần gì cứ hỏi nhé!', suggestions: ['Hỏi thêm', 'Xem giỏ hàng', 'Tạm biệt'], confidence: 1 },
+    // Goodbye
+    'tạm biệt': { response: 'Tạm biệt bạn! 👋 Hẹn gặp lại nhé!', suggestions: ['Quay lại chat', 'Xem sản phẩm'], confidence: 1 },
+    'bye': { response: 'Bye bye! 👋 Chúc bạn một ngày tốt lành!', suggestions: ['Quay lại chat'], confidence: 1 },
+    // Help
+    'help': { response: 'Mình có thể giúp bạn:\n• Tìm kiếm vật liệu xây dựng\n• Tính toán dự toán công trình\n• Tư vấn sản phẩm phù hợp\n• Hỗ trợ đặt hàng\n\nBạn cần gì ạ?', suggestions: ['Tư vấn vật liệu', 'Tính dự toán', 'Đặt hàng'], confidence: 1 },
+    'giúp': { response: 'Mình sẵn sàng giúp bạn! Bạn có thể nhờ mình:\n• Tìm vật liệu xây dựng\n• Tính toán nguyên vật liệu\n• Tra cứu giá cả\n• Hỗ trợ đặt hàng', suggestions: ['Tìm sản phẩm', 'Tính vật liệu', 'Xem giá'], confidence: 1 },
+  }
+
+  // Check for quick response (case-insensitive)
+  private static getQuickResponse(message: string): ChatbotResponse | null {
+    const normalized = message.toLowerCase().trim()
+    return this.QUICK_RESPONSES[normalized] || null
+  }
+
   // Generate chatbot response using Gemini
   static async generateChatbotResponse(
     message: string,
@@ -117,6 +143,15 @@ export class AIService {
     isAdmin: boolean = false
   ): Promise<ChatbotResponse> {
     try {
+      // CHECK FOR QUICK RESPONSES FIRST (no AI call needed)
+      if (!isAdmin) {
+        const quickResponse = this.getQuickResponse(message)
+        if (quickResponse) {
+          console.log('[AI_SERVICE] Using quick response for:', message)
+          return quickResponse
+        }
+      }
+
       const { client, modelName } = await getWorkingModelConfig();
       if (!client) throw new Error('Client init failed');
 
@@ -157,10 +192,18 @@ export class AIService {
         })
       }
 
-      // Add current message
+      // Add current message with instruction to return structured JSON
       contents.push({
         role: 'user',
-        parts: [{ text: message }]
+        parts: [{
+          text: `${message}
+
+---
+QUAN TRỌNG: Hãy trả lời bằng JSON với format sau (không có markdown code block):
+{"response": "câu trả lời của bạn", "suggestions": ["gợi ý 1", "gợi ý 2", "gợi ý 3"]}
+- response: Câu trả lời chính, viết ngắn gọn và thân thiện
+- suggestions: 2-4 gợi ý ngắn (tối đa 5 từ mỗi gợi ý) để người dùng tiếp tục hội thoại`
+        }]
       });
 
       // Retry logic with Model Fallback
@@ -175,7 +218,7 @@ export class AIService {
             model: currentModel,
             contents: contents,
             config: {
-              maxOutputTokens: 4096,
+              maxOutputTokens: 2048, // Reduced for faster response
               temperature: 0.7
             }
           });
@@ -186,14 +229,31 @@ export class AIService {
             throw new Error('Empty response from AI')
           }
 
-
-          // Extract structured information from the response
-          const structuredResponse = await this.extractChatbotStructure(aiResponse)
+          // Try to parse JSON directly from response (no second API call needed)
+          let parsed: { response?: string; suggestions?: string[]; productRecommendations?: Record<string, unknown>[] } = {}
+          try {
+            // Remove markdown code blocks if present
+            const cleanedText = aiResponse.replace(/```json\s*|\s*```/g, '').trim()
+            parsed = JSON.parse(cleanedText)
+          } catch {
+            // If JSON parse fails, try to extract JSON from text
+            const jsonMatch = aiResponse.match(/\{[\s\S]*\}/)
+            if (jsonMatch) {
+              try {
+                parsed = JSON.parse(jsonMatch[0])
+              } catch {
+                // If all parsing fails, use raw response
+                parsed = { response: aiResponse, suggestions: ['Tìm hiểu thêm', 'Xem sản phẩm'] }
+              }
+            } else {
+              parsed = { response: aiResponse, suggestions: ['Tìm hiểu thêm', 'Xem sản phẩm'] }
+            }
+          }
 
           return {
-            response: structuredResponse.response,
-            suggestions: structuredResponse.suggestions,
-            productRecommendations: structuredResponse.productRecommendations,
+            response: parsed.response || aiResponse,
+            suggestions: parsed.suggestions || ['Tìm hiểu thêm', 'Xem sản phẩm'],
+            productRecommendations: parsed.productRecommendations || [],
             confidence: 0.95
           }
         } catch (error) {

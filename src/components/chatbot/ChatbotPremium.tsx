@@ -16,6 +16,7 @@ import WelcomeScreen from './WelcomeScreen'
 import ChatOrderSummary from '../ChatOrderSummary'
 import ChatConfirmDialog from '../ChatConfirmDialog'
 import ChatOCRPreview from '../ChatOCRPreview'
+import LiveTypingIndicator, { updateTypingStatus } from './LiveTypingIndicator'
 
 // Types
 import {
@@ -24,8 +25,12 @@ import {
     OCRData,
     OrderData,
     ReportData,
-    ConfirmDialogData
+    ConfirmDialogData,
+    ChatMode,
+    LiveChatMessage
 } from './types'
+import HybridChatManager from './HybridChatManager'
+import ChatCallManager from '../ChatCallManager'
 
 export default function ChatbotPremium({ customerId, onClose }: ChatbotProps) {
     const { user, isAuthenticated } = useAuth()
@@ -59,6 +64,101 @@ export default function ChatbotPremium({ customerId, onClose }: ChatbotProps) {
     const isAdminRoute = pathname?.startsWith('/admin') ?? false
     const isAdminByRole = isAuthenticated && user && (user.role === 'MANAGER' || user.role === 'EMPLOYEE')
     const isAdmin = isAdminRoute || !!isAdminByRole
+
+    // Hybrid Chat Integration
+    const [chatMode, setChatMode] = useState<ChatMode>('AI')
+
+    // Call Manager State
+    const [myIdentity, setMyIdentity] = useState<{ id: string, name: string } | null>(null)
+
+    // Hybrid Manager Hook
+    const hybridManager = HybridChatManager({
+        currentMode: chatMode,
+        onModeChange: setChatMode,
+        customerId,
+        onNewMessage: (msg: LiveChatMessage) => {
+            const newMessage: ChatMessage = {
+                id: msg.id,
+                userMessage: msg.senderId === user?.id ? msg.content : '', // Only show if from me, else separate logic needed? 
+                // Actually for incoming admin messages, we map differently:
+                botMessage: msg.content,
+                suggestions: [],
+                confidence: 1,
+                timestamp: msg.createdAt,
+                // Add specific flag to distinguish human message
+                requiresConfirmation: false
+            }
+
+            // If message is from ME (synced from other tab), don't add as bot message
+            if (msg.senderId === hybridManager.identity?.id) {
+                // It's my own message, maybe just ensure it's in list?
+                // For simplicity, we trust optimistic UI for own messages
+                return
+            }
+
+            setMessages(prev => [...prev, newMessage])
+            setIsLoading(false)
+        }
+    })
+
+    // Sync identity for Call Manager
+    useEffect(() => {
+        if (hybridManager.identity) {
+            setMyIdentity(hybridManager.identity)
+        }
+    }, [hybridManager.identity])
+
+    const handleConnectSupport = async () => {
+        const loadingMsg: ChatMessage = {
+            id: Date.now().toString(),
+            userMessage: 'Gặp nhân viên hỗ trợ',
+            botMessage: 'Đang kết nối đến nhân viên hỗ trợ...',
+            suggestions: [],
+            confidence: 1,
+            timestamp: new Date().toISOString()
+        }
+        setMessages(prev => [...prev, loadingMsg])
+        setIsLoading(true)
+
+        const connected = await hybridManager.connectToAgent()
+
+        setIsLoading(false)
+        if (connected) {
+            setChatMode('HUMAN')
+            const successMsg: ChatMessage = {
+                id: (Date.now() + 1).toString(),
+                userMessage: '',
+                botMessage: 'Đã kết nối! Nhân viên sẽ phản hồi trong giây lát.',
+                suggestions: [], // Hide AI suggestions in human mode
+                confidence: 1,
+                timestamp: new Date().toISOString()
+            }
+            setMessages(prev => [...prev, successMsg])
+        } else {
+            const errorMsg: ChatMessage = {
+                id: (Date.now() + 1).toString(),
+                userMessage: '',
+                botMessage: 'Hiện tại tất cả nhân viên đều bận. Vui lòng để lại tin nhắn hoặc thử lại sau.',
+                suggestions: ['Thử lại', 'Gửi yêu cầu offline'],
+                confidence: 1,
+                timestamp: new Date().toISOString()
+            }
+            setMessages(prev => [...prev, errorMsg])
+        }
+    }
+
+    const handleSwitchToAI = () => {
+        setChatMode('AI')
+        const msg: ChatMessage = {
+            id: Date.now().toString(),
+            userMessage: '',
+            botMessage: 'Đã chuyển về chế độ AI tự động. Tôi có thể giúp gì tiếp ạ?',
+            suggestions: ['Tra cứu đơn hàng', 'Tìm sản phẩm'],
+            confidence: 1,
+            timestamp: new Date().toISOString()
+        }
+        setMessages(prev => [...prev, msg])
+    }
 
     // Hidden pages list
     const hiddenPages = [
@@ -102,6 +202,40 @@ export default function ChatbotPremium({ customerId, onClose }: ChatbotProps) {
     const sendMessage = async (message: string, useCurrentMessage = false) => {
         const messageToSend = useCurrentMessage ? currentMessage : message
         const imageToSend = selectedImage
+
+        if (!messageToSend.trim() && !imageToSend) return
+
+        // ---------------------------------------------------------
+        // HUMAN MODE HANDLER
+        // ---------------------------------------------------------
+        if (chatMode === 'HUMAN') {
+            setCurrentMessage('')
+            setSelectedImage(null)
+
+            // Optimistic update
+            const tempMsg: ChatMessage = {
+                id: Date.now().toString(),
+                userMessage: messageToSend,
+                userImage: imageToSend || undefined,
+                botMessage: '', // Wait for reply
+                suggestions: [],
+                confidence: 1,
+                timestamp: new Date().toISOString()
+            }
+            setMessages(prev => [...prev, tempMsg]) // Add user message immediately
+
+            const success = await hybridManager.sendMessage(messageToSend, imageToSend ? { fileUrl: imageToSend, fileType: 'image/jpeg' } : undefined)
+
+            if (!success) {
+                toast.error('Gửi tin nhắn thất bại')
+                // Optionally remove failed message
+            }
+            return
+        }
+
+        // ---------------------------------------------------------
+        // AI MODE HANDLER (Existing Logic)
+        // ---------------------------------------------------------
 
         if (!messageToSend.trim() && !imageToSend) return
 
@@ -162,7 +296,7 @@ export default function ChatbotPremium({ customerId, onClose }: ChatbotProps) {
                     id: Date.now().toString(),
                     userMessage: messageToSend,
                     botMessage: 'Xin lỗi, tôi gặp sự cố kỹ thuật. Vui lòng thử lại sau.',
-                    suggestions: ['Thử lại', 'Liên hệ hỗ trợ'],
+                    suggestions: ['Thử lại', 'Gặp nhân viên hỗ trợ'],
                     confidence: 1,
                     timestamp: new Date().toISOString()
                 }
@@ -253,6 +387,11 @@ export default function ChatbotPremium({ customerId, onClose }: ChatbotProps) {
             }
             toast('Đang tải dữ liệu báo cáo...')
             sendMessage(suggestion)
+            return
+        }
+
+        if (suggestion === 'Gặp nhân viên hỗ trợ' || suggestion === 'Liên hệ hỗ trợ') {
+            handleConnectSupport()
             return
         }
 
@@ -443,13 +582,13 @@ export default function ChatbotPremium({ customerId, onClose }: ChatbotProps) {
                 {/* Pulse ring */}
                 <div className={`
           absolute inset-0 rounded-full animate-ping opacity-25
-          ${isAdmin ? 'bg-purple-500' : 'bg-blue-500'}
+          ${isAdmin ? 'bg-purple-500' : (chatMode === 'HUMAN' ? 'bg-green-500' : 'bg-blue-500')}
         `} style={{ animationDuration: '2s' }} />
 
                 {/* Avatar */}
                 <img
-                    src="/images/smartbuild_bot.png"
-                    alt="SmartBuild AI"
+                    src={chatMode === 'HUMAN' ? "/images/support_agent.png" : "/images/smartbuild_bot.png"}
+                    alt="Chatbot"
                     className="w-full h-full object-cover relative z-10"
                 />
 
@@ -495,10 +634,21 @@ export default function ChatbotPremium({ customerId, onClose }: ChatbotProps) {
                 animate-fadeIn
             `}
         >
+            {/* Video Call Manager - Always mounted but hidden until needed */}
+            {myIdentity && (
+                <ChatCallManager
+                    userId={myIdentity.id}
+                    userName={myIdentity.name}
+                    listenAdminSupport={false}
+                />
+            )}
+
             {/* Header */}
             <ChatHeader
                 isAdmin={isAdmin}
                 isExpanded={isExpanded}
+                isHuman={chatMode === 'HUMAN'}
+                onSwitchToAI={handleSwitchToAI}
                 onClose={() => {
                     if (onClose) {
                         onClose() // Embedded mode - call parent's close handler
@@ -513,7 +663,11 @@ export default function ChatbotPremium({ customerId, onClose }: ChatbotProps) {
             <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0 bg-slate-50">
                 {/* Welcome Screen */}
                 {messages.length === 0 && !isLoading && (
-                    <WelcomeScreen isAdmin={isAdmin} />
+                    <WelcomeScreen
+                        isAdmin={isAdmin}
+                        onConnectSupport={handleConnectSupport}
+                        onSuggestionClick={(text) => sendMessage(text)}
+                    />
                 )}
 
                 {/* Messages */}
@@ -529,6 +683,14 @@ export default function ChatbotPremium({ customerId, onClose }: ChatbotProps) {
 
                 {/* Typing Indicator */}
                 {isLoading && <TypingIndicator isAdmin={isAdmin} />}
+
+                {/* Live Typing Indicator for HUMAN mode */}
+                {chatMode === 'HUMAN' && hybridManager.conversationId && myIdentity && (
+                    <LiveTypingIndicator
+                        conversationId={hybridManager.conversationId}
+                        myUserId={myIdentity.id}
+                    />
+                )}
 
                 {/* Error Message */}
                 {isError && (
@@ -632,6 +794,8 @@ export default function ChatbotPremium({ customerId, onClose }: ChatbotProps) {
                 isLoading={isLoading}
                 onSendMessage={handleSendMessage}
                 isAdmin={isAdmin}
+                onConnectSupport={handleConnectSupport}
+                isHumanMode={chatMode === 'HUMAN'}
             />
         </div>
     )

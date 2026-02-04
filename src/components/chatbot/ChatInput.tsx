@@ -1,7 +1,7 @@
 'use client'
 
 import { useRef } from 'react'
-import { Send, Image as ImageIcon, X } from 'lucide-react'
+import { Send, Image as ImageIcon, X, Headphones } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 interface ChatInputProps {
@@ -12,6 +12,8 @@ interface ChatInputProps {
     isLoading: boolean;
     onSendMessage: () => void;
     isAdmin: boolean;
+    onConnectSupport?: () => void;
+    isHumanMode?: boolean;
 }
 
 export default function ChatInput({
@@ -21,7 +23,9 @@ export default function ChatInput({
     setSelectedImage,
     isLoading,
     onSendMessage,
-    isAdmin
+    isAdmin,
+    onConnectSupport,
+    isHumanMode = false
 }: ChatInputProps) {
     const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -77,6 +81,18 @@ export default function ChatInput({
                     onChange={handleFileUpload}
                 />
 
+                {/* Connect to Support Button - Only show for customers in AI mode */}
+                {!isAdmin && !isHumanMode && onConnectSupport && (
+                    <button
+                        onClick={onConnectSupport}
+                        disabled={isLoading}
+                        className="flex-shrink-0 bg-emerald-50 text-emerald-600 p-2.5 rounded-xl hover:bg-emerald-100 transition-colors"
+                        title="Gặp nhân viên hỗ trợ"
+                    >
+                        <Headphones className="w-5 h-5" />
+                    </button>
+                )}
+
                 <button
                     onClick={() => fileInputRef.current?.click()}
                     disabled={isLoading}
@@ -115,7 +131,7 @@ export default function ChatInput({
             </div>
 
             <div className="mt-2 text-[10px] text-gray-400 text-center">
-                AI hỗ trợ tư vấn vật liệu & đơn hàng 24/7
+                {isHumanMode ? 'Đang chat với nhân viên hỗ trợ' : 'AI hỗ trợ tư vấn vật liệu & đơn hàng 24/7'}
             </div>
         </div>
     )
