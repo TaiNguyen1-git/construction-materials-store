@@ -66,7 +66,7 @@ interface PurchaseRecommendation {
 
 export default function InventoryPage() {
   return (
-    <Suspense fallback={<div>Loading...</div>}>
+    <Suspense fallback={<div>Đang tải dữ liệu...</div>}>
       <InventoryContent />
     </Suspense>
   )

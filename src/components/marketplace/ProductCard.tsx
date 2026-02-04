@@ -165,7 +165,7 @@ export default function ProductCard({ product, viewMode = 'grid' }: ProductCardP
                     </span>
                     {product.inventoryItem?.availableQuantity && product.inventoryItem.availableQuantity <= 10 && product.inventoryItem.availableQuantity > 0 && (
                         <span className="backdrop-blur-xl bg-rose-500/90 text-white text-[9px] font-black uppercase tracking-widest px-3 py-1.5 rounded-lg shadow-lg animate-pulse border border-rose-400">
-                            LOW STOCK
+                            SẮP HẾT
                         </span>
                     )}
                 </div>

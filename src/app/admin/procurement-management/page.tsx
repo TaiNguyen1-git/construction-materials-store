@@ -334,7 +334,7 @@ export default function ProcurementManagementPage() {
             {loading ? (
                 <div className="py-24 text-center">
                     <div className="w-12 h-12 border-4 border-blue-600/20 border-t-blue-600 rounded-full animate-spin mx-auto mb-4"></div>
-                    <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Analyzing Inventory Data...</span>
+                    <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Đang phân tích dữ liệu kho...</span>
                 </div>
             ) : (
                 <>
@@ -455,8 +455,8 @@ export default function ProcurementManagementPage() {
                                                 <th className="px-4 py-4 text-right">Số lượng</th>
                                                 <th className="px-4 py-4 text-right">Dự chi</th>
                                                 <th className="px-4 py-4 text-center">Nguồn</th>
-                                                <th className="px-4 py-4 text-center">Status</th>
-                                                <th className="px-6 py-4 text-right">Actions</th>
+                                                <th className="px-4 py-4 text-center">Trạng thái</th>
+                                                <th className="px-6 py-4 text-right">Thao tác</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-50">
@@ -469,7 +469,7 @@ export default function ProcurementManagementPage() {
                                                     <tr key={request.id} className="hover:bg-blue-50/30 transition-colors group">
                                                         <td className="px-6 py-4 whitespace-nowrap">
                                                             <div className="text-sm font-black text-slate-900 group-hover:text-blue-600 transition-colors uppercase tracking-tight">{request.requestNumber}</div>
-                                                            <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Initiated: {new Date(request.createdAt).toLocaleDateString('vi-VN')}</div>
+                                                            <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Ngày tạo: {new Date(request.createdAt).toLocaleDateString('vi-VN')}</div>
                                                         </td>
                                                         <td className="px-6 py-4">
                                                             <div className="text-sm font-black text-slate-900">{request.productName}</div>
@@ -487,7 +487,7 @@ export default function ProcurementManagementPage() {
                                                                     onChange={(e) => handleAssignSupplier(request.id, e.target.value)}
                                                                     value=""
                                                                 >
-                                                                    <option value="" disabled>-- Assign NCC --</option>
+                                                                    <option value="" disabled>-- Chọn NCC --</option>
                                                                     {suppliers.map(s => (
                                                                         <option key={s.id} value={s.id}>{s.name}</option>
                                                                     ))}
@@ -496,7 +496,7 @@ export default function ProcurementManagementPage() {
                                                         </td>
                                                         <td className="px-4 py-4 text-right">
                                                             <div className="text-sm font-black text-slate-900">{request.requestedQty}</div>
-                                                            <div className="text-[9px] text-slate-300 font-bold uppercase tracking-widest">Units</div>
+                                                            <div className="text-[9px] text-slate-300 font-bold uppercase tracking-widest">Đơn vị</div>
                                                         </td>
                                                         <td className="px-4 py-4 text-right">
                                                             <div className="text-sm font-black text-emerald-600">{formatCurrency(request.estimatedCost)}</div>
@@ -531,14 +531,14 @@ export default function ProcurementManagementPage() {
                                                                     disabled={!request.supplierId}
                                                                     className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${!request.supplierId ? 'bg-slate-100 text-slate-300 cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-slate-900 shadow-lg shadow-blue-100'}`}
                                                                 >
-                                                                    Create PO
+                                                                    Tạo PO
                                                                     <ArrowRight size={14} />
                                                                 </button>
                                                             )}
                                                             {request.status === 'CONVERTED' && (
                                                                 <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest flex items-center justify-end gap-1">
                                                                     <History size={12} />
-                                                                    Log Fixed
+                                                                    Đã lưu
                                                                 </span>
                                                             )}
                                                         </td>

@@ -109,7 +109,7 @@ export default function CartPage() {
     doc.setFontSize(22)
     doc.setTextColor(41, 128, 185)
     doc.text("SMARTBUILD - BAO GIA", 105, 20, { align: 'center' })
-    const tableColumn = ["STT", "TEN SAN PHAM", "TRA THAI", "SL", "DON GIA", "THANH TIEN"]
+    const tableColumn = ["STT", "TEN SAN PHAM", "DON VI", "SL", "DON GIA", "THANH TIEN"]
     const tableRows = items.map((item, index) => {
       const isWholesale = item.wholesalePrice && item.minWholesaleQty && item.quantity >= item.minWholesaleQty
       const unitPrice = isWholesale ? item.wholesalePrice! : item.price
@@ -195,7 +195,7 @@ export default function CartPage() {
                       <div className="flex justify-between items-start gap-4">
                         <div>
                           <h3 className="text-xl font-black text-slate-900 line-clamp-2 leading-tight group-hover:text-indigo-600 transition-colors uppercase italic">{item.name}</h3>
-                          <p className="text-[10px] text-slate-400 font-black mt-2 uppercase tracking-[0.2em]">{item.sku || 'N/A SKU CODE'}</p>
+                          <p className="text-[10px] text-slate-400 font-black mt-2 uppercase tracking-[0.2em]">{item.sku || 'Mã SKU: N/A'}</p>
                         </div>
                         <button onClick={() => { removeItem(item.productId); toast.success('Đã xóa sản phẩm') }} className="w-10 h-10 rounded-xl bg-slate-50 text-slate-300 hover:text-rose-500 hover:bg-rose-50 transition-all flex items-center justify-center shrink-0 border border-transparent hover:border-rose-100 shadow-sm"><Trash2 size={18} /></button>
                       </div>
