@@ -4,50 +4,104 @@ import bcrypt from 'bcryptjs'
 const prisma = new PrismaClient()
 
 async function main() {
+  console.log('🗑️ Cleaning up database...')
+
+  // Helper function to safely delete a table
+  const safeDelete = async (model: string, deleteFunc: () => Promise<unknown>) => {
+    try {
+      await deleteFunc()
+      console.log(`   ✓ Deleted ${model}`)
+    } catch (error: any) {
+      if (error?.code === 'P2014') {
+        console.log(`   ⚠ Skipped ${model} (foreign key constraint - will try later)`)
+      } else {
+        console.log(`   - Skipped ${model} (empty or other error)`)
+      }
+    }
+  }
+
+  // Delete in order of dependencies (child tables first)
+
+  // 1. Employee operational data
+  await safeDelete('PayrollRecord', () => prisma.payrollRecord.deleteMany())
+  await safeDelete('WorkShift', () => prisma.workShift.deleteMany())
+  await safeDelete('SalaryAdvance', () => prisma.salaryAdvance.deleteMany())
+  await safeDelete('EmployeeTask', () => prisma.employeeTask.deleteMany())
+
+  // 2. Project operational data
+  await safeDelete('ProjectTaskMaterial', () => prisma.projectTaskMaterial.deleteMany())
+  await safeDelete('ProjectMaterial', () => prisma.projectMaterial.deleteMany())
+  await safeDelete('ProjectTask', () => prisma.projectTask.deleteMany())
+  await safeDelete('Project', () => prisma.project.deleteMany())
+
+  // 3. Inventory-related data
+  await safeDelete('InventoryBinLink', () => prisma.inventoryBinLink.deleteMany())
+  await safeDelete('InventoryMovement', () => prisma.inventoryMovement.deleteMany())
+  await safeDelete('InventoryPrediction', () => prisma.inventoryPrediction.deleteMany())
+  await safeDelete('InventoryHistory', () => prisma.inventoryHistory.deleteMany())
+  await safeDelete('InventoryItem', () => prisma.inventoryItem.deleteMany())
+
+  // 4. Sales & Purchase operational data referencing Product
+  await safeDelete('OrderItem', () => prisma.orderItem.deleteMany())
+  await safeDelete('InvoiceItem', () => prisma.invoiceItem.deleteMany())
+  await safeDelete('PurchaseItem', () => prisma.purchaseItem.deleteMany())
+  await safeDelete('PurchaseReturnItem', () => prisma.purchaseReturnItem.deleteMany())
+  await safeDelete('CustomerReturnItem', () => prisma.customerReturnItem.deleteMany())
+  await safeDelete('CartItem', () => prisma.cartItem.deleteMany())
+  await safeDelete('Cart', () => prisma.cart.deleteMany())
+  await safeDelete('ProductReview', () => prisma.productReview.deleteMany())
+  await safeDelete('SupplierProduct', () => prisma.supplierProduct.deleteMany())
+  await safeDelete('ContractPrice', () => prisma.contractPrice.deleteMany())
+  await safeDelete('QuoteItem', () => prisma.quoteItem.deleteMany())
+
+  // 5. Parent sales/purchase data
+  await safeDelete('Order', () => prisma.order.deleteMany())
+  await safeDelete('Invoice', () => prisma.invoice.deleteMany())
+  await safeDelete('PurchaseOrder', () => prisma.purchaseOrder.deleteMany())
+
+  // 6. Base Catalog data
+  await safeDelete('Product', () => prisma.product.deleteMany())
+  await safeDelete('Category', () => prisma.category.deleteMany())
+
+  console.log('✅ Database cleanup completed\n')
+
   // Create default categories
   const categories = [
     {
-      name: 'Cement & Concrete',
-      description: 'Portland cement, ready-mix concrete, concrete blocks, and cement-based materials',
+      name: 'Xi măng & Bê tông',
+      description: 'Xi măng Portland, bê tông tươi, gạch bê tông và vật liệu gốc xi măng',
     },
     {
-      name: 'Steel & Metal',
-      description: 'Rebar, steel pipes, metal sheets, and structural steel products',
+      name: 'Thép & Kim loại',
+      description: 'Thép cây, ống thép, tấm kim loại và các sản phẩm thép kết cấu',
     },
     {
-      name: 'Bricks & Blocks',
-      description: 'Clay bricks, concrete blocks, interlocking pavers, and masonry materials',
+      name: 'Gạch & Khối xây',
+      description: 'Gạch đất sét, gạch bê tông, gạch tự chèn và vật liệu xây',
     },
     {
-      name: 'Wood & Lumber',
-      description: 'Construction lumber, plywood, wooden beams, and timber products',
+      name: 'Gỗ & Ván ép',
+      description: 'Gỗ xây dựng, ván ép, dầm gỗ và các sản phẩm gỗ',
     },
     {
-      name: 'Roofing Materials',
-      description: 'Metal roofing, tiles, shingles, and waterproofing materials',
+      name: 'Vật liệu Lợp mái',
+      description: 'Mái tôn, ngói, tấm lợp và vật liệu chống thấm',
     },
     {
-      name: 'Electrical Supplies',
-      description: 'Wiring, switches, outlets, conduits, and electrical hardware',
+      name: 'Thiết bị Điện',
+      description: 'Dây điện, công tắc, ổ cắm, ống luồn dây và thiết bị điện',
     },
     {
-      name: 'Plumbing Supplies',
-      description: 'Pipes, fittings, valves, and plumbing fixtures',
+      name: 'Thiết bị Nước',
+      description: 'Ống nước, phụ kiện, van và thiết bị vệ sinh',
     },
     {
-      name: 'Tools & Hardware',
-      description: 'Hand tools, power tools, fasteners, and construction hardware',
-    },
-    {
-      name: 'Insulation & Drywall',
-      description: 'Thermal insulation, acoustic panels, drywall, and finishing materials',
-    },
-    {
-      name: 'Paint & Finishes',
-      description: 'Interior and exterior paints, primers, stains, and finishing supplies',
+      name: 'Sơn & Hoàn thiện',
+      description: 'Sơn nội ngoại thất, sơn lót, chất nhuộm và vật liệu hoàn thiện',
     },
   ]
 
+  console.log('📦 Seeding categories...')
   for (const category of categories) {
     await prisma.category.upsert({
       where: { name: category.name },
@@ -56,47 +110,217 @@ async function main() {
     })
   }
 
-  // Create default admin user
-  const hashedPassword = await bcrypt.hash('admin123', 12)
-  
+
+
+  console.log('🔑 Hashing passwords...')
+  // Hashes for demo accounts
+  const adminPassword = await bcrypt.hash('Admin@123', 12)
+  const employeePassword = await bcrypt.hash('Employee@123', 12)
+  const customerPassword = await bcrypt.hash('Customer@123', 12)
+  const contractorPassword = await bcrypt.hash('Contractor@123', 12)
+  const supplierPassword = await bcrypt.hash('Supplier@123', 12)
+
+  console.log('👤 Seeding demo accounts...')
+  // 1. Create Demo Admin
   const adminUser = await prisma.user.upsert({
-    where: { email: 'admin@constructionstore.com' },
-    update: {},
+    where: { email: 'admin@smartbuild.vn' },
+    update: { password: adminPassword },
     create: {
-      email: 'admin@constructionstore.com',
-      name: 'System Administrator',
-      password: hashedPassword,
+      email: 'admin@smartbuild.vn',
+      name: 'Quản trị viên Hệ thống',
+      password: adminPassword,
       role: 'MANAGER',
-      phone: '+1234567890',
-      address: '123 Construction Ave, Building City',
+      phone: '+84900000001',
+      address: 'Trụ sở SmartBuild, Khu Công nghệ cao, TP.HCM',
+      emailVerified: true,
+      isActive: true,
     },
   })
 
-  // Create employee record for admin
-  const existingAdminEmployee = await prisma.employee.findUnique({
-    where: { userId: adminUser.id }
+  // Ensure Admin has Employee record
+  await prisma.employee.upsert({
+    where: { userId: adminUser.id },
+    update: {},
+    create: {
+      userId: adminUser.id,
+      employeeCode: 'ADM001',
+      department: 'Ban Giám đốc',
+      position: 'Quản trị viên',
+      baseSalary: 50000000,
+      hireDate: new Date('2025-01-01'),
+    }
   })
-  
-  if (!existingAdminEmployee) {
+
+  // 2. Create Demo Employee
+  const empUser = await prisma.user.upsert({
+    where: { email: 'employee@smartbuild.vn' },
+    update: { password: employeePassword },
+    create: {
+      email: 'employee@smartbuild.vn',
+      name: 'Nhân viên Demo',
+      password: employeePassword,
+      role: 'EMPLOYEE',
+      phone: '+84900000002',
+      address: 'Quận Tân Bình, TP.HCM',
+      emailVerified: true,
+      isActive: true,
+    },
+  })
+
+  // Check if Employee record exists for this user or code
+  const existingDemoEmp = await prisma.employee.findFirst({
+    where: {
+      OR: [
+        { userId: empUser.id },
+        { employeeCode: 'EMP001' }
+      ]
+    }
+  })
+
+  if (!existingDemoEmp) {
     await prisma.employee.create({
       data: {
-        userId: adminUser.id,
-        employeeCode: 'EMP0001',
-        department: 'Management',
-        position: 'Store Manager',
-        baseSalary: 20000000,
-        hireDate: new Date(),
-      },
+        userId: empUser.id,
+        employeeCode: 'EMP001',
+        department: 'Kinh doanh',
+        position: 'Chuyên viên Kinh doanh',
+        baseSalary: 15000000,
+        hireDate: new Date('2025-02-01'),
+      }
+    })
+  } else if (existingDemoEmp.userId === empUser.id) {
+    // Update existing if it matches userId
+    await prisma.employee.update({
+      where: { id: existingDemoEmp.id },
+      data: {
+        department: 'Kinh doanh',
+        position: 'Chuyên viên Kinh doanh',
+        baseSalary: 15000000,
+        hireDate: new Date('2025-02-01'),
+      }
     })
   }
 
+  // 3. Create Demo Customer
+  const custUser = await prisma.user.upsert({
+    where: { email: 'customer@test.com' },
+    update: { password: customerPassword },
+    create: {
+      email: 'customer@test.com',
+      name: 'Khách hàng Demo',
+      password: customerPassword,
+      role: 'CUSTOMER',
+      phone: '+84900000003',
+      address: 'Quận 1, TP.HCM',
+      emailVerified: true,
+      isActive: true,
+    },
+  })
+
+  await prisma.customer.upsert({
+    where: { userId: custUser.id },
+    update: {},
+    create: {
+      userId: custUser.id,
+      customerType: 'REGULAR',
+      loyaltyTier: 'SILVER',
+      loyaltyPoints: 1500,
+      creditLimit: 0,
+      referralCode: `REF-${Date.now()}-CUST`,
+    }
+  })
+
+  // 4. Create Demo Contractor
+  const contUser = await prisma.user.upsert({
+    where: { email: 'contractor@test.com' },
+    update: { password: contractorPassword },
+    create: {
+      email: 'contractor@test.com',
+      name: 'Nhà thầu Demo',
+      password: contractorPassword,
+      role: 'CONTRACTOR',
+      phone: '+84900000004',
+      address: 'Quận 7, TP.HCM',
+      emailVerified: true,
+      isActive: true,
+    },
+  })
+
+  const contCustomer = await prisma.customer.upsert({
+    where: { userId: contUser.id },
+    update: {},
+    create: {
+      userId: contUser.id,
+      customerType: 'WHOLESALE',
+      loyaltyTier: 'GOLD',
+      loyaltyPoints: 5000,
+      creditLimit: 100000000, // 100M VND
+      contractorVerified: true,
+      companyName: 'Công ty Xây dựng Smart',
+      taxId: '0312345678',
+      referralCode: `REF-${Date.now()}-CONT`,
+    }
+  })
+
+  await prisma.contractorProfile.upsert({
+    where: { customerId: contCustomer.id },
+    update: {},
+    create: {
+      customerId: contCustomer.id,
+      displayName: 'Xây dựng Smart Co.',
+      companyName: 'Công ty TNHH Xây dựng Smart',
+      phone: '+84900000004',
+      email: 'contractor@test.com',
+      experienceYears: 5,
+      skills: ['Nhà ở', 'Thương mại', 'Cải tạo'],
+      isVerified: true,
+      onboardingStatus: 'VERIFIED',
+      trustScore: 85,
+      city: 'Hồ Chí Minh',
+      district: 'Quận 7',
+    }
+  })
+
+  // 5. Create Demo Supplier
+  const suppUser = await prisma.user.upsert({
+    where: { email: 'supplier@test.com' },
+    update: { password: supplierPassword },
+    create: {
+      email: 'supplier@test.com',
+      name: 'Nhà cung cấp Demo',
+      password: supplierPassword,
+      role: 'SUPPLIER',
+      phone: '+84900000005',
+      address: 'Khu Công nghiệp Đồng Nai',
+      emailVerified: true,
+      isActive: true,
+    },
+  })
+
+  const demoSupplier = await prisma.supplier.upsert({
+    where: { userId: suppUser.id },
+    update: {},
+    create: {
+      userId: suppUser.id,
+      name: 'Nhà cung cấp Vật liệu Demo',
+      contactPerson: 'Anh Nhà Cung Cấp',
+      email: 'supplier@test.com',
+      phone: '+84900000005',
+      address: 'Khu Công nghiệp Đồng Nai',
+      city: 'Đồng Nai',
+      country: 'Việt Nam',
+      isActive: true,
+      is2FAEnabled: false,
+    }
+  })
+
   // Create sample products
   const cementCategory = await prisma.category.findFirst({
-    where: { name: 'Cement & Concrete' }
+    where: { name: 'Xi măng & Bê tông' }
   })
 
   const steelCategory = await prisma.category.findFirst({
-    where: { name: 'Steel & Metal' }
+    where: { name: 'Thép & Kim loại' }
   })
 
   if (cementCategory && steelCategory) {
@@ -106,9 +330,9 @@ async function main() {
         description: 'High-quality Portland cement suitable for all construction needs',
         categoryId: cementCategory.id,
         sku: 'CEM-PORT-50',
-        price: 8.50,
-        costPrice: 6.20,
-        unit: 'bag',
+        price: 850000,
+        costPrice: 620000,
+        unit: 'bao',
         weight: 50,
         isActive: true,
         isFeatured: true,
@@ -118,32 +342,32 @@ async function main() {
         description: 'Ready-to-use concrete mix with 25 MPa strength',
         categoryId: cementCategory.id,
         sku: 'CON-RDY-M25',
-        price: 120.00,
-        costPrice: 95.00,
+        price: 1200000,
+        costPrice: 950000,
         unit: 'm³',
         isActive: true,
         isFeatured: true,
       },
       {
-        name: 'Steel Rebar 12mm',
-        description: 'High-tensile steel reinforcement bar, 12mm diameter',
+        name: 'Thép cây D12',
+        description: 'Thép thanh vằn xây dựng phi 12, tiêu chuẩn Việt - Nhật',
         categoryId: steelCategory.id,
         sku: 'STL-RBR-12',
-        price: 0.85,
-        costPrice: 0.68,
-        unit: 'meter',
+        price: 185000,
+        costPrice: 158000,
+        unit: 'cây',
         weight: 0.888,
         isActive: true,
         isFeatured: false,
       },
       {
-        name: 'Steel Pipe 2 inch',
-        description: 'Galvanized steel pipe, 2 inch diameter for plumbing',
+        name: 'Ống thép mạ kẽm 2 inch',
+        description: 'Ống thép Hòa Phát mạ kẽm, bền bỉ, chống gỉ sét',
         categoryId: steelCategory.id,
         sku: 'STL-PIPE-2',
-        price: 12.50,
-        costPrice: 9.80,
-        unit: 'meter',
+        price: 320000,
+        costPrice: 280000,
+        unit: 'mét',
         weight: 3.63,
         isActive: true,
         isFeatured: false,
@@ -201,68 +425,61 @@ async function main() {
       creditLimit: 150000,
       isActive: true,
     },
-    {
-      name: 'BuildMart Supplies',
-      contactPerson: 'Le Van C',
-      email: 'info@buildmart.vn',
-      phone: '+84903456789',
-      address: '789 Construction Ave',
-      city: 'Da Nang',
-      country: 'Vietnam',
-      taxId: 'VN345678901',
-      paymentTerms: 'Net 30',
-      creditLimit: 80000,
-      isActive: true,
-    },
-    {
-      name: 'Hardware Heaven Ltd',
-      contactPerson: 'Pham Thi D',
-      email: 'sales@hardwareheaven.com',
-      phone: '+84904567890',
-      address: '321 Tool Street',
-      city: 'Hanoi',
-      country: 'Vietnam',
-      taxId: 'VN456789012',
-      paymentTerms: 'Net 15',
-      creditLimit: 50000,
-      isActive: true,
-    },
   ]
 
-  const createdSuppliers = []
+  const createdSuppliers = [demoSupplier] // Add demo supplier here!
+  const supplierPasswordHash = await bcrypt.hash('Supplier@123', 12)
+
   for (const supplier of suppliers) {
-    const existing = await prisma.supplier.findFirst({
-      where: { name: supplier.name }
+    let user = await prisma.user.findUnique({
+      where: { email: supplier.email }
     })
-    
-    if (existing) {
-      createdSuppliers.push(existing)
-    } else {
-      const created = await prisma.supplier.create({
-        data: supplier
+
+    if (!user) {
+      user = await prisma.user.create({
+        data: {
+          email: supplier.email,
+          name: supplier.contactPerson || supplier.name,
+          password: supplierPasswordHash,
+          role: 'SUPPLIER',
+          phone: supplier.phone,
+          address: supplier.address,
+          isActive: true,
+        }
       })
-      createdSuppliers.push(created)
     }
+
+    const created = await prisma.supplier.upsert({
+      where: { userId: user.id },
+      update: {},
+      create: {
+        ...supplier,
+        userId: user.id
+      }
+    })
+    createdSuppliers.push(created)
   }
 
   // Create customer users
-  const customerPassword = await bcrypt.hash('customer123', 12)
+  // Start with the demo accounts we already created
+  const demoCustomer = await prisma.customer.findUnique({ where: { userId: custUser.id } })
+  const demoContractorCustomer = await prisma.customer.findUnique({ where: { userId: contUser.id } })
+
   const customers = []
-  
+  if (demoCustomer) customers.push(demoCustomer)
+  if (demoContractorCustomer) customers.push(demoContractorCustomer)
+
   for (let i = 1; i <= 10; i++) {
     const email = `customer${i}@example.com`
-    const existing = await prisma.user.findUnique({
+    let user = await prisma.user.findUnique({
       where: { email }
     })
-    
-    let user
-    if (existing) {
-      user = existing
-    } else {
+
+    if (!user) {
       user = await prisma.user.create({
         data: {
           email,
-          name: `Customer ${i}`,
+          name: `Khách hàng ${i}`,
           password: customerPassword,
           role: 'CUSTOMER',
           phone: `+8490${1000000 + i}`,
@@ -271,34 +488,29 @@ async function main() {
       })
     }
 
-    const existingCustomer = await prisma.customer.findUnique({
-      where: { userId: user.id }
+    const customer = await prisma.customer.upsert({
+      where: { userId: user.id },
+      update: {},
+      create: {
+        userId: user.id,
+        customerType: i % 3 === 0 ? 'WHOLESALE' : 'REGULAR',
+        loyaltyTier: ['BRONZE', 'SILVER', 'GOLD'][i % 3] as any,
+        totalPurchases: Math.random() * 50000000,
+        loyaltyPoints: Math.floor(Math.random() * 5000),
+        totalPointsEarned: Math.floor(Math.random() * 10000),
+        referralCode: `REF-${Date.now()}-${i}`,
+      },
     })
-    
-    if (!existingCustomer) {
-      const customer = await prisma.customer.create({
-        data: {
-          userId: user.id,
-          customerType: i % 3 === 0 ? 'WHOLESALE' : 'REGULAR',
-          loyaltyTier: ['BRONZE', 'SILVER', 'GOLD'][i % 3] as any,
-          totalPurchases: Math.random() * 50000,
-          loyaltyPoints: Math.floor(Math.random() * 5000),
-          totalPointsEarned: Math.floor(Math.random() * 10000),
-        },
-      })
-      customers.push(customer)
-    } else {
-      customers.push(existingCustomer)
-    }
+    customers.push(customer)
   }
 
   // Create orders and invoices with more data
-  const products = await prisma.product.findMany({ take: 4 })
-  
+  const products = await prisma.product.findMany({ take: 10 })
+
   for (let i = 0; i < 50; i++) {
     const customer = customers[i % customers.length]
     const randomProducts = products.slice(0, Math.floor(Math.random() * 3) + 1)
-    
+
     const orderDate = new Date(Date.now() - Math.random() * 180 * 24 * 60 * 60 * 1000)
     let totalAmount = 0
     const orderItems = randomProducts.map(product => {
@@ -318,7 +530,7 @@ async function main() {
       data: {
         orderNumber: `ORD-${Date.now()}-${i}`,
         customerId: customer.id,
-        customerType: 'REGISTERED',
+        customerType: (customer.customerType === 'WHOLESALE' ? 'CONTRACTOR' : 'REGISTERED') as any,
         status: ['PENDING', 'PROCESSING', 'DELIVERED', 'DELIVERED', 'DELIVERED'][i % 5] as any,
         totalAmount,
         taxAmount: totalAmount * 0.1,
@@ -327,15 +539,15 @@ async function main() {
         netAmount: totalAmount + totalAmount * 0.1 + 50000,
         shippingAddress: JSON.parse(JSON.stringify({
           street: `${i} Delivery Street`,
-          city: 'Hanoi',
-          district: `District ${(i % 10) + 1}`,
-          zipCode: '100000'
+          city: 'TP. Hồ Chí Minh',
+          district: `Quận ${(i % 10) + 1}`,
+          zipCode: '700000'
         })),
         billingAddress: JSON.parse(JSON.stringify({
           street: `${i} Billing Street`,
-          city: 'Hanoi',
-          district: `District ${(i % 10) + 1}`,
-          zipCode: '100000'
+          city: 'TP. Hồ Chí Minh',
+          district: `Quận ${(i % 10) + 1}`,
+          zipCode: '700000'
         })),
         paymentMethod: 'CASH',
         paymentStatus: (['PAID', 'PAID', 'PENDING'] as const)[i % 3] as any,
@@ -348,7 +560,7 @@ async function main() {
 
     // Create sales invoice for delivered orders
     if (['DELIVERED', 'SHIPPED'].includes(order.status as string)) {
-      const invoiceItems = orderItems.map(item => ({
+      const invoiceItemsArr = orderItems.map(item => ({
         productId: item.productId,
         description: products.find(p => p.id === item.productId)?.name,
         quantity: item.quantity,
@@ -376,7 +588,7 @@ async function main() {
           balanceAmount: (i % 4 === 3) ? 0 : totalAmount + totalAmount * 0.1,
           paymentTerms: 'Net 30',
           invoiceItems: {
-            create: invoiceItems
+            create: invoiceItemsArr
           }
         },
       })
@@ -388,17 +600,17 @@ async function main() {
     const supplier = createdSuppliers[i % createdSuppliers.length]
     const purchaseDate = new Date(Date.now() - Math.random() * 180 * 24 * 60 * 60 * 1000)
     const randomProducts = products.slice(0, Math.floor(Math.random() * 3) + 1)
-    
-    let totalAmount = 0
-    const invoiceItems = randomProducts.map(product => {
+
+    let calculatedTotal = 0
+    const purchaseInvoiceItems = randomProducts.map(product => {
       const quantity = Math.floor(Math.random() * 50) + 10
       const unitPrice = product.costPrice || product.price * 0.7
       const itemTotal = quantity * unitPrice
-      totalAmount += itemTotal
-      
+      calculatedTotal += itemTotal
+
       return {
         productId: product.id,
-        description: `Purchase ${product.name}`,
+        description: `Nhập hàng ${product.name}`,
         quantity,
         unitPrice,
         totalPrice: itemTotal,
@@ -416,15 +628,15 @@ async function main() {
         issueDate: purchaseDate,
         dueDate: new Date(purchaseDate.getTime() + 45 * 24 * 60 * 60 * 1000),
         status: ['DRAFT', 'SENT', 'PAID', 'PAID'][i % 4] as any,
-        subtotal: totalAmount,
-        taxAmount: totalAmount * 0.1,
+        subtotal: calculatedTotal,
+        taxAmount: calculatedTotal * 0.1,
         discountAmount: 0,
-        totalAmount: totalAmount + totalAmount * 0.1,
-        paidAmount: (i % 4 === 3) ? totalAmount + totalAmount * 0.1 : 0,
-        balanceAmount: (i % 4 === 3) ? 0 : totalAmount + totalAmount * 0.1,
+        totalAmount: calculatedTotal + calculatedTotal * 0.1,
+        paidAmount: (i % 4 === 3) ? calculatedTotal + calculatedTotal * 0.1 : 0,
+        balanceAmount: (i % 4 === 3) ? 0 : calculatedTotal + calculatedTotal * 0.1,
         paymentTerms: 'Net 45',
         invoiceItems: {
-          create: invoiceItems
+          create: purchaseInvoiceItems
         }
       },
     })
@@ -432,15 +644,15 @@ async function main() {
 
   // Create employees with more comprehensive data
   const employees = []
-  const departments = ['Sales', 'Warehouse', 'Delivery', 'Accounting', 'IT', 'HR', 'Management']
-  const positions = ['Sales Staff', 'Warehouse Staff', 'Driver', 'Accountant', 'IT Support', 'HR Manager', 'Supervisor']
-  
+  const departments = ['Kinh doanh', 'Kho vận', 'Giao hàng', 'Kế toán', 'CNTT', 'Nhân sự', 'Quản lý']
+  const positions = ['Nhân viên Kinh doanh', 'Nhân viên Kho', 'Tài xế', 'Kế toán viên', 'Hỗ trợ CNTT', 'Trưởng phòng NS', 'Giám sát']
+
   for (let i = 2; i <= 20; i++) {
     const email = `employee${i}@constructionstore.com`
     const existingEmpUser = await prisma.user.findUnique({
       where: { email }
     })
-    
+
     let empUser
     if (existingEmpUser) {
       empUser = existingEmpUser
@@ -449,7 +661,7 @@ async function main() {
         data: {
           email,
           name: `Nhân Viên ${i}`,
-          password: hashedPassword,
+          password: employeePassword,
           role: 'EMPLOYEE',
           phone: `+8490${2000000 + i}`,
         },
@@ -457,15 +669,22 @@ async function main() {
     }
 
     const deptIndex = i % departments.length
-    const existingEmployee = await prisma.employee.findUnique({
-      where: { userId: empUser.id }
+    const employeeCode = `EMP${String(i).padStart(4, '0')}`
+
+    const existingEmployee = await prisma.employee.findFirst({
+      where: {
+        OR: [
+          { userId: empUser.id },
+          { employeeCode: employeeCode }
+        ]
+      }
     })
-    
+
     if (!existingEmployee) {
       const employee = await prisma.employee.create({
         data: {
           userId: empUser.id,
-          employeeCode: `EMP${String(i).padStart(4, '0')}`,
+          employeeCode: employeeCode,
           department: departments[deptIndex],
           position: positions[deptIndex],
           baseSalary: 5000000 + Math.random() * 10000000,
@@ -478,6 +697,7 @@ async function main() {
     }
   }
 
+  console.log('⏱️ Seeding work shifts (this might take a while)...')
   // Create work shifts (last 60 days with more variety)
   const shiftTypes = ['REGULAR', 'OVERTIME', 'LOADING', 'TRANSPORT']
   const shiftTimes = [
@@ -489,12 +709,12 @@ async function main() {
 
   for (let day = 0; day < 60; day++) {
     const shiftDate = new Date(Date.now() - day * 24 * 60 * 60 * 1000)
-    
+
     for (const employee of employees.slice(0, 12)) {
       const shiftTypeIndex = Math.floor(Math.random() * shiftTypes.length)
       const times = shiftTimes[shiftTypeIndex]
       const status = day < 2 ? 'SCHEDULED' : (Math.random() > 0.05 ? 'COMPLETED' : 'CANCELLED')
-      
+
       await prisma.workShift.create({
         data: {
           employeeId: employee.id,
@@ -537,7 +757,7 @@ async function main() {
   for (let i = 0; i < 80; i++) {
     const dueDate = new Date(Date.now() + (i - 40) * 24 * 60 * 60 * 1000)
     const status = i < 25 ? 'COMPLETED' : (i < 50 ? 'IN_PROGRESS' : 'PENDING')
-    
+
     await prisma.employeeTask.create({
       data: {
         employeeId: employees[i % employees.length].id,
@@ -558,8 +778,8 @@ async function main() {
   for (let i = 0; i < 5; i++) {
     const project = await prisma.project.create({
       data: {
-        name: `Construction Project ${i + 1}`,
-        description: `Building construction project in District ${i + 1}`,
+        name: `Dự án Xây dựng ${i + 1}`,
+        description: `Dự án xây dựng tòa nhà tại Quận ${i + 1}`,
         customerId: customers[i].id,
         status: ['PLANNING', 'IN_PROGRESS', 'COMPLETED'][i % 3] as any,
         startDate: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000),
@@ -574,8 +794,8 @@ async function main() {
       await prisma.projectTask.create({
         data: {
           projectId: project.id,
-          name: `Task ${j + 1} for Project ${i + 1}`,
-          description: `Complete task ${j + 1}`,
+          name: `Công việc ${j + 1} cho Dự án ${i + 1}`,
+          description: `Hoàn thành công việc số ${j + 1}`,
           status: ['PENDING', 'IN_PROGRESS', 'COMPLETED'][j % 3] as any,
           priority: ['LOW', 'MEDIUM', 'HIGH'][j % 3] as any,
           assigneeId: employees[j % employees.length].id,
@@ -596,23 +816,23 @@ async function main() {
   for (let monthOffset = 0; monthOffset < 3; monthOffset++) {
     const payrollDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - monthOffset, 1)
     const period = `${payrollDate.getFullYear()}-${String(payrollDate.getMonth() + 1).padStart(2, '0')}`
-    
+
     for (const employee of employees) {
       // Calculate work hours from shifts for this period
       const monthStart = new Date(payrollDate.getFullYear(), payrollDate.getMonth(), 1)
       const monthEnd = new Date(payrollDate.getFullYear(), payrollDate.getMonth() + 1, 0)
-      
+
       const workDays = 22 // Average work days per month
       const hoursWorked = workDays * 8 + Math.random() * 20
       const overtimeHours = Math.random() * 20
-      
+
       const bonuses = monthOffset === 0 ? Math.random() * 2000000 : Math.random() * 1000000
       const penalties = Math.random() * 500000
       const grossPay = employee.baseSalary + bonuses - penalties + (overtimeHours * (employee.baseSalary / 176) * 1.5)
       const taxDeductions = grossPay * 0.1
       const otherDeductions = Math.random() * 300000
       const netPay = grossPay - taxDeductions - otherDeductions
-      
+
       await prisma.payrollRecord.create({
         data: {
           employeeId: employee.id,

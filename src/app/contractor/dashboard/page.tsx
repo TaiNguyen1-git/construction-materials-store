@@ -161,7 +161,7 @@ export default function ContractorDashboardPage() {
                                     <p className="text-gray-500 text-xs mb-4">Đội ngũ CSKH chuyên nghiệp luôn sẵn sàng 24/7</p>
                                     <button
                                         onClick={handleContactSupport}
-                                        className="bg-gray-900 text-white text-sm font-bold py-2 px-4 rounded-lg hover:bg-black transition-colors w-full shadow-md hover:shadow-lg active:scale-95 transform duration-150"
+                                        className="bg-indigo-600 text-white text-sm font-bold py-2.5 px-4 rounded-xl hover:bg-indigo-700 transition-all w-full shadow-md hover:shadow-lg active:scale-95 transform duration-150"
                                     >
                                         Chat ngay
                                     </button>

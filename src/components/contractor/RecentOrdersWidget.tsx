@@ -35,6 +35,24 @@ export default function RecentOrdersWidget({ orders }: RecentOrdersWidgetProps) 
         }
     }
 
+    // Translate status to Vietnamese
+    const translateStatus = (status: string) => {
+        const statusMap: Record<string, string> = {
+            'PENDING': 'Chờ xử lý',
+            'PROCESSING': 'Đang chuẩn bị',
+            'SHIPPED': 'Đang giao hàng',
+            'DELIVERED': 'Đã giao hàng',
+            'COMPLETED': 'Hoàn thành',
+            'CANCELLED': 'Đã hủy',
+            'RETURNED': 'Đã trả hàng',
+            'PENDING_CONFIRMATION': 'Chờ xác nhận',
+            'CONFIRMED_AWAITING_DEPOSIT': 'Chờ đặt cọc',
+            'DEPOSIT_PAID': 'Đã đặt cọc',
+            'CONFIRMED': 'Đã xác nhận'
+        }
+        return statusMap[status] || status
+    }
+
     if (!orders || orders.length === 0) {
         return (
             <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm h-full">
@@ -83,7 +101,7 @@ export default function RecentOrdersWidget({ orders }: RecentOrdersWidgetProps) 
                             <div className="text-right">
                                 <p className="font-bold text-gray-900 text-sm">{formatCurrency(order.total)}</p>
                                 <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${statusStyle.bg} ${statusStyle.text}`}>
-                                    {order.status}
+                                    {translateStatus(order.status)}
                                 </span>
                             </div>
                         </div>

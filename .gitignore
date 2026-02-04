@@ -80,3 +80,7 @@ Thumbs.db
 
 docs/AI_PROTECTION_GUIDE.md
 docs/PROJECT_OVERVIEW_AND_DEMO.md
+prisma/seed.ts
+docs/BACKUP_STRATEGY.md
+scripts/db-backup.ts
+
