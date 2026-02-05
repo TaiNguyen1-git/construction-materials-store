@@ -26,11 +26,27 @@ export default function CategorySidebar({
     setSelectedSubCategories
 }: CategorySidebarProps) {
     const [hoveredCategory, setHoveredCategory] = useState<Category | null>(null)
+    const [isClosing, setIsClosing] = useState<NodeJS.Timeout | null>(null)
+
+    const handleMouseEnter = (cat: Category) => {
+        if (isClosing) {
+            clearTimeout(isClosing)
+            setIsClosing(null)
+        }
+        setHoveredCategory(cat)
+    }
+
+    const handleMouseLeave = () => {
+        const timeout = setTimeout(() => {
+            setHoveredCategory(null)
+        }, 150) // Small delay to allow moving to the mega menu
+        setIsClosing(timeout)
+    }
 
     return (
         <div
             className="lg:col-span-3 bg-white rounded-[2rem] shadow-xl self-start border border-slate-100 relative group/sidebar"
-            onMouseLeave={() => setHoveredCategory(null)}
+            onMouseLeave={handleMouseLeave}
         >
             <div className="bg-slate-50/50 px-6 py-5 border-b border-slate-100 flex items-center justify-between rounded-t-[2rem]">
                 <span className="font-black text-slate-800 flex items-center gap-3 text-sm uppercase tracking-widest">
@@ -48,7 +64,7 @@ export default function CategorySidebar({
                 ]).map((cat) => (
                     <div
                         key={cat.id}
-                        onMouseEnter={() => setHoveredCategory(cat)}
+                        onMouseEnter={() => handleMouseEnter(cat)}
                         className="relative"
                     >
                         <Link
@@ -66,7 +82,18 @@ export default function CategorySidebar({
 
             {/* Mega Menu Panel */}
             {hoveredCategory && (
-                <div className="absolute top-0 left-full ml-4 w-[700px] min-h-[450px] bg-white shadow-[0_30px_100px_rgba(0,0,0,0.15)] border border-slate-50 rounded-[2.5rem] p-10 z-50 animate-in fade-in slide-in-from-left-4 duration-500">
+                <div
+                    className="absolute top-0 left-full ml-4 w-[700px] min-h-[450px] bg-white shadow-[0_30px_100px_rgba(0,0,0,0.15)] border border-slate-50 rounded-[2.5rem] p-10 z-50 animate-in fade-in slide-in-from-left-4 duration-500"
+                    onMouseEnter={() => {
+                        if (isClosing) {
+                            clearTimeout(isClosing)
+                            setIsClosing(null)
+                        }
+                    }}
+                >
+                    {/* Invisible bridge to prevent menu from closing when moving mouse from sidebar */}
+                    <div className="absolute top-0 -left-6 w-6 h-full bg-transparent z-[-1]" />
+
                     <div className="flex flex-col h-full">
                         <div className="flex items-center justify-between mb-8 border-b border-slate-50 pb-6">
                             <div className="flex items-center gap-4">
@@ -97,8 +124,8 @@ export default function CategorySidebar({
                                                     )
                                                 }}
                                                 className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all border ${isSelected
-                                                        ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-100'
-                                                        : 'bg-slate-50 text-slate-600 border-slate-100 hover:border-indigo-200 hover:text-indigo-600'
+                                                    ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-100'
+                                                    : 'bg-slate-50 text-slate-600 border-slate-100 hover:border-indigo-200 hover:text-indigo-600'
                                                     }`}
                                             >
                                                 {sub}

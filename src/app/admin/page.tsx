@@ -521,16 +521,20 @@ export default function AdminDashboard() {
                       <span className="text-xs font-black text-slate-900">{formatCurrency(order.amount)}</span>
                     </td>
                     <td className="px-6 py-4 text-center">
-                      <span className={`px-2.5 py-1 rounded-full text-[8px] font-black uppercase tracking-widest border ${order.status === 'DELIVERED' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
-                        order.status === 'PENDING' ? 'bg-amber-50 text-amber-600 border-amber-100' :
-                          'bg-slate-50 text-slate-400 border-slate-100'
+                      <span className={`px-2.5 py-1 rounded-full text-[8px] font-black uppercase tracking-widest border ${order.status === 'DELIVERED' || order.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
+                          order.status === 'PENDING' || order.status === 'PENDING_CONFIRMATION' ? 'bg-amber-50 text-amber-600 border-amber-100' :
+                            order.status === 'CANCELLED' ? 'bg-red-50 text-red-600 border-red-100' :
+                              'bg-slate-50 text-slate-400 border-slate-100'
                         }`}>
                         {order.status === 'DELIVERED' ? 'Đã Giao' :
-                          order.status === 'PENDING' ? 'Chờ Xử Lý' :
-                            order.status === 'SHIPPED' ? 'Đang Giao' :
-                              order.status === 'CONFIRMED' ? 'Đã Xác Nhận' :
-                                order.status === 'CANCELLED' ? 'Đã Hủy' :
-                                  order.status}
+                          order.status === 'COMPLETED' ? 'Hoàn Tất' :
+                            order.status === 'PENDING' ? 'Chờ Xử Lý' :
+                              order.status === 'PENDING_CONFIRMATION' ? 'Chờ Xác Nhận' :
+                                order.status === 'SHIPPED' ? 'Đang Giao' :
+                                  order.status === 'CONFIRMED' ? 'Đã Xác Nhận' :
+                                    order.status === 'CANCELLED' ? 'Đã Hủy' :
+                                      order.status === 'PROCESSING' ? 'Đang Xử Lý' :
+                                        order.status}
                       </span>
                     </td>
                   </tr>
@@ -557,7 +561,7 @@ export default function AdminDashboard() {
                     <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-black text-xs transition-colors ${idx === 0 ? 'bg-yellow-100 text-yellow-600' : 'bg-slate-100 text-slate-500'}`}>#{idx + 1}</div>
                     <div>
                       <div className="text-xs font-bold text-slate-900 line-clamp-1 group-hover:text-blue-600 transition-colors">{product.name}</div>
-                      <div className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">{product.quantity} sold</div>
+                      <div className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Đã bán {product.quantity}</div>
                     </div>
                   </div>
                   <div className="text-xs font-black text-slate-900">{formatNumber(product.revenue / 1000000)}M</div>
@@ -589,7 +593,7 @@ export default function AdminDashboard() {
                   <div key={idx} className="flex justify-between items-center text-[10px] font-bold">
                     <span className="text-slate-600 line-clamp-1 flex-1 mr-2">{w.product}</span>
                     <span className={`px-1.5 py-0.5 rounded ${w.urgency === 'CRITICAL' ? 'bg-red-50 text-red-500' : 'bg-amber-50 text-amber-500'}`}>
-                      {w.current} left
+                      Còn {w.current} sản phẩm
                     </span>
                   </div>
                 ))}

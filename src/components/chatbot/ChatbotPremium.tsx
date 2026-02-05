@@ -76,24 +76,37 @@ export default function ChatbotPremium({ customerId, onClose }: ChatbotProps) {
         currentMode: chatMode,
         onModeChange: setChatMode,
         customerId,
-        onNewMessage: (msg: LiveChatMessage) => {
-            const newMessage: ChatMessage = {
+        onHistoryLoaded: (history) => {
+            const mappedMessages: ChatMessage[] = history.map(msg => ({
                 id: msg.id,
-                userMessage: msg.senderId === user?.id ? msg.content : '', // Only show if from me, else separate logic needed? 
-                // Actually for incoming admin messages, we map differently:
-                botMessage: msg.content,
+                userMessage: msg.senderId === hybridManager.identity?.id ? msg.content : '',
+                userImage: (msg.senderId === hybridManager.identity?.id && msg.fileType?.startsWith('image')) ? msg.fileUrl : undefined,
+                botMessage: msg.senderId !== hybridManager.identity?.id ? msg.content : '',
                 suggestions: [],
                 confidence: 1,
                 timestamp: msg.createdAt,
-                // Add specific flag to distinguish human message
                 requiresConfirmation: false
-            }
+            }));
+            setMessages(mappedMessages);
 
-            // If message is from ME (synced from other tab), don't add as bot message
-            if (msg.senderId === hybridManager.identity?.id) {
-                // It's my own message, maybe just ensure it's in list?
-                // For simplicity, we trust optimistic UI for own messages
-                return
+            // If the last message was from an agent, maybe switch to HUMAN mode
+            const lastMsg = history[history.length - 1];
+            if (lastMsg && lastMsg.senderId !== 'smartbuild_bot' && lastMsg.senderId !== hybridManager.identity?.id) {
+                setChatMode('HUMAN');
+            }
+        },
+        onNewMessage: (msg: LiveChatMessage) => {
+            // Check if message already exists to avoid duplicates
+            if (messages.some(m => m.id === msg.id)) return;
+
+            const newMessage: ChatMessage = {
+                id: msg.id,
+                userMessage: msg.senderId === user?.id ? msg.content : '',
+                botMessage: msg.senderId !== user?.id ? msg.content : '',
+                suggestions: [],
+                confidence: 1,
+                timestamp: msg.createdAt,
+                requiresConfirmation: false
             }
 
             setMessages(prev => [...prev, newMessage])
@@ -134,6 +147,9 @@ export default function ChatbotPremium({ customerId, onClose }: ChatbotProps) {
                 timestamp: new Date().toISOString()
             }
             setMessages(prev => [...prev, successMsg])
+
+            // Save system connection message to firebase history
+            hybridManager.saveMessageToFirebase(successMsg.botMessage, 'SYSTEM');
         } else {
             const errorMsg: ChatMessage = {
                 id: (Date.now() + 1).toString(),
@@ -158,6 +174,9 @@ export default function ChatbotPremium({ customerId, onClose }: ChatbotProps) {
             timestamp: new Date().toISOString()
         }
         setMessages(prev => [...prev, msg])
+
+        // Save to firebase
+        hybridManager.saveMessageToFirebase(msg.botMessage, 'AI');
     }
 
     // Hidden pages list
@@ -245,6 +264,15 @@ export default function ChatbotPremium({ customerId, onClose }: ChatbotProps) {
         setIsError(false)
 
         try {
+            // First, if no conversationId, we should ideally create one for history
+            if (!hybridManager.conversationId) {
+                // We'll create a conversation for AI history if it doesn't exist
+                await hybridManager.connectToAgent(); // This creates a conv and saves to storage
+            }
+
+            // Save user message to firebase history (Optimistic)
+            hybridManager.saveMessageToFirebase(messageToSend, 'USER', imageToSend ? { fileUrl: imageToSend } : undefined);
+
             const response = await fetch('/api/chatbot', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -252,7 +280,7 @@ export default function ChatbotPremium({ customerId, onClose }: ChatbotProps) {
                     message: messageToSend || undefined,
                     image: imageToSend || undefined,
                     customerId,
-                    sessionId,
+                    sessionId: hybridManager.conversationId || sessionId,
                     userRole: user?.role || 'CUSTOMER',
                     isAdmin: isAdmin,
                     context: {
@@ -280,6 +308,9 @@ export default function ChatbotPremium({ customerId, onClose }: ChatbotProps) {
 
                 setMessages(prev => [...prev, newMessage])
                 setErrorRetryCount(0)
+
+                // Save bot response to firebase history
+                hybridManager.saveMessageToFirebase(data.data.message, 'AI');
 
                 if (data.data.ocrData) {
                     setPendingOCRData(data.data.ocrData)

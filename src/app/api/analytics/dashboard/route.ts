@@ -15,7 +15,17 @@ export async function GET(request: NextRequest) {
     startDate.setDate(startDate.getDate() - days)
     startDate.setHours(0, 0, 0, 0)
 
-    const activeStatuses: any[] = ['CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'DEPOSIT_PAID', 'PENDING']
+    // Các trạng thái đơn hàng được coi là có doanh thu hoặc đang hoạt động
+    const activeStatuses: any[] = [
+      'CONFIRMED',
+      'PROCESSING',
+      'SHIPPED',
+      'DELIVERED',
+      'DEPOSIT_PAID',
+      'PENDING',
+      'COMPLETED',
+      'CONFIRMED_AWAITING_DEPOSIT'
+    ]
 
     // 1. KPI Stats
     const [

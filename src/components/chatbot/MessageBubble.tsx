@@ -19,52 +19,73 @@ const formatTime = (timestamp: string) => {
     })
 }
 
-// Simple inline markdown renderer
+// Safe text renderer that handles bold and links without dangerouslySetInnerHTML
+const renderPlainText = (text: string) => {
+    // Regular expression to find **bold** and [link](url)
+    const regex = /(\*\*.*?\*\*|\[.*?\]\(.*?\))/g;
+    const parts = text.split(regex);
+
+    return parts.map((part, i) => {
+        if (part.startsWith('**') && part.endsWith('**')) {
+            return <strong key={i} className="font-bold text-gray-900">{part.slice(2, -2)}</strong>;
+        }
+
+        const linkMatch = part.match(/\[(.*?)\]\((.*?)\)/);
+        if (linkMatch) {
+            return (
+                <a
+                    key={i}
+                    href={linkMatch[2]}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 underline hover:text-blue-800"
+                >
+                    {linkMatch[1]}
+                </a>
+            );
+        }
+
+        return part;
+    });
+};
+
 const renderContent = (text: string) => {
-    // Split by newlines
     return text.split('\n').map((line, idx) => {
-        // Bold text
-        let processed = line.replace(/\*\*([^*]+)\*\*/g, '<strong class="font-bold text-gray-900">$1</strong>')
-
-        // Links
-        processed = processed.replace(
-            /\[([^\]]+)\]\(([^)]+)\)/g,
-            '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-blue-600 underline hover:text-blue-800">$1</a>'
-        )
-
         // List items
         if (line.trim().startsWith('• ') || line.trim().startsWith('- ') || line.trim().startsWith('* ')) {
-            const content = line.replace(/^[•\-\*]\s*/, '').trim()
+            const content = line.replace(/^[•\-\*]\s*/, '').trim();
             return (
                 <div key={idx} className="flex items-start gap-2 my-1">
                     <span className="text-blue-500 mt-0.5">•</span>
-                    <span dangerouslySetInnerHTML={{ __html: content.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>') }} />
+                    <span>{renderPlainText(content)}</span>
                 </div>
-            )
+            );
         }
 
         // Numbered list
-        const numberedMatch = line.trim().match(/^(\d+)\.\s+(.*)/)
+        const numberedMatch = line.trim().match(/^(\d+)\.\s+(.*)/);
         if (numberedMatch) {
             return (
                 <div key={idx} className="flex items-start gap-2 my-1">
                     <span className="bg-blue-100 text-blue-600 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold flex-shrink-0">
                         {numberedMatch[1]}
                     </span>
-                    <span dangerouslySetInnerHTML={{ __html: numberedMatch[2].replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>') }} />
+                    <span>{renderPlainText(numberedMatch[2])}</span>
                 </div>
-            )
+            );
         }
 
         // Normal line
         if (line.trim()) {
             return (
-                <div key={idx} className={idx > 0 ? 'mt-1' : ''} dangerouslySetInnerHTML={{ __html: processed }} />
-            )
+                <div key={idx} className={idx > 0 ? 'mt-1' : ''}>
+                    {renderPlainText(line)}
+                </div>
+            );
         }
-        return <div key={idx} className="h-2" />
-    })
-}
+        return <div key={idx} className="h-2" />;
+    });
+};
 
 export default function MessageBubble({
     message,

@@ -10,6 +10,7 @@ import toast from 'react-hot-toast'
 
 interface HybridChatManagerProps {
     onNewMessage: (msg: LiveChatMessage) => void;
+    onHistoryLoaded?: (messages: LiveChatMessage[]) => void;
     onModeChange: (mode: ChatMode) => void;
     currentMode: ChatMode;
     customerId?: string;
@@ -17,9 +18,11 @@ interface HybridChatManagerProps {
 
 const GUEST_ID_KEY = 'smartbuild_guest_id'
 const GUEST_NAME_KEY = 'smartbuild_guest_name'
+const ACTIVE_CONV_KEY = 'smartbuild_active_conv'
 
 export default function HybridChatManager({
     onNewMessage,
+    onHistoryLoaded,
     onModeChange,
     currentMode,
     customerId
@@ -31,13 +34,11 @@ export default function HybridChatManager({
     // Initialize Identity (Guest or User)
     useEffect(() => {
         if (isAuthenticated && user) {
-            // Logged in user
             setIdentity({
                 id: user.id || customerId || '',
                 name: user.name || 'Thành viên'
             })
         } else {
-            // Guest handling logic
             let guestId = localStorage.getItem(GUEST_ID_KEY)
             let guestName = localStorage.getItem(GUEST_NAME_KEY)
 
@@ -51,9 +52,56 @@ export default function HybridChatManager({
         }
     }, [isAuthenticated, user, customerId])
 
-    // Listen to Firebase Messages when in HUMAN mode
+    // Load active conversation from storage
     useEffect(() => {
-        if (currentMode !== 'HUMAN' || !conversationId) return;
+        const savedConvId = localStorage.getItem(ACTIVE_CONV_KEY) || sessionStorage.getItem('active_support_chat')
+        if (savedConvId) {
+            setConversationId(savedConvId)
+        }
+    }, [])
+
+    // Fetch History when conversationId is set
+    useEffect(() => {
+        if (!conversationId || !onHistoryLoaded) return;
+
+        const fetchHistory = async () => {
+            const db = getFirebaseDatabase()
+            const messagesRef = ref(db, `conversations/${conversationId}/messages`);
+
+            // In a real app, we'd use a more specialized fetch, but for simplicity with RTDB
+            // we'll listen once to get the current state
+            const snapshot = await new Promise<any>((resolve) => {
+                const tempRef = ref(db, `conversations/${conversationId}/messages`);
+                // We could use get() if available in our version of Firebase SDK or just use 'once' 
+                // But since we are using RTDB standard:
+                import('firebase/database').then(({ get }) => {
+                    get(tempRef).then(resolve);
+                });
+            });
+
+            if (snapshot && snapshot.exists()) {
+                const data = snapshot.val();
+                const historyMessages = Object.keys(data).map(key => ({
+                    ...data[key],
+                    id: key,
+                    conversationId
+                })) as LiveChatMessage[];
+
+                // Sort by timestamp
+                historyMessages.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+                onHistoryLoaded(historyMessages);
+
+                // If there's history, we might want to auto-switch to correct mode
+                // (e.g. if the last message was from human support, maybe stay in HUMAN mode)
+            }
+        };
+
+        fetchHistory();
+    }, [conversationId, onHistoryLoaded])
+
+    // Listen to Firebase Messages when conversationId is active (regardless of mode, for syncing)
+    useEffect(() => {
+        if (!conversationId) return;
 
         const db = getFirebaseDatabase()
         const messagesRef = ref(db, `conversations/${conversationId}/messages`);
@@ -63,10 +111,11 @@ export default function HybridChatManager({
             if (data) {
                 const message: LiveChatMessage = {
                     ...data,
+                    id: snapshot.key,
                     conversationId
                 }
 
-                // Only notify parent if it's from the other side (Admin)
+                // Only notify parent if it's from someone ELSE (Admin)
                 if (data.senderId !== identity?.id) {
                     onNewMessage(message)
                 }
@@ -78,9 +127,8 @@ export default function HybridChatManager({
         return () => {
             off(messagesRef, 'child_added', handleNewMessage);
         };
-    }, [currentMode, conversationId, identity])
+    }, [conversationId, identity])
 
-    // Function to Connect to Live Agent (Create Conversation)
     const connectToAgent = async () => {
         if (!identity) return false;
 
@@ -89,7 +137,7 @@ export default function HybridChatManager({
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    recipientId: 'admin_support', // Special ID for support queue
+                    recipientId: 'admin_support',
                     senderId: identity.id,
                     senderName: identity.name,
                     initialMessage: 'Xin chào, tôi cần gặp nhân viên hỗ trợ.'
@@ -98,8 +146,10 @@ export default function HybridChatManager({
 
             const data = await res.json()
             if (data.success) {
-                setConversationId(data.data.id)
-                sessionStorage.setItem('active_support_chat', data.data.id)
+                const newId = data.data.id;
+                setConversationId(newId)
+                sessionStorage.setItem('active_support_chat', newId)
+                localStorage.setItem(ACTIVE_CONV_KEY, newId)
                 return true
             }
             return false
@@ -110,38 +160,41 @@ export default function HybridChatManager({
         }
     }
 
-    // Expose methods to parent via Ref or Context (simplifying here by attaching to window for now or returning renderless)
-    // For this implementation, we will use a Renderless component approach that passes data up
+    const saveMessageToFirebase = async (content: string, sender: 'USER' | 'AI' | 'SYSTEM', extra?: any) => {
+        if (!conversationId || !identity) return false;
 
-    // Auto-reconnect if session exists
-    useEffect(() => {
-        const savedConvId = sessionStorage.getItem('active_support_chat')
-        if (savedConvId && currentMode === 'AI') {
-            // Allow auto-reconnect logic if we want persistence
-            // For now, we keep it manual to let user choose
-        }
-    }, [])
+        const db = getFirebaseDatabase();
+        const messagesRef = ref(db, `conversations/${conversationId}/messages`);
+
+        const newMsg: Partial<LiveChatMessage> = {
+            senderId: sender === 'USER' ? identity.id : (sender === 'AI' ? 'smartbuild_bot' : 'system'),
+            senderName: sender === 'USER' ? identity.name : (sender === 'AI' ? 'SmartBuild AI' : 'System'),
+            content,
+            createdAt: new Date().toISOString(),
+            isRead: false,
+            ...extra
+        };
+
+        await push(messagesRef, newMsg);
+        return true;
+    }
 
     return {
         connectToAgent,
         identity,
         conversationId,
+        saveMessageToFirebase,
         sendMessage: async (content: string, fileData?: any) => {
             if (!conversationId || !identity) return false;
 
             try {
-                // Determine API endpoint based on auth status
-                // But since we use a unified API now:
                 const res = await fetch('/api/chat/messages', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        // Add guest headers if needed, or rely on body
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         conversationId,
                         content,
-                        senderId: identity.id, // Explicitly send ID for guests
+                        senderId: identity.id,
                         senderName: identity.name,
                         fileUrl: fileData?.fileUrl,
                         fileType: fileData?.fileType,

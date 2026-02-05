@@ -46,11 +46,11 @@ export default function BannerCarousel({ banners }: BannerCarouselProps) {
 
                     {/* Advanced Gradient Overlay */}
                     <div className="absolute inset-0 bg-gradient-to-t from-slate-900/90 via-slate-900/30 to-transparent flex flex-col justify-end p-12 text-white">
-                        <div className="max-w-xl animate-in fade-in slide-in-from-bottom-6 duration-700">
+                        <div className="max-w-2xl animate-in fade-in slide-in-from-bottom-6 duration-700">
                             <span className="inline-block bg-indigo-600 text-[10px] font-black px-4 py-1.5 rounded-full mb-6 tracking-[0.2em] shadow-lg shadow-indigo-600/20 uppercase">
                                 {banner.tag}
                             </span>
-                            <h3 className="text-4xl md:text-5xl font-black mb-4 uppercase italic tracking-tighter leading-[0.9] text-transparent bg-clip-text bg-gradient-to-r from-white via-white to-blue-200">
+                            <h3 className="text-4xl md:text-5xl font-black mb-4 uppercase italic tracking-tighter leading-tight text-transparent bg-clip-text bg-gradient-to-r from-white via-white to-blue-200 pr-8">
                                 {banner.title}
                             </h3>
                             <p className="text-white/80 text-lg font-medium leading-relaxed max-w-sm">
