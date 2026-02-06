@@ -3523,6 +3523,26 @@ model CustomerReturnItem {
   @@map("customer_return_items")
 }
 
+model Lead {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  name            String?
+  phone           String?
+  email           String?
+  projectType     String?
+  estimateData    Json?    // Store the raw AI result if available
+  source          String   @default("AI_ESTIMATOR")
+  status          String   @default("NEW") // NEW, CONTACTED, CONVERTED, CLOSED
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("leads")
+  @@index([phone])
+  @@index([status])
+  @@index([createdAt])
+}
+
+
 enum CustomerReturnStatus {
   PENDING
   REVIEWING
