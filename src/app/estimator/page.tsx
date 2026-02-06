@@ -611,6 +611,7 @@ export default function EstimatorPage() {
                 {/* Result Section (MOVED TO TOP) */}
                 {result && (
                     <div className="mb-12 space-y-8 animate-in slide-in-from-top-4 duration-700">
+
                         {/* Summary Header */}
                         <div className="flex flex-col md:flex-row gap-6 items-start justify-between">
                             <div className="flex items-center gap-4">
@@ -622,18 +623,8 @@ export default function EstimatorPage() {
                                     <h2 className="text-3xl font-black text-slate-900 tracking-tighter">DỰ TOÁN ĐÃ SẴN SÀNG</h2>
                                 </div>
                             </div>
-
-                            <div className="flex items-center gap-4 bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
-                                <div className="text-right">
-                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Độ tin cậy AI</p>
-                                    <div className="flex gap-1 mt-1">
-                                        {[1, 2, 3, 4, 5].map((star) => (
-                                            <div key={star} className={`w-3.5 h-3.5 rounded-sm ${star <= (result.confidence * 5) ? 'bg-indigo-600 shadow-[0_0_8px_rgba(79,70,229,0.4)]' : 'bg-slate-100'}`}></div>
-                                        ))}
-                                    </div>
-                                </div>
-                            </div>
                         </div>
+
 
                         {/* CTA: View Details Modal - Elite Redesign */}
                         <div className="bg-white rounded-[3rem] p-8 md:p-12 border border-slate-100 shadow-[0_40px_100px_-20px_rgba(0,0,0,0.05)] relative overflow-hidden group">

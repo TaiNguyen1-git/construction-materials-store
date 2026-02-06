@@ -102,18 +102,31 @@ const CONSTRUCTION_STANDARDS: ConstructionStandards = {
 
 // Market Price Fallback (VND) for items NOT in store
 const MARKET_PRICES: Record<string, { price: number, unit: string }> = {
-    'xi măng': { price: 85000, unit: 'bao' },
-    'gạch': { price: 1300, unit: 'viên' },
-    'cát': { price: 350000, unit: 'm³' },
+    'xi măng': { price: 82000, unit: 'bao' },
+    'gạch ống': { price: 1100, unit: 'viên' },
+    'gạch đinh': { price: 1350, unit: 'viên' },
+    'cát bê tông': { price: 420000, unit: 'm³' },
+    'cát xây': { price: 320000, unit: 'm³' },
+    'cát tô': { price: 340000, unit: 'm³' },
+    'cát san lấp': { price: 180000, unit: 'm³' },
     'đá 1×2': { price: 450000, unit: 'm³' },
     'đá 4×6': { price: 380000, unit: 'm³' },
-    'thép': { price: 17500000, unit: 'tấn' }, // ~17.5k/kg
-    'sắt': { price: 17500000, unit: 'tấn' },
-    'sơn': { price: 120000, unit: 'lít' },
-    'điện': { price: 45000, unit: 'mét' },
-    'nước': { price: 65000, unit: 'mét' },
+    'thép cuộn': { price: 18200000, unit: 'tấn' },
+    'thép thanh': { price: 18500000, unit: 'tấn' },
+    'sắt': { price: 18500000, unit: 'tấn' },
+    'sắt hộp': { price: 21500, unit: 'kg' }, // For purlins/grilles
+    'sơn': { price: 125000, unit: 'lít' },
+    'bột trét': { price: 280000, unit: 'bao' },
+    'chống thấm': { price: 145000, unit: 'kg' },
+    'kẽm buộc': { price: 22000, unit: 'kg' },
+    'đinh thép': { price: 25000, unit: 'kg' },
+    'que hàn': { price: 45000, unit: 'kg' },
+    'lưới mắt cáo': { price: 15000, unit: 'm' },
+    'ngói': { price: 16500, unit: 'viên' },
+    'tôn lạnh': { price: 85000, unit: 'm' },
+    'vít bắn tôn': { price: 65000, unit: 'hộp' },
     'keo chà ron': { price: 35000, unit: 'kg' },
-    'gạch lát nền': { price: 220000, unit: 'm²' } // Fallback for 60x60
+    'gạch lát nền': { price: 220000, unit: 'm²' }
 }
 
 export interface RoomDimension {
@@ -424,80 +437,179 @@ async function calculateMaterials(
 
 
     if (type === 'general') {
-        // Bricks: Average 100 bricks/m2 of wall area
-        // const _wallArea = wallPerimeter * 3.5
+        const totalBricks = Math.ceil(area * std.bricks)
         materials.push({
-            productName: 'Gạch ống 8×8×18cm',
-            quantity: Math.ceil(area * std.bricks),
+            productName: 'Gạch ống 8×8×18cm (Xây tường)',
+            quantity: Math.ceil(totalBricks * 0.8),
             unit: 'viên',
-            reason: `Định mức ~${std.bricks} viên / m² sàn cho ${style.replace('_', ' ')} (Bao gồm tường và cột)`
+            reason: `Dự toán xây tường gạch ống (~80% tổng gạch cho ${style})`
+        })
+        materials.push({
+            productName: 'Gạch đinh 4×8×18cm (Gia cố chân tường/bể)',
+            quantity: Math.ceil(totalBricks * 0.2),
+            unit: 'viên',
+            reason: `Gạch đinh dùng cho chân tường, móng, bể tự hoại (~20%)`
         })
 
-        // Cement
-        const cementBags = Math.ceil((area * std.cement) / 50)
+        const totalCementKg = area * std.cement
         materials.push({
-            productName: 'Xi măng xây tô (bao 50kg)',
-            quantity: cementBags,
+            productName: 'Xi măng bê tông (Portland)',
+            quantity: Math.ceil((totalCementKg * 0.4) / 50),
             unit: 'bao',
-            reason: `Định mức ~${std.cement} kg / m² sàn(${cementBags} bao)`
+            reason: `Hạng mục đổ bê tông móng, cột, dầm, sàn (40%)`
+        })
+        materials.push({
+            productName: 'Xi măng xây tô (Loại 1)',
+            quantity: Math.ceil((totalCementKg * 0.6) / 50),
+            unit: 'bao',
+            reason: `Vữa xây trát và hoàn thiện (60%)`
         })
 
-        // Steel
-        const steelTons = Number(((area * std.steel) / 1000).toFixed(2))
+        const totalSteelTons = (area * std.steel) / 1000
         materials.push({
-            productName: 'Sắt thép xây dựng (tổng hợp)',
-            quantity: steelTons,
+            productName: 'Thép cuộn Phi 6-8 (Làm đai/Sàn)',
+            quantity: Number((totalSteelTons * 0.35).toFixed(2)),
             unit: 'tấn',
-            reason: `Định mức thép ~${std.steel} kg / m² cho kết cấu ${style.replace('_', ' ')} `
+            reason: `Thép cuộn dùng làm đai kết cấu và thép sàn`
+        })
+        materials.push({
+            productName: 'Thép thanh vằn Phi 10-25 (Cột/Dầm)',
+            quantity: Number((totalSteelTons * 0.65).toFixed(2)),
+            unit: 'tấn',
+            reason: `Thép cây chịu lực chính cho khung nhà`
         })
 
-        // Sand Build
+        const totalSandM3 = area * std.sand_build
         materials.push({
-            productName: 'Cát xây tô',
-            quantity: Number((area * std.sand_build).toFixed(1)),
+            productName: 'Cát bê tông (Cát vàng hạt lớn)',
+            quantity: Number((totalSandM3 * 0.4).toFixed(1)),
             unit: 'm³',
-            reason: `Dùng cho vữa xây và trát tường(~${std.sand_build}m³/m²)`
+            reason: `Cát sạch dùng để trộn bê tông`
         })
-
-        // Sand Fill
         materials.push({
-            productName: 'Cát san lấp',
+            productName: 'Cát tô sạch (Mịn)',
+            quantity: Number((totalSandM3 * 0.6).toFixed(1)),
+            unit: 'm³',
+            reason: `Cát mịn dùng cho công tác trát tường`
+        })
+        materials.push({
+            productName: 'Cát san lấp (Nền móng)',
             quantity: Number((area * std.sand_fill).toFixed(1)),
             unit: 'm³',
-            reason: `Dùng cho tôn nền và móng`
+            reason: `Dùng cho tôn nền và đệm móng chống lún`
         })
 
-        // Stone 1x2
         materials.push({
-            productName: 'Đá 1×2',
+            productName: 'Đá 1×2 (Bê tông)',
             quantity: Number((area * std.stone_1x2).toFixed(1)),
             unit: 'm³',
-            reason: `Dùng cho bê tông khung cột, dầm sàn`
+            reason: `Cốt liệu đá cho bê tông các hạng mục chịu lực`
         })
-
-        // Stone 4x6
         materials.push({
-            productName: 'Đá 4×6',
+            productName: 'Đá 4×6 (Bê tông lót)',
             quantity: Number((area * std.stone_4x6).toFixed(1)),
             unit: 'm³',
-            reason: `Dùng cho bê tông lót móng`
+            reason: `Lớp bê tông lót móng và chống úng`
         })
 
-        // Pipes & Electric
+        // Essential Hardware items
         materials.push({
-            productName: 'Hệ thống điện (ống & dây)',
-            quantity: Math.ceil(area * std.electric_pipes),
-            unit: 'mét',
-            reason: `Ước tính hệ thống điện theo diện tích sàn`
+            productName: 'Kẽm buộc (1ly)',
+            quantity: Math.ceil(area * 0.08),
+            unit: 'kg',
+            reason: `Phụ kiện buộc cố định thép sàn và cột`
         })
         materials.push({
-            productName: 'Hệ thống cấp thoát nước',
-            quantity: Math.ceil(area * std.water_pipes),
-            unit: 'mét',
-            reason: `Ước tính đường ống nhựa cấp thoát nước`
+            productName: 'Đinh thép (tổng hợp)',
+            quantity: Math.ceil(area * 0.04),
+            unit: 'kg',
+            reason: `Dùng đóng cốp pha và giàn giáo gỗ`
+        })
+        materials.push({
+            productName: 'Que hàn điện (Hồ quang)',
+            quantity: Math.ceil(area * 0.02),
+            unit: 'kg',
+            reason: `Hàn các mối liên kết sắt hộp và thép kết cấu`
         })
 
-    } else if (type === 'flooring') {
+        // Sắt hộp cho Lan can & Khung bảo vệ (Estimated for urban/townhouses)
+        if (style !== 'nhà_cấp_4') {
+            materials.push({
+                productName: 'Sắt hộp kẽm (Lan can/Khung)',
+                quantity: Math.ceil(area * 1.5), // Approx kg per m2 floor for rails
+                unit: 'kg',
+                reason: `Ước tính cho lan can cầu thang, ban công và khung bảo vệ`
+            })
+        }
+
+        // Finishing VLXD
+        materials.push({
+            productName: 'Bột trét tường nội/ngoại thất',
+            quantity: Math.ceil((area * 3.0) / 1.2 / 40),
+            unit: 'bao',
+            reason: `Lớp bả phẳng bề mặt trước khi sơn`
+        })
+        materials.push({
+            productName: 'Sơn lót kháng kiềm',
+            quantity: Math.ceil((area * 3.0) / 10),
+            unit: 'lít',
+            reason: `Sơn bảo vệ bề mặt tường chống ẩm mốc`
+        })
+        materials.push({
+            productName: 'Lưới mắt cáo (Chống nứt)',
+            quantity: Math.ceil(area * 0.6),
+            unit: 'm',
+            reason: `Gia cố các góc tường và vị trí tiếp giáp đà - tường`
+        })
+        materials.push({
+            productName: 'Phụ gia chống thấm (Sika/Waterproofing)',
+            quantity: Math.ceil(area * 0.1),
+            unit: 'kg',
+            reason: `Dùng cho khu vực ban công, sân thượng và toilet`
+        })
+
+        // ROOFING SYSTEM
+        if (_roofType === 'mái_thái') {
+            materials.push({
+                productName: 'Ngói lợp (Mái thái)',
+                quantity: Math.ceil(area * 10),
+                unit: 'viên',
+                reason: `Ước tính số lượng ngói dựa trên diện tích sàn (10 viên/m2)`
+            })
+            materials.push({
+                productName: 'Sắt hộp mạ kẽm (Xà gồ mái)',
+                quantity: Math.ceil(area * 4.5), // Approx kg/m2 floor for roof frame
+                unit: 'kg',
+                reason: `Hệ khung kèo, xà gồ thép cho mái lợp ngói`
+            })
+            materials.push({
+                productName: 'Vít bắn ngói/tôn',
+                quantity: 1,
+                unit: 'hộp',
+                reason: `Vít chuyên dụng lắp đặt hệ mái`
+            })
+        } else if (_roofType === 'mái_tôn') {
+            materials.push({
+                productName: 'Tôn lạnh màu (Mái tôn)',
+                quantity: Math.ceil(area * 1.2), // Incl. overlap
+                unit: 'm',
+                reason: `Tôn lợp mái và máng xối`
+            })
+            materials.push({
+                productName: 'Sắt hộp mạ kẽm (Xà gồ mái)',
+                quantity: Math.ceil(area * 3.5),
+                unit: 'kg',
+                reason: `Hệ xà gồ thép chịu lực cho mái tôn`
+            })
+            materials.push({
+                productName: 'Vít bắn tôn (Ron cao su)',
+                quantity: 1,
+                unit: 'hộp',
+                reason: `Vít bắn tôn chống dột`
+            })
+        }
+    }
+    else if (type === 'flooring') {
         const floorStd = CONSTRUCTION_STANDARDS.flooring
         materials.push({
             productName: 'Gạch lát nền 60×60cm',
@@ -557,16 +669,17 @@ async function enrichMaterialsWithProducts(materials: MaterialEstimate[]): Promi
         let searchName = m.productName.split('(')[0].trim()
         let excludeKeywords: string[] = []
 
-        // Special handling to prevent mis-matching generic "Gạch"
-        if (m.productName.toLowerCase().includes('lát nền')) {
-            excludeKeywords = ['đinh', 'ống', 'thẻ', 'xây']
-        }
-
-        // Special mapping for Stone/Cement/Steel to be more specific
+        // Special mapping for more specific matching
         if (m.productName.includes('1×2')) searchName = '1×2'
         if (m.productName.includes('4×6')) searchName = '4×6'
         if (m.productName.toLowerCase().includes('xi măng')) searchName = 'Xi măng'
-        if (m.productName.toLowerCase().includes('thép')) searchName = 'Thép'
+        if (m.productName.toLowerCase().includes('thép cuộn')) searchName = 'Thép cuộn'
+        if (m.productName.toLowerCase().includes('thép thanh')) searchName = 'Thép thanh'
+        if (m.productName.toLowerCase().includes('sắt hộp')) searchName = 'Sắt hộp'
+        if (m.productName.toLowerCase().includes('tôn')) searchName = 'Tôn'
+        if (m.productName.toLowerCase().includes('thép') && !searchName.includes('thanh') && !searchName.includes('cuộn')) searchName = 'Thép'
+        if (m.productName.toLowerCase().includes('gạch ống')) searchName = 'Gạch ống'
+        if (m.productName.toLowerCase().includes('gạch đinh')) searchName = 'Gạch đinh'
 
         let product = await prisma.product.findFirst({
             where: {
