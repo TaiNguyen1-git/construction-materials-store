@@ -7,7 +7,7 @@ import {
     Search, User, MoreVertical,
     Phone, ArrowLeft, Loader2,
     Trash2, Flag, Check, CheckCheck,
-    Image as ImageIcon, FileText, X, Video, ChevronDown
+    Image as ImageIcon, FileText, X, Video, ChevronDown, Sparkles
 } from 'lucide-react'
 import { getAuthHeaders } from '@/lib/api-client'
 import { getFirebaseDatabase } from '@/lib/firebase'
@@ -155,10 +155,13 @@ function MessagesContent() {
         if (!content && !fileData) return
 
         const tempId = 'temp-' + Date.now()
+        // Use a consistent ID from the authenticated user
+        const currentUserId = user?.id
+
         const optimisticMsg = {
             id: tempId,
             tempId: tempId,
-            senderId: user?.id,
+            senderId: currentUserId,
             senderName: user?.name || 'Admin',
             content: content,
             fileUrl: fileData?.fileUrl,
@@ -187,9 +190,11 @@ function MessagesContent() {
                     fileUrl: fileData?.fileUrl,
                     fileName: fileData?.fileName,
                     fileType: fileData?.fileType,
-                    tempId: tempId
+                    tempId: tempId,
+                    senderId: currentUserId // Explicitly send the correct senderId
                 })
             })
+
 
             if (!res.ok) {
                 toast.error('Gửi tin nhắn thất bại')
@@ -510,7 +515,16 @@ function MessagesContent() {
                             className="flex-1 overflow-y-auto px-6 py-6 space-y-4 bg-gray-50/50 custom-scrollbar relative"
                         >
                             {messages.map((msg, idx) => {
-                                const isMe = msg.senderId === user?.id
+                                const isAI = msg.senderId === 'smartbuild_bot' || (msg as any).senderRole === 'BOT'
+                                const isStaffFlag = msg.senderId === 'admin_support'
+                                const isTrulyMe = (msg as any).realSenderId ? String((msg as any).realSenderId) === String(user?.id) : String(msg.senderId) === String(user?.id)
+
+                                // Roles
+                                const role = (msg as any).senderRole
+                                const isAdminRole = role === 'MANAGER'
+                                const isStaffRole = role === 'EMPLOYEE'
+
+                                const isMe = isTrulyMe || isStaffFlag
                                 const showAvatar = !isMe && (idx === 0 || messages[idx - 1].senderId !== msg.senderId)
 
                                 return (
@@ -518,14 +532,45 @@ function MessagesContent() {
                                         {!isMe && (
                                             <div className="w-8 h-8 flex-shrink-0">
                                                 {showAvatar ? (
-                                                    <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-[10px] font-bold text-gray-600">
-                                                        {msg.senderName.charAt(0)}
+                                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold ${isAI ? 'bg-purple-100 text-purple-600' : 'bg-gray-200 text-gray-600'}`}>
+                                                        {isAI ? 'AI' : msg.senderName.charAt(0)}
                                                     </div>
                                                 ) : <div className="w-8" />}
                                             </div>
                                         )}
 
                                         <div className="max-w-[70%] group relative">
+                                            {/* Badge for distinguishing sender */}
+                                            <div className={`flex items-center gap-1 mb-1 ${isMe ? 'justify-end' : 'justify-start'}`}>
+                                                {isAI && (
+                                                    <span className="px-1.5 py-0.5 rounded bg-purple-100 text-purple-600 text-[8px] font-black uppercase tracking-tighter shadow-sm flex items-center gap-0.5">
+                                                        <Sparkles className="w-2 h-2" /> AI BOT
+                                                    </span>
+                                                )}
+
+                                                {/* If it's me, show "BẠN" */}
+                                                {isTrulyMe && (
+                                                    <span className="px-1.5 py-0.5 rounded bg-green-100 text-green-600 text-[8px] font-black uppercase tracking-tighter shadow-sm">
+                                                        BẠN ({isAdminRole ? 'ADMIN' : (isStaffRole ? 'NHÂN VIÊN' : 'ME')})
+                                                    </span>
+                                                )}
+
+                                                {/* If it's NOT me, but it's an admin/staff identity */}
+                                                {!isTrulyMe && isStaffFlag && (
+                                                    <>
+                                                        {isAdminRole ? (
+                                                            <span className="px-1.5 py-0.5 rounded bg-red-100 text-red-600 text-[8px] font-black uppercase tracking-tighter shadow-sm">
+                                                                ADMIN: {msg.senderName}
+                                                            </span>
+                                                        ) : (
+                                                            <span className="px-1.5 py-0.5 rounded bg-blue-100 text-blue-600 text-[8px] font-black uppercase tracking-tighter shadow-sm">
+                                                                NV: {msg.senderName}
+                                                            </span>
+                                                        )}
+                                                    </>
+                                                )}
+                                            </div>
+
                                             <div className={`p-3.5 rounded-2xl shadow-sm border ${isMe
                                                 ? 'bg-indigo-600 text-white border-indigo-500 rounded-br-none'
                                                 : 'bg-white text-gray-800 border-gray-100 rounded-bl-none'

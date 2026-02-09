@@ -2268,6 +2268,8 @@ model Message {
   conversationId String       @db.ObjectId
   senderId       String
   senderName     String
+  senderRole     String?
+  realSenderId   String?
   content        String?
   
   // File attachments

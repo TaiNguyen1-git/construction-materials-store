@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { ShoppingBag, Phone, Mail, Crown, Clock, Package, ChevronRight, User, AlertCircle } from 'lucide-react'
+import { getAuthHeaders } from '@/lib/api-client'
 import { CustomerContext, CustomerOrder } from './types'
 
 interface CustomerContextPanelProps {
@@ -39,7 +40,9 @@ export default function CustomerContextPanel({
     const fetchCustomerContext = async () => {
         try {
             setLoading(true)
-            const res = await fetch(`/api/customers/${customerId}/context`)
+            const res = await fetch(`/api/customers/${customerId}/context`, {
+                headers: getAuthHeaders()
+            })
             if (!res.ok) throw new Error('Failed to fetch')
             const data = await res.json()
             setCustomer(data.data)

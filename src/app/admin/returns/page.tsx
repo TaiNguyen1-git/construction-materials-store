@@ -360,18 +360,18 @@ export default function AdminReturnsPage() {
                                             </span>
                                         </td>
                                         <td className="px-6 py-4">
-                                            <div className="text-sm font-bold text-slate-900 line-clamp-1 group-hover:text-blue-600 transition-colors uppercase tracking-tight">
+                                            <div className="text-sm font-bold text-slate-900 group-hover:text-blue-600 transition-colors uppercase tracking-tight break-words min-w-[120px]">
                                                 {r.supplier?.name}
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-500">
-                                                <FileText className="w-3.5 h-3.5 text-indigo-400" />
+                                        <td className="px-6 py-4">
+                                            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-500 break-all">
+                                                <FileText className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
                                                 {r.purchaseOrder?.orderNumber}
                                             </div>
                                         </td>
                                         <td className="px-6 py-4">
-                                            <p className="text-xs font-bold text-slate-500 line-clamp-1 italic max-w-xs" title={r.reason}>
+                                            <p className="text-xs font-bold text-slate-500 italic" title={r.reason}>
                                                 "{r.reason}"
                                             </p>
                                         </td>

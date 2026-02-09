@@ -35,9 +35,14 @@ export async function GET(
             })
         }
 
-        // Fetch customer data
-        const customer = await prisma.customer.findUnique({
-            where: { id: customerId },
+        // Fetch customer data - Try finding by Customer ID OR User ID
+        let customer = await prisma.customer.findFirst({
+            where: {
+                OR: [
+                    { id: customerId },
+                    { userId: customerId }
+                ]
+            },
             include: {
                 user: {
                     select: {
@@ -49,20 +54,50 @@ export async function GET(
             }
         })
 
+        // If no customer record, try fetching basic user info (it might be a Supplier or Employee)
         if (!customer) {
-            return NextResponse.json({ message: 'Customer not found' }, { status: 404 })
+            const user = await prisma.user.findUnique({
+                where: { id: customerId },
+                select: {
+                    id: true,
+                    name: true,
+                    email: true,
+                    phone: true,
+                    role: true
+                }
+            })
+
+            if (!user) {
+                return NextResponse.json({ message: 'User not found' }, { status: 404 })
+            }
+
+            return NextResponse.json({
+                success: true,
+                data: {
+                    id: user.id,
+                    name: user.name || 'Người dùng',
+                    email: user.email,
+                    phone: user.phone,
+                    membershipTier: 'NONE',
+                    totalSpent: 0,
+                    totalOrders: 0,
+                    recentOrders: [],
+                    isGuest: false,
+                    role: user.role
+                }
+            })
         }
 
         // Fetch order statistics
         const orderStats = await prisma.order.aggregate({
-            where: { customerId },
+            where: { customerId: customer.id },
             _sum: { netAmount: true },
             _count: { id: true }
         })
 
         // Fetch recent orders
         const recentOrders = await prisma.order.findMany({
-            where: { customerId },
+            where: { customerId: customer.id },
             orderBy: { createdAt: 'desc' },
             take: 5,
             include: {
@@ -74,7 +109,7 @@ export async function GET(
 
         // Determine membership tier based on total spent
         const totalSpent = orderStats._sum.netAmount || 0
-        let membershipTier: 'BRONZE' | 'SILVER' | 'GOLD' | 'PLATINUM' = 'BRONZE'
+        let membershipTier: 'BRONZE' | 'SILVER' | 'GOLD' | 'PLATINUM' | 'NONE' = 'BRONZE'
         if (totalSpent >= 100000000) membershipTier = 'PLATINUM' // 100M+
         else if (totalSpent >= 50000000) membershipTier = 'GOLD' // 50M+
         else if (totalSpent >= 10000000) membershipTier = 'SILVER' // 10M+

@@ -39,7 +39,8 @@ export async function POST(request: NextRequest) {
         if (isSupplierConv && isAdminUser) {
             // Admin sending in supplier conversation - use admin_support identity
             senderId = ADMIN_SUPPORT_ID
-            senderName = ADMIN_SUPPORT_NAME
+            // We keep the actual bodySenderName so admins can see who replied
+            if (bodySenderName) senderName = bodySenderName
         } else if (!bodySenderName) {
             // Regular user or supplier (if not providing name) - get their info
             const [user, supplier] = await Promise.all([
@@ -62,6 +63,8 @@ export async function POST(request: NextRequest) {
                 conversationId,
                 senderId,
                 senderName,
+                senderRole: isAdminUser ? userRole : (userId === 'smartbuild_bot' ? 'BOT' : 'CUSTOMER'),
+                realSenderId: userId,
                 content: content || '',
                 fileUrl,
                 fileName,
@@ -96,6 +99,8 @@ export async function POST(request: NextRequest) {
                 tempId: tempId || null,
                 senderId,
                 senderName,
+                senderRole: (message as any).senderRole,
+                realSenderId: userId,
                 content: content || '',
                 fileUrl: fileUrl || null,
                 fileName: fileName || null,
