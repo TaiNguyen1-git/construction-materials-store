@@ -121,3 +121,24 @@ export async function updateReturnStatus(id: string, status: 'RECEIVED' | 'REFUN
         return { success: false, error: 'Failed to update status' }
     }
 }
+
+export async function deleteReturn(id: string) {
+    try {
+        await prisma.$transaction(async (tx) => {
+            // First delete items
+            await tx.purchaseReturnItem.deleteMany({
+                where: { returnId: id }
+            })
+            // Then delete the return
+            await tx.purchaseReturn.delete({
+                where: { id }
+            })
+        })
+        revalidatePath('/admin/returns')
+        return { success: true }
+    } catch (error) {
+        console.error('Delete return error:', error)
+        return { success: false, error: 'Failed to delete return' }
+    }
+}
+

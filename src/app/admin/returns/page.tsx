@@ -6,7 +6,8 @@ import {
     getSuppliers,
     getEligiblePurchaseOrders,
     createReturn,
-    updateReturnStatus
+    updateReturnStatus,
+    deleteReturn
 } from './actions'
 import {
     Plus,
@@ -33,6 +34,8 @@ import {
     Users,
     Loader2,
     RefreshCw,
+    Eye,
+    Edit,
     Image as ImageIcon
 } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -43,6 +46,10 @@ export default function AdminReturnsPage() {
     const [loading, setLoading] = useState(true)
     const fileInputRef = useRef<HTMLInputElement>(null)
     const [showCreateModal, setShowCreateModal] = useState(false)
+    const [viewingReturn, setViewingReturn] = useState<any>(null)
+    const [editingReturn, setEditingReturn] = useState<any>(null)
+    const [deletingReturn, setDeletingReturn] = useState<any>(null)
+    const [actionLoading, setActionLoading] = useState(false)
 
     // Create Form States
     const [suppliers, setSuppliers] = useState<any[]>([])
@@ -170,6 +177,35 @@ export default function AdminReturnsPage() {
         setProcessingMethod('REFUND')
     }
 
+    const handleDelete = async () => {
+        if (!deletingReturn) return
+        setActionLoading(true)
+        const res = await deleteReturn(deletingReturn.id)
+        if (res.success) {
+            toast.success('Xóa yêu cầu thành công')
+            setDeletingReturn(null)
+            loadInitialData()
+        } else {
+            toast.error(res.error || 'Lỗi khi xóa')
+        }
+        setActionLoading(false)
+    }
+
+    const handleUpdateStatus = async (status: any) => {
+        if (!editingReturn) return
+        setActionLoading(true)
+        const res = await updateReturnStatus(editingReturn.id, status)
+        if (res.success) {
+            toast.success('Cập nhật trạng thái thành công')
+            setEditingReturn(null)
+            loadInitialData()
+        } else {
+            toast.error(res.error || 'Lỗi khi cập nhật')
+        }
+        setActionLoading(false)
+    }
+
+
     const currentSupplierInfo = suppliers.find(s => s.id === selectedSupplier)
     const totalRefundPreview = Object.values(selectedItems).reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0)
 
@@ -251,6 +287,14 @@ export default function AdminReturnsPage() {
         }
     }
 
+    const [searchTerm, setSearchTerm] = useState('')
+
+    const filteredReturns = returns.filter(r =>
+        r.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        r.supplier?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        r.purchaseOrder?.orderNumber?.toLowerCase().includes(searchTerm.toLowerCase())
+    )
+
     return (
         <div className="min-h-screen bg-gray-50 p-8">
             {/* Header */}
@@ -276,10 +320,13 @@ export default function AdminReturnsPage() {
                         <input
                             type="text"
                             placeholder="Tìm theo mã đơn, NCC..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
                             className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
                     </div>
                 </div>
+
 
                 <div className="overflow-x-auto">
                     <table className="w-full text-left">
@@ -292,19 +339,20 @@ export default function AdminReturnsPage() {
                                 <th className="px-6 py-4 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest">Giá trị hoàn (VNĐ)</th>
                                 <th className="px-6 py-4 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">Trạng thái</th>
                                 <th className="px-6 py-4 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest">Ngày tạo</th>
+                                <th className="px-6 py-4 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest">Thao tác</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
                             {loading ? (
                                 <tr>
-                                    <td colSpan={7} className="p-8 text-center text-gray-500">Đang tải dữ liệu...</td>
+                                    <td colSpan={8} className="p-8 text-center text-gray-500">Đang tải dữ liệu...</td>
                                 </tr>
-                            ) : returns.length === 0 ? (
+                            ) : filteredReturns.length === 0 ? (
                                 <tr>
-                                    <td colSpan={7} className="p-8 text-center text-gray-500">Chưa có yêu cầu hoàn trả nào</td>
+                                    <td colSpan={8} className="p-8 text-center text-gray-500">Chưa có yêu cầu hoàn trả nào</td>
                                 </tr>
                             ) : (
-                                returns.map((r) => (
+                                filteredReturns.map((r) => (
                                     <tr key={r.id} className="hover:bg-blue-50/30 transition-colors group border-b border-slate-50 last:border-0">
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <span className="text-xs font-black text-blue-600 font-mono tracking-tighter bg-blue-50 px-2.5 py-1 rounded-lg">
@@ -339,6 +387,31 @@ export default function AdminReturnsPage() {
                                             <span className="text-xs font-bold text-slate-400">
                                                 {new Date(r.createdAt).toLocaleDateString('vi-VN')}
                                             </span>
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-right">
+                                            <div className="flex justify-end gap-2">
+                                                <button
+                                                    onClick={() => setViewingReturn(r)}
+                                                    className="p-2 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-600 hover:text-white transition-all active:scale-95"
+                                                    title="Xem chi tiết"
+                                                >
+                                                    <Eye size={16} />
+                                                </button>
+                                                <button
+                                                    onClick={() => setEditingReturn(r)}
+                                                    className="p-2 bg-indigo-50 text-indigo-600 rounded-xl hover:bg-indigo-600 hover:text-white transition-all active:scale-95"
+                                                    title="Cập nhật trạng thái"
+                                                >
+                                                    <Edit size={16} />
+                                                </button>
+                                                <button
+                                                    onClick={() => setDeletingReturn(r)}
+                                                    className="p-2 bg-red-50 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all active:scale-95"
+                                                    title="Xóa"
+                                                >
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
                                 ))
@@ -616,6 +689,155 @@ export default function AdminReturnsPage() {
                     </div>
                 </div>
             )}
+            {/* Viewing Modal */}
+            {viewingReturn && (
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-[40px] w-full max-w-2xl shadow-2xl border border-white overflow-hidden animate-in fade-in zoom-in duration-300">
+                        <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-white">
+                            <div>
+                                <h2 className="text-2xl font-black text-slate-800 tracking-tight">CHI TIẾT HOÀN TRẢ</h2>
+                                <p className="text-[10px] font-black text-blue-500 uppercase tracking-widest mt-1">Mã: #{viewingReturn.id.substring(viewingReturn.id.length - 8).toUpperCase()}</p>
+                            </div>
+                            <button onClick={() => setViewingReturn(null)} className="p-3 bg-slate-50 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-2xl transition-all">
+                                <XCircle className="w-6 h-6" />
+                            </button>
+                        </div>
+                        <div className="p-8 space-y-6 max-h-[70vh] overflow-y-auto">
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="p-4 bg-slate-50 rounded-3xl">
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Nhà cung cấp</p>
+                                    <p className="text-sm font-black text-slate-800 uppercase">{viewingReturn.supplier?.name}</p>
+                                </div>
+                                <div className="p-4 bg-slate-50 rounded-3xl">
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Đơn nhập gốc</p>
+                                    <p className="text-sm font-black text-slate-800">{viewingReturn.purchaseOrder?.orderNumber}</p>
+                                </div>
+                                <div className="p-4 bg-slate-50 rounded-3xl">
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Phương thức</p>
+                                    <p className="text-sm font-black text-slate-800 uppercase">{viewingReturn.processingMethod}</p>
+                                </div>
+                                <div className="p-4 bg-slate-50 rounded-3xl">
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Ngày tạo</p>
+                                    <p className="text-sm font-black text-slate-800">{new Date(viewingReturn.createdAt).toLocaleDateString('vi-VN')}</p>
+                                </div>
+                            </div>
+
+                            <div className="space-y-3">
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Danh sách sản phẩm</p>
+                                <div className="space-y-2">
+                                    {viewingReturn.items?.map((item: any) => (
+                                        <div key={item.id} className="flex justify-between items-center p-4 bg-blue-50/50 rounded-2xl border border-blue-100/50">
+                                            <div>
+                                                <p className="text-sm font-black text-slate-800 uppercase tracking-tight">{item.product?.name}</p>
+                                                <p className="text-xs font-bold text-slate-500 mt-0.5">SL: {item.quantity} {item.product?.unit} • {item.condition}</p>
+                                            </div>
+                                            <p className="text-sm font-black text-blue-600">{(item.quantity * item.unitPrice).toLocaleString()}đ</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="p-6 bg-amber-50 rounded-3xl border border-amber-100">
+                                <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest mb-2">Lý do hoàn trả</p>
+                                <p className="text-sm font-bold text-amber-800 italic">"{viewingReturn.reason}"</p>
+                            </div>
+
+                            {viewingReturn.evidenceUrls?.length > 0 && (
+                                <div className="space-y-3">
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Bằng chứng hình ảnh</p>
+                                    <div className="grid grid-cols-4 gap-2">
+                                        {viewingReturn.evidenceUrls.map((url: string, i: number) => (
+                                            <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="aspect-square rounded-2xl overflow-hidden border border-slate-100">
+                                                <img src={url} className="w-full h-full object-cover" alt="Evidence" />
+                                            </a>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                        <div className="p-8 bg-slate-50 flex justify-between items-center">
+                            <div>
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Tổng tiền hoàn</p>
+                                <p className="text-xl font-black text-slate-800">{viewingReturn.totalRefundAmount.toLocaleString()} VNĐ</p>
+                            </div>
+                            <button onClick={() => setViewingReturn(null)} className="px-8 py-3 bg-white text-slate-400 font-bold rounded-2xl hover:bg-slate-100 transition-all uppercase text-[10px] tracking-widest shadow-sm">
+                                Đóng
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Editing Modal - Status Update */}
+            {editingReturn && (
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-[40px] w-full max-w-md shadow-2xl border border-white overflow-hidden animate-in fade-in zoom-in duration-300">
+                        <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-white">
+                            <div>
+                                <h2 className="text-xl font-black text-slate-800 tracking-tight text-center">CẬP NHẬT TRẠNG THÁI</h2>
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Mã: #{editingReturn.id.substring(editingReturn.id.length - 6).toUpperCase()}</p>
+                            </div>
+                            <button onClick={() => setEditingReturn(null)} className="p-3 bg-slate-50 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-2xl transition-all">
+                                <XCircle className="w-6 h-6" />
+                            </button>
+                        </div>
+                        <div className="p-8 space-y-3">
+                            {[
+                                { status: 'PENDING', label: 'Chờ xử lý', color: 'amber', icon: AlertCircle },
+                                { status: 'RECEIVED', label: 'Đã nhận hàng', color: 'blue', icon: Truck },
+                                { status: 'REFUNDED', label: 'Đã hoàn tiền', color: 'emerald', icon: CheckCircle },
+                                { status: 'CANCELLED', label: 'Hủy yêu cầu', color: 'slate', icon: XCircle }
+                            ].map((s) => (
+                                <button
+                                    key={s.status}
+                                    onClick={() => handleUpdateStatus(s.status)}
+                                    disabled={actionLoading}
+                                    className={`w-full flex items-center justify-between p-4 rounded-3xl border-2 transition-all ${editingReturn.status === s.status ? `bg-${s.color}-50 border-${s.color}-200` : 'bg-white border-slate-50 hover:border-blue-100'}`}
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <div className={`w-10 h-10 rounded-2xl bg-${s.color}-50 flex items-center justify-center`}>
+                                            <s.icon className={`w-5 h-5 text-${s.color}-500`} />
+                                        </div>
+                                        <span className={`text-[12px] font-black uppercase ${editingReturn.status === s.status ? `text-${s.color}-700` : 'text-slate-500'}`}>{s.label}</span>
+                                    </div>
+                                    {editingReturn.status === s.status && <CheckCircle className={`w-5 h-5 text-${s.color}-500`} />}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Deleting Modal */}
+            {deletingReturn && (
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-[40px] w-full max-w-sm shadow-2xl border border-white overflow-hidden animate-in fade-in zoom-in duration-300">
+                        <div className="p-8 text-center space-y-4">
+                            <div className="w-20 h-20 bg-red-50 text-red-500 rounded-[32px] flex items-center justify-center mx-auto mb-6">
+                                <Trash2 className="w-10 h-10" />
+                            </div>
+                            <h2 className="text-2xl font-black text-slate-800 tracking-tight">XÓA YÊU CẦU?</h2>
+                            <p className="text-sm font-bold text-slate-400">Hành động này không thể hoàn tác. Bạn có chắc chắn muốn xóa yêu cầu <span className="text-red-500 font-black">#{deletingReturn.id.substring(deletingReturn.id.length - 6).toUpperCase()}</span>?</p>
+                        </div>
+                        <div className="p-8 bg-slate-50 flex gap-4">
+                            <button
+                                onClick={() => setDeletingReturn(null)}
+                                className="flex-1 py-4 bg-white text-slate-400 font-bold rounded-2xl hover:bg-slate-100 transition-all uppercase text-[10px] tracking-widest shadow-sm"
+                            >
+                                Hủy
+                            </button>
+                            <button
+                                onClick={handleDelete}
+                                disabled={actionLoading}
+                                className="flex-1 py-4 bg-red-500 text-white font-black rounded-2xl hover:bg-red-600 transition-all uppercase text-[10px] tracking-widest shadow-xl shadow-red-500/20 disabled:opacity-50"
+                            >
+                                {actionLoading ? 'Đang xóa...' : 'Xác nhận xóa'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     )
 }
+
