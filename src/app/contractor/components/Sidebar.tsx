@@ -20,7 +20,9 @@ import {
     ChevronRight,
     Wallet,
     Receipt,
-    Shield
+    Shield,
+    HelpCircle,
+    MessageSquare
 } from 'lucide-react'
 import { useContractorCartStore } from '@/stores/contractorCartStore'
 
@@ -69,6 +71,13 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
             items: [
                 { href: '/contractor/invoices', icon: Receipt, label: 'Hóa đơn VAT' },
                 { href: '/contractor/insurance', icon: Shield, label: 'Bảo hiểm công trình' },
+            ]
+        },
+        {
+            title: 'Hỗ trợ',
+            items: [
+                { href: '/contractor/help', icon: HelpCircle, label: 'Trung tâm hỗ trợ' },
+                { href: '/contractor/disputes', icon: MessageSquare, label: 'Tranh chấp' },
             ]
         }
     ]

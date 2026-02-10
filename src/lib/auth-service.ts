@@ -299,7 +299,7 @@ class EnhancedAuthService {
     }
 
     if (data.user) {
-      this.handleAuthSuccess(data.user)
+      this.handleAuthSuccess(data.user, data.accessToken)
     }
     return data
   }
@@ -333,7 +333,7 @@ class EnhancedAuthService {
     return response.ok
   }
 
-  private handleAuthSuccess(user: User) {
+  private handleAuthSuccess(user: User, token?: string) {
     this.user = user
     this.setGuestMode(false)
     localStorage.setItem('auth_active', 'true')
@@ -343,6 +343,16 @@ class EnhancedAuthService {
       email: user.email,
       role: user.role
     }))
+
+    // Handle Supplier specific storage for legacy dashboard support
+    if (user.role === 'SUPPLIER' && (user as any).supplier) {
+      const supplier = (user as any).supplier
+      localStorage.setItem('supplier_id', supplier.id)
+      localStorage.setItem('supplier_name', supplier.name)
+      if (token) {
+        localStorage.setItem('supplier_token', token)
+      }
+    }
 
     // Clear legacy auth data to avoid conflicts
     localStorage.removeItem('user')

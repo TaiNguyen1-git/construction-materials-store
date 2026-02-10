@@ -46,6 +46,18 @@ export default function SystemInterceptor() {
             if (json.data?.type) {
                 const data = json.data as InterceptorData
 
+                // Persistence Check: If already dismissed in this browser, don't show
+                if (data.data?.id) {
+                    try {
+                        const dismissedIds = JSON.parse(localStorage.getItem('dismissed_interceptors') || '[]')
+                        if (dismissedIds.includes(data.data.id)) {
+                            return
+                        }
+                    } catch (e) {
+                        // Ignore storage errors
+                    }
+                }
+
                 // Path/Feature Matching
                 if (data.data?.targetPath) {
                     const targetKey = data.data.targetPath
@@ -101,6 +113,25 @@ export default function SystemInterceptor() {
             return
         }
 
+        if (action === 'FEEDBACK_SUBMIT') {
+            setVisible(false)
+            setDismissed(true)
+        }
+
+        // Persistence
+        const interceptorId = interceptor?.data?.id
+        if (interceptorId && (action === 'DISMISSED' || action === 'SEEN' || action === 'NAVIGATE' || action === 'FEEDBACK_SUBMIT' || action === 'ACCEPTED')) {
+            try {
+                const dismissedIds = JSON.parse(localStorage.getItem('dismissed_interceptors') || '[]')
+                if (!dismissedIds.includes(interceptorId)) {
+                    dismissedIds.push(interceptorId)
+                    localStorage.setItem('dismissed_interceptors', JSON.stringify(dismissedIds))
+                }
+            } catch (e) {
+                // Ignore storage errors
+            }
+        }
+
         setLoading(true)
         try {
             const res = await fetch('/api/interceptor/submit', {
@@ -116,15 +147,15 @@ export default function SystemInterceptor() {
                 })
             })
 
-            // If action was already handled UI-wise, just finish loading
-            if (action === 'FEEDBACK_SUBMIT' && res.ok) {
-                setVisible(false)
-                setDismissed(true)
-                toast.success('Cảm ơn bạn đã đánh giá!')
+            if (action === 'FEEDBACK_SUBMIT') {
+                if (res.ok) {
+                    toast.success('Cảm ơn bạn đã đánh giá!')
+                } else {
+                    toast.error('Gửi đánh giá không thành công, chúng tôi sẽ ghi nhận sau.')
+                }
             }
         } catch (e) {
-            // Silently ignore submission errors for guests/network issues
-            if (action === 'FEEDBACK_SUBMIT') toast.error('Lỗi gửi đánh giá')
+            if (action === 'FEEDBACK_SUBMIT') toast.error('Lỗi kết nối khi gửi đánh giá')
         } finally {
             setLoading(false)
         }

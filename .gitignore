@@ -84,3 +84,5 @@ prisma/seed.ts
 docs/BACKUP_STRATEGY.md
 scripts/db-backup.ts
 
+.gemini/loyalty-upgrade-plan.md
+.agent/artifacts/customer-care-plan.md

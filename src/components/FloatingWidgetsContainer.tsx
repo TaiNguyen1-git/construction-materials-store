@@ -1,24 +1,69 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
-import { X, Headset, User, Phone, Mail, Sparkles, Plus, MessageSquare, ArrowRight, ShieldCheck, Clock } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { X, Headset, User, Phone, Sparkles, Plus, ArrowRight, ShieldCheck, Clock, BookOpen } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useAuth } from '@/contexts/auth-context'
 import { usePathname } from 'next/navigation'
 import ChatbotPremium from './chatbot/ChatbotPremium'
+import Link from 'next/link'
+
+// Số điện thoại Zalo từ biến môi trường
+const ZALO_PHONE = process.env.NEXT_PUBLIC_CONTACT_PHONE || '0987654321'
 
 export default function FloatingWidgetsContainer() {
     const pathname = usePathname()
     const [isExpanded, setIsExpanded] = useState(false)
     const [activePanel, setActivePanel] = useState<'none' | 'chat' | 'support'>('none')
     const [isHovered, setIsHovered] = useState(false)
+    const [adminStatus, setAdminStatus] = useState<'online' | 'away' | 'offline'>('online')
+
+    // Fetch admin status
+    useEffect(() => {
+        const checkStatus = async () => {
+            try {
+                const res = await fetch('/api/support/status')
+                if (res.ok) {
+                    const data = await res.json()
+                    setAdminStatus(data.status || 'online')
+                }
+            } catch {
+                setAdminStatus('online')
+            }
+        }
+        checkStatus()
+        const interval = setInterval(checkStatus, 60000) // Check every minute
+        return () => clearInterval(interval)
+    }, [])
 
     // Hide logic
     if (pathname?.startsWith('/admin')) return null
-    const hiddenPatterns = ['/login', '/register', '/forgot-password', '/contractor/login', '/contractor/register', '/contractor/messages', '/messages', '/negotiate']
+    if (pathname?.startsWith('/contractor')) return null
+    if (pathname?.startsWith('/supplier')) return null
+    if (pathname?.startsWith('/ncc')) return null // Alias for supplier
+
+    const hiddenPatterns = ['/login', '/register', '/forgot-password', '/messages', '/negotiate']
     if (hiddenPatterns.some(pattern => pathname?.includes(pattern))) return null
 
     const closePanel = () => setActivePanel('none')
+
+    const getStatusColor = () => {
+        switch (adminStatus) {
+            case 'online': return 'bg-emerald-500'
+            case 'away': return 'bg-amber-500'
+            default: return 'bg-slate-400'
+        }
+    }
+
+    const getStatusText = () => {
+        switch (adminStatus) {
+            case 'online': return 'Đang trực tuyến'
+            case 'away': return 'Phản hồi trong 5p'
+            default: return 'Để lại tin nhắn'
+        }
+    }
+
+    const zaloLink = `https://zalo.me/${ZALO_PHONE.replace(/[^0-9]/g, '')}`
 
     return (
         <>
@@ -30,9 +75,14 @@ export default function FloatingWidgetsContainer() {
                         mb-6 transition-all duration-500 origin-bottom-right
                         ${isExpanded ? 'scale-100 opacity-100 translate-y-0 pointer-events-auto' : 'scale-75 opacity-0 translate-y-10 pointer-events-none'}
                     `}>
-                        <div className="glass-morphism p-3 rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.15)] flex flex-col gap-3 w-[280px]">
-                            <div className="px-4 py-2 border-b border-white/20 mb-1">
+                        <div className="glass-morphism p-3 rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.15)] flex flex-col gap-3 w-[300px]">
+                            {/* Header with Status */}
+                            <div className="px-4 py-2 border-b border-white/20 mb-1 flex items-center justify-between">
                                 <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em]">SmartBuild Hub</h4>
+                                <div className="flex items-center gap-1.5">
+                                    <span className={`w-2 h-2 rounded-full ${getStatusColor()} animate-pulse`} />
+                                    <span className="text-[9px] font-bold text-gray-500">{getStatusText()}</span>
+                                </div>
                             </div>
 
                             {/* Option: Chat AI */}
@@ -50,6 +100,26 @@ export default function FloatingWidgetsContainer() {
                                 <ArrowRight className="w-4 h-4 text-gray-300 group-hover:text-white transform translate-x-0 group-hover:translate-x-1 transition-all" />
                             </button>
 
+                            {/* Option: Zalo */}
+                            <a
+                                href={zaloLink}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="group relative overflow-hidden bg-white/40 hover:bg-blue-500/90 p-4 rounded-3xl transition-all duration-300 flex items-center gap-4 text-left"
+                            >
+                                <div className="w-12 h-12 bg-blue-500 rounded-2xl flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform duration-300">
+                                    {/* Zalo Icon */}
+                                    <svg viewBox="0 0 48 48" className="w-7 h-7" fill="white">
+                                        <path d="M24 4C12.954 4 4 12.954 4 24s8.954 20 20 20 20-8.954 20-20S35.046 4 24 4zm9.8 28.8c-.3.4-.8.6-1.3.6H14.2c-.9 0-1.4-1-1-1.7l3.4-5.6c.2-.3.5-.5.9-.5h12.1c.4 0 .7.2.9.5l3.4 5.6c.2.4.2.8-.1 1.1zm-1.5-8.8H15.7c-.6 0-1-.4-1-1v-8c0-.6.4-1 1-1h16.6c.6 0 1 .4 1 1v8c0 .6-.4 1-1 1z" />
+                                    </svg>
+                                </div>
+                                <div className="flex-1">
+                                    <h5 className="font-bold text-gray-900 group-hover:text-white text-sm transition-colors">Nhắn qua Zalo</h5>
+                                    <p className="text-[10px] text-gray-500 group-hover:text-blue-100 transition-colors">Tiện lợi trên điện thoại</p>
+                                </div>
+                                <ArrowRight className="w-4 h-4 text-gray-300 group-hover:text-white transform translate-x-0 group-hover:translate-x-1 transition-all" />
+                            </a>
+
                             {/* Option: Support */}
                             <button
                                 onClick={() => { setActivePanel('support'); setIsExpanded(false); }}
@@ -64,6 +134,16 @@ export default function FloatingWidgetsContainer() {
                                 </div>
                                 <ArrowRight className="w-4 h-4 text-gray-300 group-hover:text-white transform translate-x-0 group-hover:translate-x-1 transition-all" />
                             </button>
+
+                            {/* Help Center Link */}
+                            <Link
+                                href="/help"
+                                onClick={() => setIsExpanded(false)}
+                                className="flex items-center justify-center gap-2 py-3 text-gray-500 hover:text-blue-600 transition-colors text-xs font-bold border-t border-white/20 mt-1"
+                            >
+                                <BookOpen className="w-4 h-4" />
+                                <span>Xem Trung tâm trợ giúp</span>
+                            </Link>
                         </div>
                     </div>
 
@@ -85,7 +165,7 @@ export default function FloatingWidgetsContainer() {
                         ) : (
                             <div className="relative">
                                 <Sparkles className="w-7 h-7 text-white animate-pulse" />
-                                <span className="absolute -top-1 -right-1 block w-3 h-3 bg-green-500 rounded-full border-2 border-indigo-600" />
+                                <span className={`absolute -top-1 -right-1 block w-3 h-3 ${getStatusColor()} rounded-full border-2 border-indigo-600`} />
                             </div>
                         )}
 
@@ -138,12 +218,34 @@ function SupportPanel({ onClose }: { onClose: () => void }) {
             toast.error('Vui lòng điền đủ thông tin')
             return
         }
+
         setLoading(true)
-        // Simulating API call
-        setTimeout(() => {
+        try {
+            const res = await fetch('/api/support/tickets', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    subject: `Hỗ trợ từ Hub: ${form.name}`,
+                    description: form.message,
+                    guestName: form.name,
+                    guestPhone: form.phone,
+                    category: 'GENERAL',
+                    priority: 'MEDIUM'
+                })
+            })
+
+            if (res.ok) {
+                setStep(3)
+            } else {
+                const data = await res.json()
+                toast.error(data.error || 'Không thể gửi yêu cầu')
+            }
+        } catch (error) {
+            console.error('Error submitting ticket:', error)
+            toast.error('Lỗi kết nối máy chủ')
+        } finally {
             setLoading(false)
-            setStep(3)
-        }, 1500)
+        }
     }
 
     return (

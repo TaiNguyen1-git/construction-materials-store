@@ -21,6 +21,8 @@ export function getDefaultRedirectPath(role: string): string {
             return '/admin'
         case 'CONTRACTOR':
             return '/contractor/dashboard'
+        case 'SUPPLIER':
+            return '/supplier/dashboard'
         case 'CUSTOMER':
         default:
             return '/'
@@ -46,8 +48,7 @@ export function isValidCallbackForRole(callbackUrl: string, role: string): boole
     }
 
     if (callbackUrl.startsWith('/supplier')) {
-        // Supplier pages use a different auth system
-        return false
+        return role === 'SUPPLIER'
     }
 
     if (callbackUrl.startsWith('/account')) {

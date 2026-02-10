@@ -303,6 +303,8 @@ function extractToken(request: NextRequest): string | null {
 
   const token = request.cookies.get(cookieName)?.value ||
     request.cookies.get('admin_token')?.value ||
+    request.cookies.get('supplier_token')?.value ||
+    request.cookies.get('contractor_token')?.value ||
     request.cookies.get('auth_token')?.value ||
     null
 

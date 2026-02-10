@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { Package, Heart, User, LogOut, ChevronDown, Home, Tag, Info, Phone, LogIn, UserPlus, Calculator, HardHat, FolderKanban, Sparkles, Building2 } from 'lucide-react'
+import { Package, Heart, User, LogOut, ChevronDown, Home, Tag, Info, Phone, LogIn, UserPlus, Calculator, HardHat, FolderKanban, Sparkles, Building2, Headset } from 'lucide-react'
 import CartIcon from './CartIcon'
 import NotificationBell from './NotificationBell'
 import { useWishlistStore } from '@/stores/wishlistStore'
@@ -137,6 +137,11 @@ export default function Header() {
             <Link href="/contact" className="flex items-center gap-2 text-gray-600 hover:text-primary-600 font-semibold relative group whitespace-nowrap text-sm">
               <Phone className="w-4 h-4" />
               Liên hệ
+              <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-primary-600 to-secondary-600 group-hover:w-full transition-all duration-300"></span>
+            </Link>
+            <Link href="/help" className="flex items-center gap-2 text-gray-600 hover:text-primary-600 font-semibold relative group whitespace-nowrap text-sm">
+              <Headset className="w-4 h-4" />
+              Trợ giúp
               <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-primary-600 to-secondary-600 group-hover:w-full transition-all duration-300"></span>
             </Link>
           </nav>

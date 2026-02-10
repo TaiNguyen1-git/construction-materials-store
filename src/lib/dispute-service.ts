@@ -12,6 +12,7 @@ export const disputeService = {
         projectId?: string,
         customerId?: string,
         contractorId?: string,
+        supplierId?: string,
         type: DisputeType,
         reason: string,
         description: string,
@@ -23,6 +24,7 @@ export const disputeService = {
                 projectId: data.projectId,
                 customerId: data.customerId,
                 contractorId: data.contractorId,
+                supplierId: data.supplierId,
                 type: data.type,
                 reason: data.reason,
                 description: data.description,
@@ -35,7 +37,8 @@ export const disputeService = {
             include: {
                 evidence: true,
                 customer: { include: { user: true } },
-                contractor: true
+                contractor: true,
+                supplier: true
             }
         })
     },
@@ -87,6 +90,7 @@ export const disputeService = {
                 evidence: true,
                 customer: { include: { user: true } },
                 contractor: true,
+                supplier: true,
                 order: true,
                 comments: {
                     include: { author: true },

@@ -35,10 +35,14 @@ import {
   ShieldCheck,
   ShieldAlert,
   Star,
-  ChevronRight,
   MessageCircle,
   ArrowRight,
-  RotateCcw
+  RotateCcw,
+  Trophy,
+  Ticket,
+  ChevronRight,
+  HeartHandshake,
+  BookOpen
 } from 'lucide-react'
 import { LucideIcon } from 'lucide-react'
 import NotificationBell from '@/components/NotificationBell'
@@ -79,8 +83,17 @@ export default function AdminLayout({
         { name: 'Tổng Quan', href: '/admin', icon: BarChart3 },
         { name: 'Công Việc Của Tôi', href: '/admin/my-tasks', icon: ClipboardList, roles: ['EMPLOYEE'] },
         { name: 'Tin Nhắn', href: '/admin/messages', icon: MessageCircle },
-        { name: 'Hỗ Trợ Khách Hàng', href: '/admin/support', icon: Headset },
-        { name: 'Quản Lý Tranh Chấp', href: '/admin/disputes', icon: ShieldAlert },
+      ]
+    },
+    {
+      name: 'Chăm Sóc KH',
+      icon: HeartHandshake,
+      items: [
+        { name: 'Tổng Hợp Hỗ Trợ', href: '/admin/customer-care', icon: HeartHandshake },
+        { name: 'Tickets', href: '/admin/tickets', icon: Ticket },
+        { name: 'Yêu Cầu Hỗ Trợ', href: '/admin/support', icon: Headset },
+        { name: 'Tranh Chấp', href: '/admin/disputes', icon: ShieldAlert },
+        { name: 'Quản lý FAQ/Guide', href: '/admin/help-center', icon: BookOpen },
       ]
     },
     {
@@ -99,6 +112,7 @@ export default function AdminLayout({
         { name: 'Đơn Hàng & Dự Án', href: '/admin/orders', icon: ShoppingCart },
         { name: 'Khách Hàng & Đánh Giá', href: '/admin/customers', icon: Users },
         { name: 'Quản Lý Tổ Chức (B2B)', href: '/admin/organizations', icon: Building2 },
+        { name: 'Loyalty & Thân Thiết', href: '/admin/loyalty', icon: Trophy },
         { name: 'Phân Tích Bán Hàng', href: '/admin/sales-management', icon: LineChart },
       ]
     },

@@ -102,9 +102,12 @@ export async function POST(request: NextRequest) {
 
     const { email, password } = validation.data!
 
-    // Find user
+    // Find user with relations
     const user = await prisma.user.findUnique({
-      where: { email: email.toLowerCase() }
+      where: { email: email.toLowerCase() },
+      include: {
+        supplier: true
+      }
     })
 
     if (!user) {
@@ -207,6 +210,7 @@ export async function POST(request: NextRequest) {
     const response = NextResponse.json({
       success: true,
       user: userWithoutPassword,
+      accessToken, // Return for client-side storage (legacy support)
       sessionId: session.id,
       needs2FASetupPrompt: !(user as any).hasSetTwoFactor,
     })

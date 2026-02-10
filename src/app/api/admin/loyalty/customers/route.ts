@@ -29,7 +29,8 @@ export async function GET(request: NextRequest) {
             email: c.user.email,
             tier: c.loyaltyTier,
             points: c.loyaltyPoints,
-            totalSpent: c.totalPurchases
+            totalSpent: c.totalPurchases,
+            lastPurchaseDate: c.lastPurchaseDate,
         }))
 
 

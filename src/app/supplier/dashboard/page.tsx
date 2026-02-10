@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Package, DollarSign, FileText, TrendingUp, Clock, CheckCircle, Download } from 'lucide-react'
+import { Package, DollarSign, FileText, TrendingUp, Clock, CheckCircle, Download, AlertTriangle, LifeBuoy, ArrowRight, Star, RotateCcw, Zap } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
@@ -11,6 +11,15 @@ interface DashboardStats {
     pendingOrders: number
     totalRevenue: number
     pendingPayments: number
+}
+
+interface PerformanceAlert {
+    type: 'warning' | 'critical' | 'info'
+    title: string
+    description: string
+    action: string
+    link: string
+    icon: React.ElementType
 }
 
 export default function SupplierDashboard() {
@@ -23,6 +32,7 @@ export default function SupplierDashboard() {
     })
     const [recentOrders, setRecentOrders] = useState<any[]>([])
     const [loading, setLoading] = useState(true)
+    const [performanceAlerts, setPerformanceAlerts] = useState<PerformanceAlert[]>([])
 
     useEffect(() => {
         fetchDashboardData()
@@ -44,6 +54,40 @@ export default function SupplierDashboard() {
                 if (data.success) {
                     setStats(data.data.stats)
                     setRecentOrders(data.data.recentOrders || [])
+
+                    // Generate performance alerts based on stats
+                    const alerts: PerformanceAlert[] = []
+                    if (data.data.stats.pendingOrders > 5) {
+                        alerts.push({
+                            type: 'warning',
+                            title: `${data.data.stats.pendingOrders} PO chờ xử lý`,
+                            description: 'Phản hồi PO trong 4 tiếng để giữ tỷ lệ phản hồi nhanh.',
+                            action: 'Xem đơn hàng',
+                            link: '/supplier/orders',
+                            icon: Clock
+                        })
+                    }
+                    if (data.data.stats.returnRate && data.data.stats.returnRate > 5) {
+                        alerts.push({
+                            type: 'critical',
+                            title: `Tỷ lệ trả hàng ${data.data.stats.returnRate}%`,
+                            description: 'Tỷ lệ trả hàng đang cao hơn trung bình. Kiểm tra chất lượng sản phẩm.',
+                            action: 'Xem chi tiết trả hàng',
+                            link: '/supplier/returns',
+                            icon: RotateCcw
+                        })
+                    }
+                    if (data.data.stats.avgRating && data.data.stats.avgRating < 4.0) {
+                        alerts.push({
+                            type: 'warning',
+                            title: `Rating giao hàng: ${data.data.stats.avgRating}/5`,
+                            description: 'Cải thiện chất lượng đóng gói và thời gian giao hàng.',
+                            action: 'Xem đánh giá',
+                            link: '/supplier/analytics',
+                            icon: Star
+                        })
+                    }
+                    setPerformanceAlerts(alerts)
                 }
             }
         } catch (error) {
@@ -201,6 +245,51 @@ export default function SupplierDashboard() {
                     </div>
                 ))}
             </div>
+
+            {/* Performance Alerts */}
+            {performanceAlerts.length > 0 && (
+                <div className="bg-white rounded-[2rem] border border-amber-200/60 shadow-sm overflow-hidden">
+                    <div className="p-5 bg-amber-50/50 border-b border-amber-100 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center">
+                                <AlertTriangle className="w-5 h-5 text-amber-600" />
+                            </div>
+                            <div>
+                                <h3 className="font-bold text-slate-900">Cảnh báo hiệu suất</h3>
+                                <p className="text-xs text-slate-500">{performanceAlerts.length} vấn đề cần lưu ý</p>
+                            </div>
+                        </div>
+                        <Link href="/supplier/support" className="flex items-center gap-1 text-xs font-bold text-amber-600 hover:text-amber-700">
+                            <LifeBuoy className="w-3.5 h-3.5" />
+                            Hỗ trợ
+                        </Link>
+                    </div>
+                    <div className="divide-y divide-slate-50">
+                        {performanceAlerts.map((alert, i) => (
+                            <Link
+                                key={i}
+                                href={alert.link}
+                                className={`flex items-center gap-4 p-5 hover:bg-slate-50 transition-colors group ${alert.type === 'critical' ? 'border-l-4 border-l-red-500' : alert.type === 'warning' ? 'border-l-4 border-l-amber-400' : 'border-l-4 border-l-blue-400'
+                                    }`}
+                            >
+                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${alert.type === 'critical' ? 'bg-red-50' : alert.type === 'warning' ? 'bg-amber-50' : 'bg-blue-50'
+                                    }`}>
+                                    <alert.icon className={`w-5 h-5 ${alert.type === 'critical' ? 'text-red-500' : alert.type === 'warning' ? 'text-amber-500' : 'text-blue-500'
+                                        }`} />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-bold text-slate-900">{alert.title}</p>
+                                    <p className="text-xs text-slate-500 mt-0.5">{alert.description}</p>
+                                </div>
+                                <span className="flex items-center gap-1 text-xs font-bold text-blue-600 group-hover:translate-x-1 transition-transform whitespace-nowrap">
+                                    {alert.action}
+                                    <ArrowRight className="w-3.5 h-3.5" />
+                                </span>
+                            </Link>
+                        ))}
+                    </div>
+                </div>
+            )}
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Recent Orders - Taking 2/3 of space */}

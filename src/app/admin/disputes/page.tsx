@@ -86,6 +86,7 @@ export default function AdminDisputePage() {
             case 'CUSTOMER_TO_CONTRACTOR': return 'Khách -> Nhà thầu'
             case 'CONTRACTOR_TO_CUSTOMER': return 'Nhà thầu -> Khách'
             case 'CONTRACTOR_TO_STORE': return 'Nhà thầu -> Cửa hàng'
+            case 'SUPPLIER_TO_STORE': return 'Nhà cung cấp -> Cửa hàng'
             default: return type
         }
     }
@@ -136,12 +137,19 @@ export default function AdminDisputePage() {
                                         <div className="w-12 h-12 bg-gradient-to-br from-gray-100 to-gray-200 rounded-xl flex items-center justify-center font-bold text-gray-600 shadow-inner">
                                             {dis.type.startsWith('CUSTOMER')
                                                 ? (dis.customer?.user?.name?.charAt(0) || 'C')
-                                                : (dis.contractor?.name?.charAt(0) || 'K')
+                                                : dis.type.startsWith('SUPPLIER')
+                                                    ? (dis.supplier?.name?.charAt(0) || 'S')
+                                                    : (dis.contractor?.name?.charAt(0) || 'K')
                                             }
                                         </div>
                                         <div>
                                             <p className="font-bold text-gray-900">
-                                                {dis.type.startsWith('CUSTOMER') ? dis.customer?.user?.name : dis.contractor?.name}
+                                                {dis.type.startsWith('CUSTOMER')
+                                                    ? dis.customer?.user?.name
+                                                    : dis.type.startsWith('SUPPLIER')
+                                                        ? dis.supplier?.name
+                                                        : dis.contractor?.name
+                                                }
                                             </p>
                                             <div className="flex items-center gap-2">
                                                 <p className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded uppercase tracking-wider">
@@ -205,7 +213,9 @@ export default function AdminDisputePage() {
                                             <p className="font-bold text-gray-900">
                                                 {selectedDispute.type.startsWith('CUSTOMER')
                                                     ? selectedDispute.customer?.user?.name
-                                                    : selectedDispute.contractor?.name}
+                                                    : selectedDispute.type.startsWith('SUPPLIER')
+                                                        ? selectedDispute.supplier?.name
+                                                        : selectedDispute.contractor?.name}
                                             </p>
                                         </div>
                                         <div className="bg-red-50/50 p-3 rounded-xl border border-red-100">

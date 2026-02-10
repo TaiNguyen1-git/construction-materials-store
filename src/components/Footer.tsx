@@ -59,7 +59,8 @@ export default function Footer() {
                         <ul className="space-y-2 text-[11px] font-medium text-gray-400">
                             <li><Link href="/about" className="hover:text-primary-400 transition-colors">Về SmartBuild</Link></li>
                             <li><Link href="/contact" className="hover:text-primary-400 transition-colors">Liên hệ chuyên gia</Link></li>
-                            <li><Link href="#" className="hover:text-primary-400 transition-colors">Hướng dẫn thanh toán</Link></li>
+                            <li><Link href="/help" className="hover:text-primary-400 transition-colors">Trung tâm trợ giúp</Link></li>
+                            <li><Link href="/help" className="hover:text-primary-400 transition-colors">Hướng dẫn thanh toán</Link></li>
                         </ul>
                     </div>
                     <div>

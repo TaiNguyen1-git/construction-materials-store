@@ -246,6 +246,7 @@ model Customer {
   contractorProfile     ContractorProfile?
   wallet                Wallet?
   loyaltyVouchers       LoyaltyVoucher[]
+  loyaltyTransactions   LoyaltyTransaction[]
   
   // B2B Organization
   organizationId        String?      @db.ObjectId
@@ -292,6 +293,122 @@ enum VoucherStatus {
   UNUSED
   USED
   EXPIRED
+}
+
+// Loyalty Transaction History (Audit Trail)
+model LoyaltyTransaction {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  customerId      String   @db.ObjectId
+  type            LoyaltyTransactionType
+  points          Int                     // Positive = add, Negative = subtract
+  balanceAfter    Int                     // Balance after this transaction
+  description     String
+  referenceType   String?                 // ORDER, VOUCHER, ADMIN, PAYMENT, CAMPAIGN
+  referenceId     String?
+  performedBy     String?  @db.ObjectId   // Admin who performed (if applicable)
+  metadata        Json?
+  createdAt       DateTime @default(now())
+
+  customer        Customer @relation(fields: [customerId], references: [id])
+
+  @@map("loyalty_transactions")
+  @@index([customerId])
+  @@index([type])
+  @@index([createdAt])
+  @@index([referenceType, referenceId])
+}
+
+enum LoyaltyTransactionType {
+  EARN
+  REDEEM
+  ADJUST
+  EXPIRE
+  REFERRAL
+  CAMPAIGN
+  EARLY_PAYMENT
+}
+
+// Loyalty Rule Configuration
+model LoyaltyRule {
+  id                  String   @id @default(auto()) @map("_id") @db.ObjectId
+  name                String
+  description         String?
+  pointsPerAmount     Float    @default(1)   // Points per 1000 VND
+  roundingMode        String   @default("FLOOR") // FLOOR, CEIL, ROUND
+  expirationMonths    Int?                    // null = no expiration
+  isActive            Boolean  @default(true)
+
+  // Tier thresholds
+  bronzeThreshold     Int      @default(0)
+  silverThreshold     Int      @default(1000)
+  goldThreshold       Int      @default(2500)
+  platinumThreshold   Int      @default(5000)
+  diamondThreshold    Int      @default(10000)
+
+  // Tier multipliers
+  bronzeMultiplier    Float    @default(1.0)
+  silverMultiplier    Float    @default(1.2)
+  goldMultiplier      Float    @default(1.5)
+  platinumMultiplier  Float    @default(2.0)
+  diamondMultiplier   Float    @default(2.5)
+
+  // Tier discounts (%)
+  bronzeDiscount      Float    @default(2)
+  silverDiscount      Float    @default(5)
+  goldDiscount        Float    @default(10)
+  platinumDiscount    Float    @default(15)
+  diamondDiscount     Float    @default(20)
+
+  // Referral & early payment
+  referralPoints      Int      @default(100)
+  earlyPaymentBonus   Float    @default(1.5)
+
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@map("loyalty_rules")
+}
+
+// Loyalty Campaign
+model LoyaltyCampaign {
+  id                String   @id @default(auto()) @map("_id") @db.ObjectId
+  name              String
+  description       String?
+  type              CampaignType
+  status            CampaignStatus @default(DRAFT)
+
+  multiplier        Float?                  // For MULTIPLIER type
+  bonusPoints       Int?                    // For BONUS, BIRTHDAY, BULK_GRANT
+  targetTier        LoyaltyTier?            // null = all tiers
+  targetCustomerIds String[]  @db.ObjectId
+  minOrderAmount    Float?
+
+  startDate         DateTime
+  endDate           DateTime
+  totalPointsGranted Int     @default(0)
+  totalCustomersAffected Int @default(0)
+  createdBy         String?  @db.ObjectId
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("loyalty_campaigns")
+  @@index([status])
+  @@index([startDate, endDate])
+  @@index([type])
+}
+
+enum CampaignType {
+  MULTIPLIER
+  BONUS
+  BIRTHDAY
+  BULK_GRANT
+}
+
+enum CampaignStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  ENDED
 }
 
 // Work Shift and Attendance
@@ -3554,5 +3671,144 @@ enum CustomerReturnStatus {
   CANCELLED
 }
 
+// Support Ticket System for Customer Service
+model SupportTicket {
+  id              String              @id @default(auto()) @map("_id") @db.ObjectId
+  ticketNumber    String              @unique // Format: TK-YYMMDD-XXXX
+  
+  // Customer info (for both registered and guests)
+  customerId      String?             @db.ObjectId
+  guestName       String?
+  guestEmail      String?
+  guestPhone      String?
+  
+  // Ticket details
+  subject         String
+  description     String
+  category        SupportTicketCategory @default(GENERAL)
+  priority        SupportTicketPriority @default(MEDIUM)
+  status          SupportTicketStatus   @default(OPEN)
+  
+  // References
+  orderId         String?             @db.ObjectId  // Related order if applicable
+  productId       String?             @db.ObjectId  // Related product if applicable
+  chatSessionId   String?             // Reference to chat conversation
+  
+  // Assignment
+  assignedTo      String?             @db.ObjectId  // Admin/Staff assigned
+  assignedAt      DateTime?
+  
+  // Resolution
+  resolution      String?
+  resolvedAt      DateTime?
+  resolvedBy      String?             @db.ObjectId
+  
+  // SLA tracking
+  slaDeadline     DateTime?           // Expected resolution time
+  firstResponseAt DateTime?           // First response time for SLA
+  
+  // Satisfaction
+  customerRating  Int?                // 1-5 star rating
+  customerFeedback String?
+  
+  // Tags and metadata
+  tags            String[]
+  attachments     String[]            // URLs to attached files
+  internalNotes   String?             // Notes visible only to staff
+  
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
 
+  // Relationships
+  messages        SupportTicketMessage[]
+
+  @@map("support_tickets")
+  @@index([customerId])
+  @@index([status])
+  @@index([priority])
+  @@index([category])
+  @@index([createdAt])
+  @@index([assignedTo])
+}
+
+model SupportTicketMessage {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  ticketId        String   @db.ObjectId
+  
+  // Sender info
+  senderId        String?  @db.ObjectId // User ID if registered, null if system/guest
+  senderType      SenderType @default(CUSTOMER)
+  senderName      String?
+  
+  // Message content
+  content         String
+  attachments     String[]
+  isInternal      Boolean  @default(false) // Internal notes between staff
+  
+  createdAt       DateTime @default(now())
+
+  // Relationships
+  ticket          SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@map("support_ticket_messages")
+  @@index([ticketId])
+  @@index([createdAt])
+}
+
+enum SupportTicketStatus {
+  OPEN              // Newly created
+  IN_PROGRESS       // Being worked on
+  WAITING_CUSTOMER  // Waiting for customer response
+  WAITING_INTERNAL  // Waiting for internal action (e.g., warehouse check)
+  RESOLVED          // Issue resolved
+  CLOSED            // Ticket closed
+  REOPENED          // Reopened by customer
+}
+
+enum SupportTicketCategory {
+  GENERAL           // General inquiry
+  ORDER             // Order related
+  SHIPPING          // Shipping/delivery issues
+  RETURN_REFUND     // Return & refund requests
+  PRODUCT           // Product questions
+  PAYMENT           // Payment issues
+  TECHNICAL         // Technical support
+  COMPLAINT         // Complaints
+  WARRANTY          // Warranty claims
+}
+
+enum SupportTicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum SenderType {
+  CUSTOMER
+  STAFF
+  SYSTEM
+}
+
+model HelpArticle {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  title       String
+  slug        String   @unique
+  content     String   // Markdown content
+  excerpt     String?
+  category    String
+  tags        String[]
+  viewCount   Int      @default(0)
+  helpfulYes  Int      @default(0)
+  helpfulNo   Int      @default(0)
+  isPublished Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  targetAudience String[] // ["CUSTOMER", "CONTRACTOR", "SUPPLIER"]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("help_articles")
+  @@index([category])
+  @@index([isPublished])
+}
 

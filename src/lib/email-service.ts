@@ -307,6 +307,24 @@ export class EmailService {
     return this.sendEmail(template)
   }
 
+  // Loyalty Gift Email
+  static async sendLoyaltyGift(data: {
+    email: string
+    name: string
+    giftType: string
+    giftValue: string
+    message: string
+  }) {
+    const template: EmailTemplate = {
+      to: data.email,
+      subject: `Món quà tri ân đặc biệt từ SmartBuild dành cho ${data.name}`,
+      html: this.getLoyaltyGiftHTML(data),
+      text: `Chào ${data.name},\n\nSmartBuild gửi tặng bạn: ${data.giftValue}.\n\nLời nhắn: ${data.message}`
+    }
+
+    return this.sendEmail(template)
+  }
+
   // Generic Notification Email (for multi-channel notifications)
   static async sendGenericNotificationEmail(data: {
     email: string
@@ -1616,6 +1634,59 @@ Hotline: 1900-xxxx
           <tr>
             <td style="background: #f8fafc; padding: 20px; text-align: center; color: #94a3b8; font-size: 12px;">
               SmartBuild - Hệ thống quản lý vật liệu xây dựng thông minh
+            </td>
+          </tr>
+        </table>
+      </body>
+      </html>
+    `
+  }
+
+  private static getLoyaltyGiftHTML(data: any): string {
+    const icon = data.giftType === 'POINTS' ? '⭐' : data.giftType === 'VOUCHER' ? '🎫' : '🛠️'
+    const color = data.giftType === 'POINTS' ? '#f59e0b' : data.giftType === 'VOUCHER' ? '#3b82f6' : '#10b981'
+
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head><meta charset="utf-8"></head>
+      <body style="margin: 0; padding: 20px; background-color: #f4f7fa; font-family: 'Segoe UI', Arial, sans-serif;">
+        <table style="max-width: 600px; margin: 0 auto; background: #fff; border-radius: 24px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.1);">
+          <tr>
+            <td style="background: linear-gradient(135deg, ${color} 0%, #1e293b 100%); padding: 50px 40px; text-align: center;">
+              <div style="font-size: 60px; margin-bottom: 20px;">${icon}</div>
+              <h1 style="color: #fff; margin: 0; font-size: 28px; letter-spacing: -0.5px;">Quà Tặng Tri Ân</h1>
+              <p style="color: rgba(255,255,255,0.8); margin-top: 10px; font-size: 16px;">Dành riêng cho khách hàng thân thiết</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 40px;">
+              <p style="font-size: 18px; color: #1e293b; margin-bottom: 15px;">Chào <strong>${data.name}</strong>,</p>
+              <p style="font-size: 16px; color: #4b5563; line-height: 1.8; margin-bottom: 30px; font-style: italic;">
+                "${data.message}"
+              </p>
+              
+              <div style="background: #f8fafc; border: 2px dashed ${color}44; padding: 30px; border-radius: 20px; text-align: center; margin: 30px 0;">
+                <p style="color: #64748b; font-size: 14px; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 10px;">Bạn nhận được</p>
+                <h2 style="color: ${color}; font-size: 36px; margin: 0; font-weight: 900;">${data.giftValue}</h2>
+              </div>
+              
+              <p style="font-size: 14px; color: #94a3b8; text-align: center;">
+                Quà tặng đã được kích hoạt trực tiếp trong tài khoản của bạn.<br>
+                Cảm ơn bạn đã luôn tin tưởng và đồng hành cùng SmartBuild!
+              </p>
+              
+              <div style="text-align: center; margin-top: 40px;">
+                <a href="${getBaseUrl()}" style="display: inline-block; background: #1e293b; color: #fff; padding: 16px 40px; border-radius: 50px; text-decoration: none; font-weight: 700; font-size: 16px;">
+                  Đến Cửa Hàng Ngay
+                </a>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td style="background: #f8fafc; padding: 30px; text-align: center; color: #94a3b8; font-size: 12px; border-top: 1px solid #f1f5f9;">
+              SmartBuild - Hệ thống quản lý vật liệu xây dựng thông minh<br>
+              © 2024 SmartBuild. All rights reserved.
             </td>
           </tr>
         </table>

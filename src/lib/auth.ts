@@ -122,10 +122,19 @@ export class AuthService {
     // Determine cookie name based on role
     const cookieName = role ? this.getCookieNameForRole(role) : 'auth_token'
 
+    // Set portal-specific cookie
     response.cookies.set(cookieName, accessToken, {
       ...AUTH_CONFIG.COOKIE_OPTIONS,
       maxAge: 60 * 60, // 1 hour
     })
+
+    // Also set generic auth_token for system-wide recognition if it's a portal token
+    if (cookieName !== 'auth_token') {
+      response.cookies.set('auth_token', accessToken, {
+        ...AUTH_CONFIG.COOKIE_OPTIONS,
+        maxAge: 60 * 60, // 1 hour
+      })
+    }
 
     response.cookies.set('refresh_token', refreshToken, {
       ...AUTH_CONFIG.COOKIE_OPTIONS,
