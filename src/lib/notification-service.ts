@@ -545,8 +545,9 @@ export async function createOrderStatusNotificationForCustomer(order: {
       orderId: order.id,
       orderNumber: order.orderNumber,
       status: order.status,
-      trackingToken: trackingToken,
-      trackingUrl: trackingToken ? `/track/${trackingToken}` : undefined
+      // Firebase fails on undefined, so we only include keys that have values
+      ...(trackingToken ? { trackingToken } : {}),
+      ...(trackingToken ? { trackingUrl: `/track/${trackingToken}` } : {})
     }
   }
 

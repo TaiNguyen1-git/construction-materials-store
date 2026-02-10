@@ -28,6 +28,7 @@ interface Product {
     category: { name: string } | null
     inventoryItem: { availableQuantity: number } | null
     images: string[]
+    _id?: string // Allow for backend mapping
 }
 
 interface CartItem {
@@ -60,6 +61,8 @@ export default function POSPage() {
     // Categories
     const categories = ['Tất cả', 'Xi Măng', 'Sắt Thép', 'Gạch Xây', 'Cát Đá', 'Sơn', 'Điện Nước', 'Thiết Bị Vệ Sinh']
     const [activeCategory, setActiveCategory] = useState('Tất cả')
+    const [isHistoryOpen, setIsHistoryOpen] = useState(false)
+    const [recentOrders, setRecentOrders] = useState<any[]>([])
 
     // Fetch Products
     useEffect(() => {
@@ -85,8 +88,12 @@ export default function POSPage() {
             const data = await res.json()
 
             if (res.ok && data.success) {
-                // Determine structure: data.data.data (paginated)
-                setProducts(data.data?.data || [])
+                const rawProducts = data.data?.data || []
+                const mappedProducts = rawProducts.map((p: any) => ({
+                    ...p,
+                    id: p.id || p._id // Ensure id exists for UI keys and cart tracking
+                }))
+                setProducts(mappedProducts)
             } else {
                 toast.error(data.message || 'Lỗi tải sản phẩm')
             }
@@ -228,6 +235,34 @@ export default function POSPage() {
         }
     }
 
+    const handlePrintReceipt = () => {
+        if (cart.length === 0) {
+            toast.error('Giỏ hàng trống, không thể in!')
+            return
+        }
+        toast.success('Đang chuẩn bị bản in tạm tính...')
+        // In a real app, this would open a formatted window or a PDF
+        window.print()
+    }
+
+    const fetchHistory = async () => {
+        setIsHistoryOpen(true)
+        setLoading(true)
+        try {
+            const res = await fetchWithAuth('/api/orders?limit=10')
+            const data = await res.json()
+            if (res.ok && data.success) {
+                setRecentOrders(data.data?.data || [])
+            } else {
+                toast.error('Lỗi tải lịch sử đơn hàng')
+            }
+        } catch (err) {
+            toast.error('Lỗi kết nối khi tải lịch sử')
+        } finally {
+            setLoading(false)
+        }
+    }
+
     const formatCurrency = (val: number) =>
         new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val)
 
@@ -315,10 +350,10 @@ export default function POSPage() {
             </div>
 
             {/* Right Column: Cart & Checkout */}
-            <div className="w-full lg:w-[450px] flex flex-col gap-6 bg-white p-8 rounded-[40px] shadow-2xl border border-slate-100 overflow-hidden">
+            <div className="w-full lg:w-[450px] h-full flex flex-col bg-white p-8 rounded-[40px] shadow-2xl border border-slate-100 overflow-hidden">
 
-                {/* Customer Selection */}
-                <div className="flex items-center justify-between mb-2">
+                {/* Header */}
+                <div className="flex items-center justify-between mb-6 shrink-0">
                     <h2 className="text-xl font-black text-slate-900 flex items-center gap-2">
                         <ShoppingCart className="text-blue-600" /> Giỏ Hàng
                     </h2>
@@ -327,151 +362,223 @@ export default function POSPage() {
                     </button>
                 </div>
 
-                <div className="p-4 bg-slate-50 rounded-[24px] border border-dashed border-slate-200 relative">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2 bg-white rounded-xl shadow-sm">
-                            <User className="text-slate-400 w-5 h-5" />
-                        </div>
-                        <div className="flex-1">
-                            {selectedCustomer ? (
-                                <div onClick={() => { setSelectedCustomer(null); setShowCustomerSearch(true); }}>
-                                    <p className="text-sm font-black text-slate-900">{selectedCustomer.name}</p>
-                                    <p className="text-[10px] text-slate-400 font-bold">{selectedCustomer.phone}</p>
-                                </div>
-                            ) : (
-                                <div onClick={() => setShowCustomerSearch(!showCustomerSearch)} className="cursor-pointer">
-                                    <p className="text-sm font-bold text-slate-400 italic">Chọn khách hàng...</p>
-                                </div>
-                            )}
-                        </div>
-                        <button className="p-2 text-blue-600 hover:bg-blue-50 rounded-xl transition-all" onClick={() => setShowCustomerSearch(!showCustomerSearch)}>
-                            <UserPlus className="w-5 h-5" />
-                        </button>
-                    </div>
-
-                    {/* Customer Search Dropdown */}
-                    {showCustomerSearch && (
-                        <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-xl border border-slate-100 z-50 p-3 animate-in zoom-in-95">
-                            <input
-                                autoFocus
-                                type="text"
-                                placeholder="Tìm SĐT hoặc Tên..."
-                                className="w-full p-3 bg-slate-50 rounded-xl text-sm font-bold mb-2 border-none focus:ring-2 focus:ring-blue-500"
-                                value={customerSearchQuery}
-                                onChange={e => setCustomerSearchQuery(e.target.value)}
-                            />
-                            <div className="max-h-48 overflow-y-auto space-y-1">
-                                {customers.map(c => (
-                                    <div
-                                        key={c.id}
-                                        className="p-2 hover:bg-blue-50 rounded-lg cursor-pointer flex justify-between items-center"
-                                        onClick={() => {
-                                            setSelectedCustomer(c)
-                                            setShowCustomerSearch(false)
-                                            setCustomerSearchQuery('')
-                                        }}
-                                    >
-                                        <div>
-                                            <p className="text-xs font-black text-slate-900">{c.name}</p>
-                                            <p className="text-[10px] text-slate-500">{c.phone}</p>
-                                        </div>
-                                        <Plus size={14} className="text-blue-600" />
+                {/* Customer Selection - Fixed height part */}
+                <div className="shrink-0 mb-4 font-medium">
+                    <div className="p-4 bg-slate-50/80 rounded-[24px] border border-dashed border-slate-200 relative group-focus-within:border-blue-300 transition-all">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 bg-white rounded-xl shadow-sm">
+                                <User className="text-slate-400 w-5 h-5" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                {selectedCustomer ? (
+                                    <div onClick={() => { setSelectedCustomer(null); setShowCustomerSearch(true); }} className="cursor-pointer">
+                                        <p className="text-sm font-black text-slate-900 truncate">{selectedCustomer.name}</p>
+                                        <p className="text-[10px] text-slate-400 font-bold">{selectedCustomer.phone}</p>
                                     </div>
-                                ))}
-                                {customers.length === 0 && customerSearchQuery && (
-                                    <p className="text-xs text-center text-slate-400 py-2">Không tìm thấy</p>
+                                ) : (
+                                    <div onClick={() => setShowCustomerSearch(!showCustomerSearch)} className="cursor-pointer">
+                                        <p className="text-sm font-bold text-slate-400 italic">Chọn khách hàng...</p>
+                                    </div>
                                 )}
                             </div>
+                            <button className="p-2 text-blue-600 hover:bg-blue-50 rounded-xl transition-all" onClick={() => setShowCustomerSearch(!showCustomerSearch)}>
+                                <UserPlus className="w-5 h-5" />
+                            </button>
                         </div>
-                    )}
+
+                        {/* Customer Search Dropdown */}
+                        {showCustomerSearch && (
+                            <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border border-slate-100 z-50 p-3 animate-in fade-in zoom-in-95 duration-200">
+                                <input
+                                    autoFocus
+                                    type="text"
+                                    placeholder="Tìm SĐT hoặc Tên..."
+                                    className="w-full p-3 bg-slate-50 rounded-xl text-sm font-bold mb-2 border-none focus:ring-2 focus:ring-blue-500"
+                                    value={customerSearchQuery}
+                                    onChange={e => setCustomerSearchQuery(e.target.value)}
+                                />
+                                <div className="max-h-48 overflow-y-auto space-y-1 scrollbar-thin">
+                                    {customers.map(c => (
+                                        <div
+                                            key={c.id}
+                                            className="p-2.5 hover:bg-blue-50 rounded-xl cursor-pointer flex justify-between items-center transition-colors"
+                                            onClick={() => {
+                                                setSelectedCustomer(c)
+                                                setShowCustomerSearch(false)
+                                                setCustomerSearchQuery('')
+                                            }}
+                                        >
+                                            <div className="min-w-0">
+                                                <p className="text-xs font-black text-slate-900 truncate">{c.name}</p>
+                                                <p className="text-[10px] text-slate-500">{c.phone}</p>
+                                            </div>
+                                            <Plus size={14} className="text-blue-600 shrink-0" />
+                                        </div>
+                                    ))}
+                                    {customers.length === 0 && customerSearchQuery && (
+                                        <p className="text-xs text-center text-slate-400 py-4 font-medium italic">Không tìm thấy khách hàng</p>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+                    </div>
                 </div>
 
-                {/* Cart Items */}
-                <div className="flex-1 overflow-y-auto py-2 space-y-4 pr-1 scrollbar-thin scrollbar-thumb-slate-200">
-                    {cart.map(item => (
-                        <div key={item.product.id} className="flex gap-4 p-4 hover:bg-slate-50 rounded-3xl transition-all">
-                            <div className="flex-1">
-                                <h4 className="font-bold text-slate-900 text-sm">{item.product.name}</h4>
-                                <p className="text-xs text-blue-600 font-black mt-1">
-                                    {formatCurrency(item.product.price)} / {item.product.unit}
+                {/* Cart Items List - MAIN SCROLLABLE AREA */}
+                <div className="flex-1 min-h-0 overflow-y-auto space-y-2 pr-2 scrollbar-thin scrollbar-thumb-slate-200 mb-2">
+                    {cart.map((item, idx) => (
+                        <div key={item.product.id || idx} className="flex gap-3 p-3 bg-white hover:bg-blue-50/30 rounded-[24px] transition-all border border-slate-100/60 hover:border-blue-200 group relative">
+                            {/* Product Image */}
+                            <div className="w-10 h-10 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center shrink-0">
+                                {item.product.images?.[0] ? (
+                                    <img src={item.product.images[0]} alt="" className="w-7 h-7 object-cover rounded-md" />
+                                ) : (
+                                    <Package className="w-5 h-5 text-slate-300" />
+                                )}
+                            </div>
+
+                            <div className="flex-1 min-w-0 flex flex-col justify-center">
+                                <h4 className="font-bold text-slate-900 text-[11px] leading-tight line-clamp-1">{item.product.name}</h4>
+                                <p className="text-[10px] text-blue-600 font-black mt-0.5">
+                                    {formatCurrency(item.product.price)} <span className="text-slate-400 font-medium">/ {item.product.unit}</span>
                                 </p>
                             </div>
-                            <div className="flex items-center gap-2">
+
+                            <div className="flex items-center gap-1.5 bg-slate-50 p-1 rounded-xl shrink-0 self-center">
                                 <button
                                     onClick={() => updateQuantity(item.product.id, -1)}
-                                    className="w-8 h-8 flex items-center justify-center bg-white border border-slate-100 rounded-xl shadow-sm text-slate-400 hover:text-red-500"
+                                    className="w-6 h-6 flex items-center justify-center rounded-lg bg-white shadow-sm text-slate-400 hover:text-red-500 transition-colors"
                                 >
-                                    <Minus className="w-4 h-4" />
+                                    <Minus className="w-3 h-3" />
                                 </button>
-                                <span className="w-8 text-center font-black text-slate-900">{item.quantity}</span>
+                                <span className="w-5 text-center text-[11px] font-black text-slate-900">{item.quantity}</span>
                                 <button
                                     onClick={() => updateQuantity(item.product.id, 1)}
-                                    className="w-8 h-8 flex items-center justify-center bg-white border border-slate-100 rounded-xl shadow-sm text-slate-400 hover:text-blue-500"
+                                    className="w-6 h-6 flex items-center justify-center rounded-lg bg-white shadow-sm text-slate-400 hover:text-blue-500 transition-colors"
                                 >
-                                    <Plus className="w-4 h-4" />
+                                    <Plus className="w-3 h-3" />
                                 </button>
                             </div>
                         </div>
                     ))}
                     {cart.length === 0 && (
-                        <div className="flex flex-col items-center justify-center py-10 text-slate-300">
-                            <Zap className="w-12 h-12 opacity-20 mb-2" />
-                            <p className="text-xs font-black uppercase tracking-widest text-slate-300">Nhấp chọn SP để tính tiền</p>
+                        <div className="h-full flex flex-col items-center justify-center bg-slate-50/50 rounded-[32px] border-2 border-dashed border-slate-100 py-12">
+                            <Zap className="w-10 h-10 text-slate-200 mb-3" />
+                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Giỏ hàng trống</p>
                         </div>
                     )}
                 </div>
 
-                {/* Summary & Checkout */}
-                <div className="mt-auto space-y-6 pt-6 border-t border-slate-100">
-                    <div className="space-y-2">
-                        <div className="flex justify-between text-slate-500 font-bold text-sm">
+                {/* Summary & Checkout Section - FIXED AT BOTTOM */}
+                <div className="shrink-0 pt-4 border-t border-slate-100 bg-white space-y-4">
+                    <div className="space-y-1.5">
+                        <div className="flex justify-between text-slate-500 font-bold text-xs">
                             <span>Tạm tính</span>
                             <span>{formatCurrency(subtotal)}</span>
                         </div>
-                        <div className="flex justify-between text-slate-500 font-bold text-sm">
+                        <div className="flex justify-between text-slate-500 font-bold text-xs">
                             <span>Khuyến mãi</span>
                             <span className="text-emerald-500">-{formatCurrency(discount)}</span>
                         </div>
-                        <div className="flex justify-between text-slate-900 font-black text-xl pt-2 border-t border-dashed border-slate-100">
+                        <div className="flex justify-between text-slate-900 font-black text-lg pt-1.5 border-t border-dashed border-slate-100">
                             <span>Tổng Cộng</span>
                             <span className="text-blue-600">{formatCurrency(total)}</span>
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-2 gap-2">
                         <button
                             onClick={() => setPaymentMethod('CASH')}
-                            className={`flex items-center justify-center gap-2 py-4 rounded-2xl font-black transition-all ${paymentMethod === 'CASH' ? 'bg-blue-600 text-white shadow-lg' : 'bg-slate-50 text-slate-500'
+                            className={`flex items-center justify-center gap-2 py-2.5 rounded-xl font-black text-xs transition-all ${paymentMethod === 'CASH' ? 'bg-blue-600 text-white shadow-lg' : 'bg-slate-50 text-slate-500 hover:bg-slate-100'
                                 }`}
                         >
-                            <Banknote className="w-5 h-5" /> Tiền Mặt
+                            <Banknote className="w-4 h-4" /> Tiền Mặt
                         </button>
                         <button
                             onClick={() => setPaymentMethod('TRANSFER')}
-                            className={`flex items-center justify-center gap-2 py-4 rounded-2xl font-black transition-all ${paymentMethod === 'TRANSFER' ? 'bg-blue-600 text-white shadow-lg' : 'bg-slate-50 text-slate-500'
+                            className={`flex items-center justify-center gap-2 py-2.5 rounded-xl font-black text-xs transition-all ${paymentMethod === 'TRANSFER' ? 'bg-blue-600 text-white shadow-lg' : 'bg-slate-50 text-slate-500 hover:bg-slate-100'
                                 }`}
                         >
-                            <CreditCard className="w-5 h-5" /> Chuyển Khoản
+                            <CreditCard className="w-4 h-4" /> Chuyển Khoản
                         </button>
                     </div>
 
                     <button
                         onClick={handleCheckout}
-                        className="w-full py-5 bg-blue-600 text-white rounded-[24px] font-black text-lg shadow-xl shadow-blue-200 hover:bg-blue-700 transition-all active:scale-[0.98] flex items-center justify-center gap-3"
+                        className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black text-sm shadow-xl shadow-blue-200 hover:bg-blue-700 transition-all active:scale-[0.98] flex items-center justify-center gap-2"
                     >
-                        <Zap className="w-6 h-6 fill-white" /> XÁC NHẬN THANH TOÁN
+                        <Zap className="w-5 h-5 fill-white" /> XÁC NHẬN THANH TOÁN
                     </button>
 
-                    <div className="flex justify-center gap-6">
-                        <button className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-blue-600">
-                            <Printer className="w-4 h-4" /> In Tạm Tính
+                    <div className="flex justify-center gap-4 pb-2">
+                        <button
+                            onClick={handlePrintReceipt}
+                            className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest text-slate-400 hover:text-blue-600 transition-colors"
+                        >
+                            <Printer className="w-3.5 h-3.5" /> In Tạm Tính
                         </button>
-                        <button className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-blue-600">
-                            <History className="w-4 h-4" /> Lịch Sử
+                        <button
+                            onClick={fetchHistory}
+                            className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest text-slate-400 hover:text-blue-600 transition-colors"
+                        >
+                            <History className="w-3.5 h-3.5" /> Lịch Sử
                         </button>
                     </div>
                 </div>
             </div>
+
+            {/* History Modal */}
+            {isHistoryOpen && (
+                <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-in fade-in duration-300">
+                    <div className="bg-white w-full max-w-2xl rounded-[40px] shadow-2xl overflow-hidden border border-slate-100 animate-in zoom-in-95 duration-300">
+                        <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                            <h3 className="text-xl font-black text-slate-900 flex items-center gap-3">
+                                <History className="text-blue-600" /> Lịch sử đơn hàng POS
+                            </h3>
+                            <button onClick={() => setIsHistoryOpen(false)} className="p-3 hover:bg-white rounded-2xl transition-all shadow-sm border border-transparent hover:border-slate-100">
+                                <Plus className="w-6 h-6 rotate-45 text-slate-400" />
+                            </button>
+                        </div>
+                        <div className="p-8 max-h-[60vh] overflow-y-auto scrollbar-thin">
+                            {recentOrders.length === 0 ? (
+                                <div className="text-center py-12 text-slate-400 font-bold italic">Không có đơn hàng gần đây</div>
+                            ) : (
+                                <div className="space-y-4">
+                                    {recentOrders.map((order: any) => (
+                                        <div key={order.id} className="p-5 border border-slate-100 rounded-3xl hover:border-blue-200 transition-all flex flex-col md:flex-row justify-between gap-4 group">
+                                            <div>
+                                                <div className="flex items-center gap-2 mb-1">
+                                                    <span className="text-[10px] font-black bg-blue-100 text-blue-600 px-2 py-0.5 rounded-lg uppercase">#{order.orderNumber || order.id.slice(-6)}</span>
+                                                    <span className="text-xs font-bold text-slate-900">{order.customer?.name || order.guestName || 'Khách lẻ'}</span>
+                                                </div>
+                                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{new Date(order.createdAt).toLocaleString('vi-VN')}</p>
+                                            </div>
+                                            <div className="flex items-center justify-between md:justify-end gap-6">
+                                                <div className="text-right">
+                                                    <p className="text-xs text-slate-400 font-bold">Tổng tiền</p>
+                                                    <p className="text-sm font-black text-blue-600">{formatCurrency(order.totalAmount)}</p>
+                                                </div>
+                                                <div className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase ${order.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-600' : 'bg-orange-50 text-orange-600'
+                                                    }`}>
+                                                    {order.status}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                        <div className="p-8 bg-slate-50 border-t border-slate-100 flex justify-end">
+                            <button
+                                onClick={() => setIsHistoryOpen(false)}
+                                className="px-8 py-3 bg-white border border-slate-200 rounded-2xl font-black text-sm text-slate-600 hover:bg-slate-100 transition-all"
+                            >
+                                ĐÓNG
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     )
 }

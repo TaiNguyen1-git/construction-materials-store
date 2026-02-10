@@ -3869,6 +3869,8 @@ model QuickQuote {
   validUntil  DateTime?
   status      QuickQuoteStatus @default(PENDING)
   orderId     String?  @db.ObjectId
+  staffId     String?  @db.ObjectId
+  staffName   String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 

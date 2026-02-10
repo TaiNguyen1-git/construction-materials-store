@@ -1,22 +1,47 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
+export const dynamic = 'force-dynamic'
+
 export async function GET(req: NextRequest) {
     try {
-        // Orders that have cash collected but not yet handed over
-        const orders = await prisma.order.findMany({
+        // 1. Fetch pending handovers (SHIPPED or DELIVERED + cashHandedOverAt is null)
+        const pendingOrders = await prisma.order.findMany({
             where: {
-                isCashCollected: true,
-                cashHandedOverAt: null,
+                status: { in: ['SHIPPED', 'DELIVERED'] },
+                OR: [
+                    { cashHandedOverAt: null },
+                    { cashHandedOverAt: { isSet: false } } as any
+                ]
             },
             include: {
-                driver: { include: { user: true } }
+                driver: { include: { user: true } },
+                customer: { include: { user: true } }
             },
-            orderBy: { cashCollectedAt: 'desc' }
+            orderBy: { createdAt: 'desc' }
         })
 
-        return NextResponse.json({ success: true, data: orders })
-    } catch (error) {
+        // 2. Fetch recently completed handovers
+        const historyOrders = await prisma.order.findMany({
+            where: {
+                cashHandedOverAt: { not: null },
+            },
+            include: {
+                driver: { include: { user: true } },
+                customer: { include: { user: true } }
+            },
+            orderBy: { cashHandedOverAt: 'desc' },
+            take: 20
+        })
+
+        return NextResponse.json({
+            success: true,
+            data: {
+                pending: pendingOrders,
+                history: historyOrders
+            }
+        })
+    } catch (error: any) {
         return NextResponse.json({ success: false, error: 'Internal Server Error' }, { status: 500 })
     }
 }

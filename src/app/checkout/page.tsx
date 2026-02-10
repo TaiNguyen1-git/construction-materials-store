@@ -140,7 +140,7 @@ export default function CheckoutPage() {
 
   // Calculate deposit amounts
 
-  const [paymentMethod] = useState<PaymentMethod>('BANK_TRANSFER')
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('COD')
   const [paymentType, setPaymentType] = useState<PaymentType>('FULL')
   const depositPercentage = 50
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -385,10 +385,38 @@ export default function CheckoutPage() {
                 </div>
               </div>
 
+              {/* Payment Method */}
+              <div className="bg-white rounded-[2rem] shadow-xl p-8 border border-slate-100">
+                <h2 className="text-2xl font-bold text-slate-900 mb-8 flex items-center gap-3">
+                  <div className="bg-indigo-50 p-2.5 rounded-2xl">
+                    <Truck className="h-6 w-6 text-indigo-600" />
+                  </div>
+                  Phương Thức Thanh Toán
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <label className={`flex items-center p-5 border-2 rounded-2xl cursor-pointer transition-all ${paymentMethod === 'COD' ? 'border-primary-600 bg-primary-50' : 'border-slate-100 bg-slate-50/50 hover:border-slate-200'}`}>
+                    <input type="radio" name="paymentMethod" value="COD" checked={paymentMethod === 'COD'} onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)} className="w-5 h-5 text-primary-600" />
+                    <div className="ml-4">
+                      <span className="font-bold text-slate-900 block">💵 COD</span>
+                      <p className="text-[10px] text-slate-500 font-medium">Thanh toán khi nhận hàng</p>
+                    </div>
+                  </label>
+                  <label className={`flex items-center p-5 border-2 rounded-2xl cursor-pointer transition-all ${paymentMethod === 'BANK_TRANSFER' ? 'border-primary-600 bg-primary-50' : 'border-slate-100 bg-slate-50/50 hover:border-slate-200'}`}>
+                    <input type="radio" name="paymentMethod" value="BANK_TRANSFER" checked={paymentMethod === 'BANK_TRANSFER'} onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)} className="w-5 h-5 text-primary-600" />
+                    <div className="ml-4">
+                      <span className="font-bold text-slate-900 block">🏦 Chuyển khoản</span>
+                      <p className="text-[10px] text-slate-500 font-medium">Chuyển khoản qua ngân hàng</p>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
               {/* Payment Type */}
-              <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
-                <h2 className="text-2xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-                  <CreditCard className="h-6 w-6 text-primary-600" />
+              <div className="bg-white rounded-[2rem] shadow-xl p-8 border border-slate-100">
+                <h2 className="text-2xl font-bold text-gray-900 mb-8 flex items-center gap-3">
+                  <div className="bg-indigo-50 p-2.5 rounded-2xl">
+                    <CreditCard className="h-6 w-6 text-indigo-600" />
+                  </div>
                   Loại Thanh Toán
                 </h2>
                 <div className="space-y-3">

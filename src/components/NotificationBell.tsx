@@ -42,43 +42,50 @@ export default function NotificationBell() {
   // Use refs to access latest values in callbacks without re-triggering useEffect
   const readIdsRef = useRef<Set<string>>(new Set())
   const deletedIdsRef = useRef<Set<string>>(new Set())
+  const [isInitialized, setIsInitialized] = useState(false)
 
   // Load persisted state from localStorage on mount
   useEffect(() => {
     if (typeof window !== 'undefined' && user) {
-      const storedRead = localStorage.getItem(`read_notifs_${user.id}`)
-      const storedDeleted = localStorage.getItem(`deleted_notifs_${user.id}`)
+      try {
+        const storedRead = localStorage.getItem(`read_notifs_${user.id}`)
+        const storedDeleted = localStorage.getItem(`deleted_notifs_${user.id}`)
 
-      if (storedRead) {
-        const ids = JSON.parse(storedRead)
-        const set = new Set<string>(ids)
-        setReadIds(set)
-        readIdsRef.current = set
-      }
+        if (storedRead) {
+          const ids = JSON.parse(storedRead)
+          const set = new Set<string>(ids)
+          setReadIds(set)
+          readIdsRef.current = set
+        }
 
-      if (storedDeleted) {
-        const ids = JSON.parse(storedDeleted)
-        const set = new Set<string>(ids)
-        setDeletedIds(set)
-        deletedIdsRef.current = set
+        if (storedDeleted) {
+          const ids = JSON.parse(storedDeleted)
+          const set = new Set<string>(ids)
+          setDeletedIds(set)
+          deletedIdsRef.current = set
+        }
+      } catch (error) {
+        console.error('Error loading notification state:', error)
+      } finally {
+        setIsInitialized(true)
       }
     }
   }, [user])
 
   // Persist to localStorage whenever state changes
   useEffect(() => {
-    if (user) {
+    if (user && isInitialized) {
       localStorage.setItem(`read_notifs_${user.id}`, JSON.stringify(Array.from(readIds)))
       readIdsRef.current = readIds
     }
-  }, [readIds, user])
+  }, [readIds, user, isInitialized])
 
   useEffect(() => {
-    if (user) {
+    if (user && isInitialized) {
       localStorage.setItem(`deleted_notifs_${user.id}`, JSON.stringify(Array.from(deletedIds)))
       deletedIdsRef.current = deletedIds
     }
-  }, [deletedIds, user])
+  }, [deletedIds, user, isInitialized])
 
   // Automatically sync unreadCount based on current filtered notifications
   useEffect(() => {
