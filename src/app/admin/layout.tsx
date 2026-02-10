@@ -42,7 +42,10 @@ import {
   Ticket,
   ChevronRight,
   HeartHandshake,
-  BookOpen
+  BookOpen,
+  Store,
+  Wallet,
+  GanttChart
 } from 'lucide-react'
 import { LucideIcon } from 'lucide-react'
 import NotificationBell from '@/components/NotificationBell'
@@ -86,6 +89,14 @@ export default function AdminLayout({
       ]
     },
     {
+      name: 'Cửa Hàng',
+      icon: Store,
+      items: [
+        { name: 'Vận Hành Tổng Thể', href: '/admin/store-operations', icon: GanttChart },
+        { name: 'Quầy Thu Ngân', href: '/admin/pos', icon: Wallet },
+      ]
+    },
+    {
       name: 'Chăm Sóc KH',
       icon: HeartHandshake,
       items: [
@@ -110,7 +121,7 @@ export default function AdminLayout({
       icon: ShoppingCart,
       items: [
         { name: 'Đơn Hàng & Dự Án', href: '/admin/orders', icon: ShoppingCart },
-        { name: 'Khách Hàng & Đánh Giá', href: '/admin/customers', icon: Users },
+        { name: 'Khách Hàng', href: '/admin/customers', icon: Users },
         { name: 'Quản Lý Tổ Chức (B2B)', href: '/admin/organizations', icon: Building2 },
         { name: 'Loyalty & Thân Thiết', href: '/admin/loyalty', icon: Trophy },
         { name: 'Phân Tích Bán Hàng', href: '/admin/sales-management', icon: LineChart },
@@ -121,7 +132,7 @@ export default function AdminLayout({
       icon: CreditCard,
       items: [
         { name: 'Quản Lý Công Nợ', href: '/admin/credit-management', icon: CreditCard },
-        { name: 'Thu Mua & Nhập Hàng', href: '/admin/procurement-management', icon: Truck },
+        { name: 'Thu Mua', href: '/admin/procurement-management', icon: Truck },
         { name: 'Hợp Đồng & Pháp Lý', href: '/admin/contract-management', icon: FileText },
       ]
     },

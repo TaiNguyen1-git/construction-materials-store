@@ -177,6 +177,8 @@ model Employee {
   payrollRecords PayrollRecord[]
   tasks          EmployeeTask[]
   assignedProjectTasks ProjectTask[] @relation("ProjectTaskAssignee")
+  assignedOrders Order[] @relation("OrderDriver")
+  assignedPhases DeliveryPhase[] @relation("PhaseDriver")
 
   @@map("employees")
   @@index([department])
@@ -711,6 +713,13 @@ model Order {
   organizationId  String?      @db.ObjectId
   organization    Organization? @relation(fields: [organizationId], references: [id])
   b2bApprovalStatus B2BApprovalStatus @default(NOT_REQUIRED)
+
+  // Dispatch & Cash Collection
+  driverId     String?     @db.ObjectId
+  driver       Employee?   @relation("OrderDriver", fields: [driverId], references: [id])
+  isCashCollected Boolean? @default(false)
+  cashCollectedAt DateTime?
+  cashHandedOverAt DateTime?
 
   @@map("orders")
   @@index([customerId])
@@ -3292,6 +3301,14 @@ model DeliveryPhase {
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 
+
+  // Dispatch & Cash Collection
+  driverId     String?     @db.ObjectId
+  driver       Employee?   @relation("PhaseDriver", fields: [driverId], references: [id])
+  isCashCollected Boolean? @default(false)
+  cashCollectedAt DateTime?
+  cashHandedOverAt DateTime?
+
   @@map("delivery_phases")
   @@index([orderId])
   @@index([status])
@@ -3810,5 +3827,60 @@ model HelpArticle {
   @@map("help_articles")
   @@index([category])
   @@index([isPublished])
+}
+
+// ============================================
+// STORE OPERATIONS & OPS HUB
+// ============================================
+
+model StoreExpense {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  date        DateTime @default(now())
+  category    StoreExpenseCategory @default(OTHERS)
+  amount      Float
+  description String?
+  paymentMethod PaymentMethod @default(CASH)
+  employeeId  String?  @db.ObjectId
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("store_expenses")
+  @@index([date])
+  @@index([category])
+}
+
+enum StoreExpenseCategory {
+  FUEL            // Xăng dầu
+  MAINTENANCE     // Bảo trì xe
+  MEALS           // Ăn uống
+  UTILITIES       // Điện nước
+  SUPPLIES        // Vật dụng cửa hàng
+  OTHERS          // Khác
+}
+
+model QuickQuote {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  customerName String
+  customerPhone String?
+  projectName  String?
+  items       Json     // [{name, quantity, price, unit}]
+  totalAmount Float
+  notes       String?
+  validUntil  DateTime?
+  status      QuickQuoteStatus @default(PENDING)
+  orderId     String?  @db.ObjectId
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("quick_quotes")
+  @@index([customerName])
+  @@index([status])
+}
+
+enum QuickQuoteStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  EXPIRED
 }
 
