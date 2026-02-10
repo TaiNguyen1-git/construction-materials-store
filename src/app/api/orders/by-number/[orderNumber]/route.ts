@@ -53,6 +53,17 @@ export async function GET(
         contractor: true,
         deliveryPhases: {
           orderBy: { phaseNumber: 'asc' }
+        },
+        driver: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                phone: true
+              }
+            }
+          }
         }
       }
     })

@@ -84,6 +84,16 @@ interface Order {
   updatedAt: string
   orderItems: OrderItem[]
   deliveryPhases?: any[]
+  driverId?: string | null
+  driver?: {
+    id: string
+    user: {
+      name: string
+      phone?: string
+      email?: string
+    }
+  } | null
+  orderTracking: any[]
 }
 
 function OrderTrackingContent() {
@@ -459,6 +469,56 @@ function OrderTrackingContent() {
                     })}
                   </div>
                 </div>
+
+                {/* Driver Info Card - New */}
+                {order.driver && (
+                  <div className="mt-8 p-6 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-between group hover:bg-white hover:border-blue-100 transition-all duration-300">
+                    <div className="flex items-center gap-4">
+                      <div className="w-14 h-14 bg-white rounded-xl shadow-sm border border-slate-100 flex items-center justify-center text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-colors duration-300">
+                        <User className="w-8 h-8" />
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Tài xế giao hàng</p>
+                        <h4 className="text-lg font-black text-slate-900 leading-none mb-1 uppercase tracking-tighter">{order.driver.user.name}</h4>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full font-black uppercase tracking-tighter">● ĐANG GIAO</span>
+                          {order.driver.user.phone && (
+                            <span className="text-[10px] text-slate-500 font-bold">{order.driver.user.phone}</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    {order.driver.user.phone && (
+                      <a href={`tel:${order.driver.user.phone}`} className="p-4 bg-white rounded-xl text-blue-600 hover:bg-blue-600 hover:text-white shadow-sm border border-slate-100 transition-all active:scale-90">
+                        <Truck className="w-6 h-6" />
+                      </a>
+                    )}
+                  </div>
+                )}
+
+                {/* Detailed Tracking Events List */}
+                {order.orderTracking && order.orderTracking.length > 0 && (
+                  <div className="mt-10 space-y-6">
+                    <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4 border-b border-slate-50 pb-4">Chi tiết hành trình</h4>
+                    <div className="space-y-6 pl-4 border-l-2 border-slate-50">
+                      {order.orderTracking.map((event: any, idx: number) => (
+                        <div key={idx} className="relative">
+                          <div className="absolute -left-[21px] top-0 w-4 h-4 rounded-full bg-white border-4 border-blue-500 shadow-sm"></div>
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                            <div>
+                              <h5 className="text-sm font-black text-slate-900 uppercase tracking-tight">{getStatusLabel(event.status)}</h5>
+                              <p className="text-xs text-slate-500 font-medium">{event.description}</p>
+                            </div>
+                            <div className="text-left sm:text-right">
+                              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{new Date(event.timestamp).toLocaleDateString('vi-VN')}</p>
+                              <p className="text-[10px] font-bold text-slate-400">{new Date(event.timestamp).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* DETAILED DELIVERY PHASES */}

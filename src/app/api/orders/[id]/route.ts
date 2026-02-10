@@ -52,6 +52,20 @@ export async function GET(
         contractor: true,
         deliveryPhases: {
           orderBy: { phaseNumber: 'asc' }
+        },
+        orderTracking: {
+          orderBy: { timestamp: 'desc' }
+        },
+        driver: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                phone: true
+              }
+            }
+          }
         }
       }
     })

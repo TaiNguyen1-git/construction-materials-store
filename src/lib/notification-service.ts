@@ -509,7 +509,7 @@ export async function createOrderStatusNotificationForCustomer(order: {
   orderNumber: string
   status: string
   customer?: { userId?: string | null } | null
-}) {
+}, trackingToken?: string) {
   if (!order.customer?.userId) return
 
   const statusMessages: Record<string, string> = {
@@ -524,18 +524,29 @@ export async function createOrderStatusNotificationForCustomer(order: {
   }
 
   const statusMessage = statusMessages[order.status] || order.status
+  let message = `Đơn hàng của bạn ${statusMessage}`
+
+  // Add tracking link for SHIPPED status
+  if (order.status === 'SHIPPED' && trackingToken) {
+    // In a real app, use an env var for the base URL. For now, relative or hardcoded expectation.
+    // Client handling the notification should ideally render this as a link or button.
+    // We can also put it in the data payload for the frontend to handle.
+    message += `. Theo dõi đơn hàng: /track/${trackingToken}`
+  }
 
   const notification: Notification = {
     type: 'ORDER_UPDATE',
-    priority: 'MEDIUM',
+    priority: order.status === 'SHIPPED' || order.status === 'DELIVERED' ? 'HIGH' : 'MEDIUM',
     title: `📦 Cập nhật đơn hàng: ${order.orderNumber}`,
-    message: `Đơn hàng của bạn ${statusMessage}`,
+    message: message,
     orderId: order.id,
     orderNumber: order.orderNumber,
     data: {
       orderId: order.id,
       orderNumber: order.orderNumber,
-      status: order.status
+      status: order.status,
+      trackingToken: trackingToken,
+      trackingUrl: trackingToken ? `/track/${trackingToken}` : undefined
     }
   }
 

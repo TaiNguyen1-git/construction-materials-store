@@ -52,10 +52,32 @@ export async function PUT(req: NextRequest) {
             where: { id: orderId },
             data: {
                 driverId,
-                status: 'PROCESSING' // Auto move to processing if assigned
+                status: 'PROCESSING', // Auto move to processing if assigned
+                orderTracking: {
+                    create: {
+                        status: 'PROCESSING',
+                        description: `Đơn hàng đã được sắp xếp giao cho tài xế.`,
+                        timestamp: new Date()
+                    }
+                }
             },
-            include: { driver: { include: { user: true } } }
+            include: {
+                driver: { include: { user: true } },
+                customer: { select: { userId: true } }
+            }
         })
+
+        // Notify customer
+        import('@/lib/notification-service').then(({ createOrderStatusNotificationForCustomer }) => {
+            if (order.customer?.userId) {
+                createOrderStatusNotificationForCustomer({
+                    id: order.id,
+                    orderNumber: order.orderNumber,
+                    status: 'PROCESSING',
+                    customer: { userId: order.customer.userId }
+                })
+            }
+        }).catch(err => console.error('Notification error:', err))
 
         return NextResponse.json({ success: true, data: order })
     } catch (error) {
