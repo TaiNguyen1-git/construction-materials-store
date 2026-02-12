@@ -18,6 +18,7 @@ interface MaterialFeatures {
 interface RecognitionResult {
   confidence: number
   materialType: string
+  isConstructionMaterial: boolean // New flag
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   matchedProducts: any[]
   features: MaterialFeatures
@@ -65,6 +66,7 @@ export class AIRecognitionService {
       return {
         confidence,
         materialType,
+        isConstructionMaterial: features.category !== 'unknown',
         matchedProducts: allProducts,
         features,
         suggestions
@@ -230,7 +232,9 @@ export class AIRecognitionService {
         }
       }
 
-      // Query database
+      if (Object.keys(categoryFilter).length === 0) {
+        return [] // Fix: Return empty if no category matched instead of everything
+      }
       const products = await prisma.product.findMany({
         where: {
           ...categoryFilter,
@@ -326,7 +330,8 @@ export class AIRecognitionService {
         steel: ['cement']
       }
 
-      const complementaryCategories = complementaryMap[category] || ['cement', 'sand']
+      if (category === 'unknown') return [] // Fix: No complementary products for unknown categories
+      const complementaryCategories = complementaryMap[category] || []
 
       const products = await prisma.product.findMany({
         where: {
@@ -483,6 +488,7 @@ export class AIRecognitionService {
     return {
       confidence: 0.85,
       materialType,
+      isConstructionMaterial: features.category !== 'unknown',
       matchedProducts,
       features,
       suggestions: this.generateSuggestions(materialType, matchedProducts)

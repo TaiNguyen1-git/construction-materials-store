@@ -127,6 +127,11 @@ export class AIService {
     // Help
     'help': { response: 'Mình có thể giúp bạn:\n• Tìm kiếm vật liệu xây dựng\n• Tính toán dự toán công trình\n• Tư vấn sản phẩm phù hợp\n• Hỗ trợ đặt hàng\n\nBạn cần gì ạ?', suggestions: ['Tư vấn vật liệu', 'Tính dự toán', 'Đặt hàng'], confidence: 1 },
     'giúp': { response: 'Mình sẵn sàng giúp bạn! Bạn có thể nhờ mình:\n• Tìm vật liệu xây dựng\n• Tính toán nguyên vật liệu\n• Tra cứu giá cả\n• Hỗ trợ đặt hàng', suggestions: ['Tìm sản phẩm', 'Tính vật liệu', 'Xem giá'], confidence: 1 },
+    'ok': { response: 'Dạ vâng ạ! 😊 Cần gì bạn cứ nhắn mình nhé.', suggestions: ['Xem giá gạch', 'Tính vật liệu', 'Địa chỉ cửa hàng'], confidence: 1 },
+    'vậy thôi': { response: 'Dạ, nếu cần hỗ trợ gì thêm bạn cứ nhắn mình nhé. Chào bạn! 👋', suggestions: ['Quay lại sau', 'Xem sản phẩm'], confidence: 1 },
+    'dc': { response: 'Dạ vâng! 😊 Cần gì bạn cứ nhắn nhé.', suggestions: ['Xem giá gạch', 'Tính vật liệu'], confidence: 1 },
+    'duoc': { response: 'Dạ vâng! 😊 Cần gì bạn cứ nhắn nhé.', suggestions: ['Xem giá gạch', 'Tính vật liệu'], confidence: 1 },
+    'da': { response: 'Dạ vâng! Cần gì bạn cứ nhắn mình nhen. 😊', suggestions: ['Xem sản phẩm', 'Tính vật liệu'], confidence: 1 },
   }
 
   // Check for quick response (case-insensitive)

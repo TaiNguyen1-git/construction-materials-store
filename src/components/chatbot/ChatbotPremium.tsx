@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { usePathname } from 'next/navigation'
-import { Sparkles } from 'lucide-react'
+import { Sparkles, X } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useAuth } from '@/contexts/auth-context'
 
@@ -29,7 +29,7 @@ import {
     ChatMode,
     LiveChatMessage
 } from './types'
-import HybridChatManager from './HybridChatManager'
+import useHybridChatManager from './HybridChatManager'
 import ChatCallManager from '../ChatCallManager'
 
 export default function ChatbotPremium({ customerId, onClose }: ChatbotProps) {
@@ -39,6 +39,7 @@ export default function ChatbotPremium({ customerId, onClose }: ChatbotProps) {
     // UI State - Start open if onClose is provided (embedded mode)
     const [isOpen, setIsOpen] = useState(!!onClose)
     const [isExpanded, setIsExpanded] = useState(false)
+    const [lightboxImage, setLightboxImage] = useState<string | null>(null)
 
     // Chat State
     const [messages, setMessages] = useState<ChatMessage[]>([])
@@ -56,9 +57,12 @@ export default function ChatbotPremium({ customerId, onClose }: ChatbotProps) {
     const [confirmDialogData, setConfirmDialogData] = useState<ConfirmDialogData | null>(null)
     const [pendingOrderData, setPendingOrderData] = useState<OrderData | null>(null)
     const [pendingOCRData, setPendingOCRData] = useState<OCRData | null>(null)
+    const [abortController, setAbortController] = useState<AbortController | null>(null)
 
     // Refs
     const messagesEndRef = useRef<HTMLDivElement>(null)
+    const chatContainerRef = useRef<HTMLDivElement>(null)
+    const isAtBottom = useRef(true)
 
     // Check if user is admin/manager
     const isAdminRoute = pathname?.startsWith('/admin') ?? false
@@ -71,48 +75,71 @@ export default function ChatbotPremium({ customerId, onClose }: ChatbotProps) {
     // Call Manager State
     const [myIdentity, setMyIdentity] = useState<{ id: string, name: string } | null>(null)
 
-    // Hybrid Manager Hook
-    const hybridManager = HybridChatManager({
+    // Identity for mapping - consistent with HybridChatManager logic
+    const currentUserId = (isAuthenticated && user)
+        ? (user.id || customerId || '')
+        : (typeof window !== 'undefined' ? localStorage.getItem('smartbuild_guest_id') : null);
+
+    // Memoized Callbacks for Hybrid Manager
+    const handleHistoryLoaded = useCallback((history: LiveChatMessage[]) => {
+        const mappedMessages: ChatMessage[] = history.map(msg => ({
+            id: msg.id,
+            userMessage: msg.senderId === currentUserId ? msg.content : '',
+            userImage: (msg.senderId === currentUserId && msg.fileType?.startsWith('image')) ? msg.fileUrl : undefined,
+            botMessage: msg.senderId !== currentUserId ? msg.content : '',
+            suggestions: [],
+            confidence: 1,
+            timestamp: msg.createdAt,
+            requiresConfirmation: false
+        }));
+        setMessages(mappedMessages);
+
+        // If the last message was from an agent, maybe switch to HUMAN mode
+        const lastMsg = history[history.length - 1];
+        if (lastMsg && lastMsg.senderId !== 'smartbuild_bot' && lastMsg.senderId !== currentUserId) {
+            setChatMode('HUMAN');
+        }
+    }, [currentUserId]);
+
+    const handleNewMessage = useCallback((msg: LiveChatMessage) => {
+        setMessages(prev => {
+            // 1. Check if message already exists by ID
+            if (prev.some(m => m.id === msg.id)) return prev;
+
+            // 2. Check if it's a Bot response we already have (optimistic update)
+            if (msg.senderId === 'smartbuild_bot') {
+                const existingIdx = prev.findIndex(m => m.botMessage === msg.content && !m.id.startsWith('chat_'));
+                if (existingIdx !== -1) {
+                    // Update the local message with the real Firebase ID
+                    const newMessages = [...prev];
+                    newMessages[existingIdx] = { ...newMessages[existingIdx], id: msg.id };
+                    return newMessages;
+                }
+            }
+
+            // 3. Otherwise add as new message
+            const newMessage: ChatMessage = {
+                id: msg.id,
+                userMessage: msg.senderId === currentUserId ? msg.content : '',
+                botMessage: msg.senderId !== currentUserId ? msg.content : '',
+                suggestions: [],
+                confidence: 1,
+                timestamp: msg.createdAt,
+                requiresConfirmation: false
+            }
+            return [...prev, newMessage];
+        });
+        setIsLoading(false);
+    }, [currentUserId]);
+
+    // Hybrid Manager Hook usage
+    const hybridManager = useHybridChatManager({
         currentMode: chatMode,
         onModeChange: setChatMode,
         customerId,
-        onHistoryLoaded: (history) => {
-            const mappedMessages: ChatMessage[] = history.map(msg => ({
-                id: msg.id,
-                userMessage: msg.senderId === hybridManager.identity?.id ? msg.content : '',
-                userImage: (msg.senderId === hybridManager.identity?.id && msg.fileType?.startsWith('image')) ? msg.fileUrl : undefined,
-                botMessage: msg.senderId !== hybridManager.identity?.id ? msg.content : '',
-                suggestions: [],
-                confidence: 1,
-                timestamp: msg.createdAt,
-                requiresConfirmation: false
-            }));
-            setMessages(mappedMessages);
-
-            // If the last message was from an agent, maybe switch to HUMAN mode
-            const lastMsg = history[history.length - 1];
-            if (lastMsg && lastMsg.senderId !== 'smartbuild_bot' && lastMsg.senderId !== hybridManager.identity?.id) {
-                setChatMode('HUMAN');
-            }
-        },
-        onNewMessage: (msg: LiveChatMessage) => {
-            // Check if message already exists to avoid duplicates
-            if (messages.some(m => m.id === msg.id)) return;
-
-            const newMessage: ChatMessage = {
-                id: msg.id,
-                userMessage: msg.senderId === user?.id ? msg.content : '',
-                botMessage: msg.senderId !== user?.id ? msg.content : '',
-                suggestions: [],
-                confidence: 1,
-                timestamp: msg.createdAt,
-                requiresConfirmation: false
-            }
-
-            setMessages(prev => [...prev, newMessage])
-            setIsLoading(false)
-        }
-    })
+        onHistoryLoaded: handleHistoryLoaded,
+        onNewMessage: handleNewMessage
+    });
 
     // Sync identity for Call Manager
     useEffect(() => {
@@ -137,19 +164,12 @@ export default function ChatbotPremium({ customerId, onClose }: ChatbotProps) {
 
         setIsLoading(false)
         if (connected) {
+            // The message "Đã kết nối!" is often handled by the backend's initialMessage 
+            // or already synced via Firebase. Let's just switch mode and avoid extra local UI bubbles.
             setChatMode('HUMAN')
-            const successMsg: ChatMessage = {
-                id: (Date.now() + 1).toString(),
-                userMessage: '',
-                botMessage: 'Đã kết nối! Nhân viên sẽ phản hồi trong giây lát.',
-                suggestions: [], // Hide AI suggestions in human mode
-                confidence: 1,
-                timestamp: new Date().toISOString()
-            }
-            setMessages(prev => [...prev, successMsg])
 
-            // Save system connection message to firebase history
-            hybridManager.saveMessageToFirebase(successMsg.botMessage, 'SYSTEM');
+            // Note: successMsg is removed here because handleNewMessage/handleHistoryLoaded 
+            // will pick up the "Xin chào..." and "Đã kết nối" from Firebase/DB.
         } else {
             const errorMsg: ChatMessage = {
                 id: (Date.now() + 1).toString(),
@@ -193,32 +213,44 @@ export default function ChatbotPremium({ customerId, onClose }: ChatbotProps) {
     )
 
     // Scroll to bottom
-    const scrollToBottom = () => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    const handleScroll = () => {
+        if (!chatContainerRef.current) return
+        const { scrollTop, scrollHeight, clientHeight } = chatContainerRef.current
+        const distanceFromBottom = scrollHeight - scrollTop - clientHeight
+        isAtBottom.current = distanceFromBottom < 100
     }
+
+    const scrollToBottom = useCallback((force = false) => {
+        if ((isAtBottom.current || force) && messagesEndRef.current) {
+            messagesEndRef.current.scrollIntoView({ behavior: 'smooth' })
+        }
+    }, [])
 
     useEffect(() => {
         if (!shouldHideChatbot) {
-            scrollToBottom()
+            // Force scroll on user's own message, or if already at bottom
+            const lastMsg = messages[messages.length - 1]
+            const isFromUser = lastMsg && lastMsg.userMessage && !lastMsg.botMessage
+            scrollToBottom(!!isFromUser)
         }
-    }, [messages, shouldHideChatbot])
+    }, [messages, shouldHideChatbot, scrollToBottom])
 
     useEffect(() => {
-        if (!shouldHideChatbot && isOpen && messages.length === 0) {
-            const timer = setTimeout(() => {
-                const welcomeMsg = isAdmin ? 'admin_hello' : 'hello'
-                sendMessage(welcomeMsg)
-            }, 100)
-            return () => clearTimeout(timer)
+        // Only trigger welcome if we have NO messages and AREN'T currently loading
+        if (!shouldHideChatbot && isOpen && messages.length === 0 && !isLoading) {
+            const welcomeMsg = isAdmin ? 'admin_hello' : 'hello'
+            sendMessage(welcomeMsg)
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isOpen, isAdmin, messages.length, shouldHideChatbot])
+    }, [isOpen, isAdmin, messages.length, shouldHideChatbot, isLoading])
 
     if (shouldHideChatbot) {
         return null
     }
 
     const sendMessage = async (message: string, useCurrentMessage = false) => {
+        if (isLoading) return // Important: Prevent duplicate sending
+
         const messageToSend = useCurrentMessage ? currentMessage : message
         const imageToSend = selectedImage
 
@@ -258,10 +290,27 @@ export default function ChatbotPremium({ customerId, onClose }: ChatbotProps) {
 
         if (!messageToSend.trim() && !imageToSend) return
 
+        // Create new AbortController for this request
+        const controller = new AbortController()
+        setAbortController(controller)
+
         setCurrentMessage('')
         setSelectedImage(null)
         setIsLoading(true)
         setIsError(false)
+
+        // Optimistic update: Add user message immediately so it's not hidden during loading
+        const tempId = Date.now().toString()
+        const userOnlyMessage: ChatMessage = {
+            id: tempId,
+            userMessage: messageToSend,
+            userImage: imageToSend || undefined,
+            botMessage: '', // Empty while loading
+            suggestions: [],
+            confidence: 1,
+            timestamp: new Date().toISOString()
+        }
+        setMessages(prev => [...prev, userOnlyMessage])
 
         try {
             // First, if no conversationId, we should ideally create one for history
@@ -286,27 +335,26 @@ export default function ChatbotPremium({ customerId, onClose }: ChatbotProps) {
                     context: {
                         currentPage: window.location.pathname,
                     }
-                })
+                }),
+                signal: controller.signal
             })
 
             const data = await response.json()
             if (data.success) {
-                const newMessage: ChatMessage = {
-                    id: Date.now().toString(),
-                    userMessage: messageToSend,
-                    userImage: imageToSend || undefined,
+                // Update the temporary message with actual data instead of adding a new one
+                setMessages(prev => prev.map(m => m.id === tempId ? {
+                    ...m,
                     botMessage: data.data.message,
                     suggestions: data.data.suggestions || [],
                     productRecommendations: data.data.productRecommendations || [],
                     confidence: data.data.confidence || 0,
-                    timestamp: data.data.timestamp,
+                    timestamp: data.data.timestamp || new Date().toISOString(),
                     ocrData: data.data.ocrData,
                     calculationData: data.data.calculationData,
                     orderData: data.data.orderData,
                     data: data.data.data
-                }
+                } : m))
 
-                setMessages(prev => [...prev, newMessage])
                 setErrorRetryCount(0)
 
                 // Save bot response to firebase history
@@ -323,32 +371,56 @@ export default function ChatbotPremium({ customerId, onClose }: ChatbotProps) {
                 }
             } else {
                 setIsError(true)
-                const errorMessage: ChatMessage = {
-                    id: Date.now().toString(),
-                    userMessage: messageToSend,
+                // Update the temporary message with error instead of adding a new one
+                setMessages(prev => prev.map(m => m.id === tempId ? {
+                    ...m,
                     botMessage: 'Xin lỗi, tôi gặp sự cố kỹ thuật. Vui lòng thử lại sau.',
                     suggestions: ['Thử lại', 'Gặp nhân viên hỗ trợ'],
                     confidence: 1,
                     timestamp: new Date().toISOString()
-                }
-                setMessages(prev => [...prev, errorMessage])
+                } : m))
                 toast.error(data.error?.message || 'Failed to get response from chatbot')
             }
         } catch (error) {
             console.error('Chatbot error:', error)
             setIsError(true)
-            const errorMessage: ChatMessage = {
-                id: Date.now().toString(),
-                userMessage: messageToSend,
+            // Update the temporary message with connection error
+            setMessages(prev => prev.map(m => m.id === tempId ? {
+                ...m,
                 botMessage: 'Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối mạng.',
                 suggestions: ['Thử lại'],
                 confidence: 1,
                 timestamp: new Date().toISOString()
-            }
-            setMessages(prev => [...prev, errorMessage])
+            } : m))
             toast.error('Network error. Please check your connection.')
         } finally {
             setIsLoading(false)
+            setAbortController(null)
+        }
+    }
+
+    const stopResponse = () => {
+        if (abortController) {
+            abortController.abort()
+            setAbortController(null)
+            setIsLoading(false)
+            // Fix the last message state
+            setMessages(prev => prev.map((m, i) =>
+                (i === prev.length - 1 && !m.botMessage)
+                    ? { ...m, botMessage: '⏹️ Đã dừng phản hồi.' }
+                    : m
+            ))
+            toast.success('Đã dừng AI')
+        }
+    }
+
+    const regenerateResponse = () => {
+        // Find the most recent message that has a userMessage
+        const lastUserMsg = [...messages].reverse().find(m => m.userMessage && m.userMessage !== 'hello' && m.userMessage !== 'admin_hello')
+        if (lastUserMsg) {
+            sendMessage(lastUserMsg.userMessage, false)
+        } else {
+            toast.error('Không tìm thấy yêu cầu trước đó để tạo lại.')
         }
     }
 
@@ -586,11 +658,13 @@ export default function ChatbotPremium({ customerId, onClose }: ChatbotProps) {
     }
 
     // Floating Button (Closed State)
-    if (!isOpen) {
-        return (
-            <button
-                onClick={() => setIsOpen(true)}
-                className={`
+    // Final Render logic using Fragment for global elements
+    return (
+        <>
+            {!isOpen ? (
+                <button
+                    onClick={() => setIsOpen(true)}
+                    className={`
           fixed bottom-6 right-6 z-50 group
           w-16 h-16 rounded-full
           bg-white border-2 border-gray-100
@@ -599,63 +673,59 @@ export default function ChatbotPremium({ customerId, onClose }: ChatbotProps) {
           hover:scale-110 active:scale-95
           overflow-hidden
         `}
-                aria-label="Mở chat hỗ trợ"
-            >
-                {/* Glow effect */}
-                <div className={`
+                    aria-label="Mở chat hỗ trợ"
+                >
+                    {/* Glow effect */}
+                    <div className={`
           absolute inset-0 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300
           ${isAdmin
-                        ? 'bg-gradient-to-r from-purple-400/30 to-blue-400/30'
-                        : 'bg-gradient-to-r from-blue-400/30 to-cyan-400/30'
-                    }
+                            ? 'bg-gradient-to-r from-purple-400/30 to-blue-400/30'
+                            : 'bg-gradient-to-r from-blue-400/30 to-cyan-400/30'
+                        }
         `} />
 
-                {/* Pulse ring */}
-                <div className={`
+                    {/* Pulse ring */}
+                    <div className={`
           absolute inset-0 rounded-full animate-ping opacity-25
           ${isAdmin ? 'bg-purple-500' : (chatMode === 'HUMAN' ? 'bg-green-500' : 'bg-blue-500')}
         `} style={{ animationDuration: '2s' }} />
 
-                {/* Avatar */}
-                <img
-                    src={chatMode === 'HUMAN' ? "/images/support_agent.png" : "/images/smartbuild_bot.png"}
-                    alt="Chatbot"
-                    className="w-full h-full object-cover relative z-10"
-                />
+                    {/* Avatar */}
+                    <img
+                        src={chatMode === 'HUMAN' ? "/images/support_agent.png" : "/images/smartbuild_bot.png"}
+                        alt="Chatbot"
+                        className="w-full h-full object-cover relative z-10"
+                    />
 
-                {/* Online badge */}
-                <div className="absolute -top-1 -right-1 z-20">
-                    <div className="relative flex h-4 w-4">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
-                        <span className="relative inline-flex rounded-full h-4 w-4 bg-green-500 border-2 border-white" />
+                    {/* Online badge */}
+                    <div className="absolute -top-1 -right-1 z-20">
+                        <div className="relative flex h-4 w-4">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                            <span className="relative inline-flex rounded-full h-4 w-4 bg-green-500 border-2 border-white" />
+                        </div>
                     </div>
-                </div>
 
-                {/* Sparkle icon */}
-                <div className={`
+                    {/* Sparkle icon */}
+                    <div className={`
           absolute bottom-0 right-0 z-20
           w-6 h-6 rounded-full flex items-center justify-center
           ${isAdmin
-                        ? 'bg-gradient-to-r from-purple-500 to-blue-500'
-                        : 'bg-gradient-to-r from-blue-500 to-cyan-500'
-                    }
+                            ? 'bg-gradient-to-r from-purple-500 to-blue-500'
+                            : 'bg-gradient-to-r from-blue-500 to-cyan-500'
+                        }
           shadow-lg
         `}>
-                    <Sparkles className="w-3 h-3 text-white" />
-                </div>
-            </button>
-        )
-    }
-
-    // Chat Window (Open State)
-    return (
-        <div
-            className={`
+                        <Sparkles className="w-3 h-3 text-white" />
+                    </div>
+                </button>
+            ) : (
+                <div
+                    className={`
                 fixed bottom-6 right-6 z-50
                 ${isExpanded
-                    ? 'w-full h-full sm:w-[500px] sm:h-[700px] sm:max-h-[90vh]'
-                    : 'w-[380px] h-[600px] max-h-[calc(100vh-100px)]'
-                }
+                            ? 'w-full h-full sm:w-[500px] sm:h-[700px] sm:max-h-[90vh]'
+                            : 'w-[380px] h-[600px] max-h-[calc(100vh-100px)]'
+                        }
                 bg-white
                 rounded-2xl
                 shadow-[0_20px_50px_rgba(0,0,0,0.15)]
@@ -664,170 +734,243 @@ export default function ChatbotPremium({ customerId, onClose }: ChatbotProps) {
                 border border-gray-100
                 animate-fadeIn
             `}
-        >
-            {/* Video Call Manager - Always mounted but hidden until needed */}
-            {myIdentity && (
-                <ChatCallManager
-                    userId={myIdentity.id}
-                    userName={myIdentity.name}
-                    listenAdminSupport={false}
-                />
-            )}
+                >
+                    {/* Video Call Manager - Always mounted but hidden until needed */}
+                    {myIdentity && (
+                        <ChatCallManager
+                            userId={myIdentity.id}
+                            userName={myIdentity.name}
+                            listenAdminSupport={false}
+                        />
+                    )}
 
-            {/* Header */}
-            <ChatHeader
-                isAdmin={isAdmin}
-                isExpanded={isExpanded}
-                isHuman={chatMode === 'HUMAN'}
-                onSwitchToAI={handleSwitchToAI}
-                onClose={() => {
-                    if (onClose) {
-                        onClose() // Embedded mode - call parent's close handler
-                    } else {
-                        setIsOpen(false) // Standalone mode - just close
-                    }
-                }}
-                onToggleExpand={() => setIsExpanded(!isExpanded)}
-            />
+                    {/* Header - Hidden when viewing large image to focus on content */}
+                    {!lightboxImage && (
+                        <ChatHeader
+                            isAdmin={isAdmin}
+                            isExpanded={isExpanded}
+                            isHuman={chatMode === 'HUMAN'}
+                            onSwitchToAI={handleSwitchToAI}
+                            onClose={() => {
+                                if (onClose) {
+                                    onClose() // Embedded mode - call parent's close handler
+                                } else {
+                                    setIsOpen(false) // Standalone mode - just close
+                                }
+                            }}
+                            onToggleExpand={() => setIsExpanded(!isExpanded)}
+                        />
+                    )}
 
-            {/* Messages Area */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0 bg-slate-50">
-                {/* Welcome Screen */}
-                {messages.length === 0 && !isLoading && (
-                    <WelcomeScreen
+                    {/* Messages Area */}
+                    <div
+                        ref={chatContainerRef}
+                        onScroll={handleScroll}
+                        className="flex-1 overflow-y-auto p-4 space-y-5 min-h-0 bg-slate-50 scroll-smooth"
+                    >
+                        {/* Welcome Screen */}
+                        {messages.length === 0 && !isLoading && (
+                            <WelcomeScreen
+                                isAdmin={isAdmin}
+                                onConnectSupport={handleConnectSupport}
+                                onSuggestionClick={(text) => sendMessage(text)}
+                            />
+                        )}
+
+                        {/* Messages */}
+                        {messages.map((message, index) => (
+                            <MessageBubble
+                                key={message.id}
+                                message={message}
+                                isAdmin={isAdmin}
+                                onSuggestionClick={handleSuggestionClick}
+                                isLoading={isLoading}
+                                onImageClick={setLightboxImage}
+                                isLast={index === messages.length - 1}
+                            />
+                        ))}
+
+                        {/* Typing Indicator */}
+                        {isLoading && <TypingIndicator isAdmin={isAdmin} />}
+
+                        {/* Live Typing Indicator for HUMAN mode */}
+                        {chatMode === 'HUMAN' && hybridManager.conversationId && myIdentity && (
+                            <LiveTypingIndicator
+                                conversationId={hybridManager.conversationId}
+                                myUserId={myIdentity.id}
+                            />
+                        )}
+
+                        {/* Stop Response Button (2026 AI UX) */}
+                        {isLoading && chatMode === 'AI' && abortController && (
+                            <div className="flex justify-center sticky bottom-2 z-20 animate-fadeIn">
+                                <button
+                                    onClick={stopResponse}
+                                    className="bg-white/80 backdrop-blur-md border border-red-200 text-red-600 px-4 py-2 rounded-full text-xs font-bold shadow-lg hover:bg-red-50 flex items-center gap-2 transition-all active:scale-95"
+                                >
+                                    <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                                    Dừng phản hồi AI
+                                </button>
+                            </div>
+                        )}
+
+                        {/* Regenerate Button (Shows only for the last AI message if not loading) */}
+                        {!isLoading && chatMode === 'AI' && messages.length > 0 && messages[messages.length - 1].botMessage && (
+                            <div className="flex justify-start pl-14 animate-fadeIn">
+                                <button
+                                    onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        regenerateResponse();
+                                    }}
+                                    className="text-[11px] text-blue-600 font-bold flex items-center gap-1.5 hover:text-blue-700 transition-colors opacity-80 hover:opacity-100"
+                                >
+                                    <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-current">
+                                        <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z" />
+                                    </svg>
+                                    Tạo lại câu trả lời
+                                </button>
+                            </div>
+                        )}
+
+                        {/* Error Message */}
+                        {isError && (
+                            <ErrorMessage
+                                onRetry={retryLastMessage}
+                                isLoading={isLoading}
+                                retryCount={errorRetryCount}
+                            />
+                        )}
+
+                        {/* OCR Preview */}
+                        {showOCRPreview && pendingOCRData && (
+                            <div className="mt-4">
+                                <ChatOCRPreview
+                                    invoiceNumber={pendingOCRData.invoiceNumber}
+                                    invoiceDate={pendingOCRData.invoiceDate ? new Date(pendingOCRData.invoiceDate) : undefined}
+                                    supplierName={pendingOCRData.supplierName}
+                                    items={pendingOCRData.items || []}
+                                    totalAmount={pendingOCRData.totalAmount}
+                                    confidence={pendingOCRData.confidence || 0}
+                                    onConfirm={() => {
+                                        sendMessage('Xác nhận lưu')
+                                        setShowOCRPreview(false)
+                                    }}
+                                    onEdit={() => {
+                                        setShowOCRPreview(false)
+                                        toast('Chức năng chỉnh sửa đang được phát triển')
+                                    }}
+                                    onCancel={() => {
+                                        sendMessage('Hủy')
+                                        setShowOCRPreview(false)
+                                        setPendingOCRData(null)
+                                    }}
+                                />
+                            </div>
+                        )}
+
+                        {/* Order Summary */}
+                        {showOrderSummary && pendingOrderData && (
+                            <div className="mt-4">
+                                <ChatOrderSummary
+                                    items={pendingOrderData.items || []}
+                                    customerInfo={pendingOrderData.customerInfo}
+                                    paymentMethod={pendingOrderData.paymentMethod}
+                                    deliveryMethod={pendingOrderData.deliveryMethod}
+                                    totalAmount={pendingOrderData.totalAmount}
+                                    onConfirm={() => {
+                                        sendMessage('Xác nhận đặt hàng')
+                                        setShowOrderSummary(false)
+                                    }}
+                                    onEdit={() => {
+                                        setShowOrderSummary(false)
+                                        toast('Chức năng chỉnh sửa đang được phát triển')
+                                    }}
+                                    onCancel={() => {
+                                        sendMessage('Hủy đơn hàng')
+                                        setShowOrderSummary(false)
+                                        setPendingOrderData(null)
+                                    }}
+                                />
+                            </div>
+                        )}
+
+                        {/* Confirm Dialog */}
+                        {showConfirmDialog && confirmDialogData && (
+                            <div className="mt-4">
+                                <ChatConfirmDialog
+                                    type={confirmDialogData.type || 'info'}
+                                    title={confirmDialogData.title}
+                                    message={confirmDialogData.message}
+                                    confirmText={confirmDialogData.confirmText}
+                                    cancelText={confirmDialogData.cancelText}
+                                    onConfirm={() => {
+                                        if (confirmDialogData.onConfirm) {
+                                            confirmDialogData.onConfirm()
+                                        }
+                                        setShowConfirmDialog(false)
+                                        setConfirmDialogData(null)
+                                    }}
+                                    onCancel={() => {
+                                        if (confirmDialogData.onCancel) {
+                                            confirmDialogData.onCancel()
+                                        }
+                                        setShowConfirmDialog(false)
+                                        setConfirmDialogData(null)
+                                    }}
+                                />
+                            </div>
+                        )}
+
+                        {/* Scroll anchor */}
+                        <div ref={messagesEndRef} />
+                    </div>
+
+
+                    {/* Input Area */}
+                    <ChatInput
+                        currentMessage={currentMessage}
+                        setCurrentMessage={setCurrentMessage}
+                        selectedImage={selectedImage}
+                        setSelectedImage={setSelectedImage}
+                        isLoading={isLoading}
+                        onSendMessage={handleSendMessage}
                         isAdmin={isAdmin}
                         onConnectSupport={handleConnectSupport}
-                        onSuggestionClick={(text) => sendMessage(text)}
+                        isHumanMode={chatMode === 'HUMAN'}
                     />
-                )}
+                </div>
+            )}
 
-                {/* Messages */}
-                {messages.map((message) => (
-                    <MessageBubble
-                        key={message.id}
-                        message={message}
-                        isAdmin={isAdmin}
-                        onSuggestionClick={handleSuggestionClick}
-                        isLoading={isLoading}
-                    />
-                ))}
-
-                {/* Typing Indicator */}
-                {isLoading && <TypingIndicator isAdmin={isAdmin} />}
-
-                {/* Live Typing Indicator for HUMAN mode */}
-                {chatMode === 'HUMAN' && hybridManager.conversationId && myIdentity && (
-                    <LiveTypingIndicator
-                        conversationId={hybridManager.conversationId}
-                        myUserId={myIdentity.id}
-                    />
-                )}
-
-                {/* Error Message */}
-                {isError && (
-                    <ErrorMessage
-                        onRetry={retryLastMessage}
-                        isLoading={isLoading}
-                        retryCount={errorRetryCount}
-                    />
-                )}
-
-                {/* OCR Preview */}
-                {showOCRPreview && pendingOCRData && (
-                    <div className="mt-4">
-                        <ChatOCRPreview
-                            invoiceNumber={pendingOCRData.invoiceNumber}
-                            invoiceDate={pendingOCRData.invoiceDate ? new Date(pendingOCRData.invoiceDate) : undefined}
-                            supplierName={pendingOCRData.supplierName}
-                            items={pendingOCRData.items || []}
-                            totalAmount={pendingOCRData.totalAmount}
-                            confidence={pendingOCRData.confidence || 0}
-                            onConfirm={() => {
-                                sendMessage('Xác nhận lưu')
-                                setShowOCRPreview(false)
+            {/* Global Lightbox - Outside the main container to avoid z-index/overflow issues */}
+            {lightboxImage && (
+                <div
+                    className="fixed inset-0 z-[1000000] flex items-center justify-center p-4 bg-black/5 backdrop-blur-[1px] animate-fadeIn"
+                    onClick={() => setLightboxImage(null)}
+                >
+                    {/* Floating Close Button */}
+                    <div className="absolute top-10 right-10 z-[1000001]">
+                        <button
+                            className="bg-white text-gray-900 p-4 rounded-full shadow-2xl border-2 border-gray-200 hover:bg-gray-50 transition-all hover:scale-110 active:scale-95"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setLightboxImage(null);
                             }}
-                            onEdit={() => {
-                                setShowOCRPreview(false)
-                                toast('Chức năng chỉnh sửa đang được phát triển')
-                            }}
-                            onCancel={() => {
-                                sendMessage('Hủy')
-                                setShowOCRPreview(false)
-                                setPendingOCRData(null)
-                            }}
+                        >
+                            <X className="w-8 h-8" />
+                        </button>
+                    </div>
+
+                    <div className="relative w-full h-full flex items-center justify-center">
+                        <img
+                            src={lightboxImage}
+                            alt="Full view"
+                            className="max-w-[95%] max-h-[85vh] object-contain rounded-2xl shadow-[0_0_100px_rgba(0,0,0,0.3)] border-8 border-white animate-scaleIn"
+                            onClick={(e) => e.stopPropagation()}
                         />
                     </div>
-                )}
-
-                {/* Order Summary */}
-                {showOrderSummary && pendingOrderData && (
-                    <div className="mt-4">
-                        <ChatOrderSummary
-                            items={pendingOrderData.items || []}
-                            customerInfo={pendingOrderData.customerInfo}
-                            paymentMethod={pendingOrderData.paymentMethod}
-                            deliveryMethod={pendingOrderData.deliveryMethod}
-                            totalAmount={pendingOrderData.totalAmount}
-                            onConfirm={() => {
-                                sendMessage('Xác nhận đặt hàng')
-                                setShowOrderSummary(false)
-                            }}
-                            onEdit={() => {
-                                setShowOrderSummary(false)
-                                toast('Chức năng chỉnh sửa đang được phát triển')
-                            }}
-                            onCancel={() => {
-                                sendMessage('Hủy đơn hàng')
-                                setShowOrderSummary(false)
-                                setPendingOrderData(null)
-                            }}
-                        />
-                    </div>
-                )}
-
-                {/* Confirm Dialog */}
-                {showConfirmDialog && confirmDialogData && (
-                    <div className="mt-4">
-                        <ChatConfirmDialog
-                            type={confirmDialogData.type || 'info'}
-                            title={confirmDialogData.title}
-                            message={confirmDialogData.message}
-                            confirmText={confirmDialogData.confirmText}
-                            cancelText={confirmDialogData.cancelText}
-                            onConfirm={() => {
-                                if (confirmDialogData.onConfirm) {
-                                    confirmDialogData.onConfirm()
-                                }
-                                setShowConfirmDialog(false)
-                                setConfirmDialogData(null)
-                            }}
-                            onCancel={() => {
-                                if (confirmDialogData.onCancel) {
-                                    confirmDialogData.onCancel()
-                                }
-                                setShowConfirmDialog(false)
-                                setConfirmDialogData(null)
-                            }}
-                        />
-                    </div>
-                )}
-
-                {/* Scroll anchor */}
-                <div ref={messagesEndRef} />
-            </div>
-
-            {/* Input Area */}
-            <ChatInput
-                currentMessage={currentMessage}
-                setCurrentMessage={setCurrentMessage}
-                selectedImage={selectedImage}
-                setSelectedImage={setSelectedImage}
-                isLoading={isLoading}
-                onSendMessage={handleSendMessage}
-                isAdmin={isAdmin}
-                onConnectSupport={handleConnectSupport}
-                isHumanMode={chatMode === 'HUMAN'}
-            />
-        </div>
+                </div>
+            )}
+        </>
     )
 }

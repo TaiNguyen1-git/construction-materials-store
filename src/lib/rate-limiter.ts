@@ -52,10 +52,10 @@ export async function checkRateLimit(
 ): Promise<RateLimitResult> {
   const now = Date.now()
   const key = `rate:${identifier}`
-  
+
   // Use in-memory only
   let entry = rateLimitStore.get(key)
-  
+
   // Create or reset entry if expired
   if (!entry || entry.resetAt < now) {
     entry = {
@@ -63,20 +63,20 @@ export async function checkRateLimit(
       resetAt: now + config.windowMs
     }
     rateLimitStore.set(key, entry)
-    
+
     return {
       allowed: true,
       remaining: Math.max(0, config.max - 1),
       resetAt: entry.resetAt
     }
   }
-  
+
   // Increment count
   entry.count++
-  
+
   // Check if allowed
   const allowed = entry.count <= config.max
-  
+
   return {
     allowed,
     remaining: Math.max(0, config.max - entry.count),
@@ -98,31 +98,31 @@ export function getRateLimitIdentifier(
 }
 
 /**
- * Predefined rate limit configs
+ * Predefined rate limit configs (2026 Enhanced)
  */
 export const RateLimitConfigs = {
-  // OCR is expensive, limit heavily
+  // OCR is expensive, limit heavily for guests, more for auth
   OCR: {
-    windowMs: 60 * 60 * 1000, // 1 hour
-    max: 10 // 10 requests per hour
+    GUEST: { windowMs: 60 * 60 * 1000, max: 5 },  // 5 per hour
+    AUTH: { windowMs: 60 * 60 * 1000, max: 50 },  // 50 per hour
   },
-  
+
   // General chatbot
   CHATBOT: {
-    windowMs: 60 * 1000, // 1 minute
-    max: 30 // 30 messages per minute
+    GUEST: { windowMs: 60 * 1000, max: 15 }, // 15 msgs/min (Comfortable)
+    AUTH: { windowMs: 60 * 1000, max: 100 }, // 100 msgs/min (Pro)
   },
-  
+
   // Analytics queries
   ANALYTICS: {
-    windowMs: 60 * 1000, // 1 minute
-    max: 20 // 20 queries per minute
+    windowMs: 60 * 1000,
+    max: 30
   },
-  
+
   // CRUD operations
   CRUD: {
-    windowMs: 60 * 1000, // 1 minute
-    max: 10 // 10 operations per minute
+    windowMs: 60 * 1000,
+    max: 20
   }
 } as const
 
@@ -131,21 +131,21 @@ export const RateLimitConfigs = {
  */
 export function formatRateLimitError(result: RateLimitResult): string {
   const resetIn = Math.ceil((result.resetAt - Date.now()) / 1000)
-  
+
   // Validate resetIn to avoid NaN
   if (!resetIn || isNaN(resetIn) || resetIn <= 0) {
     return `⚠️ Bạn đã vượt quá giới hạn yêu cầu. Vui lòng thử lại sau 1 phút.`
   }
-  
+
   const minutes = Math.floor(resetIn / 60)
   const seconds = resetIn % 60
-  
+
   let timeStr = ''
   if (minutes > 0) {
     timeStr = `${minutes} phút ${seconds} giây`
   } else {
     timeStr = `${seconds} giây`
   }
-  
+
   return `⚠️ Bạn đã vượt quá giới hạn yêu cầu. Vui lòng thử lại sau ${timeStr}.`
 }

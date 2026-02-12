@@ -83,8 +83,11 @@ function sanitizeGuestInfo(info: { name?: string; phone?: string; address?: stri
 }
 
 const chatMessageSchema = z.object({
-  message: z.string().optional(),
-  image: z.string().optional(),
+  message: z.string().max(3000, 'Tin nhắn quá dài (tối đa 3000 ký tự)').optional(),
+  image: z.string()
+    .max(7 * 1024 * 1024, 'Kích thước ảnh quá lớn (tối đa 5MB thực tế)')
+    .regex(/^data:image\/(png|jpeg|webp|jpg);base64,/, 'Định dạng ảnh không hợp lệ')
+    .optional(),
   customerId: z.string().optional(),
   sessionId: z.string().min(1, 'Session ID is required'),
   userRole: z.string().optional(),
@@ -95,7 +98,7 @@ const chatMessageSchema = z.object({
     categoryId: z.string().optional(),
   }).optional(),
 }).refine(data => data.message || data.image, {
-  message: 'Either message or image is required'
+  message: 'Vui lòng nhập lời nhắn hoặc gửi ảnh'
 })
 
 // POST /api/chatbot - Process chatbot message
@@ -117,25 +120,24 @@ export async function POST(request: NextRequest) {
     }
 
     const { message, image, customerId, sessionId, context, isAdmin, userRole } = validation.data
+    const isGuest = !userRole || userRole === 'CUSTOMER' || !customerId || customerId.startsWith('guest_')
 
-    // Apply rate limiting
-    let rateLimitConfig = RateLimitConfigs.CHATBOT
+    // Apply rate limiting (Hierarchical - Layer 2)
+    let rateLimitConfig: { windowMs: number; max: number }
     let rateLimitEndpoint = 'chatbot'
 
-    if (image && isAdmin) {
-      // OCR is expensive, use stricter limits
-      rateLimitConfig = {
-        windowMs: RateLimitConfigs.OCR.windowMs,
-        max: 30
-      }
+    if (image) {
+      // OCR/Recognition is expensive
+      rateLimitConfig = isGuest ? RateLimitConfigs.OCR.GUEST : RateLimitConfigs.OCR.AUTH
       rateLimitEndpoint = 'ocr'
     } else if (isAdmin) {
-      // Admin queries (analytics, CRUD)
-      rateLimitConfig = {
-        windowMs: RateLimitConfigs.ANALYTICS.windowMs,
-        max: 30
-      }
+      // Admin queries
+      rateLimitConfig = RateLimitConfigs.ANALYTICS
       rateLimitEndpoint = 'admin'
+    } else {
+      // General chatbot
+      rateLimitConfig = isGuest ? RateLimitConfigs.CHATBOT.GUEST : RateLimitConfigs.CHATBOT.AUTH
+      rateLimitEndpoint = 'chatbot'
     }
 
     const rateLimitId = getRateLimitIdentifier(ip, customerId, rateLimitEndpoint)
@@ -143,25 +145,36 @@ export async function POST(request: NextRequest) {
 
     if (!rateLimitResult.allowed) {
       const resetAt = rateLimitResult.resetAt || Date.now() + 60000
-      const resetDate = new Date(resetAt)
+      let errorMessage = formatRateLimitError({ ...rateLimitResult, resetAt })
+
+      // Marketing hook for Guests (Kích cầu)
+      if (isGuest) {
+        errorMessage += "\n\n💡 **Mẹo:** Đăng ký tài khoản ngay để nhận hạn mức nhắn tin gấp 10 lần và nhiều ưu đãi xây dựng khác!"
+      }
 
       return NextResponse.json(
         createSuccessResponse({
-          message: formatRateLimitError({ ...rateLimitResult, resetAt }),
-          suggestions: ['Thử lại sau', 'Liên hệ hỗ trợ'],
+          message: errorMessage,
+          suggestions: isGuest ? ['Đăng ký ngay', 'Thử lại sau'] : ['Thử lại sau', 'Liên hệ hỗ trợ'],
           confidence: 1.0,
           sessionId,
-          timestamp: new Date().toISOString()
+          data: { isRateLimit: true, isGuest }
         }),
         {
           status: 200,
           headers: {
             'X-RateLimit-Limit': rateLimitConfig.max.toString(),
             'X-RateLimit-Remaining': '0',
-            'X-RateLimit-Reset': resetDate.toISOString()
+            'X-RateLimit-Reset': resetAt.toString()
           }
         }
       )
+    }
+
+    // Add soft warning for guests approaching limit
+    let marketingMessage = ''
+    if (isGuest && rateLimitResult.remaining <= 3 && rateLimitResult.remaining > 0) {
+      marketingMessage = "\n\n*(Bạn sắp hết lượt chatbot cho khách. Đăng ký để không bị gián đoạn nhé!)*"
     }
 
     // ===== WELCOME MESSAGES =====
@@ -191,6 +204,38 @@ export async function POST(request: NextRequest) {
         }),
         { status: 200 }
       )
+    }
+
+    // ===== FAST PATH: GREETINGS & SMALL TALK (0.1s response) =====
+    if (message && !isAdmin) {
+      // 1. Check for basic greetings
+      const quickResponse = (AIService as any).getQuickResponse(message)
+      if (quickResponse) {
+        return NextResponse.json(
+          createSuccessResponse({
+            message: quickResponse.response,
+            suggestions: quickResponse.suggestions || [],
+            productRecommendations: quickResponse.productRecommendations || [],
+            confidence: quickResponse.confidence || 1.0,
+            sessionId,
+            timestamp: new Date().toISOString()
+          })
+        )
+      }
+
+      // 2. Check for rule-based responses (FAQs, policies)
+      const ruleBased = checkRuleBasedResponse(message)
+      if (ruleBased.matched && !ruleBased.requiresProductLookup && !ruleBased.requiresComparison) {
+        return NextResponse.json(
+          createSuccessResponse({
+            message: ruleBased.response || '',
+            suggestions: ruleBased.suggestions || [],
+            confidence: 1.0,
+            sessionId,
+            timestamp: new Date().toISOString()
+          })
+        )
+      }
     }
 
     // ===== OCR INVOICE FLOW (Admin + Image) =====
@@ -2672,6 +2717,18 @@ async function handleCustomerImageRecognition(
 ) {
   try {
     const recognitionResult = await aiRecognition.recognizeMaterial(image)
+
+    if (!recognitionResult.isConstructionMaterial) {
+      return NextResponse.json(
+        createSuccessResponse({
+          message: `📸 Tôi nhận diện được: **${recognitionResult.materialType}**\n\nTuy nhiên, đây có vẻ không phải là vật liệu xây dựng mà tôi hỗ trợ. Bạn vui lòng gửi ảnh về **Xi măng, Gạch, Cát, Đá, Sắt thép...** để tôi giúp bạn tốt nhất nhé!`,
+          suggestions: ['Bảng giá VLXD', 'Tư vấn xây dựng', 'Thử ảnh khác'],
+          confidence: recognitionResult.confidence,
+          sessionId,
+          timestamp: new Date().toISOString()
+        })
+      )
+    }
 
     let responseText = `📸 **Tôi nhận diện được:** ${recognitionResult.materialType}\n\n`
     responseText += `🎯 **Độ tin cậy:** ${(recognitionResult.confidence * 100).toFixed(0)}%\n\n`

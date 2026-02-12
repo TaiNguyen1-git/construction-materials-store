@@ -513,10 +513,24 @@ export async function POST(request: NextRequest) {
     })
     logAPI.response('POST', '/api/orders', 201, duration)
 
-    return NextResponse.json(
+    const res = NextResponse.json(
       createSuccessResponse(order, 'Order created successfully'),
       { status: 201 }
     )
+
+    // 🛡️ SECURITY 2026: Set Guest Access Cookie if guest countdown
+    if (data.customerType === 'GUEST') {
+      const guestAccessToken = AuthService.generateGuestOrderToken(order.id)
+      res.cookies.set(`order_access_${order.id}`, guestAccessToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        path: '/',
+        maxAge: 30 * 24 * 60 * 60 // 30 days
+      })
+    }
+
+    return res
 
   } catch (error: unknown) {
     const duration = Date.now() - startTime

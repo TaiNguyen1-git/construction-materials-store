@@ -153,6 +153,32 @@ export class AuthService {
     response.cookies.set('supplier_token', '', { ...AUTH_CONFIG.COOKIE_OPTIONS, maxAge: 0 })
     response.cookies.set('refresh_token', '', { ...AUTH_CONFIG.COOKIE_OPTIONS, maxAge: 0 })
   }
+
+  /**
+   * 2026 Enhanced: Generate a token that allows a guest to view a specific order
+   */
+  static generateGuestOrderToken(orderId: string): string {
+    return jwt.sign(
+      { orderId, role: 'GUEST_VIEWER' },
+      AUTH_CONFIG.JWT_SECRET,
+      { expiresIn: '30d' } // Guests can view their order for 30 days
+    )
+  }
+
+  /**
+   * Verify a guest order token
+   */
+  static verifyGuestOrderToken(token: string): { orderId: string } | null {
+    try {
+      const payload = jwt.verify(token, AUTH_CONFIG.JWT_SECRET) as any
+      if (payload.role === 'GUEST_VIEWER' && payload.orderId) {
+        return { orderId: payload.orderId }
+      }
+      return null
+    } catch {
+      return null
+    }
+  }
 }
 
 export const hasPermission = (userRole: UserRole, requiredRoles: UserRole[]): boolean => {

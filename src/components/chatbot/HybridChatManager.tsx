@@ -20,7 +20,7 @@ const GUEST_ID_KEY = 'smartbuild_guest_id'
 const GUEST_NAME_KEY = 'smartbuild_guest_name'
 const ACTIVE_CONV_KEY = 'smartbuild_active_conv'
 
-export default function HybridChatManager({
+export default function useHybridChatManager({
     onNewMessage,
     onHistoryLoaded,
     onModeChange,
@@ -30,6 +30,18 @@ export default function HybridChatManager({
     const { user, isAuthenticated } = useAuth()
     const [identity, setIdentity] = useState<{ id: string, name: string } | null>(null)
     const [conversationId, setConversationId] = useState<string | null>(null)
+
+    // Using refs for callbacks to prevent effect re-runs when functions are recreated in parent
+    const onHistoryLoadedRef = useRef(onHistoryLoaded)
+    const onNewMessageRef = useRef(onNewMessage)
+
+    useEffect(() => {
+        onHistoryLoadedRef.current = onHistoryLoaded
+    }, [onHistoryLoaded])
+
+    useEffect(() => {
+        onNewMessageRef.current = onNewMessage
+    }, [onNewMessage])
 
     // Initialize Identity (Guest or User)
     useEffect(() => {
@@ -62,44 +74,36 @@ export default function HybridChatManager({
 
     // Fetch History when conversationId is set
     useEffect(() => {
-        if (!conversationId || !onHistoryLoaded) return;
+        if (!conversationId || !onHistoryLoadedRef.current) return;
 
         const fetchHistory = async () => {
             const db = getFirebaseDatabase()
-            const messagesRef = ref(db, `conversations/${conversationId}/messages`);
+            const { get } = await import('firebase/database')
+            const tempRef = ref(db, `conversations/${conversationId}/messages`);
 
-            // In a real app, we'd use a more specialized fetch, but for simplicity with RTDB
-            // we'll listen once to get the current state
-            const snapshot = await new Promise<any>((resolve) => {
-                const tempRef = ref(db, `conversations/${conversationId}/messages`);
-                // We could use get() if available in our version of Firebase SDK or just use 'once' 
-                // But since we are using RTDB standard:
-                import('firebase/database').then(({ get }) => {
-                    get(tempRef).then(resolve);
-                });
-            });
+            try {
+                const snapshot = await get(tempRef);
+                if (snapshot && snapshot.exists()) {
+                    const data = snapshot.val();
+                    const historyMessages = Object.keys(data).map(key => ({
+                        ...data[key],
+                        id: key,
+                        conversationId
+                    })) as LiveChatMessage[];
 
-            if (snapshot && snapshot.exists()) {
-                const data = snapshot.val();
-                const historyMessages = Object.keys(data).map(key => ({
-                    ...data[key],
-                    id: key,
-                    conversationId
-                })) as LiveChatMessage[];
-
-                // Sort by timestamp
-                historyMessages.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-                onHistoryLoaded(historyMessages);
-
-                // If there's history, we might want to auto-switch to correct mode
-                // (e.g. if the last message was from human support, maybe stay in HUMAN mode)
+                    // Sort by timestamp
+                    historyMessages.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+                    onHistoryLoadedRef.current?.(historyMessages);
+                }
+            } catch (err) {
+                console.error("Error fetching history:", err);
             }
         };
 
         fetchHistory();
-    }, [conversationId, onHistoryLoaded])
+    }, [conversationId])
 
-    // Listen to Firebase Messages when conversationId is active (regardless of mode, for syncing)
+    // Listen to Firebase Messages when conversationId is active
     useEffect(() => {
         if (!conversationId) return;
 
@@ -117,7 +121,7 @@ export default function HybridChatManager({
 
                 // Only notify parent if it's from someone ELSE (Admin)
                 if (data.senderId !== identity?.id) {
-                    onNewMessage(message)
+                    onNewMessageRef.current?.(message)
                 }
             }
         };
@@ -127,7 +131,7 @@ export default function HybridChatManager({
         return () => {
             off(messagesRef, 'child_added', handleNewMessage);
         };
-    }, [conversationId, identity])
+    }, [conversationId, identity?.id])
 
     const connectToAgent = async () => {
         if (!identity) return false;
@@ -161,7 +165,10 @@ export default function HybridChatManager({
     }
 
     const saveMessageToFirebase = async (content: string, sender: 'USER' | 'AI' | 'SYSTEM', extra?: any) => {
-        if (!conversationId || !identity) return false;
+        if (!conversationId || !identity || content === undefined || content === null) {
+            console.warn('[Firebase] Skipping save: identity, conversationId or content is missing');
+            return false;
+        }
 
         const db = getFirebaseDatabase();
         const messagesRef = ref(db, `conversations/${conversationId}/messages`);
@@ -175,8 +182,13 @@ export default function HybridChatManager({
             ...extra
         };
 
-        await push(messagesRef, newMsg);
-        return true;
+        try {
+            await push(messagesRef, newMsg);
+            return true;
+        } catch (err) {
+            console.error('[Firebase] Save failed:', err);
+            return false;
+        }
     }
 
     return {

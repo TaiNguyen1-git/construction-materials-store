@@ -40,39 +40,68 @@ export default function ChatInput({
         const file = e.target.files?.[0]
         if (!file) return
 
-        if (file.size > 5 * 1024 * 1024) {
-            toast.error('Ảnh quá lớn. Vui lòng chọn ảnh dưới 5MB.')
+        if (file.size > 10 * 1024 * 1024) { // Allow up to 10MB but we will compress
+            toast.error('Ảnh quá lớn. Hệ thống chỉ xử lý ảnh tối đa 10MB.')
             return
         }
 
         const reader = new FileReader()
         reader.onload = (event) => {
-            const base64 = event.target?.result as string
-            setSelectedImage(base64)
+            const img = new Image()
+            img.onload = () => {
+                // 2026 Client-side Pre-processing: Compress image to max 1200px
+                const canvas = document.createElement('canvas')
+                const MAX_WIDTH = 1200
+                const MAX_HEIGHT = 1200
+                let width = img.width
+                let height = img.height
+
+                if (width > height) {
+                    if (width > MAX_WIDTH) {
+                        height *= MAX_WIDTH / width
+                        width = MAX_WIDTH
+                    }
+                } else {
+                    if (height > MAX_HEIGHT) {
+                        width *= MAX_HEIGHT / height
+                        height = MAX_HEIGHT
+                    }
+                }
+
+                canvas.width = width
+                canvas.height = height
+                const ctx = canvas.getContext('2d')
+                ctx?.drawImage(img, 0, 0, width, height)
+
+                // Low quality for AI recognition speed (0.7 is perfect balance)
+                const base64 = canvas.toDataURL('image/jpeg', 0.7)
+                setSelectedImage(base64)
+            }
+            img.src = event.target?.result as string
         }
         reader.readAsDataURL(file)
     }
 
     return (
-        <div className="flex-shrink-0 p-4 border-t bg-white">
+        <div className="flex-shrink-0 p-5 border-t bg-white shadow-[0_-5px_15px_rgba(0,0,0,0.02)]">
             {/* Image Preview */}
             {selectedImage && (
-                <div className="mb-3 relative inline-block">
+                <div className="mb-4 relative inline-block animate-fadeIn">
                     <img
                         src={selectedImage}
                         alt="Preview"
-                        className="h-16 w-16 object-cover rounded-lg border shadow-sm"
+                        className="h-20 w-20 object-cover rounded-xl border-2 border-blue-100 shadow-md"
                     />
                     <button
                         onClick={() => setSelectedImage(null)}
-                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 shadow-md"
+                        className="absolute -top-3 -right-3 bg-red-600 text-white rounded-full p-1.5 hover:bg-red-700 shadow-lg border-2 border-white transition-all transform hover:scale-110"
                     >
-                        <X className="w-3 h-3" />
+                        <X className="w-4 h-4" />
                     </button>
                 </div>
             )}
 
-            <div className="flex gap-2">
+            <div className="flex gap-2 items-end">
                 <input
                     ref={fileInputRef}
                     type="file"
@@ -81,36 +110,43 @@ export default function ChatInput({
                     onChange={handleFileUpload}
                 />
 
-                {/* Connect to Support Button - Only show for customers in AI mode */}
-                {!isAdmin && !isHumanMode && onConnectSupport && (
+                <div className="flex gap-1.5 mb-0.5">
+                    {/* Connect to Support Button */}
+                    {!isAdmin && !isHumanMode && onConnectSupport && (
+                        <button
+                            onClick={onConnectSupport}
+                            disabled={isLoading}
+                            className="flex-shrink-0 bg-emerald-50 text-emerald-700 p-2.5 rounded-xl hover:bg-emerald-100 transition-all shadow-sm active:scale-95"
+                            title="Gặp nhân viên hỗ trợ"
+                        >
+                            <Headphones className="w-5 h-5" />
+                        </button>
+                    )}
+
                     <button
-                        onClick={onConnectSupport}
+                        onClick={() => fileInputRef.current?.click()}
                         disabled={isLoading}
-                        className="flex-shrink-0 bg-emerald-50 text-emerald-600 p-2.5 rounded-xl hover:bg-emerald-100 transition-colors"
-                        title="Gặp nhân viên hỗ trợ"
+                        className="flex-shrink-0 bg-gray-100 text-gray-500 p-2.5 rounded-xl hover:bg-gray-200 hover:text-gray-700 transition-all shadow-sm active:scale-95"
+                        title="Đính kèm ảnh"
                     >
-                        <Headphones className="w-5 h-5" />
+                        <ImageIcon className="w-5 h-5" />
                     </button>
-                )}
+                </div>
 
-                <button
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={isLoading}
-                    className="flex-shrink-0 bg-gray-50 text-gray-400 p-2.5 rounded-xl hover:bg-gray-100 hover:text-gray-600 transition-colors"
-                    title="Đính kèm ảnh"
-                >
-                    <ImageIcon className="w-5 h-5" />
-                </button>
-
-                <div className="flex-1">
-                    <input
-                        type="text"
+                <div className="flex-1 min-w-0">
+                    <textarea
+                        rows={1}
                         value={currentMessage}
-                        onChange={(e) => setCurrentMessage(e.target.value)}
+                        onChange={(e) => {
+                            setCurrentMessage(e.target.value);
+                            // Auto-resize logic
+                            e.target.style.height = 'auto';
+                            e.target.style.height = `${e.target.scrollHeight}px`;
+                        }}
                         onKeyDown={handleKeyPress}
                         disabled={isLoading}
-                        placeholder="Nhập tin nhắn..."
-                        className="w-full bg-gray-50 border-none rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500/20 outline-none placeholder-gray-400"
+                        placeholder="Hỏi tôi về vật liệu..."
+                        className="w-full bg-gray-50 border-2 border-gray-100 rounded-xl px-4 py-3 text-[15px] text-gray-900 leading-snug focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none placeholder-gray-400 transition-all max-h-40 min-h-[50px] resize-none overflow-y-auto"
                     />
                 </div>
 
@@ -118,20 +154,20 @@ export default function ChatInput({
                     onClick={onSendMessage}
                     disabled={isLoading || (!currentMessage.trim() && !selectedImage)}
                     className={`
-                        flex-shrink-0 p-2.5 rounded-xl text-white transition-all
+                        flex-shrink-0 p-2.5 rounded-xl text-white transition-all shadow-md mb-0.5 active:scale-95
                         ${isAdmin
                             ? 'bg-purple-600 hover:bg-purple-700'
                             : 'bg-blue-600 hover:bg-blue-700'
                         }
-                        disabled:bg-gray-200 disabled:text-gray-400
+                        disabled:bg-gray-200 disabled:text-gray-400 disabled:shadow-none
                     `}
                 >
                     <Send className="w-5 h-5" />
                 </button>
             </div>
 
-            <div className="mt-2 text-[10px] text-gray-400 text-center">
-                {isHumanMode ? 'Đang chat với nhân viên hỗ trợ' : 'AI hỗ trợ tư vấn vật liệu & đơn hàng 24/7'}
+            <div className="mt-2.5 text-[10px] text-gray-400 text-center font-medium lowercase tracking-wide">
+                {isHumanMode ? 'Đang chat trực tiếp với nhân viên' : 'hệ thống ai tự động đang hoạt động'}
             </div>
         </div>
     )

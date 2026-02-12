@@ -1,10 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { verifyTokenFromRequest } from '@/lib/auth'
+import { createSuccessResponse, createErrorResponse } from '@/lib/api-types'
+import { CacheService } from '@/lib/cache'
 
-export async function POST(req: NextRequest) {
+/**
+ * 🛡️ SECURITY 2026: Protect WMS Stock Routes
+ */
+async function authorizeWMS(request: NextRequest) {
+    const payload = await verifyTokenFromRequest(request)
+    if (!payload || !['MANAGER', 'EMPLOYEE'].includes(payload.role)) {
+        return null
+    }
+    return payload
+}
+
+export async function POST(request: NextRequest) {
     try {
-        const body = await req.json()
+        const auth = await authorizeWMS(request)
+        if (!auth) {
+            return NextResponse.json(createErrorResponse('Staff access required', 'FORBIDDEN'), { status: 403 })
+        }
+
+        const body = await request.json()
         const { action, inventoryItemId, fromBinId, toBinId, quantity } = body
+
+        if (!action || !inventoryItemId || !toBinId || !quantity) {
+            return NextResponse.json(createErrorResponse('Missing required fields', 'BAD_REQUEST'), { status: 400 })
+        }
 
         if (action === 'assign-bin') {
             const link = await (prisma as any).inventoryBinLink.upsert({
@@ -23,10 +46,15 @@ export async function POST(req: NextRequest) {
                     quantity
                 }
             })
-            return NextResponse.json({ success: true, data: link })
+            await CacheService.del('wms:layout:all')
+            return NextResponse.json(createSuccessResponse(link, 'Stock assigned to bin'))
         }
 
         if (action === 'move-stock') {
+            if (!fromBinId) {
+                return NextResponse.json(createErrorResponse('Source bin (fromBinId) required', 'BAD_REQUEST'), { status: 400 })
+            }
+
             // Create a transaction to ensure atomic move
             const result = await (prisma as any).$transaction(async (tx: any) => {
                 // Decrease from source
@@ -65,11 +93,12 @@ export async function POST(req: NextRequest) {
                 return { source, dest }
             })
 
-            return NextResponse.json({ success: true, data: result })
+            await CacheService.del('wms:layout:all')
+            return NextResponse.json(createSuccessResponse(result, 'Stock moved successfully'))
         }
 
-        return NextResponse.json({ success: false, error: 'Invalid action' }, { status: 400 })
+        return NextResponse.json(createErrorResponse('Invalid action', 'BAD_REQUEST'), { status: 400 })
     } catch (error: any) {
-        return NextResponse.json({ success: false, error: error.message }, { status: 500 })
+        return NextResponse.json(createErrorResponse(error.message, 'INTERNAL_ERROR'), { status: 500 })
     }
 }

@@ -343,6 +343,26 @@ Cảm ơn bạn đã ghé thăm! Hẹn gặp lại bạn!
 - "Xi măng nào tốt để đổ móng"`,
         suggestions: ['Tìm xi măng', 'Tính vật liệu', 'Đặt hàng', 'Khuyến mãi'],
         priority: 7
+    },
+    {
+        patterns: [
+            /^(thoi tiet|weather|nhiet do)/,
+            /^(ke chuyen|ke chuyen cuoi|troll|hai)/,
+            /^(ban co nguoi yeu chua|ban bao nhieu tuoi|ban la ai|ai tao ra ban)/,
+            /^(an gi|choi dau|di dau)/,
+            /^(hat di|hat cho nghe|ke chuyen ma)/,
+            /^(tin tuc|chinh tri|showbiz|bong da)/
+        ],
+        response: `🤖 **Chào bạn! Rất vui được trò chuyện.**
+
+Tuy nhiên, tôi là **Trợ lý Chuyên gia Vật liệu Xây dựng**. Tôi được thiết kế để hỗ trợ bạn tốt nhất trong các lĩnh vực:
+✅ Tra cứu giá và đặc tính vật liệu (Xi măng, Cát, Đá, Gạch, Thép...)
+✅ Tính toán khối lượng vật liệu cho công trình (Nhà, Tường, Sàn...)
+✅ Hỗ trợ đặt hàng và theo dõi đơn hàng
+
+Những câu hỏi ngoài chuyên môn xây dựng có lẽ tôi chưa rành lắm. Bạn có cần tôi giúp gì về **vật liệu xây dựng** không ạ?`,
+        suggestions: ['Bảng giá hôm nay', 'Tính vật liệu xây nhà', 'Tư vấn loại gạch'],
+        priority: 4
     }
 ]
 

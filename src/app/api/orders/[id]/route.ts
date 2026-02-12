@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { createSuccessResponse, createErrorResponse } from '@/lib/api-types'
 import { logger } from '@/lib/logger'
+import { verifyTokenFromRequest, AuthService } from '@/lib/auth'
 
 // GET /api/orders/[id] - Get single order
 export async function GET(
@@ -22,50 +23,48 @@ export async function GET(
 
     const order = await prisma.order.findUnique({
       where: { id: orderId },
-      include: {
+      select: {
+        id: true,
+        orderNumber: true,
+        status: true,
+        totalAmount: true,
+        netAmount: true,
+        paymentMethod: true,
+        paymentStatus: true,
+        customerType: true,
+        guestName: true,
+        guestPhone: true,
+        guestEmail: true,
+        shippingAddress: true,
+        notes: true,
+        createdAt: true,
         customer: {
-          include: {
+          select: {
+            id: true,
+            userId: true,
             user: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-                phone: true
-              }
+              select: { name: true, phone: true, email: true }
             }
           }
         },
         orderItems: {
-          include: {
+          select: {
+            id: true,
+            quantity: true,
+            unitPrice: true,
+            totalPrice: true,
             product: {
-              select: {
-                id: true,
-                name: true,
-                sku: true,
-                price: true,
-                images: true,
-                unit: true
-              }
+              select: { id: true, name: true, sku: true, images: true, unit: true }
             }
           }
-        },
-        contractor: true,
-        deliveryPhases: {
-          orderBy: { phaseNumber: 'asc' }
         },
         orderTracking: {
-          orderBy: { timestamp: 'desc' }
+          orderBy: { timestamp: 'desc' },
+          take: 5 // Only get latest tracking for performance 
         },
-        driver: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                name: true,
-                phone: true
-              }
-            }
-          }
+        deliveryPhases: true,
+        contractor: {
+          select: { id: true, displayName: true, phone: true }
         }
       }
     })
@@ -77,9 +76,41 @@ export async function GET(
       )
     }
 
+    // 🛡️ SECURITY 2026: IDOR Protection / Ownership Check
+    const tokenPayload = await verifyTokenFromRequest(request)
+    const isAdmin = tokenPayload?.role === 'MANAGER' || tokenPayload?.role === 'EMPLOYEE'
+
+    if (!isAdmin) {
+      if (order.customerType === 'REGISTERED') {
+        const userId = tokenPayload?.userId
+        if (!userId || order.customer?.userId !== userId) {
+          return NextResponse.json(
+            createErrorResponse('Bạn không có quyền xem đơn hàng này', 'FORBIDDEN'),
+            { status: 403 }
+          )
+        }
+      } else {
+        // GUEST Check: Priority to HttpOnly Cookie
+        const guestToken = request.cookies.get(`order_access_${orderId}`)?.value
+        const verifiedGuest = guestToken ? AuthService.verifyGuestOrderToken(guestToken) : null
+
+        if (!verifiedGuest || verifiedGuest.orderId !== orderId) {
+          return NextResponse.json(
+            createErrorResponse('Quyền truy cập bị từ chối. Vui lòng sử dụng máy tính đã dùng để đặt hàng hoặc đăng nhập.', 'GUEST_ACCESS_DENIED'),
+            { status: 403 }
+          )
+        }
+      }
+    }
+
     return NextResponse.json(
       createSuccessResponse(order, 'Order retrieved successfully'),
-      { status: 200 }
+      {
+        status: 200,
+        headers: {
+          'Cache-Control': 'private, max-age=30' // Cache for 30s locally to prevent spam refresh
+        }
+      }
     )
 
   } catch (error: unknown) {
@@ -116,6 +147,17 @@ export async function DELETE(
       return NextResponse.json(
         createErrorResponse('Order not found', 'NOT_FOUND'),
         { status: 404 }
+      )
+    }
+
+    // 🛡️ SECURITY 2026: Only Admins can delete orders
+    const tokenPayload = await verifyTokenFromRequest(request)
+    const isAdmin = tokenPayload?.role === 'MANAGER' || tokenPayload?.role === 'EMPLOYEE'
+
+    if (!isAdmin) {
+      return NextResponse.json(
+        createErrorResponse('Bạn không có quyền thực hiện hành động này', 'FORBIDDEN'),
+        { status: 403 }
       )
     }
 

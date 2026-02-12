@@ -17,19 +17,25 @@ export default function TypingIndicator({ isAdmin }: TypingIndicatorProps) {
             </div>
 
             {/* Typing bubble */}
-            <div className="bg-white px-4 py-3 rounded-2xl rounded-tl-sm border border-gray-100 shadow-sm flex items-center gap-1">
+            <div className={`
+                glass-2026 px-5 py-3.5 rounded-2xl rounded-tl-sm shadow-lg flex items-center gap-1.5 animate-ambient-glow
+                ${isAdmin ? 'border-purple-200/50' : 'border-blue-200/50'}
+            `}>
                 <div
-                    className={`h-1.5 w-1.5 rounded-full animate-bounce ${isAdmin ? 'bg-purple-400' : 'bg-blue-400'}`}
-                    style={{ animationDelay: '0ms' }}
+                    className={`h-1.5 w-1.5 rounded-full animate-bounce ${isAdmin ? 'bg-indigo-500' : 'bg-blue-500'}`}
+                    style={{ animationDelay: '0ms', animationDuration: '1s' }}
                 />
                 <div
-                    className={`h-1.5 w-1.5 rounded-full animate-bounce ${isAdmin ? 'bg-purple-400' : 'bg-blue-400'}`}
-                    style={{ animationDelay: '150ms' }}
+                    className={`h-1.5 w-1.5 rounded-full animate-bounce ${isAdmin ? 'bg-indigo-500' : 'bg-blue-500'}`}
+                    style={{ animationDelay: '200ms', animationDuration: '1s' }}
                 />
                 <div
-                    className={`h-1.5 w-1.5 rounded-full animate-bounce ${isAdmin ? 'bg-purple-400' : 'bg-blue-400'}`}
-                    style={{ animationDelay: '300ms' }}
+                    className={`h-1.5 w-1.5 rounded-full animate-bounce ${isAdmin ? 'bg-indigo-500' : 'bg-blue-500'}`}
+                    style={{ animationDelay: '400ms', animationDuration: '1s' }}
                 />
+                <span className="text-[10px] font-bold ml-2 text-gray-400 uppercase tracking-widest animate-pulse">
+                    AI đang soạn...
+                </span>
             </div>
         </div>
     )

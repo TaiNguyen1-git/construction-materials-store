@@ -6,6 +6,7 @@ import { requireAuth } from '@/lib/auth-middleware-api'
 import { z } from 'zod'
 import { sendNotification, createStockUpdateNotification, createLowStockAlertNotification } from '@/lib/notification-service'
 import { logger, logAPI } from '@/lib/logger'
+import { CacheService } from '@/lib/cache'
 
 const querySchema = z.object({
   page: z.string().optional().default('1').transform(val => parseInt(val)),
@@ -39,19 +40,17 @@ export async function GET(request: NextRequest) {
   const startTime = Date.now()
 
   try {
-    // Verify authentication
+    // 🛡️ SECURITY 2026: Enforce staff roles clearly
     const authError = requireAuth(request)
-    if (authError) {
-      return authError
-    }
+    if (authError) return authError
 
     const userRole = request.headers.get('x-user-role')
     const userId = request.headers.get('x-user-id')
 
-    if (process.env.NODE_ENV === 'production' && !['MANAGER', 'EMPLOYEE'].includes(userRole || '')) {
-      logger.warn('Unauthorized inventory access', { userId, userRole })
+    if (!['MANAGER', 'EMPLOYEE'].includes(userRole || '')) {
+      logger.warn('Unauthorized inventory access attempt', { userId, userRole })
       return NextResponse.json(
-        createErrorResponse('Employee access required', 'FORBIDDEN'),
+        createErrorResponse('Access denied. Staff only.', 'FORBIDDEN'),
         { status: 403 }
       )
     }
@@ -70,30 +69,31 @@ export async function GET(request: NextRequest) {
     const { page, limit, search, lowStock, category, sortBy, sortOrder } = validation.data
     const skip = (page - 1) * limit
 
+    // 🚀 PERFORMANCE 2026: Cache lookup
+    const cacheKey = `inventory:list:${page}:${limit}:${search || 'all'}:${lowStock}:${category || 'all'}:${sortBy}:${sortOrder}`
+    const cachedData = await CacheService.get(cacheKey)
+    if (cachedData) {
+      return NextResponse.json(
+        createSuccessResponse(cachedData, 'Inventory retrieved from cache'),
+        { status: 200, headers: { 'X-Cache': 'HIT' } }
+      )
+    }
+
     // Build where clause
     const where: Prisma.InventoryItemWhereInput = {}
 
     if (search || category) {
       const pWhere: Prisma.ProductWhereInput = {}
-
       if (search) {
         pWhere.OR = [
           { name: { contains: search, mode: 'insensitive' } },
           { sku: { contains: search, mode: 'insensitive' } },
         ]
       }
-
       if (category) {
-        pWhere.category = { id: category }
+        pWhere.categoryId = category
       }
-
-      where.product = { is: pWhere }
-    }
-
-    if (lowStock) {
-      where.quantity = {
-        lte: prisma.inventoryItem.fields.minStockLevel
-      }
+      where.product = pWhere
     }
 
     // Get inventory items with pagination
@@ -108,9 +108,7 @@ export async function GET(request: NextRequest) {
               sku: true,
               price: true,
               unit: true,
-              category: {
-                select: { name: true }
-              }
+              category: { select: { name: true } }
             }
           }
         },
@@ -121,20 +119,27 @@ export async function GET(request: NextRequest) {
       prisma.inventoryItem.count({ where })
     ])
 
-    // Add computed fields
-    const enrichedItems = inventoryItems.map((item: any) => ({
+    // Add computed fields & manual filtr for lowStock since Prisma/Mongo field ref is limited
+    let enrichedItems = inventoryItems.map((item: any) => ({
       ...item,
-      isLowStock: item.quantity <= item.minStockLevel,
+      isLowStock: item.quantity <= (item.minStockLevel || 0),
       stockValue: item.quantity * (item.product.price || 0),
     }))
 
-    const response = createPaginatedResponse(enrichedItems, total, page, limit)
+    if (lowStock) {
+      enrichedItems = enrichedItems.filter(item => item.isLowStock)
+    }
+
+    const result = createPaginatedResponse(enrichedItems, total, page, limit)
+
+    // Cache for 2 mins (Short cache for inventory to keep it fresh)
+    await CacheService.set(cacheKey, result, 120)
 
     const duration = Date.now() - startTime
-    logAPI.response('GET', '/api/inventory', 200, duration, { total, page, userId })
+    logAPI.response('GET', '/api/inventory', 200, duration, { total, userId })
 
     return NextResponse.json(
-      createSuccessResponse(response, 'Inventory items retrieved successfully'),
+      createSuccessResponse(result, 'Inventory items retrieved successfully'),
       { status: 200 }
     )
 

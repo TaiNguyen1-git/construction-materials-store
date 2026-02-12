@@ -15,7 +15,7 @@ setInterval(() => {
 
 // Cache service using in-memory storage
 export class CacheService {
-  static async get(key: string): Promise<any> {
+  static async get<T = any>(key: string): Promise<T | null> {
     try {
       const entry = memoryCache.get(key)
       if (!entry) {
@@ -31,7 +31,7 @@ export class CacheService {
       }
 
       logCache.hit(key)
-      return entry.value
+      return entry.value as T
     } catch (error: any) {
       return null
     }

@@ -357,17 +357,60 @@ body {
 }
 
 @keyframes loading {
-  0% {
-    transform: translateX(-100%) scaleX(0.2);
-  }
+  0% { transform: translateX(-100%) scaleX(0.2); }
+  50% { transform: translateX(0) scaleX(0.5); }
+  100% { transform: translateX(100%) scaleX(0.2); }
+}
 
-  50% {
-    transform: translateX(0) scaleX(0.5);
-  }
+/* 2026 Hyper-Fluid Visuals */
+@keyframes ambient-glow {
+  0%, 100% { filter: drop-shadow(0 0 5px rgba(59, 130, 246, 0.3)) blur(0.5px); }
+  50% { filter: drop-shadow(0 0 15px rgba(59, 130, 246, 0.6)) blur(1px); }
+}
 
-  100% {
-    transform: translateX(100%) scaleX(0.2);
-  }
+@keyframes neural-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.4; }
+  50% { transform: scale(2.5); opacity: 1; }
+}
+
+@keyframes morphing {
+  0% { border-radius: 20px 20px 20px 5px; }
+  50% { border-radius: 15px 25px 10px 20px; }
+  100% { border-radius: 20px 20px 20px 5px; }
+}
+
+@keyframes float-ultra {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  33% { transform: translateY(-3px) rotate(0.5deg); }
+  66% { transform: translateY(1px) rotate(-0.5deg); }
+}
+
+@keyframes bento-reveal {
+  0% { transform: scale(0.9) translateY(10px); opacity: 0; }
+  100% { transform: scale(1) translateY(0); opacity: 1; }
+}
+
+.animate-ambient-glow { animation: ambient-glow 4s ease-in-out infinite; }
+.animate-neural { animation: neural-pulse 2s ease-in-out infinite; }
+.animate-morph { animation: morphing 10s ease-in-out infinite; }
+.animate-float-ultra { animation: float-ultra 6s ease-in-out infinite; }
+.animate-bento { animation: bento-reveal 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+
+.glass-2026 {
+  background: rgba(255, 255, 255, 0.45);
+  backdrop-filter: blur(25px) saturate(180%);
+  -webkit-backdrop-filter: blur(25px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  box-shadow: 
+    0 8px 32px 0 rgba(31, 38, 135, 0.07),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+}
+
+.glass-dark-2026 {
+  background: rgba(17, 24, 39, 0.6);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 /* Print Utilities */

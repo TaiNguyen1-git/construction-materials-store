@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { createSuccessResponse, createErrorResponse } from '@/lib/api-types'
 import { verifyTokenFromRequest, getUserIdFromRequest } from '@/lib/auth-middleware-api'
+import { CacheService } from '@/lib/cache'
 
 // GET /api/notifications - Get all notifications for current user with pagination
 export async function GET(request: NextRequest) {
@@ -55,10 +56,16 @@ export async function GET(request: NextRequest) {
       isRead: n.read
     }))
 
-    // Unread count is still global, not paged
-    const unreadCount = await prisma.notification.count({
-      where: { userId, read: false }
-    })
+    // Unread count is still global, not paged. Add caching for 10s to reduce polling load.
+    const unreadCacheKey = `notifications:unread:${userId}`
+    let unreadCount = await CacheService.get<number>(unreadCacheKey)
+
+    if (unreadCount === null) {
+      unreadCount = await prisma.notification.count({
+        where: { userId, read: false }
+      })
+      await CacheService.set(unreadCacheKey, unreadCount, 10) // Cache for 10s
+    }
 
     const totalPages = Math.ceil(totalCount / limit)
 
@@ -75,7 +82,12 @@ export async function GET(request: NextRequest) {
           hasPrev: page > 1
         }
       }, 'Success'),
-      { status: 200 }
+      {
+        status: 200,
+        headers: {
+          'Cache-Control': 'private, max-age=5' // Browser-side cache for 5s
+        }
+      }
     )
 
   } catch (error: any) {
