@@ -40,6 +40,8 @@ export async function POST(request: NextRequest) {
             where: { email }
         })
 
+        const userAlreadyExists = !!user
+
         if (!user) {
             try {
                 const salt = await bcrypt.genSalt(10)
@@ -92,7 +94,8 @@ export async function POST(request: NextRequest) {
 
         const response = NextResponse.json({
             success: true,
-            user: userWithoutPassword
+            user: userWithoutPassword,
+            isOnboardingRequired: !userAlreadyExists
         })
 
         // Set HTTP-only cookies (with role for portal-specific cookie)

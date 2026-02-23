@@ -32,7 +32,11 @@ export default function LoginPage() {
         const data = await res.json()
         if (data.success) {
           toast.success('Đăng nhập Google thành công!')
-          performPostLoginRedirect(data.user)
+          if (data.isOnboardingRequired) {
+            router.push('/onboarding')
+          } else {
+            performPostLoginRedirect(data.user)
+          }
         } else {
           throw new Error(data.error || 'Đăng nhập Google thất bại')
         }
@@ -61,8 +65,13 @@ export default function LoginPage() {
       const data = await res.json()
       if (data.success) {
         toast.success('Đăng nhập Facebook thành công!')
-        performPostLoginRedirect(data.user)
-      } else {
+        if (data.isOnboardingRequired) {
+          router.push('/onboarding')
+        } else {
+          performPostLoginRedirect(data.user)
+        }
+      }
+      else {
         throw new Error(data.error || 'Đăng nhập Facebook thất bại')
       }
     } catch (err: any) {

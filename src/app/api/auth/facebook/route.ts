@@ -35,6 +35,8 @@ export async function POST(request: NextRequest) {
             where: { email: userEmail }
         })
 
+        const userAlreadyExists = !!user
+
         if (!user) {
             // Create new user if doesn't exist
             const randomPassword = await bcrypt.hash(Math.random().toString(36).slice(-10), 10)
@@ -79,7 +81,8 @@ export async function POST(request: NextRequest) {
 
         const response = NextResponse.json({
             success: true,
-            user: userWithoutPassword
+            user: userWithoutPassword,
+            isOnboardingRequired: !userAlreadyExists
         })
 
         // Set HTTP-only cookies (with role for portal-specific cookie)
