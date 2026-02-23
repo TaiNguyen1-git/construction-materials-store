@@ -32,8 +32,18 @@ export default function LoginPage() {
         const data = await res.json()
         if (data.success) {
           toast.success('Đăng nhập Google thành công!')
+
+          // Set auth hints for EnhancedAuthService
+          localStorage.setItem('auth_active', 'true')
+          localStorage.setItem('user_hint', JSON.stringify({
+            id: data.user.id,
+            name: data.user.name,
+            email: data.user.email,
+            role: data.user.role
+          }))
+
           if (data.isOnboardingRequired) {
-            router.push('/onboarding')
+            window.location.href = '/onboarding'
           } else {
             performPostLoginRedirect(data.user)
           }
@@ -65,13 +75,22 @@ export default function LoginPage() {
       const data = await res.json()
       if (data.success) {
         toast.success('Đăng nhập Facebook thành công!')
+
+        // Set auth hints for EnhancedAuthService
+        localStorage.setItem('auth_active', 'true')
+        localStorage.setItem('user_hint', JSON.stringify({
+          id: data.user.id,
+          name: data.user.name,
+          email: data.user.email,
+          role: data.user.role
+        }))
+
         if (data.isOnboardingRequired) {
-          router.push('/onboarding')
+          window.location.href = '/onboarding'
         } else {
           performPostLoginRedirect(data.user)
         }
-      }
-      else {
+      } else {
         throw new Error(data.error || 'Đăng nhập Facebook thất bại')
       }
     } catch (err: any) {

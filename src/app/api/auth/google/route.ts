@@ -4,6 +4,36 @@ import { AuthService, UserRole } from '@/lib/auth'
 import jwt from 'jsonwebtoken'
 import bcrypt from 'bcryptjs'
 import { logger, logAuth, logAPI } from '@/lib/logger'
+import crypto from 'crypto'
+
+// Helper to hash token for storage
+function hashToken(token: string): string {
+    return crypto.createHash('sha256').update(token).digest('hex')
+}
+
+// Helper to get client info
+function getClientInfo(request: NextRequest) {
+    const userAgent = request.headers.get('user-agent') || 'Unknown'
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+        || request.headers.get('x-real-ip')
+        || 'Unknown'
+    const tabId = request.headers.get('x-tab-id') || null
+
+    // Parse user agent for device info
+    let deviceInfo = 'Unknown Device'
+    if (userAgent.includes('Mobile')) {
+        deviceInfo = 'Điện thoại'
+    } else if (userAgent.includes('Tablet') || userAgent.includes('iPad')) {
+        deviceInfo = 'Máy tính bảng'
+    } else if (userAgent.includes('Windows')) {
+        deviceInfo = 'Windows PC'
+    } else if (userAgent.includes('Mac')) {
+        deviceInfo = 'Mac'
+    } else if (userAgent.includes('Linux')) {
+        deviceInfo = 'Linux'
+    }
+    return { userAgent, ip, tabId, deviceInfo }
+}
 
 export async function POST(request: NextRequest) {
     const startTime = Date.now()
@@ -85,6 +115,24 @@ export async function POST(request: NextRequest) {
 
         // Log successful login
         logAuth.login(user.id, user.email, true)
+
+        // 🛡️ SESSION MANAGEMENT: Create session record in database
+        const clientInfo = getClientInfo(request)
+        const tokenHash = hashToken(accessToken)
+        const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
+
+        await prisma.userSession.create({
+            data: {
+                userId: user.id,
+                tokenHash,
+                deviceInfo: clientInfo.deviceInfo,
+                ipAddress: clientInfo.ip,
+                userAgent: clientInfo.userAgent,
+                tabId: clientInfo.tabId,
+                expiresAt,
+                lastActivityAt: new Date(),
+            }
+        })
 
         // Return user data without password
         const { password: _, ...userWithoutPassword } = user
