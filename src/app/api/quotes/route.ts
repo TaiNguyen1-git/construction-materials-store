@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
             return NextResponse.json(createErrorResponse('Customer profile not found', 'NOT_FOUND'), { status: 404 })
         }
 
-        let where: any = {}
+        const where: any = {}
 
         if (type === 'received') {
             // As a contractor viewing received requests

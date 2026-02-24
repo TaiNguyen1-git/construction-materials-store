@@ -56,16 +56,12 @@ export async function GET(request: NextRequest) {
     }
 
     // Use AI to generate recommendations
-    const aiQuery = query || 
-      (userPreferences?.favoriteCategories?.length 
+    const aiQuery = query ||
+      (userPreferences?.favoriteCategories?.length
         ? `Gợi ý sản phẩm vật liệu xây dựng phù hợp với ${userPreferences.favoriteCategories.join(', ')}`
         : 'Gợi ý sản phẩm vật liệu xây dựng phổ biến và chất lượng cao')
 
-    const recommendations = await AIService.getProductRecommendations(aiQuery, {
-      customerId,
-      preferences: userPreferences,
-      limit
-    })
+    const recommendations = await AIService.getProductRecommendations(aiQuery)
 
     // If AI returns product IDs, fetch full product details
     if (recommendations && recommendations.length > 0) {
@@ -91,19 +87,19 @@ export async function GET(request: NextRequest) {
 
         // Sort by recommendation score if available
         const scoredProducts = products.map(product => {
-          const rec = recommendations.find((r: any) => 
+          const rec = recommendations.find((r: any) =>
             (typeof r === 'string' ? r : r.id) === product.id
           )
           return {
             ...product,
-            recommendationScore: rec?.score || rec?.confidence || 0.8,
-            recommendationReason: rec?.reason || 'AI Recommended'
+            recommendationScore: Number(rec?.score || rec?.confidence || 0.8),
+            recommendationReason: String(rec?.reason || 'AI Recommended')
           }
         })
 
         return NextResponse.json(
           createSuccessResponse({
-            products: scoredProducts.sort((a, b) => 
+            products: scoredProducts.sort((a, b) =>
               b.recommendationScore - a.recommendationScore
             ),
             method: 'ai',

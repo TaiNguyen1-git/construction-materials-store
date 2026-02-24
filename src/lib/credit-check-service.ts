@@ -455,7 +455,7 @@ export class CreditCheckService {
 
     let processed = 0
     let locked = 0
-    let unlocked = 0
+    const unlocked = 0
 
     for (const customer of customers) {
       processed++

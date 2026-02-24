@@ -11,10 +11,10 @@ const withPWA = withPWAInit({
 const nextConfig: NextConfig = {
   /* config options here */
   eslint: {
-    ignoreDuringBuilds: true,
+    ignoreDuringBuilds: false,
   },
   typescript: {
-    ignoreBuildErrors: true,
+    ignoreBuildErrors: false,
   },
   experimental: {
     serverActions: {

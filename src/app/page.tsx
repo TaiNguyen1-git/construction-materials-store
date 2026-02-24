@@ -66,10 +66,10 @@ async function getInitialData() {
       },
       banners: banners.map(b => ({
         image: b.imageUrl,
-        tag: b.tag,
+        tag: b.tag || '',
         title: b.title,
-        sub: b.description,
-        link: b.link
+        sub: b.description || '',
+        link: b.link || ''
       })),
       featuredContractors: JSON.parse(JSON.stringify(contractors))
     }

@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
         const { conversationId, content, fileUrl, fileName, fileType, tempId, senderId: bodySenderId, senderName: bodySenderName } = body
 
         // Get userId from header or body (for guests)
-        let userId = request.headers.get('x-user-id') || bodySenderId
+        const userId = request.headers.get('x-user-id') || bodySenderId
         const userRole = request.headers.get('x-user-role')
 
         if (!userId) {

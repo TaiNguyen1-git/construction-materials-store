@@ -95,7 +95,7 @@ export async function PUT(
     }
 
     // Calculate total salary if salary components are updated
-    let updateData: any = {}
+    const updateData: any = {}
     
     if (baseSalary !== undefined) updateData.baseSalary = baseSalary
     if (overtimeHours !== undefined) updateData.overtimeHours = overtimeHours

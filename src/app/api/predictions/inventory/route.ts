@@ -360,7 +360,7 @@ async function predictInventoryDemand(
   // Calculate confidence based on data quality
   const dataPoints = historicalOrders.length
   const variability = calculateVariability(Array.from(monthlyDemand.values()))
-  let confidence = Math.min(0.95, Math.max(0.3,
+  const confidence = Math.min(0.95, Math.max(0.3,
     (dataPoints / 50) * 0.4 + // More data = higher confidence
     (1 - variability) * 0.4 + // Less variability = higher confidence
     0.2 // Base confidence

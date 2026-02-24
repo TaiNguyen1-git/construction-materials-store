@@ -15,7 +15,7 @@ export async function POST(
         const { id } = await params
 
         // Try to find in ConstructionProject first (main project type for contractors)
-        let project = await prisma.constructionProject.findUnique({
+        const project = await prisma.constructionProject.findUnique({
             where: { id },
             include: {
                 workerReports: {

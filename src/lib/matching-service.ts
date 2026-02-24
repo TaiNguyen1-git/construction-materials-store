@@ -123,7 +123,7 @@ export function calculateMatchScore(
     }
 
     // 4. Availability Score (15% weight)
-    let availabilityScore = contractor.isAvailable ? 100 : 0
+    const availabilityScore = contractor.isAvailable ? 100 : 0
 
     if (contractor.isAvailable) {
         reasons.push('Đang nhận việc')

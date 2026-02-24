@@ -179,7 +179,7 @@ export class AIRecognitionService {
   /**
    * Find matching products in database
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   private static async findMatchingProducts(
     materialType: string,
     features: MaterialFeatures

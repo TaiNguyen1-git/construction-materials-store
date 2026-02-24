@@ -28,7 +28,7 @@ setInterval(() => {
 
 // ─── CacheService ──────────────────────────────────────────────────────────────
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 export class CacheService {
   // ── GET ──────────────────────────────────────────────────────────────────────
   static async get<T = unknown>(key: string): Promise<T | null> {

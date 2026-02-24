@@ -103,7 +103,7 @@ export function getPasswordResetHTML(data: PasswordResetData): string {
 }
 
 /** Generates the HTML for an OTP verification email */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 export function getOTPHTML(data: OTPData): string {
     const titleMap: Record<string, string> = {
         VERIFICATION: 'Xác Minh Tài Khoản',

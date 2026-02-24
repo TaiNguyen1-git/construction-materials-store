@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
         const customerIds: string[] = body.customerIds || []
 
         // Find target customers
-        let where: any = {}
+        const where: any = {}
         if (customerIds.length > 0) {
             where.id = { in: customerIds }
         } else if (targetTier) {

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { verifyTokenFromRequest } from '@/lib/auth'
 import { createSuccessResponse, createErrorResponse } from '@/lib/api-types'
-import { authenticator } from 'otplib'
+import { OTP } from 'otplib'
 import QRCode from 'qrcode'
 
 export async function GET(request: NextRequest) {
@@ -22,13 +22,13 @@ export async function GET(request: NextRequest) {
             return NextResponse.json(createErrorResponse('Supplier not found', 'NOT_FOUND'), { status: 404 })
         }
 
-        // Generate a new secret if not exists or if requested
-        const secret = authenticator.generateSecret()
-        const otpauth = authenticator.keyuri(
-            supplier.email || 'supplier',
-            'SmartBuild Supplier',
+        const otp = new OTP({ strategy: 'totp' })
+        const secret = otp.generateSecret()
+        const otpauth = otp.generateURI({
+            label: supplier.email || 'supplier',
+            issuer: 'SmartBuild Supplier',
             secret
-        )
+        })
 
         const qrCodeUrl = await QRCode.toDataURL(otpauth)
 
@@ -58,7 +58,8 @@ export async function POST(request: NextRequest) {
             return NextResponse.json(createErrorResponse('Missing required fields', 'VALIDATION_ERROR'), { status: 400 })
         }
 
-        const isValid = authenticator.verify({ token: code, secret })
+        const otp = new OTP({ strategy: 'totp' })
+        const { valid: isValid } = otp.verifySync({ token: code, secret })
 
         if (!isValid) {
             return NextResponse.json(createErrorResponse('Mã xác thực không chính xác', 'AUTH_ERROR'), { status: 400 })

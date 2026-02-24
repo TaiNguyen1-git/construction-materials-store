@@ -652,7 +652,7 @@ function parseGuestInfo(message: string): {
   address?: string
 } {
   // Clean input - remove any brackets or quotes
-  let cleaned = message.trim()
+  const cleaned = message.trim()
     .replace(/^\[|\]$/g, '') // Remove brackets
     .replace(/^["']|["']$/g, '') // Remove quotes
     .trim()

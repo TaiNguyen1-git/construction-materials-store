@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
         const status = searchParams.get('status') // 'active', 'pending', 'inactive'
         const search = searchParams.get('search')
 
-        let where: any = {}
+        const where: any = {}
 
         if (status === 'active') where.isActive = true
         if (status === 'inactive') where.isActive = false

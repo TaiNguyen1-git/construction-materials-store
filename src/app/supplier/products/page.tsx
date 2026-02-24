@@ -10,7 +10,8 @@ import {
     ChevronRight,
     CheckCircle2,
     Upload,
-    Loader2
+    Loader2,
+    AlertCircle
 } from 'lucide-react'
 import Image from 'next/image'
 

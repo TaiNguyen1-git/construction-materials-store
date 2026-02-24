@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
     const minReviews = parseInt(searchParams.get('minReviews') || '3')
 
     let recommendations: Array<Record<string, unknown>> = []
-    let metadata: Record<string, unknown> = { type, limit }
+    const metadata: Record<string, unknown> = { type, limit }
 
     switch (type) {
       case 'top_rated':

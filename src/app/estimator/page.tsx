@@ -15,7 +15,7 @@ import { toast } from 'react-hot-toast'
 import { useAuth } from '@/contexts/auth-context'
 import { useCartStore } from '@/stores/cartStore'
 import { fetchWithAuth } from '@/lib/api-client'
-import { analyzeFloorPlanImage, estimateFromText, recalculateEstimate } from '@/lib/ai-vision-estimator'
+import { analyzeFloorPlanImage, estimateFromText, recalculateEstimate } from '@/lib/estimator/vision-estimator'
 
 import LoginIncentiveModal from '@/components/LoginIncentiveModal'
 import SiteHeader from '@/components/Header'

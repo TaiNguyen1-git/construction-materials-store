@@ -50,23 +50,19 @@ export async function POST(request: NextRequest) {
 
     // Strategy 3: AI Smart Recommendations (Gemini)
     // This is crucial when we don't have enough order history or strict KB matches
-    let aiRecommendations: any[] = []
+    const aiRecommendations: any[] = []
     if (frequentlyBoughtTogether.length < 2 && complementaryProducts.length < 2) {
       try {
         const { default: AIService } = await import('@/lib/ai-service')
-        const aiResults = await AIService.getSmartRecommendations({
-          cartItems: cartProducts.map(p => ({
-            name: p.name,
-            category: p.category.name,
-            price: p.price
-          }))
-        })
+        const itemsStr = cartProducts.map(p => p.name).join(', ')
+        const aiQuery = `Gợi ý các sản phẩm xây dựng nên mua kèm với: ${itemsStr}`
+        const aiResults = await AIService.getProductRecommendations(aiQuery)
 
         // Map AI results to DB products
         for (const rec of aiResults) {
           const dbProduct = await prisma.product.findFirst({
             where: {
-              name: { contains: rec.name.split(' ')[0] }, // Fuzzy match
+              name: { contains: String(rec.name).split(' ')[0] }, // Fuzzy match
               isActive: true,
               id: { notIn: productIds }
             },
@@ -91,7 +87,7 @@ export async function POST(request: NextRequest) {
               inStock: dbProduct.inventoryItem ? dbProduct.inventoryItem.availableQuantity > 0 : false,
               rating: calculateAverageRating(dbProduct.productReviews),
               reviewCount: dbProduct.productReviews.length,
-              reason: rec.reason || 'Sản phẩm tương tự',
+              reason: String(rec.reason || 'Sản phẩm tương tự'),
               badge: '✨ AI Gợi ý',
               confidence: 0.9,
               wholesalePrice: dbProduct.wholesalePrice,

@@ -36,7 +36,7 @@ export async function GET(
         }
 
         // Fetch customer data - Try finding by Customer ID OR User ID
-        let customer = await prisma.customer.findFirst({
+        const customer = await prisma.customer.findFirst({
             where: {
                 OR: [
                     { id: customerId },

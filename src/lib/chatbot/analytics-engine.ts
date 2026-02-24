@@ -221,7 +221,7 @@ async function getProductSalesAnalytics(query: string, entities: ExtractedEntiti
   const dateRange = getDateRangeFromEntities(entities)
   
   // Detect product category/name from query
-  let productFilter: any = {}
+  const productFilter: any = {}
   
   if (entities.productCategory) {
     productFilter.product = {

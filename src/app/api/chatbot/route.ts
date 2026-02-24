@@ -158,7 +158,7 @@ export async function POST(request: NextRequest) {
           (message.toLowerCase().match(/^\d+$/) || (message.length > 3 && !message.toLowerCase().includes('xác nhận')))) {
           const flowData = currentState.data
           if (flowData.pendingProductSelection) {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+             
             const selectedProducts: Array<Record<string, unknown>> = []
             for (const pending of flowData.pendingProductSelection) {
               const userChoice = message.toLowerCase().trim()

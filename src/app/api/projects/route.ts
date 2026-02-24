@@ -146,7 +146,7 @@ export async function POST(request: NextRequest) {
 
     let projectCustomerId = null
     let moderationStatus = 'PENDING'
-    let isVerified = user ? true : false // Auto-verify if logged in
+    const isVerified = user ? true : false // Auto-verify if logged in
     let otpCode = null
     let otpExpiresAt = null
 

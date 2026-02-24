@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
     try {
         const { prompt, context, type, projectId } = await request.json()
 
-        let enrichedContext = { ...context }
+        const enrichedContext = { ...context }
 
         // Fetch Real Data if it's bidding advice or product upsell
         if ((type === 'BIDDING_ADVICE' || type === 'PRODUCT_UPSELL') && projectId) {

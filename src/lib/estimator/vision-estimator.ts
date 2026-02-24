@@ -1,3 +1,5 @@
+"use server";
+
 /**
  * Vision Estimator — AI layer
  * Analyzes floor plan images and text descriptions using Gemini Vision.
@@ -105,7 +107,7 @@ Return ONLY JSON:
 }`
 
         const responseText = await callGemini(aiPrompt, imageParts)
-        let rawData = parseGeminiEstimatorJSON(responseText)
+        const rawData = parseGeminiEstimatorJSON(responseText)
 
         // Zod schema validation for production reliability
         const zodResult = EstimatorAIResponseSchema.safeParse(rawData)

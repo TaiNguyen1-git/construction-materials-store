@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { createSuccessResponse, createErrorResponse } from '@/lib/api-types'
-import { authenticator } from 'otplib'
+import { OTP } from 'otplib'
 import jwt from 'jsonwebtoken'
 
 const JWT_SECRET = process.env.JWT_SECRET || 'supplier-secret-key-change-in-production'
@@ -39,7 +39,8 @@ export async function POST(request: NextRequest) {
             )
         }
 
-        const isValid = authenticator.verify({ token: code, secret })
+        const otp = new OTP({ strategy: 'totp' })
+        const { valid: isValid } = otp.verifySync({ token: code, secret })
 
         if (!isValid) {
             return NextResponse.json(

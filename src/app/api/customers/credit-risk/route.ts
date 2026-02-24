@@ -28,15 +28,16 @@ export async function GET(request: NextRequest) {
         const analysisResults = await Promise.all(customers.map(async (customer) => {
             // Prepare data for AI
             const historyData = {
-                totalPurchases: customer.totalPurchases,
-                currentBalance: customer.currentBalance,
-                creditLimit: customer.creditLimit,
-                recentInvoices: customer.invoices.map(inv => ({
+                customerId: customer.id,
+                customerName: customer.user.name,
+                orderHistory: customer.invoices.map(inv => ({
                     amount: inv.totalAmount,
-                    dueDate: inv.dueDate,
-                    status: inv.status,
-                    paid: inv.paidAmount
-                }))
+                    paidOnTime: inv.status === 'PAID',
+                    date: inv.dueDate?.toISOString() || new Date().toISOString()
+                })),
+                totalDebt: customer.currentBalance,
+                creditLimit: customer.creditLimit,
+                paymentDays: []
             };
 
             const aiAssessment = await AIService.analyzeCreditRisk(historyData);
@@ -48,7 +49,7 @@ export async function GET(request: NextRequest) {
                 creditLimit: customer.creditLimit,
                 riskScore: aiAssessment?.riskScore || 0,
                 riskLevel: aiAssessment?.riskLevel || 'UNKNOWN',
-                warning: aiAssessment?.warning || '',
+                warning: aiAssessment?.recommendation || '',
                 suggestedLimit: aiAssessment?.suggestedCreditLimit || customer.creditLimit
             };
         }));

@@ -91,7 +91,7 @@ export async function GET(request: NextRequest) {
             // Simplified: Use Order remainingAmount (assuming it tracks debt)
             // Or better: Use invoice logic if available.
             // Let's fallback to Order amounts for robustness.
-            let debtAmount = order.remainingAmount || (order.totalAmount - (order.depositAmount || 0));
+            const debtAmount = order.remainingAmount || (order.totalAmount - (order.depositAmount || 0));
             // Check Invoices for more accurate overdue status
             let hasOverdue = false;
             let nextDueDate: string | null = null;
