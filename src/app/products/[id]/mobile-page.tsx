@@ -3,19 +3,20 @@
 import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import { toast } from 'react-hot-toast'
-import { 
-  ShoppingCart, 
-  Heart, 
-  Share2, 
-  Package, 
-  Truck, 
-  Shield, 
+import {
+  ShoppingCart,
+  Heart,
+  Share2,
+  Package,
+  Truck,
+  Shield,
   Star,
   Minus,
   Plus,
   ChevronLeft
 } from 'lucide-react'
 import Link from 'next/link'
+import Image from 'next/image'
 
 interface Product {
   id: string
@@ -48,7 +49,7 @@ export default function MobileProductDetail() {
     try {
       setLoading(true)
       const response = await fetch(`/api/products/${productId}`)
-      
+
       if (response.ok) {
         const data = await response.json()
         setProduct(data.data)
@@ -71,8 +72,8 @@ export default function MobileProductDetail() {
   const handleToggleWishlist = () => {
     setIsWishlisted(!isWishlisted)
     toast.success(
-      isWishlisted 
-        ? 'Removed from wishlist' 
+      isWishlisted
+        ? 'Removed from wishlist'
         : 'Added to wishlist'
     )
   }
@@ -120,7 +121,7 @@ export default function MobileProductDetail() {
           <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-gray-900 mb-1">Product not found</h3>
           <p className="text-gray-500 mb-4">The product you're looking for doesn't exist</p>
-          <Link 
+          <Link
             href="/products"
             className="text-blue-600 hover:text-blue-800 font-medium"
           >
@@ -164,11 +165,13 @@ export default function MobileProductDetail() {
       {/* Image Gallery */}
       <div className="bg-white">
         {product.images && product.images.length > 0 ? (
-          <div className="relative">
-            <img 
-              src={product.images[selectedImage]} 
-              alt={product.name}
-              className="w-full h-96 object-cover"
+          <div className="relative w-full h-96">
+            <Image
+              src={product.images[selectedImage]}
+              alt={product.name || 'Product Image'}
+              fill
+              className="object-cover"
+              sizes="(max-width: 768px) 100vw, 33vw"
             />
             {product.images.length > 1 && (
               <div className="absolute bottom-4 left-0 right-0 flex justify-center space-x-2">
@@ -176,9 +179,8 @@ export default function MobileProductDetail() {
                   <button
                     key={index}
                     onClick={() => setSelectedImage(index)}
-                    className={`w-2 h-2 rounded-full ${
-                      index === selectedImage ? 'bg-white' : 'bg-white/50'
-                    }`}
+                    className={`w-2 h-2 rounded-full ${index === selectedImage ? 'bg-white' : 'bg-white/50'
+                      }`}
                     aria-label={`Xem hình ${index + 1}`}
                   />
                 ))}
@@ -207,9 +209,9 @@ export default function MobileProductDetail() {
         <div className="mt-4 flex items-center">
           <div className="flex items-center">
             {[...Array(5)].map((_, i) => (
-              <Star 
-                key={i} 
-                className={`h-5 w-5 ${i < 4 ? 'text-yellow-400 fill-current' : 'text-gray-300'}`} 
+              <Star
+                key={i}
+                className={`h-5 w-5 ${i < 4 ? 'text-yellow-400 fill-current' : 'text-gray-300'}`}
               />
             ))}
             <span className="ml-2 text-sm text-gray-600">(128 đánh giá)</span>

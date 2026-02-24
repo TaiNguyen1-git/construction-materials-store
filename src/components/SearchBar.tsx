@@ -164,7 +164,7 @@ export default function SearchBar() {
               >
                 <div className="w-12 h-12 bg-slate-100 rounded-xl overflow-hidden flex-shrink-0 relative border border-slate-50">
                   {s.image ? (
-                    <img src={s.image} alt={s.name} className="w-full h-full object-cover group-hover/item:scale-110 transition-transform duration-500" />
+                    <Image fill sizes="48px" src={s.image} alt={s.name || 'Product'} className="object-cover group-hover/item:scale-110 transition-transform duration-500" />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center">
                       <Package className="w-5 h-5 text-slate-300" />

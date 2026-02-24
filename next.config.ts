@@ -21,6 +21,9 @@ const nextConfig: NextConfig = {
       bodySizeLimit: '2mb',
     },
   },
+  compiler: {
+    removeConsole: process.env.NODE_ENV === "production" ? { exclude: ["error", "warn"] } : false,
+  },
   // Remove 'standalone' output for Vercel deployment
   // Vercel handles the output automatically
   // output: 'standalone',
