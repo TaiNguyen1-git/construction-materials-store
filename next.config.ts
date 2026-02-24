@@ -112,10 +112,8 @@ const nextConfig: NextConfig = {
 
 import { withSentryConfig } from "@sentry/nextjs";
 
-const sentryConfig = withSentryConfig(nextConfig, {
+export default withSentryConfig(withPWA(nextConfig), {
   silent: true,
   org: "smartbuild-ai",
   project: "javascript-nextjs",
 });
-
-export default withPWA(sentryConfig);

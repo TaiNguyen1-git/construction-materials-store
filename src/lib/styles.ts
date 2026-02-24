@@ -1,5 +1,5 @@
 // Utility functions for consistent styling across the application
-import { theme } from './theme'
+
 
 // Common button styles
 export const buttonStyles = {
