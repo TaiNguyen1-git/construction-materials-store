@@ -9,6 +9,8 @@ interface FormModalProps {
   title: string
   children: ReactNode
   size?: 'sm' | 'md' | 'lg' | 'xl'
+  onSubmit?: (e: React.FormEvent) => void
+  loading?: boolean
 }
 
 export default function FormModal({
@@ -16,7 +18,9 @@ export default function FormModal({
   onClose,
   title,
   children,
-  size = 'md'
+  size = 'md',
+  onSubmit,
+  loading
 }: FormModalProps) {
   if (!isOpen) return null
 
@@ -57,8 +61,43 @@ export default function FormModal({
 
         {/* Content - Scrollable */}
         <div className="overflow-y-auto flex-1 p-8 pt-6 custom-scrollbar">
-          {children}
+          {onSubmit ? (
+            <form id="modal-form" onSubmit={onSubmit} className="space-y-6">
+              {children}
+            </form>
+          ) : (
+            children
+          )}
         </div>
+
+        {/* Footer for Form Mode */}
+        {onSubmit && (
+          <div className="p-8 border-t border-slate-100 flex justify-end gap-3 bg-slate-50/50">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={loading}
+              className="px-6 py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest text-slate-500 hover:bg-slate-100 transition-all active:scale-95 disabled:opacity-50"
+            >
+              Hủy
+            </button>
+            <button
+              type="submit"
+              form="modal-form"
+              disabled={loading}
+              className="px-8 py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-xl shadow-blue-500/20 transition-all active:scale-95 disabled:opacity-50 flex items-center gap-2"
+            >
+              {loading ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  Đang xử lý...
+                </>
+              ) : (
+                'Lưu thay đổi'
+              )}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )

@@ -1,9 +1,6 @@
-/**
- * Conversation State Manager - Manages multi-step conversation flows
- * Uses Redis in production, falls back to in-memory for development
- */
+import { redis, isRedisConfigured } from '../redis'
 
-// In-memory conversation state storage
+// In-memory conversation state storage (Fallback)
 const conversationCache = new Map<string, ConversationState>()
 
 export type ConversationFlow =
@@ -29,32 +26,6 @@ export interface FlowResponseResult {
   nextPrompt?: string
 }
 
-// In-memory store (fallback when Redis not available)
-// Removed - using conversationCache
-
-// Auto-cleanup expired states every 5 minutes (only for in-memory)
-let cleanupInterval: NodeJS.Timeout | null = null
-
-// Start cleanup only once for in-memory mode
-if (!cleanupInterval) {
-  cleanupInterval = setInterval(() => {
-    // Clean up expired sessions from memory
-    const now = Date.now()
-    for (const [key, state] of conversationCache.entries()) {
-      if (state.expiresAt && state.expiresAt.getTime() < now) {
-        conversationCache.delete(key)
-      }
-    }
-  }, 5 * 60 * 1000)
-
-  // Cleanup on module unload (for HMR)
-  if (typeof process !== 'undefined' && process.on) {
-    process.on('exit', () => {
-      if (cleanupInterval) clearInterval(cleanupInterval)
-    })
-  }
-}
-
 /**
  * Get conversation state key for Redis
  */
@@ -68,11 +39,27 @@ function getStateKey(sessionId: string): string {
 export async function getConversationState(sessionId: string): Promise<ConversationState | null> {
   const key = getStateKey(sessionId)
 
-  // Use in-memory only
-  const state = conversationCache.get(key)
+  // 1. TRY REDIS (Scalable)
+  if (isRedisConfigured()) {
+    try {
+      const state = await redis.get<ConversationState>(key)
+      if (state) {
+        // Ensure Dates are reconstructed from strings
+        return {
+          ...state,
+          createdAt: new Date(state.createdAt),
+          expiresAt: new Date(state.expiresAt)
+        }
+      }
+      return null
+    } catch (err) {
+      console.error('[ConvState] Redis get error, fallback to memory:', err)
+    }
+  }
 
+  // 2. FALLBACK: In-memory
+  const state = conversationCache.get(key)
   if (state) {
-    // Check expiration
     if (state.expiresAt && state.expiresAt.getTime() < Date.now()) {
       conversationCache.delete(key)
       return null
@@ -107,7 +94,17 @@ export async function setConversationState(
 
   const key = getStateKey(sessionId)
 
-  // Save to in-memory
+  // 1. SAVE TO REDIS (Scalable)
+  if (isRedisConfigured()) {
+    try {
+      await redis.set(key, state, { ex: ttlMinutes * 60 })
+      return state
+    } catch (err) {
+      console.error('[ConvState] Redis set error, fallback to memory:', err)
+    }
+  }
+
+  // 2. FALLBACK: In-memory
   conversationCache.set(key, state)
   setTimeout(() => conversationCache.delete(key), ttlMinutes * 60 * 1000)
 
@@ -122,21 +119,28 @@ export async function updateConversationState(
   updates: Partial<ConversationState>
 ): Promise<ConversationState | null> {
   const current = await getConversationState(sessionId)
-
-  if (!current) {
-    return null
-  }
+  if (!current) return null
 
   const updated: ConversationState = {
     ...current,
     ...updates,
-    // Reset expiration on update
-    expiresAt: new Date(Date.now() + 30 * 60 * 1000)
+    expiresAt: new Date(Date.now() + 30 * 60 * 1000) // Reset expiration
   }
 
   const key = getStateKey(sessionId)
-  conversationCache.set(key, updated)
 
+  // 1. UPDATE REDIS (Scalable)
+  if (isRedisConfigured()) {
+    try {
+      await redis.set(key, updated, { ex: 30 * 60 })
+      return updated
+    } catch (err) {
+      console.error('[ConvState] Redis update error, fallback to memory:', err)
+    }
+  }
+
+  // 2. FALLBACK: In-memory
+  conversationCache.set(key, updated)
   return updated
 }
 
@@ -145,6 +149,15 @@ export async function updateConversationState(
  */
 export async function clearConversationState(sessionId: string): Promise<void> {
   const key = getStateKey(sessionId)
+
+  if (isRedisConfigured()) {
+    try {
+      await redis.del(key)
+      return
+    } catch (err) {
+      console.error('[ConvState] Redis del error:', err)
+    }
+  }
 
   conversationCache.delete(key)
 }

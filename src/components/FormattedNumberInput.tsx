@@ -5,12 +5,14 @@ interface FormattedNumberInputProps extends Omit<React.InputHTMLAttributes<HTMLI
     value: number
     onChange: (value: number) => void
     allowZero?: boolean
+    suffix?: string
 }
 
 const FormattedNumberInput: React.FC<FormattedNumberInputProps> = ({
     value,
     onChange,
     allowZero = true,
+    suffix,
     className,
     ...props
 }) => {
@@ -28,13 +30,20 @@ const FormattedNumberInput: React.FC<FormattedNumberInputProps> = ({
     }
 
     return (
-        <input
-            type="text"
-            value={displayValue}
-            onChange={handleChange}
-            className={className}
-            {...props}
-        />
+        <div className="relative">
+            <input
+                type="text"
+                value={displayValue}
+                onChange={handleChange}
+                className={`w-full ${className || ''}`}
+                {...props}
+            />
+            {suffix && (
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm pointer-events-none">
+                    {suffix}
+                </div>
+            )}
+        </div>
     )
 }
 

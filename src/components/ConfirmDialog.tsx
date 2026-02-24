@@ -7,7 +7,8 @@ interface ConfirmDialogProps {
   onClose: () => void
   onConfirm: () => void
   title: string
-  message: string
+  message?: string
+  description?: string
   confirmText?: string
   cancelText?: string
   type?: 'danger' | 'warning' | 'info'
@@ -20,6 +21,7 @@ export default function ConfirmDialog({
   onConfirm,
   title,
   message,
+  description,
   confirmText = 'Xác nhận',
   cancelText = 'Hủy',
   type = 'danger',
@@ -77,7 +79,7 @@ export default function ConfirmDialog({
 
         {/* Content */}
         <div className="p-8">
-          <p className="text-slate-600 font-medium leading-relaxed">{message}</p>
+          <p className="text-slate-600 font-medium leading-relaxed">{message || description}</p>
         </div>
 
         {/* Footer */}

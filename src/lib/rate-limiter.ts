@@ -1,36 +1,9 @@
+import { redis, isRedisConfigured } from './redis'
+
 /**
  * Rate limiter for API endpoints
- * Uses Redis in production, falls back to in-memory for development
+ * Uses Upstash Redis for global scalability, falls back to in-memory only if not configured
  */
-
-// Simple in-memory rate limiter
-
-interface RateLimitEntry {
-  count: number
-  resetAt: number
-}
-
-const rateLimitStore = new Map<string, RateLimitEntry>()
-
-/**
- * Check if Redis is available
- * For now, always use in-memory store
- */
-function isRedisAvailable(): boolean {
-  return false // Always use in-memory for simplicity
-}
-
-// Cleanup old entries every 5 minutes (only for in-memory)
-setInterval(() => {
-  if (!isRedisAvailable()) {
-    const now = Date.now()
-    for (const [key, entry] of rateLimitStore.entries()) {
-      if (entry.resetAt < now) {
-        rateLimitStore.delete(key)
-      }
-    }
-  }
-}, 5 * 60 * 1000)
 
 export interface RateLimitConfig {
   windowMs: number  // Time window in milliseconds
@@ -43,6 +16,13 @@ export interface RateLimitResult {
   resetAt: number
 }
 
+interface RateLimitEntry {
+  count: number
+  resetAt: number
+}
+
+const rateLimitStore = new Map<string, RateLimitEntry>()
+
 /**
  * Check if request is allowed based on rate limit
  */
@@ -53,32 +33,57 @@ export async function checkRateLimit(
   const now = Date.now()
   const key = `rate:${identifier}`
 
-  // Use in-memory only
-  let entry = rateLimitStore.get(key)
+  // USE REDIS IF CONFIGURED (Production Scalable approach)
+  if (isRedisConfigured()) {
+    try {
+      // Use Redis INCR and PEXPIRE for atomic rate limiting
+      const current = await redis.incr(key)
 
-  // Create or reset entry if expired
+      if (current === 1) {
+        // First request in window, set expiry
+        await redis.pexpire(key, config.windowMs)
+
+        return {
+          allowed: true,
+          remaining: config.max - 1,
+          resetAt: now + config.windowMs
+        }
+      }
+
+      // Check if allowed
+      const allowed = current <= config.max
+      const ttl = await redis.pttl(key)
+      const resetAt = ttl > 0 ? now + ttl : now + config.windowMs
+
+      return {
+        allowed,
+        remaining: Math.max(0, config.max - current),
+        resetAt
+      }
+    } catch (err) {
+      console.error('[RateLimiter] Redis error, falling back to memory:', err)
+      // Fall through to memory fallback
+    }
+  }
+
+  // FALLBACK: Simple in-memory rate limiter
+  let entry = rateLimitStore.get(key)
   if (!entry || entry.resetAt < now) {
     entry = {
-      count: 1, // Start at 1 for the current request
+      count: 1,
       resetAt: now + config.windowMs
     }
     rateLimitStore.set(key, entry)
-
     return {
       allowed: true,
-      remaining: Math.max(0, config.max - 1),
+      remaining: config.max - 1,
       resetAt: entry.resetAt
     }
   }
 
-  // Increment count
   entry.count++
-
-  // Check if allowed
-  const allowed = entry.count <= config.max
-
   return {
-    allowed,
+    allowed: entry.count <= config.max,
     remaining: Math.max(0, config.max - entry.count),
     resetAt: entry.resetAt
   }

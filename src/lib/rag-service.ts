@@ -2,6 +2,31 @@ import { GoogleGenerativeAI } from '@google/generative-ai'
 import { AI_CONFIG } from './ai-config'
 import { prisma } from './prisma'
 import KNOWLEDGE_BASE, { ProductKnowledge, searchByCategory, searchByBrand, searchByName } from './knowledge-base'
+import { redis, isRedisConfigured } from './redis'
+import crypto from 'crypto'
+
+// ─── Snapshot helpers ──────────────────────────────────────────────────────────
+const RAG_SNAPSHOT_KEY = 'rag:product_snapshot_hash'
+
+/**
+ * Build a lightweight fingerprint of the active product catalogue.
+ * If the hash hasn't changed since last init we can skip re-embedding.
+ */
+function buildCatalogueHash(products: { id: string; updatedAt: Date; price: number }[]): string {
+  const sorted = [...products].sort((a, b) => a.id.localeCompare(b.id))
+  const raw = sorted.map(p => `${p.id}:${p.price}:${p.updatedAt.getTime()}`).join('|')
+  return crypto.createHash('sha256').update(raw).digest('hex').slice(0, 16)
+}
+
+async function getStoredHash(): Promise<string | null> {
+  if (!isRedisConfigured()) return null
+  try { return await redis.get<string>(RAG_SNAPSHOT_KEY) } catch { return null }
+}
+
+async function saveHash(hash: string, ttlSeconds: number): Promise<void> {
+  if (!isRedisConfigured()) return
+  try { await redis.set(RAG_SNAPSHOT_KEY, hash, { ex: ttlSeconds }) } catch { /* ignore */ }
+}
 
 const gemini = AI_CONFIG.GEMINI.API_KEY ? new GoogleGenerativeAI(AI_CONFIG.GEMINI.API_KEY) : null
 
@@ -120,23 +145,28 @@ class GeminiVectorStore {
 
   async addDocument(doc: ProductKnowledge) {
     if (!this.model) return
-
-    // Create searchable text from document
     const searchableText = this.createSearchableText(doc)
-
     try {
-      // Generate embedding using Gemini
       const result = await this.model.embedContent(searchableText)
       const embedding = result.embedding.values
-
-      this.vectors.push({
-        id: doc.id,
-        text: searchableText,
-        embedding,
-        metadata: doc
-      })
+      this.vectors.push({ id: doc.id, text: searchableText, embedding, metadata: doc })
     } catch (error) {
       console.error(`Error generating embedding for ${doc.name}:`, error)
+    }
+  }
+
+  /**
+   * Add multiple documents in parallel chunks.
+   * chunkSize = 8 is a safe sweet-spot: fast enough to saturate Gemini API
+   * without triggering 429 rate-limit errors.
+   */
+  async addDocumentsBatch(docs: ProductKnowledge[], chunkSize: number = 8) {
+    if (!this.model) return
+
+    // Split into parallel chunks
+    for (let i = 0; i < docs.length; i += chunkSize) {
+      const chunk = docs.slice(i, i + chunkSize)
+      await Promise.all(chunk.map(doc => this.addDocument(doc)))
     }
   }
 
@@ -222,76 +252,125 @@ const vectorStore = new GeminiVectorStore()
 
 // Load knowledge base into vector store
 let isInitialized = false
+let isInitializing = false   // Prevent duplicate concurrent calls
 let lastInitialization = 0
 const REFRESH_INTERVAL = 1000 * 60 * 60 // 1 hour
 
-async function initializeVectorStore() {
-  // Check if needs refresh
-  if (isInitialized && Date.now() - lastInitialization < REFRESH_INTERVAL) return
+/**
+ * Convert a DB product row to the ProductKnowledge format
+ */
+function buildProductDoc(product: {
+  id: string
+  name: string
+  description: string | null
+  price: number
+  unit: string
+  sku: string
+  weight: number | null
+  dimensions: string | null
+  tags: string[] | null
+  category: { name: string }
+  inventoryItem: unknown
+}): ProductKnowledge {
+  const categoryLower = product.category.name.toLowerCase()
+  let commonCombinations: string[] = []
+  if (categoryLower.includes('xi măng') || categoryLower.includes('cement')) {
+    commonCombinations = ['cát', 'đá', 'sắt thép']
+  } else if (categoryLower.includes('gạch') || categoryLower.includes('brick')) {
+    commonCombinations = ['xi măng', 'cát']
+  } else if (categoryLower.includes('cát') || categoryLower.includes('sand')) {
+    commonCombinations = ['xi măng', 'đá']
+  } else if (categoryLower.includes('đá') || categoryLower.includes('stone')) {
+    commonCombinations = ['xi măng', 'cát']
+  } else if (categoryLower.includes('thép') || categoryLower.includes('sắt')) {
+    commonCombinations = ['xi măng', 'dây buộc']
+  }
 
+  return {
+    id: product.id,
+    name: product.name,
+    category: product.category.name,
+    brand: '',
+    description: product.description || '',
+    pricing: {
+      basePrice: product.price,
+      unit: product.unit,
+      bulkDiscount: []
+    },
+    specifications: {
+      sku: product.sku,
+      ...(product.weight && { weight: `${product.weight}kg` }),
+      ...(product.dimensions && { dimensions: product.dimensions })
+    },
+    usage: product.tags || [],
+    tips: [],
+    warnings: [],
+    commonCombinations,
+    quality: 'Standard',
+    supplier: 'Store Inventory'
+  }
+}
+
+async function initializeVectorStore() {
+  // ── 0. Freshness guards ────────────────────────────────────────────────────
+  if (isInitialized && Date.now() - lastInitialization < REFRESH_INTERVAL) return
+  if (isInitializing) return
+
+  // ── 1. Catalogue snapshot hash check (skip expensive Gemini calls) ─────────
+  // Fetch minimal fields only — no embedding work yet
+  let products: { id: string; price: number; updatedAt: Date }[] = []
+  try {
+    products = await prisma.product.findMany({
+      where: { isActive: true },
+      select: { id: true, price: true, updatedAt: true },
+    })
+  } catch (err) {
+    console.error('[RAG] DB fetch for hash check failed:', err)
+  }
+
+  const currentHash = buildCatalogueHash(products)
+  const storedHash = await getStoredHash()
+
+  if (isInitialized && storedHash === currentHash) {
+    // Catalogue hasn't changed — refresh the in-memory timer and return fast
+    lastInitialization = Date.now()
+    console.log('[RAG] Skipping re-init — catalogue unchanged (hash match)')
+    return
+  }
+
+  isInitializing = true
   vectorStore.clear()
 
-  // 1. Load static knowledge base
-  for (const doc of KNOWLEDGE_BASE) {
-    await vectorStore.addDocument(doc)
-  }
+  const startTime = Date.now()
+  console.log('[RAG] Starting parallel vector store initialization...')
 
-  // 2. Load dynamic products from database
   try {
-    const products = await prisma.product.findMany({
+    // ── 2. Static knowledge base (parallel) ──────────────────────────────────
+    await vectorStore.addDocumentsBatch(KNOWLEDGE_BASE)
+    console.log(`[RAG] Static KB loaded: ${KNOWLEDGE_BASE.length} docs`)
+
+    // ── 3. Dynamic products from DB (parallel, full fields this time) ─────────
+    const fullProducts = await prisma.product.findMany({
       where: { isActive: true },
-      include: { category: true, inventoryItem: true }
+      include: { category: true, inventoryItem: true },
     })
 
-    for (const product of products) {
-      // Smart common combinations based on category
-      let commonCombinations: string[] = []
-      const categoryLower = product.category.name.toLowerCase()
-      if (categoryLower.includes('xi măng') || categoryLower.includes('cement')) {
-        commonCombinations = ['cát', 'đá', 'sắt thép']
-      } else if (categoryLower.includes('gạch') || categoryLower.includes('brick')) {
-        commonCombinations = ['xi măng', 'cát']
-      } else if (categoryLower.includes('cát') || categoryLower.includes('sand')) {
-        commonCombinations = ['xi măng', 'đá']
-      } else if (categoryLower.includes('đá') || categoryLower.includes('stone')) {
-        commonCombinations = ['xi măng', 'cát']
-      } else if (categoryLower.includes('thép') || categoryLower.includes('sắt')) {
-        commonCombinations = ['xi măng', 'dây buộc']
-      }
+    const productDocs = fullProducts.map(buildProductDoc)
+    await vectorStore.addDocumentsBatch(productDocs)
+    console.log(`[RAG] DB products loaded: ${productDocs.length} docs`)
 
-      // Convert DB product to ProductKnowledge format with enhanced fields
-      const doc: ProductKnowledge = {
-        id: product.id,
-        name: product.name,
-        category: product.category.name,
-        brand: '',
-        description: product.description || '',
-        pricing: {
-          basePrice: product.price,
-          unit: product.unit,
-          bulkDiscount: []
-        },
-        specifications: {
-          sku: product.sku,
-          ...(product.weight && { weight: `${product.weight}kg` }),
-          ...(product.dimensions && { dimensions: product.dimensions })
-        },
-        usage: product.tags || [], // Use tags as usage hints
-        tips: [],
-        warnings: [],
-        commonCombinations,
-        quality: 'Standard',
-        supplier: 'Store Inventory'
-      }
+    isInitialized = true
+    lastInitialization = Date.now()
 
-      await vectorStore.addDocument(doc)
-    }
+    // Save new hash so next cold-start can skip if nothing changed
+    await saveHash(currentHash, REFRESH_INTERVAL / 1000)
+
+    console.log(`[RAG] Initialization done in ${Date.now() - startTime}ms`)
   } catch (error) {
-    console.error('Failed to load products from DB:', error)
+    console.error('[RAG] Failed to initialize vector store:', error)
+  } finally {
+    isInitializing = false
   }
-
-  isInitialized = true
-  lastInitialization = Date.now()
 }
 
 // RAG Service
