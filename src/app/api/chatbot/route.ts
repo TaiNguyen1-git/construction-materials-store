@@ -22,6 +22,7 @@ import {
 } from '@/lib/chatbot/conversation-state'
 import { checkRateLimit, getRateLimitIdentifier, RateLimitConfigs, formatRateLimitError } from '@/lib/rate-limiter'
 import { checkRuleBasedResponse } from '@/lib/chatbot/rule-based-responses'
+import { getCachedResponse, cacheResponse, shouldBypassCache } from '@/lib/chatbot/response-cache'
 
 // ── Handlers ──────────────────────────────────────────────────────────────────
 import { handleAdminOrderManagement, handleAdminInventoryCheck, handleAdminCRUD, handleAdminAnalytics } from './handlers/admin.handler'
@@ -106,16 +107,18 @@ export async function POST(request: NextRequest) {
     }
 
     // ── Fast Path: Greetings & Small Talk ─────────────────────────────────────
-    if (message && !isAdmin) {
+    if (message) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const quickResponse = (AIService as any).getQuickResponse(message)
       if (quickResponse) {
         return NextResponse.json(createSuccessResponse({ message: quickResponse.response, suggestions: quickResponse.suggestions || [], productRecommendations: quickResponse.productRecommendations || [], confidence: quickResponse.confidence || 1.0, sessionId, timestamp: new Date().toISOString() }))
       }
 
-      const ruleBased = checkRuleBasedResponse(message)
-      if (ruleBased.matched && !ruleBased.requiresProductLookup && !ruleBased.requiresComparison) {
-        return NextResponse.json(createSuccessResponse({ message: ruleBased.response || '', suggestions: ruleBased.suggestions || [], confidence: 1.0, sessionId, timestamp: new Date().toISOString() }))
+      if (!isAdmin) {
+        const ruleBased = checkRuleBasedResponse(message)
+        if (ruleBased.matched && !ruleBased.requiresProductLookup && !ruleBased.requiresComparison) {
+          return NextResponse.json(createSuccessResponse({ message: ruleBased.response || '', suggestions: ruleBased.suggestions || [], confidence: 1.0, sessionId, timestamp: new Date().toISOString() }))
+        }
       }
     }
 
@@ -158,7 +161,7 @@ export async function POST(request: NextRequest) {
           (message.toLowerCase().match(/^\d+$/) || (message.length > 3 && !message.toLowerCase().includes('xác nhận')))) {
           const flowData = currentState.data
           if (flowData.pendingProductSelection) {
-             
+
             const selectedProducts: Array<Record<string, unknown>> = []
             for (const pending of flowData.pendingProductSelection) {
               const userChoice = message.toLowerCase().trim()
@@ -293,9 +296,31 @@ export async function POST(request: NextRequest) {
       if (result) return result
     }
 
-    // ── Final Fallback: RAG + AI ───────────────────────────────────────────────
+    // ── Final Fallback: Cache Check → RAG + AI ───────────────────────────────
+    // Check cache before expensive AI call
+    if (!shouldBypassCache(message)) {
+      const cached = await getCachedResponse(message, false)
+      if (cached) {
+        return NextResponse.json(createSuccessResponse({
+          message: cached.response + marketingMessage,
+          suggestions: cached.suggestions,
+          productRecommendations: cached.productRecommendations || [],
+          confidence: cached.confidence,
+          sessionId, timestamp: new Date().toISOString()
+        }))
+      }
+    }
+
     const augmentedPrompt = await RAGService.generateAugmentedPrompt(message)
     const botResponse = await AIService.generateChatbotResponse(augmentedPrompt, context, conversationHistory)
+
+    // Cache this response for future similar queries (non-blocking)
+    cacheResponse(message, {
+      response: botResponse.response,
+      suggestions: botResponse.suggestions,
+      confidence: botResponse.confidence,
+      productRecommendations: botResponse.productRecommendations
+    }).catch(() => { /* ignore */ })
 
     // Log interaction (non-blocking)
     prisma.customerInteraction.create({

@@ -17,6 +17,8 @@ export default function FloatingWidgetsContainer() {
     const [activePanel, setActivePanel] = useState<'none' | 'chat' | 'support'>('none')
     const [isHovered, setIsHovered] = useState(false)
     const [adminStatus, setAdminStatus] = useState<'online' | 'away' | 'offline'>('online')
+    const [showProactiveBubble, setShowProactiveBubble] = useState(false)
+    const [proactiveMessage, setProactiveMessage] = useState('')
 
     // Fetch admin status
     useEffect(() => {
@@ -36,13 +38,53 @@ export default function FloatingWidgetsContainer() {
         return () => clearInterval(interval)
     }, [])
 
+    // ── Proactive Engagement: context-aware bubble ──────────────────────────
+    useEffect(() => {
+        if (typeof window === 'undefined') return
+        // Only show once per session
+        if (sessionStorage.getItem('proactive_shown')) return
+
+        let message = ''
+        if (pathname?.startsWith('/products/')) {
+            message = 'Cần mình tính số lượng vật liệu cho công trình của bạn không? 🧮'
+        } else if (pathname === '/products' || pathname?.startsWith('/categories')) {
+            message = 'Mình giúp bạn tìm sản phẩm phù hợp nhé? 🔍'
+        } else if (pathname?.startsWith('/estimator')) {
+            message = 'Cần AI tư vấn lượng vật tư chính xác hơn không? ✨'
+        } else if (pathname === '/' || pathname === '') {
+            message = 'Chào bạn! Mình là SmartBuild AI, cần tư vấn gì không? 👋'
+        }
+
+        if (!message) return
+
+        const timer = setTimeout(() => {
+            setProactiveMessage(message)
+            setShowProactiveBubble(true)
+            sessionStorage.setItem('proactive_shown', '1')
+
+            // Auto-hide after 12 seconds
+            setTimeout(() => setShowProactiveBubble(false), 12000)
+        }, 15000) // Show after 15s of browsing
+
+        return () => clearTimeout(timer)
+    }, [pathname])
+
     // Hide logic
     if (pathname?.startsWith('/admin')) return null
     if (pathname?.startsWith('/contractor')) return null
     if (pathname?.startsWith('/supplier')) return null
     if (pathname?.startsWith('/ncc')) return null // Alias for supplier
 
-    const hiddenPatterns = ['/login', '/register', '/forgot-password', '/messages', '/negotiate']
+    const hiddenPatterns = [
+        '/login',
+        '/register',
+        '/forgot-password',
+        '/messages',
+        '/negotiate',
+        '/checkout',
+        '/onboarding',
+        '/order-confirmation'
+    ]
     if (hiddenPatterns.some(pattern => pathname?.includes(pattern))) return null
 
     const closePanel = () => setActivePanel('none')
@@ -177,6 +219,31 @@ export default function FloatingWidgetsContainer() {
                             </div>
                         )}
                     </button>
+
+                    {/* Proactive Engagement Bubble */}
+                    {showProactiveBubble && !isExpanded && (
+                        <div className="mb-4 pointer-events-auto animate-scaleIn">
+                            <div
+                                onClick={() => {
+                                    setActivePanel('chat')
+                                    setShowProactiveBubble(false)
+                                }}
+                                className="relative bg-white px-5 py-3.5 rounded-2xl shadow-[0_8px_30px_rgba(0,0,0,0.12)] cursor-pointer hover:shadow-[0_12px_40px_rgba(79,70,229,0.2)] transition-all duration-300 max-w-[260px] group border border-indigo-100"
+                            >
+                                <p className="text-[13px] font-medium text-gray-700 leading-relaxed group-hover:text-indigo-700 transition-colors">
+                                    {proactiveMessage}
+                                </p>
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); setShowProactiveBubble(false) }}
+                                    className="absolute -top-2 -right-2 w-5 h-5 bg-gray-200 hover:bg-gray-300 rounded-full flex items-center justify-center text-gray-500 text-[10px] transition-colors"
+                                >
+                                    ✕
+                                </button>
+                                {/* Arrow pointing to FAB */}
+                                <div className="absolute -bottom-1.5 right-6 w-3 h-3 bg-white border-r border-b border-indigo-100 rotate-45" />
+                            </div>
+                        </div>
+                    )}
                 </div>
             )}
 

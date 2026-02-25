@@ -40,12 +40,18 @@ export interface ExtractedEntities {
   percentage?: number
 }
 
+// Helper to strip icons for better matching
+function stripIcons(text: string): string {
+  return text.replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '').trim()
+}
+
 /**
  * Extract entities from message
  */
 export function extractEntities(message: string, intent?: string): ExtractedEntities {
   const entities: ExtractedEntities = {}
-  const lower = message.toLowerCase()
+  const cleanedMessage = stripIcons(message)
+  const lower = cleanedMessage.toLowerCase()
 
   // Extract quantity + unit
   const quantityMatch = lower.match(/(\d+(?:\.\d+)?)\s*(bao|m³|m2|m²|tấn|kg|tan|viên|cây|cuộn|thùng|bags?|tons?|pieces?)/i)

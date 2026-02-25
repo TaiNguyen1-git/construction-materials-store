@@ -58,6 +58,7 @@
     "clsx": "^2.1.1",
     "csrf": "^3.1.0",
     "date-fns": "^4.1.0",
+    "dexie": "^4.3.0",
     "dotenv": "^16.4.5",
     "firebase": "^12.7.0",
     "framer-motion": "^12.29.2",

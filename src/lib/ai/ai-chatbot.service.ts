@@ -4,35 +4,82 @@ import { getWorkingModelConfig, GeminiResponse, ChatbotResponse, parseGeminiJSON
 import { CHATBOT_SYSTEM_PROMPT } from '../ai-config'
 import { ADMIN_SYSTEM_PROMPT } from '../ai-prompts-admin'
 
-// Pre-defined responses for simple messages (no AI call needed)
-const QUICK_RESPONSES: Record<string, ChatbotResponse> = {
-    // Greetings
-    'alo': { response: 'Chào bạn! Mình là SmartBuild AI 🤖 Bạn cần tư vấn vật liệu xây dựng hay tính toán dự toán công trình nào không ạ?', suggestions: ['Tìm hiểu vật liệu', 'Tư vấn vật liệu', 'Tính toán vật liệu'], confidence: 1 },
-    'hello': { response: 'Xin chào! Mình là trợ lý SmartBuild AI 👋 Bạn muốn mình giúp gì hôm nay ạ?', suggestions: ['Xem sản phẩm', 'Tư vấn công trình', 'Dự toán chi phí'], confidence: 1 },
-    'hi': { response: 'Hi bạn! 👋 Mình có thể giúp gì cho bạn hôm nay?', suggestions: ['Tư vấn vật liệu', 'Xem giá', 'Hỗ trợ đơn hàng'], confidence: 1 },
-    'xin chào': { response: 'Chào bạn! 😊 Mình là SmartBuild AI, sẵn sàng hỗ trợ bạn về vật liệu xây dựng. Bạn cần tư vấn gì ạ?', suggestions: ['Tìm sản phẩm', 'Tư vấn công trình', 'Xem khuyến mãi'], confidence: 1 },
-    'chào': { response: 'Chào bạn! 👋 Bạn đang quan tâm đến vật liệu gì hôm nay ạ?', suggestions: ['Xi măng', 'Cát đá', 'Gạch ngói', 'Thép'], confidence: 1 },
-    'hey': { response: 'Hey! 👋 Mình có thể giúp gì cho bạn?', suggestions: ['Tư vấn mua hàng', 'Xem giá', 'Hỗ trợ'], confidence: 1 },
-    // Thank you
-    'cảm ơn': { response: 'Không có gì ạ! 😊 Nếu cần thêm hỗ trợ gì, cứ nhắn mình nhé!', suggestions: ['Hỏi thêm', 'Xem sản phẩm khác', 'Tạm biệt'], confidence: 1 },
-    'thank': { response: 'Rất vui được giúp bạn! 🙏 Cần gì cứ hỏi nhé!', suggestions: ['Hỏi thêm', 'Xem giỏ hàng', 'Tạm biệt'], confidence: 1 },
-    // Goodbye
-    'tạm biệt': { response: 'Tạm biệt bạn! 👋 Hẹn gặp lại nhé!', suggestions: ['Quay lại chat', 'Xem sản phẩm'], confidence: 1 },
-    'bye': { response: 'Bye bye! 👋 Chúc bạn một ngày tốt lành!', suggestions: ['Quay lại chat'], confidence: 1 },
-    // Help
-    'help': { response: 'Mình có thể giúp bạn:\n• Tìm kiếm vật liệu xây dựng\n• Tính toán dự toán công trình\n• Tư vấn sản phẩm phù hợp\n• Hỗ trợ đặt hàng\n\nBạn cần gì ạ?', suggestions: ['Tư vấn vật liệu', 'Tính dự toán', 'Đặt hàng'], confidence: 1 },
-    'giúp': { response: 'Mình sẵn sàng giúp bạn! Bạn có thể nhờ mình:\n• Tìm vật liệu xây dựng\n• Tính toán nguyên vật liệu\n• Tra cứu giá cả\n• Hỗ trợ đặt hàng', suggestions: ['Tìm sản phẩm', 'Tính vật liệu', 'Xem giá'], confidence: 1 },
-    'ok': { response: 'Dạ vâng ạ! 😊 Cần gì bạn cứ nhắn mình nhé.', suggestions: ['Xem giá gạch', 'Tính vật liệu', 'Địa chỉ cửa hàng'], confidence: 1 },
-    'vậy thôi': { response: 'Dạ, nếu cần hỗ trợ gì thêm bạn cứ nhắn mình nhé. Chào bạn! 👋', suggestions: ['Quay lại sau', 'Xem sản phẩm'], confidence: 1 },
-    'dc': { response: 'Dạ vâng! 😊 Cần gì bạn cứ nhắn nhé.', suggestions: ['Xem giá gạch', 'Tính vật liệu'], confidence: 1 },
-    'duoc': { response: 'Dạ vâng! 😊 Cần gì bạn cứ nhắn nhé.', suggestions: ['Xem giá gạch', 'Tính vật liệu'], confidence: 1 },
-    'da': { response: 'Dạ vâng! Cần gì bạn cứ nhắn mình nhen. 😊', suggestions: ['Xem sản phẩm', 'Tính vật liệu'], confidence: 1 },
+// Basic normalization: lowercase, remove diacritics, keep letters/numbers
+function normalizeText(text: string): string {
+    return text
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '') // remove accents
+        .replace(/đ/g, 'd')
+        .replace(/[^\w\s]/gi, '') // remove special chars but keep space/alphanumeric
+        .trim()
 }
 
-/** Check for a quick response to a simple greeting or acknowledgement */
+// Strip emojis and icons but keep the text content
+function stripIcons(text: string): string {
+    // Matches common emojis/icons used in our suggestions
+    return text.replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '').trim()
+}
+
+const STATIC_FAQ_RULES: Array<{
+    patterns: RegExp[]
+    response: string
+    suggestions: string[]
+}> = [
+        {
+            patterns: [/^(hi|hello|xin chao|chao|alo|hey|helo|hi shop|chao shop)$/i],
+            response: 'Xin chào! Mình là trợ lý SmartBuild AI 👋 Mình có thể giúp gì cho bạn hôm nay?',
+            suggestions: ['Xem sản phẩm', 'Tư vấn công trình', 'Dự toán chi phí']
+        },
+        {
+            patterns: [/^(cam on|thanks|thank|thank you|cam on shop|tk|tks)$/i],
+            response: 'Không có gì ạ! 😊 Rất vui được hỗ trợ bạn. Nếu cần thêm gì cứ nhắn mình nhé!',
+            suggestions: ['Hỏi thêm', 'Xem sản phẩm khác', 'Tạm biệt']
+        },
+        {
+            patterns: [/^(tam biet|bye|goodbye|hen gap lai|see you)$/i],
+            response: 'Tạm biệt bạn! 👋 Hẹn gặp lại nhé! Chúc bạn một ngày tốt lành!',
+            suggestions: ['Quay lại sau', 'Xem sản phẩm']
+        },
+        {
+            patterns: [/^(ok|vâng|da|uh|roi|understood|dc|duoc|ok shop)$/i],
+            response: 'Dạ vâng ạ! 😊 Cần mình hỗ trợ gì thêm không bạn?',
+            suggestions: ['Xem giá gạch', 'Tính vật liệu', 'Địa chỉ cửa hàng']
+        },
+        {
+            patterns: [/^(tro giup|help|giup|huong dan|lam gi|can gi)$/i],
+            response: 'Mình có thể giúp bạn:\n• Tìm kiếm VLXD\n• Tính toán vật tư xây dựng\n• Tư vấn báo giá\n• Hỗ trợ đơn hàng\n\nBạn cần phần nào ạ?',
+            suggestions: ['Tư vấn vật liệu', 'Tính dự toán', 'Đặt hàng']
+        },
+        {
+            // Suggestion: Xem sản phẩm
+            patterns: [/^(xem san pham|tim san pham|danh sach san pham|san pham ban)$/i],
+            response: 'Tất nhiên rồi! Bạn đang quan tâm đến loại vật liệu nào ạ? (Xi măng, Thép, Gạch, Cát đá, Sơn...)?',
+            suggestions: ['Xi măng', 'Sắt thép', 'Gạch ngói', 'Cát đá']
+        },
+        {
+            // Suggestion: Tính vật liệu
+            patterns: [/^(tinh vat lieu|du toan cong trinh|tinh toan vat tu|du toan chi phi)$/i],
+            response: 'Dạ, để tính toán chính xác, bạn vui lòng cho mình biết diện tích công trình (m²) và loại hạng mục bạn muốn làm nhé?',
+            suggestions: ['Tính gạch xây', 'Tính xi măng', 'Tính thép']
+        }
+    ]
+
+/** Check for a quick response using both raw and cleaned text */
 export function getQuickResponse(message: string): ChatbotResponse | null {
-    const normalized = message.toLowerCase().trim()
-    return QUICK_RESPONSES[normalized] || null
+    const rawCleaned = stripIcons(message)
+    const normalized = normalizeText(rawCleaned)
+
+    for (const rule of STATIC_FAQ_RULES) {
+        if (rule.patterns.some(p => p.test(normalized))) {
+            return {
+                response: rule.response,
+                suggestions: rule.suggestions,
+                confidence: 1
+            }
+        }
+    }
+    return null
 }
 
 /** Generate a full AI chatbot response using Gemini */

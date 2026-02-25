@@ -3,10 +3,11 @@
  * Xử lý các câu hỏi đơn giản mà không cần gọi AI
  */
 
-// Normalize Vietnamese text (remove diacritics)
+// Normalize Vietnamese text (remove diacritics and strip icons)
 function normalizeVietnamese(text: string): string {
     return text
         .normalize('NFD')
+        .replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '') // strip icons
         .replace(/[\u0300-\u036f]/g, '')
         .replace(/đ/g, 'd')
         .replace(/Đ/g, 'D')

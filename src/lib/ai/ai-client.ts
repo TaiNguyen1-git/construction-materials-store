@@ -61,6 +61,21 @@ export const getWorkingModelConfig = async () => {
     throw new Error('No working Gemini model found')
 }
 
+/** Generate text embeddings using text-embedding-004 (High free quota) */
+export const getEmbedding = async (text: string) => {
+    if (!geminiClient) throw new Error('Gemini client not initialized')
+    try {
+        const result = await (geminiClient as any).models.embedContent({
+            model: 'text-embedding-004',
+            contents: [{ parts: [{ text }] }]
+        })
+        return result.embedding.values as number[]
+    } catch (error) {
+        console.error('[AIClient] getEmbedding error:', error)
+        return null
+    }
+}
+
 // Shared Gemini types
 export interface GeminiPart {
     text: string

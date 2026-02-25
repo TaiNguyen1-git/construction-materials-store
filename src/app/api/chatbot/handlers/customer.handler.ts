@@ -16,9 +16,19 @@ import { generateChatbotFallbackResponse } from '@/app/api/chatbot/fallback-resp
 
 export async function handleProductSearch(message: string, sessionId: string) {
     try {
-        const productKeywords = message.toLowerCase()
-            .replace(/tìm|search|có|bán|sell|muốn|cần|mua|đặt/g, '')
+        const cleanedMessage = message.replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '').trim()
+        const productKeywords = cleanedMessage.toLowerCase()
+            .replace(/tim|search|co|ban|sell|muon|can|mua|dat|phu hop|san pham/g, '')
             .trim()
+
+        // Handle generic suggestion clicks like "Tìm sản phẩm phù hợp" or "Xem sản phẩm"
+        if (!productKeywords || productKeywords.length < 2) {
+            return NextResponse.json(createSuccessResponse({
+                message: `🛒 **Bạn đang tìm kiếm loại vật liệu nào?**\n\nHệ thống có đầy đủ các loại vật liệu xây dựng tốt nhất. Bạn có thể thử tìm theo:\n\n- 🏗️ **Xi măng, Thép, Sắt**\n- 🧱 **Gạch, Cát, Đá**\n- 🎨 **Sơn, Keo, Chống thấm**\n- 🏠 **Mái ngói, Tôn**\n\nBạn muốn xem báo giá loại nào ạ?`,
+                suggestions: ['Xi măng INSEE', 'Thép Hòa Phát', 'Báo giá gạch ống', 'Cát xây tô'],
+                confidence: 1.0, sessionId, timestamp: new Date().toISOString()
+            }))
+        }
 
         const products = await prisma.product.findMany({
             where: {
@@ -70,9 +80,18 @@ export async function handleProductSearch(message: string, sessionId: string) {
 
 export async function handlePriceInquiry(message: string, sessionId: string) {
     try {
-        const productKeywords = message.toLowerCase()
-            .replace(/giá|price|bao nhiêu|tiền|cost/g, '')
+        const cleanedMessage = message.replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '').trim()
+        const productKeywords = cleanedMessage.toLowerCase()
+            .replace(/gia|price|bao nhieu|tien|cost|so sanh/g, '')
             .trim()
+
+        if (!productKeywords || productKeywords.length < 2) {
+            return NextResponse.json(createSuccessResponse({
+                message: `💰 **Bạn muốn xem báo giá của sản phẩm nào hôm nay?**\n\nVui lòng nhập tên sản phẩm hoặc chọn bên dưới để xem giá mới nhất:`,
+                suggestions: ['Giá Xi măng', 'Giá Sắt thép', 'Giá Gạch xây', 'Khuyến mãi'],
+                confidence: 1.0, sessionId, timestamp: new Date().toISOString()
+            }))
+        }
 
         const products = await prisma.product.findMany({
             where: {

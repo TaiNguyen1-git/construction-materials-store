@@ -32,6 +32,15 @@ import {
 import useHybridChatManager from './HybridChatManager'
 import ChatCallManager from '../ChatCallManager'
 
+// IndexedDB Chat Cache
+import {
+    loadCachedMessages,
+    cacheMessage,
+    cacheMessages,
+    updateCachedMessage,
+    cleanupOldCache
+} from '@/lib/chat-db'
+
 export default function ChatbotPremium({ customerId, onClose }: ChatbotProps) {
     const { user, isAuthenticated } = useAuth()
     const pathname = usePathname()
@@ -49,6 +58,12 @@ export default function ChatbotPremium({ customerId, onClose }: ChatbotProps) {
     const [isError, setIsError] = useState(false)
     const [errorRetryCount, setErrorRetryCount] = useState(0)
     const [sessionId] = useState(() => `chat_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`)
+    const [streamingText, setStreamingText] = useState('')
+    const [isStreaming, setIsStreaming] = useState(false)
+    const [cacheLoaded, setCacheLoaded] = useState(false)
+
+    // Deduplication: prevent identical rapid-fire sends
+    const lastSentRef = useRef<{ message: string; timestamp: number }>({ message: '', timestamp: 0 })
 
     // Feature State
     const [showOrderSummary, setShowOrderSummary] = useState(false)
@@ -235,14 +250,52 @@ export default function ChatbotPremium({ customerId, onClose }: ChatbotProps) {
         }
     }, [messages, shouldHideChatbot, scrollToBottom])
 
+    // ── Load cached messages from IndexedDB on mount (instant display) ──
+    useEffect(() => {
+        if (typeof window === 'undefined' || cacheLoaded) return
+
+        const loadCache = async () => {
+            try {
+                const effectiveSessionId = hybridManager.conversationId || sessionId
+                const cached = await loadCachedMessages(effectiveSessionId, 30)
+
+                if (cached.length > 0) {
+                    const restoredMessages: ChatMessage[] = cached.map(c => ({
+                        id: c.id,
+                        userMessage: c.userMessage,
+                        userImage: c.userImage,
+                        botMessage: c.botMessage,
+                        suggestions: c.suggestions || [],
+                        productRecommendations: c.productRecommendations as ChatMessage['productRecommendations'],
+                        confidence: c.confidence,
+                        timestamp: c.timestamp,
+                        ocrData: c.ocrData as ChatMessage['ocrData'],
+                        orderData: c.orderData as ChatMessage['orderData'],
+                        data: c.data as ChatMessage['data'],
+                    }))
+                    setMessages(restoredMessages)
+                }
+
+                // Cleanup old cache in background
+                cleanupOldCache()
+            } catch (err) {
+                console.warn('[ChatDB] Cache load failed:', err)
+            } finally {
+                setCacheLoaded(true)
+            }
+        }
+
+        loadCache()
+    }, [cacheLoaded, hybridManager.conversationId, sessionId])
+
     useEffect(() => {
         // Only trigger welcome if we have NO messages and AREN'T currently loading
-        if (!shouldHideChatbot && isOpen && messages.length === 0 && !isLoading) {
+        if (!shouldHideChatbot && isOpen && messages.length === 0 && !isLoading && cacheLoaded) {
             const welcomeMsg = isAdmin ? 'admin_hello' : 'hello'
             sendMessage(welcomeMsg)
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isOpen, isAdmin, messages.length, shouldHideChatbot, isLoading])
+    }, [isOpen, isAdmin, messages.length, shouldHideChatbot, isLoading, cacheLoaded])
 
     if (shouldHideChatbot) {
         return null
@@ -255,6 +308,18 @@ export default function ChatbotPremium({ customerId, onClose }: ChatbotProps) {
         const imageToSend = selectedImage
 
         if (!messageToSend.trim() && !imageToSend) return
+
+        // ── Client-side Deduplication ──────────────────────────────────────────
+        // Block identical messages sent within 2 seconds (anti-spam / double-click)
+        const now = Date.now()
+        if (
+            messageToSend === lastSentRef.current.message &&
+            now - lastSentRef.current.timestamp < 2000
+        ) {
+            console.log('[Chatbot] Blocked duplicate message within cooldown')
+            return
+        }
+        lastSentRef.current = { message: messageToSend, timestamp: now }
 
         // ---------------------------------------------------------
         // HUMAN MODE HANDLER
@@ -285,7 +350,7 @@ export default function ChatbotPremium({ customerId, onClose }: ChatbotProps) {
         }
 
         // ---------------------------------------------------------
-        // AI MODE HANDLER (Existing Logic)
+        // AI MODE HANDLER — Streaming SSE + Fallback
         // ---------------------------------------------------------
 
         if (!messageToSend.trim() && !imageToSend) return
@@ -298,6 +363,8 @@ export default function ChatbotPremium({ customerId, onClose }: ChatbotProps) {
         setSelectedImage(null)
         setIsLoading(true)
         setIsError(false)
+        setStreamingText('')
+        setIsStreaming(false)
 
         // Optimistic update: Add user message immediately so it's not hidden during loading
         const tempId = Date.now().toString()
@@ -312,6 +379,18 @@ export default function ChatbotPremium({ customerId, onClose }: ChatbotProps) {
         }
         setMessages(prev => [...prev, userOnlyMessage])
 
+        // Cache user message to IndexedDB
+        const effectiveSessionId = hybridManager.conversationId || sessionId
+        cacheMessage(effectiveSessionId, {
+            id: tempId,
+            userMessage: messageToSend,
+            userImage: imageToSend || undefined,
+            botMessage: '',
+            suggestions: [],
+            confidence: 1,
+            timestamp: new Date().toISOString()
+        })
+
         try {
             // First, if no conversationId, we should ideally create one for history
             if (!hybridManager.conversationId) {
@@ -322,64 +401,200 @@ export default function ChatbotPremium({ customerId, onClose }: ChatbotProps) {
             // Save user message to firebase history (Optimistic)
             hybridManager.saveMessageToFirebase(messageToSend, 'USER', imageToSend ? { fileUrl: imageToSend } : undefined);
 
-            const response = await fetch('/api/chatbot', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    message: messageToSend || undefined,
-                    image: imageToSend || undefined,
-                    customerId,
-                    sessionId: hybridManager.conversationId || sessionId,
-                    userRole: user?.role || 'CUSTOMER',
-                    isAdmin: isAdmin,
-                    context: {
-                        currentPage: window.location.pathname,
+            // ── Try SSE Streaming first (text-only, no image) ──
+            // Stream for ALL text messages (customer + admin). Only images need JSON fallback.
+            const canStream = !imageToSend
+
+            if (canStream) {
+                // Build conversation history from recent messages
+                const recentHistory = messages.slice(-4).flatMap(m => {
+                    const entries: { role: string; content: string }[] = []
+                    if (m.userMessage && m.userMessage !== 'hello' && m.userMessage !== 'admin_hello') {
+                        entries.push({ role: 'user', content: m.userMessage })
                     }
-                }),
-                signal: controller.signal
-            })
+                    if (m.botMessage) {
+                        entries.push({ role: 'assistant', content: m.botMessage })
+                    }
+                    return entries
+                })
 
-            const data = await response.json()
-            if (data.success) {
-                // Update the temporary message with actual data instead of adding a new one
-                setMessages(prev => prev.map(m => m.id === tempId ? {
-                    ...m,
-                    botMessage: data.data.message,
-                    suggestions: data.data.suggestions || [],
-                    productRecommendations: data.data.productRecommendations || [],
-                    confidence: data.data.confidence || 0,
-                    timestamp: data.data.timestamp || new Date().toISOString(),
-                    ocrData: data.data.ocrData,
-                    calculationData: data.data.calculationData,
-                    orderData: data.data.orderData,
-                    data: data.data.data
-                } : m))
+                const streamRes = await fetch('/api/chatbot/stream', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        message: messageToSend,
+                        customerId,
+                        sessionId: hybridManager.conversationId || sessionId,
+                        userRole: user?.role || 'CUSTOMER',
+                        isAdmin: !!isAdmin,
+                        context: { currentPage: window.location.pathname },
+                        conversationHistory: recentHistory
+                    }),
+                    signal: controller.signal
+                })
 
-                setErrorRetryCount(0)
+                // Check if SSE stream or JSON response
+                const contentType = streamRes.headers.get('content-type') || ''
 
-                // Save bot response to firebase history
-                hybridManager.saveMessageToFirebase(data.data.message, 'AI');
+                if (contentType.includes('text/event-stream') && streamRes.body) {
+                    // ── SSE Stream Mode ──
+                    setIsStreaming(true)
+                    setIsLoading(false) // Hide typing indicator, show streaming text
 
-                if (data.data.ocrData) {
-                    setPendingOCRData(data.data.ocrData)
-                    setShowOCRPreview(true)
-                }
+                    const reader = streamRes.body.getReader()
+                    const decoder = new TextDecoder()
+                    let accumulatedText = ''
+                    let suggestions: string[] = []
 
-                if (data.data.orderData) {
-                    setPendingOrderData(data.data.orderData)
-                    setShowOrderSummary(true)
+                    while (true) {
+                        const { done, value } = await reader.read()
+                        if (done) break
+
+                        const chunk = decoder.decode(value, { stream: true })
+                        const lines = chunk.split('\n')
+
+                        for (const line of lines) {
+                            if (!line.startsWith('data: ')) continue
+                            try {
+                                const payload = JSON.parse(line.slice(6))
+
+                                if (payload.type === 'token') {
+                                    accumulatedText += payload.content
+                                    setStreamingText(accumulatedText)
+                                    // Update the temporary message with streaming text
+                                    setMessages(prev => prev.map(m => m.id === tempId ? {
+                                        ...m,
+                                        botMessage: accumulatedText
+                                    } : m))
+                                } else if (payload.type === 'suggestions') {
+                                    suggestions = payload.content || []
+                                    setMessages(prev => prev.map(m => m.id === tempId ? {
+                                        ...m,
+                                        suggestions
+                                    } : m))
+                                } else if (payload.type === 'done') {
+                                    const finalData = payload.content
+                                    setMessages(prev => prev.map(m => m.id === tempId ? {
+                                        ...m,
+                                        botMessage: finalData.response || accumulatedText,
+                                        suggestions: finalData.suggestions || suggestions,
+                                        confidence: finalData.confidence || 0.9,
+                                        timestamp: finalData.timestamp || new Date().toISOString()
+                                    } : m))
+
+                                    // Cache final message to IndexedDB
+                                    updateCachedMessage(tempId, {
+                                        botMessage: finalData.response || accumulatedText,
+                                        suggestions: finalData.suggestions || suggestions,
+                                        confidence: finalData.confidence || 0.9
+                                    })
+
+                                    // Save bot response to firebase
+                                    hybridManager.saveMessageToFirebase(finalData.response || accumulatedText, 'AI')
+                                } else if (payload.type === 'error') {
+                                    setMessages(prev => prev.map(m => m.id === tempId ? {
+                                        ...m,
+                                        botMessage: payload.content || 'Lỗi kết nối.',
+                                        suggestions: ['Thử lại'],
+                                        confidence: 0
+                                    } : m))
+                                }
+                            } catch { /* skip malformed line */ }
+                        }
+                    }
+
+                    setIsStreaming(false)
+                    setStreamingText('')
+                    setErrorRetryCount(0)
+                } else {
+                    // ── JSON Fallback (quick responses, rule-based) ──
+                    const data = await streamRes.json()
+                    if (data.success) {
+                        setMessages(prev => prev.map(m => m.id === tempId ? {
+                            ...m,
+                            botMessage: data.data.message || data.data.response,
+                            suggestions: data.data.suggestions || [],
+                            confidence: data.data.confidence || 1,
+                            timestamp: data.data.timestamp || new Date().toISOString()
+                        } : m))
+
+                        updateCachedMessage(tempId, {
+                            botMessage: data.data.message || data.data.response,
+                            suggestions: data.data.suggestions || [],
+                            confidence: data.data.confidence || 1
+                        })
+
+                        hybridManager.saveMessageToFirebase(data.data.message || data.data.response, 'AI')
+                        setErrorRetryCount(0)
+                    }
                 }
             } else {
-                setIsError(true)
-                // Update the temporary message with error instead of adding a new one
-                setMessages(prev => prev.map(m => m.id === tempId ? {
-                    ...m,
-                    botMessage: 'Xin lỗi, tôi gặp sự cố kỹ thuật. Vui lòng thử lại sau.',
-                    suggestions: ['Thử lại', 'Gặp nhân viên hỗ trợ'],
-                    confidence: 1,
-                    timestamp: new Date().toISOString()
-                } : m))
-                toast.error(data.error?.message || 'Failed to get response from chatbot')
+                // ── Original non-streaming path (images, admin, flows) ──
+                const response = await fetch('/api/chatbot', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        message: messageToSend || undefined,
+                        image: imageToSend || undefined,
+                        customerId,
+                        sessionId: hybridManager.conversationId || sessionId,
+                        userRole: user?.role || 'CUSTOMER',
+                        isAdmin: isAdmin,
+                        context: {
+                            currentPage: window.location.pathname,
+                        }
+                    }),
+                    signal: controller.signal
+                })
+
+                const data = await response.json()
+                if (data.success) {
+                    // Update the temporary message with actual data instead of adding a new one
+                    setMessages(prev => prev.map(m => m.id === tempId ? {
+                        ...m,
+                        botMessage: data.data.message,
+                        suggestions: data.data.suggestions || [],
+                        productRecommendations: data.data.productRecommendations || [],
+                        confidence: data.data.confidence || 0,
+                        timestamp: data.data.timestamp || new Date().toISOString(),
+                        ocrData: data.data.ocrData,
+                        calculationData: data.data.calculationData,
+                        orderData: data.data.orderData,
+                        data: data.data.data
+                    } : m))
+
+                    setErrorRetryCount(0)
+
+                    // Cache to IndexedDB
+                    updateCachedMessage(tempId, {
+                        botMessage: data.data.message,
+                        suggestions: data.data.suggestions || [],
+                        confidence: data.data.confidence || 0
+                    })
+
+                    // Save bot response to firebase history
+                    hybridManager.saveMessageToFirebase(data.data.message, 'AI');
+
+                    if (data.data.ocrData) {
+                        setPendingOCRData(data.data.ocrData)
+                        setShowOCRPreview(true)
+                    }
+
+                    if (data.data.orderData) {
+                        setPendingOrderData(data.data.orderData)
+                        setShowOrderSummary(true)
+                    }
+                } else {
+                    setIsError(true)
+                    setMessages(prev => prev.map(m => m.id === tempId ? {
+                        ...m,
+                        botMessage: 'Xin lỗi, tôi gặp sự cố kỹ thuật. Vui lòng thử lại sau.',
+                        suggestions: ['Thử lại', 'Gặp nhân viên hỗ trợ'],
+                        confidence: 1,
+                        timestamp: new Date().toISOString()
+                    } : m))
+                    toast.error(data.error?.message || 'Failed to get response from chatbot')
+                }
             }
         } catch (error) {
             console.error('Chatbot error:', error)
@@ -395,6 +610,8 @@ export default function ChatbotPremium({ customerId, onClose }: ChatbotProps) {
             toast.error('Network error. Please check your connection.')
         } finally {
             setIsLoading(false)
+            setIsStreaming(false)
+            setStreamingText('')
             setAbortController(null)
         }
     }
@@ -790,8 +1007,8 @@ export default function ChatbotPremium({ customerId, onClose }: ChatbotProps) {
                             />
                         ))}
 
-                        {/* Typing Indicator */}
-                        {isLoading && <TypingIndicator isAdmin={isAdmin} />}
+                        {/* Typing Indicator — only show when loading and NOT streaming */}
+                        {isLoading && !isStreaming && <TypingIndicator isAdmin={isAdmin} />}
 
                         {/* Live Typing Indicator for HUMAN mode */}
                         {chatMode === 'HUMAN' && hybridManager.conversationId && myIdentity && (

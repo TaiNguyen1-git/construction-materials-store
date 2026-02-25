@@ -62,13 +62,42 @@ export interface IntentResult {
  * - "Giá xi măng" → PRICE_INQUIRY
  * - "Tính vật liệu xây nhà 3 tầng" → MATERIAL_CALCULATE
  */
+// Helper to strip icons for better matching
+function stripIcons(text: string): string {
+  return text.replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '').trim()
+}
+
 export function detectIntent(
   message: string,
   isAdmin: boolean = false,
   hasImage: boolean = false,
   conversationContext?: any
 ): IntentResult {
-  const lower = message.toLowerCase()
+  const cleanedMessage = stripIcons(message)
+  const lower = cleanedMessage.toLowerCase()
+
+  // ─── EXACT SUGGESTION MATCHING (Force correct intent) ───
+  if (isAdmin) {
+    if (lower.match(/^(xem )?doanh thu (hom nay|tuan nay|thang nay)$/i) || lower === 'bao cao tuan nay' || lower === 'phan tich ban chay' || lower === 'doanh thu hom nay') {
+      return { intent: 'ADMIN_ANALYTICS', confidence: 1.0 }
+    }
+    if (lower === 'don hang cho xu ly' || lower === 'don moi nhat' || lower === 'xac nhan tat ca' || lower === 'tat ca don') {
+      return { intent: 'ADMIN_ORDER_MANAGE', confidence: 1.0 }
+    }
+    if (lower === 'san pham sap het' || lower === 'kiem tra ton kho' || lower === 'xem ton kho') {
+      return { intent: 'ADMIN_INVENTORY_CHECK', confidence: 1.0 }
+    }
+  } else {
+    if (lower === 'tu van xay nha' || lower === 'tinh toan vat lieu' || lower === 'tinh du toan' || lower === 'tinh vat lieu') {
+      return { intent: 'MATERIAL_CALCULATE', confidence: 1.0 }
+    }
+    if (lower === 'tim san pham phu hop' || lower === 'xem san pham' || lower === 'tim san pham') {
+      return { intent: 'PRODUCT_SEARCH', confidence: 1.0 }
+    }
+    if (lower === 'so sanh gia' || lower === 'bao gia') {
+      return { intent: 'PRICE_INQUIRY', confidence: 1.0 }
+    }
+  }
 
   // ===== ADMIN INTENTS =====
   // ONLY processed if isAdmin = true

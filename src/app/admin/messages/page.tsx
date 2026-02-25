@@ -29,6 +29,10 @@ function MessagesContent() {
     const [sending, setSending] = useState(false)
     const [uploading, setUploading] = useState(false)
 
+    // Smart Reply State
+    const [smartReplies, setSmartReplies] = useState<string[]>([])
+    const [smartReplyLoading, setSmartReplyLoading] = useState(false)
+
     // Menu Dropdown State
     const [showMenu, setShowMenu] = useState(false)
     const [showScrollButton, setShowScrollButton] = useState(false)
@@ -89,9 +93,24 @@ function MessagesContent() {
         }
     }
 
-    // Scroll when messages change
+    // Scroll when messages change + Trigger Smart Reply
     useEffect(() => {
         scrollToBottom()
+
+        // Auto-trigger smart replies when last message is from customer
+        if (messages.length > 0 && selectedId) {
+            const lastMsg = messages[messages.length - 1]
+            const isFromCustomer = lastMsg.senderId !== user?.id &&
+                lastMsg.senderId !== 'admin_support' &&
+                lastMsg.senderId !== 'smartbuild_bot' &&
+                !lastMsg.content?.startsWith('[CALL_LOG]:')
+
+            if (isFromCustomer && lastMsg.content) {
+                fetchSmartReplies(lastMsg.content, selectedId)
+            } else {
+                setSmartReplies([])
+            }
+        }
     }, [messages])
 
     // Click outside listener for menu
@@ -123,6 +142,39 @@ function MessagesContent() {
             console.error('Fetch conversations error:', err)
         } finally {
             setLoading(false)
+        }
+    }
+
+    // Smart Reply: Fetch AI suggestions for admin
+    const fetchSmartReplies = async (customerMessage: string, convId: string) => {
+        if (!customerMessage.trim()) return
+        setSmartReplyLoading(true)
+        setSmartReplies([])
+
+        try {
+            const res = await fetch('/api/chat/smart-reply', {
+                method: 'POST',
+                headers: {
+                    ...getAuthHeaders(),
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    customerMessage,
+                    conversationId: convId,
+                    customerName: displayName
+                })
+            })
+
+            if (res.ok) {
+                const json = await res.json()
+                if (json.success && json.data?.replies) {
+                    setSmartReplies(json.data.replies)
+                }
+            }
+        } catch (err) {
+            console.error('[SmartReply] Fetch error:', err)
+        } finally {
+            setSmartReplyLoading(false)
         }
     }
 
@@ -604,8 +656,46 @@ function MessagesContent() {
                             </button>
                         )}
 
-                        {/* Chat Input */}
+                        {/* Chat Input with Smart Reply */}
                         <div className="p-4 bg-white border-t border-gray-100">
+                            {/* Smart Reply Bar */}
+                            {(smartReplies.length > 0 || smartReplyLoading) && (
+                                <div className="mb-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                                        <span className="text-[10px] font-black uppercase tracking-wider text-gray-400">
+                                            {smartReplyLoading ? 'AI đang phân tích...' : 'Gợi ý trả lời nhanh'}
+                                        </span>
+                                    </div>
+                                    {smartReplyLoading ? (
+                                        <div className="flex gap-2">
+                                            {[1, 2, 3].map(i => (
+                                                <div key={i} className="flex-1 h-10 bg-gradient-to-r from-gray-100 to-gray-50 rounded-xl animate-pulse" />
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div className="flex flex-col gap-1.5">
+                                            {smartReplies.map((reply, idx) => (
+                                                <button
+                                                    key={idx}
+                                                    onClick={() => {
+                                                        setNewMessage(reply)
+                                                        setSmartReplies([])
+                                                    }}
+                                                    className="text-left px-3 py-2 rounded-xl text-xs text-gray-700 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-100 hover:from-amber-100 hover:to-orange-100 hover:border-amber-200 transition-all hover:shadow-sm active:scale-[0.99] group"
+                                                >
+                                                    <div className="flex items-start gap-2">
+                                                        <span className="flex-shrink-0 w-5 h-5 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center text-[9px] font-black mt-0.5">
+                                                            {idx + 1}
+                                                        </span>
+                                                        <span className="line-clamp-2 leading-relaxed">{reply}</span>
+                                                    </div>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                             <div className="max-w-4xl mx-auto flex items-end gap-2 bg-gray-100 p-2 rounded-3xl">
                                 <button
                                     onClick={() => fileInputRef.current?.click()}
