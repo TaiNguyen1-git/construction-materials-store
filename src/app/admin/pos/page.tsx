@@ -21,6 +21,16 @@ import {
     Edit2,
     ChevronDown,
     ChevronUp,
+    CheckCircle,
+    FileText,
+    Send,
+    Truck,
+    Calendar,
+    Monitor,
+    Pause,
+    Play,
+    Save,
+    RotateCcw,
 } from 'lucide-react'
 import { fetchWithAuth } from '@/lib/api-client'
 import { toast } from 'react-hot-toast'
@@ -58,6 +68,37 @@ interface Customer {
     address?: string
 }
 
+interface SuccessOrder {
+    id: string
+    orderNumber: string
+    customerName: string
+    customerPhone?: string
+    items: { name: string; quantity: number; unitPrice: number; total: number; discount?: ItemDiscount }[]
+    subtotal: number
+    itemDiscountTotal: number
+    orderDiscountAmount: number
+    totalDiscount: number
+    total: number
+    paymentMethod: string
+    createdAt: string
+}
+
+interface GuestInfo {
+    name: string
+    phone: string
+}
+
+interface SuspendedCart {
+    id: string
+    label: string
+    cart: CartItem[]
+    customer: Customer | null
+    guestInfo: GuestInfo
+    shippingFee: number
+    deliveryDate: string
+    savedAt: string
+}
+
 // ─── Component ──────────────────────────────────────────────────────────────
 
 export default function POSPage() {
@@ -90,6 +131,39 @@ export default function POSPage() {
     const [orderDiscountInput, setOrderDiscountInput] = useState('')
     const [orderDiscountType, setOrderDiscountType] = useState<'percent' | 'fixed'>('percent')
     const [orderDiscount, setOrderDiscount] = useState<ItemDiscount>({ type: 'percent', value: 0 })
+
+    // Success modal
+    const [successOrder, setSuccessOrder] = useState<SuccessOrder | null>(null)
+
+    // Guest info
+    const [guestInfo, setGuestInfo] = useState<GuestInfo>({ name: '', phone: '' })
+    const [showGuestEdit, setShowGuestEdit] = useState(false)
+
+    // Shipping
+    const [shippingFee, setShippingFee] = useState(0)
+    const [deliveryDate, setDeliveryDate] = useState('')
+    const [showShipping, setShowShipping] = useState(false)
+
+    // Suspended carts
+    const [suspendedCarts, setSuspendedCarts] = useState<SuspendedCart[]>([])
+    const [showSuspended, setShowSuspended] = useState(false)
+
+    // BroadcastChannel ref
+    const channelRef = useRef<BroadcastChannel | null>(null)
+
+    // Load suspended carts from localStorage on mount
+    useEffect(() => {
+        try {
+            const saved = localStorage.getItem('pos-suspended-carts')
+            if (saved) setSuspendedCarts(JSON.parse(saved))
+        } catch { }
+    }, [])
+
+    // Init BroadcastChannel
+    useEffect(() => {
+        channelRef.current = new BroadcastChannel('pos-display')
+        return () => channelRef.current?.close()
+    }, [])
 
     // ─── Fetch Products ──────────────────────────────────────────────────────
 
@@ -241,7 +315,85 @@ export default function POSPage() {
             ? afterItemDiscount * (orderDiscount.value / 100)
             : Math.min(orderDiscount.value, afterItemDiscount)
     const totalDiscount = itemDiscountTotal + orderDiscountAmount
-    const total = Math.max(0, afterItemDiscount - orderDiscountAmount)
+    const total = Math.max(0, afterItemDiscount - orderDiscountAmount + shippingFee)
+
+    // ─── Broadcast to Customer Display ───────────────────────────────────────
+
+    useEffect(() => {
+        const customerName = selectedCustomer?.name || guestInfo.name || ''
+        channelRef.current?.postMessage({
+            type: 'cart_update',
+            items: cart.map(item => ({
+                name: item.product.name,
+                quantity: item.quantity,
+                price: item.product.price,
+                total: getItemTotal(item),
+                image: item.product.images?.[0],
+                unit: item.product.unit
+            })),
+            customerName,
+            subtotal,
+            discount: totalDiscount,
+            shipping: shippingFee,
+            total
+        })
+    }, [cart, selectedCustomer, guestInfo, totalDiscount, shippingFee, total])
+
+    // ─── Suspended Carts ─────────────────────────────────────────────────────
+
+    const suspendCurrentCart = () => {
+        if (cart.length === 0) { toast.error('Giỏ hàng trống!'); return }
+        const label = selectedCustomer?.name || guestInfo.name || `Đơn tạm #${suspendedCarts.length + 1}`
+        const newSuspended: SuspendedCart = {
+            id: Date.now().toString(),
+            label,
+            cart: [...cart],
+            customer: selectedCustomer,
+            guestInfo: { ...guestInfo },
+            shippingFee,
+            deliveryDate,
+            savedAt: new Date().toISOString()
+        }
+        const updated = [...suspendedCarts, newSuspended]
+        setSuspendedCarts(updated)
+        localStorage.setItem('pos-suspended-carts', JSON.stringify(updated))
+        // Reset
+        setCart([])
+        setSelectedCustomer(null)
+        setGuestInfo({ name: '', phone: '' })
+        setShippingFee(0)
+        setDeliveryDate('')
+        setOrderDiscount({ type: 'percent', value: 0 })
+        setOrderDiscountInput('')
+        toast.success(`Đã lưu tạm: ${label}`)
+    }
+
+    const resumeCart = (suspended: SuspendedCart) => {
+        setCart(suspended.cart)
+        setSelectedCustomer(suspended.customer)
+        setGuestInfo(suspended.guestInfo)
+        setShippingFee(suspended.shippingFee)
+        setDeliveryDate(suspended.deliveryDate)
+        // Remove from suspended list
+        const updated = suspendedCarts.filter(s => s.id !== suspended.id)
+        setSuspendedCarts(updated)
+        localStorage.setItem('pos-suspended-carts', JSON.stringify(updated))
+        setShowSuspended(false)
+        toast.success(`Đã mở lại: ${suspended.label}`)
+    }
+
+    const deleteSuspended = (id: string) => {
+        const updated = suspendedCarts.filter(s => s.id !== id)
+        setSuspendedCarts(updated)
+        localStorage.setItem('pos-suspended-carts', JSON.stringify(updated))
+    }
+
+    // ─── Open Customer Display ───────────────────────────────────────────────
+
+    const openCustomerDisplay = () => {
+        window.open('/admin/pos/display', 'pos-display', 'width=1024,height=768')
+        toast.success('Đã mở màn hình khách hàng')
+    }
 
     // ─── Checkout ────────────────────────────────────────────────────────────
 
@@ -249,6 +401,24 @@ export default function POSPage() {
         if (cart.length === 0) { toast.error('Giỏ hàng trống!'); return }
         setLoading(true)
         const toastId = toast.loading('Đang tạo đơn hàng...')
+
+        // Snapshot cart before clearing
+        const cartSnapshot = cart.map(item => ({
+            name: item.product.name,
+            quantity: item.quantity,
+            unitPrice: item.product.price,
+            total: getItemTotal(item),
+            discount: item.discount
+        }))
+        const snapshotSubtotal = subtotal
+        const snapshotItemDiscountTotal = itemDiscountTotal
+        const snapshotOrderDiscountAmount = orderDiscountAmount
+        const snapshotTotalDiscount = totalDiscount
+        const snapshotTotal = total
+        const snapshotPayment = paymentMethod
+        const snapshotCustomerName = selectedCustomer?.name || guestInfo.name || 'Khách vãng lai'
+        const snapshotCustomerPhone = selectedCustomer?.phone || guestInfo.phone || undefined
+
         try {
             const orderItems = cart.map(item => ({
                 productId: item.product.id,
@@ -256,27 +426,64 @@ export default function POSPage() {
                 unitPrice: item.product.price,
                 totalPrice: getItemTotal(item)
             }))
+            const guestName = selectedCustomer ? selectedCustomer.name : (guestInfo.name || 'Khách lẻ')
+            const guestPhone = selectedCustomer ? selectedCustomer.phone : (guestInfo.phone || undefined)
+            const guestEmail = selectedCustomer ? selectedCustomer.email : undefined
             const finalPayload = {
                 customerType: selectedCustomer ? 'REGISTERED' : 'GUEST',
-                guestName: selectedCustomer ? selectedCustomer.name : 'Khách lẻ',
-                guestPhone: selectedCustomer ? selectedCustomer.phone : undefined,
-                guestEmail: selectedCustomer ? selectedCustomer.email : undefined,
+                guestName,
+                guestPhone,
+                guestEmail,
                 items: orderItems,
                 paymentMethod: paymentMethod === 'CASH' ? 'CASH' : 'BANK_TRANSFER',
                 paymentType: 'FULL',
                 totalAmount: total,
                 discountAmount: totalDiscount,
-                shippingAmount: 0,
+                shippingAmount: shippingFee,
                 netAmount: total,
-                shippingAddress: { address: 'Tại quầy', city: 'Hồ Chí Minh' },
-                notes: 'Đơn hàng POS'
+                shippingAddress: { address: deliveryDate ? `Giao ngày ${deliveryDate}` : 'Tại quầy', city: 'Hồ Chí Minh' },
+                notes: deliveryDate ? `Đơn POS - Giao: ${deliveryDate}` : 'Đơn hàng POS'
             }
             const res = await fetchWithAuth('/api/orders', { method: 'POST', body: JSON.stringify(finalPayload) })
             const data = await res.json()
             if (res.ok && data.success) {
-                toast.success('Đơn hàng đã tạo thành công!', { id: toastId })
+                toast.dismiss(toastId)
+
+                const order = data.data
+                const orderNumber = order?.orderNumber || order?.id?.slice(-8) || 'POS-' + Date.now()
+                setSuccessOrder({
+                    id: order?.id || 'N/A',
+                    orderNumber,
+                    customerName: snapshotCustomerName,
+                    customerPhone: snapshotCustomerPhone,
+                    items: cartSnapshot,
+                    subtotal: snapshotSubtotal,
+                    itemDiscountTotal: snapshotItemDiscountTotal,
+                    orderDiscountAmount: snapshotOrderDiscountAmount,
+                    totalDiscount: snapshotTotalDiscount,
+                    total: snapshotTotal,
+                    paymentMethod: snapshotPayment === 'CASH' ? 'Tiền mặt' : 'Chuyển khoản',
+                    createdAt: new Date().toISOString()
+                })
+
+                // Broadcast to customer display
+                channelRef.current?.postMessage({
+                    type: 'checkout_success',
+                    items: cartSnapshot.map(i => ({ ...i, price: i.unitPrice, image: '', unit: '' })),
+                    customerName: snapshotCustomerName,
+                    subtotal: snapshotSubtotal,
+                    discount: snapshotTotalDiscount,
+                    shipping: shippingFee,
+                    total: snapshotTotal,
+                    orderNumber
+                })
+
+                // Reset cart state
                 setCart([])
                 setSelectedCustomer(null)
+                setGuestInfo({ name: '', phone: '' })
+                setShippingFee(0)
+                setDeliveryDate('')
                 setOrderDiscount({ type: 'percent', value: 0 })
                 setOrderDiscountInput('')
             } else {
@@ -288,6 +495,51 @@ export default function POSPage() {
         } finally {
             setLoading(false)
         }
+    }
+
+    const handlePrintInvoice = () => {
+        const printContent = document.getElementById('pos-invoice-preview')
+        if (!printContent) return
+        const win = window.open('', '_blank', 'width=400,height=700')
+        if (!win) return
+        win.document.write(`
+            <html><head><title>Hoá đơn POS</title>
+            <style>
+                * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Arial, sans-serif; }
+                body { padding: 20px; font-size: 12px; color: #1e293b; }
+                h2 { text-align: center; margin-bottom: 4px; font-size: 16px; }
+                .center { text-align: center; }
+                .meta { margin: 8px 0; font-size: 11px; color: #64748b; text-align: center; }
+                .divider { border-top: 1px dashed #cbd5e1; margin: 10px 0; }
+                table { width: 100%; border-collapse: collapse; margin: 8px 0; }
+                th { text-align: left; font-size: 10px; color: #94a3b8; text-transform: uppercase; padding: 4px 0; border-bottom: 1px solid #e2e8f0; }
+                td { padding: 4px 0; font-size: 11px; }
+                td:last-child, th:last-child { text-align: right; }
+                .summary { margin-top: 8px; }
+                .summary .row { display: flex; justify-content: space-between; font-size: 11px; padding: 2px 0; }
+                .summary .total { font-size: 16px; font-weight: 900; border-top: 2px solid #1e293b; padding-top: 6px; margin-top: 4px; }
+                .footer { text-align: center; margin-top: 16px; font-size: 10px; color: #94a3b8; }
+                @media print { body { padding: 0; } }
+            </style></head><body>
+            ${printContent.innerHTML}
+            <script>window.onload = function() { window.print(); window.close(); }<\/script>
+            </body></html>
+        `)
+        win.document.close()
+    }
+
+    const handleNewOrder = () => {
+        setSuccessOrder(null)
+        // Send reset signal to customer display
+        channelRef.current?.postMessage({
+            type: 'reset',
+            items: [],
+            customerName: '',
+            subtotal: 0,
+            discount: 0,
+            shipping: 0,
+            total: 0
+        })
     }
 
     const handlePrintReceipt = () => {
@@ -402,9 +654,20 @@ export default function POSPage() {
                         <h2 className="text-xl font-black text-slate-900 flex items-center gap-2">
                             <ShoppingCart className="text-blue-600" /> Giỏ Hàng
                         </h2>
-                        <button className="p-2 bg-slate-50 text-slate-400 rounded-xl hover:text-red-500 transition-colors" onClick={() => setCart([])}>
-                            <Trash2 className="w-4 h-4" />
-                        </button>
+                        <div className="flex items-center gap-1.5">
+                            <button onClick={openCustomerDisplay} title="Mở màn hình khách hàng" className="p-2 bg-slate-50 text-slate-400 rounded-xl hover:text-blue-600 hover:bg-blue-50 transition-colors">
+                                <Monitor className="w-4 h-4" />
+                            </button>
+                            <button onClick={() => suspendedCarts.length > 0 ? setShowSuspended(true) : suspendCurrentCart()} title={suspendedCarts.length > 0 ? 'Xem đơn tạm' : 'Lưu tạm'} className="relative p-2 bg-slate-50 text-slate-400 rounded-xl hover:text-orange-600 hover:bg-orange-50 transition-colors">
+                                <Pause className="w-4 h-4" />
+                                {suspendedCarts.length > 0 && (
+                                    <span className="absolute -top-1 -right-1 w-4 h-4 bg-orange-500 text-white text-[8px] font-black rounded-full flex items-center justify-center">{suspendedCarts.length}</span>
+                                )}
+                            </button>
+                            <button className="p-2 bg-slate-50 text-slate-400 rounded-xl hover:text-red-500 transition-colors" onClick={() => setCart([])}>
+                                <Trash2 className="w-4 h-4" />
+                            </button>
+                        </div>
                     </div>
 
                     {/* Customer Row */}
@@ -425,12 +688,30 @@ export default function POSPage() {
                                     </button>
                                 </div>
                             ) : (
-                                <div
-                                    onClick={() => setShowCustomerSearch(!showCustomerSearch)}
-                                    className="flex-1 flex items-center gap-2 bg-slate-50 border border-dashed border-slate-200 rounded-2xl px-3 py-2 cursor-pointer hover:border-blue-300 hover:bg-blue-50/40 transition-all group"
-                                >
-                                    <User className="w-3.5 h-3.5 text-slate-300 group-hover:text-blue-400 shrink-0 transition-colors" />
-                                    <p className="text-xs font-bold text-slate-400 group-hover:text-blue-500 italic transition-colors">Khách vãng lai</p>
+                                <div className="flex-1 flex items-center gap-2">
+                                    <div
+                                        onClick={() => setShowCustomerSearch(!showCustomerSearch)}
+                                        className="flex-1 flex items-center gap-2 bg-slate-50 border border-dashed border-slate-200 rounded-2xl px-3 py-2 cursor-pointer hover:border-blue-300 hover:bg-blue-50/40 transition-all group min-w-0"
+                                    >
+                                        <User className="w-3.5 h-3.5 text-slate-300 group-hover:text-blue-400 shrink-0 transition-colors" />
+                                        <div className="flex-1 min-w-0">
+                                            {guestInfo.name ? (
+                                                <>
+                                                    <p className="text-xs font-bold text-slate-600 truncate">{guestInfo.name}</p>
+                                                    {guestInfo.phone && <p className="text-[10px] text-slate-400">{guestInfo.phone}</p>}
+                                                </>
+                                            ) : (
+                                                <p className="text-xs font-bold text-slate-400 group-hover:text-blue-500 italic transition-colors">Khách vãng lai</p>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={() => setShowGuestEdit(!showGuestEdit)}
+                                        title="Nhập thông tin khách"
+                                        className={`p-2 rounded-xl transition-all shrink-0 ${showGuestEdit ? 'bg-emerald-600 text-white shadow-md' : 'bg-slate-50 text-slate-400 hover:bg-emerald-50 hover:text-emerald-600'}`}
+                                    >
+                                        <Edit2 className="w-3.5 h-3.5" />
+                                    </button>
                                 </div>
                             )}
                             <button
@@ -473,6 +754,40 @@ export default function POSPage() {
                                     {customers.length === 0 && !customerSearchQuery && (
                                         <p className="text-xs text-center text-slate-300 py-4 font-medium italic">Nhập tên hoặc SĐT để tìm kiếm</p>
                                     )}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Guest Info Edit */}
+                        {showGuestEdit && !selectedCustomer && (
+                            <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border border-emerald-100 z-50 p-3 animate-in fade-in zoom-in-95 duration-200">
+                                <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-2">Thông tin khách vãng lai</p>
+                                <div className="space-y-2">
+                                    <input
+                                        autoFocus
+                                        type="text"
+                                        placeholder="Tên khách hàng"
+                                        value={guestInfo.name}
+                                        onChange={e => setGuestInfo(prev => ({ ...prev, name: e.target.value }))}
+                                        className="w-full p-2.5 bg-slate-50 rounded-xl text-xs font-bold border-none focus:ring-2 focus:ring-emerald-400"
+                                    />
+                                    <input
+                                        type="tel"
+                                        placeholder="Số điện thoại"
+                                        value={guestInfo.phone}
+                                        onChange={e => setGuestInfo(prev => ({ ...prev, phone: e.target.value }))}
+                                        className="w-full p-2.5 bg-slate-50 rounded-xl text-xs font-bold border-none focus:ring-2 focus:ring-emerald-400"
+                                    />
+                                </div>
+                                <div className="flex gap-2 mt-2">
+                                    <button
+                                        onClick={() => setShowGuestEdit(false)}
+                                        className="flex-1 py-2 bg-emerald-500 text-white text-[10px] font-black rounded-xl hover:bg-emerald-600 transition-all"
+                                    >Xong</button>
+                                    <button
+                                        onClick={() => { setGuestInfo({ name: '', phone: '' }); setShowGuestEdit(false) }}
+                                        className="py-2 px-3 bg-slate-100 text-slate-500 text-[10px] font-black rounded-xl hover:bg-slate-200 transition-all"
+                                    >Xoá</button>
                                 </div>
                             </div>
                         )}
@@ -530,7 +845,22 @@ export default function POSPage() {
                                             >
                                                 <Minus className="w-3 h-3" />
                                             </button>
-                                            <span className="w-6 text-center text-[11px] font-black text-slate-900">{item.quantity}</span>
+                                            <input
+                                                type="number"
+                                                min="1"
+                                                value={item.quantity}
+                                                onClick={e => (e.target as HTMLInputElement).select()}
+                                                onChange={e => {
+                                                    const val = parseInt(e.target.value)
+                                                    if (!isNaN(val) && val >= 1) {
+                                                        setCart(prev => prev.map(ci =>
+                                                            ci.product.id === item.product.id ? { ...ci, quantity: val } : ci
+                                                        ))
+                                                    }
+                                                }}
+                                                onKeyDown={e => { if (e.key === 'Escape') (e.target as HTMLInputElement).blur() }}
+                                                className="w-12 text-center text-[11px] font-black text-slate-900 bg-white rounded-lg border-none focus:ring-2 focus:ring-blue-400 outline-none py-0.5 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                            />
                                             <button
                                                 onClick={() => updateQuantity(item.product.id, 1)}
                                                 className="w-6 h-6 flex items-center justify-center rounded-lg bg-white shadow-sm text-slate-400 hover:text-blue-500 transition-colors"
@@ -677,6 +1007,52 @@ export default function POSPage() {
                                 </div>
                             )}
                         </div>
+                        {/* Shipping — click to expand */}
+                        <div>
+                            <div
+                                className="flex justify-between text-xs font-bold cursor-pointer group"
+                                onClick={() => setShowShipping(!showShipping)}
+                            >
+                                <span className={`flex items-center gap-1 transition-colors ${shippingFee > 0 ? 'text-blue-500' : 'text-slate-400 group-hover:text-blue-500'}`}>
+                                    <Truck className="w-3 h-3" />
+                                    Vận chuyển
+                                    {showShipping ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                                </span>
+                                <span className={shippingFee > 0 ? 'text-blue-500' : 'text-slate-300'}>
+                                    {shippingFee > 0 ? `+${formatCurrency(shippingFee)}` : 'Tại quầy'}
+                                </span>
+                            </div>
+
+                            {showShipping && (
+                                <div className="mt-2 bg-blue-50 border border-blue-100 rounded-[14px] p-2.5 space-y-2 animate-in slide-in-from-top-2 duration-150">
+                                    <div className="flex items-center gap-2">
+                                        <Truck className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            placeholder="Phí vận chuyển (VNĐ)"
+                                            value={shippingFee || ''}
+                                            onChange={e => setShippingFee(Math.max(0, parseInt(e.target.value) || 0))}
+                                            className="flex-1 min-w-0 bg-white border border-blue-100 rounded-lg px-2 py-1 text-xs font-black text-slate-700 focus:ring-1 focus:ring-blue-300 outline-none"
+                                        />
+                                        {shippingFee > 0 && (
+                                            <button onClick={() => { setShippingFee(0); setDeliveryDate('') }} className="text-slate-300 hover:text-red-400 transition-colors shrink-0">
+                                                <X className="w-3.5 h-3.5" />
+                                            </button>
+                                        )}
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <Calendar className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                                        <input
+                                            type="date"
+                                            value={deliveryDate}
+                                            onChange={e => setDeliveryDate(e.target.value)}
+                                            className="flex-1 bg-white border border-blue-100 rounded-lg px-2 py-1 text-xs font-bold text-slate-700 focus:ring-1 focus:ring-blue-300 outline-none"
+                                        />
+                                    </div>
+                                </div>
+                            )}
+                        </div>
 
                         {/* Total */}
                         <div className="flex justify-between text-slate-900 font-black text-lg pt-1.5 border-t border-dashed border-slate-100">
@@ -717,6 +1093,12 @@ export default function POSPage() {
                     {/* Footer actions */}
                     <div className="flex justify-center gap-4 pb-1">
                         <button
+                            onClick={suspendCurrentCart}
+                            className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest text-slate-400 hover:text-orange-600 transition-colors"
+                        >
+                            <Pause className="w-3.5 h-3.5" /> Lưu Tạm
+                        </button>
+                        <button
                             onClick={handlePrintReceipt}
                             className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest text-slate-400 hover:text-blue-600 transition-colors"
                         >
@@ -731,6 +1113,66 @@ export default function POSPage() {
                     </div>
                 </div>
             </div>
+
+            {/* ── Suspended Carts Modal ───────────────────────────────────── */}
+            {showSuspended && (
+                <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-in fade-in duration-300">
+                    <div className="bg-white w-full max-w-md rounded-[40px] shadow-2xl overflow-hidden border border-slate-100 animate-in zoom-in-95 duration-300">
+                        <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between bg-orange-50/50">
+                            <h3 className="text-xl font-black text-slate-900 flex items-center gap-3">
+                                <Pause className="text-orange-500" /> Đơn tạm ({suspendedCarts.length})
+                            </h3>
+                            <button onClick={() => setShowSuspended(false)} className="p-3 hover:bg-white rounded-2xl transition-all">
+                                <X className="w-6 h-6 text-slate-400" />
+                            </button>
+                        </div>
+                        <div className="p-6 max-h-[50vh] overflow-y-auto space-y-3 scrollbar-thin">
+                            {suspendedCarts.length === 0 ? (
+                                <p className="text-center py-8 text-slate-400 font-bold italic">Không có đơn tạm nào</p>
+                            ) : suspendedCarts.map(s => (
+                                <div key={s.id} className="p-4 border border-slate-100 rounded-2xl hover:border-orange-200 transition-all">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <p className="text-sm font-black text-slate-900">{s.label}</p>
+                                        <span className="text-[10px] font-bold text-slate-400">
+                                            {new Date(s.savedAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+                                        </span>
+                                    </div>
+                                    <p className="text-xs text-slate-400 mb-3">{s.cart.length} sản phẩm • {s.cart.reduce((sum, i) => sum + i.quantity, 0)} SL</p>
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={() => resumeCart(s)}
+                                            className="flex-1 py-2 bg-orange-500 text-white text-xs font-black rounded-xl hover:bg-orange-600 transition-all flex items-center justify-center gap-1.5"
+                                        >
+                                            <Play className="w-3.5 h-3.5" /> Mở lại
+                                        </button>
+                                        <button
+                                            onClick={() => deleteSuspended(s.id)}
+                                            className="py-2 px-3 bg-slate-100 text-slate-500 text-xs font-black rounded-xl hover:bg-red-50 hover:text-red-500 transition-all"
+                                        >
+                                            <Trash2 className="w-3.5 h-3.5" />
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                        <div className="p-6 bg-slate-50 border-t border-slate-100 flex justify-between">
+                            <button
+                                onClick={suspendCurrentCart}
+                                disabled={cart.length === 0}
+                                className="px-5 py-3 bg-orange-500 text-white rounded-2xl font-black text-sm hover:bg-orange-600 transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2"
+                            >
+                                <Save className="w-4 h-4" /> Lưu đơn hiện tại
+                            </button>
+                            <button
+                                onClick={() => setShowSuspended(false)}
+                                className="px-8 py-3 bg-white border border-slate-200 rounded-2xl font-black text-sm text-slate-600 hover:bg-slate-100 transition-all"
+                            >
+                                ĐÓNG
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* ── History Modal ─────────────────────────────────────────────── */}
             {isHistoryOpen && (
@@ -779,6 +1221,177 @@ export default function POSPage() {
                             >
                                 ĐÓNG
                             </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ── Success Modal ─────────────────────────────────────────────── */}
+            {successOrder && (
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4 animate-in fade-in duration-300">
+                    <div className="bg-white w-full max-w-3xl max-h-[90vh] rounded-[40px] shadow-2xl overflow-hidden border border-slate-100 animate-in zoom-in-95 duration-300 flex flex-col">
+
+                        {/* Header */}
+                        <div className="px-8 py-6 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white flex items-center gap-4">
+                            <div className="p-3 bg-white/20 rounded-2xl backdrop-blur-sm">
+                                <CheckCircle className="w-8 h-8" />
+                            </div>
+                            <div className="flex-1">
+                                <h3 className="text-xl font-black">Thanh toán thành công!</h3>
+                                <p className="text-emerald-100 text-sm font-medium">Đơn hàng #{successOrder.orderNumber} đã được tạo</p>
+                            </div>
+                            <button
+                                onClick={handleNewOrder}
+                                className="p-3 hover:bg-white/20 rounded-2xl transition-all"
+                            >
+                                <X className="w-6 h-6" />
+                            </button>
+                        </div>
+
+                        {/* Body */}
+                        <div className="flex-1 overflow-y-auto p-8">
+                            <div className="grid grid-cols-1 md:grid-cols-5 gap-8">
+
+                                {/* Invoice Preview */}
+                                <div className="md:col-span-3">
+                                    <div id="pos-invoice-preview" className="bg-white border border-slate-200 rounded-[24px] p-6 shadow-sm">
+                                        <h2 className="text-center text-lg font-black text-slate-900 mb-0.5">SmartBuild</h2>
+                                        <p className="text-center text-[10px] text-slate-400 font-medium mb-4">Hệ thống quản lý vật liệu xây dựng</p>
+
+                                        <div className="text-center text-xs text-slate-500 mb-4 space-y-0.5">
+                                            <p className="font-black text-slate-700">HOÁ ĐƠN BÁN HÀNG</p>
+                                            <p>Mã ĐH: <span className="font-bold text-blue-600">#{successOrder.orderNumber}</span></p>
+                                            <p>Ngày: {new Date(successOrder.createdAt).toLocaleString('vi-VN')}</p>
+                                            <p>Khách hàng: <span className="font-bold">{successOrder.customerName}</span>
+                                                {successOrder.customerPhone && <span className="text-slate-400"> • {successOrder.customerPhone}</span>}
+                                            </p>
+                                            <p>Thanh toán: <span className="font-bold">{successOrder.paymentMethod}</span></p>
+                                        </div>
+
+                                        <div className="border-t border-dashed border-slate-200 my-3" />
+
+                                        {/* Items table */}
+                                        <table className="w-full text-xs mb-3">
+                                            <thead>
+                                                <tr className="text-[10px] uppercase text-slate-400 font-black">
+                                                    <th className="text-left pb-2">Sản phẩm</th>
+                                                    <th className="text-center pb-2">SL</th>
+                                                    <th className="text-right pb-2">Đ.Giá</th>
+                                                    <th className="text-right pb-2">T.Tiền</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {successOrder.items.map((item, i) => (
+                                                    <tr key={i} className="border-t border-slate-50">
+                                                        <td className="py-1.5 pr-2">
+                                                            <span className="font-bold text-slate-700">{item.name}</span>
+                                                            {item.discount && item.discount.value > 0 && (
+                                                                <span className="ml-1 text-[9px] text-orange-500 font-black">(-{item.discount.type === 'percent' ? `${item.discount.value}%` : formatCurrency(item.discount.value)})</span>
+                                                            )}
+                                                        </td>
+                                                        <td className="text-center py-1.5 font-bold">{item.quantity}</td>
+                                                        <td className="text-right py-1.5 text-slate-500">{formatCurrency(item.unitPrice)}</td>
+                                                        <td className="text-right py-1.5 font-black text-slate-800">{formatCurrency(item.total)}</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+
+                                        <div className="border-t border-dashed border-slate-200 my-3" />
+
+                                        {/* Summary */}
+                                        <div className="space-y-1">
+                                            <div className="flex justify-between text-xs text-slate-500">
+                                                <span>Tạm tính</span>
+                                                <span className="font-bold">{formatCurrency(successOrder.subtotal)}</span>
+                                            </div>
+                                            {successOrder.itemDiscountTotal > 0 && (
+                                                <div className="flex justify-between text-xs text-orange-500">
+                                                    <span>KM sản phẩm</span>
+                                                    <span className="font-bold">-{formatCurrency(successOrder.itemDiscountTotal)}</span>
+                                                </div>
+                                            )}
+                                            {successOrder.orderDiscountAmount > 0 && (
+                                                <div className="flex justify-between text-xs text-emerald-500">
+                                                    <span>KM đơn hàng</span>
+                                                    <span className="font-bold">-{formatCurrency(successOrder.orderDiscountAmount)}</span>
+                                                </div>
+                                            )}
+                                            <div className="flex justify-between text-lg font-black text-slate-900 pt-2 border-t border-double border-slate-300">
+                                                <span>TỔNG CỘNG</span>
+                                                <span className="text-blue-600">{formatCurrency(successOrder.total)}</span>
+                                            </div>
+                                            {successOrder.totalDiscount > 0 && (
+                                                <p className="text-right text-[10px] text-emerald-500 font-bold">Tiết kiệm {formatCurrency(successOrder.totalDiscount)}</p>
+                                            )}
+                                        </div>
+
+                                        <p className="text-center text-[10px] text-slate-300 mt-4 italic">Cảm ơn quý khách • SmartBuild POS</p>
+                                    </div>
+                                </div>
+
+                                {/* Action buttons */}
+                                <div className="md:col-span-2 flex flex-col gap-3">
+                                    <button
+                                        onClick={handlePrintInvoice}
+                                        className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black text-sm shadow-lg shadow-blue-200 hover:bg-blue-700 transition-all active:scale-[0.98] flex items-center justify-center gap-3"
+                                    >
+                                        <Printer className="w-5 h-5" /> In Hoá Đơn
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            toast.success('Đã gửi hoá đơn cho khách hàng (demo)');
+                                        }}
+                                        className="w-full py-3.5 bg-slate-50 text-slate-700 rounded-2xl font-black text-sm border border-slate-200 hover:bg-slate-100 transition-all active:scale-[0.98] flex items-center justify-center gap-3"
+                                    >
+                                        <Send className="w-4 h-4" /> Gửi Zalo / Email
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            navigator.clipboard.writeText(successOrder.orderNumber)
+                                            toast.success('Đã copy mã đơn hàng!')
+                                        }}
+                                        className="w-full py-3.5 bg-slate-50 text-slate-700 rounded-2xl font-black text-sm border border-slate-200 hover:bg-slate-100 transition-all active:scale-[0.98] flex items-center justify-center gap-3"
+                                    >
+                                        <FileText className="w-4 h-4" /> Copy Mã Đơn
+                                    </button>
+
+                                    <div className="flex-1" />
+
+                                    {/* Order summary card */}
+                                    <div className="bg-emerald-50 rounded-2xl p-4 border border-emerald-100">
+                                        <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600 mb-2">Tóm tắt</p>
+                                        <div className="space-y-1 text-xs">
+                                            <div className="flex justify-between">
+                                                <span className="text-slate-500">Số SP</span>
+                                                <span className="font-bold">{successOrder.items.length} mặt hàng</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                                <span className="text-slate-500">Tổng SL</span>
+                                                <span className="font-bold">{successOrder.items.reduce((s, i) => s + i.quantity, 0)}</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                                <span className="text-slate-500">Thanh toán</span>
+                                                <span className="font-bold">{successOrder.paymentMethod}</span>
+                                            </div>
+                                            {successOrder.totalDiscount > 0 && (
+                                                <div className="flex justify-between">
+                                                    <span className="text-emerald-500">Giảm giá</span>
+                                                    <span className="font-bold text-emerald-600">{formatCurrency(successOrder.totalDiscount)}</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* NEW ORDER — primary CTA */}
+                                    <button
+                                        onClick={handleNewOrder}
+                                        className="w-full py-5 bg-emerald-600 text-white rounded-2xl font-black text-base shadow-xl shadow-emerald-200 hover:bg-emerald-700 transition-all active:scale-[0.98] flex items-center justify-center gap-3"
+                                    >
+                                        <Plus className="w-6 h-6" /> TẠO ĐƠN MỚI
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
