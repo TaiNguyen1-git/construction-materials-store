@@ -352,37 +352,57 @@ export default function POSPage() {
             {/* Right Column: Cart & Checkout */}
             <div className="w-full lg:w-[450px] h-full flex flex-col bg-white p-8 rounded-[40px] shadow-2xl border border-slate-100 overflow-hidden">
 
-                {/* Header */}
-                <div className="flex items-center justify-between mb-6 shrink-0">
-                    <h2 className="text-xl font-black text-slate-900 flex items-center gap-2">
-                        <ShoppingCart className="text-blue-600" /> Giỏ Hàng
-                    </h2>
-                    <button className="p-2.5 bg-slate-50 text-slate-400 rounded-xl hover:text-red-500 transition-colors" onClick={() => setCart([])}>
-                        <Trash2 className="w-5 h-5" />
-                    </button>
-                </div>
+                {/* Header + Compact Customer Selection */}
+                <div className="shrink-0 mb-4">
+                    <div className="flex items-center justify-between mb-3">
+                        <h2 className="text-xl font-black text-slate-900 flex items-center gap-2">
+                            <ShoppingCart className="text-blue-600" /> Giỏ Hàng
+                        </h2>
+                        <div className="flex items-center gap-2">
+                            {/* Trash clear cart */}
+                            <button className="p-2 bg-slate-50 text-slate-400 rounded-xl hover:text-red-500 transition-colors" onClick={() => setCart([])}>
+                                <Trash2 className="w-4 h-4" />
+                            </button>
+                        </div>
+                    </div>
 
-                {/* Customer Selection - Fixed height part */}
-                <div className="shrink-0 mb-4 font-medium">
-                    <div className="p-4 bg-slate-50/80 rounded-[24px] border border-dashed border-slate-200 relative group-focus-within:border-blue-300 transition-all">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 bg-white rounded-xl shadow-sm">
-                                <User className="text-slate-400 w-5 h-5" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                                {selectedCustomer ? (
-                                    <div onClick={() => { setSelectedCustomer(null); setShowCustomerSearch(true); }} className="cursor-pointer">
-                                        <p className="text-sm font-black text-slate-900 truncate">{selectedCustomer.name}</p>
-                                        <p className="text-[10px] text-slate-400 font-bold">{selectedCustomer.phone}</p>
+                    {/* Compact Customer Row */}
+                    <div className="relative">
+                        <div className="flex items-center gap-2">
+                            {selectedCustomer ? (
+                                /* Pill khi đã chọn khách */
+                                <div className="flex-1 flex items-center gap-2 bg-blue-50 border border-blue-100 rounded-2xl px-3 py-2">
+                                    <User className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-xs font-black text-blue-700 truncate">{selectedCustomer.name}</p>
+                                        <p className="text-[10px] text-blue-400 font-medium">{selectedCustomer.phone}</p>
                                     </div>
-                                ) : (
-                                    <div onClick={() => setShowCustomerSearch(!showCustomerSearch)} className="cursor-pointer">
-                                        <p className="text-sm font-bold text-slate-400 italic">Chọn khách hàng...</p>
-                                    </div>
-                                )}
-                            </div>
-                            <button className="p-2 text-blue-600 hover:bg-blue-50 rounded-xl transition-all" onClick={() => setShowCustomerSearch(!showCustomerSearch)}>
-                                <UserPlus className="w-5 h-5" />
+                                    <button
+                                        onClick={() => { setSelectedCustomer(null); setShowCustomerSearch(false); }}
+                                        className="ml-1 p-0.5 hover:bg-blue-200 rounded-lg transition-colors shrink-0"
+                                    >
+                                        <Plus className="w-3 h-3 text-blue-400 rotate-45" />
+                                    </button>
+                                </div>
+                            ) : (
+                                /* Pill mặc định - Khách vãng lai */
+                                <div
+                                    onClick={() => setShowCustomerSearch(!showCustomerSearch)}
+                                    className="flex-1 flex items-center gap-2 bg-slate-50 border border-dashed border-slate-200 rounded-2xl px-3 py-2 cursor-pointer hover:border-blue-300 hover:bg-blue-50/40 transition-all group"
+                                >
+                                    <User className="w-3.5 h-3.5 text-slate-300 group-hover:text-blue-400 shrink-0 transition-colors" />
+                                    <p className="text-xs font-bold text-slate-400 group-hover:text-blue-500 italic transition-colors">Khách vãng lai</p>
+                                </div>
+                            )}
+                            {/* Add Customer Button */}
+                            <button
+                                onClick={() => setShowCustomerSearch(!showCustomerSearch)}
+                                title="Chọn khách hàng"
+                                className={`p-2 rounded-xl transition-all shrink-0 ${
+                                    showCustomerSearch ? 'bg-blue-600 text-white shadow-md' : 'bg-slate-50 text-blue-600 hover:bg-blue-100'
+                                }`}
+                            >
+                                <UserPlus className="w-4 h-4" />
                             </button>
                         </div>
 
@@ -392,7 +412,7 @@ export default function POSPage() {
                                 <input
                                     autoFocus
                                     type="text"
-                                    placeholder="Tìm SĐT hoặc Tên..."
+                                    placeholder="Tìm SĐT hoặc Tên khách..."
                                     className="w-full p-3 bg-slate-50 rounded-xl text-sm font-bold mb-2 border-none focus:ring-2 focus:ring-blue-500"
                                     value={customerSearchQuery}
                                     onChange={e => setCustomerSearchQuery(e.target.value)}
@@ -417,6 +437,9 @@ export default function POSPage() {
                                     ))}
                                     {customers.length === 0 && customerSearchQuery && (
                                         <p className="text-xs text-center text-slate-400 py-4 font-medium italic">Không tìm thấy khách hàng</p>
+                                    )}
+                                    {customers.length === 0 && !customerSearchQuery && (
+                                        <p className="text-xs text-center text-slate-300 py-4 font-medium italic">Nhập tên hoặc SĐT để tìm kiếm</p>
                                     )}
                                 </div>
                             </div>
