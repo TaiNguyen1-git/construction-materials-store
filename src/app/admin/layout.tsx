@@ -214,6 +214,11 @@ export default function AdminLayout({
     )
   }
 
+  // Bypass layout for Customer Facing Display
+  if (pathname === '/admin/pos/display') {
+    return <main className="min-h-screen">{children}</main>
+  }
+
   return (
     <div className="min-h-screen bg-[#F0F2F5] text-slate-900 font-sans">
       {/* Mobile sidebar */}

@@ -33,6 +33,7 @@ import {
     RotateCcw,
 } from 'lucide-react'
 import { fetchWithAuth } from '@/lib/api-client'
+import { BANK_INFO } from '@/lib/email/email-types'
 import { toast } from 'react-hot-toast'
 
 // ─── Interfaces ─────────────────────────────────────────────────────────────
@@ -134,6 +135,13 @@ export default function POSPage() {
 
     // Success modal
     const [successOrder, setSuccessOrder] = useState<SuccessOrder | null>(null)
+
+    // Pending transfer (QR payment flow)
+    const [pendingTransfer, setPendingTransfer] = useState<{
+        cartSnapshot: { name: string; quantity: number; unitPrice: number; total: number; discount?: ItemDiscount }[]
+        subtotal: number; itemDiscountTotal: number; orderDiscountAmount: number
+        totalDiscount: number; total: number; customerName: string; customerPhone?: string
+    } | null>(null)
 
     // Guest info
     const [guestInfo, setGuestInfo] = useState<GuestInfo>({ name: '', phone: '' })
@@ -320,6 +328,8 @@ export default function POSPage() {
     // ─── Broadcast to Customer Display ───────────────────────────────────────
 
     useEffect(() => {
+        // Don't broadcast cart_update if we're showing success or pending transfer
+        if (successOrder || pendingTransfer) return
         const customerName = selectedCustomer?.name || guestInfo.name || ''
         channelRef.current?.postMessage({
             type: 'cart_update',
@@ -337,7 +347,7 @@ export default function POSPage() {
             shipping: shippingFee,
             total
         })
-    }, [cart, selectedCustomer, guestInfo, totalDiscount, shippingFee, total])
+    }, [cart, selectedCustomer, guestInfo, totalDiscount, shippingFee, total, successOrder, pendingTransfer])
 
     // ─── Suspended Carts ─────────────────────────────────────────────────────
 
@@ -399,10 +409,8 @@ export default function POSPage() {
 
     const handleCheckout = async () => {
         if (cart.length === 0) { toast.error('Giỏ hàng trống!'); return }
-        setLoading(true)
-        const toastId = toast.loading('Đang tạo đơn hàng...')
 
-        // Snapshot cart before clearing
+        // Snapshot cart before any changes
         const cartSnapshot = cart.map(item => ({
             name: item.product.name,
             quantity: item.quantity,
@@ -418,6 +426,41 @@ export default function POSPage() {
         const snapshotPayment = paymentMethod
         const snapshotCustomerName = selectedCustomer?.name || guestInfo.name || 'Khách vãng lai'
         const snapshotCustomerPhone = selectedCustomer?.phone || guestInfo.phone || undefined
+
+        // ── TRANSFER: Show QR first, wait for confirmation ──
+        if (paymentMethod === 'TRANSFER') {
+            setPendingTransfer({
+                cartSnapshot, subtotal: snapshotSubtotal,
+                itemDiscountTotal: snapshotItemDiscountTotal,
+                orderDiscountAmount: snapshotOrderDiscountAmount,
+                totalDiscount: snapshotTotalDiscount,
+                total: snapshotTotal,
+                customerName: snapshotCustomerName,
+                customerPhone: snapshotCustomerPhone
+            })
+            // Broadcast QR to customer display
+            channelRef.current?.postMessage({
+                type: 'payment_pending',
+                paymentMethod: 'TRANSFER',
+                items: cartSnapshot.map(i => ({ ...i, price: i.unitPrice, image: '', unit: '' })),
+                customerName: snapshotCustomerName,
+                subtotal: snapshotSubtotal,
+                discount: snapshotTotalDiscount,
+                shipping: shippingFee,
+                total: snapshotTotal,
+                bankInfo: {
+                    bankId: BANK_INFO.bankId,
+                    accountNumber: BANK_INFO.accountNumber,
+                    accountName: BANK_INFO.accountName,
+                    bankName: BANK_INFO.fullBankName
+                }
+            })
+            return
+        }
+
+        // ── CASH: Proceed directly ──
+        setLoading(true)
+        const toastId = toast.loading('Đang tạo đơn hàng...')
 
         try {
             const orderItems = cart.map(item => ({
@@ -495,6 +538,91 @@ export default function POSPage() {
         } finally {
             setLoading(false)
         }
+    }
+
+    // ─── Confirm Transfer (staff confirms payment received) ──────────────
+
+    const confirmTransfer = async () => {
+        if (!pendingTransfer) return
+        setLoading(true)
+        const toastId = toast.loading('Đang xác nhận thanh toán...')
+        const pt = pendingTransfer
+
+        try {
+            const orderItems = cart.map(item => ({
+                productId: item.product.id,
+                quantity: item.quantity,
+                unitPrice: item.product.price,
+                totalPrice: getItemTotal(item)
+            }))
+            const gN = selectedCustomer ? selectedCustomer.name : (guestInfo.name || 'Khách lẻ')
+            const gP = selectedCustomer ? selectedCustomer.phone : (guestInfo.phone || undefined)
+            const gE = selectedCustomer ? selectedCustomer.email : undefined
+            const finalPayload = {
+                customerType: selectedCustomer ? 'REGISTERED' : 'GUEST',
+                guestName: gN, guestPhone: gP, guestEmail: gE,
+                items: orderItems,
+                paymentMethod: 'BANK_TRANSFER',
+                paymentType: 'FULL',
+                totalAmount: pt.total,
+                discountAmount: pt.totalDiscount,
+                shippingAmount: shippingFee,
+                netAmount: pt.total,
+                shippingAddress: { address: deliveryDate ? `Giao ngày ${deliveryDate}` : 'Tại quầy', city: 'Hồ Chí Minh' },
+                notes: deliveryDate ? `Đơn POS CK - Giao: ${deliveryDate}` : 'Đơn POS - Chuyển khoản'
+            }
+            const res = await fetchWithAuth('/api/orders', { method: 'POST', body: JSON.stringify(finalPayload) })
+            const data = await res.json()
+            if (res.ok && data.success) {
+                toast.dismiss(toastId)
+                const order = data.data
+                const orderNumber = order?.orderNumber || order?.id?.slice(-8) || 'POS-' + Date.now()
+                setSuccessOrder({
+                    id: order?.id || 'N/A', orderNumber,
+                    customerName: pt.customerName, customerPhone: pt.customerPhone,
+                    items: pt.cartSnapshot, subtotal: pt.subtotal,
+                    itemDiscountTotal: pt.itemDiscountTotal,
+                    orderDiscountAmount: pt.orderDiscountAmount,
+                    totalDiscount: pt.totalDiscount, total: pt.total,
+                    paymentMethod: 'Chuyển khoản', createdAt: new Date().toISOString()
+                })
+                // Broadcast success to customer display
+                channelRef.current?.postMessage({
+                    type: 'checkout_success',
+                    items: pt.cartSnapshot.map(i => ({ ...i, price: i.unitPrice, image: '', unit: '' })),
+                    customerName: pt.customerName, subtotal: pt.subtotal,
+                    discount: pt.totalDiscount, shipping: shippingFee,
+                    total: pt.total, orderNumber
+                })
+                // Reset
+                setCart([]); setSelectedCustomer(null)
+                setGuestInfo({ name: '', phone: '' }); setShippingFee(0); setDeliveryDate('')
+                setOrderDiscount({ type: 'percent', value: 0 }); setOrderDiscountInput('')
+                setPendingTransfer(null)
+            } else {
+                toast.error(data.message || 'Lỗi tạo đơn hàng', { id: toastId })
+            }
+        } catch (error) {
+            console.error('Transfer confirm error:', error)
+            toast.error('Lỗi kết nối khi thanh toán', { id: toastId })
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    const cancelTransfer = () => {
+        setPendingTransfer(null)
+        // Reset customer display back to cart
+        channelRef.current?.postMessage({
+            type: 'cart_update',
+            items: cart.map(item => ({
+                name: item.product.name, quantity: item.quantity,
+                price: item.product.price, total: getItemTotal(item),
+                image: item.product.images?.[0], unit: item.product.unit
+            })),
+            customerName: selectedCustomer?.name || guestInfo.name || '',
+            subtotal, discount: totalDiscount, shipping: shippingFee, total
+        })
     }
 
     const handlePrintInvoice = () => {
@@ -1168,6 +1296,69 @@ export default function POSPage() {
                                 className="px-8 py-3 bg-white border border-slate-200 rounded-2xl font-black text-sm text-slate-600 hover:bg-slate-100 transition-all"
                             >
                                 ĐÓNG
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ── Pending Transfer Modal (QR Payment) ─────────────────────── */}
+            {pendingTransfer && (
+                <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-in fade-in duration-300">
+                    <div className="bg-white w-full max-w-lg rounded-[40px] shadow-2xl overflow-hidden border border-slate-100 animate-in zoom-in-95 duration-300">
+                        <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between bg-blue-50/50">
+                            <h3 className="text-xl font-black text-slate-900 flex items-center gap-3">
+                                <CreditCard className="text-blue-600" /> Chờ chuyển khoản
+                            </h3>
+                            <div className="text-right">
+                                <p className="text-2xl font-black text-blue-600">{formatCurrency(pendingTransfer.total)}</p>
+                                <p className="text-[10px] text-slate-400 font-bold">Tổng thanh toán</p>
+                            </div>
+                        </div>
+                        <div className="px-8 py-6 space-y-6">
+                            {/* QR Code */}
+                            <div className="flex justify-center">
+                                <div className="bg-white p-3 rounded-2xl border border-slate-200 shadow-lg">
+                                    <img
+                                        src={`https://img.vietqr.io/image/${BANK_INFO.bankId}-${BANK_INFO.accountNumber}-compact2.png?amount=${Math.floor(pendingTransfer.total)}&addInfo=${encodeURIComponent('POS ' + Date.now().toString().slice(-6))}&accountName=${encodeURIComponent(BANK_INFO.accountName)}`}
+                                        alt="QR Payment"
+                                        className="w-52 h-52 rounded-xl"
+                                    />
+                                </div>
+                            </div>
+                            {/* Bank Info */}
+                            <div className="bg-slate-50 rounded-2xl p-4 space-y-2">
+                                <div className="flex justify-between text-xs">
+                                    <span className="text-slate-400 font-bold">Ngân hàng</span>
+                                    <span className="font-black text-slate-700">{BANK_INFO.fullBankName}</span>
+                                </div>
+                                <div className="flex justify-between text-xs">
+                                    <span className="text-slate-400 font-bold">Số TK</span>
+                                    <span className="font-black text-blue-600 text-sm font-mono">{BANK_INFO.accountNumber}</span>
+                                </div>
+                                <div className="flex justify-between text-xs">
+                                    <span className="text-slate-400 font-bold">Chủ TK</span>
+                                    <span className="font-black text-slate-700">{BANK_INFO.accountName}</span>
+                                </div>
+                            </div>
+                            {/* Customer info */}
+                            <p className="text-center text-xs text-slate-400 font-bold">
+                                Khách: <span className="text-slate-700">{pendingTransfer.customerName}</span>
+                            </p>
+                        </div>
+                        <div className="px-8 pb-8 flex gap-3">
+                            <button
+                                onClick={cancelTransfer}
+                                className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black text-sm hover:bg-slate-200 transition-all"
+                            >
+                                Huỷ
+                            </button>
+                            <button
+                                onClick={confirmTransfer}
+                                disabled={loading}
+                                className="flex-[2] py-4 bg-emerald-500 text-white rounded-2xl font-black text-sm shadow-xl shadow-emerald-200 hover:bg-emerald-600 transition-all active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2"
+                            >
+                                <CheckCircle className="w-5 h-5" /> ĐÃ NHẬN TIỀN — XÁC NHẬN
                             </button>
                         </div>
                     </div>
