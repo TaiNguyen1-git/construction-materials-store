@@ -4,6 +4,7 @@
  */
 
 import { createWorker } from 'tesseract.js'
+import sharp from 'sharp'
 
 export interface OCRResult {
   text: string
@@ -27,17 +28,17 @@ async function getWorker() {
   if (worker) {
     return worker
   }
-  
+
   // If currently initializing, wait
   while (isInitializing) {
     await new Promise(resolve => setTimeout(resolve, 100))
   }
-  
+
   // If initialized while waiting, return it
   if (worker) {
     return worker
   }
-  
+
   try {
     isInitializing = true
     worker = await createWorker('vie+eng', 1, {
@@ -61,23 +62,24 @@ async function getWorker() {
 export async function processImageOCR(base64Image: string): Promise<OCRResult> {
   try {
     const workerInstance = await getWorker()
-    
-    // Remove data URL prefix if exists
-    const imageData = base64Image.replace(/^data:image\/\w+;base64,/, '')
-    
+
+    // Preprocess image for better OCR accuracy
+    const enhancedImageBase64 = await preprocessImage(base64Image)
+    const imageData = enhancedImageBase64.replace(/^data:image\/\w+;base64,/, '')
+
     // Perform OCR
-    const { data } = await workerInstance.recognize(imageData)
-    
+    const { data } = await workerInstance.recognize(Buffer.from(imageData, 'base64'))
+
     // Extract lines
     const lines = data.lines.map((line: any) => line.text.trim()).filter((text: string) => text.length > 0)
-    
+
     // Extract words with bounding boxes
     const words = data.words.map((word: any) => ({
       text: word.text,
       confidence: word.confidence,
       bbox: word.bbox
     }))
-    
+
     return {
       text: data.text,
       confidence: data.confidence / 100, // Convert to 0-1 range
@@ -102,17 +104,27 @@ export async function terminateOCR() {
 
 /**
  * Preprocess image for better OCR results
- * (This would be enhanced with actual image processing libraries)
+ * Enhances contrast, converts to grayscale, and reduces noise.
  */
-export function preprocessImage(base64Image: string): string {
-  // TODO: Add image preprocessing
-  // - Grayscale conversion
-  // - Contrast enhancement
-  // - Noise reduction
-  // - Deskewing
-  
-  // For now, return as-is
-  return base64Image
+export async function preprocessImage(base64Image: string): Promise<string> {
+  try {
+    const base64Data = base64Image.replace(/^data:image\/\w+;base64,/, '')
+    const buffer = Buffer.from(base64Data, 'base64')
+
+    // Perform image enhancement using sharp
+    const processedBuffer = await sharp(buffer)
+      .grayscale() // Convert to grayscale
+      .normalize() // Enhance contrast
+      .linear(1.5, -0.2) // Increase contrast (multiplier, offset)
+      .sharpen() // Sharpen edges for text
+      .jpeg({ quality: 100 }) // Output high quality jpeg
+      .toBuffer()
+
+    return `data:image/jpeg;base64,${processedBuffer.toString('base64')}`
+  } catch (err) {
+    console.warn('Image preprocessing failed, falling back to original image', err)
+    return base64Image
+  }
 }
 
 /**
@@ -123,24 +135,24 @@ export function validateInvoiceImage(base64Image: string): { valid: boolean; rea
   if (!base64Image || typeof base64Image !== 'string') {
     return { valid: false, reason: 'Invalid image data' }
   }
-  
+
   // Check size (rough estimate from base64 length)
   const sizeInBytes = Math.ceil((base64Image.length * 3) / 4)
   const sizeInMB = sizeInBytes / (1024 * 1024)
-  
+
   if (sizeInMB > 10) {
     return { valid: false, reason: 'Image too large (max 10MB)' }
   }
-  
+
   if (sizeInMB < 0.01) {
     return { valid: false, reason: 'Image too small (min 10KB)' }
   }
-  
+
   // Check if it's an image
   if (!base64Image.match(/^data:image\/(jpeg|jpg|png|gif|webp|bmp)/i)) {
     return { valid: false, reason: 'Invalid image format' }
   }
-  
+
   return { valid: true }
 }
 
@@ -150,24 +162,24 @@ export function validateInvoiceImage(base64Image: string): { valid: boolean; rea
  */
 export function extractInvoiceData(ocrResult: OCRResult): any {
   const { text, lines } = ocrResult
-  
+
   const data: any = {
     rawText: text,
     extractedFields: {}
   }
-  
+
   // Extract date patterns (DD/MM/YYYY, DD-MM-YYYY, etc.)
   const dateMatch = text.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/i)
   if (dateMatch) {
     data.extractedFields.date = dateMatch[0]
   }
-  
+
   // Extract invoice/receipt number
   const invoiceMatch = text.match(/(?:hóa đơn|hoá đơn|invoice|receipt|phiếu|bill)\s*[:#]?\s*([A-Z0-9\-\/]+)/i)
   if (invoiceMatch) {
     data.extractedFields.invoiceNumber = invoiceMatch[1]
   }
-  
+
   // Extract amounts (numbers followed by đ, VND, etc.)
   const amounts: number[] = []
   const amountMatches = text.matchAll(/(\d+(?:[.,]\d{3})*(?:[.,]\d{2})?)\s*(?:đ|vnd|đồng)?/gi)
@@ -177,12 +189,12 @@ export function extractInvoiceData(ocrResult: OCRResult): any {
       amounts.push(amount)
     }
   }
-  
+
   if (amounts.length > 0) {
     data.extractedFields.amounts = amounts
     data.extractedFields.totalAmount = Math.max(...amounts) // Assume largest is total
   }
-  
+
   // Extract company/supplier name (lines near top)
   if (lines.length > 0) {
     // Look for company names in first 5 lines
@@ -194,6 +206,6 @@ export function extractInvoiceData(ocrResult: OCRResult): any {
       }
     }
   }
-  
+
   return data
 }

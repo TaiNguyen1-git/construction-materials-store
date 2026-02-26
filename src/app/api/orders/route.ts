@@ -247,37 +247,6 @@ export async function POST(request: NextRequest) {
 
     const data = validation.data
 
-    // Validate items and check stock
-    for (const item of data.items) {
-      const inventoryItem = await prisma.inventoryItem.findUnique({
-        where: { productId: item.productId },
-        include: { product: true }
-      })
-
-      if (!inventoryItem) {
-        return NextResponse.json(
-          createErrorResponse(`Product not found in inventory`, 'NOT_FOUND'),
-          { status: 404 }
-        )
-      }
-
-      if (inventoryItem.availableQuantity < item.quantity) {
-        logger.warn('Insufficient stock', {
-          productId: item.productId,
-          productName: inventoryItem.product.name,
-          requested: item.quantity,
-          available: inventoryItem.availableQuantity
-        })
-        return NextResponse.json(
-          createErrorResponse(
-            `Insufficient stock for ${inventoryItem.product.name}. Available: ${inventoryItem.availableQuantity}`,
-            'INSUFFICIENT_STOCK'
-          ),
-          { status: 400 }
-        )
-      }
-    }
-
     // Generate order number
     const orderCount = await prisma.order.count()
     const orderNumber = `ORD-${Date.now()}-${(orderCount + 1).toString().padStart(4, '0')}`
@@ -297,7 +266,6 @@ export async function POST(request: NextRequest) {
         customerId = customer.id
 
         // --- B2B LOGIC START ---
-        // Check if user belongs to an organization
         const orgMember = await prisma.organizationMember.findFirst({
           where: { userId },
           include: { organization: true }
@@ -305,20 +273,16 @@ export async function POST(request: NextRequest) {
 
         if (orgMember && orgMember.organization.isActive) {
           organizationId = orgMember.organizationId
-
-          // Logic: If BUYER -> Requires Approval
           if (orgMember.role === 'BUYER') {
             b2bApprovalStatus = 'PENDING_APPROVAL'
-            orderStatus = 'PENDING_CONFIRMATION' // Hold order
+            orderStatus = 'PENDING_CONFIRMATION'
           } else {
-            // OWNER or ADMIN -> No approval needed
             b2bApprovalStatus = 'NOT_REQUIRED'
           }
         }
         // --- B2B LOGIC END ---
 
         // --- DEBT MANAGEMENT CHECK ---
-        // Verify credit eligibility before proceeding
         const { creditCheckService } = await import('@/lib/credit-check-service')
         const creditResult = await creditCheckService.checkCreditEligibility(customerId, data.totalAmount)
 
@@ -347,17 +311,33 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Create order with transaction
+    // Create order with transaction — stock check is INSIDE to prevent race conditions
     const order = await prisma.$transaction(async (tx) => {
-      // Create the order
-      // Determine initial status based on payment type AND B2B logic
-      let initialStatus: OrderStatus = orderStatus // Default from B2B logic
+      // ── Step 1: Validate stock INSIDE transaction (atomic check) ──
+      for (const item of data.items) {
+        const inventoryItem = await tx.inventoryItem.findUnique({
+          where: { productId: item.productId },
+          include: { product: true }
+        })
 
-      if (data.paymentType === 'DEPOSIT' && initialStatus === 'PENDING') {
-        initialStatus = 'PENDING_CONFIRMATION' // Deposit orders also need check
+        if (!inventoryItem) {
+          throw new Error(`STOCK_ERROR:Sản phẩm không tồn tại trong kho`)
+        }
+
+        if (inventoryItem.availableQuantity < item.quantity) {
+          throw new Error(
+            `STOCK_ERROR:${inventoryItem.product.name} chỉ còn ${inventoryItem.availableQuantity} (yêu cầu ${item.quantity})`
+          )
+        }
       }
 
-      // Calculate QR expiration time (15 minutes from now)
+      // ── Step 2: Create the order ──
+      let initialStatus: OrderStatus = orderStatus
+
+      if (data.paymentType === 'DEPOSIT' && initialStatus === 'PENDING') {
+        initialStatus = 'PENDING_CONFIRMATION'
+      }
+
       const qrExpiresAt = new Date(Date.now() + 15 * 60 * 1000)
 
       const newOrder = await tx.order.create({
@@ -365,8 +345,8 @@ export async function POST(request: NextRequest) {
           orderNumber,
           customerType: data.customerType,
           customerId,
-          organizationId, // Link order to organization
-          b2bApprovalStatus, // Set approval status
+          organizationId,
+          b2bApprovalStatus,
           guestName: data.guestName,
           guestEmail: data.guestEmail,
           guestPhone: data.guestPhone,
@@ -413,31 +393,31 @@ export async function POST(request: NextRequest) {
         }
       })
 
-      // Update inventory
+      // ── Step 3: Update inventory (atomic with stock check) ──
       for (const item of data.items) {
-        // Decrease available quantity
-        await tx.inventoryItem.update({
-          where: { productId: item.productId },
-          data: {
-            availableQuantity: { decrement: item.quantity },
-            reservedQuantity: { increment: item.quantity }
-          }
-        })
-
-        // Create inventory movement
         const inventoryItem = await tx.inventoryItem.findUnique({
           where: { productId: item.productId }
         })
 
         if (inventoryItem) {
+          const previousStock = inventoryItem.availableQuantity
+
+          await tx.inventoryItem.update({
+            where: { productId: item.productId },
+            data: {
+              availableQuantity: { decrement: item.quantity },
+              reservedQuantity: { increment: item.quantity }
+            }
+          })
+
           await tx.inventoryMovement.create({
             data: {
               productId: item.productId,
               inventoryId: inventoryItem.id,
               movementType: 'OUT',
               quantity: item.quantity,
-              previousStock: inventoryItem.availableQuantity + item.quantity,
-              newStock: inventoryItem.availableQuantity,
+              previousStock: previousStock,
+              newStock: previousStock - item.quantity,
               reason: `Order ${orderNumber}`,
               referenceType: 'ORDER',
               referenceId: newOrder.id,
@@ -535,6 +515,17 @@ export async function POST(request: NextRequest) {
   } catch (error: unknown) {
     const duration = Date.now() - startTime
     const err = error as Error
+
+    // Handle stock errors thrown from inside the transaction
+    if (err.message?.startsWith('STOCK_ERROR:')) {
+      const stockMessage = err.message.replace('STOCK_ERROR:', '')
+      logger.warn('Order failed due to stock issue', { message: stockMessage })
+      return NextResponse.json(
+        createErrorResponse(stockMessage, 'INSUFFICIENT_STOCK'),
+        { status: 400 }
+      )
+    }
+
     logAPI.error('POST', '/api/orders', err, { duration })
     logger.error('Create order error', { error: err.message, stack: err.stack })
 

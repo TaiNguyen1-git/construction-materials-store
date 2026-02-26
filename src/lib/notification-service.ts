@@ -9,7 +9,7 @@
  */
 
 import { prisma } from './prisma'
-import { pushSystemNotification, pushNotificationToFirebase } from './firebase-notifications'
+import { pushNotificationToFirebase, cleanupOldFirebaseNotifications } from './firebase-notifications'
 import { NotificationType, Priority } from '@prisma/client'
 
 export interface Notification {
@@ -282,23 +282,11 @@ export async function saveNotificationForUser(notification: Notification, userId
       read: false,
       referenceId: notification.orderId || notification.productId,
       referenceType: notification.orderId ? 'ORDER' : notification.productId ? 'PRODUCT' : null,
-      metadata: (notification.data || {}) as any // Cast to any for Prisma JSON compatibility
+      metadata: (notification.data || {}) as any
     }
   })
 
-  // 2. Push to Firebase Realtime Database
-  await pushNotificationToFirebase({
-    userId,
-    userRole,
-    type: notification.type,
-    title: notification.title,
-    message: notification.message,
-    priority: notification.priority,
-    read: false,
-    createdAt: new Date().toISOString(),
-  })
-
-  // 3. Push to Firebase (non-blocking, don't await)
+  // 2. Push to Firebase (user's personal path) — single call only
   pushNotificationToFirebase({
     userId,
     userRole,
@@ -312,49 +300,65 @@ export async function saveNotificationForUser(notification: Notification, userId
     referenceId: notification.orderId || notification.productId,
     referenceType: notification.orderId ? 'ORDER' : notification.productId ? 'PRODUCT' : undefined
   }).catch(err => console.error('Firebase push error (non-critical):', err))
+
+  // 3. Auto-cleanup old notifications in Firebase
+  cleanupOldFirebaseNotifications(userId, 100).catch(() => { })
 }
 
 /**
  * Save notification to database for all managers
  */
 export async function saveNotificationForAllManagers(notification: Notification) {
-  // 1. Save to database for all managers
+  // 1. Get all managers
   const managers = await prisma.user.findMany({
     where: { role: 'MANAGER' },
     select: { id: true }
   })
 
-  if (managers.length > 0) {
-    // Create notifications for all managers
-    await prisma.notification.createMany({
-      data: managers.map(manager => ({
-        userId: manager.id,
-        type: notification.type as NotificationType,
-        title: notification.title,
-        message: notification.message,
-        priority: notification.priority as Priority,
-        read: false,
-        referenceId: notification.orderId || notification.productId,
-        referenceType: notification.orderId ? 'ORDER' : notification.productId ? 'PRODUCT' : null,
-        metadata: (notification.data || {}) as any // Cast to any for Prisma JSON compatibility
-      }))
-    })
-  }
+  if (managers.length === 0) return
 
-  // 2. Push to Firebase System Channel (non-blocking, don't await)
-  pushSystemNotification({
-    userRole: 'MANAGER',
+  // 2. Save to database for all managers
+  await prisma.notification.createMany({
+    data: managers.map(manager => ({
+      userId: manager.id,
+      type: notification.type as NotificationType,
+      title: notification.title,
+      message: notification.message,
+      priority: notification.priority as Priority,
+      read: false,
+      referenceId: notification.orderId || notification.productId,
+      referenceType: notification.orderId ? 'ORDER' : notification.productId ? 'PRODUCT' : null,
+      metadata: (notification.data || {}) as any
+    }))
+  })
+
+  // 3. Push to each manager's personal Firebase path (not shared system channel)
+  const managerIds = managers.map(m => m.id)
+  const firebasePayload = {
+    userRole: 'MANAGER' as const,
     type: notification.type,
     title: notification.title,
     message: notification.message,
-    priority: notification.priority,
+    priority: notification.priority as 'HIGH' | 'MEDIUM' | 'LOW',
     read: false,
     createdAt: new Date().toISOString(),
     data: notification.data,
     referenceId: notification.orderId || notification.productId,
     referenceType: notification.orderId ? 'ORDER' : notification.productId ? 'PRODUCT' : undefined
-  }).catch(err => console.error('Firebase push error (non-critical):', err))
+  }
+
+  for (const managerId of managerIds) {
+    pushNotificationToFirebase({
+      ...firebasePayload,
+      userId: managerId
+    }).catch(err => console.error('Firebase push error (non-critical):', err))
+
+    // Auto-cleanup
+    cleanupOldFirebaseNotifications(managerId, 100).catch(() => { })
+  }
 }
+
+import { notificationSender } from './sms-service'
 
 /**
  * Save notification to database (for backward compatibility)
@@ -373,6 +377,8 @@ export async function sendNotification(notification: Notification, options?: {
   sendSMS?: boolean
   recipientEmail?: string
   recipientPhone?: string
+  zaloTemplateId?: string
+  zaloTemplateData?: Record<string, string | number>
 }) {
   // 1. Save to database first (always)
   await saveNotification(notification)
@@ -419,33 +425,30 @@ export async function sendNotification(notification: Notification, options?: {
     }
   }
 
-  // 3. Push notification via Firebase (for HIGH/MEDIUM priority)
-  if (options?.sendPush !== false && notification.priority !== 'LOW') {
-    try {
-      await pushSystemNotification({
-        userRole: 'MANAGER',
-        type: notification.type,
-        title: notification.title,
-        message: notification.message,
-        priority: notification.priority,
-        read: false,
-        createdAt: new Date().toISOString(),
-        data: notification.data
-      })
-    } catch (err) {
-      console.error('Push notification error:', err)
-    }
-  }
-
-  // 4. SMS for critical notifications (if phone provided and priority is HIGH)
+  // 3. SMS/Zalo for critical notifications (production readiness)
   if (options?.sendSMS && notification.priority === 'HIGH' && options?.recipientPhone) {
-    try {
-      // Using console.log as placeholder - integrate with actual SMS provider (e.g., Twilio, VNPT)
-      console.log(`[SMS] Would send to ${options.recipientPhone}: ${notification.title} - ${notification.message}`)
-      // TODO: Integrate with actual SMS provider when ready
-      // await SMSService.send(options.recipientPhone, `${notification.title}: ${notification.message}`)
-    } catch (err) {
-      console.error('SMS notification error:', err)
+    // If we have a Zalo template, send ZNS, otherwise send standard SMS
+    if (options.zaloTemplateId) {
+      const znsResult = await notificationSender.sendZaloZNS({
+        phone: options.recipientPhone.replace(/^0/, '84'), // Zalo needs 84...
+        templateId: options.zaloTemplateId,
+        templateData: options.zaloTemplateData || {
+          title: notification.title,
+          message: notification.message
+        }
+      })
+      if (!znsResult) {
+        console.warn('[NotificationService] Fallback to SMS after ZNS skipped/failed')
+        await notificationSender.sendSMS({
+          phone: options.recipientPhone,
+          message: `${notification.title}: ${notification.message}`
+        })
+      }
+    } else {
+      await notificationSender.sendSMS({
+        phone: options.recipientPhone,
+        message: `${notification.title}: ${notification.message}`
+      })
     }
   }
 }

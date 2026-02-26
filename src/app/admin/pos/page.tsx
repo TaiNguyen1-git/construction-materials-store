@@ -36,69 +36,15 @@ import { fetchWithAuth } from '@/lib/api-client'
 import { BANK_INFO } from '@/lib/email/email-types'
 import { toast } from 'react-hot-toast'
 
-// ─── Interfaces ─────────────────────────────────────────────────────────────
+import {
+    Product, ItemDiscount, CartItem, Customer,
+    SuccessOrder, GuestInfo, SuspendedCart
+} from './types'
 
-interface Product {
-    id: string
-    name: string
-    sku: string
-    price: number
-    unit: string
-    category: { name: string } | null
-    inventoryItem: { availableQuantity: number } | null
-    images: string[]
-    _id?: string
-}
-
-interface ItemDiscount {
-    type: 'percent' | 'fixed'
-    value: number
-}
-
-interface CartItem {
-    product: Product
-    quantity: number
-    discount?: ItemDiscount
-}
-
-interface Customer {
-    id: string
-    name: string
-    phone: string
-    email?: string
-    address?: string
-}
-
-interface SuccessOrder {
-    id: string
-    orderNumber: string
-    customerName: string
-    customerPhone?: string
-    items: { name: string; quantity: number; unitPrice: number; total: number; discount?: ItemDiscount }[]
-    subtotal: number
-    itemDiscountTotal: number
-    orderDiscountAmount: number
-    totalDiscount: number
-    total: number
-    paymentMethod: string
-    createdAt: string
-}
-
-interface GuestInfo {
-    name: string
-    phone: string
-}
-
-interface SuspendedCart {
-    id: string
-    label: string
-    cart: CartItem[]
-    customer: Customer | null
-    guestInfo: GuestInfo
-    shippingFee: number
-    deliveryDate: string
-    savedAt: string
-}
+import { SuspendedCartsModal } from './components/SuspendedCartsModal'
+import { PendingTransferModal } from './components/PendingTransferModal'
+import { HistoryModal } from './components/HistoryModal'
+import { SuccessModal } from './components/SuccessModal'
 
 // ─── Component ──────────────────────────────────────────────────────────────
 
@@ -1243,350 +1189,41 @@ export default function POSPage() {
             </div>
 
             {/* ── Suspended Carts Modal ───────────────────────────────────── */}
-            {showSuspended && (
-                <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-in fade-in duration-300">
-                    <div className="bg-white w-full max-w-md rounded-[40px] shadow-2xl overflow-hidden border border-slate-100 animate-in zoom-in-95 duration-300">
-                        <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between bg-orange-50/50">
-                            <h3 className="text-xl font-black text-slate-900 flex items-center gap-3">
-                                <Pause className="text-orange-500" /> Đơn tạm ({suspendedCarts.length})
-                            </h3>
-                            <button onClick={() => setShowSuspended(false)} className="p-3 hover:bg-white rounded-2xl transition-all">
-                                <X className="w-6 h-6 text-slate-400" />
-                            </button>
-                        </div>
-                        <div className="p-6 max-h-[50vh] overflow-y-auto space-y-3 scrollbar-thin">
-                            {suspendedCarts.length === 0 ? (
-                                <p className="text-center py-8 text-slate-400 font-bold italic">Không có đơn tạm nào</p>
-                            ) : suspendedCarts.map(s => (
-                                <div key={s.id} className="p-4 border border-slate-100 rounded-2xl hover:border-orange-200 transition-all">
-                                    <div className="flex items-center justify-between mb-2">
-                                        <p className="text-sm font-black text-slate-900">{s.label}</p>
-                                        <span className="text-[10px] font-bold text-slate-400">
-                                            {new Date(s.savedAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
-                                        </span>
-                                    </div>
-                                    <p className="text-xs text-slate-400 mb-3">{s.cart.length} sản phẩm • {s.cart.reduce((sum, i) => sum + i.quantity, 0)} SL</p>
-                                    <div className="flex gap-2">
-                                        <button
-                                            onClick={() => resumeCart(s)}
-                                            className="flex-1 py-2 bg-orange-500 text-white text-xs font-black rounded-xl hover:bg-orange-600 transition-all flex items-center justify-center gap-1.5"
-                                        >
-                                            <Play className="w-3.5 h-3.5" /> Mở lại
-                                        </button>
-                                        <button
-                                            onClick={() => deleteSuspended(s.id)}
-                                            className="py-2 px-3 bg-slate-100 text-slate-500 text-xs font-black rounded-xl hover:bg-red-50 hover:text-red-500 transition-all"
-                                        >
-                                            <Trash2 className="w-3.5 h-3.5" />
-                                        </button>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                        <div className="p-6 bg-slate-50 border-t border-slate-100 flex justify-between">
-                            <button
-                                onClick={suspendCurrentCart}
-                                disabled={cart.length === 0}
-                                className="px-5 py-3 bg-orange-500 text-white rounded-2xl font-black text-sm hover:bg-orange-600 transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2"
-                            >
-                                <Save className="w-4 h-4" /> Lưu đơn hiện tại
-                            </button>
-                            <button
-                                onClick={() => setShowSuspended(false)}
-                                className="px-8 py-3 bg-white border border-slate-200 rounded-2xl font-black text-sm text-slate-600 hover:bg-slate-100 transition-all"
-                            >
-                                ĐÓNG
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+            <SuspendedCartsModal
+                isOpen={showSuspended}
+                onClose={() => setShowSuspended(false)}
+                suspendedCarts={suspendedCarts}
+                cartLength={cart.length}
+                onSuspendCurrent={suspendCurrentCart}
+                onResume={resumeCart}
+                onDelete={deleteSuspended}
+            />
 
             {/* ── Pending Transfer Modal (QR Payment) ─────────────────────── */}
-            {pendingTransfer && (
-                <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-in fade-in duration-300">
-                    <div className="bg-white w-full max-w-lg rounded-[40px] shadow-2xl overflow-hidden border border-slate-100 animate-in zoom-in-95 duration-300">
-                        <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between bg-blue-50/50">
-                            <h3 className="text-xl font-black text-slate-900 flex items-center gap-3">
-                                <CreditCard className="text-blue-600" /> Chờ chuyển khoản
-                            </h3>
-                            <div className="text-right">
-                                <p className="text-2xl font-black text-blue-600">{formatCurrency(pendingTransfer.total)}</p>
-                                <p className="text-[10px] text-slate-400 font-bold">Tổng thanh toán</p>
-                            </div>
-                        </div>
-                        <div className="px-8 py-6 space-y-6">
-                            {/* QR Code */}
-                            <div className="flex justify-center">
-                                <div className="bg-white p-3 rounded-2xl border border-slate-200 shadow-lg">
-                                    <img
-                                        src={`https://img.vietqr.io/image/${BANK_INFO.bankId}-${BANK_INFO.accountNumber}-compact2.png?amount=${Math.floor(pendingTransfer.total)}&addInfo=${encodeURIComponent('POS ' + Date.now().toString().slice(-6))}&accountName=${encodeURIComponent(BANK_INFO.accountName)}`}
-                                        alt="QR Payment"
-                                        className="w-52 h-52 rounded-xl"
-                                    />
-                                </div>
-                            </div>
-                            {/* Bank Info */}
-                            <div className="bg-slate-50 rounded-2xl p-4 space-y-2">
-                                <div className="flex justify-between text-xs">
-                                    <span className="text-slate-400 font-bold">Ngân hàng</span>
-                                    <span className="font-black text-slate-700">{BANK_INFO.fullBankName}</span>
-                                </div>
-                                <div className="flex justify-between text-xs">
-                                    <span className="text-slate-400 font-bold">Số TK</span>
-                                    <span className="font-black text-blue-600 text-sm font-mono">{BANK_INFO.accountNumber}</span>
-                                </div>
-                                <div className="flex justify-between text-xs">
-                                    <span className="text-slate-400 font-bold">Chủ TK</span>
-                                    <span className="font-black text-slate-700">{BANK_INFO.accountName}</span>
-                                </div>
-                            </div>
-                            {/* Customer info */}
-                            <p className="text-center text-xs text-slate-400 font-bold">
-                                Khách: <span className="text-slate-700">{pendingTransfer.customerName}</span>
-                            </p>
-                        </div>
-                        <div className="px-8 pb-8 flex gap-3">
-                            <button
-                                onClick={cancelTransfer}
-                                className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black text-sm hover:bg-slate-200 transition-all"
-                            >
-                                Huỷ
-                            </button>
-                            <button
-                                onClick={confirmTransfer}
-                                disabled={loading}
-                                className="flex-[2] py-4 bg-emerald-500 text-white rounded-2xl font-black text-sm shadow-xl shadow-emerald-200 hover:bg-emerald-600 transition-all active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2"
-                            >
-                                <CheckCircle className="w-5 h-5" /> ĐÃ NHẬN TIỀN — XÁC NHẬN
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+            <PendingTransferModal
+                pendingTransfer={pendingTransfer}
+                onCancel={cancelTransfer}
+                onConfirm={confirmTransfer}
+                loading={loading}
+                BANK_INFO={BANK_INFO}
+                formatCurrency={formatCurrency}
+            />
 
             {/* ── History Modal ─────────────────────────────────────────────── */}
-            {isHistoryOpen && (
-                <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-in fade-in duration-300">
-                    <div className="bg-white w-full max-w-2xl rounded-[40px] shadow-2xl overflow-hidden border border-slate-100 animate-in zoom-in-95 duration-300">
-                        <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-                            <h3 className="text-xl font-black text-slate-900 flex items-center gap-3">
-                                <History className="text-blue-600" /> Lịch sử đơn hàng POS
-                            </h3>
-                            <button onClick={() => setIsHistoryOpen(false)} className="p-3 hover:bg-white rounded-2xl transition-all shadow-sm border border-transparent hover:border-slate-100">
-                                <X className="w-6 h-6 text-slate-400" />
-                            </button>
-                        </div>
-                        <div className="p-8 max-h-[60vh] overflow-y-auto scrollbar-thin">
-                            {recentOrders.length === 0 ? (
-                                <div className="text-center py-12 text-slate-400 font-bold italic">Không có đơn hàng gần đây</div>
-                            ) : (
-                                <div className="space-y-4">
-                                    {recentOrders.map((order: any) => (
-                                        <div key={order.id} className="p-5 border border-slate-100 rounded-3xl hover:border-blue-200 transition-all flex flex-col md:flex-row justify-between gap-4 group">
-                                            <div>
-                                                <div className="flex items-center gap-2 mb-1">
-                                                    <span className="text-[10px] font-black bg-blue-100 text-blue-600 px-2 py-0.5 rounded-lg uppercase">#{order.orderNumber || order.id.slice(-6)}</span>
-                                                    <span className="text-xs font-bold text-slate-900">{order.customer?.name || order.guestName || 'Khách lẻ'}</span>
-                                                </div>
-                                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{new Date(order.createdAt).toLocaleString('vi-VN')}</p>
-                                            </div>
-                                            <div className="flex items-center justify-between md:justify-end gap-6">
-                                                <div className="text-right">
-                                                    <p className="text-xs text-slate-400 font-bold">Tổng tiền</p>
-                                                    <p className="text-sm font-black text-blue-600">{formatCurrency(order.totalAmount)}</p>
-                                                </div>
-                                                <div className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase ${order.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-600' : 'bg-orange-50 text-orange-600'}`}>
-                                                    {order.status}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                        <div className="p-8 bg-slate-50 border-t border-slate-100 flex justify-end">
-                            <button
-                                onClick={() => setIsHistoryOpen(false)}
-                                className="px-8 py-3 bg-white border border-slate-200 rounded-2xl font-black text-sm text-slate-600 hover:bg-slate-100 transition-all"
-                            >
-                                ĐÓNG
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+            <HistoryModal
+                isOpen={isHistoryOpen}
+                onClose={() => setIsHistoryOpen(false)}
+                recentOrders={recentOrders}
+                formatCurrency={formatCurrency}
+            />
 
             {/* ── Success Modal ─────────────────────────────────────────────── */}
-            {successOrder && (
-                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4 animate-in fade-in duration-300">
-                    <div className="bg-white w-full max-w-3xl max-h-[90vh] rounded-[40px] shadow-2xl overflow-hidden border border-slate-100 animate-in zoom-in-95 duration-300 flex flex-col">
-
-                        {/* Header */}
-                        <div className="px-8 py-6 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white flex items-center gap-4">
-                            <div className="p-3 bg-white/20 rounded-2xl backdrop-blur-sm">
-                                <CheckCircle className="w-8 h-8" />
-                            </div>
-                            <div className="flex-1">
-                                <h3 className="text-xl font-black">Thanh toán thành công!</h3>
-                                <p className="text-emerald-100 text-sm font-medium">Đơn hàng #{successOrder.orderNumber} đã được tạo</p>
-                            </div>
-                            <button
-                                onClick={handleNewOrder}
-                                className="p-3 hover:bg-white/20 rounded-2xl transition-all"
-                            >
-                                <X className="w-6 h-6" />
-                            </button>
-                        </div>
-
-                        {/* Body */}
-                        <div className="flex-1 overflow-y-auto p-8">
-                            <div className="grid grid-cols-1 md:grid-cols-5 gap-8">
-
-                                {/* Invoice Preview */}
-                                <div className="md:col-span-3">
-                                    <div id="pos-invoice-preview" className="bg-white border border-slate-200 rounded-[24px] p-6 shadow-sm">
-                                        <h2 className="text-center text-lg font-black text-slate-900 mb-0.5">SmartBuild</h2>
-                                        <p className="text-center text-[10px] text-slate-400 font-medium mb-4">Hệ thống quản lý vật liệu xây dựng</p>
-
-                                        <div className="text-center text-xs text-slate-500 mb-4 space-y-0.5">
-                                            <p className="font-black text-slate-700">HOÁ ĐƠN BÁN HÀNG</p>
-                                            <p>Mã ĐH: <span className="font-bold text-blue-600">#{successOrder.orderNumber}</span></p>
-                                            <p>Ngày: {new Date(successOrder.createdAt).toLocaleString('vi-VN')}</p>
-                                            <p>Khách hàng: <span className="font-bold">{successOrder.customerName}</span>
-                                                {successOrder.customerPhone && <span className="text-slate-400"> • {successOrder.customerPhone}</span>}
-                                            </p>
-                                            <p>Thanh toán: <span className="font-bold">{successOrder.paymentMethod}</span></p>
-                                        </div>
-
-                                        <div className="border-t border-dashed border-slate-200 my-3" />
-
-                                        {/* Items table */}
-                                        <table className="w-full text-xs mb-3">
-                                            <thead>
-                                                <tr className="text-[10px] uppercase text-slate-400 font-black">
-                                                    <th className="text-left pb-2">Sản phẩm</th>
-                                                    <th className="text-center pb-2">SL</th>
-                                                    <th className="text-right pb-2">Đ.Giá</th>
-                                                    <th className="text-right pb-2">T.Tiền</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {successOrder.items.map((item, i) => (
-                                                    <tr key={i} className="border-t border-slate-50">
-                                                        <td className="py-1.5 pr-2">
-                                                            <span className="font-bold text-slate-700">{item.name}</span>
-                                                            {item.discount && item.discount.value > 0 && (
-                                                                <span className="ml-1 text-[9px] text-orange-500 font-black">(-{item.discount.type === 'percent' ? `${item.discount.value}%` : formatCurrency(item.discount.value)})</span>
-                                                            )}
-                                                        </td>
-                                                        <td className="text-center py-1.5 font-bold">{item.quantity}</td>
-                                                        <td className="text-right py-1.5 text-slate-500">{formatCurrency(item.unitPrice)}</td>
-                                                        <td className="text-right py-1.5 font-black text-slate-800">{formatCurrency(item.total)}</td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-
-                                        <div className="border-t border-dashed border-slate-200 my-3" />
-
-                                        {/* Summary */}
-                                        <div className="space-y-1">
-                                            <div className="flex justify-between text-xs text-slate-500">
-                                                <span>Tạm tính</span>
-                                                <span className="font-bold">{formatCurrency(successOrder.subtotal)}</span>
-                                            </div>
-                                            {successOrder.itemDiscountTotal > 0 && (
-                                                <div className="flex justify-between text-xs text-orange-500">
-                                                    <span>KM sản phẩm</span>
-                                                    <span className="font-bold">-{formatCurrency(successOrder.itemDiscountTotal)}</span>
-                                                </div>
-                                            )}
-                                            {successOrder.orderDiscountAmount > 0 && (
-                                                <div className="flex justify-between text-xs text-emerald-500">
-                                                    <span>KM đơn hàng</span>
-                                                    <span className="font-bold">-{formatCurrency(successOrder.orderDiscountAmount)}</span>
-                                                </div>
-                                            )}
-                                            <div className="flex justify-between text-lg font-black text-slate-900 pt-2 border-t border-double border-slate-300">
-                                                <span>TỔNG CỘNG</span>
-                                                <span className="text-blue-600">{formatCurrency(successOrder.total)}</span>
-                                            </div>
-                                            {successOrder.totalDiscount > 0 && (
-                                                <p className="text-right text-[10px] text-emerald-500 font-bold">Tiết kiệm {formatCurrency(successOrder.totalDiscount)}</p>
-                                            )}
-                                        </div>
-
-                                        <p className="text-center text-[10px] text-slate-300 mt-4 italic">Cảm ơn quý khách • SmartBuild POS</p>
-                                    </div>
-                                </div>
-
-                                {/* Action buttons */}
-                                <div className="md:col-span-2 flex flex-col gap-3">
-                                    <button
-                                        onClick={handlePrintInvoice}
-                                        className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black text-sm shadow-lg shadow-blue-200 hover:bg-blue-700 transition-all active:scale-[0.98] flex items-center justify-center gap-3"
-                                    >
-                                        <Printer className="w-5 h-5" /> In Hoá Đơn
-                                    </button>
-                                    <button
-                                        onClick={() => {
-                                            toast.success('Đã gửi hoá đơn cho khách hàng (demo)');
-                                        }}
-                                        className="w-full py-3.5 bg-slate-50 text-slate-700 rounded-2xl font-black text-sm border border-slate-200 hover:bg-slate-100 transition-all active:scale-[0.98] flex items-center justify-center gap-3"
-                                    >
-                                        <Send className="w-4 h-4" /> Gửi Zalo / Email
-                                    </button>
-                                    <button
-                                        onClick={() => {
-                                            navigator.clipboard.writeText(successOrder.orderNumber)
-                                            toast.success('Đã copy mã đơn hàng!')
-                                        }}
-                                        className="w-full py-3.5 bg-slate-50 text-slate-700 rounded-2xl font-black text-sm border border-slate-200 hover:bg-slate-100 transition-all active:scale-[0.98] flex items-center justify-center gap-3"
-                                    >
-                                        <FileText className="w-4 h-4" /> Copy Mã Đơn
-                                    </button>
-
-                                    <div className="flex-1" />
-
-                                    {/* Order summary card */}
-                                    <div className="bg-emerald-50 rounded-2xl p-4 border border-emerald-100">
-                                        <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600 mb-2">Tóm tắt</p>
-                                        <div className="space-y-1 text-xs">
-                                            <div className="flex justify-between">
-                                                <span className="text-slate-500">Số SP</span>
-                                                <span className="font-bold">{successOrder.items.length} mặt hàng</span>
-                                            </div>
-                                            <div className="flex justify-between">
-                                                <span className="text-slate-500">Tổng SL</span>
-                                                <span className="font-bold">{successOrder.items.reduce((s, i) => s + i.quantity, 0)}</span>
-                                            </div>
-                                            <div className="flex justify-between">
-                                                <span className="text-slate-500">Thanh toán</span>
-                                                <span className="font-bold">{successOrder.paymentMethod}</span>
-                                            </div>
-                                            {successOrder.totalDiscount > 0 && (
-                                                <div className="flex justify-between">
-                                                    <span className="text-emerald-500">Giảm giá</span>
-                                                    <span className="font-bold text-emerald-600">{formatCurrency(successOrder.totalDiscount)}</span>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-
-                                    {/* NEW ORDER — primary CTA */}
-                                    <button
-                                        onClick={handleNewOrder}
-                                        className="w-full py-5 bg-emerald-600 text-white rounded-2xl font-black text-base shadow-xl shadow-emerald-200 hover:bg-emerald-700 transition-all active:scale-[0.98] flex items-center justify-center gap-3"
-                                    >
-                                        <Plus className="w-6 h-6" /> TẠO ĐƠN MỚI
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
+            <SuccessModal
+                successOrder={successOrder}
+                onClose={handleNewOrder}
+                onPrintInvoice={handlePrintInvoice}
+                formatCurrency={formatCurrency}
+            />
         </div>
     )
 }

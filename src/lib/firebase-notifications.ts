@@ -57,30 +57,63 @@ export async function pushNotificationToFirebase(notification: Omit<FirebaseNoti
 }
 
 /**
- * Push a system-wide notification (for admin roles)
- * These go to a special "system" path that admins listen to
+ * Push a system-wide notification to each target user's personal path
+ * Instead of a shared "system" channel, each user gets their own copy
  */
-export async function pushSystemNotification(notification: Omit<FirebaseNotification, 'id' | 'userId'>): Promise<string | null> {
+export async function pushSystemNotification(notification: Omit<FirebaseNotification, 'id' | 'userId'>, targetUserIds?: string[]): Promise<void> {
     try {
         if (!process.env.NEXT_PUBLIC_FIREBASE_API_KEY || !process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL) {
             console.warn('⚠️ Firebase keys missing. Skipping system notification.')
-            return null
+            return
         }
 
+        if (!targetUserIds || targetUserIds.length === 0) return
+
         const db = getFirebaseDatabase()
-        const systemRef = ref(db, 'notifications/system')
-        const newNotificationRef = push(systemRef)
-
-        await set(newNotificationRef, {
-            ...notification,
-            userId: 'system',
-            createdAt: notification.createdAt || new Date().toISOString()
-        })
-
-        return newNotificationRef.key
+        for (const userId of targetUserIds) {
+            const userRef = ref(db, `notifications/${userId}`)
+            const newRef = push(userRef)
+            await set(newRef, {
+                ...notification,
+                userId,
+                createdAt: notification.createdAt || new Date().toISOString()
+            })
+        }
     } catch (error) {
         console.error('Error pushing system notification:', error)
-        return null
+    }
+}
+
+/**
+ * Auto-cleanup: keep only the most recent N notifications per user in Firebase
+ */
+export async function cleanupOldFirebaseNotifications(userId: string, keepCount: number = 100): Promise<void> {
+    try {
+        const db = getFirebaseDatabase()
+        const userRef = ref(db, `notifications/${userId}`)
+        const snapshot = await new Promise<DataSnapshot>((resolve) => {
+            onValue(userRef, resolve, { onlyOnce: true })
+        })
+
+        if (!snapshot.exists()) return
+
+        const entries: { key: string; createdAt: string }[] = []
+        snapshot.forEach((child) => {
+            entries.push({ key: child.key!, createdAt: child.val()?.createdAt || '' })
+        })
+
+        if (entries.length <= keepCount) return
+
+        // Sort by createdAt descending, delete the oldest beyond keepCount
+        entries.sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+        const toDelete = entries.slice(keepCount)
+
+        for (const entry of toDelete) {
+            const oldRef = ref(db, `notifications/${userId}/${entry.key}`)
+            await set(oldRef, null)
+        }
+    } catch (error) {
+        console.error('Error cleaning up Firebase notifications:', error)
     }
 }
 
@@ -94,71 +127,34 @@ export function subscribeToNotifications(
     onNotification: (notifications: FirebaseNotification[]) => void
 ): () => void {
     const db = getFirebaseDatabase()
-    const unsubscribes: (() => void)[] = []
-    const allNotifications: Map<string, FirebaseNotification> = new Map()
-
     const allowedTypes = ROLE_NOTIFICATION_TYPES[userRole] || ROLE_NOTIFICATION_TYPES.CUSTOMER
-    const isAdmin = userRole === 'MANAGER' || userRole === 'EMPLOYEE'
 
-    // Helper to merge and filter notifications
-    const emitFiltered = () => {
-        const filtered = Array.from(allNotifications.values())
-            .filter(n => allowedTypes.includes(n.type))
-            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-            .slice(0, 50)
-            .map(n => ({
-                ...n,
-                // Ensure ID is present if it was lost in map
-                id: n.id
-            }))
-        onNotification(filtered)
-    }
-
-    // Listen to user's own notifications
+    // Listen ONLY to user's own personal notification path
     const userRef = query(
         ref(db, `notifications/${userId}`),
         orderByChild('createdAt'),
-        limitToLast(30)
+        limitToLast(50)
     )
 
-    const userCallback = (snapshot: DataSnapshot) => {
+    const callback = (snapshot: DataSnapshot) => {
+        const notifications: FirebaseNotification[] = []
         if (snapshot.exists()) {
             snapshot.forEach((child) => {
                 const notif = child.val() as FirebaseNotification
-                allNotifications.set(child.key!, { ...notif, id: child.key! })
+                if (allowedTypes.includes(notif.type)) {
+                    notifications.push({ ...notif, id: child.key! })
+                }
             })
         }
-        emitFiltered()
+        // Sort newest first
+        notifications.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        onNotification(notifications)
     }
 
-    onValue(userRef, userCallback)
-    unsubscribes.push(() => off(userRef, 'value', userCallback))
+    onValue(userRef, callback)
 
-    // Admins also listen to system notifications
-    if (isAdmin) {
-        const systemRef = query(
-            ref(db, 'notifications/system'),
-            orderByChild('createdAt'),
-            limitToLast(20)
-        )
-
-        const systemCallback = (snapshot: DataSnapshot) => {
-            if (snapshot.exists()) {
-                snapshot.forEach((child) => {
-                    const notif = child.val() as FirebaseNotification
-                    allNotifications.set(`system-${child.key}`, { ...notif, id: `system-${child.key}` })
-                })
-            }
-            emitFiltered()
-        }
-
-        onValue(systemRef, systemCallback)
-        unsubscribes.push(() => off(systemRef, 'value', systemCallback))
-    }
-
-    // Return cleanup function
     return () => {
-        unsubscribes.forEach(unsub => unsub())
+        off(userRef, 'value', callback)
     }
 }
 
@@ -168,14 +164,8 @@ export function subscribeToNotifications(
 export async function markNotificationReadInFirebase(userId: string, notificationId: string): Promise<boolean> {
     try {
         const db = getFirebaseDatabase()
-        // Handle system notifications separately if needed, but typically they are just removed from view locally or marked read per user
-        // For now, only mark user-specific notifications as read in DB if possible
-        // System notifications generally don't have per-user read state in this simple schema
-
-        if (!notificationId.startsWith('system-')) {
-            const notifRef = ref(db, `notifications/${userId}/${notificationId}/read`)
-            await set(notifRef, true)
-        }
+        const notifRef = ref(db, `notifications/${userId}/${notificationId}/read`)
+        await set(notifRef, true)
         return true
     } catch (error) {
         console.error('Error marking notification as read:', error)
@@ -189,12 +179,8 @@ export async function markNotificationReadInFirebase(userId: string, notificatio
 export async function deleteNotificationFromFirebase(userId: string, notificationId: string): Promise<boolean> {
     try {
         const db = getFirebaseDatabase()
-        if (!notificationId.startsWith('system-')) {
-            const notifRef = ref(db, `notifications/${userId}/${notificationId}`)
-            await set(notifRef, null) // Use set with null to delete
-        }
-        // System notifications are shared, we can't delete them for all users easily
-        // but for now we'll just return true and handle local filtering
+        const notifRef = ref(db, `notifications/${userId}/${notificationId}`)
+        await set(notifRef, null)
         return true
     } catch (error) {
         console.error('Error deleting notification from Firebase:', error)
