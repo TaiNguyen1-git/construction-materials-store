@@ -261,44 +261,44 @@ export default function AdminDeliveryTrackingPage() {
                     <div className="flex items-center justify-between mb-6 px-2">
                         <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-3">
                             <Navigation size={12} className="text-blue-500" />
-                            Danh sách vận chuyển
+                            Đang vận chuyển ({deliveries.length})
                         </h3>
                     </div>
 
                     <div className="flex-1 overflow-y-auto space-y-3 pr-2 custom-scrollbar">
                         {loading ? (
-                            <div className="flex flex-col items-center justify-center h-40 gap-4">
+                            <div className="flex flex-col items-center justify-center py-20 gap-4">
                                 <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
-                                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Đang quét sóng...</span>
+                                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Đang cập nhật...</span>
                             </div>
                         ) : deliveries.length === 0 ? (
-                            <div className="p-8 text-center rounded-[2rem] bg-slate-50 border border-slate-100 border-dashed">
+                            <div className="p-8 text-center rounded-[2rem] bg-slate-50 border border-slate-100 border-dashed m-2">
                                 <Info className="w-8 h-8 text-slate-300 mx-auto mb-3" />
                                 <p className="text-xs font-bold text-slate-400">Không có đơn hàng</p>
                             </div>
                         ) : deliveries.map(d => (
                             <div
                                 key={d.id}
-                                className="bg-white border border-slate-100 hover:border-blue-200 hover:bg-blue-50/10 p-4 rounded-2xl transition-all cursor-pointer group relative overflow-hidden"
+                                className="bg-white border border-slate-100 hover:border-blue-200 hover:bg-blue-50/10 p-4 rounded-2xl transition-all cursor-pointer group relative overflow-hidden shrink-0"
                                 onClick={() => leafletRef.current?.setView([d.currentLat, d.currentLng], 15)}
                             >
-                                <div className="flex justify-between items-start mb-3">
-                                    <div className="min-w-0">
-                                        <div className="flex items-center gap-2 mb-1">
-                                            <span className="text-[9px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded">TX: {d.order?.driver?.user?.name || '---'}</span>
+                                <div className="flex justify-between items-start gap-3">
+                                    <div className="min-w-0 flex-1">
+                                        <div className="flex flex-col gap-1.5 mb-2">
+                                            <span className={`text-[8px] font-black px-2 py-0.5 rounded shadow-sm w-fit border ${d.order?.driver?.user?.name ? 'text-blue-600 bg-blue-50 border-blue-100' : 'text-slate-400 bg-slate-50 border-slate-200'}`}>
+                                                {d.order?.driver?.user?.name ? `TÀI XẾ: ${d.order.driver.user.name.toUpperCase()}` : 'CHƯA GÁN TÀI XẾ'}
+                                            </span>
                                             {d.order?.orderNumber && (
                                                 <Link
                                                     href={`/admin/orders/${d.order.id}`}
-                                                    className="text-xs font-black text-slate-900 group-hover:text-blue-600 transition-colors"
+                                                    className="text-xs font-black text-slate-900 group-hover:text-blue-600 transition-colors block truncate"
+                                                    title={d.order.orderNumber}
                                                 >
                                                     #{d.order.orderNumber}
                                                 </Link>
                                             )}
-                                            {!d.order?.orderNumber && (
-                                                <span className="text-xs font-black text-slate-900">N/A</span>
-                                            )}
                                         </div>
-                                        <p className="text-[11px] font-bold text-slate-500 truncate">
+                                        <p className="text-[11px] font-bold text-slate-500 line-clamp-2 leading-relaxed">
                                             {formatAddress(d.order?.shippingAddress)}
                                         </p>
                                     </div>
@@ -307,17 +307,17 @@ export default function AdminDeliveryTrackingPage() {
                                             e.stopPropagation();
                                             handleCallDriver(d);
                                         }}
-                                        className="w-9 h-9 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 hover:text-white hover:bg-blue-600 transition-all shadow-sm flex-shrink-0"
+                                        className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 hover:text-white hover:bg-emerald-500 transition-all shadow-sm flex-shrink-0"
                                     >
-                                        <PhoneCall size={14} />
+                                        <PhoneCall size={16} />
                                     </button>
                                 </div>
-                                <div className="flex items-center gap-3 text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                                    <span className="flex items-center gap-1 bg-slate-100 px-2 py-0.5 rounded">
+                                <div className="mt-3 pt-3 border-t border-slate-50 flex items-center justify-between">
+                                    <span className="flex items-center gap-1.5 text-[9px] font-black text-slate-400 uppercase tracking-widest">
                                         <Clock size={10} className="text-blue-500" />
                                         {new Date(d.lastLocationUpdate).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
                                     </span>
-                                    <span className={`px-2 py-0.5 rounded ${d.status === 'SHIPPED' ? 'bg-emerald-50 text-emerald-600' : 'bg-blue-50 text-blue-600'}`}>
+                                    <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${d.status === 'SHIPPED' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-blue-50 text-blue-600 border border-blue-100'}`}>
                                         {d.status === 'SHIPPED' ? 'Đang giao' : 'Đã điều phối'}
                                     </span>
                                 </div>
@@ -325,7 +325,7 @@ export default function AdminDeliveryTrackingPage() {
                         ))}
                     </div>
 
-                    <div className="mt-6 p-5 bg-slate-900 rounded-[1.5rem] shadow-xl shadow-slate-900/10 flex items-center justify-between text-white group cursor-pointer active:scale-95 transition-all"
+                    <div className="mt-4 p-5 bg-slate-900 rounded-[1.5rem] shadow-xl shadow-slate-900/10 flex items-center justify-between text-white group cursor-pointer active:scale-95 transition-all shrink-0"
                         onClick={() => window.location.href = '/admin/store-operations'}
                     >
                         <div>
@@ -391,8 +391,8 @@ export default function AdminDeliveryTrackingPage() {
 
                 .custom-scrollbar::-webkit-scrollbar { width: 4px; }
                 .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-                .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
-                .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+                .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.05); border-radius: 10px; }
+                .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.1); }
                 
                 .animate-spin-slow { animation: spin 8s linear infinite; }
             `}</style>
