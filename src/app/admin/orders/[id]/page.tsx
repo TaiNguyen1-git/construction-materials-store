@@ -12,14 +12,15 @@ import {
     User,
     MapPin,
     Clock,
-    CheckCircle2,
+    CheckCircle,
     AlertCircle,
     ChevronRight,
     Printer,
     FileText,
     ExternalLink,
     Box,
-    History
+    History,
+    Loader2
 } from 'lucide-react'
 import { toast, Toaster } from 'react-hot-toast'
 import { fetchWithAuth } from '@/lib/api-client'
@@ -33,7 +34,7 @@ interface OrderItem {
         id: string
         name: string
         sku: string
-        image?: string
+        images?: string[]
     }
 }
 
@@ -42,8 +43,8 @@ interface Order {
     orderNumber: string
     status: string
     totalAmount: number
-    shippingAddress: string
-    billingAddress: string
+    shippingAddress: any // Can be string or object
+    billingAddress?: any
     paymentMethod: string
     paymentStatus: string
     paymentType?: string
@@ -74,11 +75,14 @@ export default function OrderDetailPage() {
 
     const [order, setOrder] = useState<Order | null>(null)
     const [loading, setLoading] = useState(true)
+    const [currentTime, setCurrentTime] = useState<string>('')
 
     useEffect(() => {
         if (orderId) {
             fetchOrder()
         }
+        // Set time on client side only to avoid hydration mismatch
+        setCurrentTime(new Date().toLocaleString('vi-VN'))
     }, [orderId])
 
     const fetchOrder = async () => {
@@ -87,7 +91,8 @@ export default function OrderDetailPage() {
             const res = await fetchWithAuth(`/api/orders/${orderId}`)
             if (res.ok) {
                 const data = await res.json()
-                setOrder(data.data || data)
+                const orderData = data.data || data
+                setOrder(orderData)
             } else {
                 toast.error('Không tìm thấy đơn hàng')
                 router.push('/admin/orders')
@@ -100,17 +105,32 @@ export default function OrderDetailPage() {
         }
     }
 
+    const formatAddress = (address: any): string => {
+        if (!address) return 'Chưa cung cấp địa chỉ'
+        if (typeof address === 'string') return address
+        if (typeof address === 'object') {
+            const parts = [
+                address.street || address.address,
+                address.ward,
+                address.district,
+                address.city || address.province
+            ].filter(Boolean)
+            return parts.length > 0 ? parts.join(', ') : JSON.stringify(address)
+        }
+        return String(address)
+    }
+
     const getStatusConfig = (status: string) => {
         const configs: Record<string, { label: string; color: string; icon: any }> = {
             'PENDING_CONFIRMATION': { label: 'Chờ Xác Nhận', color: 'bg-orange-100 text-orange-700 border-orange-200', icon: Clock },
             'CONFIRMED_AWAITING_DEPOSIT': { label: 'Chờ Đặt Cọc', color: 'bg-amber-100 text-amber-700 border-amber-200', icon: CreditCard },
-            'DEPOSIT_PAID': { label: 'Đã Cọc', color: 'bg-cyan-100 text-cyan-700 border-cyan-200', icon: CheckCircle2 },
+            'DEPOSIT_PAID': { label: 'Đã Cọc', color: 'bg-cyan-100 text-cyan-700 border-cyan-200', icon: CheckCircle },
             'PENDING': { label: 'Chờ Xử Lý', color: 'bg-yellow-100 text-yellow-700 border-yellow-200', icon: Clock },
-            'CONFIRMED': { label: 'Đã Xác Nhận', color: 'bg-blue-100 text-blue-700 border-blue-200', icon: CheckCircle2 },
+            'CONFIRMED': { label: 'Đã Xác Nhận', color: 'bg-blue-100 text-blue-700 border-blue-200', icon: CheckCircle },
             'PROCESSING': { label: 'Đang Chuẩn Bị', color: 'bg-purple-100 text-purple-700 border-purple-200', icon: Box },
             'SHIPPED': { label: 'Đang Giao', color: 'bg-indigo-100 text-indigo-700 border-indigo-200', icon: Truck },
-            'DELIVERED': { label: 'Đã Giao', color: 'bg-emerald-100 text-emerald-700 border-emerald-200', icon: CheckCircle2 },
-            'COMPLETED': { label: 'Hoàn Thành', color: 'bg-green-100 text-green-700 border-green-200', icon: CheckCircle2 },
+            'DELIVERED': { label: 'Đã Giao', color: 'bg-emerald-100 text-emerald-700 border-emerald-200', icon: CheckCircle },
+            'COMPLETED': { label: 'Hoàn Thành', color: 'bg-green-100 text-green-700 border-green-200', icon: CheckCircle },
             'CANCELLED': { label: 'Đã Hủy', color: 'bg-red-100 text-red-700 border-red-200', icon: AlertCircle },
             'RETURNED': { label: 'Đã Trả Hàng', color: 'bg-slate-100 text-slate-700 border-slate-200', icon: History },
         }
@@ -119,8 +139,9 @@ export default function OrderDetailPage() {
 
     if (loading) {
         return (
-            <div className="flex items-center justify-center min-h-[60vh]">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+            <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+                <Loader2 className="w-12 h-12 animate-spin text-blue-600" />
+                <p className="text-sm font-bold text-slate-400 animate-pulse uppercase tracking-widest">Đang tải dữ liệu...</p>
             </div>
         )
     }
@@ -194,7 +215,7 @@ export default function OrderDetailPage() {
                                 {statusConfig.label}
                             </div>
                             <p className="text-3xl font-black text-slate-900 tracking-tight">
-                                {order.totalAmount.toLocaleString()}đ
+                                {Number(order.totalAmount || 0).toLocaleString()}đ
                             </p>
                         </div>
                     </div>
@@ -208,7 +229,7 @@ export default function OrderDetailPage() {
                             <CreditCard className="w-5 h-5 text-blue-400" />
                         </div>
                         <div>
-                            <p className="text-xs font-bold text-slate-400 mb-1">{order.paymentMethod}</p>
+                            <p className="text-xs font-bold text-slate-400 mb-1">{order.paymentMethod || 'N/A'}</p>
                             <p className="text-xl font-black mb-4">
                                 {order.paymentStatus === 'PAID' ? 'Đã thanh toán' : 'Chưa thanh toán'}
                             </p>
@@ -216,11 +237,11 @@ export default function OrderDetailPage() {
                                 <div className="space-y-1 pt-4 border-t border-white/10 uppercase font-black text-[9px] tracking-widest text-slate-400">
                                     <div className="flex justify-between">
                                         <span>Đã cọc:</span>
-                                        <span className="text-blue-400">{(order.depositAmount || 0).toLocaleString()}đ</span>
+                                        <span className="text-blue-400">{Number(order.depositAmount || 0).toLocaleString()}đ</span>
                                     </div>
                                     <div className="flex justify-between">
                                         <span>Còn lại:</span>
-                                        <span className="text-red-400">{(order.remainingAmount || 0).toLocaleString()}đ</span>
+                                        <span className="text-red-400">{Number(order.remainingAmount || 0).toLocaleString()}đ</span>
                                     </div>
                                 </div>
                             )}
@@ -239,32 +260,32 @@ export default function OrderDetailPage() {
                                 Danh sách sản phẩm
                             </h3>
                             <span className="bg-slate-100 px-3 py-1 rounded-lg text-xs font-black text-slate-500">
-                                {order.orderItems.length} sản phẩm
+                                {order.orderItems?.length || 0} sản phẩm
                             </span>
                         </div>
                         <div className="divide-y divide-slate-50">
-                            {order.orderItems.map((item) => (
+                            {order.orderItems?.map((item) => (
                                 <div key={item.id} className="p-8 flex items-center gap-6 group hover:bg-slate-50/50 transition-all">
                                     <div className="w-16 h-16 bg-slate-100 rounded-2xl flex-shrink-0 flex items-center justify-center text-slate-300 font-bold overflow-hidden border border-slate-200">
-                                        {(item.product as any).images && (item.product as any).images.length > 0 ? (
-                                            <img src={(item.product as any).images[0]} alt={item.product.name} className="w-full h-full object-cover" />
+                                        {item.product?.images && item.product.images.length > 0 ? (
+                                            <img src={item.product.images[0]} alt={item.product.name} className="w-full h-full object-cover" />
                                         ) : (
                                             <Package className="w-6 h-6" />
                                         )}
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <p className="text-sm font-black text-slate-900 truncate group-hover:text-blue-600 transition-colors mb-0.5">
-                                            {item.product.name}
+                                            {item.product?.name || 'Sản phẩm không xác định'}
                                         </p>
                                         <div className="flex items-center gap-2">
-                                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{item.product.sku}</span>
+                                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{item.product?.sku || 'N/A'}</span>
                                             <div className="w-1 h-1 rounded-full bg-slate-200"></div>
-                                            <span className="text-[10px] font-bold text-slate-400">Đơn giá: {item.unitPrice.toLocaleString()}đ</span>
+                                            <span className="text-[10px] font-bold text-slate-400">Đơn giá: {Number(item.unitPrice || 0).toLocaleString()}đ</span>
                                         </div>
                                     </div>
                                     <div className="text-right flex-shrink-0">
                                         <p className="text-[10px] font-black text-slate-400 mb-1">Số lượng: x{item.quantity}</p>
-                                        <p className="text-sm font-black text-slate-900">{item.totalPrice.toLocaleString()}đ</p>
+                                        <p className="text-sm font-black text-slate-900">{Number(item.totalPrice || 0).toLocaleString()}đ</p>
                                     </div>
                                 </div>
                             ))}
@@ -273,7 +294,7 @@ export default function OrderDetailPage() {
                             <div className="flex flex-col gap-3 max-w-[300px] ml-auto">
                                 <div className="flex justify-between text-sm text-slate-500 font-bold">
                                     <span>Tạm tính:</span>
-                                    <span>{order.totalAmount.toLocaleString()}đ</span>
+                                    <span>{Number(order.totalAmount || 0).toLocaleString()}đ</span>
                                 </div>
                                 <div className="flex justify-between text-sm text-slate-500 font-bold">
                                     <span>Giảm giá:</span>
@@ -281,7 +302,7 @@ export default function OrderDetailPage() {
                                 </div>
                                 <div className="pt-3 border-t border-slate-200 flex justify-between items-center">
                                     <span className="text-sm font-black text-slate-900">Tổng cộng:</span>
-                                    <span className="text-xl font-black text-blue-600">{order.totalAmount.toLocaleString()}đ</span>
+                                    <span className="text-xl font-black text-blue-600">{Number(order.totalAmount || 0).toLocaleString()}đ</span>
                                 </div>
                             </div>
                         </div>
@@ -297,8 +318,8 @@ export default function OrderDetailPage() {
                             <div className="relative flex items-center gap-6">
                                 <div className="w-2 h-2 rounded-full bg-blue-600 ring-4 ring-blue-100 z-10"></div>
                                 <div>
-                                    <p className="text-xs font-black text-slate-900">{statusConfig.label}</p>
-                                    <p className="text-[10px] text-slate-400 font-bold">{new Date().toLocaleString('vi-VN')}</p>
+                                    <p className="text-xs font-black text-slate-900 lowercase first-letter:uppercase">{statusConfig.label}</p>
+                                    <p className="text-[10px] text-slate-400 font-bold">{currentTime || '...'}</p>
                                 </div>
                             </div>
                             <div className="relative flex items-center gap-6">
@@ -341,7 +362,7 @@ export default function OrderDetailPage() {
                                     <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center flex-shrink-0">
                                         <ExternalLink className="w-4 h-4 text-slate-400" />
                                     </div>
-                                    <span className="truncate">{order.customer?.user?.email || order.guestEmail}</span>
+                                    <span className="truncate">{order.customer?.user?.email || order.guestEmail || 'N/A'}</span>
                                 </div>
                                 <div className="flex items-center gap-3 text-xs text-slate-600 font-bold">
                                     <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center flex-shrink-0">
@@ -373,7 +394,7 @@ export default function OrderDetailPage() {
                             <div className="flex gap-4">
                                 <div className="flex-1">
                                     <p className="text-sm font-bold text-slate-700 leading-relaxed">
-                                        {order.shippingAddress || 'Chưa cung cấp địa chỉ'}
+                                        {formatAddress(order.shippingAddress)}
                                     </p>
                                 </div>
                             </div>
@@ -389,7 +410,7 @@ export default function OrderDetailPage() {
                             </div>
                         </div>
                         <p className="text-sm font-medium text-slate-500 italic leading-relaxed">
-                            {order.notes || order.notes || 'Không có ghi chú nào cho đơn hàng này.'}
+                            {order.notes || 'Không có ghi chú nào cho đơn hàng này.'}
                         </p>
                     </div>
                 </div>
