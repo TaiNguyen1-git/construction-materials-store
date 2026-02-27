@@ -121,6 +121,7 @@ export default function AdminLayout({
       icon: ShoppingCart,
       items: [
         { name: 'Đơn Hàng & Dự Án', href: '/admin/orders', icon: ShoppingCart },
+        { name: 'Giám sát Vận tải', href: '/admin/delivery/tracking', icon: Truck },
         { name: 'Khách Hàng', href: '/admin/customers', icon: Users },
         { name: 'Quản Lý Tổ Chức (B2B)', href: '/admin/organizations', icon: Building2 },
         { name: 'Loyalty & Thân Thiết', href: '/admin/loyalty', icon: Trophy },
@@ -151,6 +152,7 @@ export default function AdminLayout({
       items: [
         { name: 'Quản Lý Nhà Thầu', href: '/admin/contractors', icon: Users },
         { name: 'Quản Lý Nhà Cung Cấp', href: '/admin/suppliers', icon: Truck },
+        { name: 'Trung tâm Liêm chính', href: '/admin/integrity', icon: ShieldAlert },
         { name: 'Xác Thực Đối Tác', href: '/admin/contractors/verify', icon: ShieldCheck },
       ]
     },

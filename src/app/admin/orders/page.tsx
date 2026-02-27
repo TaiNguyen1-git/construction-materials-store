@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import Link from 'next/link'
 import { toast } from 'react-hot-toast'
 import { fetchWithAuth } from '@/lib/api-client'
 import ConfirmDialog from '@/components/ConfirmDialog'
@@ -550,9 +551,11 @@ export default function OrdersPage() {
                 <tr key={order.id}>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div>
-                      <div className="text-sm font-medium text-gray-900">{order.orderNumber}</div>
+                      <Link href={`/admin/orders/${order.id}`} className="text-sm font-bold text-blue-600 hover:text-blue-800 transition-colors">
+                        {order.orderNumber}
+                      </Link>
                       {order.trackingNumber && (
-                        <div className="text-sm text-gray-500">Mã vận đơn: {order.trackingNumber}</div>
+                        <div className="text-sm text-gray-500 mt-1">Mã vận đơn: {order.trackingNumber}</div>
                       )}
                       {order.customerType === 'GUEST' && (
                         <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800 mt-1">
