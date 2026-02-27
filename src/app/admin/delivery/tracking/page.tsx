@@ -158,11 +158,11 @@ export default function AdminDeliveryTrackingPage() {
                         <div class="popup-wrapper">
                             <div class="popup-header">
                                 <span class="tag">VẬN CHUYỂN</span>
-                                <span class="order-id">#${d.order.orderNumber}</span>
+                                <span class="order-id">#${d.order?.orderNumber || 'N/A'}</span>
                             </div>
                             <div class="popup-body">
                                 <p class="label">Địa chỉ giao</p>
-                                <p class="address">${formatAddress(d.order.shippingAddress)}</p>
+                                <p class="address">${formatAddress(d.order?.shippingAddress)}</p>
                                 <div class="status-row">
                                     <span class="status-dot"></span>
                                     <span class="status-text">${d.status}</span>
@@ -192,44 +192,44 @@ export default function AdminDeliveryTrackingPage() {
     }
 
     return (
-        <div className="relative w-full h-[calc(100vh-140px)] min-h-[650px] bg-slate-50 rounded-[3rem] overflow-hidden shadow-[0_40px_100px_rgba(0,0,0,0.1)] border border-slate-200 animate-in fade-in duration-700">
+        <div className="relative w-full h-[calc(100vh-140px)] min-h-[650px] bg-slate-900 rounded-[3rem] overflow-hidden shadow-[0_40px_100px_rgba(0,0,0,0.5)] border border-white/10 animate-in fade-in duration-700">
             <Toaster position="top-right" />
 
             {/* Header Overlay */}
-            <div className="absolute top-8 left-8 right-8 z-10 flex flex-col lg:flex-row justify-between items-start gap-4 pointer-events-none">
-                <div className="bg-white/80 backdrop-blur-3xl p-6 rounded-[2.5rem] border border-slate-200 shadow-2xl pointer-events-auto flex items-center gap-6 group hover:bg-white transition-all duration-500">
+            <div className="absolute top-8 left-8 right-8 z-[1000] flex flex-col lg:flex-row justify-between items-start gap-4 pointer-events-none">
+                <div className="bg-slate-900/40 backdrop-blur-3xl p-6 rounded-[2.5rem] border border-white/10 shadow-2xl pointer-events-auto flex items-center gap-6 group hover:bg-slate-900/60 transition-all duration-500">
                     <div className="w-16 h-16 bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-[1.5rem] flex items-center justify-center text-white shadow-xl shadow-blue-500/30 group-hover:scale-105 transition-transform duration-500">
                         <Truck size={32} />
                     </div>
                     <div>
                         <div className="flex items-center gap-3">
-                            <h1 className="text-2xl font-black text-slate-900 tracking-widest uppercase italic">
+                            <h1 className="text-2xl font-black text-white tracking-widest uppercase italic">
                                 Giám sát Vận tải
                             </h1>
-                            <div className="flex items-center gap-1.5 px-3 py-1 bg-blue-500/10 rounded-full border border-blue-500/20">
+                            <div className="flex items-center gap-1.5 px-3 py-1 bg-blue-500/20 rounded-full border border-blue-500/30">
                                 <span className="flex h-2 w-2 relative">
                                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
                                     <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
                                 </span>
-                                <span className="text-[10px] font-black text-blue-600 uppercase tracking-tighter">Trực tiếp</span>
+                                <span className="text-[10px] font-black text-blue-400 uppercase tracking-tighter">Trực tiếp</span>
                             </div>
                         </div>
                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mt-1.5 flex items-center gap-2">
-                            <MapIcon size={12} className="text-slate-500" />
+                            <MapIcon size={12} className="text-blue-500" />
                             Hệ thống giám sát vặn tải thời gian thực
                         </p>
                     </div>
 
-                    <div className="hidden md:block h-12 w-px bg-slate-100 mx-4" />
+                    <div className="hidden md:block h-12 w-px bg-white/10 mx-4" />
 
                     <div className="hidden md:flex gap-10">
                         <div className="text-center">
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Đang chạy</p>
-                            <p className="text-2xl font-black text-slate-900 tracking-tighter">{deliveries.length}</p>
+                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Đang chạy</p>
+                            <p className="text-2xl font-black text-white tracking-tighter">{deliveries.length}</p>
                         </div>
                         <div className="text-center">
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Khu vực</p>
-                            <p className="text-2xl font-black text-slate-900 tracking-tighter">Biên Hòa</p>
+                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Khu vực</p>
+                            <p className="text-2xl font-black text-white tracking-tighter">Biên Hòa</p>
                         </div>
                     </div>
                 </div>
@@ -238,14 +238,14 @@ export default function AdminDeliveryTrackingPage() {
                     <button
                         onClick={fetchDeliveries}
                         title="Tải lại dữ liệu"
-                        className="bg-white/80 backdrop-blur-xl p-5 rounded-3xl border border-slate-200 text-slate-600 hover:bg-white hover:text-blue-600 transition-all shadow-xl group border-b-4 active:border-b-0 active:translate-y-1"
+                        className="bg-slate-900/40 backdrop-blur-xl p-5 rounded-3xl border border-white/10 text-white/70 hover:bg-slate-900 hover:text-white transition-all shadow-xl group border-b-4 border-slate-900 active:border-b-0 active:translate-y-1"
                     >
                         <RefreshCw className={`${loading ? 'animate-spin' : 'group-hover:rotate-180 transition-transform duration-700'}`} size={24} />
                     </button>
                     <button
                         onClick={toggleLayers}
                         title="Đổi lớp bản đồ"
-                        className="bg-white/80 backdrop-blur-xl p-5 rounded-3xl border border-slate-200 text-slate-600 hover:bg-white hover:text-blue-600 transition-all shadow-xl border-b-4 active:border-b-0 active:translate-y-1"
+                        className="bg-slate-900/40 backdrop-blur-xl p-5 rounded-3xl border border-white/10 text-white/70 hover:bg-slate-900 hover:text-white transition-all shadow-xl border-b-4 border-slate-900 active:border-b-0 active:translate-y-1"
                     >
                         <Layers size={24} />
                     </button>
@@ -256,8 +256,8 @@ export default function AdminDeliveryTrackingPage() {
             <div ref={mapRef} className="w-full h-full" />
 
             {/* Left Sidebar Overlay */}
-            <div className="absolute left-8 top-44 bottom-12 w-80 z-10 hidden xl:flex flex-col gap-6 pointer-events-none">
-                <div className="bg-white/80 backdrop-blur-3xl rounded-[3rem] border border-slate-200 p-8 flex flex-col flex-1 pointer-events-auto shadow-2xl">
+            <div className="absolute left-8 top-44 bottom-12 w-80 z-[1000] hidden xl:flex flex-col gap-6 pointer-events-none">
+                <div className="bg-slate-900/40 backdrop-blur-3xl rounded-[3rem] border border-white/10 p-8 flex flex-col flex-1 pointer-events-auto shadow-2xl">
                     <div className="flex items-center justify-between mb-8">
                         <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.3em] flex items-center gap-3">
                             <Navigation size={14} className="text-blue-500" />
@@ -280,18 +280,18 @@ export default function AdminDeliveryTrackingPage() {
                         ) : deliveries.map(d => (
                             <div
                                 key={d.id}
-                                className="bg-white border border-slate-100 hover:border-blue-200 shadow-sm hover:shadow-lg hover:shadow-blue-500/5 p-5 rounded-[2rem] transition-all cursor-pointer group relative overflow-hidden"
+                                className="bg-white/5 border border-white/5 hover:border-white/20 hover:bg-white/10 p-5 rounded-[2rem] transition-all cursor-pointer group relative overflow-hidden"
                                 onClick={() => leafletRef.current?.setView([d.currentLat, d.currentLng], 15)}
                             >
                                 <div className="absolute top-0 right-0 w-20 h-20 bg-blue-500/5 blur-3xl pointer-events-none group-hover:bg-blue-500/10 transition-colors"></div>
                                 <div className="flex justify-between items-start mb-4 relative z-10">
                                     <div>
                                         <div className="flex items-center gap-2 mb-1.5">
-                                            <span className="text-[10px] font-black text-blue-500 uppercase tracking-widest italic">Tài xế: {d.order.driver?.user?.name || 'Chưa rõ'}</span>
-                                            <span className="text-xs font-black text-slate-900">• Đơn #${d.order.orderNumber}</span>
+                                            <span className="text-[10px] font-black text-blue-500 uppercase tracking-widest italic">Tài xế: {d.order?.driver?.user?.name || 'Chưa rõ'}</span>
+                                            <span className="text-xs font-black text-white">• Đơn #${d.order?.orderNumber || 'N/A'}</span>
                                         </div>
-                                        <p className="text-sm font-bold text-slate-600 group-hover:text-slate-900 transition-colors">
-                                            {formatAddress(d.order.shippingAddress).slice(0, 24)}...
+                                        <p className="text-sm font-bold text-slate-400 group-hover:text-white transition-colors">
+                                            {formatAddress(d.order?.shippingAddress).slice(0, 24)}...
                                         </p>
                                     </div>
                                     <button
@@ -299,17 +299,17 @@ export default function AdminDeliveryTrackingPage() {
                                             e.stopPropagation();
                                             handleCallDriver(d);
                                         }}
-                                        className="w-10 h-10 rounded-2xl bg-blue-50 flex items-center justify-center text-blue-500 hover:text-white hover:bg-blue-500 transition-all shadow-sm"
+                                        className="w-10 h-10 rounded-2xl bg-white/5 flex items-center justify-center text-white/50 hover:text-white hover:bg-blue-600 transition-all shadow-sm"
                                     >
                                         <PhoneCall size={16} />
                                     </button>
                                 </div>
-                                <div className="flex items-center gap-4 text-[9px] font-black text-slate-400 uppercase tracking-widest relative z-10">
-                                    <span className="flex items-center gap-1.5 bg-slate-50 px-2 py-1 rounded-md">
+                                <div className="flex items-center gap-4 text-[9px] font-black text-slate-500 uppercase tracking-widest relative z-10">
+                                    <span className="flex items-center gap-1.5 bg-white/5 px-2 py-1 rounded-md">
                                         <Clock size={12} className="text-blue-500" />
                                         {new Date(d.lastLocationUpdate).toLocaleTimeString('vi-VN')}
                                     </span>
-                                    <span className="flex items-center gap-1.5 bg-blue-50 px-2 py-1 rounded-md text-blue-600">
+                                    <span className="flex items-center gap-1.5 bg-blue-500/20 px-2 py-1 rounded-md text-blue-400">
                                         <Package size={12} />
                                         {d.status}
                                     </span>
@@ -318,11 +318,11 @@ export default function AdminDeliveryTrackingPage() {
                         ))}
                     </div>
 
-                    <div className="mt-8 p-6 bg-slate-900 rounded-[2rem] shadow-xl shadow-slate-900/10 flex items-center justify-between text-white group cursor-pointer active:scale-95 transition-all"
+                    <div className="mt-8 p-6 bg-white/[0.03] border border-white/10 rounded-[2rem] flex items-center justify-between text-white group cursor-pointer active:scale-95 transition-all"
                         onClick={() => window.location.href = '/admin/orders'}
                     >
                         <div>
-                            <p className="text-[10px] font-black uppercase tracking-widest opacity-60 mb-1">Trung tâm Điều hành</p>
+                            <p className="text-[10px] font-black uppercase tracking-widest opacity-40 mb-1">Trung tâm Điều hành</p>
                             <p className="text-sm font-black">Xem tất cả vận đơn</p>
                         </div>
                         <div className="w-10 h-10 bg-white/10 rounded-2xl flex items-center justify-center group-hover:translate-x-1 transition-transform">
@@ -333,23 +333,23 @@ export default function AdminDeliveryTrackingPage() {
             </div>
 
             {/* Bottom Info Bar Overlay */}
-            <div className="absolute bottom-8 right-16 left-[23rem] z-10 hidden xl:flex">
-                <div className="bg-white/80 backdrop-blur-2xl px-10 py-6 rounded-[2rem] border border-slate-200 flex-1 flex items-center justify-between shadow-2xl">
+            <div className="absolute bottom-8 right-16 left-[23rem] z-[1000] hidden xl:flex">
+                <div className="bg-slate-900/40 backdrop-blur-2xl px-10 py-6 rounded-[2rem] border border-white/10 flex-1 flex items-center justify-between shadow-2xl">
                     <div className="flex items-center gap-8">
                         <div className="flex items-center gap-3">
                             <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
-                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Tín hiệu vệ tinh: Tốt</span>
+                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Tín hiệu vệ tinh: Tốt</span>
                         </div>
-                        <div className="w-px h-6 bg-slate-100"></div>
+                        <div className="w-px h-6 bg-white/10"></div>
                         <div className="flex items-center gap-3">
                             <RefreshCw size={14} className="text-blue-500 animate-spin-slow" />
-                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Tự động cập nhật mỗi 15s</span>
+                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Tự động cập nhật mỗi 15s</span>
                         </div>
                     </div>
 
                     <div className="flex items-center gap-6">
-                        <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest italic">Giao thức: Bảo mật HTTPS</p>
-                        <div className="px-5 py-2 bg-slate-50 rounded-xl border border-slate-100 text-[10px] font-black text-blue-600 tracking-widest uppercase">
+                        <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest italic">Giao thức: Bảo mật HTTPS</p>
+                        <div className="px-5 py-2 bg-white/5 rounded-xl border border-white/10 text-[10px] font-black text-blue-400 tracking-widest uppercase">
                             SmartBuild v4.2
                         </div>
                     </div>
@@ -370,17 +370,17 @@ export default function AdminDeliveryTrackingPage() {
                     100% { transform: scale(3); opacity: 0; }
                 }
 
-                .custom-leaflet-popup .leaflet-popup-content-wrapper { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(20px); color: #0f172a; border-radius: 1.5rem; border: 1px solid #f1f5f9; padding: 0; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15); }
+                .custom-leaflet-popup .leaflet-popup-content-wrapper { background: rgba(15, 23, 42, 0.9); backdrop-filter: blur(20px); color: white; border-radius: 1.5rem; border: 1px solid rgba(255,255,255,0.1); padding: 0; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); }
                 .custom-leaflet-popup .leaflet-popup-content { margin: 0; }
-                .custom-leaflet-popup .leaflet-popup-tip { background: rgba(255, 255, 255, 0.95); }
+                .custom-leaflet-popup .leaflet-popup-tip { background: rgba(15, 23, 42, 0.9); }
                 
                 .popup-wrapper { padding: 20px; width: 240px; }
                 .popup-header { display: flex; align-items: center; gap: 10px; margin-bottom: 15px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 10px; }
-                .popup-header .tag { background: #2563eb; font-size: 8px; font-weight: 900; padding: 2px 6px; border-radius: 4px; letter-spacing: 0.1em; }
-                .popup-header .order-id { font-size: 12px; font-weight: 900; }
-                .popup-body .label { font-size: 8px; color: #94a3b8; font-weight: 800; text-transform: uppercase; letter-spacing: 0.2em; margin-bottom: 4px; }
-                .popup-body .address { font-size: 11px; font-weight: 600; line-height: 1.5; color: #f8fafc; margin-bottom: 15px; }
-                .popup-body .status-row { display: flex; items-center: center; gap: 8px; background: rgba(255,255,255,0.05); padding: 8px 12px; border-radius: 12px; }
+                .popup-header .tag { background: #2563eb; font-size: 8px; font-weight: 900; padding: 2px 6px; border-radius: 4px; letter-spacing: 0.1em; color: white; }
+                .popup-header .order-id { font-size: 12px; font-weight: 900; color: white; }
+                .popup-body .label { font-size: 8px; color: #64748b; font-weight: 800; text-transform: uppercase; letter-spacing: 0.2em; margin-bottom: 4px; }
+                .popup-body .address { font-size: 11px; font-weight: 600; line-height: 1.5; color: #e2e8f0; margin-bottom: 15px; }
+                .popup-body .status-row { display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.05); padding: 8px 12px; border-radius: 12px; }
                 .popup-body .status-dot { width: 6px; height: 6px; background: #3b82f6; border-radius: 50%; box-shadow: 0 0 10px #3b82f6; }
                 .popup-body .status-text { font-size: 9px; font-weight: 900; text-transform: uppercase; color: #3b82f6; }
 
