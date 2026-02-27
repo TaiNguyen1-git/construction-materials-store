@@ -274,21 +274,21 @@ export default function AdminDeliveryTrackingPage() {
                         </h3>
                     </div>
 
-                    <div className="flex-1 overflow-y-auto space-y-3 pr-2 custom-scrollbar">
+                    <div className="flex-1 overflow-y-auto space-y-2 pr-2 custom-scrollbar min-h-0">
                         {loading ? (
                             <div className="flex flex-col items-center justify-center py-20 gap-4">
                                 <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
                                 <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Đang cập nhật...</span>
                             </div>
                         ) : deliveries.length === 0 ? (
-                            <div className="p-8 text-center rounded-[2rem] bg-slate-50 border border-slate-100 border-dashed m-2">
-                                <Info className="w-8 h-8 text-slate-300 mx-auto mb-3" />
-                                <p className="text-xs font-bold text-slate-400">Không có đơn hàng</p>
+                            <div className="p-6 text-center rounded-[1.5rem] bg-slate-50 border border-slate-100 border-dashed m-1">
+                                <Info className="w-6 h-6 text-slate-300 mx-auto mb-2" />
+                                <p className="text-[10px] font-bold text-slate-400">Không có đơn hàng</p>
                             </div>
                         ) : deliveries.map(d => (
                             <div
                                 key={d.id}
-                                className="bg-white border border-slate-100 hover:border-blue-200 hover:bg-blue-50/10 p-4 rounded-2xl transition-all cursor-pointer group relative overflow-hidden shrink-0"
+                                className="bg-white border border-slate-100 hover:border-blue-200 hover:bg-blue-50/10 p-3.5 rounded-2xl transition-all cursor-pointer group relative overflow-hidden shrink-0"
                                 onClick={() => {
                                     if (d.currentLat !== 0 && d.currentLng !== 0) {
                                         leafletRef.current?.setView([d.currentLat, d.currentLng], 15)
@@ -297,44 +297,45 @@ export default function AdminDeliveryTrackingPage() {
                                     }
                                 }}
                             >
-                                <div className="flex justify-between items-start gap-3">
+                                <div className="flex justify-between items-start gap-2">
                                     <div className="min-w-0 flex-1">
-                                        <div className="flex flex-col gap-1.5 mb-2">
-                                            <span className={`text-[8px] font-black px-2 py-0.5 rounded shadow-sm w-fit border ${d.order?.driver?.user?.name ? 'text-blue-600 bg-blue-50 border-blue-100' : 'text-slate-400 bg-slate-50 border-slate-200'}`}>
+                                        <div className="flex flex-col gap-1 mb-1.5">
+                                            <span className={`text-[7px] font-black px-1.5 py-0.5 rounded shadow-sm w-fit border ${d.order?.driver?.user?.name ? 'text-blue-600 bg-blue-50 border-blue-100' : 'text-slate-400 bg-slate-50 border-slate-200'}`}>
                                                 {d.order?.driver?.user?.name ? `TÀI XẾ: ${d.order.driver.user.name.toUpperCase()}` : 'CHƯA GÁN TÀI XẾ'}
                                             </span>
                                             {d.order?.orderNumber && (
                                                 <Link
                                                     href={`/admin/orders/${d.order.id}`}
-                                                    className="text-xs font-black text-slate-900 group-hover:text-blue-600 transition-colors block truncate"
+                                                    className="text-[11px] font-black text-slate-900 group-hover:text-blue-600 transition-colors block truncate"
                                                     title={d.order.orderNumber}
                                                 >
                                                     #{d.order.orderNumber}
                                                 </Link>
                                             )}
                                         </div>
-                                        <p className="text-[11px] font-bold text-slate-500 line-clamp-2 leading-relaxed">
+                                        <p className="text-[10px] font-bold text-slate-500 line-clamp-1 leading-tight mb-2">
                                             {formatAddress(d.order?.shippingAddress)}
                                         </p>
+
+                                        <div className="flex items-center gap-2">
+                                            <span className="flex items-center gap-1 text-[8px] font-black text-slate-400 uppercase tracking-tighter">
+                                                <Clock size={8} className="text-blue-500" />
+                                                {new Date(d.lastLocationUpdate).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+                                            </span>
+                                            <span className={`px-1.5 py-0.5 rounded text-[7px] font-black uppercase tracking-tighter border ${d.status === 'SHIPPED' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-blue-50 text-blue-600 border-blue-100'}`}>
+                                                {d.status === 'SHIPPED' ? 'Đang giao' : 'Đã điều phối'}
+                                            </span>
+                                        </div>
                                     </div>
                                     <button
                                         onClick={(e) => {
                                             e.stopPropagation();
                                             handleCallDriver(d);
                                         }}
-                                        className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 hover:text-white hover:bg-emerald-500 transition-all shadow-sm flex-shrink-0"
+                                        className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400 hover:text-white hover:bg-emerald-500 transition-all shadow-sm flex-shrink-0"
                                     >
-                                        <PhoneCall size={16} />
+                                        <PhoneCall size={12} />
                                     </button>
-                                </div>
-                                <div className="mt-3 pt-3 border-t border-slate-50 flex items-center justify-between">
-                                    <span className="flex items-center gap-1.5 text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                                        <Clock size={10} className="text-blue-500" />
-                                        {new Date(d.lastLocationUpdate).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
-                                    </span>
-                                    <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${d.status === 'SHIPPED' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-blue-50 text-blue-600 border border-blue-100'}`}>
-                                        {d.status === 'SHIPPED' ? 'Đang giao' : 'Đã điều phối'}
-                                    </span>
                                 </div>
                             </div>
                         ))}
