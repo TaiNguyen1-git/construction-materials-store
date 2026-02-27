@@ -7,8 +7,6 @@ export async function GET(request: NextRequest) {
         const activeDeliveries = await prisma.orderDelivery.findMany({
             where: {
                 status: { in: ['ASSIGNED', 'SHIPPED'] },
-                currentLat: { not: null },
-                currentLng: { not: null }
             },
             include: {
                 order: {

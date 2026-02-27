@@ -79,7 +79,11 @@ export async function GET(request: NextRequest) {
                     remainingAmount: true,
                     notes: true,
                     createdAt: true,
-                    updatedAt: true,
+                    delivery: {
+                        select: {
+                            deliveryToken: true
+                        }
+                    },
                     orderItems: {
                         select: {
                             id: true,
@@ -118,6 +122,7 @@ export async function GET(request: NextRequest) {
             depositAmount: order.depositAmount,
             remainingAmount: order.remainingAmount,
             notes: order.notes,
+            deliveryToken: order.delivery?.deliveryToken,
             project: order.notes?.includes('Dự án') ? order.notes.split(':')[0] : 'N/A',
             orderItems: order.orderItems.map(item => ({
                 id: item.id,

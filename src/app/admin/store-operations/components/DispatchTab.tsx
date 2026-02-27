@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo } from 'react'
 import {
-    Clock, CheckCircle, GripVertical, Truck, Search, User, Eye, Edit
+    Clock, CheckCircle, GripVertical, Truck, Search, User, Eye, Edit, Share2, Phone
 } from 'lucide-react'
 import {
     DndContext, DragOverlay, closestCorners,
@@ -17,6 +17,7 @@ import {
 import { useDroppable } from '@dnd-kit/core'
 import { CSS } from '@dnd-kit/utilities'
 import { DispatchOrder, Driver, getStatusInfo } from '../types'
+import toast from 'react-hot-toast'
 
 // ─── SortableOrderCard ──────────────────────────────────────────────────────
 interface SortableOrderCardProps {
@@ -34,6 +35,17 @@ export const SortableOrderCard = ({ order, isOverlay, onViewDetail, onEditOrder 
         opacity: isDragging && !isOverlay ? 0.3 : 1,
     }
     const statusInfo = getStatusInfo(order.status)
+
+    const copyDriverLink = (e: React.MouseEvent) => {
+        e.stopPropagation()
+        if (!order.deliveryToken) {
+            toast.error('Đơn hàng chưa được xuất xe (chưa có token)')
+            return
+        }
+        const link = `${window.location.origin}/delivery/${order.deliveryToken}`
+        navigator.clipboard.writeText(link)
+        toast.success('Đã sao chép link giao hàng cho tài xế!')
+    }
 
     const cardContent = (
         <div
@@ -59,9 +71,20 @@ export const SortableOrderCard = ({ order, isOverlay, onViewDetail, onEditOrder 
                     <p className="text-xs font-black text-slate-900 mb-1">
                         {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(order.totalAmount)}
                     </p>
-                    <span className={`text-[9px] px-2 py-0.5 rounded-lg font-black uppercase tracking-tighter inline-block ${statusInfo.color}`}>
-                        {statusInfo.label}
-                    </span>
+                    <div className="flex items-center gap-1 justify-end">
+                        {order.deliveryToken && (
+                            <button
+                                onClick={copyDriverLink}
+                                className="p-1 text-blue-500 hover:bg-blue-50 rounded transition-colors"
+                                title="Copy link gửi tài xế"
+                            >
+                                <Share2 className="w-3 h-3" />
+                            </button>
+                        )}
+                        <span className={`text-[9px] px-2 py-0.5 rounded-lg font-black uppercase tracking-tighter inline-block ${statusInfo.color}`}>
+                            {statusInfo.label}
+                        </span>
+                    </div>
                 </div>
             </div>
             {!isOverlay && (
@@ -184,6 +207,17 @@ const DriverDropZone = ({ driver, orders, onStartTrip, onViewDetail, onEditOrder
                 </div>
                 <div className="flex items-center gap-3">
                     <span className="px-3 py-1 bg-slate-100/80 text-slate-500 rounded-xl text-[10px] font-black uppercase tracking-tighter">{orders.length} Đơn</span>
+
+                    {driver.user.phone && (
+                        <button
+                            onClick={() => window.location.href = `tel:${driver.user.phone}`}
+                            className="p-2 bg-green-50 text-green-600 rounded-xl hover:bg-green-100 transition-colors shadow-sm"
+                            title={`Gọi ${driver.user.name}`}
+                        >
+                            <Phone className="w-4 h-4" />
+                        </button>
+                    )}
+
                     {orders.length > 0 && orders.some(o => o.status !== 'SHIPPED') && (
                         <button
                             onClick={() => onStartTrip(driver.id)}

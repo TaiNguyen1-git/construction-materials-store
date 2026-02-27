@@ -154,8 +154,13 @@ export default function StoreOperationsPage() {
                     status: o.status,
                     totalAmount: o.totalAmount,
                     driverId: o.driverId,
+                    deliveryToken: o.delivery?.deliveryToken,
                 })))
-                setDrivers(data.data.drivers.map((d: any) => ({ id: d.id, user: d.user, status: 'AVAILABLE' })))
+                setDrivers(data.data.drivers.map((d: any) => ({
+                    id: d.id,
+                    user: d.user,
+                    status: d.status || 'AVAILABLE'
+                })))
             }
             if (quotesRes.ok) setQuotes((await quotesRes.json()).data)
             if (cashRes.ok) {

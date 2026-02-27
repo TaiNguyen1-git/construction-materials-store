@@ -62,6 +62,11 @@ export async function GET(
           orderBy: { timestamp: 'desc' },
           take: 5 // Only get latest tracking for performance 
         },
+        delivery: {
+          select: {
+            deliveryToken: true
+          }
+        },
         deliveryPhases: true,
         contractor: {
           select: { id: true, displayName: true, phone: true }

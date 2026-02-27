@@ -326,7 +326,7 @@ export default function AdminDeliveryTrackingPage() {
                     </div>
 
                     <div className="mt-6 p-5 bg-slate-900 rounded-[1.5rem] shadow-xl shadow-slate-900/10 flex items-center justify-between text-white group cursor-pointer active:scale-95 transition-all"
-                        onClick={() => window.location.href = '/admin/orders'}
+                        onClick={() => window.location.href = '/admin/store-operations'}
                     >
                         <div>
                             <p className="text-[8px] font-black uppercase tracking-widest opacity-40 mb-0.5">Hệ thống</p>

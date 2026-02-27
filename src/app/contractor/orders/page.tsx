@@ -48,6 +48,7 @@ interface Order {
     project: string
     paymentStatus?: string
     paymentMethod?: string
+    deliveryToken?: string
 }
 
 export default function ContractorOrdersPage() {
@@ -430,6 +431,14 @@ export default function ContractorOrdersPage() {
 
                             <div className="pt-6 border-t border-gray-100 flex gap-4">
                                 <button onClick={() => setShowViewModal(false)} className="flex-1 py-4 bg-gray-100 text-gray-600 rounded-2xl font-black uppercase tracking-widest hover:bg-gray-200 transition-all">Đóng</button>
+                                {selectedOrder.status === 'SHIPPED' && selectedOrder.deliveryToken && (
+                                    <Link
+                                        href={`/track/${selectedOrder.deliveryToken}`}
+                                        className="flex-1 py-4 bg-emerald-600 text-white rounded-2xl font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-100 flex items-center justify-center gap-2"
+                                    >
+                                        Theo dõi vận chuyển
+                                    </Link>
+                                )}
                                 <button className="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-lg shadow-blue-100">In hóa đơn</button>
                             </div>
                         </div>

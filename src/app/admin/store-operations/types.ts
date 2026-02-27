@@ -21,6 +21,7 @@ export interface DispatchOrder {
     status: string
     totalAmount: number
     driverId: string | null
+    deliveryToken?: string
 }
 
 export interface CashItem {
@@ -43,7 +44,10 @@ export interface Expense {
 
 export interface Driver {
     id: string
-    user: { name: string }
+    user: {
+        name: string
+        phone?: string
+    }
     status: 'AVAILABLE' | 'ON_TRIP' | 'OFFLINE'
 }
 

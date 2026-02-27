@@ -12,12 +12,17 @@ export async function GET(req: NextRequest) {
             },
             include: {
                 driver: { include: { user: true } },
-                customer: { include: { user: true } }
+                customer: { include: { user: true } },
+                delivery: {
+                    select: {
+                        deliveryToken: true
+                    }
+                }
             },
             orderBy: { createdAt: 'desc' }
         })
 
-        // 2. Fetch drivers (Employees with position DRIVER or similar)
+        // 2. Fetch drivers
         const drivers = await prisma.employee.findMany({
             where: {
                 isActive: true,
@@ -27,15 +32,29 @@ export async function GET(req: NextRequest) {
                 ]
             },
             include: {
-                user: { select: { name: true, email: true } }
+                user: { select: { name: true, email: true, phone: true } },
+                assignedOrders: {
+                    where: {
+                        status: 'SHIPPED'
+                    },
+                    select: {
+                        id: true
+                    }
+                }
             }
         })
+
+        // Format drivers to include derived status
+        const formattedDrivers = drivers.map(d => ({
+            ...d,
+            status: d.assignedOrders.length > 0 ? 'ON_TRIP' : 'AVAILABLE'
+        }))
 
         return NextResponse.json({
             success: true,
             data: {
                 orders,
-                drivers
+                drivers: formattedDrivers
             }
         })
     } catch (error) {
