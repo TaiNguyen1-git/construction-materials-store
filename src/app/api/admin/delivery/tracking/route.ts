@@ -15,7 +15,17 @@ export async function GET(request: NextRequest) {
                     select: {
                         orderNumber: true,
                         totalAmount: true,
-                        shippingAddress: true
+                        shippingAddress: true,
+                        driver: {
+                            include: {
+                                user: {
+                                    select: {
+                                        name: true,
+                                        phone: true
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             },
