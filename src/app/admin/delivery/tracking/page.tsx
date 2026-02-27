@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react'
 import { Truck, Map as MapIcon, Navigation, RefreshCw, Layers, PhoneCall, Package, Loader2, Info, ChevronRight, MapPin, Clock } from 'lucide-react'
+import Link from 'next/link'
 import toast, { Toaster } from 'react-hot-toast'
 
 interface ShippingAddress {
@@ -19,6 +20,7 @@ interface Delivery {
     currentLng: number
     lastLocationUpdate: string
     order: {
+        id: string
         orderNumber: string
         totalAmount: number
         shippingAddress: string | ShippingAddress | any | null
@@ -284,7 +286,17 @@ export default function AdminDeliveryTrackingPage() {
                                     <div className="min-w-0">
                                         <div className="flex items-center gap-2 mb-1">
                                             <span className="text-[9px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded">TX: {d.order?.driver?.user?.name || '---'}</span>
-                                            <span className="text-xs font-black text-slate-900">#{d.order?.orderNumber || 'N/A'}</span>
+                                            {d.order?.orderNumber && (
+                                                <Link
+                                                    href={`/admin/orders/${d.order.id}`}
+                                                    className="text-xs font-black text-slate-900 group-hover:text-blue-600 transition-colors"
+                                                >
+                                                    #{d.order.orderNumber}
+                                                </Link>
+                                            )}
+                                            {!d.order?.orderNumber && (
+                                                <span className="text-xs font-black text-slate-900">N/A</span>
+                                            )}
                                         </div>
                                         <p className="text-[11px] font-bold text-slate-500 truncate">
                                             {formatAddress(d.order?.shippingAddress)}

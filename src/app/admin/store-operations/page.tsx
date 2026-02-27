@@ -23,51 +23,71 @@ import ExpensesTab from './components/ExpensesTab'
 // ─── Loading Skeleton ────────────────────────────────────────────────────────
 function StoreOperationsSkeleton() {
     return (
-        <div className="space-y-6 max-w-[1600px] mx-auto animate-in fade-in duration-500 pb-20">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div>
-                    <div className="flex items-center gap-3 mb-2">
-                        <Skeleton className="h-12 w-12 rounded-2xl" />
+        <div className="space-y-8 max-w-[1600px] mx-auto animate-in fade-in duration-500 pb-20">
+            {/* Header Skeleton */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                <div className="flex items-center gap-4">
+                    <Skeleton className="h-14 w-14 rounded-2xl" />
+                    <div className="space-y-2">
                         <Skeleton className="h-8 w-64 rounded-xl" />
+                        <Skeleton className="h-6 w-80 rounded-lg" />
                     </div>
-                    <Skeleton className="h-4 w-96 rounded-lg ml-14" />
                 </div>
                 <div className="flex gap-3">
-                    <Skeleton className="h-12 w-40 rounded-2xl" />
-                    <Skeleton className="h-12 w-40 rounded-2xl" />
+                    <Skeleton className="h-14 w-44 rounded-2xl" />
+                    <Skeleton className="h-14 w-44 rounded-2xl" />
                 </div>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+
+            {/* Metrics Skeleton */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                 {[...Array(4)].map((_, i) => (
-                    <div key={i} className="bg-white rounded-[32px] p-6 shadow-sm border border-slate-100">
-                        <Skeleton className="h-3 w-24 mb-2 rounded-lg" />
-                        <Skeleton className="h-8 w-32 rounded-xl" />
+                    <div key={i} className="bg-white/50 rounded-[32px] p-7 border border-slate-100/50 shadow-sm">
+                        <div className="flex justify-between mb-4">
+                            <Skeleton className="h-3 w-32 rounded-lg" />
+                            <Skeleton className="h-8 w-8 rounded-xl" />
+                        </div>
+                        <Skeleton className="h-8 w-48 rounded-xl" />
                     </div>
                 ))}
             </div>
-            <div className="bg-white rounded-[40px] shadow-sm border border-slate-100 overflow-hidden">
-                <div className="flex items-center gap-1 p-2 bg-slate-50 border-b border-slate-100">
-                    {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-10 w-32 rounded-2xl" />)}
+
+            {/* Main Content Skeleton */}
+            <div className="bg-white/50 rounded-[40px] border border-slate-100/50 shadow-xl overflow-hidden min-h-[600px]">
+                <div className="flex items-center gap-3 px-6 py-4 bg-slate-50/50 border-b border-slate-100">
+                    {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-12 w-40 rounded-2xl" />)}
                 </div>
-                <div className="p-8">
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <div className="bg-orange-50/30 rounded-[32px] p-6 border border-orange-100 min-h-[500px] flex flex-col gap-4">
-                            <div className="flex justify-between items-center mb-2">
-                                <Skeleton className="h-6 w-32 rounded-lg" />
-                                <Skeleton className="h-6 w-12 rounded-full" />
+                <div className="p-10">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        <div className="bg-slate-50/50 rounded-[32px] p-6 border border-slate-100 min-h-[500px]">
+                            <div className="flex justify-between items-center mb-6">
+                                <Skeleton className="h-5 w-40 rounded-lg" />
+                                <Skeleton className="h-6 w-20 rounded-xl" />
                             </div>
-                            {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-24 w-full rounded-2xl" />)}
+                            <Skeleton className="h-12 w-full rounded-2xl mb-6" />
+                            <div className="space-y-4">
+                                {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-24 w-full rounded-3xl" />)}
+                            </div>
                         </div>
-                        <div className="space-y-4">
-                            {[...Array(3)].map((_, i) => (
-                                <div key={i} className="bg-slate-50/50 rounded-[24px] p-5 border border-slate-100">
-                                    <div className="flex justify-between items-center mb-3">
-                                        <Skeleton className="h-5 w-36 rounded-lg" />
-                                        <Skeleton className="h-5 w-16 rounded-full" />
+                        <div className="space-y-6">
+                            <div className="flex justify-between items-center">
+                                <Skeleton className="h-5 w-48 rounded-lg" />
+                                <Skeleton className="h-6 w-24 rounded-xl" />
+                            </div>
+                            <div className="space-y-4">
+                                {[...Array(3)].map((_, i) => (
+                                    <div key={i} className="bg-white/50 rounded-[28px] p-6 border border-slate-100">
+                                        <div className="flex items-center gap-4 mb-4">
+                                            <Skeleton className="h-12 w-12 rounded-2xl" />
+                                            <div className="space-y-1">
+                                                <Skeleton className="h-4 w-32 rounded-lg" />
+                                                <Skeleton className="h-3 w-20 rounded-md" />
+                                            </div>
+                                        </div>
+                                        <Skeleton className="h-20 w-full rounded-2xl" />
                                     </div>
-                                    <Skeleton className="h-20 w-full rounded-xl" />
-                                </div>
-                            ))}
+                                ))}
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -75,6 +95,7 @@ function StoreOperationsSkeleton() {
         </div>
     )
 }
+
 
 // ─── Main Page ───────────────────────────────────────────────────────────────
 export default function StoreOperationsPage() {
@@ -345,99 +366,143 @@ export default function StoreOperationsPage() {
     ] as const
 
     return (
-        <div className="space-y-6 max-w-[1600px] mx-auto animate-in fade-in duration-500 pb-20">
-            {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="space-y-8 max-w-[1600px] mx-auto animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
+            {/* Header Section */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                 <div>
-                    <h1 className="text-3xl font-black text-slate-900 tracking-tight flex items-center gap-3">
-                        <div className="p-2 bg-blue-600 rounded-2xl text-white shadow-lg shadow-blue-200">
-                            <GanttChart className="w-8 h-8" />
+                    <div className="flex items-center gap-4 mb-2">
+                        <div className="p-3 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl text-white shadow-xl shadow-blue-500/20 ring-1 ring-white/20">
+                            <GanttChart className="w-7 h-7" />
                         </div>
-                        Điều Phối Thông Minh
-                    </h1>
-                    <p className="text-slate-500 font-medium ml-14 mt-1" />
+                        <h1 className="text-3xl font-black text-slate-900 tracking-tight">
+                            Vận Hành Hệ Thống
+                        </h1>
+                    </div>
+                    <p className="text-sm font-bold text-slate-400 uppercase tracking-widest ml-1 bg-slate-100/50 px-3 py-1 rounded-lg inline-block">
+                        Trung tâm điều phối & Quản lý cửa hàng
+                    </p>
                 </div>
-                <div className="flex gap-3">
-                    <button onClick={() => setIsQuoteModalOpen(true)} className="flex items-center gap-2 px-5 py-3 bg-white border border-blue-100 text-blue-600 rounded-2xl font-bold shadow-sm hover:shadow-md transition-all">
-                        <PlusCircle className="w-5 h-5" /> Báo Giá Nhanh
+                <div className="flex items-center gap-3">
+                    <button
+                        onClick={() => setIsQuoteModalOpen(true)}
+                        className="flex items-center gap-2 px-6 py-3.5 bg-white border border-slate-200 text-slate-700 rounded-2xl text-xs font-black uppercase tracking-widest shadow-sm hover:shadow-md hover:border-blue-200 transition-all group"
+                    >
+                        <PlusCircle className="w-4 h-4 text-blue-600 group-hover:scale-110 transition-transform" /> Báo Giá Nhanh
                     </button>
-                    <button onClick={() => setIsExpenseModalOpen(true)} className="flex items-center gap-2 px-5 py-3 bg-blue-600 text-white rounded-2xl font-bold shadow-lg shadow-blue-200 hover:bg-blue-700 transition-all">
-                        <DollarSign className="w-5 h-5" /> Ghi Chi Phí
+                    <button
+                        onClick={() => setIsExpenseModalOpen(true)}
+                        className="flex items-center gap-2 px-6 py-3.5 bg-blue-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg shadow-blue-500/20 hover:bg-blue-700 hover:-translate-y-0.5 transition-all"
+                    >
+                        <DollarSign className="w-4 h-4" /> Ghi Chi Phí
                     </button>
                 </div>
             </div>
 
-            {/* Snapshot cards */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <div className="bg-white rounded-[32px] p-6 shadow-sm border border-slate-100">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Tiền tài xế đang cầm</p>
-                    <p className="text-2xl font-black text-slate-900">{formatCurrency(cashItems.reduce((a, c) => a + c.amount, 0))}</p>
+            {/* Snapshot Metrics Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div className="bg-white/70 backdrop-blur-xl rounded-[32px] p-7 shadow-sm border border-white/50 ring-1 ring-slate-200/50">
+                    <div className="flex items-center justify-between mb-4">
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">Tiền tài xế đang giữ</p>
+                        <div className="w-8 h-8 rounded-xl bg-orange-50 flex items-center justify-center">
+                            <Wallet className="w-4 h-4 text-orange-500" />
+                        </div>
+                    </div>
+                    <p className="text-2xl font-black text-slate-900 tracking-tight">{formatCurrency(cashItems.reduce((a, c) => a + c.amount, 0))}</p>
                 </div>
-                <div className="bg-white rounded-[32px] p-6 shadow-sm border border-slate-100">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Đơn chờ điều xe</p>
-                    <p className="text-2xl font-black text-blue-600">{orders.filter(o => !o.driverId).length} Đơn</p>
+
+                <div className="bg-white/70 backdrop-blur-xl rounded-[32px] p-7 shadow-sm border border-white/50 ring-1 ring-slate-200/50">
+                    <div className="flex items-center justify-between mb-4">
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">Đơn chờ điều xe</p>
+                        <div className="w-8 h-8 rounded-xl bg-blue-50 flex items-center justify-center">
+                            <Truck className="w-4 h-4 text-blue-600" />
+                        </div>
+                    </div>
+                    <p className="text-2xl font-black text-blue-600 tracking-tight">{orders.filter(o => !o.driverId).length} Đơn hàng</p>
                 </div>
-                <div className="bg-white rounded-[32px] p-6 shadow-sm border border-slate-100">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Báo giá chờ duyệt</p>
-                    <p className="text-2xl font-black text-emerald-600">{quotes.filter(q => q.status === 'PENDING').length} Bản</p>
+
+                <div className="bg-white/70 backdrop-blur-xl rounded-[32px] p-7 shadow-sm border border-white/50 ring-1 ring-slate-200/50">
+                    <div className="flex items-center justify-between mb-4">
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">Báo giá đang chờ</p>
+                        <div className="w-8 h-8 rounded-xl bg-emerald-50 flex items-center justify-center">
+                            <FileText className="w-4 h-4 text-emerald-600" />
+                        </div>
+                    </div>
+                    <p className="text-2xl font-black text-emerald-600 tracking-tight">{quotes.filter(q => q.status === 'PENDING').length} Bản thảo</p>
                 </div>
-                <div className="bg-white rounded-[32px] p-6 shadow-sm border border-slate-100">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Chi phí trong ngày</p>
-                    <p className="text-2xl font-black text-red-500">{formatCurrency(expenses.reduce((a, c) => a + c.amount, 0))}</p>
+
+                <div className="bg-white/70 backdrop-blur-xl rounded-[32px] p-7 shadow-sm border border-white/50 ring-1 ring-slate-200/50">
+                    <div className="flex items-center justify-between mb-4">
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">Chi phí hằng ngày</p>
+                        <div className="w-8 h-8 rounded-xl bg-red-50 flex items-center justify-center">
+                            <DollarSign className="w-4 h-4 text-red-500" />
+                        </div>
+                    </div>
+                    <p className="text-2xl font-black text-red-500 tracking-tight">{formatCurrency(expenses.reduce((a, c) => a + c.amount, 0))}</p>
                 </div>
             </div>
 
-            {/* Tab container */}
-            <div className="bg-white rounded-[40px] shadow-sm border border-slate-100 overflow-hidden">
-                <div className="flex items-center gap-1 px-6 py-3 bg-slate-50 border-b border-slate-100">
-                    {tabs.map(tab => (
-                        <button
-                            key={tab.id}
-                            onClick={() => setActiveTab(tab.id)}
-                            className={`flex items-center gap-2 px-6 py-3 rounded-2xl text-sm font-black transition-all ${activeTab === tab.id ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}
-                        >
-                            <tab.icon className="w-4 h-4" /> {tab.name}
-                        </button>
-                    ))}
-                </div>
+            {/* Main Content Area with Glass Navigation */}
+            <div className="relative group">
+                <div className="absolute -inset-1 bg-gradient-to-r from-blue-100 to-indigo-100 rounded-[44px] blur-2xl opacity-30 group-hover:opacity-50 transition-opacity"></div>
+                <div className="relative bg-white/70 backdrop-blur-2xl rounded-[40px] shadow-2xl shadow-slate-200/50 border border-white/80 overflow-hidden min-h-[600px]">
+                    {/* Navigation Tabs */}
+                    <div className="flex items-center gap-1.5 px-6 py-4 bg-slate-50/50 border-b border-slate-100">
+                        {tabs.map(tab => (
+                            <button
+                                key={tab.id}
+                                onClick={() => setActiveTab(tab.id)}
+                                className={`flex items-center gap-3 px-6 py-3 rounded-2xl transition-all duration-300 ${activeTab === tab.id
+                                    ? 'bg-white text-blue-600 shadow-md shadow-slate-200/50 ring-1 ring-slate-100'
+                                    : 'text-slate-400 hover:text-slate-600 hover:bg-white/50'
+                                    }`}
+                            >
+                                <tab.icon className={`w-4 h-4 transition-transform duration-300 ${activeTab === tab.id ? 'scale-110' : 'opacity-70'}`} />
+                                <span className="text-[11px] font-black uppercase tracking-widest">{tab.name}</span>
+                            </button>
+                        ))}
+                    </div>
 
-                <div className="p-8">
-                    {activeTab === 'dispatch' && (
-                        <DispatchTab
-                            orders={orders}
-                            drivers={drivers}
-                            onDragStart={handleDragStart}
-                            onDragOver={handleDragOver}
-                            onDragEnd={handleDragEnd}
-                            onStartTrip={handleStartTrip}
-                            onViewDetail={handleViewDetail}
-                            onEditOrder={handleEditOrder}
-                            activeOrder={activeOrder}
-                        />
-                    )}
-                    {activeTab === 'cash' && (
-                        <CashTab
-                            cashItems={cashItems}
-                            cashHistoryItems={cashHistoryItems}
-                            cashSearchTerm={cashSearchTerm}
-                            setCashSearchTerm={setCashSearchTerm}
-                            cashPage={cashPage}
-                            setCashPage={setCashPage}
-                            cashHistoryPage={cashHistoryPage}
-                            setCashHistoryPage={setCashHistoryPage}
-                            onConfirmCash={handleConfirmCash}
-                            ITEMS_PER_PAGE={ITEMS_PER_PAGE}
-                        />
-                    )}
-                    {activeTab === 'quotes' && (
-                        <QuotesTab
-                            quotes={quotes}
-                            onAcceptQuote={handleAcceptQuote}
-                            onDeleteQuote={handleDeleteQuote}
-                            onViewDetail={(q) => { setSelectedQuote(q); setIsQuoteDetailModalOpen(true) }}
-                        />
-                    )}
-                    {activeTab === 'expenses' && <ExpensesTab expenses={expenses} />}
+                    {/* Tab Content */}
+                    <div className="p-8 md:p-10">
+                        <div className="animate-in fade-in zoom-in-95 duration-500">
+                            {activeTab === 'dispatch' && (
+                                <DispatchTab
+                                    orders={orders}
+                                    drivers={drivers}
+                                    onDragStart={handleDragStart}
+                                    onDragOver={handleDragOver}
+                                    onDragEnd={handleDragEnd}
+                                    onStartTrip={handleStartTrip}
+                                    onViewDetail={handleViewDetail}
+                                    onEditOrder={handleEditOrder}
+                                    activeOrder={activeOrder}
+                                />
+                            )}
+                            {activeTab === 'cash' && (
+                                <CashTab
+                                    cashItems={cashItems}
+                                    cashHistoryItems={cashHistoryItems}
+                                    cashSearchTerm={cashSearchTerm}
+                                    setCashSearchTerm={setCashSearchTerm}
+                                    cashPage={cashPage}
+                                    setCashPage={setCashPage}
+                                    cashHistoryPage={cashHistoryPage}
+                                    setCashHistoryPage={setCashHistoryPage}
+                                    onConfirmCash={handleConfirmCash}
+                                    ITEMS_PER_PAGE={ITEMS_PER_PAGE}
+                                />
+                            )}
+                            {activeTab === 'quotes' && (
+                                <QuotesTab
+                                    quotes={quotes}
+                                    onAcceptQuote={handleAcceptQuote}
+                                    onDeleteQuote={handleDeleteQuote}
+                                    onViewDetail={(q) => { setSelectedQuote(q); setIsQuoteDetailModalOpen(true) }}
+                                />
+                            )}
+                            {activeTab === 'expenses' && <ExpensesTab expenses={expenses} />}
+                        </div>
+                    </div>
                 </div>
             </div>
 

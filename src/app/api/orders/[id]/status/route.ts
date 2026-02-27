@@ -166,6 +166,7 @@ export async function PUT(
         await (tx as any).orderDelivery.create({
           data: {
             orderId: order.id,
+            driverId: order.driverId, // Synchronize driver from order
             deliveryToken: token,
             status: 'SHIPPED'
           }

@@ -65,6 +65,15 @@ export async function GET(
         deliveryPhases: true,
         contractor: {
           select: { id: true, displayName: true, phone: true }
+        },
+        driverId: true,
+        driver: {
+          select: {
+            id: true,
+            user: {
+              select: { name: true, phone: true }
+            }
+          }
         }
       }
     })

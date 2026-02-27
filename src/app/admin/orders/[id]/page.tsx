@@ -20,7 +20,8 @@ import {
     ExternalLink,
     Box,
     History,
-    Loader2
+    Loader2,
+    PhoneCall
 } from 'lucide-react'
 import { toast, Toaster } from 'react-hot-toast'
 import { fetchWithAuth } from '@/lib/api-client'
@@ -66,6 +67,22 @@ interface Order {
     createdAt: string
     updatedAt: string
     notes?: string
+    driverId?: string
+    driver?: {
+        id: string
+        user: {
+            name: string
+            phone?: string
+        }
+    }
+}
+
+interface Driver {
+    id: string
+    user: {
+        name: string
+        email: string
+    }
 }
 
 export default function OrderDetailPage() {
@@ -76,10 +93,13 @@ export default function OrderDetailPage() {
     const [order, setOrder] = useState<Order | null>(null)
     const [loading, setLoading] = useState(true)
     const [currentTime, setCurrentTime] = useState<string>('')
+    const [drivers, setDrivers] = useState<Driver[]>([])
+    const [assigningDriver, setAssigningDriver] = useState(false)
 
     useEffect(() => {
         if (orderId) {
             fetchOrder()
+            fetchDrivers()
         }
         // Set time on client side only to avoid hydration mismatch
         setCurrentTime(new Date().toLocaleString('vi-VN'))
@@ -102,6 +122,46 @@ export default function OrderDetailPage() {
             toast.error('Lỗi khi tải dữ liệu đơn hàng')
         } finally {
             setLoading(false)
+        }
+    }
+
+    const fetchDrivers = async () => {
+        try {
+            const res = await fetchWithAuth('/api/store/dispatch')
+            if (res.ok) {
+                const result = await res.json()
+                if (result.success) {
+                    setDrivers(result.data.drivers || [])
+                }
+            }
+        } catch (error) {
+            console.error('Error fetching drivers:', error)
+        }
+    }
+
+    const handleAssignDriver = async (driverId: string) => {
+        try {
+            setAssigningDriver(true)
+            const res = await fetchWithAuth('/api/store/dispatch', {
+                method: 'PUT',
+                body: JSON.stringify({
+                    orderId,
+                    driverId
+                })
+            })
+
+            const result = await res.json()
+            if (result.success) {
+                toast.success('Đã phân công tài xế thành công')
+                fetchOrder() // Refresh order data
+            } else {
+                toast.error(result.error || 'Lỗi khi phân công tài xế')
+            }
+        } catch (error) {
+            console.error('Error assigning driver:', error)
+            toast.error('Lỗi kết nối khi phân công tài xế')
+        } finally {
+            setAssigningDriver(false)
         }
     }
 
@@ -380,6 +440,67 @@ export default function OrderDetailPage() {
                                 </Link>
                             )}
                         </div>
+                    </div>
+
+                    {/* Driver Assignment Card */}
+                    <div className="bg-white rounded-[32px] border border-slate-100 p-8 shadow-sm">
+                        <div className="flex items-center justify-between mb-6">
+                            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Tài xế phụ trách</h3>
+                            <div className="p-2 bg-blue-50 rounded-xl">
+                                <Truck className="w-4 h-4 text-blue-600" />
+                            </div>
+                        </div>
+
+                        {order.driver ? (
+                            <div className="space-y-4">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center font-black text-blue-600">
+                                        {order.driver.user.name[0]}
+                                    </div>
+                                    <div className="min-w-0">
+                                        <p className="text-sm font-black text-slate-900 truncate">
+                                            {order.driver.user.name}
+                                        </p>
+                                        <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                                            {order.driver.user.phone || 'Không có SĐT'}
+                                        </p>
+                                    </div>
+                                </div>
+                                {order.driver.user.phone && (
+                                    <button
+                                        onClick={() => window.location.href = `tel:${order.driver?.user.phone}`}
+                                        className="w-full flex items-center justify-center gap-2 py-3 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/20"
+                                    >
+                                        <PhoneCall className="w-3 h-3" /> Gọi tài xế
+                                    </button>
+                                )}
+                                <button
+                                    onClick={() => handleAssignDriver('')}
+                                    disabled={assigningDriver}
+                                    className="w-full py-2.5 text-[10px] font-black uppercase tracking-widest text-red-500 bg-red-50 rounded-xl hover:bg-red-100 transition-colors"
+                                >
+                                    Hủy phân công
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="space-y-4">
+                                <select
+                                    disabled={assigningDriver}
+                                    onChange={(e) => e.target.value && handleAssignDriver(e.target.value)}
+                                    className="w-full bg-slate-50 border-none rounded-xl px-4 py-3 text-sm font-bold text-slate-700 focus:ring-2 focus:ring-blue-100 transition-all outline-none"
+                                >
+                                    <option value="">Chọn tài xế...</option>
+                                    {drivers.map(driver => (
+                                        <option key={driver.id} value={driver.id}>
+                                            {driver.user.name}
+                                        </option>
+                                    ))}
+                                </select>
+                                <p className="text-[10px] text-slate-400 font-medium italic">
+                                    Giao hàng cho tài xế để bắt đầu quá trình vận chuyển.
+                                </p>
+                            </div>
+                        )}
                     </div>
 
                     {/* Shipping Card */}
