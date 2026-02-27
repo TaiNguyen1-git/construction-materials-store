@@ -135,8 +135,12 @@ export default function AdminDeliveryTrackingPage() {
         })
 
         // Add or update markers
-        data.forEach(d => {
+        const validDeliveries = data.filter(d => d.currentLat !== 0 && d.currentLng !== 0 && d.currentLat && d.currentLng)
+        const bounds: any[] = []
+
+        validDeliveries.forEach(d => {
             const position: [number, number] = [d.currentLat, d.currentLng]
+            bounds.push(position)
 
             if (markersRef.current[d.id]) {
                 markersRef.current[d.id].setLatLng(position)
@@ -177,6 +181,11 @@ export default function AdminDeliveryTrackingPage() {
                     })
             }
         })
+
+        // Auto-zoom map to fit all markers
+        if (bounds.length > 0) {
+            leafletRef.current.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 })
+        }
     }
 
     const handleCallDriver = (delivery: Delivery) => {
@@ -258,7 +267,7 @@ export default function AdminDeliveryTrackingPage() {
             {/* Left Sidebar Overlay */}
             <div className="absolute left-8 top-44 bottom-12 w-80 z-[1000] hidden xl:flex flex-col gap-6 pointer-events-none">
                 <div className="bg-white/70 backdrop-blur-2xl rounded-[2.5rem] border border-white/40 p-6 flex flex-col flex-1 pointer-events-auto shadow-[0_30px_60px_rgba(0,0,0,0.1)]">
-                    <div className="flex items-center justify-between mb-6 px-2">
+                    <div className="flex items-center justify-between mb-6 px-2 shrink-0">
                         <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-3">
                             <Navigation size={12} className="text-blue-500" />
                             Đang vận chuyển ({deliveries.length})
@@ -280,7 +289,13 @@ export default function AdminDeliveryTrackingPage() {
                             <div
                                 key={d.id}
                                 className="bg-white border border-slate-100 hover:border-blue-200 hover:bg-blue-50/10 p-4 rounded-2xl transition-all cursor-pointer group relative overflow-hidden shrink-0"
-                                onClick={() => leafletRef.current?.setView([d.currentLat, d.currentLng], 15)}
+                                onClick={() => {
+                                    if (d.currentLat !== 0 && d.currentLng !== 0) {
+                                        leafletRef.current?.setView([d.currentLat, d.currentLng], 15)
+                                    } else {
+                                        toast.error('Chưa có tín hiệu GPS cho đơn này')
+                                    }
+                                }}
                             >
                                 <div className="flex justify-between items-start gap-3">
                                     <div className="min-w-0 flex-1">
