@@ -266,7 +266,7 @@ export default function AdminDeliveryTrackingPage() {
 
             {/* Left Sidebar Overlay */}
             <div className="absolute left-8 top-44 bottom-12 w-80 z-[1000] hidden xl:flex flex-col gap-6 pointer-events-none">
-                <div className="bg-white/70 backdrop-blur-2xl rounded-[2.5rem] border border-white/40 p-6 flex flex-col flex-1 pointer-events-auto shadow-[0_30px_60px_rgba(0,0,0,0.1)]">
+                <div className="bg-white/70 backdrop-blur-2xl rounded-[2.5rem] border border-white/40 p-6 flex flex-col flex-1 pointer-events-auto shadow-[0_30px_60px_rgba(0,0,0,0.1)] min-h-0 overflow-hidden">
                     <div className="flex items-center justify-between mb-6 px-2 shrink-0">
                         <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-3">
                             <Navigation size={12} className="text-blue-500" />
