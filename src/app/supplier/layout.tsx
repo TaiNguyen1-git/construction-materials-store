@@ -23,7 +23,8 @@ import {
     ShieldCheck,
     ChevronLeft,
     ChevronRight,
-    ChevronDown
+    ChevronDown,
+    TrendingDown
 } from 'lucide-react'
 
 export default function SupplierLayout({ children }: { children: React.ReactNode }) {
@@ -105,6 +106,7 @@ export default function SupplierLayout({ children }: { children: React.ReactNode
             group: 'Quản lý bán hàng',
             items: [
                 { name: 'Sản phẩm', href: '/supplier/products', icon: Package },
+                { name: 'Cơ hội thầu', href: '/supplier/opportunities', icon: TrendingDown },
                 { name: 'Đơn hàng', href: '/supplier/orders', icon: FileText },
                 { name: 'Khuyến mãi', href: '/supplier/promotions', icon: Percent },
                 { name: 'Trả hàng', href: '/supplier/returns', icon: RotateCcw },

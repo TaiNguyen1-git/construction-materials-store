@@ -18,7 +18,7 @@ export async function POST(
             return NextResponse.json(createErrorResponse('Missing coordinates', 'VALIDATION_ERROR'), { status: 400 })
         }
 
-        const delivery = await (prisma as any).orderDelivery.update({
+        const delivery = await prisma.orderDelivery.update({
             where: { deliveryToken: token },
             data: {
                 currentLat: lat,

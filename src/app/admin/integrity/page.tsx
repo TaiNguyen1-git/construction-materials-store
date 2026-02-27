@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { AlertCircle, CheckCircle2, Shield, Search, Filter, MoreVertical, Eye, Download, Info } from 'lucide-react'
+import toast from 'react-hot-toast'
 
 interface IntegrityStats {
     overview: {
@@ -68,7 +70,8 @@ export default function IntegrityDashboard() {
     const [kycQueue, setKycQueue] = useState<KYCDocument[]>([])
     const [restrictions, setRestrictions] = useState<UserRestriction[]>([])
     const [auditLogs, setAuditLogs] = useState<AuditLog[]>([])
-    const [activeTab, setActiveTab] = useState<'overview' | 'alerts' | 'kyc' | 'restrictions' | 'audit'>('overview')
+    const [workerFraud, setWorkerFraud] = useState<any[]>([])
+    const [activeTab, setActiveTab] = useState<'overview' | 'alerts' | 'kyc' | 'restrictions' | 'audit' | 'worker-fraud'>('overview')
     const [loading, setLoading] = useState(true)
 
     useEffect(() => {
@@ -98,6 +101,10 @@ export default function IntegrityDashboard() {
                 const res = await fetch('/api/admin/integrity?view=audit-logs')
                 const data = await res.json()
                 if (data.success) setAuditLogs(data.data.logs)
+            } else if (activeTab === 'worker-fraud') {
+                const res = await fetch('/api/admin/integrity/worker-fraud')
+                const data = await res.json()
+                if (data.success) setWorkerFraud(data.data)
             }
         } catch (error) {
             console.error('Failed to fetch integrity data:', error)
@@ -191,6 +198,7 @@ export default function IntegrityDashboard() {
                             { id: 'alerts', label: '🚨 Cảnh báo', count: stats?.overview.openAlerts },
                             { id: 'kyc', label: '📋 Duyệt KYC', count: stats?.overview.pendingKYC },
                             { id: 'restrictions', label: '⛔ Hạn chế', count: stats?.overview.activeRestrictions },
+                            { id: 'worker-fraud', label: '📸 Kiểm thợ', count: workerFraud.length || null },
                             { id: 'audit', label: '🕵️ Audit Logs', count: null }
                         ].map(tab => (
                             <button
@@ -467,8 +475,8 @@ export default function IntegrityDashboard() {
                                                         </td>
                                                         <td className="px-6 py-4 whitespace-nowrap">
                                                             <span className={`px-2 py-1 text-xs font-medium rounded ${log.severity === 'CRITICAL' ? 'bg-red-100 text-red-700' :
-                                                                    log.severity === 'WARNING' ? 'bg-orange-100 text-orange-700' :
-                                                                        'bg-blue-100 text-blue-700'
+                                                                log.severity === 'WARNING' ? 'bg-orange-100 text-orange-700' :
+                                                                    'bg-blue-100 text-blue-700'
                                                                 }`}>
                                                                 {log.action}
                                                             </span>
@@ -491,6 +499,114 @@ export default function IntegrityDashboard() {
                                             )}
                                         </tbody>
                                     </table>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Worker Fraud Tab */}
+                        {activeTab === 'worker-fraud' && (
+                            <div className="space-y-6">
+                                <div className="bg-orange-50 border border-orange-100 p-4 rounded-xl flex items-center gap-3">
+                                    <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center text-orange-600">
+                                        <AlertCircle className="w-6 h-6" />
+                                    </div>
+                                    <div>
+                                        <h4 className="font-bold text-orange-900">Giám sát công trường AI</h4>
+                                        <p className="text-sm text-orange-700">Hệ thống đang tự động lọc các báo cáo có dấu hiệu gian lận về vị trí hoặc hình ảnh.</p>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 gap-4">
+                                    {workerFraud.length === 0 ? (
+                                        <div className="text-center py-20 bg-white rounded-xl border border-dashed border-gray-300">
+                                            <CheckCircle2 className="w-12 h-12 text-green-500 mx-auto mb-2" />
+                                            <p className="text-gray-500 font-medium">Chưa phát hiện hành vi gian lận nào mới</p>
+                                        </div>
+                                    ) : (
+                                        workerFraud.map(report => (
+                                            <div key={report.id} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex flex-col md:flex-row gap-6">
+                                                <div className="w-full md:w-48 h-48 bg-gray-100 rounded-xl overflow-hidden relative group">
+                                                    <img src={report.photoUrl} alt="Report" className="w-full h-full object-cover" />
+                                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                        <a href={report.photoUrl} target="_blank" className="text-white text-xs font-bold underline">Xem ảnh lớn</a>
+                                                    </div>
+                                                </div>
+
+                                                <div className="flex-1 space-y-3">
+                                                    <div className="flex items-center justify-between">
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-xs font-black bg-red-100 text-red-700 px-2 py-1 rounded uppercase">
+                                                                RỦI RO: {report.riskScore}%
+                                                            </span>
+                                                            <span className="text-sm font-bold text-gray-900">{report.project.title}</span>
+                                                        </div>
+                                                        <span className="text-[10px] text-gray-400 font-medium">{new Date(report.createdAt).toLocaleString('vi-VN')}</span>
+                                                    </div>
+
+                                                    <div className="flex flex-wrap gap-2">
+                                                        {report.fraudType.map((t: string) => (
+                                                            <span key={t} className="text-[10px] font-black bg-slate-900 text-white px-2 py-0.5 rounded-full">
+                                                                {t}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+
+                                                    <p className="text-sm text-red-600 font-medium bg-red-50 p-2 rounded-lg border border-red-100">
+                                                        ⚠️ {report.fraudDetails}
+                                                    </p>
+
+                                                    <div className="grid grid-cols-2 gap-4 text-xs">
+                                                        <div>
+                                                            <span className="text-gray-400 block">Thợ báo cáo:</span>
+                                                            <span className="font-bold text-gray-700">{report.workerName}</span>
+                                                        </div>
+                                                        <div>
+                                                            <span className="text-gray-400 block">Nhà thầu:</span>
+                                                            <span className="font-bold text-gray-700">{report.contractor.name}</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div className="flex md:flex-col gap-2 justify-center">
+                                                    <button
+                                                        onClick={async () => {
+                                                            const res = await fetch('/api/admin/integrity/worker-fraud', {
+                                                                method: 'PATCH',
+                                                                headers: { 'Content-Type': 'application/json' },
+                                                                body: JSON.stringify({ reportId: report.id, status: 'APPROVED' })
+                                                            })
+                                                            if (res.ok) {
+                                                                toast.success('Đã chấp nhận báo cáo')
+                                                                fetchData()
+                                                            }
+                                                        }}
+                                                        className="px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold hover:bg-emerald-700 shadow-sm"
+                                                    >
+                                                        Chấp nhận
+                                                    </button>
+                                                    <button
+                                                        onClick={async () => {
+                                                            const reason = prompt('Lý do từ chối báo cáo (sẽ gửi cho thợ/nhà thầu):')
+                                                            if (reason) {
+                                                                const res = await fetch('/api/admin/integrity/worker-fraud', {
+                                                                    method: 'PATCH',
+                                                                    headers: { 'Content-Type': 'application/json' },
+                                                                    body: JSON.stringify({ reportId: report.id, status: 'REJECTED', rejectionReason: reason })
+                                                                })
+                                                                if (res.ok) {
+                                                                    toast.error('Đã từ chối báo cáo')
+                                                                    fetchData()
+                                                                }
+                                                            }
+                                                        }}
+                                                        className="px-4 py-2 bg-red-50 text-red-600 rounded-xl text-xs font-bold hover:bg-red-100"
+                                                    >
+                                                        Từ chối
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))
+                                    )}
                                 </div>
                             </div>
                         )}

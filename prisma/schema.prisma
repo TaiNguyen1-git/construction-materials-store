@@ -877,6 +877,7 @@ model Supplier {
   returns          PurchaseReturn[]
   documents        SupplierDocument[]
   disputes         Dispute[]
+  supplierBids     SupplierBid[]
 
   @@map("suppliers")
   @@index([name])
@@ -1604,12 +1605,32 @@ model PurchaseRequest {
   notes           String?
   createdAt       DateTime            @default(now())
   updatedAt       DateTime            @updatedAt
+  bids            SupplierBid[]
 
   @@map("purchase_requests")
   @@index([productId])
   @@index([status])
   @@index([priority])
   @@index([createdAt])
+}
+
+model SupplierBid {
+  id                String   @id @default(auto()) @map("_id") @db.ObjectId
+  purchaseRequestId String   @db.ObjectId
+  supplierId        String   @db.ObjectId
+  bidPrice          Float
+  deliveryDays      Int
+  notes             String?
+  status            String   @default("PENDING") // PENDING, ACCEPTED, REJECTED
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  purchaseRequest   PurchaseRequest @relation(fields: [purchaseRequestId], references: [id])
+  supplier          Supplier        @relation(fields: [supplierId], references: [id])
+
+  @@map("supplier_bids")
+  @@index([purchaseRequestId])
+  @@index([supplierId])
 }
 
 enum PurchaseRequestSource {
@@ -2040,7 +2061,11 @@ model WorkerReport {
   quoteId      String?  @db.ObjectId // Associated quote for milestones
   workerName   String
   photoUrl     String
-  imageHash    String?  // NEW: For duplicate detection (AI Anti-fraud)
+  imageHash    String?  // Strict content hash
+  pHash        String?  // NEW: Perceptual hash for visual similarity
+  lat          Float?   // NEW: GPS Latitude of photo
+  lng          Float?   // NEW: GPS Longitude of photo
+  takenAt      DateTime? // NEW: Original timestamp from EXIF
   notes        String?
   status       String   @default("PENDING") // PENDING, APPROVED, REJECTED
   customerStatus String @default("PENDING") // NEW: PENDING, APPROVED, DISPUTED
@@ -2131,6 +2156,8 @@ model ConstructionProject {
   description     String
   projectType     String
   location        String
+  lat             Float?   // NEW: Project GPS Latitude
+  lng             Float?   // NEW: Project GPS Longitude
   district        String?
   city            String   @default("Biên Hòa")
   estimatedBudget Float?
@@ -2397,6 +2424,7 @@ model Message {
   senderRole     String?
   realSenderId   String?
   content        String?
+  metadata       Json?
   
   // File attachments
   fileUrl        String?

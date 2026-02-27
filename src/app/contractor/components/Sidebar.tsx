@@ -16,6 +16,7 @@ import {
     Briefcase,
     Plus,
     Users,
+    Map,
     ChevronDown,
     ChevronRight,
     Wallet,
@@ -38,7 +39,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 
 
     // Grouped navigation items for better organization
-    const navGroups = [
+    const navGroups: { title: string; items: { href: string; icon: any; label: string; badge?: number }[] }[] = [
         {
             title: 'Tổng quan',
             items: [
@@ -50,6 +51,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
             title: 'Quản lý dự án',
             items: [
                 { href: '/contractor/projects', icon: Building2, label: 'Công trình của tôi' },
+                { href: '/contractor/monitoring', icon: Map, label: 'Giám sát thợ (Live)' },
                 { href: '/contractor/organization', icon: Users, label: 'Tổ chức & Đội nhóm' },
                 { href: '/contractor/team', icon: Users, label: 'Đội ngũ thợ' },
                 { href: '/contractor/quotes', icon: PenTool, label: 'Báo giá & Đấu thầu' },

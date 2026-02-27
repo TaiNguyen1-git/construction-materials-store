@@ -68,6 +68,24 @@ export default function WorkerReportPage() {
 
         setLoading(true)
         try {
+            // --- NEW: Capture GPS Location ---
+            let lat = null, lng = null
+            try {
+                const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+                    navigator.geolocation.getCurrentPosition(resolve, reject, {
+                        enableHighAccuracy: true,
+                        timeout: 5000,
+                        maximumAge: 0
+                    })
+                })
+                lat = pos.coords.latitude
+                lng = pos.coords.longitude
+            } catch (geoErr) {
+                console.warn('Could not get GPS location:', geoErr)
+                // We proceed but backend might reject if project has coordinates
+            }
+            // --------------------------------
+
             const res = await fetch('/api/public/report', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -76,7 +94,12 @@ export default function WorkerReportPage() {
                     workerName,
                     notes,
                     photoUrl: preview,
-                    milestoneId: selectedMilestone || null
+                    milestoneId: selectedMilestone || null,
+                    lat,
+                    lng,
+                    // In a real app, we'd compute hashes here or on upload
+                    imageHash: preview.split('/').pop(),
+                    takenAt: new Date().toISOString()
                 })
             })
 

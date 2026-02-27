@@ -10,7 +10,7 @@ import { createSuccessResponse, createErrorResponse } from '@/lib/api-types'
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json()
-        const { token, workerName, photoUrl, notes, milestoneId } = body
+        const { token, workerName, photoUrl, notes, milestoneId, imageHash, pHash, lat, lng, takenAt } = body
 
         if (!token || !workerName || !photoUrl) {
             return NextResponse.json(createErrorResponse('Thiếu thông tin báo cáo', 'VALIDATION_ERROR'), { status: 400 })
@@ -20,15 +20,7 @@ export async function POST(request: NextRequest) {
         const reportToken = await (prisma as any).projectReportToken.findUnique({
             where: { token, isActive: true },
             include: {
-                project: {
-                    include: {
-                        customer: {
-                            include: {
-                                user: true
-                            }
-                        }
-                    }
-                }
+                project: true
             }
         })
 
@@ -36,21 +28,55 @@ export async function POST(request: NextRequest) {
             return NextResponse.json(createErrorResponse('Link báo cáo không hợp lệ hoặc đã hết hạn', 'UNAUTHORIZED'), { status: 401 })
         }
 
-        // Create the worker report
-        // Check for duplicates (Simple Hash check for fraud prevention)
-        const imageHash = photoUrl; // In real app, this would be a hash of the image binary
-        const existingReport = await (prisma as any).workerReport.findFirst({
-            where: {
-                projectId: reportToken.projectId,
-                imageHash
-            }
-        })
+        // --- AI Anti-Fraud & Verification ---
 
-        if (existingReport) {
-            // We still allow it but mark it for contractor/customer review
-            console.warn('Duplicate image detected for project:', reportToken.projectId)
+        // 1. GPS Verification (Check if photo was taken at the site)
+        // ConstructionProject model needs lat/lng. We get it from the project relation.
+        const project = reportToken.project;
+        if (project?.lat && project?.lng && lat && lng) {
+            const R = 6371e3 // Earth radius in meters
+            const φ1 = (project.lat * Math.PI) / 180
+            const φ2 = (lat * Math.PI) / 180
+            const Δφ = ((lat - project.lat) * Math.PI) / 180
+            const Δλ = ((lng - project.lng) * Math.PI) / 180
+
+            const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+                Math.cos(φ1) * Math.cos(φ2) *
+                Math.sin(Δλ / 2) * Math.sin(Δλ / 2)
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+            const distance = R * c // distance in meters
+
+            if (distance > 300) { // Limit to 300m radius
+                return NextResponse.json(createErrorResponse(
+                    `Vị trí không khớp (${Math.round(distance)}m). Vui lòng gửi ảnh chụp tại công trình.`,
+                    'LOCATION_MISMATCH'
+                ), { status: 400 })
+            }
         }
 
+        // 2. Duplicate Detection (Strict Hash & Visual pHash)
+        if (imageHash || pHash) {
+            const existingReport = await (prisma as any).workerReport.findFirst({
+                where: {
+                    projectId: reportToken.projectId,
+                    OR: [
+                        imageHash ? { imageHash } : {},
+                        pHash ? { pHash } : {}
+                    ]
+                }
+            })
+
+            if (existingReport) {
+                const reason = existingReport.imageHash === imageHash ? 'ảnh cũ' : 'ảnh quá giống ảnh cũ'
+                return NextResponse.json(createErrorResponse(
+                    `Phát hiện gian lận: Hình ảnh này đã được sử dụng (${reason}).`,
+                    'FRAUD_DETECTED'
+                ), { status: 400 })
+            }
+        }
+        // ---------------------------
+
+        // Create the worker report
         const report = await (prisma as any).workerReport.create({
             data: {
                 projectId: reportToken.projectId,
@@ -58,7 +84,11 @@ export async function POST(request: NextRequest) {
                 milestoneId: milestoneId || null,
                 workerName,
                 photoUrl,
-                imageHash, // Store the hash
+                imageHash: imageHash || null,
+                pHash: pHash || null,
+                lat: lat ? parseFloat(lat) : null,
+                lng: lng ? parseFloat(lng) : null,
+                takenAt: takenAt ? new Date(takenAt) : null,
                 notes,
                 status: 'PENDING'
             }

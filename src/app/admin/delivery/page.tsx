@@ -80,13 +80,22 @@ export default function AdminDeliveryPage() {
                     <h1 className="text-2xl font-bold text-gray-900">Điều phối Vận chuyển</h1>
                     <p className="text-sm text-gray-500">Quản lý giao hàng và theo dõi tài xế thời gian thực</p>
                 </div>
-                <button
-                    onClick={fetchData}
-                    className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
-                >
-                    <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-                    Làm mới
-                </button>
+                <div className="flex gap-2">
+                    <Link
+                        href="/admin/delivery/tracking"
+                        className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-lg text-sm font-bold hover:bg-slate-800 transition-colors shadow-lg shadow-slate-200"
+                    >
+                        <Map className="w-4 h-4" />
+                        Theo dõi vệ tinh
+                    </Link>
+                    <button
+                        onClick={fetchData}
+                        className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
+                    >
+                        <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                        Làm mới
+                    </button>
+                </div>
             </div>
 
             {/* Stats Cards */}

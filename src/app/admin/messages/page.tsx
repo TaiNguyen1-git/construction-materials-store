@@ -6,7 +6,7 @@ import {
     Send, Paperclip, MessageCircle,
     Search, User, MoreVertical,
     Phone, ArrowLeft, Loader2,
-    Trash2, Flag, Check, CheckCheck,
+    Trash2, Flag, Check, CheckCheck, CheckCircle,
     Image as ImageIcon, FileText, X, Video, ChevronDown, Sparkles
 } from 'lucide-react'
 import { getAuthHeaders } from '@/lib/api-client'
@@ -27,6 +27,42 @@ function MessagesContent() {
     const [messages, setMessages] = useState<any[]>([])
     const [newMessage, setNewMessage] = useState('')
     const [sending, setSending] = useState(false)
+
+    const activeConv = conversations.find(c => c.id === selectedId)
+
+    const handleConfirmAgreement = async (msg: any) => {
+        if (msg.metadata?.isConfirmed || sending) return
+
+        setSending(true)
+        const loadToast = toast.loading('Đang ghi nhận thỏa thuận...')
+        try {
+            const res = await fetch('/api/admin/chat/confirm-agreement', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    messageId: msg.id,
+                    conversationId: activeConv?.id,
+                    proposedAmount: msg.metadata?.data?.proposedAmount,
+                    proposedDate: msg.metadata?.data?.proposedDate,
+                    description: msg.metadata?.data?.category || msg.content,
+                    type: msg.metadata?.type
+                })
+            })
+
+            if (res.ok) {
+                toast.success('Đã xác nhận thỏa thuận và cập nhật hệ thống!', { id: loadToast })
+                // Refresh messages
+                fetchMessages(activeConv!.id)
+            } else {
+                const err = await res.json()
+                toast.error(`Lỗi: ${err.error}`, { id: loadToast })
+            }
+        } catch (error) {
+            toast.error('Không thể kết nối máy chủ', { id: loadToast })
+        } finally {
+            setSending(false)
+        }
+    }
     const [uploading, setUploading] = useState(false)
 
     // Smart Reply State
@@ -41,6 +77,10 @@ function MessagesContent() {
     const fileInputRef = useRef<HTMLInputElement>(null)
     const messagesEndRef = useRef<HTMLDivElement>(null)
     const scrollContainerRef = useRef<HTMLDivElement>(null)
+    const [searchQuery, setSearchQuery] = useState('')
+    const [searchResults, setSearchResults] = useState<any[]>([])
+    const [isSearching, setIsSearching] = useState(false)
+    const [highlightId, setHighlightId] = useState<string | null>(null)
 
     // Initial Auth & Conversations
     useEffect(() => {
@@ -93,6 +133,15 @@ function MessagesContent() {
         }
     }
 
+    const scrollToMessage = (msgId: string) => {
+        setTimeout(() => {
+            const el = document.getElementById(`msg-${msgId}`)
+            if (el) {
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+            }
+        }, 300)
+    }
+
     // Scroll when messages change + Trigger Smart Reply
     useEffect(() => {
         scrollToBottom()
@@ -109,6 +158,12 @@ function MessagesContent() {
                 fetchSmartReplies(lastMsg.content, selectedId)
             } else {
                 setSmartReplies([])
+            }
+
+            // If we have a highlightId, clear it after a delay
+            if (highlightId) {
+                scrollToMessage(highlightId)
+                setTimeout(() => setHighlightId(null), 3000)
             }
         }
     }, [messages])
@@ -143,6 +198,40 @@ function MessagesContent() {
         } finally {
             setLoading(false)
         }
+    }
+
+    const handleSearch = async (val: string) => {
+        setSearchQuery(val)
+        if (val.length < 2) {
+            setSearchResults([])
+            setIsSearching(false)
+            return
+        }
+
+        setIsSearching(true)
+        try {
+            const res = await fetch(`/api/chat/search?q=${encodeURIComponent(val)}`, {
+                headers: getAuthHeaders()
+            })
+            if (res.ok) {
+                const json = await res.json()
+                setSearchResults(json.data)
+            }
+        } catch (err) {
+            console.error('Search error:', err)
+        } finally {
+            setIsSearching(false)
+        }
+    }
+
+    const jumpToMessage = (convId: string, msgId: string) => {
+        setSelectedId(convId)
+        setHighlightId(msgId)
+        // Clear search to show the conversation
+        setSearchQuery('')
+        setSearchResults([])
+
+        // Scroll to the message will be handled by the messages useEffect
     }
 
     // Smart Reply: Fetch AI suggestions for admin
@@ -466,13 +555,47 @@ function MessagesContent() {
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                         <input
                             type="text"
-                            placeholder="Tìm kiếm..."
+                            placeholder="Tìm nội dung tin nhắn..."
                             className="w-full pl-10 pr-4 py-2 bg-gray-100 border-none rounded-2xl text-sm focus:ring-2 focus:ring-indigo-500"
+                            value={searchQuery}
+                            onChange={(e) => handleSearch(e.target.value)}
                         />
+                        {searchQuery && (
+                            <button
+                                onClick={() => { setSearchQuery(''); setSearchResults([]); }}
+                                className="absolute right-3 top-1/2 -translate-y-1/2"
+                            >
+                                <X className="w-4 h-4 text-gray-400 hover:text-gray-600" />
+                            </button>
+                        )}
                     </div>
                 </div>
                 <div className="flex-1 overflow-y-auto custom-scrollbar">
-                    {loading ? (
+                    {searchQuery.length >= 2 ? (
+                        <div className="flex flex-col">
+                            <div className="px-4 py-2 bg-gray-50 text-[10px] font-black uppercase tracking-widest text-gray-400">
+                                {isSearching ? 'Đang tìm kiếm...' : `Tìm thấy ${searchResults.length} kết quả`}
+                            </div>
+                            {searchResults.map(result => (
+                                <button
+                                    key={result.id}
+                                    onClick={() => jumpToMessage(result.conversationId, result.id)}
+                                    className="w-full p-4 text-left hover:bg-indigo-50 border-b border-gray-50 transition-colors group"
+                                >
+                                    <div className="flex justify-between items-start mb-1">
+                                        <span className="font-bold text-xs text-indigo-600 truncate">{result.conversationTitle}</span>
+                                        <span className="text-[9px] text-gray-400 flex-shrink-0">{new Date(result.createdAt).toLocaleDateString('vi-VN')}</span>
+                                    </div>
+                                    <p className="text-[11px] text-gray-600 line-clamp-2 leading-relaxed italic">
+                                        "{result.content}"
+                                    </p>
+                                    <div className="mt-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <span className="text-[9px] font-bold text-indigo-500 uppercase">Xem chi tiết</span>
+                                    </div>
+                                </button>
+                            ))}
+                        </div>
+                    ) : loading ? (
                         <div className="flex flex-col items-center justify-center p-8 text-gray-400 gap-3">
                             <Loader2 className="w-6 h-6 animate-spin" />
                             <span className="text-xs font-bold uppercase tracking-wider text-[10px]">Đang tải...</span>
@@ -580,7 +703,7 @@ function MessagesContent() {
                                 const showAvatar = !isMe && (idx === 0 || messages[idx - 1].senderId !== msg.senderId)
 
                                 return (
-                                    <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'} items-end gap-2`}>
+                                    <div key={msg.id} id={`msg-${msg.id}`} className={`flex ${isMe ? 'justify-end' : 'justify-start'} items-end gap-2`}>
                                         {!isMe && (
                                             <div className="w-8 h-8 flex-shrink-0">
                                                 {showAvatar ? (
@@ -626,8 +749,49 @@ function MessagesContent() {
                                             <div className={`p-3.5 rounded-2xl shadow-sm border ${isMe
                                                 ? 'bg-indigo-600 text-white border-indigo-500 rounded-br-none'
                                                 : 'bg-white text-gray-800 border-gray-100 rounded-bl-none'
-                                                }`}>
+                                                } ${msg.id === highlightId ? 'ring-4 ring-amber-400 ring-offset-2 scale-[1.02] transition-all duration-500' : ''}`}>
                                                 {renderMessageContent(msg)}
+
+                                                {/* Smart Settlement Proposal UI */}
+                                                {(msg as any).metadata?.type === 'AGREEMENT_PROPOSAL' && (
+                                                    <div className={`mt-3 p-3 rounded-xl border-2 ${isMe ? 'bg-indigo-700/50 border-white/20' : 'bg-emerald-50 border-emerald-100'} animate-in zoom-in-95 duration-500`}>
+                                                        <div className="flex items-center justify-between mb-2">
+                                                            <div className="flex items-center gap-2">
+                                                                <div className={`p-1.5 rounded-lg ${isMe ? 'bg-indigo-400' : 'bg-emerald-500'} text-white`}>
+                                                                    <FileText className="w-3.5 h-3.5" />
+                                                                </div>
+                                                                <span className={`text-[10px] font-black uppercase tracking-wider ${isMe ? 'text-indigo-100' : 'text-emerald-700'}`}>
+                                                                    Phát hiện thỏa thuận
+                                                                </span>
+                                                            </div>
+                                                            {(msg as any).metadata?.isConfirmed && (
+                                                                <span className="flex items-center gap-1 text-[8px] font-black bg-emerald-500 text-white px-2 py-0.5 rounded-full uppercase tracking-tighter">
+                                                                    <CheckCircle className="w-2.5 h-2.5" />
+                                                                    Đã ký
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                        <p className={`text-[10px] leading-relaxed mb-3 font-medium ${isMe ? 'text-indigo-100' : 'text-slate-600'}`}>
+                                                            {(msg as any).metadata?.isConfirmed
+                                                                ? 'Thỏa thuận này đã được ghi nhận vào hệ thống quản lý dự án.'
+                                                                : 'Hệ thống AI nhận diện đây có vẻ là một lời chốt giá hoặc thỏa thuận. Bạn có muốn thực hiện hành động ngay không?'}
+                                                        </p>
+                                                        {!(msg as any).metadata?.isConfirmed && (
+                                                            <div className="flex gap-2">
+                                                                <button
+                                                                    onClick={() => handleConfirmAgreement(msg)}
+                                                                    disabled={sending}
+                                                                    className={`flex-1 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${isMe ? 'bg-white text-indigo-600 hover:bg-indigo-50' : 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm shadow-emerald-200'} ${sending ? 'opacity-50' : ''}`}
+                                                                >
+                                                                    Ký thỏa thuận
+                                                                </button>
+                                                                <button className={`px-2 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${isMe ? 'text-indigo-200 hover:text-white hover:bg-white/10' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'}`}>
+                                                                    Bỏ qua
+                                                                </button>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
                                             </div>
                                             <div className={`flex items-center gap-1.5 mt-1 ${isMe ? 'justify-end' : 'justify-start'}`}>
                                                 <span className="text-[9px] text-gray-400 font-bold uppercase">

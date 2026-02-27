@@ -58,6 +58,8 @@ export async function POST(request: NextRequest) {
             }
         }
 
+        const isAgreement = content && /chốt|đồng ý|ok|đã thỏa thuận|giá.*thống nhất/i.test(content) && content.length < 100
+
         const message = await prisma.message.create({
             data: {
                 conversationId,
@@ -69,7 +71,8 @@ export async function POST(request: NextRequest) {
                 fileUrl,
                 fileName,
                 fileType,
-                isRead: false
+                isRead: false,
+                metadata: isAgreement ? { type: 'AGREEMENT_PROPOSAL' } : undefined
             }
         })
 
@@ -106,7 +109,8 @@ export async function POST(request: NextRequest) {
                 fileName: fileName || null,
                 fileType: fileType || null,
                 createdAt: message.createdAt.toISOString(),
-                isRead: false
+                isRead: false,
+                metadata: message.metadata || null
             })
 
             // Trigger Web Push Notification if sending to Admin Support

@@ -13,7 +13,7 @@ import { pushNotificationToFirebase, cleanupOldFirebaseNotifications } from './f
 import { NotificationType, Priority } from '@prisma/client'
 
 export interface Notification {
-  type: 'LOW_STOCK' | 'REORDER_NEEDED' | 'PREDICTION_ALERT' | 'MONTHLY_REMINDER' | 'ORDER_NEW' | 'ORDER_UPDATE' | 'QUOTE_NEW' | 'QUOTE_UPDATE' | 'KYC_PENDING' | 'SMART_REORDER' | 'STOCK_UPDATE' | 'PROJECT_MATCH' | 'PAYMENT_UPDATE'
+  type: 'LOW_STOCK' | 'REORDER_NEEDED' | 'PREDICTION_ALERT' | 'MONTHLY_REMINDER' | 'ORDER_NEW' | 'ORDER_UPDATE' | 'QUOTE_NEW' | 'QUOTE_UPDATE' | 'KYC_PENDING' | 'SMART_REORDER' | 'STOCK_UPDATE' | 'PROJECT_MATCH' | 'PAYMENT_UPDATE' | 'FRAUD_ALERT'
   priority: 'HIGH' | 'MEDIUM' | 'LOW'
   title: string
   message: string
