@@ -53,83 +53,69 @@ function ProductsPageContent() {
   const searchParams = useSearchParams()
   const { addItem } = useCartStore()
 
-  const [allProducts, setAllProducts] = useState<Product[]>([]) // All products for local filtering
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]) // Results after filter/search
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
   const [localQuery, setLocalQuery] = useState(searchParams.get('q') || '')
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const [currentPage, setCurrentPage] = useState(1)
+  const [totalProducts, setTotalProducts] = useState(0)
   const itemsPerPage = 12
 
-  // Fetch everything once on mount (or major changes)
+  // Fetch categories once on mount
   useEffect(() => {
-    fetchAllProducts()
     fetchCategories()
   }, [])
 
-  // Sync local query with URL
+  // Sync local query with URL and reset page
   useEffect(() => {
     setLocalQuery(searchParams.get('q') || '')
+    setCurrentPage(1)
   }, [searchParams])
 
-  // Handle local filtering logic
+  // Handle server-side fetching logic
   useEffect(() => {
-    let result = [...allProducts]
+    const fetchProducts = async () => {
+      try {
+        setLoading(true)
 
-    // 1. Search Query
-    if (localQuery.trim()) {
-      const q = localQuery.toLowerCase().trim()
-      result = result.filter(p =>
-        p.name.toLowerCase().includes(q) ||
-        p.description?.toLowerCase().includes(q) ||
-        p.sku?.toLowerCase().includes(q) ||
-        p.category?.name.toLowerCase().includes(q)
-      )
-    }
+        const params = new URLSearchParams()
+        params.append('limit', itemsPerPage.toString())
+        params.append('page', currentPage.toString())
+        params.append('isActive', 'true')
 
-    // 2. Category Filter
-    const catId = searchParams.get('category')
-    if (catId) {
-      result = result.filter(p => p.category?.id === catId)
-    }
+        const q = searchParams.get('q')
+        if (q) params.append('q', q)
 
-    // 3. Price Filter
-    const minP = searchParams.get('minPrice')
-    const maxP = searchParams.get('maxPrice')
-    if (minP) result = result.filter(p => p.price >= parseFloat(minP))
-    if (maxP) result = result.filter(p => p.price <= parseFloat(maxP))
+        const category = searchParams.get('category')
+        if (category) params.append('category', category)
 
-    // 4. Sorting
-    const sort = searchParams.get('sort')
-    if (sort === 'price-asc') result.sort((a, b) => a.price - b.price)
-    else if (sort === 'price-desc') result.sort((a, b) => b.price - a.price)
-    else if (sort === 'name-asc') result.sort((a, b) => a.name.localeCompare(b.name))
-    else if (sort === 'name-desc') result.sort((a, b) => b.name.localeCompare(a.name))
-    else if (sort === 'newest') result.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        const minPrice = searchParams.get('minPrice')
+        if (minPrice) params.append('minPrice', minPrice)
 
-    setFilteredProducts(result)
-    setCurrentPage(1) // Reset to first page on filter change
-  }, [allProducts, localQuery, searchParams])
+        const maxPrice = searchParams.get('maxPrice')
+        if (maxPrice) params.append('maxPrice', maxPrice)
 
-  const fetchAllProducts = async () => {
-    try {
-      setLoading(true)
-      // Fetch a large batch since catalog is small
-      const response = await fetch(`/api/products?limit=1000&isActive=true`)
-      if (response.ok) {
-        const result = await response.json()
-        if (result.success && result.data) {
-          setAllProducts(result.data.data || [])
+        const sort = searchParams.get('sort')
+        if (sort) params.append('sort', sort)
+
+        const response = await fetch(`/api/products?${params.toString()}`)
+        if (response.ok) {
+          const result = await response.json()
+          if (result.success && result.data) {
+            setFilteredProducts(result.data.data || [])
+            setTotalProducts(result.data.pagination?.total || 0)
+          }
         }
+      } catch (error) {
+        console.error('Failed to fetch products:', error)
+        toast.error('Không thể tải sản phẩm')
+      } finally {
+        setLoading(false)
       }
-    } catch (error) {
-      console.error('Failed to fetch products:', error)
-      toast.error('Không thể tải sản phẩm')
-    } finally {
-      setLoading(false)
     }
-  }
+    fetchProducts()
+  }, [searchParams, currentPage])
 
   const fetchCategories = async () => {
     try {
@@ -217,7 +203,7 @@ function ProductsPageContent() {
                         {localQuery && (
                           <span className="text-indigo-600">Kết quả cho "{localQuery}":</span>
                         )}
-                        Hiển thị {filteredProducts.length} sản phẩm
+                        Hiển thị {totalProducts} sản phẩm
                       </>
                     )}
                   </div>
@@ -280,7 +266,6 @@ function ProductsPageContent() {
                 ? 'grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'
                 : 'grid-cols-1'}`}>
                 {filteredProducts
-                  .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
                   .map((product) => (
                     <ProductCard key={product.id} product={product as any} viewMode={viewMode} />
                   ))}
@@ -302,7 +287,7 @@ function ProductsPageContent() {
             )}
 
             {/* Pagination */}
-            {!loading && filteredProducts.length > itemsPerPage && (
+            {!loading && totalProducts > itemsPerPage && (
               <div className="mt-16 flex justify-center">
                 <div className="bg-white rounded-2xl shadow-xl p-2.5 flex items-center space-x-1 border border-slate-50">
                   <button
@@ -313,7 +298,7 @@ function ProductsPageContent() {
                     ← Trước
                   </button>
 
-                  {[...Array(Math.ceil(filteredProducts.length / itemsPerPage))].map((_, i) => (
+                  {[...Array(Math.min(10, Math.ceil(totalProducts / itemsPerPage)))].map((_, i) => (
                     <button
                       key={i + 1}
                       onClick={() => setCurrentPage(i + 1)}
@@ -327,8 +312,8 @@ function ProductsPageContent() {
                   ))}
 
                   <button
-                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, Math.ceil(filteredProducts.length / itemsPerPage)))}
-                    disabled={currentPage === Math.ceil(filteredProducts.length / itemsPerPage)}
+                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, Math.ceil(totalProducts / itemsPerPage)))}
+                    disabled={currentPage === Math.ceil(totalProducts / itemsPerPage)}
                     className="px-5 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-indigo-600 rounded-xl hover:bg-indigo-50/50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                   >
                     Sau →

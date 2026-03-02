@@ -60,16 +60,18 @@ export async function POST(request: NextRequest) {
     })
 
     // Update inventory (deduct stock)
-    for (const entry of entries) {
-      await prisma.inventoryItem.update({
-        where: { productId: entry.productId },
-        data: {
-          availableQuantity: {
-            decrement: entry.quantity
+    await prisma.$transaction(
+      entries.map((entry: any) =>
+        prisma.inventoryItem.update({
+          where: { productId: entry.productId },
+          data: {
+            availableQuantity: {
+              decrement: entry.quantity
+            }
           }
-        }
-      })
-    }
+        })
+      )
+    )
 
     return NextResponse.json(
       createSuccessResponse({

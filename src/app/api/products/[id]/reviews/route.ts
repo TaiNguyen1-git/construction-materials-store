@@ -60,20 +60,26 @@ export async function GET(
     ])
 
     // Get customer names from customer IDs
-    const reviewsWithCustomer = await Promise.all(
-      reviews.map(async (review) => {
-        const customer = await prisma.customer.findUnique({
-          where: { id: review.customerId },
-          include: { user: { select: { name: true } } }
-        })
+    const customerIds = reviews.map(r => r.customerId)
+    let customerMap = new Map()
 
-        return {
-          ...review,
-          customerName: customer?.user?.name || 'Anonymous',
-          customerId: undefined // Hide customer ID from response
-        }
+    if (customerIds.length > 0) {
+      const customers = await prisma.customer.findMany({
+        where: { id: { in: Array.from(new Set(customerIds.filter(Boolean) as string[])) } },
+        include: { user: { select: { name: true } } }
       })
-    )
+      customers.forEach(c => customerMap.set(c.id, c))
+    }
+
+    const reviewsWithCustomer = reviews.map((review) => {
+      const customer = review.customerId ? customerMap.get(review.customerId) : null
+
+      return {
+        ...review,
+        customerName: customer?.user?.name || 'Anonymous',
+        customerId: undefined // Hide customer ID from response
+      }
+    })
 
     const response = createPaginatedResponse(reviewsWithCustomer, total, page, limit)
 

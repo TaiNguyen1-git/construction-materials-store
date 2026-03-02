@@ -18,6 +18,7 @@ interface SupplierSectionProps {
     page: number
     onPageChange: (page: number) => void
     pageSize: number
+    totalItems: number
 }
 
 export default function SupplierSection({
@@ -32,19 +33,11 @@ export default function SupplierSection({
     onSearchChange,
     page,
     onPageChange,
-    pageSize
+    pageSize,
+    totalItems
 }: SupplierSectionProps) {
-    const filteredSuppliers = suppliers.filter(s =>
-        s.name.toLowerCase().includes(search.toLowerCase()) ||
-        (s.contactPerson && s.contactPerson.toLowerCase().includes(search.toLowerCase()))
-    )
-
-    const totalSuppliers = filteredSuppliers.length
-    const totalPages = Math.ceil(totalSuppliers / pageSize)
-    const paginatedSuppliers = filteredSuppliers.slice(
-        (page - 1) * pageSize,
-        page * pageSize
-    )
+    const totalPages = Math.ceil(totalItems / pageSize)
+    const paginatedSuppliers = suppliers
 
     return (
         <div className="bg-white rounded-lg shadow">
@@ -55,7 +48,7 @@ export default function SupplierSection({
                 <div className="flex items-center space-x-3">
                     <Building className="h-5 w-5 text-blue-600" />
                     <h2 className="text-lg font-semibold text-gray-900">Nhà Cung Cấp</h2>
-                    <span className="text-sm text-gray-500">({suppliers.length} nhà cung cấp)</span>
+                    <span className="text-sm text-gray-500">({totalItems} nhà cung cấp)</span>
                 </div>
                 {expanded ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
             </button>
@@ -187,7 +180,7 @@ export default function SupplierSection({
                                 <Pagination
                                     currentPage={page}
                                     totalPages={totalPages}
-                                    totalItems={totalSuppliers}
+                                    totalItems={totalItems}
                                     itemsPerPage={pageSize}
                                     onPageChange={onPageChange}
                                     loading={loading}

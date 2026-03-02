@@ -42,28 +42,36 @@ export async function GET(request: NextRequest) {
                     { priority: 'desc' },
                     { createdAt: 'desc' }
                 ]
-            })
+            });
 
-            // Lấy thêm thông tin sản phẩm và NCC
-            const enrichedRequests = await Promise.all(
-                requests.map(async (req) => {
-                    const product = await prisma.product.findUnique({
-                        where: { id: req.productId },
-                        select: { name: true, sku: true }
-                    })
-                    const supplier = req.supplierId ? await prisma.supplier.findUnique({
-                        where: { id: req.supplierId },
-                        select: { name: true }
-                    }) : null
+            const productIds = Array.from(new Set(requests.map(r => r.productId)));
+            const supplierIds = Array.from(new Set(requests.map(r => r.supplierId).filter(Boolean))) as string[];
 
-                    return {
-                        ...req,
-                        productName: product?.name,
-                        productSku: product?.sku,
-                        supplierName: supplier?.name
-                    }
+            const [products, suppliers] = await Promise.all([
+                prisma.product.findMany({
+                    where: { id: { in: productIds } },
+                    select: { id: true, name: true, sku: true }
+                }),
+                prisma.supplier.findMany({
+                    where: { id: { in: supplierIds } },
+                    select: { id: true, name: true }
                 })
-            )
+            ]);
+
+            const productMap = new Map(products.map(p => [p.id, p]));
+            const supplierMap = new Map(suppliers.map(s => [s.id, s]));
+
+            // Format cho frontend
+            const enrichedRequests = requests.map((req: any) => {
+                const product = productMap.get(req.productId);
+                const supplier = req.supplierId ? supplierMap.get(req.supplierId) : null;
+                return {
+                    ...req,
+                    productName: product?.name,
+                    productSku: product?.sku,
+                    supplierName: supplier?.name
+                };
+            })
 
             return NextResponse.json(enrichedRequests)
         }
@@ -84,20 +92,22 @@ export async function GET(request: NextRequest) {
                 }
             })
 
-            // Lấy thêm tên sản phẩm
-            const enriched = await Promise.all(
-                supplierProducts.map(async (sp) => {
-                    const product = await prisma.product.findUnique({
-                        where: { id: sp.productId },
-                        select: { name: true, sku: true }
-                    })
-                    return {
-                        ...sp,
-                        productName: product?.name,
-                        productSku: product?.sku
-                    }
-                })
-            )
+            const productIds = Array.from(new Set(supplierProducts.map(sp => sp.productId)));
+            const products = await prisma.product.findMany({
+                where: { id: { in: productIds } },
+                select: { id: true, name: true, sku: true }
+            });
+            const productMap = new Map(products.map(p => [p.id, p]));
+
+            // Format cho frontend
+            const enriched = supplierProducts.map((sp: any) => {
+                const product = productMap.get(sp.productId);
+                return {
+                    ...sp,
+                    productName: product?.name,
+                    productSku: product?.sku
+                }
+            })
 
             return NextResponse.json(enriched)
         }

@@ -65,15 +65,17 @@ export async function PUT(
         })
 
         // Restore inventory
-        for (const item of order.orderItems) {
-          await tx.inventoryItem.update({
-            where: { productId: item.productId },
-            data: {
-              availableQuantity: { increment: item.quantity },
-              reservedQuantity: { decrement: item.quantity }
-            }
-          })
-        }
+        await Promise.all(
+          order.orderItems.map((item) =>
+            tx.inventoryItem.update({
+              where: { productId: item.productId },
+              data: {
+                availableQuantity: { increment: item.quantity },
+                reservedQuantity: { decrement: item.quantity }
+              }
+            })
+          )
+        )
 
         return cancelled
       })

@@ -23,6 +23,7 @@ export default function ProductsSuppliersPage() {
 
   // Products state
   const [products, setProducts] = useState<Product[]>([])
+  const [totalProductItems, setTotalProductItems] = useState(0)
   const [productsLoading, setProductsLoading] = useState(true)
   const [productSearch, setProductSearch] = useState('')
   const [productPage, setProductPage] = useState(1)
@@ -40,6 +41,7 @@ export default function ProductsSuppliersPage() {
 
   // Suppliers state
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
+  const [totalSupplierItems, setTotalSupplierItems] = useState(0)
   const [suppliersLoading, setSuppliersLoading] = useState(false)
   const [supplierSearch, setSupplierSearch] = useState('')
   const [supplierPage, setSupplierPage] = useState(1)
@@ -60,22 +62,53 @@ export default function ProductsSuppliersPage() {
   const [newCategoryName, setNewCategoryName] = useState('')
   const [addingCategory, setAddingCategory] = useState(false)
 
+  // Stats
+  const [stats, setStats] = useState({
+    totalProducts: 0,
+    activeProducts: 0,
+    totalSuppliers: 0,
+    activeSuppliers: 0,
+    lowStockProducts: 0,
+    totalInventoryValue: 0
+  })
+
   useEffect(() => {
-    fetchProducts()
+    fetchStats()
     fetchCategories()
   }, [])
 
   useEffect(() => {
-    if (expandedSections.suppliers && suppliers.length === 0) {
-      fetchSuppliers()
+    const timer = setTimeout(() => {
+      fetchProducts()
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [productPage, productSearch])
+
+  useEffect(() => {
+    if (expandedSections.suppliers) {
+      const timer = setTimeout(() => {
+        fetchSuppliers()
+      }, 300)
+      return () => clearTimeout(timer)
     }
-  }, [expandedSections.suppliers])
+  }, [expandedSections.suppliers, supplierPage, supplierSearch])
 
   const toggleSection = (section: keyof typeof expandedSections) => {
     setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }))
   }
 
-  // --- API CALLS ---
+  const fetchStats = async () => {
+    try {
+      const res = await fetchWithAuth('/api/admin/stats/products')
+      if (res.ok) {
+        const data = await res.json()
+        if (data.success) {
+          setStats(data.data)
+        }
+      }
+    } catch (err) { console.error('Lỗi tải thống kê:', err) }
+  }
+
   const fetchCategories = async () => {
     try {
       const res = await fetchWithAuth('/api/categories')
@@ -109,10 +142,19 @@ export default function ProductsSuppliersPage() {
   const fetchProducts = async () => {
     try {
       setProductsLoading(true)
-      const res = await fetchWithAuth('/api/products?limit=1000&isActive=all')
+      const params = new URLSearchParams()
+      params.append('page', productPage.toString())
+      params.append('limit', productPageSize.toString())
+      params.append('isActive', 'all')
+      if (productSearch) {
+        params.append('search', productSearch)
+      }
+
+      const res = await fetchWithAuth(`/api/products?${params.toString()}`)
       if (res.ok) {
         const data = await res.json()
         setProducts(data.data?.data || data.data || [])
+        setTotalProductItems(data.data?.pagination?.total || data.pagination?.total || 0)
       }
     } catch { toast.error('Lỗi tải sản phẩm') }
     finally { setProductsLoading(false) }
@@ -121,10 +163,18 @@ export default function ProductsSuppliersPage() {
   const fetchSuppliers = async () => {
     try {
       setSuppliersLoading(true)
-      const res = await fetchWithAuth('/api/suppliers')
+      const params = new URLSearchParams()
+      params.append('page', supplierPage.toString())
+      params.append('limit', supplierPageSize.toString())
+      if (supplierSearch) {
+        params.append('search', supplierSearch)
+      }
+
+      const res = await fetchWithAuth(`/api/suppliers?${params.toString()}`)
       if (res.ok) {
         const data = await res.json()
         setSuppliers(Array.isArray(data.data) ? data.data : [])
+        setTotalSupplierItems(data.pagination?.total || 0)
       }
     } catch { toast.error('Lỗi tải nhà cung cấp') }
     finally { setSuppliersLoading(false) }
@@ -176,6 +226,7 @@ export default function ProductsSuppliersPage() {
         toast.success('Đã ngừng bán sản phẩm')
         setDeletingProduct(null)
         fetchProducts()
+        fetchStats()
       }
     } catch { toast.error('Lỗi xóa sản phẩm') }
   }
@@ -240,16 +291,16 @@ export default function ProductsSuppliersPage() {
         <div className="bg-white p-4 rounded-lg shadow border-l-4 border-blue-500 flex items-center justify-between">
           <div>
             <div className="text-sm text-gray-600">Tổng Sản Phẩm</div>
-            <div className="text-2xl font-bold text-gray-900">{products.length}</div>
-            <div className="text-xs text-green-600 mt-1">{products.filter(p => p.isActive).length} đang bán</div>
+            <div className="text-2xl font-bold text-gray-900">{stats.totalProducts}</div>
+            <div className="text-xs text-green-600 mt-1">{stats.activeProducts} đang bán</div>
           </div>
           <Package className="w-8 h-8 text-blue-600" />
         </div>
         <div className="bg-white p-4 rounded-lg shadow border-l-4 border-green-500 flex items-center justify-between">
           <div>
             <div className="text-sm text-gray-600">Nhà Cung Cấp</div>
-            <div className="text-2xl font-bold text-gray-900">{suppliers.length}</div>
-            <div className="text-xs text-green-600 mt-1">{suppliers.filter(s => s.isActive).length} đang hợp tác</div>
+            <div className="text-2xl font-bold text-gray-900">{stats.totalSuppliers}</div>
+            <div className="text-xs text-green-600 mt-1">{stats.activeSuppliers} đang hợp tác</div>
           </div>
           <Building className="w-8 h-8 text-green-600" />
         </div>
@@ -257,7 +308,7 @@ export default function ProductsSuppliersPage() {
           <div>
             <div className="text-sm text-gray-600">Sắp Hết Hàng</div>
             <div className="text-2xl font-bold text-red-600">
-              {products.filter(p => p.inventoryItem && (p.inventoryItem.availableQuantity ?? p.inventoryItem.quantity ?? 0) <= (p.inventoryItem.minStockLevel || 0)).length}
+              {stats.lowStockProducts}
             </div>
           </div>
           <Package className="w-8 h-8 text-red-600" />
@@ -266,7 +317,7 @@ export default function ProductsSuppliersPage() {
           <div>
             <div className="text-sm text-gray-600">Giá Trị Tồn Kho</div>
             <div className="text-xl font-bold text-purple-600">
-              {products.reduce((sum, p) => sum + (p.inventoryItem?.availableQuantity ?? p.inventoryItem?.quantity ?? 0) * p.price, 0).toLocaleString('vi-VN')}đ
+              {stats.totalInventoryValue.toLocaleString('vi-VN')}đ
             </div>
           </div>
           <Package className="w-8 h-8 text-purple-600" />
@@ -277,16 +328,18 @@ export default function ProductsSuppliersPage() {
         products={products} loading={productsLoading} expanded={expandedSections.products}
         onToggle={() => toggleSection('products')} onRefresh={fetchProducts}
         onAdd={() => openProductModal()} onEdit={openProductModal} onDelete={setDeletingProduct}
-        search={productSearch} onSearchChange={setProductSearch}
+        search={productSearch} onSearchChange={(val) => { setProductSearch(val); setProductPage(1); }}
         page={productPage} onPageChange={setProductPage} pageSize={productPageSize}
+        totalItems={totalProductItems}
       />
 
       <SupplierSection
         suppliers={suppliers} loading={suppliersLoading} expanded={expandedSections.suppliers}
         onToggle={() => toggleSection('suppliers')}
         onAdd={() => openSupplierModal()} onEdit={openSupplierModal} onDelete={setDeletingSupplier}
-        search={supplierSearch} onSearchChange={setSupplierSearch}
+        search={supplierSearch} onSearchChange={(val) => { setSupplierSearch(val); setSupplierPage(1); }}
         page={supplierPage} onPageChange={setSupplierPage} pageSize={supplierPageSize}
+        totalItems={totalSupplierItems}
       />
 
       {/* PRODUCT MODAL */}

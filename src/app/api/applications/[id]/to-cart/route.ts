@@ -82,14 +82,19 @@ export async function POST(
         let skippedCount = 0
         let totalAdded = 0
 
+        // Pre-fetch all products to avoid N+1 query
+        const productIds = materials.map((m: any) => m.productId).filter(Boolean);
+        const products = await prisma.product.findMany({
+            where: { id: { in: productIds } }
+        });
+        const productMap = new Map(products.map(p => [p.id, p]));
+
         // Combine materials into existing items
         for (const material of materials) {
             const { productId, quantity, name, unit, price } = material
 
             // Check if product exists
-            const product = await prisma.product.findUnique({
-                where: { id: productId }
-            })
+            const product = productMap.get(productId);
 
             if (!product || !product.isActive) {
                 skippedCount++

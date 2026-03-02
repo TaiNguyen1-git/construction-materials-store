@@ -160,49 +160,57 @@ export async function GET(
         })
 
         // Enrich with contractor profiles for non-guest applications
-        const enrichedApplications = await Promise.all(
-            applications.map(async (app) => {
-                if (!app.isGuest && app.contractorId) {
-                    // Get contractor profile
-                    const profile = await prisma.contractorProfile.findFirst({
-                        where: { customerId: app.contractorId }
-                    })
+        const contractorIds = applications
+            .filter(app => !app.isGuest && app.contractorId)
+            .map(app => app.contractorId as string)
 
-                    // Mask contact if not unlocked
-                    const maskedPhone = app.isContactUnlocked
-                        ? profile?.phone
-                        : profile?.phone?.replace(/(\d{3})\d{4}(\d{3})/, '$1****$2')
-
-                    return {
-                        ...app,
-                        contractor: profile ? {
-                            displayName: profile.displayName,
-                            phone: maskedPhone,
-                            isVerified: profile.isVerified,
-                            trustScore: profile.trustScore,
-                            avgRating: profile.avgRating,
-                            totalProjectsCompleted: profile.totalProjectsCompleted,
-                            skills: profile.skills,
-                            highlightBio: profile.highlightBio,
-                            experienceYears: profile.experienceYears
-                        } : null,
-                        tier: profile?.isVerified ? 'VERIFIED_PARTNER' : 'CERTIFIED_MEMBER'
-                    }
-                } else {
-                    // Mask guest contact if not unlocked
-                    const maskedPhone = app.isContactUnlocked
-                        ? app.guestPhone
-                        : app.guestPhone?.replace(/(\d{3})\d{4}(\d{3})/, '$1****$2')
-
-                    return {
-                        ...app,
-                        guestPhone: maskedPhone,
-                        contractor: null,
-                        tier: 'PROVISIONAL'
-                    }
-                }
+        let profileMap = new Map()
+        if (contractorIds.length > 0) {
+            const profiles = await prisma.contractorProfile.findMany({
+                where: { customerId: { in: Array.from(new Set(contractorIds)) } }
             })
-        )
+            profiles.forEach(p => profileMap.set(p.customerId, p))
+        }
+
+        const enrichedApplications = applications.map((app) => {
+            if (!app.isGuest && app.contractorId) {
+                // Get contractor profile
+                const profile = profileMap.get(app.contractorId)
+
+                // Mask contact if not unlocked
+                const maskedPhone = app.isContactUnlocked
+                    ? profile?.phone
+                    : profile?.phone?.replace(/(\d{3})\d{4}(\d{3})/, '$1****$2')
+
+                return {
+                    ...app,
+                    contractor: profile ? {
+                        displayName: profile.displayName,
+                        phone: maskedPhone,
+                        isVerified: profile.isVerified,
+                        trustScore: profile.trustScore,
+                        avgRating: profile.avgRating,
+                        totalProjectsCompleted: profile.totalProjectsCompleted,
+                        skills: profile.skills,
+                        highlightBio: profile.highlightBio,
+                        experienceYears: profile.experienceYears
+                    } : null,
+                    tier: profile?.isVerified ? 'VERIFIED_PARTNER' : 'CERTIFIED_MEMBER'
+                }
+            } else {
+                // Mask guest contact if not unlocked
+                const maskedPhone = app.isContactUnlocked
+                    ? app.guestPhone
+                    : app.guestPhone?.replace(/(\d{3})\d{4}(\d{3})/, '$1****$2')
+
+                return {
+                    ...app,
+                    guestPhone: maskedPhone,
+                    contractor: null,
+                    tier: 'PROVISIONAL'
+                }
+            }
+        })
 
         // Separate by tier for UI
         const verified = enrichedApplications.filter(a => a.tier === 'VERIFIED_PARTNER')

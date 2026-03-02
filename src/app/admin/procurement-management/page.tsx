@@ -28,6 +28,7 @@ import {
     History,
     FileText
 } from 'lucide-react'
+import SupplierAutocomplete from '../components/SupplierAutocomplete'
 
 interface PurchaseSuggestion {
     productId: string
@@ -71,7 +72,6 @@ export default function ProcurementManagementPage() {
     const [suggestions, setSuggestions] = useState<PurchaseSuggestion[]>([])
     const [requests, setRequests] = useState<PurchaseRequest[]>([])
     const [loading, setLoading] = useState(true)
-    const [suppliers, setSuppliers] = useState<{ id: string, name: string }[]>([])
     const [searchTerm, setSearchTerm] = useState('')
 
     useEffect(() => {
@@ -89,16 +89,6 @@ export default function ProcurementManagementPage() {
                 const res = await fetch('/api/procurement?type=requests')
                 const data = await res.json()
                 setRequests(data)
-            }
-
-            try {
-                const sRes = await fetch('/api/suppliers?limit=100')
-                const sData = await sRes.json()
-                if (sData.data && Array.isArray(sData.data)) {
-                    setSuppliers(sData.data)
-                }
-            } catch (err) {
-                console.error('Failed to fetch suppliers', err)
             }
         } catch (error) {
             console.error('Error loading data:', error)
@@ -482,16 +472,14 @@ export default function ProcurementManagementPage() {
                                                                     <span className="text-xs font-bold text-slate-600">{request.supplierName}</span>
                                                                 </div>
                                                             ) : (
-                                                                <select
-                                                                    className="w-full bg-slate-50 border-none rounded-xl px-3 py-2 text-[10px] font-black uppercase tracking-widest text-slate-400 focus:ring-2 focus:ring-blue-500/20"
-                                                                    onChange={(e) => handleAssignSupplier(request.id, e.target.value)}
+                                                                <SupplierAutocomplete
                                                                     value=""
-                                                                >
-                                                                    <option value="" disabled>-- Chọn NCC --</option>
-                                                                    {suppliers.map(s => (
-                                                                        <option key={s.id} value={s.id}>{s.name}</option>
-                                                                    ))}
-                                                                </select>
+                                                                    placeholder="Chọn NCC..."
+                                                                    className="w-full bg-slate-50 border-none rounded-xl px-0 py-2 !shadow-none text-[10px] font-black uppercase tracking-widest text-slate-400 focus:ring-2 focus:ring-blue-500/20"
+                                                                    onChange={(supplierId) => {
+                                                                        if (supplierId) handleAssignSupplier(request.id, supplierId)
+                                                                    }}
+                                                                />
                                                             )}
                                                         </td>
                                                         <td className="px-4 py-4 text-right">

@@ -42,23 +42,27 @@ export async function POST(request: NextRequest) {
         let successCount = 0
         let failCount = 0
 
-        for (const customer of customers) {
-            try {
-                const newBalance = (customer.loyaltyPoints || 0) + points
-                if (newBalance < 0) {
-                    failCount++
-                    continue
-                }
+        const operations = []
 
-                await prisma.customer.update({
+        for (const customer of customers) {
+            const newBalance = (customer.loyaltyPoints || 0) + points
+            if (newBalance < 0) {
+                failCount++
+                continue
+            }
+
+            operations.push(
+                prisma.customer.update({
                     where: { id: customer.id },
                     data: {
                         loyaltyPoints: newBalance,
                         ...(points > 0 ? { totalPointsEarned: { increment: points } } : {}),
                     }
                 })
+            )
 
-                await prisma.loyaltyTransaction.create({
+            operations.push(
+                prisma.loyaltyTransaction.create({
                     data: {
                         customerId: customer.id,
                         type: 'ADJUST',
@@ -69,11 +73,19 @@ export async function POST(request: NextRequest) {
                         performedBy: body.adminId || null,
                     }
                 })
+            )
 
-                successCount++
-            } catch {
-                failCount++
-            }
+            successCount++
+        }
+
+        try {
+            await prisma.$transaction(operations)
+        } catch {
+            // Revert counts if transaction fails
+            return NextResponse.json(
+                createErrorResponse('Lỗi khi thực hiện giao dịch', 'TRANSACTION_ERROR'),
+                { status: 500 }
+            )
         }
 
         return NextResponse.json(

@@ -66,24 +66,61 @@ export default function QuickOrderPage() {
     const [selectedProducts, setSelectedProducts] = useState<SelectedProduct[]>([])
     const [submitting, setSubmitting] = useState(false)
 
-    // Load products
-    useEffect(() => {
+    const [page, setPage] = useState(1)
+    const [hasMore, setHasMore] = useState(true)
+    const [debouncedSearch, setDebouncedSearch] = useState('')
 
+    // Debounce search query
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearch(searchQuery)
+            setPage(1) // Reset to page 1 on new search
+        }, 500)
+        return () => clearTimeout(timer)
+    }, [searchQuery])
+
+    // Load categories once
+    useEffect(() => {
+        const fetchCategories = async () => {
+            try {
+                const res = await fetch('/api/categories')
+                const json = await res.json()
+                setCategories(json.data || [])
+            } catch (error) {
+                console.error('Failed to fetch categories:', error)
+            }
+        }
+        fetchCategories()
+    }, [])
+
+    // Load products with pagination & filters
+    useEffect(() => {
         const fetchProducts = async () => {
             try {
-                const res = await fetch('/api/products?limit=100')
+                if (page === 1) setLoading(true)
+
+                const queryParams = new URLSearchParams()
+                queryParams.append('limit', '40')
+                queryParams.append('page', page.toString())
+                if (debouncedSearch) queryParams.append('q', debouncedSearch)
+                if (selectedCategory !== 'all') queryParams.append('category', selectedCategory)
+
+                const res = await fetch(`/api/products?${queryParams.toString()}`)
                 const json = await res.json()
                 const data = json.data?.data || json.data || []
-                setProducts(data)
 
-                // Extract unique categories
-                const uniqueCategories = new Map<string, { id: string; name: string }>()
-                data.forEach((p: Product) => {
-                    if (p.category) {
-                        uniqueCategories.set(p.category.id, p.category)
-                    }
-                })
-                setCategories(Array.from(uniqueCategories.values()))
+                if (page === 1) {
+                    setProducts(data)
+                } else {
+                    setProducts(prev => {
+                        // Prevent duplicates when loading more
+                        const existingIds = new Set(prev.map(p => p.id))
+                        const newProducts = data.filter((p: Product) => !existingIds.has(p.id))
+                        return [...prev, ...newProducts]
+                    })
+                }
+
+                setHasMore(data.length === 40) // if we got full limit, assumes there's more
             } catch (error) {
                 console.error('Failed to fetch products:', error)
             } finally {
@@ -91,7 +128,12 @@ export default function QuickOrderPage() {
             }
         }
         fetchProducts()
-    }, [])
+    }, [page, debouncedSearch, selectedCategory])
+
+    // Reset page when category changes
+    useEffect(() => {
+        setPage(1)
+    }, [selectedCategory])
 
     // Load saved selection from localStorage
     useEffect(() => {
@@ -110,13 +152,8 @@ export default function QuickOrderPage() {
         localStorage.setItem(SELECTION_STORAGE_KEY, JSON.stringify(selectedProducts))
     }, [selectedProducts])
 
-    // Filter products
-    const filteredProducts = products.filter(p => {
-        const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            p.sku.toLowerCase().includes(searchQuery.toLowerCase())
-        const matchesCategory = selectedCategory === 'all' || p.category?.id === selectedCategory
-        return matchesSearch && matchesCategory
-    })
+    // Filter products is now handled by the server
+    const filteredProducts = products
 
     // Check if product is selected
     const isSelected = (productId: string) => {
@@ -320,6 +357,17 @@ export default function QuickOrderPage() {
                                 <div className="text-center text-gray-500 py-12">
                                     <Package className="w-12 h-12 mx-auto mb-3 text-gray-300" />
                                     <p>Không tìm thấy sản phẩm</p>
+                                </div>
+                            )}
+
+                            {hasMore && !loading && (
+                                <div className="mt-6 flex justify-center">
+                                    <button
+                                        onClick={() => setPage(p => p + 1)}
+                                        className="px-6 py-2.5 bg-blue-50 text-blue-600 rounded-lg font-medium hover:bg-blue-100 transition-colors flex items-center gap-2"
+                                    >
+                                        Xem thêm sản phẩm
+                                    </button>
                                 </div>
                             )}
                         </div>

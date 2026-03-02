@@ -140,14 +140,19 @@ export async function POST(request: NextRequest) {
     let subtotalAmount = 0
     const validatedItems = []
 
+    const productIds = invoiceItems.map((i: any) => i.productId).filter(Boolean)
+    const products = await prisma.product.findMany({
+      where: { id: { in: productIds } },
+      select: { id: true, name: true }
+    })
+    const productMap = new Map(products.map(p => [p.id, p]))
+
     for (const item of invoiceItems) {
       if (!item.productId || !item.quantity || item.quantity <= 0 || !item.unitPrice || item.unitPrice <= 0) {
         return NextResponse.json({ error: 'Invalid invoice item data' }, { status: 400 })
       }
 
-      const product = await prisma.product.findUnique({
-        where: { id: item.productId }
-      })
+      const product = productMap.get(item.productId)
 
       if (!product) {
         return NextResponse.json({ error: `Product ${item.productId} not found` }, { status: 404 })

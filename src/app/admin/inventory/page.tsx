@@ -81,6 +81,17 @@ function InventoryContent() {
   const [refreshing, setRefreshing] = useState(false)
   const [showAdjustModal, setShowAdjustModal] = useState(false)
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
+
+  // Dashboard stats
+  const [stats, setStats] = useState({
+    totalProducts: 0,
+    lowStockProducts: 0,
+    totalInventoryValue: 0
+  })
+  const [totalStock, setTotalStock] = useState(0)
+  const [modalProducts, setModalProducts] = useState<Product[]>([])
+  const [modalSearchTerm, setModalSearchTerm] = useState('')
+
   const [activeTab, setActiveTab] = useState<'stock' | 'alerts' | 'analytics' | 'management' | 'wms'>('stock')
 
   const [filters, setFilters] = useState({ category: '', status: '', lowStock: false, timeframe: 'MONTH' })
@@ -95,19 +106,69 @@ function InventoryContent() {
   const [adjustForm, setAdjustForm] = useState({ productId: '', type: 'ADJUSTMENT' as 'IN' | 'OUT' | 'ADJUSTMENT', quantity: 0, reason: '' })
 
   useEffect(() => {
-    fetchData()
+    fetchMetrics()
   }, [filters.timeframe])
 
-  const fetchData = async () => {
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchStock()
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [stockPage, pageSize, searchTerm, filters.category, filters.status, filters.lowStock, supplierFilter])
+
+  useEffect(() => {
+    // Fetch products for modal when searching
+    if (showAdjustModal) {
+      const timer = setTimeout(() => {
+        fetchModalProducts()
+      }, 500)
+      return () => clearTimeout(timer)
+    }
+  }, [modalSearchTerm, showAdjustModal])
+
+  const fetchMetrics = async () => {
     try {
       setLoading(true)
       const params = new URLSearchParams({ timeframe: filters.timeframe })
-      const [productsRes, movementsRes, predictionsRes, recommendationsRes] = await Promise.all([
-        fetchWithAuth('/api/products?limit=1000'),
+      const [movementsRes, predictionsRes, recommendationsRes, statsRes] = await Promise.all([
         fetchWithAuth('/api/inventory/movements'),
         fetchWithAuth(`/api/predictions/inventory?${params}`),
         fetchWithAuth(`/api/recommendations/purchase?${params}`),
+        fetchWithAuth('/api/admin/stats/products')
       ])
+
+      if (movementsRes.ok) setMovements((await movementsRes.json()).data || [])
+      if (predictionsRes.ok) {
+        const predData = await predictionsRes.json()
+        setPredictions(predData.data?.predictions || [])
+      }
+      if (recommendationsRes.ok) setRecommendations(((await recommendationsRes.json()).data?.recommendations) || [])
+      if (statsRes.ok) {
+        const statsData = await statsRes.json()
+        if (statsData.success) {
+          setStats(statsData.data)
+        }
+      }
+    } catch (e) {
+      console.error(e)
+      toast.error('Lỗi tải dữ liệu thống kê')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const fetchStock = async () => {
+    try {
+      const params = new URLSearchParams()
+      params.append('page', stockPage.toString())
+      params.append('limit', pageSize.toString())
+      if (searchTerm) params.append('search', searchTerm)
+      if (filters.category) params.append('category', filters.category)
+      if (filters.status) params.append('status', filters.status)
+      if (filters.lowStock) params.append('lowStock', 'true')
+      if (supplierFilter) params.append('supplierId', supplierFilter)
+
+      const productsRes = await fetchWithAuth(`/api/products?${params.toString()}`)
       if (productsRes.ok) {
         const data = await productsRes.json()
         const productsArray = Array.isArray(data.data?.data || data.data || data) ? data.data?.data || data.data || data : []
@@ -117,21 +178,29 @@ function InventoryContent() {
           minStock: p.inventoryItem?.minStockLevel || 0,
         }))
         setProducts(transformed)
+        setTotalStock(data.data?.pagination?.total || data.pagination?.total || 0)
       }
-      if (movementsRes.ok) setMovements((await movementsRes.json()).data || [])
-      if (predictionsRes.ok) {
-        const predData = await predictionsRes.json()
-        setPredictions(predData.data?.predictions || [])
-      }
-      if (recommendationsRes.ok) setRecommendations(((await recommendationsRes.json()).data?.recommendations) || [])
-
-
     } catch (e) {
       console.error(e)
-      toast.error('Failed to load data')
-    } finally {
-      setLoading(false)
     }
+  }
+
+  const fetchModalProducts = async () => {
+    try {
+      const params = new URLSearchParams()
+      params.append('limit', '50') // Limit options in modal
+      if (modalSearchTerm) params.append('search', modalSearchTerm)
+      const res = await fetchWithAuth(`/api/products?${params.toString()}`)
+      if (res.ok) {
+        const data = await res.json()
+        const arr = Array.isArray(data.data?.data || data.data || data) ? data.data?.data || data.data || data : []
+        setModalProducts(arr.map((p: any) => ({
+          ...p,
+          stock: p.inventoryItem?.quantity || p.inventoryItem?.availableQuantity || 0,
+          minStock: p.inventoryItem?.minStockLevel || 0,
+        })))
+      }
+    } catch (e) { }
   }
 
   const toggleSection = (section: keyof typeof expandedSections) => {
@@ -140,7 +209,7 @@ function InventoryContent() {
 
   const handleRefresh = async () => {
     setRefreshing(true)
-    await fetchData()
+    await Promise.all([fetchMetrics(), fetchStock()])
     setRefreshing(false)
     toast.success('Dữ liệu đã được cập nhật')
   }
@@ -153,7 +222,7 @@ function InventoryContent() {
         toast.success('Đã lưu điều chỉnh kho thành công')
         setShowAdjustModal(false)
         setAdjustForm({ productId: '', type: 'ADJUSTMENT', quantity: 0, reason: '' })
-        fetchData()
+        Promise.all([fetchMetrics(), fetchStock()])
       } else {
         const err = await res.json()
         toast.error(err.error || 'Thất bại')
@@ -187,23 +256,8 @@ function InventoryContent() {
 
   const formatCurrency = (v: number | undefined | null) => (!v || isNaN(v) ? '0đ' : `${Math.round(v).toLocaleString('vi-VN')}đ`)
 
-  const filteredProducts = products.filter(p => {
-    const matchSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) || p.sku.toLowerCase().includes(searchTerm.toLowerCase())
-    if (!matchSearch) return false
-    if (filters.category && (p.category as any)?.name !== filters.category && p.category !== filters.category) return false
-    if (filters.status && p.status !== filters.status) return false
-    if (filters.lowStock && p.stock > p.minStock) return false
+  const paginatedStock = products
 
-    // Supplier filter from URL
-    if (supplierFilter && (p as any).supplierId !== supplierFilter) return false
-
-    return true
-  })
-
-  const totalStock = filteredProducts.length
-  const paginatedStock = filteredProducts.slice((stockPage - 1) * pageSize, stockPage * pageSize)
-
-  const lowStockProducts = products.filter(p => p.stock <= p.minStock)
   const urgentRecommendations = recommendations.filter(r => r.priority === 'URGENT')
 
   if (loading) {
@@ -249,8 +303,8 @@ function InventoryContent() {
       {/* Analytics Bento Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {[
-          { label: 'Tổng Hạng Mục SKU', value: products.length, icon: Package, color: 'bg-blue-50 text-blue-600', sub: 'Danh Mục Đang Hoạt Động', trend: 'Còn Hàng: 94%' },
-          { label: 'Cảnh Báo Hết Hàng', value: lowStockProducts.length, icon: AlertTriangle, color: 'bg-red-50 text-red-600', sub: 'Thấp Hơn Mức Tối Thiểu', trend: 'Cần Xử Lý Ngay' },
+          { label: 'Tổng Hạng Mục SKU', value: stats.totalProducts, icon: Package, color: 'bg-blue-50 text-blue-600', sub: 'Danh Mục Đang Hoạt Động', trend: 'Toàn Bộ Hệ Thống' },
+          { label: 'Cảnh Báo Hết Hàng', value: stats.lowStockProducts, icon: AlertTriangle, color: 'bg-red-50 text-red-600', sub: 'Thấp Hơn Mức Tối Thiểu', trend: 'Cần Xử Lý Ngay' },
           { label: 'Yêu Cầu Khẩn Cấp', value: urgentRecommendations.length, icon: ShoppingCart, color: 'bg-amber-50 text-amber-600', sub: 'Cảnh Báo Mua Hàng', trend: 'Gợi Ý Tự Động' }
         ].map((stat, i) => (
           <div key={i} className="bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm hover:shadow-md transition-shadow group">
@@ -263,7 +317,7 @@ function InventoryContent() {
             <div className="text-3xl font-black text-slate-900">{stat.value}</div>
             <div className="flex items-center gap-2 mt-1">
               <div className="text-xs font-bold text-slate-400 uppercase tracking-tighter">{stat.label}</div>
-              <div className={`text-[9px] font-black uppercase ${i === 1 && lowStockProducts.length > 0 ? 'text-red-500 animate-pulse' : 'text-emerald-500'}`}>
+              <div className={`text-[9px] font-black uppercase ${i === 1 && stats.lowStockProducts > 0 ? 'text-red-500 animate-pulse' : 'text-emerald-500'}`}>
                 {stat.trend}
               </div>
             </div>
@@ -418,7 +472,7 @@ function InventoryContent() {
         )}
 
         {activeTab === 'alerts' && <SmartInventoryAlerts />}
-        {activeTab === 'analytics' && <InventoryAnalytics predictions={predictions} onRefresh={fetchData} />}
+        {activeTab === 'analytics' && <InventoryAnalytics predictions={predictions} onRefresh={() => Promise.all([fetchMetrics(), fetchStock()])} />}
         {activeTab === 'wms' && <WMSManagement />} {/* Added WMSManagement component */}
         {activeTab === 'management' && <InventoryManagement recommendations={recommendations} movements={movements} />}
       </div>
@@ -441,16 +495,25 @@ function InventoryContent() {
               <div className="space-y-4">
                 <div>
                   <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Chọn Sản Phẩm</label>
+                  <input
+                    type="text"
+                    placeholder="Tìm kiếm sản phẩm cho điều chỉnh..."
+                    value={modalSearchTerm}
+                    onChange={(e) => setModalSearchTerm(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-t-2xl px-5 py-3 text-sm font-black text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 mb-[-1px] relative z-10"
+                  />
                   <select
                     value={adjustForm.productId}
                     onChange={(e) => setAdjustForm({ ...adjustForm, productId: e.target.value })}
-                    className="w-full bg-slate-100/50 border-none rounded-2xl px-5 py-4 text-sm font-black text-slate-900 focus:ring-4 focus:ring-blue-500/10 transition-all outline-none"
+                    className="w-full bg-slate-100/50 border border-slate-200 rounded-b-2xl rounded-t-none px-5 py-4 text-sm font-black text-slate-900 focus:ring-4 focus:ring-blue-500/10 transition-all outline-none"
                     required
                   >
-                    <option value="">-- Chọn Sản Phẩm --</option>
-                    {products.map(p => (
-                      <option key={p.id} value={p.id}>{p.name.toUpperCase()} (AVL: {p.stock})</option>
-                    ))}
+                    <option value="">-- Chọn Từ Danh Sách Dưới Đây --</option>
+                    {modalProducts.length > 0 ? modalProducts.map(p => (
+                      <option key={p.id} value={p.id}>{p.name.toUpperCase()} (Tồn: {p.stock} đv)</option>
+                    )) : (
+                      selectedProduct && <option value={selectedProduct.id}>{selectedProduct.name.toUpperCase()} (Tồn: {selectedProduct.stock} đv)</option>
+                    )}
                   </select>
                 </div>
 

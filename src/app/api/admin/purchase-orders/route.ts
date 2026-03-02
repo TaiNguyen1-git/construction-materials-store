@@ -155,10 +155,8 @@ export async function POST(request: NextRequest) {
             salesByProduct[item.productId] = (salesByProduct[item.productId] || 0) + item.quantity
         }
 
-        // Create purchase orders for each supplier
-        const createdOrders = []
-
-        for (const [supplierId, supplierProducts] of Object.entries(productsBySupplier)) {
+        // Create purchase orders for each supplier concurrently
+        const orderPromises = Object.entries(productsBySupplier).map(async ([supplierId, supplierProducts]) => {
             const supplier = supplierProducts[0].supplier!
 
             // Calculate items
@@ -216,30 +214,25 @@ export async function POST(request: NextRequest) {
                 }
             })
 
-            // Create in-app notification for supplier
+            // Create in-app notification for supplier in background
             if (autoSend) {
-                try {
-                    await (prisma as any).notification.create({
-                        data: {
-                            supplierId,
-                            title: '📝 Đơn đặt hàng mới',
-                            message: `Bạn có đơn đặt hàng mới #${purchaseOrder.orderNumber} từ SmartBuild.`,
-                            type: 'INFO',
-                            priority: 'HIGH',
-                            referenceId: purchaseOrder.id,
-                            referenceType: 'PURCHASE_ORDER'
-                        }
-                    })
-                } catch (notiError) {
-                    console.error('Failed to create notification:', notiError)
-                }
+                (prisma as any).notification.create({
+                    data: {
+                        supplierId,
+                        title: '📝 Đơn đặt hàng mới',
+                        message: `Bạn có đơn đặt hàng mới #${purchaseOrder.orderNumber} từ SmartBuild.`,
+                        type: 'INFO',
+                        priority: 'HIGH',
+                        referenceId: purchaseOrder.id,
+                        referenceType: 'PURCHASE_ORDER'
+                    }
+                }).catch((err: any) => console.error('Failed to create notification:', err))
             }
 
-            // Send email to supplier if autoSend
+            // Send email to supplier in background
             if (autoSend && supplier.email) {
-                try {
-                    const { EmailService } = await import('@/lib/email-service')
-                    await EmailService.sendNewPurchaseOrderToSupplier({
+                import('@/lib/email-service').then(({ EmailService }) => {
+                    EmailService.sendNewPurchaseOrderToSupplier({
                         supplierEmail: supplier.email,
                         supplierName: supplier.name,
                         orderNumber: purchaseOrder.orderNumber,
@@ -249,16 +242,14 @@ export async function POST(request: NextRequest) {
                             quantity: i.quantity,
                             price: i.unitPrice
                         }))
-                    })
-                } catch (emailError) {
-                    console.error('Failed to send email to supplier:', emailError)
-                }
+                    }).catch(err => console.error('Failed to send email to supplier:', err))
+                })
             }
 
+            return purchaseOrder
+        })
 
-
-            createdOrders.push(purchaseOrder)
-        }
+        const createdOrders = await Promise.all(orderPromises)
 
         return NextResponse.json({
             success: true,

@@ -85,8 +85,8 @@ export async function GET(request: NextRequest) {
       }))
       .sort((a, b) => a.date.getTime() - b.date.getTime())
 
-    // 3. Sales by Category - Using Prisma queries  
-    // NOTE: Nested filter bug - must query orders first, then items by IDs
+    // 3 & 4. Sales by Category and Top Products
+    // Use aggregation to group by productId first instead of fetching millions of order items
     const ordersInRange = await prisma.order.findMany({
       where: {
         createdAt: { gte: startDate },
@@ -95,30 +95,45 @@ export async function GET(request: NextRequest) {
       select: { id: true }
     })
 
-    const orderItems = await prisma.orderItem.findMany({
+    const orderIds = ordersInRange.map(o => o.id)
+
+    // Get aggregated sums for each product sold in the period
+    const allGroupedProducts = orderIds.length > 0 ? await prisma.orderItem.groupBy({
+      by: ['productId'],
       where: {
-        orderId: { in: ordersInRange.map(o => o.id) }
+        orderId: { in: orderIds }
       },
-      include: {
-        product: {
-          include: {
-            category: {
-              select: {
-                name: true
-              }
-            }
-          }
+      _sum: {
+        quantity: true,
+        totalPrice: true
+      }
+    }) : []
+
+    // Fetch product details just for those that were sold
+    const productIdsForCategory = allGroupedProducts.map(p => p.productId)
+    const productsWithCategory = productIdsForCategory.length > 0 ? await prisma.product.findMany({
+      where: { id: { in: productIdsForCategory } },
+      select: {
+        id: true,
+        name: true,
+        category: {
+          select: { name: true }
         }
       }
-    })
+    }) : []
 
+    const productMap = new Map(productsWithCategory.map(p => [p.id, p]))
+
+    // 3. Process Sales by Category
     const salesByCategoryMap = new Map<string, { total: number; count: number }>()
-    orderItems.forEach(item => {
-      const categoryName = item.product.category?.name || 'Uncategorized'
+    allGroupedProducts.forEach(item => {
+      const product = productMap.get(item.productId)
+      const categoryName = product?.category?.name || 'Uncategorized'
+
       const existing = salesByCategoryMap.get(categoryName) || { total: 0, count: 0 }
       salesByCategoryMap.set(categoryName, {
-        total: existing.total + item.totalPrice,
-        count: existing.count + item.quantity
+        total: existing.total + (item._sum.totalPrice || 0),
+        count: existing.count + (item._sum.quantity || 0)
       })
     })
 
@@ -127,21 +142,16 @@ export async function GET(request: NextRequest) {
       .sort((a, b) => b.total - a.total)
       .slice(0, 10)
 
-    // 4. Top Products - Using Prisma queries
-    const productSalesMap = new Map<string, { name: string; quantity: number; revenue: number }>()
-    orderItems.forEach(item => {
-      const productId = item.productId
-      const existing = productSalesMap.get(productId) || { name: item.product.name, quantity: 0, revenue: 0 }
-      productSalesMap.set(productId, {
-        name: existing.name,
-        quantity: existing.quantity + item.quantity,
-        revenue: existing.revenue + item.totalPrice
-      })
-    })
-
-    const topProducts = Array.from(productSalesMap.values())
-      .sort((a, b) => b.revenue - a.revenue)
+    // 4. Process Top Products
+    const topProductIds = [...allGroupedProducts]
+      .sort((a, b) => (b._sum.totalPrice || 0) - (a._sum.totalPrice || 0))
       .slice(0, 10)
+
+    const topProducts = topProductIds.map(p => ({
+      name: productMap.get(p.productId)?.name || 'Unknown',
+      quantity: p._sum.quantity || 0,
+      revenue: p._sum.totalPrice || 0
+    }))
 
     // 5. Inventory Status
     const inventoryStatus = await prisma.inventoryItem.findMany({
@@ -193,37 +203,37 @@ export async function GET(request: NextRequest) {
     })
 
     // 8. Employee Performance (by tasks completed) - Using Prisma queries
-    const tasks = await prisma.employeeTask.findMany({
-      where: {
-        createdAt: { gte: startDate }
-      },
-      include: {
-        employee: {
-          include: {
-            user: {
-              select: {
-                name: true
-              }
-            }
-          }
-        }
-      }
+    const taskGroups = await prisma.employeeTask.groupBy({
+      by: ['employeeId', 'status'],
+      where: { createdAt: { gte: startDate } },
+      _count: { _all: true }
     })
 
+    const employeeIds = Array.from(new Set(taskGroups.map(t => t.employeeId)))
+    const employeesInfo = employeeIds.length > 0 ? await prisma.employee.findMany({
+      where: { id: { in: employeeIds } },
+      select: {
+        id: true,
+        user: { select: { name: true } }
+      }
+    }) : []
+    const employeeInfoMap = new Map(employeesInfo.map(e => [e.id, (e.user as any)?.name || 'Unknown']))
+
     const employeePerfMap = new Map<string, { name: string; completed: number; total: number }>()
-    tasks.forEach(task => {
-      const employeeId = task.employeeId
-      const userName = (task.employee.user as any).name
-      const existing = employeePerfMap.get(employeeId) || { name: userName, completed: 0, total: 0 }
-      employeePerfMap.set(employeeId, {
-        name: existing.name,
-        completed: existing.completed + (task.status === 'COMPLETED' ? 1 : 0),
-        total: existing.total + 1
-      })
+    taskGroups.forEach(group => {
+      const empId = group.employeeId
+      const existing = employeePerfMap.get(empId) || { name: employeeInfoMap.get(empId) || 'Unknown', completed: 0, total: 0 }
+
+      const count = group._count._all
+      existing.total += count
+      if (group.status === 'COMPLETED') {
+        existing.completed += count
+      }
+      employeePerfMap.set(empId, existing)
     })
 
     const employeePerformance = Array.from(employeePerfMap.values())
-      .sort((a, b: any) => (b as any).completed - (a as any).completed)
+      .sort((a, b) => b.completed - a.completed)
       .slice(0, 10)
 
     // 9. Predictive Analytics (Global Revenue & Stock Warnings)

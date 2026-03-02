@@ -206,11 +206,15 @@ export async function POST(request: NextRequest) {
         let totalAmount = 0
         const orderItems: any[] = []
 
+        const productIds = items.map((i: any) => i.productId)
+        const products = await prisma.product.findMany({
+            where: { id: { in: productIds } },
+            include: { inventoryItem: true }
+        })
+        const productMap = new Map(products.map(p => [p.id, p]))
+
         for (const item of items) {
-            const product = await prisma.product.findUnique({
-                where: { id: item.productId },
-                include: { inventoryItem: true }
-            })
+            const product = productMap.get(item.productId)
 
             if (!product) {
                 return NextResponse.json(
@@ -312,13 +316,15 @@ export async function POST(request: NextRequest) {
             })
 
             // Update inventory if exists
-            for (const item of orderItems) {
-                const product = await tx.product.findUnique({
-                    where: { id: item.productId },
-                    include: { inventoryItem: true }
-                })
+            const itemProductIds = orderItems.map(i => i.productId);
+            const inventories = await tx.inventoryItem.findMany({
+                where: { productId: { in: itemProductIds } },
+                select: { productId: true }
+            });
+            const validInventoryProductIds = new Set(inventories.map(inv => inv.productId));
 
-                if (product?.inventoryItem) {
+            for (const item of orderItems) {
+                if (validInventoryProductIds.has(item.productId)) {
                     await tx.inventoryItem.update({
                         where: { productId: item.productId },
                         data: {

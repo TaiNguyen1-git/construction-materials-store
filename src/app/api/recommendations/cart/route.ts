@@ -58,8 +58,8 @@ export async function POST(request: NextRequest) {
         const aiQuery = `Gợi ý các sản phẩm xây dựng nên mua kèm với: ${itemsStr}`
         const aiResults = await AIService.getProductRecommendations(aiQuery)
 
-        // Map AI results to DB products
-        for (const rec of aiResults) {
+        // Map AI results to DB products concurrently
+        const aiPromises = aiResults.map(async (rec: any) => {
           const dbProduct = await prisma.product.findFirst({
             where: {
               name: { contains: String(rec.name).split(' ')[0] }, // Fuzzy match
@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
           })
 
           if (dbProduct) {
-            aiRecommendations.push({
+            return {
               id: dbProduct.id,
               name: dbProduct.name,
               price: dbProduct.price,
@@ -92,8 +92,14 @@ export async function POST(request: NextRequest) {
               confidence: 0.9,
               wholesalePrice: dbProduct.wholesalePrice,
               minWholesaleQty: dbProduct.minWholesaleQty
-            })
+            }
           }
+          return null
+        })
+
+        const resolvedAiRecs = await Promise.all(aiPromises)
+        for (const rec of resolvedAiRecs) {
+          if (rec) aiRecommendations.push(rec)
         }
       } catch (error) {
         console.error('Gemini cart recommendation error:', error)

@@ -81,20 +81,26 @@ export async function GET(request: NextRequest) {
     ])
 
     // Get customer info for each review
-    const reviewsWithCustomer = await Promise.all(
-      reviews.map(async (review) => {
-        const customer = await prisma.customer.findUnique({
-          where: { id: review.customerId },
-          include: { user: { select: { name: true, email: true } } }
-        })
+    const customerIds = reviews.map(r => r.customerId)
+    let customerMap = new Map()
 
-        return {
-          ...review,
-          customerName: customer?.user?.name || 'Unknown',
-          customerEmail: customer?.user?.email || 'N/A'
-        }
+    if (customerIds.length > 0) {
+      const customers = await prisma.customer.findMany({
+        where: { id: { in: Array.from(new Set(customerIds)) } },
+        include: { user: { select: { name: true, email: true } } }
       })
-    )
+      customers.forEach(c => customerMap.set(c.id, c))
+    }
+
+    const reviewsWithCustomer = reviews.map((review) => {
+      const customer = customerMap.get(review.customerId)
+
+      return {
+        ...review,
+        customerName: customer?.user?.name || 'Unknown',
+        customerEmail: customer?.user?.email || 'N/A'
+      }
+    })
 
     // Get statistics
     const stats = await prisma.productReview.aggregate({

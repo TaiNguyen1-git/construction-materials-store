@@ -37,55 +37,62 @@ export async function GET(request: NextRequest) {
             }
         })
 
-        // Enhance profiles with more stats
-        const contractorsWithStats = await Promise.all(
-            profiles.map(async (profile) => {
-                // Count active projects
-                const activeProjects = await prisma.quoteRequest.count({
-                    where: {
-                        contractorId: profile.customerId,
-                        status: 'ACCEPTED'
-                    }
-                })
-
-                // Calculate total earnings (released milestones)
-                const quotes = await (prisma.quoteRequest.findMany({
-                    where: {
-                        contractorId: profile.customerId,
-                        status: 'ACCEPTED'
-                    },
-                    include: {
-                        milestones: {
-                            where: { status: 'RELEASED' }
-                        }
-                    }
-                }) as any)
-
-                const totalEarnings = quotes.reduce((sum: number, q: any) => {
-                    return sum + (q.milestones?.reduce((mSum: number, m: any) => mSum + m.amount, 0) || 0)
-                }, 0)
-
-                return {
-                    id: profile.id,
-                    name: profile.displayName || profile.customer.user.name,
-                    email: profile.email || profile.customer.user.email,
-                    phone: profile.phone || profile.customer.user.phone,
-                    companyName: profile.companyName,
-                    city: profile.city,
-                    avgRating: profile.avgRating,
-                    reviewCount: profile.reviewCount,
-                    trustScore: profile.trustScore,
-                    onboardingStatus: profile.onboardingStatus,
-                    isVerified: profile.isVerified,
-                    isActive: profile.customer.user.isActive,
-                    stats: {
-                        activeProjects,
-                        completedProjects: profile.totalProjectsCompleted,
-                        totalEarnings
-                    }
+        // Fetch all relevant quotes for these contractors at once (Fix N+1 query)
+        const contractorIds = profiles.map(p => p.customerId).filter(Boolean) as string[]
+        const allQuotes = await prisma.quoteRequest.findMany({
+            where: {
+                contractorId: { in: contractorIds },
+                status: 'ACCEPTED'
+            },
+            include: {
+                milestones: {
+                    where: { status: 'RELEASED' }
                 }
-            })
-        )
+            }
+        })
+
+        // Precompute stats per contractor
+        const activeProjectsMap = new Map<string, number>()
+        const earningsMap = new Map<string, number>()
+
+        for (const quote of allQuotes) {
+            if (!quote.contractorId) continue
+
+            // Count active projects
+            const curCount = activeProjectsMap.get(quote.contractorId) || 0
+            activeProjectsMap.set(quote.contractorId, curCount + 1)
+
+            // Calculate earnings
+            const curEarnings = earningsMap.get(quote.contractorId) || 0
+            const quoteEarnings = (quote as any).milestones?.reduce((sum: number, m: any) => sum + m.amount, 0) || 0
+            earningsMap.set(quote.contractorId, curEarnings + quoteEarnings)
+        }
+
+        // Enhance profiles with more stats
+        const contractorsWithStats = profiles.map((profile) => {
+            const activeProjects = activeProjectsMap.get(profile.customerId) || 0
+            const totalEarnings = earningsMap.get(profile.customerId) || 0
+
+            return {
+                id: profile.id,
+                name: profile.displayName || profile.customer.user.name,
+                email: profile.email || profile.customer.user.email,
+                phone: profile.phone || profile.customer.user.phone,
+                companyName: profile.companyName,
+                city: profile.city,
+                avgRating: profile.avgRating,
+                reviewCount: profile.reviewCount,
+                trustScore: profile.trustScore,
+                onboardingStatus: profile.onboardingStatus,
+                isVerified: profile.isVerified,
+                isActive: profile.customer.user.isActive,
+                stats: {
+                    activeProjects,
+                    completedProjects: profile.totalProjectsCompleted,
+                    totalEarnings
+                }
+            }
+        })
 
         return NextResponse.json({
             success: true,

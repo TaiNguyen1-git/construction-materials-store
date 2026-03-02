@@ -84,9 +84,9 @@ export async function POST(request: NextRequest) {
             select: { id: true }
         })
 
-        for (const manager of managers) {
-            await prisma.notification.create({
-                data: {
+        if (managers.length > 0) {
+            await (prisma as any).notification.createMany({
+                data: managers.map(manager => ({
                     userId: manager.id,
                     title: 'Minh chứng công việc mới',
                     message: `Nhân viên ${employee.employeeCode} đã nộp minh chứng cho task: ${task.title}`,
@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
                     priority: 'MEDIUM',
                     referenceId: task.id,
                     referenceType: 'EMPLOYEE_TASK'
-                }
+                }))
             })
         }
 

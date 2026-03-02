@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import { fetchWithAuth } from '@/lib/api-client'
 import FormattedNumberInput from '@/components/FormattedNumberInput'
+import ProductAutocomplete from '../components/ProductAutocomplete'
 
 interface Invoice {
   id: string
@@ -84,7 +85,6 @@ export default function SalesManagementPage() {
   ])
 
   // Daily Sales state
-  const [products, setProducts] = useState<Product[]>([])
   const [entries, setEntries] = useState<SaleEntry[]>([{ productId: '', productName: '', quantity: 0, price: 0 }])
   const [saleDate, setSaleDate] = useState(new Date().toISOString().split('T')[0])
   const [salesLoading, setSalesLoading] = useState(false)
@@ -93,7 +93,6 @@ export default function SalesManagementPage() {
     if (activeTab === 'invoices') {
       fetchInvoices()
     }
-    fetchProducts()
     fetchCustomers()
     fetchSuppliers()
   }, [activeTab, invoiceFilters.type, invoiceFilters.status])
@@ -143,24 +142,6 @@ export default function SalesManagementPage() {
     }
   }
 
-  const fetchProducts = async () => {
-    try {
-      const res = await fetchWithAuth('/api/products?limit=1000')
-      const data = await res.json()
-      const productsArray = data.data?.data || data.data || data || []
-      if (Array.isArray(productsArray)) {
-        setProducts(productsArray.map((p: any) => ({
-          id: p.id,
-          name: p.name,
-          price: p.price,
-          unit: p.unit
-        })))
-      }
-    } catch (error) {
-      console.error('Error:', error)
-    }
-  }
-
   const openInvoiceModal = (invoice?: Invoice) => {
     if (invoice) {
       setEditingInvoice(invoice)
@@ -200,16 +181,13 @@ export default function SalesManagementPage() {
     }
   }
 
-  const updateInvoiceItem = (index: number, field: keyof InvoiceItem, value: any) => {
+  const updateInvoiceItem = (index: number, field: keyof InvoiceItem, value: any, product?: Product) => {
     const newItems = [...invoiceItems]
     newItems[index] = { ...newItems[index], [field]: value }
 
-    if (field === 'productId') {
-      const product = products.find(p => p.id === value)
-      if (product) {
-        newItems[index].productName = product.name
-        newItems[index].unitPrice = product.price
-      }
+    if (field === 'productId' && product) {
+      newItems[index].productName = product.name
+      newItems[index].unitPrice = product.price
     }
 
     setInvoiceItems(newItems)
@@ -353,16 +331,13 @@ export default function SalesManagementPage() {
     setEntries(entries.filter((_, i) => i !== index))
   }
 
-  const updateEntry = (index: number, field: keyof SaleEntry, value: any) => {
+  const updateEntry = (index: number, field: keyof SaleEntry, value: any, product?: Product) => {
     const newEntries = [...entries]
     newEntries[index] = { ...newEntries[index], [field]: value }
 
-    if (field === 'productId') {
-      const product = products.find(p => p.id === value)
-      if (product) {
-        newEntries[index].productName = product.name
-        newEntries[index].price = product.price
-      }
+    if (field === 'productId' && product) {
+      newEntries[index].productName = product.name
+      newEntries[index].price = product.price
     }
 
     setEntries(newEntries)
@@ -653,16 +628,10 @@ export default function SalesManagementPage() {
               <div key={index} className="grid grid-cols-1 md:grid-cols-12 gap-4 p-6 bg-slate-50/50 rounded-3xl border border-slate-100 items-end">
                 <div className="md:col-span-4">
                   <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Sản phẩm / Dịch vụ</label>
-                  <select
+                  <ProductAutocomplete
                     value={entry.productId}
-                    onChange={(e) => updateEntry(index, 'productId', e.target.value)}
-                    className="w-full px-4 py-3 bg-white border-none rounded-2xl text-sm font-bold text-slate-900 focus:ring-2 focus:ring-blue-500/20"
-                  >
-                    <option value="">-- Chọn sản phẩm --</option>
-                    {products.map(p => (
-                      <option key={p.id} value={p.id}>{p.name} ({p.unit})</option>
-                    ))}
-                  </select>
+                    onChange={(productId, product) => updateEntry(index, 'productId', productId, product || undefined)}
+                  />
                 </div>
 
                 <div className="md:col-span-2">
@@ -852,17 +821,11 @@ export default function SalesManagementPage() {
                   {invoiceItems.map((item, index) => (
                     <div key={index} className="grid grid-cols-12 gap-3 items-end p-4 bg-slate-50/30 rounded-2xl border border-slate-100">
                       <div className="col-span-6">
-                        <select
+                        <ProductAutocomplete
                           value={item.productId}
-                          onChange={(e) => updateInvoiceItem(index, 'productId', e.target.value)}
-                          className="w-full px-3 py-3 bg-white border border-slate-100 rounded-xl text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-blue-500/20"
-                          required
-                        >
-                          <option value="">Chọn sản phẩm</option>
-                          {products.map(p => (
-                            <option key={p.id} value={p.id}>{p.name}</option>
-                          ))}
-                        </select>
+                          onChange={(productId, product) => updateInvoiceItem(index, 'productId', productId, product || undefined)}
+                          className="!py-2"
+                        />
                       </div>
                       <div className="col-span-2">
                         <FormattedNumberInput

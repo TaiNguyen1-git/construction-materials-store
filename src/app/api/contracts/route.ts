@@ -40,20 +40,26 @@ export async function GET(request: NextRequest) {
             }
 
             // Lấy thêm thông tin sản phẩm
-            const enrichedPrices = await Promise.all(
-                contract.contractPrices.map(async (cp) => {
-                    const product = await prisma.product.findUnique({
-                        where: { id: cp.productId },
-                        select: { name: true, sku: true, price: true }
-                    })
-                    return {
-                        ...cp,
-                        productName: product?.name,
-                        productSku: product?.sku,
-                        basePrice: product?.price
-                    }
+            const productIds = contract.contractPrices.map(cp => cp.productId)
+            let productMap = new Map()
+
+            if (productIds.length > 0) {
+                const products = await prisma.product.findMany({
+                    where: { id: { in: Array.from(new Set(productIds)) } },
+                    select: { id: true, name: true, sku: true, price: true }
                 })
-            )
+                products.forEach(p => productMap.set(p.id, p))
+            }
+
+            const enrichedPrices = contract.contractPrices.map((cp) => {
+                const product = productMap.get(cp.productId)
+                return {
+                    ...cp,
+                    productName: product?.name,
+                    productSku: product?.sku,
+                    basePrice: product?.price
+                }
+            })
 
             return NextResponse.json({
                 ...contract,

@@ -19,6 +19,24 @@ export async function POST(request: NextRequest) {
         const results = []
         const suggestions = []
 
+        // Lấy thông tin khách hàng để biết loại khách (hoisted)
+        const customer = customerId ? await prisma.customer.findUnique({ where: { id: customerId } }) : null
+        const customerType = customer?.customerType || 'REGULAR'
+
+        // Tìm bảng giá đang áp dụng (hoisted)
+        const priceList = await prisma.priceList.findFirst({
+            where: {
+                isActive: true,
+                customerTypes: { has: customerType as any }
+            },
+            include: {
+                tiers: {
+                    orderBy: { minQuantity: 'asc' }
+                }
+            },
+            orderBy: { priority: 'desc' }
+        })
+
         for (const item of items) {
             // 1. Lấy giá hiện tại (có tính đến số lượng/bậc giá hiện tại)
             const currentPrice = await pricingEngine.getEffectivePrice(
@@ -30,24 +48,6 @@ export async function POST(request: NextRequest) {
             // 2. Tìm kiếm "Bậc giá tiếp theo" để gợi ý Upsell
             // Chỉ tìm kiếm nếu priceSource là PRICE_LIST (giá sỉ chung)
             let nextTierSuggestion = null
-
-            // Lấy thông tin khách hàng để biết loại khách
-            const customer = customerId ? await prisma.customer.findUnique({ where: { id: customerId } }) : null
-            const customerType = customer?.customerType || 'REGULAR'
-
-            // Tìm bảng giá đang áp dụng
-            const priceList = await prisma.priceList.findFirst({
-                where: {
-                    isActive: true,
-                    customerTypes: { has: customerType as any }
-                },
-                include: {
-                    tiers: {
-                        orderBy: { minQuantity: 'asc' }
-                    }
-                },
-                orderBy: { priority: 'desc' }
-            })
 
             if (priceList && priceList.tiers.length > 0) {
                 // Tìm bậc giá có minQuantity lớn hơn số lượng hiện tại và gần nhất

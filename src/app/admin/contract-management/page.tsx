@@ -34,6 +34,8 @@ import {
     List,
     Loader2
 } from 'lucide-react'
+import ProductAutocomplete from '../components/ProductAutocomplete'
+import CustomerAutocomplete from '../components/CustomerAutocomplete'
 
 interface Contract {
     id: string
@@ -85,13 +87,10 @@ export default function ContractManagementPage() {
     const [showPriceListModal, setShowPriceListModal] = useState(false)
     const [selectedPriceList, setSelectedPriceList] = useState<PriceList | null>(null)
 
-    // Form Data
-    const [customers, setCustomers] = useState<any[]>([])
-    const [products, setProducts] = useState<any[]>([])
-
     // Contract Form
     const [contractFormData, setContractFormData] = useState({
         customerId: '',
+        customerName: '',
         name: '',
         description: '',
         contractType: 'FIXED_PRICE',
@@ -116,37 +115,6 @@ export default function ContractManagementPage() {
     useEffect(() => {
         loadData()
     }, [activeTab])
-
-    useEffect(() => {
-        loadOptions()
-    }, [])
-
-    const loadOptions = async () => {
-        try {
-            const [custRes, prodRes] = await Promise.all([
-                fetch('/api/customers?limit=1000'),
-                fetch('/api/products?limit=1000')
-            ])
-
-            if (custRes.ok) {
-                const custJson = await custRes.json()
-                // Handle various response structures: 
-                // 1. { data: { data: [] } } (Paginated Success)
-                // 2. { data: [] } (Simple Success)
-                // 3. [] (Direct Array)
-                const custArray = custJson.data?.data || custJson.data || (Array.isArray(custJson) ? custJson : [])
-                setCustomers(custArray)
-            }
-
-            if (prodRes.ok) {
-                const prodJson = await prodRes.json()
-                const prodArray = prodJson.data?.data || prodJson.data || (Array.isArray(prodJson) ? prodJson : [])
-                setProducts(prodArray)
-            }
-        } catch (error) {
-            console.error('Error loading options:', error)
-        }
-    }
 
     const loadData = async () => {
         setLoading(true)
@@ -211,6 +179,7 @@ export default function ContractManagementPage() {
             setSelectedContract(details)
             setContractFormData({
                 customerId: details.customerId,
+                customerName: details.customer?.user?.name || details.customer?.name || '',
                 name: details.name,
                 description: details.description || '',
                 contractType: details.contractType,
@@ -220,6 +189,7 @@ export default function ContractManagementPage() {
                 specialCreditLimit: details.specialCreditLimit || 0,
                 products: details.contractPrices?.map((cp: any) => ({
                     productId: cp.productId,
+                    productName: cp.productName || '',
                     fixedPrice: cp.fixedPrice || 0,
                     discountPercent: cp.discountPercent || 0
                 })) || []
@@ -244,6 +214,7 @@ export default function ContractManagementPage() {
             setSelectedContract(details)
             setContractFormData({
                 customerId: details.customerId,
+                customerName: details.customer?.user?.name || details.customer?.name || '',
                 name: details.name,
                 description: details.description || '',
                 contractType: details.contractType,
@@ -253,6 +224,7 @@ export default function ContractManagementPage() {
                 specialCreditLimit: details.specialCreditLimit || 0,
                 products: details.contractPrices?.map((cp: any) => ({
                     productId: cp.productId,
+                    productName: cp.productName || '',
                     fixedPrice: cp.fixedPrice || 0,
                     discountPercent: cp.discountPercent || 0
                 })) || []
@@ -270,6 +242,7 @@ export default function ContractManagementPage() {
         setIsViewMode(false)
         setContractFormData({
             customerId: '',
+            customerName: '',
             name: '',
             description: '',
             contractType: 'FIXED_PRICE',
@@ -277,7 +250,7 @@ export default function ContractManagementPage() {
             validTo: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
             creditTermDays: 30,
             specialCreditLimit: 0,
-            products: [{ productId: '', fixedPrice: 0, discountPercent: 0 }]
+            products: [{ productId: '', productName: '', fixedPrice: 0, discountPercent: 0 }]
         })
         setShowContractModal(true)
     }
@@ -810,17 +783,19 @@ export default function ContractManagementPage() {
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                         <div className="space-y-2">
                                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Khách hàng Đối tác</label>
-                                            <select
+                                            <CustomerAutocomplete
                                                 disabled={isViewMode}
                                                 value={contractFormData.customerId}
-                                                onChange={(e) => setContractFormData({ ...contractFormData, customerId: e.target.value })}
-                                                className="w-full px-5 py-4 bg-slate-50 border-none rounded-3xl text-sm font-bold focus:ring-4 focus:ring-blue-500/10 transition-all"
-                                            >
-                                                <option value="">Chọn khách hàng...</option>
-                                                {Array.isArray(customers) && customers.map(c => (
-                                                    <option key={c.id} value={c.id}>{c.user?.name || c.name}</option>
-                                                ))}
-                                            </select>
+                                                initialCustomerName={(contractFormData as any).customerName}
+                                                onChange={(customerId, customer) => {
+                                                    setContractFormData({
+                                                        ...contractFormData,
+                                                        customerId,
+                                                        customerName: customer?.user?.name || customer?.name || ''
+                                                    } as any)
+                                                }}
+                                                className="!py-4 bg-slate-50 border-none rounded-3xl"
+                                            />
                                         </div>
                                         <div className="space-y-2">
                                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Tên Hợp đồng</label>
@@ -873,7 +848,7 @@ export default function ContractManagementPage() {
                                             <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Danh mục Sản phẩm & Giá đặc thù</label>
                                             {!isViewMode && (
                                                 <button
-                                                    onClick={() => setContractFormData({ ...contractFormData, products: [...contractFormData.products, { productId: '', fixedPrice: 0, discountPercent: 0 }] })}
+                                                    onClick={() => setContractFormData({ ...contractFormData, products: [...contractFormData.products, { productId: '', productName: '', fixedPrice: 0, discountPercent: 0 }] })}
                                                     className="text-blue-500 text-[10px] font-black uppercase hover:underline"
                                                 >+ Thêm sản phẩm</button>
                                             )}
@@ -888,21 +863,20 @@ export default function ContractManagementPage() {
                                                 {contractFormData.products.map((p, idx) => (
                                                     <div key={idx} className="flex gap-3 items-center bg-white p-4 rounded-3xl border border-slate-100 shadow-sm">
                                                         <div className="flex-1">
-                                                            <select
+                                                            <ProductAutocomplete
                                                                 disabled={isViewMode}
                                                                 value={p.productId}
-                                                                onChange={(e) => {
+                                                                initialProductName={p.productName}
+                                                                onChange={(productId, product) => {
                                                                     const newProds = [...contractFormData.products]
-                                                                    newProds[idx].productId = e.target.value
+                                                                    newProds[idx].productId = productId
+                                                                    if (product) {
+                                                                        newProds[idx].productName = product.name
+                                                                    }
                                                                     setContractFormData({ ...contractFormData, products: newProds })
                                                                 }}
-                                                                className="w-full bg-slate-50 border-none rounded-2xl text-xs font-bold py-3"
-                                                            >
-                                                                <option value="">Chọn sản phẩm...</option>
-                                                                {Array.isArray(products) && products.map(prod => (
-                                                                    <option key={prod.id} value={prod.id}>{prod.name} ({prod.sku})</option>
-                                                                ))}
-                                                            </select>
+                                                                className="!py-2"
+                                                            />
                                                         </div>
                                                         <div className="w-32">
                                                             <div className="relative">

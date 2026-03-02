@@ -19,6 +19,7 @@ interface ProductSectionProps {
     page: number
     onPageChange: (page: number) => void
     pageSize: number
+    totalItems: number
 }
 
 export default function ProductSection({
@@ -34,19 +35,12 @@ export default function ProductSection({
     onSearchChange,
     page,
     onPageChange,
-    pageSize
+    pageSize,
+    totalItems
 }: ProductSectionProps) {
-    const filteredProducts = products.filter(p =>
-        p.name.toLowerCase().includes(search.toLowerCase()) ||
-        p.sku.toLowerCase().includes(search.toLowerCase())
-    )
-
-    const totalProducts = filteredProducts.length
-    const totalPages = Math.ceil(totalProducts / pageSize)
-    const paginatedProducts = filteredProducts.slice(
-        (page - 1) * pageSize,
-        page * pageSize
-    )
+    // Data is now paginated and filtered on the server
+    const totalPages = Math.ceil(totalItems / pageSize)
+    const paginatedProducts = products
 
     return (
         <div className="bg-white rounded-lg shadow">
@@ -57,7 +51,7 @@ export default function ProductSection({
                 <div className="flex items-center space-x-3">
                     <Package className="h-5 w-5 text-blue-600" />
                     <h2 className="text-lg font-semibold text-gray-900">Sản Phẩm</h2>
-                    <span className="text-sm text-gray-500">({products.length} sản phẩm)</span>
+                    <span className="text-sm text-gray-500">({totalItems} sản phẩm)</span>
                 </div>
                 {expanded ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
             </button>
@@ -203,7 +197,7 @@ export default function ProductSection({
                                 <Pagination
                                     currentPage={page}
                                     totalPages={totalPages}
-                                    totalItems={totalProducts}
+                                    totalItems={totalItems}
                                     itemsPerPage={pageSize}
                                     onPageChange={onPageChange}
                                     loading={loading}

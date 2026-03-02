@@ -28,41 +28,64 @@ export async function GET(request: NextRequest) {
             orderBy: { lastMessageAt: 'desc' }
         })
 
+        // Pre-fetch missing user and profile names
+        const userIdsToRepair = new Set<string>()
+        conversations.forEach(c => {
+            const isParticipant1 = c.participant1Id === userId
+            const otherUserName = isParticipant1 ? c.participant2Name : c.participant1Name
+            const otherUserId = isParticipant1 ? c.participant2Id : c.participant1Id
+
+            if (otherUserName === 'Người dùng' || otherUserName === 'Khách' || !otherUserName) {
+                if (otherUserId) userIdsToRepair.add(otherUserId)
+            }
+        })
+
+        const usersDict: Record<string, string> = {}
+        const profilesDict: Record<string, string> = {}
+
+        if (userIdsToRepair.size > 0) {
+            const idsList = Array.from(userIdsToRepair)
+            const [users, profiles] = await Promise.all([
+                prisma.user.findMany({
+                    where: { id: { in: idsList } },
+                    select: { id: true, name: true }
+                }),
+                prisma.contractorProfile.findMany({
+                    where: { id: { in: idsList } },
+                    select: { id: true, displayName: true }
+                })
+            ])
+            users.forEach(u => { if (u.name) usersDict[u.id] = u.name })
+            profiles.forEach(p => { if (p.displayName) profilesDict[p.id] = p.displayName })
+        }
+
+        const updates: Promise<any>[] = []
+
         // Format for frontend
-        const formatted = await Promise.all(conversations.map(async (c) => {
+        const formatted = conversations.map((c) => {
             const isParticipant1 = c.participant1Id === userId
             let otherUserName = isParticipant1 ? c.participant2Name : c.participant1Name
             const otherUserId = isParticipant1 ? c.participant2Id : c.participant1Id
 
             // Repair 'Người dùng' or 'Khách' if we can find a better name
             if (otherUserName === 'Người dùng' || otherUserName === 'Khách' || !otherUserName) {
-                // Try User first
-                const userObj = await prisma.user.findUnique({
-                    where: { id: otherUserId },
-                    select: { name: true }
-                })
+                const fetchedUserName = usersDict[otherUserId]
+                const fetchedProfileName = profilesDict[otherUserId]
 
-                if (userObj?.name && userObj.name !== 'Người dùng' && userObj.name !== 'Khách') {
-                    otherUserName = userObj.name
-                } else {
-                    // Try ContractorProfile
-                    const profile = await prisma.contractorProfile.findUnique({
-                        where: { id: otherUserId },
-                        select: { displayName: true }
-                    })
-                    if (profile?.displayName) {
-                        otherUserName = profile.displayName
-                    }
+                if (fetchedUserName && fetchedUserName !== 'Người dùng' && fetchedUserName !== 'Khách') {
+                    otherUserName = fetchedUserName
+                } else if (fetchedProfileName) {
+                    otherUserName = fetchedProfileName
                 }
 
                 // Persist the repair in DB if we found a better name
                 if (otherUserName && otherUserName !== 'Người dùng' && otherUserName !== 'Khách') {
-                    await prisma.conversation.update({
+                    updates.push(prisma.conversation.update({
                         where: { id: c.id },
                         data: {
                             [isParticipant1 ? 'participant2Name' : 'participant1Name']: otherUserName
                         }
-                    })
+                    }))
                 }
             }
 
@@ -77,7 +100,11 @@ export async function GET(request: NextRequest) {
                 unreadCount: isParticipant1 ? c.unread1 : c.unread2,
                 createdAt: c.createdAt
             }
-        }))
+        })
+
+        if (updates.length > 0) {
+            await Promise.all(updates) // execute updates concurrently
+        }
 
         return NextResponse.json(
             createSuccessResponse({ conversations: formatted }, 'Conversations loaded'),
