@@ -13,6 +13,7 @@ import Footer from '@/components/Footer'
 import SystemInterceptor from '@/components/SystemInterceptor'
 import GlobalAuthModals from '@/components/auth/GlobalAuthModals'
 import OrganizationJsonLd from '@/components/seo/OrganizationJsonLd'
+import ReactQueryProvider from '@/components/ReactQueryProvider'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -77,44 +78,46 @@ export default function RootLayout({
     <html lang="vi" suppressHydrationWarning>
       <body className={inter.className}>
         <OrganizationJsonLd />
-        <GoogleProvider>
-          <AuthProvider>
-            <SystemInterceptor />
-            <ConsoleGuard />
-            <ContractorRedirect />
-            <AdminRedirect />
-            <GlobalAuthModals />
-            <div id="root" className="min-h-screen flex flex-col">
-              <main className="flex-grow">
-                {children}
-              </main>
-              <Footer />
-            </div>
-            <FloatingWidgetsContainer />
-            <RealtimeNotificationWatcher />
-            <script
-              dangerouslySetInnerHTML={{
-                __html: `
+        <ReactQueryProvider>
+          <GoogleProvider>
+            <AuthProvider>
+              <SystemInterceptor />
+              <ConsoleGuard />
+              <ContractorRedirect />
+              <AdminRedirect />
+              <GlobalAuthModals />
+              <div id="root" className="min-h-screen flex flex-col">
+                <main className="flex-grow">
+                  {children}
+                </main>
+                <Footer />
+              </div>
+              <FloatingWidgetsContainer />
+              <RealtimeNotificationWatcher />
+              <script
+                dangerouslySetInnerHTML={{
+                  __html: `
               (function(c,l,a,r,i,t,y){
                   c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
                   t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
                   y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
               })(window, document, "clarity", "script", "p914clid12");
             `,
-              }}
-            />
-            <Toaster
-              position="top-right"
-              toastOptions={{
-                duration: 4000,
-                style: {
-                  background: '#333',
-                  color: '#fff',
-                },
-              }}
-            />
-          </AuthProvider>
-        </GoogleProvider>
+                }}
+              />
+              <Toaster
+                position="top-right"
+                toastOptions={{
+                  duration: 4000,
+                  style: {
+                    background: '#333',
+                    color: '#fff',
+                  },
+                }}
+              />
+            </AuthProvider>
+          </GoogleProvider>
+        </ReactQueryProvider>
       </body>
     </html>
   )

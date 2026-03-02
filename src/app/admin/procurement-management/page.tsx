@@ -5,7 +5,9 @@
  * Trang quản lý nhập hàng thông minh
  */
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'react-hot-toast'
 import {
     Package,
     TrendingUp,
@@ -69,53 +71,66 @@ interface PurchaseRequest {
 
 export default function ProcurementManagementPage() {
     const [activeTab, setActiveTab] = useState<'suggestions' | 'requests'>('suggestions')
-    const [suggestions, setSuggestions] = useState<PurchaseSuggestion[]>([])
-    const [requests, setRequests] = useState<PurchaseRequest[]>([])
-    const [loading, setLoading] = useState(true)
     const [searchTerm, setSearchTerm] = useState('')
+    const queryClient = useQueryClient()
 
-    useEffect(() => {
-        loadData()
-    }, [activeTab])
-
-    const loadData = async () => {
-        setLoading(true)
-        try {
-            if (activeTab === 'suggestions') {
-                const res = await fetch('/api/procurement?type=suggestions')
-                const data = await res.json()
-                setSuggestions(data)
-            } else {
-                const res = await fetch('/api/procurement?type=requests')
-                const data = await res.json()
-                setRequests(data)
-            }
-        } catch (error) {
-            console.error('Error loading data:', error)
+    // Query for suggestions
+    const { data: suggestions = [], isLoading: loadingSuggestions, refetch: refetchSuggestions } = useQuery({
+        queryKey: ['procurement', 'suggestions'],
+        queryFn: async () => {
+            const res = await fetch('/api/procurement?type=suggestions')
+            if (!res.ok) throw new Error('Failed to fetch suggestions')
+            return res.json() as Promise<PurchaseSuggestion[]>
         }
-        setLoading(false)
+    })
+
+    // Query for requests
+    const { data: requests = [], isLoading: loadingRequests, refetch: refetchRequests } = useQuery({
+        queryKey: ['procurement', 'requests'],
+        queryFn: async () => {
+            const res = await fetch('/api/procurement?type=requests')
+            if (!res.ok) throw new Error('Failed to fetch requests')
+            return res.json() as Promise<PurchaseRequest[]>
+        }
+    })
+
+    const loading = loadingSuggestions || loadingRequests
+
+    const loadData = () => {
+        if (activeTab === 'suggestions') {
+            refetchSuggestions()
+        } else {
+            refetchRequests()
+        }
     }
 
-    const handleAssignSupplier = async (requestId: string, supplierId: string) => {
-        try {
-            await fetch('/api/procurement', {
+    // Mutations
+    const assignSupplierMutation = useMutation({
+        mutationFn: async ({ requestId, supplierId }: { requestId: string, supplierId: string }) => {
+            const res = await fetch('/api/procurement', {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    action: 'assign-supplier',
-                    requestId,
-                    supplierId
-                })
+                body: JSON.stringify({ action: 'assign-supplier', requestId, supplierId })
             })
-            loadData()
-        } catch (error) {
-            console.error('Error assigning supplier:', error)
+            if (!res.ok) throw new Error('Failed to assign')
+            return res.json()
+        },
+        onSuccess: () => {
+            toast.success('Đã cập nhật nhà cung cấp')
+            queryClient.invalidateQueries({ queryKey: ['procurement', 'requests'] })
+        },
+        onError: () => {
+            toast.error('Lỗi khi chỉ định nhà cung cấp')
         }
+    })
+
+    const handleAssignSupplier = (requestId: string, supplierId: string) => {
+        assignSupplierMutation.mutate({ requestId, supplierId })
     }
 
-    const handleCreateRequest = async (suggestion: PurchaseSuggestion) => {
-        try {
-            await fetch('/api/procurement', {
+    const createRequestMutation = useMutation({
+        mutationFn: async (suggestion: PurchaseSuggestion) => {
+            const res = await fetch('/api/procurement', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -125,16 +140,25 @@ export default function ProcurementManagementPage() {
                     supplierId: suggestion.bestSupplier?.id
                 })
             })
-            loadData()
-            alert('Đã tạo yêu cầu nhập hàng!')
-        } catch (error) {
-            console.error('Error creating request:', error)
+            if (!res.ok) throw new Error('Failed to create')
+            return res.json()
+        },
+        onSuccess: () => {
+            toast.success('Đã tạo phiếu yêu cầu nhập hàng!')
+            queryClient.invalidateQueries({ queryKey: ['procurement'] })
+        },
+        onError: () => {
+            toast.error('Có lỗi xảy ra khi khởi tạo, vui lòng thử lại!')
         }
+    })
+
+    const handleCreateRequest = (suggestion: PurchaseSuggestion) => {
+        createRequestMutation.mutate(suggestion)
     }
 
-    const handleApproveRequest = async (requestId: string) => {
-        try {
-            await fetch('/api/procurement', {
+    const approveRequestMutation = useMutation({
+        mutationFn: async (requestId: string) => {
+            const res = await fetch('/api/procurement', {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -143,10 +167,20 @@ export default function ProcurementManagementPage() {
                     approvedBy: 'admin'
                 })
             })
-            loadData()
-        } catch (error) {
-            console.error('Error approving request:', error)
+            if (!res.ok) throw new Error('Failed to approve')
+            return res.json()
+        },
+        onSuccess: () => {
+            toast.success('Phê duyệt thành công')
+            queryClient.invalidateQueries({ queryKey: ['procurement', 'requests'] })
+        },
+        onError: () => {
+            toast.error('Lỗi khi phê duyệt')
         }
+    })
+
+    const handleApproveRequest = (requestId: string) => {
+        approveRequestMutation.mutate(requestId)
     }
 
     const handleAutoGenerate = async () => {
@@ -157,15 +191,16 @@ export default function ProcurementManagementPage() {
                 body: JSON.stringify({ action: 'auto-generate' })
             })
             const data = await res.json()
-            alert(data.message)
-            loadData()
+            toast.success(data.message || 'Đã phân tích xong lô hàng tự động')
+            queryClient.invalidateQueries({ queryKey: ['procurement'] })
         } catch (error) {
             console.error('Error auto-generating:', error)
+            toast.error('Tiến trình AI gặp sự cố, vui lòng thử lại sau')
         }
     }
 
-    const handleConvertToPO = async (requestId: string) => {
-        try {
+    const convertToPOMutation = useMutation({
+        mutationFn: async (requestId: string) => {
             const res = await fetch('/api/procurement', {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
@@ -176,16 +211,20 @@ export default function ProcurementManagementPage() {
                 })
             })
             const data = await res.json()
-            if (data.error) {
-                alert(data.error)
-            } else {
-                alert(`Đã tạo Đơn đặt hàng: ${data.orderNumber}`)
-                loadData()
-            }
-        } catch (error) {
-            console.error('Error converting to PO:', error)
-            alert('Lỗi khi tạo đơn đặt hàng')
+            if (data.error) throw new Error(data.error)
+            return data
+        },
+        onSuccess: (data) => {
+            toast.success(`Đã tạo Đơn đặt hàng: ${data.orderNumber}`)
+            queryClient.invalidateQueries({ queryKey: ['procurement', 'requests'] })
+        },
+        onError: (err: any) => {
+            toast.error(err.message || 'Lỗi khi tạo đơn đặt hàng')
         }
+    })
+
+    const handleConvertToPO = (requestId: string) => {
+        convertToPOMutation.mutate(requestId)
     }
 
     const formatCurrency = (amount: number | undefined | null) => {

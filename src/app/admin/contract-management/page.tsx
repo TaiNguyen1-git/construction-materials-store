@@ -499,7 +499,7 @@ export default function ContractManagementPage() {
             {loading ? (
                 <div className="py-24 text-center">
                     <div className="w-12 h-12 border-4 border-blue-600/20 border-t-blue-600 rounded-full animate-spin mx-auto mb-4"></div>
-                    <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Loading Repository...</span>
+                    <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Đang tải dữ liệu...</span>
                 </div>
             ) : (
                 <>
@@ -538,19 +538,19 @@ export default function ContractManagementPage() {
                                     <table className="min-w-full divide-y divide-slate-100">
                                         <thead className="bg-slate-50/50">
                                             <tr className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                                                <th className="px-6 py-4 text-left">Contract Info</th>
-                                                <th className="px-6 py-4 text-left">Client Entity</th>
-                                                <th className="px-4 py-4 text-center">Type</th>
-                                                <th className="px-4 py-4 text-center">Validation Period</th>
-                                                <th className="px-4 py-4 text-center">SKU Items</th>
-                                                <th className="px-4 py-4 text-center">Lifecycle</th>
+                                                <th className="px-6 py-4 text-left">Thông tin hợp đồng</th>
+                                                <th className="px-6 py-4 text-left">Đối tác</th>
+                                                <th className="px-4 py-4 text-center">Phân loại</th>
+                                                <th className="px-4 py-4 text-center">Hiệu lực</th>
+                                                <th className="px-4 py-4 text-center">SL Sản phẩm</th>
+                                                <th className="px-4 py-4 text-center">Trạng thái</th>
                                                 <th className="px-6 py-4 text-right">Thao Tác</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-50">
                                             {filteredContracts.length === 0 ? (
                                                 <tr>
-                                                    <td colSpan={7} className="px-6 py-12 text-center text-slate-400 font-bold italic uppercase tracking-widest italic">No contracts matching your criteria</td>
+                                                    <td colSpan={7} className="px-6 py-12 text-center text-slate-400 font-bold italic uppercase tracking-widest italic">Không có hợp đồng nào phù hợp</td>
                                                 </tr>
                                             ) : (
                                                 filteredContracts.map((contract) => (
@@ -583,7 +583,7 @@ export default function ContractManagementPage() {
                                                                     {formatDateArr(contract.validFrom).short} - {formatDateArr(contract.validTo).short}
                                                                 </div>
                                                                 <div className="text-[9px] text-slate-300 font-black uppercase tracking-widest mt-0.5 underline decoration-slate-200">
-                                                                    {contract.creditTermDays} Days Net
+                                                                    Công nợ {contract.creditTermDays} ngày
                                                                 </div>
                                                             </div>
                                                         </td>
