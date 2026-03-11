@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { createSuccessResponse, createErrorResponse } from '@/lib/api-types'
 import { verifyTokenFromRequest } from '@/lib/auth-middleware-api'
+import { pricingEngine } from '@/lib/pricing-engine'
 
 // GET /api/contractors/orders - Get contractor's orders
 export async function GET(request: NextRequest) {
@@ -231,11 +232,14 @@ export async function POST(request: NextRequest) {
                 )
             }
 
-            // Use wholesale price if available and quantity meets minimum
-            const unitPrice = (product.wholesalePrice && item.quantity >= product.minWholesaleQty)
-                ? product.wholesalePrice
-                : product.price
+            // Tính giá bằng B2B Pricing Engine (Hợp đồng > Phân hạng)
+            const priceResult = await pricingEngine.getEffectivePrice(
+                item.productId,
+                customer.id,
+                item.quantity
+            )
 
+            const unitPrice = priceResult.effectivePrice
             const itemTotal = unitPrice * item.quantity
             totalAmount += itemTotal
 
@@ -244,14 +248,15 @@ export async function POST(request: NextRequest) {
                 quantity: item.quantity,
                 unitPrice,
                 totalPrice: itemTotal,
-                discount: 0
+                discount: priceResult.discountPercent || 0
             })
         }
 
-        // Apply contractor discount based on loyalty tier
-        const discountPercent = getDiscountByTier(customer.loyaltyTier)
-        const discountAmount = totalAmount * (discountPercent / 100)
-        const netAmount = totalAmount - discountAmount
+        const netAmount = totalAmount // Pricing engine already applies the discount to unitPrice
+        const discountAmount = items.reduce((sum: number, item: any, index: number) => {
+            const originalPrice = productMap.get(item.productId)?.price || orderItems[index].unitPrice
+            return sum + (originalPrice - orderItems[index].unitPrice) * item.quantity
+        }, 0)
 
         // Check credit limit
         const currentDebt = await getCurrentDebt(customer.id)
