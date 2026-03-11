@@ -45,6 +45,10 @@ export default function ContractorCartPage() {
         discountPercent: 0,
         availableCredit: 0
     })
+    
+    // Dynamic Cart Pricing
+    const [evaluatedCart, setEvaluatedCart] = useState<any>(null)
+    const [evaluating, setEvaluating] = useState(false)
 
     const {
         items,
@@ -72,6 +76,37 @@ export default function ContractorCartPage() {
         }
     }, [user])
 
+    // Evaluate Cart for Dynamic Pricing
+    useEffect(() => {
+        if (items.length > 0 && user?.id) {
+            evaluateCart()
+        } else {
+            setEvaluatedCart(null)
+        }
+    }, [items, user])
+
+    const evaluateCart = async () => {
+        setEvaluating(true)
+        try {
+            const response = await fetchWithAuth('/api/pricing/evaluate-cart', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    items: items.map(i => ({ productId: i.productId, quantity: i.quantity })),
+                    customerId: user?.id
+                })
+            })
+            const data = await response.json()
+            if (data.success && data.data) {
+                setEvaluatedCart(data.data)
+            }
+        } catch (error) {
+            console.error('Error evaluating cart:', error)
+        } finally {
+            setEvaluating(false)
+        }
+    }
+
     const fetchContractorProfile = async () => {
         try {
             const response = await fetchWithAuth('/api/contractors/profile')
@@ -96,8 +131,11 @@ export default function ContractorCartPage() {
     }
 
     const availableCredit = contractorInfo.availableCredit
-    const discountAmount = totalPrice * (contractorInfo.discountPercent / 100)
-    const finalTotal = totalPrice - discountAmount
+    
+    // Calculate dynamic totals based on Evaluated Cart
+    const dynamicOriginalTotal = evaluatedCart?.items?.reduce((sum: number, item: any) => sum + (item.originalPrice * item.quantity), 0) || totalPrice
+    const dynamicDiscountAmount = evaluatedCart?.items?.reduce((sum: number, item: any) => sum + (item.discountAmount * item.quantity), 0) || (totalPrice * (contractorInfo.discountPercent / 100))
+    const finalTotal = evaluatedCart?.summary?.totalPrice ?? (totalPrice - dynamicDiscountAmount)
 
     const handleCheckout = async () => {
         if (items.length === 0) {
@@ -249,8 +287,22 @@ export default function ContractorCartPage() {
                                             Xóa tất cả
                                         </button>
                                     </div>
-                                    <div className="divide-y divide-gray-50">
-                                        {items.map((item) => (
+                                    <div className="divide-y divide-gray-50 relative">
+                                        {evaluating && (
+                                            <div className="absolute inset-0 bg-white/50 backdrop-blur-[1px] z-10 flex items-center justify-center">
+                                                <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-full shadow-sm border border-gray-100">
+                                                    <div className="w-4 h-4 border-2 border-primary-600 border-t-transparent flex-shrink-0 rounded-full animate-spin" />
+                                                    <span className="text-xs font-bold text-gray-600">Đang cập nhật giá...</span>
+                                                </div>
+                                            </div>
+                                        )}
+                                        {items.map((item) => {
+                                            const evaluatedItem = evaluatedCart?.items?.find((i: any) => i.productId === item.productId)
+                                            const displayPrice = evaluatedItem?.effectivePrice ?? item.price
+                                            const originalItemPrice = evaluatedItem?.originalPrice ?? item.price
+                                            const isDiscounted = displayPrice < originalItemPrice
+                                            
+                                            return (
                                             <div key={item.productId} className="p-3 flex gap-3 hover:bg-gray-50/50 transition-colors">
                                                 {/* Image */}
                                                 <div className="w-14 h-14 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0 border border-gray-100">
@@ -274,9 +326,16 @@ export default function ContractorCartPage() {
                                                     <h4 className="font-bold text-xs text-gray-900 truncate mb-0.5">{item.name}</h4>
                                                     <div className="flex items-center gap-2">
                                                         <span className="text-[10px] font-medium text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">SKU: {item.sku}</span>
-                                                        <span className="text-[10px] font-bold text-primary-600">
-                                                            {formatCurrency(item.price)}/{item.unit}
-                                                        </span>
+                                                        <div className="flex flex-col">
+                                                            <span className="text-[10px] font-bold text-primary-600">
+                                                                {formatCurrency(displayPrice)}/{item.unit}
+                                                            </span>
+                                                            {isDiscounted && (
+                                                                <span className="text-[9px] text-gray-400 line-through">
+                                                                    {formatCurrency(originalItemPrice)}/{item.unit}
+                                                                </span>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                 </div>
 
@@ -304,7 +363,7 @@ export default function ContractorCartPage() {
                                                     </div>
                                                     <div className="flex items-center gap-3">
                                                         <p className="font-black text-xs text-gray-900">
-                                                            {formatCurrency(item.price * item.quantity)}
+                                                            {formatCurrency(displayPrice * item.quantity)}
                                                         </p>
                                                         <button
                                                             onClick={() => removeItem(item.productId)}
@@ -315,7 +374,8 @@ export default function ContractorCartPage() {
                                                     </div>
                                                 </div>
                                             </div>
-                                        ))}
+                                            )
+                                        })}
                                     </div>
                                 </div>
                             </div>
@@ -352,11 +412,11 @@ export default function ContractorCartPage() {
                                     <div className="space-y-2.5">
                                         <div className="flex justify-between text-xs">
                                             <span className="text-gray-500 font-medium">Tạm tính</span>
-                                            <span className="font-bold text-gray-900">{formatCurrency(totalPrice)}</span>
+                                            <span className="font-bold text-gray-900">{formatCurrency(dynamicOriginalTotal)}</span>
                                         </div>
                                         <div className="flex justify-between text-xs text-emerald-600">
-                                            <span className="font-medium">Chiết khấu ({contractorInfo.discountPercent}%)</span>
-                                            <span className="font-bold">-{formatCurrency(discountAmount)}</span>
+                                            <span className="font-medium">Chiết khấu</span>
+                                            <span className="font-bold">-{formatCurrency(dynamicDiscountAmount)}</span>
                                         </div>
                                         <div className="flex justify-between text-xs text-gray-500">
                                             <span className="flex items-center gap-1.5 font-medium">
