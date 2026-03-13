@@ -107,21 +107,29 @@ const HELP_CATEGORIES = [
             },
             {
                 id: 'shipping-cost',
-                title: 'Cách tính phí vận chuyển',
+                title: 'Bảng giá vận chuyển',
                 content: `
-**Công thức tính phí:**
+**Bảng giá vận chuyển theo khoảng cách:**
 
-Phí = (Khối lượng × Đơn giá/kg) + Phụ phí khu vực
+Phí vận chuyển được tính tự động dựa trên khoảng cách từ cửa hàng (P. Trấn Biên, TP. Biên Hòa) đến địa chỉ giao hàng.
 
-**Miễn phí vận chuyển khi:**
-- Đơn hàng từ 5 triệu (nội thành)
-- Đơn hàng từ 10 triệu (toàn quốc)
-- Thành viên Vàng/Bạch Kim/Kim Cương
+| Khoảng cách | Phí vận chuyển |
+|-------------|---------------|
+| 0 – 5 km | Miễn phí |
+| 5 – 10 km | 30.000đ |
+| 10 – 20 km | 50.000đ |
+| 20 – 40 km | 100.000đ |
+| 40 – 70 km | 200.000đ |
+| Trên 70 km | Liên hệ |
 
-**Phụ phí đặc biệt:**
-- Giao ngoài giờ hành chính: +50.000đ
-- Giao ngày lễ/Chủ nhật: +100.000đ
-- Bốc hàng lên lầu (trên tầng 3): Theo thỏa thuận
+**✅ Miễn phí vận chuyển khi:**
+- Đơn hàng có giá trị từ 5.000.000đ trở lên
+- Khoảng cách giao hàng trong phạm vi 5km
+
+**Lưu ý:**
+- Khoảng cách được ước tính dựa trên tọa độ GPS
+- Với đơn hàng trên 70km, phí sẽ được nhân viên báo giá riêng
+- Phí trên áp dụng cho giao hàng trong giờ hành chính (7:00 – 18:00)
                 `
             },
             {

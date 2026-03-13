@@ -1,9 +1,9 @@
 'use client'
 
 /**
- * Contractor Quick Order Page — POS-Style Redesign
+ * Contractor Quick Order Page — POS-Style
  * All-in-one: Product grid (left) + Cart & Checkout (right)
- * No need to navigate to /contractor/cart anymore
+ * Auto shipping fee calculation via Haversine formula
  */
 
 import { useState, useEffect, useRef } from 'react'
@@ -14,7 +14,7 @@ import toast from 'react-hot-toast'
 import Sidebar from '../components/Sidebar'
 import ContractorHeader from '../components/ContractorHeader'
 
-import { Product, CartItem, EvaluatedCart, SuccessOrderData } from './types'
+import { Product, CartItem, EvaluatedCart, SuccessOrderData, ContractorProject, ShippingCalculation } from './types'
 import ProductGrid from './components/ProductGrid'
 import CartPanel from './components/CartPanel'
 import SuccessModal from './components/SuccessModal'
@@ -53,13 +53,16 @@ export default function QuickOrderPage() {
     const [creditLimit, setCreditLimit] = useState(0)
     const [availableCredit, setAvailableCredit] = useState(0)
 
+    // ─── Projects & Shipping ─────────────────────────────────────────────────
+    const [projects, setProjects] = useState<ContractorProject[]>([])
+    const [selectedProject, setSelectedProject] = useState<ContractorProject | null>(null)
+    const [shippingCalc, setShippingCalc] = useState<ShippingCalculation | null>(null)
+    const [shippingLoading, setShippingLoading] = useState(false)
+
     // ─── Project Info ────────────────────────────────────────────────────────
     const [projectName, setProjectName] = useState('')
     const [poNumber, setPoNumber] = useState('')
     const [notes, setNotes] = useState('')
-
-    // ─── Shipping ────────────────────────────────────────────────────────────
-    const [shippingFee, setShippingFee] = useState(0)
     const [deliveryDate, setDeliveryDate] = useState('')
 
     // ─── Modals ──────────────────────────────────────────────────────────────
@@ -148,9 +151,12 @@ export default function QuickOrderPage() {
         localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart))
     }, [cart])
 
-    // Load contractor profile
+    // Load contractor profile + projects
     useEffect(() => {
-        if (user) fetchContractorProfile()
+        if (user) {
+            fetchContractorProfile()
+            fetchProjects()
+        }
     }, [user])
 
     // Evaluate cart with B2B pricing (debounced)
@@ -171,6 +177,15 @@ export default function QuickOrderPage() {
         }
     }, [cart, user])
 
+    // Auto-calculate shipping when project or cart total changes
+    useEffect(() => {
+        if (selectedProject?.lat && selectedProject?.lng) {
+            calculateShipping(selectedProject.lat, selectedProject.lng)
+        } else {
+            setShippingCalc(null)
+        }
+    }, [selectedProject, evaluatedCart, cart])
+
     // ═════════════════════════════════════════════════════════════════════════
     // API Calls
     // ═════════════════════════════════════════════════════════════════════════
@@ -188,6 +203,20 @@ export default function QuickOrderPage() {
             }
         } catch (error) {
             console.error('Error fetching contractor profile:', error)
+        }
+    }
+
+    const fetchProjects = async () => {
+        try {
+            const response = await fetchWithAuth('/api/contractors/projects')
+            if (response.ok) {
+                const data = await response.json()
+                if (data.success && data.data) {
+                    setProjects(data.data)
+                }
+            }
+        } catch (error) {
+            console.error('Error fetching projects:', error)
         }
     }
 
@@ -213,6 +242,29 @@ export default function QuickOrderPage() {
             console.error('Error evaluating cart:', error)
         } finally {
             setEvaluating(false)
+        }
+    }
+
+    const calculateShipping = async (lat: number, lng: number) => {
+        setShippingLoading(true)
+        try {
+            // Calculate order total for free shipping check
+            const orderTotal = evaluatedCart?.summary?.totalPrice
+                ?? cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0)
+
+            const response = await fetch('/api/shipping/calculate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ lat, lng, orderTotal })
+            })
+            const data = await response.json()
+            if (data.success && data.data) {
+                setShippingCalc(data.data)
+            }
+        } catch (error) {
+            console.error('Error calculating shipping:', error)
+        } finally {
+            setShippingLoading(false)
         }
     }
 
@@ -254,7 +306,7 @@ export default function QuickOrderPage() {
         setCart(prev => prev.map(item => {
             if (item.product.id === productId) {
                 const newQty = item.quantity + delta
-                if (newQty <= 0) return item // don't go below 1 via delta
+                if (newQty <= 0) return item
                 return { ...item, quantity: newQty }
             }
             return item
@@ -300,6 +352,8 @@ export default function QuickOrderPage() {
         const toastId = toast.loading('Đang tạo đơn hàng...')
 
         try {
+            const shippingFee = shippingCalc?.finalFee ?? 0
+
             const response = await fetchWithAuth('/api/contractors/orders', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -308,12 +362,15 @@ export default function QuickOrderPage() {
                         productId: item.product.id,
                         quantity: item.quantity
                     })),
-                    projectName,
+                    projectName: projectName || selectedProject?.title || '',
                     poNumber,
+                    shippingFee,
+                    deliveryDate: deliveryDate || undefined,
+                    shippingDistance: shippingCalc?.distanceKm || undefined,
                     notes: [
                         notes,
                         deliveryDate ? `Giao ngày: ${deliveryDate}` : '',
-                        shippingFee > 0 ? `Phí VC: ${formatCurrency(shippingFee)}` : ''
+                        shippingCalc ? `VC: ${shippingCalc.distanceKm}km / ${formatCurrency(shippingFee)}` : ''
                     ].filter(Boolean).join(' | ') || undefined
                 })
             })
@@ -330,13 +387,13 @@ export default function QuickOrderPage() {
                 const subtotal = evaluatedCart?.summary?.totalOriginal
                     ?? cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0)
                 const discountTotal = evaluatedCart?.summary?.totalDiscount ?? 0
-                const total = evaluatedCart?.summary?.totalPrice
-                    ?? cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0)
+                const total = (evaluatedCart?.summary?.totalPrice
+                    ?? cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0)) + shippingFee
 
                 setSuccessOrder({
                     id: order?.id || 'N/A',
                     orderNumber,
-                    projectName,
+                    projectName: projectName || selectedProject?.title || '',
                     items: cart.map(item => {
                         const evaluated = evaluatedCart?.items?.find(i => i.productId === item.product.id)
                         return {
@@ -349,6 +406,7 @@ export default function QuickOrderPage() {
                     }),
                     subtotal,
                     discountTotal,
+                    shippingFee,
                     total,
                     createdAt: new Date().toISOString()
                 })
@@ -358,8 +416,9 @@ export default function QuickOrderPage() {
                 setProjectName('')
                 setPoNumber('')
                 setNotes('')
-                setShippingFee(0)
                 setDeliveryDate('')
+                setSelectedProject(null)
+                setShippingCalc(null)
             } else {
                 toast.error(data.message || 'Có lỗi xảy ra. Vui lòng thử lại.', { id: toastId })
             }
@@ -419,12 +478,15 @@ export default function QuickOrderPage() {
                         onPoNumberChange={setPoNumber}
                         notes={notes}
                         onNotesChange={setNotes}
-                        creditLimit={creditLimit}
-                        availableCredit={availableCredit}
-                        shippingFee={shippingFee}
-                        onShippingFeeChange={setShippingFee}
+                        projects={projects}
+                        selectedProject={selectedProject}
+                        onSelectProject={setSelectedProject}
+                        shippingCalc={shippingCalc}
+                        shippingLoading={shippingLoading}
                         deliveryDate={deliveryDate}
                         onDeliveryDateChange={setDeliveryDate}
+                        creditLimit={creditLimit}
+                        availableCredit={availableCredit}
                         onOpenHistory={fetchHistory}
                     />
                 </div>

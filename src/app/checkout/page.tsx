@@ -21,7 +21,10 @@ import {
   Star,
   Sparkles,
   Package,
-  Plus
+  Plus,
+  ChevronDown,
+  Gift,
+  Info
 } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import Link from 'next/link'
@@ -45,6 +48,7 @@ export default function CheckoutPage() {
   const [loadingRecs, setLoadingRecs] = useState(false)
   const [loadingProductRecs, setLoadingProductRecs] = useState(false)
   const [selectedContractorId, setSelectedContractorId] = useState<string | null>(null)
+  const [showShippingRates, setShowShippingRates] = useState(false)
 
   // Credit Check State
   const [checkingCredit, setCheckingCredit] = useState(false)
@@ -646,9 +650,51 @@ export default function CheckoutPage() {
                     <span className="font-bold">{totalPrice.toLocaleString()}₫</span>
                   </div>
                   <div className="flex justify-between text-slate-500 font-medium">
-                    <span className="text-sm uppercase tracking-widest text-[10px] font-black">Vận chuyển</span>
+                    <span className="text-sm uppercase tracking-widest text-[10px] font-black flex items-center gap-1.5">
+                      VẬN CHUYỂN
+                      <button
+                        type="button"
+                        onClick={() => setShowShippingRates(!showShippingRates)}
+                        className="text-blue-400 hover:text-blue-600 transition-colors"
+                        title="Xem bảng giá vận chuyển"
+                      >
+                        <Info size={12} />
+                      </button>
+                    </span>
                     <span className="font-bold">{shippingFee.toLocaleString()}₫</span>
                   </div>
+                  {showShippingRates && (
+                    <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 animate-in slide-in-from-top-2 duration-200">
+                      <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2.5 flex items-center gap-1.5">
+                        <Truck size={12} /> Bảng giá vận chuyển
+                      </p>
+                      <div className="space-y-1">
+                        {[
+                          { range: '0 – 5 km', fee: 'Miễn phí', active: false },
+                          { range: '5 – 10 km', fee: '30.000đ', active: false },
+                          { range: '10 – 20 km', fee: '50.000đ', active: true },
+                          { range: '20 – 40 km', fee: '100.000đ', active: false },
+                          { range: '40 – 70 km', fee: '200.000đ', active: false },
+                          { range: '> 70 km', fee: 'Liên hệ', active: false },
+                        ].map((row, i) => (
+                          <div
+                            key={i}
+                            className={`flex justify-between text-[10px] px-2.5 py-1.5 rounded-lg ${
+                              row.active
+                                ? 'bg-blue-100 text-blue-700 font-black'
+                                : 'text-slate-500 font-medium'
+                            }`}
+                          >
+                            <span>{row.range}</span>
+                            <span>{row.fee}</span>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="mt-2.5 flex items-center gap-1 text-[9px] text-emerald-600 font-bold">
+                        <Gift size={10} /> Miễn phí cho đơn ≥ 5.000.000đ hoặc ≤ 5km
+                      </div>
+                    </div>
+                  )}
 
                   {/* Selected Contractor Preview */}
                   {selectedContractorId && (() => {

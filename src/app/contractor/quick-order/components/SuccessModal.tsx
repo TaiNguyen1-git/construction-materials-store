@@ -107,6 +107,18 @@ export default function SuccessModal({ order, onClose, formatCurrency }: Success
                                             <span className="font-bold">-{formatCurrency(order.discountTotal)}</span>
                                         </div>
                                     )}
+                                    {order.shippingFee > 0 && (
+                                        <div className="flex justify-between text-xs text-slate-500">
+                                            <span>🚚 Vận chuyển</span>
+                                            <span className="font-bold">+{formatCurrency(order.shippingFee)}</span>
+                                        </div>
+                                    )}
+                                    {order.shippingFee === 0 && (
+                                        <div className="flex justify-between text-xs text-emerald-500">
+                                            <span>🚚 Vận chuyển</span>
+                                            <span className="font-bold">Miễn phí</span>
+                                        </div>
+                                    )}
                                     <div className="flex justify-between text-lg font-black text-slate-900 pt-2 border-t border-double border-slate-300">
                                         <span>TỔNG CỘNG</span>
                                         <span className="text-blue-600">{formatCurrency(order.total)}</span>
@@ -156,6 +168,12 @@ export default function SuccessModal({ order, onClose, formatCurrency }: Success
                                     <div className="flex justify-between">
                                         <span className="text-slate-500">Thanh toán</span>
                                         <span className="font-bold">Công nợ B2B</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-slate-500">Vận chuyển</span>
+                                        <span className="font-bold">
+                                            {order.shippingFee > 0 ? formatCurrency(order.shippingFee) : 'Miễn phí'}
+                                        </span>
                                     </div>
                                     {order.discountTotal > 0 && (
                                         <div className="flex justify-between">

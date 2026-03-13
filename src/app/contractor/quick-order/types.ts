@@ -48,6 +48,37 @@ export interface SuccessOrderData {
     }[]
     subtotal: number
     discountTotal: number
+    shippingFee: number
     total: number
     createdAt: string
+}
+
+// Project for shipping calculation
+export interface ContractorProject {
+    id: string
+    title: string
+    description?: string
+    status: string
+    location?: string
+    lat?: number | null
+    lng?: number | null
+    city?: string
+    district?: string
+}
+
+// Shipping calculation result from API
+export interface ShippingCalculation {
+    distanceKm: number
+    distanceStraight: number
+    baseFee: number
+    finalFee: number
+    isFreeShipping: boolean
+    freeReason?: string
+    tier: {
+        minKm: number
+        maxKm: number
+        fee: number
+        label: string
+    }
+    requiresContact: boolean
 }

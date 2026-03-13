@@ -25,7 +25,9 @@ import {
   CheckCircle,
   Clock,
   ShieldCheck,
-  Loader2
+  Loader2,
+  ChevronDown,
+  Gift
 } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import toast from 'react-hot-toast'
@@ -50,6 +52,7 @@ export default function CartPage() {
   const [isProcessing, setIsProcessing] = useState(false)
   const [recommendations, setRecommendations] = useState<Recommendation[]>([])
   const [loadingRecommendations, setLoadingRecommendations] = useState(false)
+  const [showShippingRates, setShowShippingRates] = useState(false)
 
   const shippingFee = items.length > 0 ? 50000 : 0
   const totalPrice = getTotalPrice()
@@ -290,6 +293,69 @@ export default function CartPage() {
                 <button onClick={handleExportQuote} className="w-full mt-5 bg-white text-slate-400 py-4 rounded-2xl border border-slate-100 font-black text-[11px] uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-slate-50 hover:text-slate-900 transition-all">
                   <FileText size={18} /> XUẤT PHIẾU BÁO GIÁ (PDF)
                 </button>
+
+                {/* Shipping Rate Table */}
+                <div className="mt-8 bg-gradient-to-br from-slate-50 to-white rounded-[2rem] border border-slate-100 overflow-hidden">
+                  <button
+                    onClick={() => setShowShippingRates(!showShippingRates)}
+                    className="w-full px-6 py-4 flex items-center justify-between hover:bg-slate-50 transition-colors"
+                  >
+                    <span className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 bg-emerald-100 rounded-xl flex items-center justify-center">
+                        <Truck className="w-4 h-4 text-emerald-600" />
+                      </div>
+                      <span className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Bảng Giá Vận Chuyển</span>
+                    </span>
+                    <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-300 ${showShippingRates ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  {showShippingRates && (
+                    <div className="px-6 pb-6 animate-in slide-in-from-top-2 duration-200">
+                      <div className="space-y-1.5 mb-4">
+                        {[
+                          { range: '0 – 5 km', fee: 'Miễn phí', highlight: true },
+                          { range: '5 – 10 km', fee: '30.000đ', highlight: false },
+                          { range: '10 – 20 km', fee: '50.000đ', highlight: false },
+                          { range: '20 – 40 km', fee: '100.000đ', highlight: false },
+                          { range: '40 – 70 km', fee: '200.000đ', highlight: false },
+                          { range: '> 70 km', fee: 'Liên hệ', highlight: false },
+                        ].map((row, i) => (
+                          <div
+                            key={i}
+                            className={`flex justify-between items-center px-3 py-2 rounded-xl text-xs ${
+                              row.highlight
+                                ? 'bg-emerald-50 border border-emerald-100'
+                                : 'bg-white border border-slate-50'
+                            }`}
+                          >
+                            <span className={`font-bold ${row.highlight ? 'text-emerald-700' : 'text-slate-600'}`}>
+                              {row.range}
+                            </span>
+                            <span className={`font-black ${row.highlight ? 'text-emerald-600' : 'text-slate-900'}`}>
+                              {row.fee}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="bg-emerald-50 rounded-xl p-3 border border-emerald-100">
+                        <p className="flex items-center gap-1.5 text-[10px] font-black text-emerald-700 uppercase tracking-wider mb-1">
+                          <Gift size={12} /> Miễn phí vận chuyển
+                        </p>
+                        <p className="text-[10px] text-emerald-600 font-medium leading-relaxed">
+                          Đơn hàng từ 5.000.000đ hoặc khoảng cách ≤ 5km
+                        </p>
+                      </div>
+
+                      <Link
+                        href="/help"
+                        className="mt-3 flex items-center justify-center gap-1 text-[9px] font-black text-slate-400 uppercase tracking-widest hover:text-indigo-600 transition-colors"
+                      >
+                        Xem chi tiết chính sách <ArrowRight size={10} />
+                      </Link>
+                    </div>
+                  )}
+                </div>
 
                 {/* Info Card */}
                 <div className="mt-12 p-8 bg-slate-900 rounded-[2.5rem] text-white shadow-2xl overflow-hidden relative group/contractor">
