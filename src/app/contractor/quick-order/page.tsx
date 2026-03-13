@@ -288,9 +288,18 @@ export default function QuickOrderPage() {
     // ═════════════════════════════════════════════════════════════════════════
 
     const addToCart = (product: Product) => {
+        const available = product.inventoryItem?.availableQuantity ?? Number.MAX_SAFE_INTEGER
+        const existing = cart.find(item => item.product.id === product.id)
+        const currentQty = existing ? existing.quantity : 0
+
+        if (currentQty >= available) {
+            toast.error(`Sản phẩm này chỉ còn ${available} trong kho!`, { duration: 3000 })
+            return
+        }
+
         setCart(prev => {
-            const existing = prev.find(item => item.product.id === product.id)
-            if (existing) {
+            const itemInPrev = prev.find(item => item.product.id === product.id)
+            if (itemInPrev) {
                 return prev.map(item =>
                     item.product.id === product.id
                         ? { ...item, quantity: item.quantity + 1 }
@@ -303,13 +312,24 @@ export default function QuickOrderPage() {
     }
 
     const updateQuantity = (productId: string, delta: number) => {
-        setCart(prev => prev.map(item => {
-            if (item.product.id === productId) {
-                const newQty = item.quantity + delta
-                if (newQty <= 0) return item
-                return { ...item, quantity: newQty }
+        const item = cart.find(i => i.product.id === productId)
+        if (!item) return
+        
+        const available = item.product.inventoryItem?.availableQuantity ?? Number.MAX_SAFE_INTEGER
+        const newQty = item.quantity + delta
+        
+        if (delta > 0 && item.quantity >= available) {
+            toast.error(`Sản phẩm này chỉ còn ${available} trong kho!`, { duration: 3000 })
+            return
+        }
+
+        setCart(prev => prev.map(it => {
+            if (it.product.id === productId) {
+                const nextQty = it.quantity + delta
+                if (nextQty <= 0) return it
+                return { ...it, quantity: nextQty > available ? available : nextQty }
             }
-            return item
+            return it
         }))
     }
 
@@ -318,8 +338,22 @@ export default function QuickOrderPage() {
             removeFromCart(productId)
             return
         }
-        setCart(prev => prev.map(item =>
-            item.product.id === productId ? { ...item, quantity: qty } : item
+        
+        const item = cart.find(i => i.product.id === productId)
+        if (!item) return
+        
+        const available = item.product.inventoryItem?.availableQuantity ?? Number.MAX_SAFE_INTEGER
+        if (qty > available) {
+            toast.error(`Sản phẩm này chỉ còn ${available} trong kho!`, { duration: 3000 })
+            // Set limit
+            setCart(prev => prev.map(it =>
+                it.product.id === productId ? { ...it, quantity: available } : it
+            ))
+            return
+        }
+
+        setCart(prev => prev.map(it =>
+            it.product.id === productId ? { ...it, quantity: qty } : it
         ))
     }
 

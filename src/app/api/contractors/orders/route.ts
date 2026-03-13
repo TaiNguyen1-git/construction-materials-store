@@ -227,7 +227,7 @@ export async function POST(request: NextRequest) {
             // Check stock if inventory item exists
             if (product.inventoryItem && product.inventoryItem.availableQuantity < item.quantity) {
                 return NextResponse.json(
-                    createErrorResponse(`Insufficient stock for ${product.name}`, 'INSUFFICIENT_STOCK'),
+                    createErrorResponse(`Sản phẩm ${product.name} không đủ số lượng tồn kho (chỉ còn ${product.inventoryItem.availableQuantity}).`, 'INSUFFICIENT_STOCK'),
                     { status: 400 }
                 )
             }

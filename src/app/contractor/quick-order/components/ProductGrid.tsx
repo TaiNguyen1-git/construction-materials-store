@@ -93,8 +93,12 @@ export default function ProductGrid({
                                 return (
                                     <div
                                         key={product.id}
-                                        onClick={() => onAddToCart(product)}
-                                        className="group bg-white p-4 rounded-[24px] border border-slate-100 shadow-sm hover:shadow-xl hover:border-blue-200 transition-all cursor-pointer active:scale-[0.97] relative overflow-hidden"
+                                        onClick={() => stock > 0 ? onAddToCart(product) : null}
+                                        className={`group bg-white p-4 rounded-[24px] border border-slate-100 shadow-sm relative overflow-hidden transition-all ${
+                                            stock > 0 
+                                            ? 'hover:shadow-xl hover:border-blue-200 cursor-pointer active:scale-[0.97]' 
+                                            : 'opacity-60 cursor-not-allowed grayscale-[20%]'
+                                        }`}
                                     >
                                         {/* In-cart badge */}
                                         {inCart > 0 && (
@@ -114,7 +118,7 @@ export default function ProductGrid({
                                             </div>
                                             {/* Stock badge */}
                                             <span className={`text-[10px] font-black uppercase text-white px-2 py-1 rounded-lg ${stock > 0 ? 'bg-emerald-400' : 'bg-red-400'}`}>
-                                                Tồn: {stock}
+                                                {stock > 0 ? `Tồn: ${stock}` : 'Hết hàng'}
                                             </span>
                                         </div>
 
@@ -132,9 +136,15 @@ export default function ProductGrid({
                                                     {formatCurrency(product.price)}
                                                 </p>
                                             </div>
-                                            <div className="p-2 bg-slate-50 rounded-xl group-hover:bg-blue-600 group-hover:text-white transition-all text-slate-400">
-                                                <Plus className="w-5 h-5" />
-                                            </div>
+                                            {stock > 0 ? (
+                                                <div className="p-2 bg-slate-50 rounded-xl group-hover:bg-blue-600 group-hover:text-white transition-all text-slate-400">
+                                                    <Plus className="w-5 h-5" />
+                                                </div>
+                                            ) : (
+                                                <div className="p-2 bg-slate-100 rounded-xl text-slate-300">
+                                                    <span className="text-[10px] font-bold uppercase tracking-widest px-1">Hết</span>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 )
