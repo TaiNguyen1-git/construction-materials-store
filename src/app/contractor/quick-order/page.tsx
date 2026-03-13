@@ -274,7 +274,7 @@ export default function QuickOrderPage() {
             const res = await fetchWithAuth('/api/contractors/orders?limit=10')
             const data = await res.json()
             if (res.ok && data.success) {
-                setRecentOrders(data.data?.data || data.data || [])
+                setRecentOrders(data.data?.orders || data.data?.data || [])
             } else {
                 toast.error('Lỗi tải lịch sử đơn hàng')
             }

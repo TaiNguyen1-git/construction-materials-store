@@ -13,7 +13,7 @@ interface OrderHistoryModalProps {
 export default function OrderHistoryModal({
     isOpen,
     onClose,
-    orders,
+    orders = [],
     formatCurrency
 }: OrderHistoryModalProps) {
     if (!isOpen) return null
@@ -50,7 +50,7 @@ export default function OrderHistoryModal({
                                                 #{order.orderNumber || order.id?.slice(-6)}
                                             </span>
                                             <span className="text-xs font-bold text-slate-900">
-                                                {order.projectName || order.notes || ''}
+                                                {order.project || order.projectName || order.notes || 'Không có ghi chú'}
                                             </span>
                                         </div>
                                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
@@ -61,7 +61,7 @@ export default function OrderHistoryModal({
                                         <div className="text-right">
                                             <p className="text-xs text-slate-400 font-bold">Tổng tiền</p>
                                             <p className="text-sm font-black text-blue-600">
-                                                {formatCurrency(order.totalAmount || order.netAmount || 0)}
+                                                {formatCurrency(order.total || order.totalAmount || order.netAmount || 0)}
                                             </p>
                                         </div>
                                         <div className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase ${order.status === 'COMPLETED'
