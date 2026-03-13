@@ -1,81 +1,82 @@
 'use client'
 
 /**
- * Contractor Quick Order Page - Redesigned
- * 2-section layout: Left = checkbox product grid, Right = selected items with quantities
+ * Contractor Quick Order Page — POS-Style Redesign
+ * All-in-one: Product grid (left) + Cart & Checkout (right)
+ * No need to navigate to /contractor/cart anymore
  */
 
-import { useState, useEffect } from 'react'
-import Link from 'next/link'
-import Image from 'next/image'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import {
-    Building2,
-    Search,
-    ShoppingCart,
-    Package,
-    Check,
-    X,
-    Plus,
-    Minus,
-    Trash2,
-    Filter,
-    ArrowRight,
-    Loader2
-} from 'lucide-react'
-import { useContractorCartStore } from '@/stores/contractorCartStore'
+import { useAuth } from '@/contexts/auth-context'
+import { fetchWithAuth } from '@/lib/api-client'
+import toast from 'react-hot-toast'
 import Sidebar from '../components/Sidebar'
 import ContractorHeader from '../components/ContractorHeader'
-import { useAuth } from '@/contexts/auth-context'
-import toast from 'react-hot-toast'
 
-interface Product {
-    id: string
-    name: string
-    sku: string
-    price: number
-    unit: string
-    stock: number
-    image?: string
-    images?: string[]
-    category?: { id: string; name: string }
-}
+import { Product, CartItem, EvaluatedCart, SuccessOrderData } from './types'
+import ProductGrid from './components/ProductGrid'
+import CartPanel from './components/CartPanel'
+import SuccessModal from './components/SuccessModal'
+import OrderHistoryModal from './components/OrderHistoryModal'
 
-interface SelectedProduct extends Product {
-    quantity: number
-}
+const formatCurrency = (val: number) =>
+    new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val)
 
-const SELECTION_STORAGE_KEY = 'contractor-quick-order-selection'
-
-const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount)
-}
+const CART_STORAGE_KEY = 'contractor-quick-order-cart'
 
 export default function QuickOrderPage() {
     const { user } = useAuth()
     const router = useRouter()
-    const { addItem, getTotalItems } = useContractorCartStore()
     const [sidebarOpen, setSidebarOpen] = useState(true)
+
+    // ─── Products ────────────────────────────────────────────────────────────
     const [products, setProducts] = useState<Product[]>([])
     const [loading, setLoading] = useState(true)
     const [searchQuery, setSearchQuery] = useState('')
+    const [debouncedSearch, setDebouncedSearch] = useState('')
     const [selectedCategory, setSelectedCategory] = useState<string>('all')
     const [categories, setCategories] = useState<{ id: string; name: string }[]>([])
-
-    // Selected products for right panel
-    const [selectedProducts, setSelectedProducts] = useState<SelectedProduct[]>([])
-    const [submitting, setSubmitting] = useState(false)
-
     const [page, setPage] = useState(1)
     const [hasMore, setHasMore] = useState(true)
-    const [debouncedSearch, setDebouncedSearch] = useState('')
 
-    // Debounce search query
+    // ─── Cart ────────────────────────────────────────────────────────────────
+    const [cart, setCart] = useState<CartItem[]>([])
+    const [isProcessing, setIsProcessing] = useState(false)
+
+    // ─── B2B Pricing ─────────────────────────────────────────────────────────
+    const [evaluatedCart, setEvaluatedCart] = useState<EvaluatedCart | null>(null)
+    const [evaluating, setEvaluating] = useState(false)
+    const evaluateTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+    // ─── Contractor Info ─────────────────────────────────────────────────────
+    const [creditLimit, setCreditLimit] = useState(0)
+    const [availableCredit, setAvailableCredit] = useState(0)
+
+    // ─── Project Info ────────────────────────────────────────────────────────
+    const [projectName, setProjectName] = useState('')
+    const [poNumber, setPoNumber] = useState('')
+    const [notes, setNotes] = useState('')
+
+    // ─── Shipping ────────────────────────────────────────────────────────────
+    const [shippingFee, setShippingFee] = useState(0)
+    const [deliveryDate, setDeliveryDate] = useState('')
+
+    // ─── Modals ──────────────────────────────────────────────────────────────
+    const [successOrder, setSuccessOrder] = useState<SuccessOrderData | null>(null)
+    const [isHistoryOpen, setIsHistoryOpen] = useState(false)
+    const [recentOrders, setRecentOrders] = useState<any[]>([])
+
+    // ═════════════════════════════════════════════════════════════════════════
+    // Effects
+    // ═════════════════════════════════════════════════════════════════════════
+
+    // Debounce search
     useEffect(() => {
         const timer = setTimeout(() => {
             setDebouncedSearch(searchQuery)
-            setPage(1) // Reset to page 1 on new search
-        }, 500)
+            setPage(1)
+        }, 400)
         return () => clearTimeout(timer)
     }, [searchQuery])
 
@@ -93,7 +94,7 @@ export default function QuickOrderPage() {
         fetchCategories()
     }, [])
 
-    // Load products with pagination & filters
+    // Load products
     useEffect(() => {
         const fetchProducts = async () => {
             try {
@@ -113,14 +114,13 @@ export default function QuickOrderPage() {
                     setProducts(data)
                 } else {
                     setProducts(prev => {
-                        // Prevent duplicates when loading more
                         const existingIds = new Set(prev.map(p => p.id))
                         const newProducts = data.filter((p: Product) => !existingIds.has(p.id))
                         return [...prev, ...newProducts]
                     })
                 }
 
-                setHasMore(data.length === 40) // if we got full limit, assumes there's more
+                setHasMore(data.length === 40)
             } catch (error) {
                 console.error('Failed to fetch products:', error)
             } finally {
@@ -130,384 +130,320 @@ export default function QuickOrderPage() {
         fetchProducts()
     }, [page, debouncedSearch, selectedCategory])
 
-    // Reset page when category changes
+    // Reset page on category change
     useEffect(() => {
         setPage(1)
     }, [selectedCategory])
 
-    // Load saved selection from localStorage
+    // Load cart from localStorage
     useEffect(() => {
-        const saved = localStorage.getItem(SELECTION_STORAGE_KEY)
-        if (saved) {
-            try {
-                setSelectedProducts(JSON.parse(saved))
-            } catch (e) {
-                console.error('Failed to parse saved selection')
-            }
-        }
+        try {
+            const saved = localStorage.getItem(CART_STORAGE_KEY)
+            if (saved) setCart(JSON.parse(saved))
+        } catch { }
     }, [])
 
-    // Save selection to localStorage
+    // Save cart to localStorage
     useEffect(() => {
-        localStorage.setItem(SELECTION_STORAGE_KEY, JSON.stringify(selectedProducts))
-    }, [selectedProducts])
+        localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart))
+    }, [cart])
 
-    // Filter products is now handled by the server
-    const filteredProducts = products
+    // Load contractor profile
+    useEffect(() => {
+        if (user) fetchContractorProfile()
+    }, [user])
 
-    // Check if product is selected
-    const isSelected = (productId: string) => {
-        return selectedProducts.some(p => p.id === productId)
-    }
+    // Evaluate cart with B2B pricing (debounced)
+    useEffect(() => {
+        if (evaluateTimeoutRef.current) clearTimeout(evaluateTimeoutRef.current)
 
-    // Toggle product selection
-    const toggleProduct = (product: Product) => {
-        if (isSelected(product.id)) {
-            setSelectedProducts(prev => prev.filter(p => p.id !== product.id))
-        } else {
-            setSelectedProducts(prev => [...prev, { ...product, quantity: 1 }])
-        }
-    }
-
-    // Update quantity for selected product
-    const updateQuantity = (productId: string, quantity: number) => {
-        if (quantity <= 0) {
-            setSelectedProducts(prev => prev.filter(p => p.id !== productId))
+        if (cart.length === 0 || !user?.id) {
+            setEvaluatedCart(null)
             return
         }
-        setSelectedProducts(prev => prev.map(p =>
-            p.id === productId ? { ...p, quantity } : p
+
+        evaluateTimeoutRef.current = setTimeout(() => {
+            evaluateCartPricing()
+        }, 600)
+
+        return () => {
+            if (evaluateTimeoutRef.current) clearTimeout(evaluateTimeoutRef.current)
+        }
+    }, [cart, user])
+
+    // ═════════════════════════════════════════════════════════════════════════
+    // API Calls
+    // ═════════════════════════════════════════════════════════════════════════
+
+    const fetchContractorProfile = async () => {
+        try {
+            const response = await fetchWithAuth('/api/contractors/profile')
+            if (response.ok) {
+                const data = await response.json()
+                if (data.success && data.data) {
+                    const profile = data.data
+                    setCreditLimit(profile.creditLimit || 0)
+                    setAvailableCredit(profile.availableCredit || 0)
+                }
+            }
+        } catch (error) {
+            console.error('Error fetching contractor profile:', error)
+        }
+    }
+
+    const evaluateCartPricing = async () => {
+        setEvaluating(true)
+        try {
+            const response = await fetchWithAuth('/api/pricing/evaluate-cart', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    items: cart.map(i => ({
+                        productId: i.product.id,
+                        quantity: i.quantity
+                    })),
+                    customerId: user?.id
+                })
+            })
+            const data = await response.json()
+            if (data.success && data.data) {
+                setEvaluatedCart(data.data)
+            }
+        } catch (error) {
+            console.error('Error evaluating cart:', error)
+        } finally {
+            setEvaluating(false)
+        }
+    }
+
+    const fetchHistory = async () => {
+        setIsHistoryOpen(true)
+        try {
+            const res = await fetchWithAuth('/api/contractors/orders?limit=10')
+            const data = await res.json()
+            if (res.ok && data.success) {
+                setRecentOrders(data.data?.data || data.data || [])
+            } else {
+                toast.error('Lỗi tải lịch sử đơn hàng')
+            }
+        } catch {
+            toast.error('Lỗi kết nối khi tải lịch sử')
+        }
+    }
+
+    // ═════════════════════════════════════════════════════════════════════════
+    // Cart Actions
+    // ═════════════════════════════════════════════════════════════════════════
+
+    const addToCart = (product: Product) => {
+        setCart(prev => {
+            const existing = prev.find(item => item.product.id === product.id)
+            if (existing) {
+                return prev.map(item =>
+                    item.product.id === product.id
+                        ? { ...item, quantity: item.quantity + 1 }
+                        : item
+                )
+            }
+            return [...prev, { product, quantity: 1 }]
+        })
+        toast.success(`Đã thêm: ${product.name}`, { duration: 1000 })
+    }
+
+    const updateQuantity = (productId: string, delta: number) => {
+        setCart(prev => prev.map(item => {
+            if (item.product.id === productId) {
+                const newQty = item.quantity + delta
+                if (newQty <= 0) return item // don't go below 1 via delta
+                return { ...item, quantity: newQty }
+            }
+            return item
+        }))
+    }
+
+    const setQuantity = (productId: string, qty: number) => {
+        if (qty <= 0) {
+            removeFromCart(productId)
+            return
+        }
+        setCart(prev => prev.map(item =>
+            item.product.id === productId ? { ...item, quantity: qty } : item
         ))
     }
 
-    // Remove from selection
-    const removeProduct = (productId: string) => {
-        setSelectedProducts(prev => prev.filter(p => p.id !== productId))
+    const removeFromCart = (productId: string) => {
+        setCart(prev => prev.filter(item => item.product.id !== productId))
     }
 
-    // Select all visible products
-    const selectAll = () => {
-        const newSelections = filteredProducts.filter(p => !isSelected(p.id))
-            .map(p => ({ ...p, quantity: 1 }))
-        setSelectedProducts(prev => [...prev, ...newSelections])
+    const clearCart = () => {
+        setCart([])
+        setEvaluatedCart(null)
     }
 
-    // Clear selection
-    const clearSelection = () => {
-        setSelectedProducts([])
-    }
+    // Cart quantities map for ProductGrid badges
+    const cartQuantities: Record<string, number> = {}
+    cart.forEach(item => {
+        cartQuantities[item.product.id] = item.quantity
+    })
 
-    // Calculate totals
-    const totalItems = selectedProducts.reduce((sum, p) => sum + p.quantity, 0)
-    const totalPrice = selectedProducts.reduce((sum, p) => sum + (p.price * p.quantity), 0)
+    // ═════════════════════════════════════════════════════════════════════════
+    // Checkout
+    // ═════════════════════════════════════════════════════════════════════════
 
-    // Add to cart
-    const handleAddToCart = async () => {
-        if (selectedProducts.length === 0) {
-            toast.error('Chưa chọn sản phẩm nào!')
+    const handleCheckout = async () => {
+        if (cart.length === 0) {
+            toast.error('Giỏ hàng trống!')
             return
         }
 
-        setSubmitting(true)
+        setIsProcessing(true)
+        const toastId = toast.loading('Đang tạo đơn hàng...')
+
         try {
-            for (const product of selectedProducts) {
-                addItem({
-                    id: product.id,
-                    productId: product.id,
-                    name: product.name,
-                    price: product.price,
-                    sku: product.sku,
-                    unit: product.unit,
-                    quantity: product.quantity,
-                    image: product.images?.[0] || product.image
+            const response = await fetchWithAuth('/api/contractors/orders', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    items: cart.map(item => ({
+                        productId: item.product.id,
+                        quantity: item.quantity
+                    })),
+                    projectName,
+                    poNumber,
+                    notes: [
+                        notes,
+                        deliveryDate ? `Giao ngày: ${deliveryDate}` : '',
+                        shippingFee > 0 ? `Phí VC: ${formatCurrency(shippingFee)}` : ''
+                    ].filter(Boolean).join(' | ') || undefined
                 })
+            })
+
+            const data = await response.json()
+
+            if (response.ok && data.success) {
+                toast.dismiss(toastId)
+
+                const order = data.data
+                const orderNumber = order?.orderNumber || order?.id?.slice(-8) || 'B2B-' + Date.now()
+
+                // Build success order data
+                const subtotal = evaluatedCart?.summary?.totalOriginal
+                    ?? cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0)
+                const discountTotal = evaluatedCart?.summary?.totalDiscount ?? 0
+                const total = evaluatedCart?.summary?.totalPrice
+                    ?? cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0)
+
+                setSuccessOrder({
+                    id: order?.id || 'N/A',
+                    orderNumber,
+                    projectName,
+                    items: cart.map(item => {
+                        const evaluated = evaluatedCart?.items?.find(i => i.productId === item.product.id)
+                        return {
+                            name: item.product.name,
+                            quantity: item.quantity,
+                            unitPrice: item.product.price,
+                            effectivePrice: evaluated?.effectivePrice ?? item.product.price,
+                            total: evaluated?.totalPrice ?? (item.product.price * item.quantity)
+                        }
+                    }),
+                    subtotal,
+                    discountTotal,
+                    total,
+                    createdAt: new Date().toISOString()
+                })
+
+                // Reset
+                clearCart()
+                setProjectName('')
+                setPoNumber('')
+                setNotes('')
+                setShippingFee(0)
+                setDeliveryDate('')
+            } else {
+                toast.error(data.message || 'Có lỗi xảy ra. Vui lòng thử lại.', { id: toastId })
             }
-
-            toast.success(`Đã thêm ${selectedProducts.length} sản phẩm vào giỏ!`)
-            clearSelection()
-
-            setTimeout(() => {
-                router.push('/contractor/cart')
-            }, 1000)
         } catch (error) {
-            toast.error('Có lỗi xảy ra. Vui lòng thử lại.')
+            console.error('Checkout error:', error)
+            toast.error('Lỗi kết nối khi đặt hàng', { id: toastId })
         } finally {
-            setSubmitting(false)
+            setIsProcessing(false)
         }
     }
 
+    const handleNewOrder = () => {
+        setSuccessOrder(null)
+    }
+
+    // ═════════════════════════════════════════════════════════════════════════
+    // Render
+    // ═════════════════════════════════════════════════════════════════════════
+
     return (
         <div className="min-h-screen bg-gray-50 flex flex-col">
-
             <ContractorHeader sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
             <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-            {/* Main Content - 2 Sections */}
             <main className={`flex-1 pt-[73px] transition-all duration-300 ${sidebarOpen ? 'lg:ml-64' : 'ml-0'}`}>
-                <div className="flex h-[calc(100vh-73px)]">
-                    {/* LEFT SECTION: Product Selection */}
-                    <div className="flex-1 flex flex-col border-r border-gray-200 bg-white">
-                        {/* Search & Filters */}
-                        <div className="p-4 border-b border-gray-100 space-y-3">
-                            <div className="flex items-center gap-3">
-                                <div className="flex-1 relative">
-                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                                    <input
-                                        type="text"
-                                        placeholder="Tìm sản phẩm theo tên hoặc SKU..."
-                                        value={searchQuery}
-                                        onChange={(e) => setSearchQuery(e.target.value)}
-                                        className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                    />
-                                </div>
-                                <button
-                                    onClick={selectAll}
-                                    className="px-4 py-2.5 text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50 font-medium whitespace-nowrap"
-                                >
-                                    Chọn tất cả
-                                </button>
-                            </div>
+                <div className="flex h-[calc(100vh-73px)] gap-5 p-5 animate-in fade-in duration-500">
 
-                            {/* Category Tabs */}
-                            <div className="flex gap-2 overflow-x-auto pb-1">
-                                <button
-                                    onClick={() => setSelectedCategory('all')}
-                                    className={`px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${selectedCategory === 'all'
-                                        ? 'bg-blue-600 text-white'
-                                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                                        }`}
-                                >
-                                    Tất cả ({products.length})
-                                </button>
-                                {categories.map(cat => (
-                                    <button
-                                        key={cat.id}
-                                        onClick={() => setSelectedCategory(cat.id)}
-                                        className={`px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${selectedCategory === cat.id
-                                            ? 'bg-blue-600 text-white'
-                                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                                            }`}
-                                    >
-                                        {cat.name}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
+                    {/* Left: Product Grid */}
+                    <ProductGrid
+                        products={products}
+                        loading={loading}
+                        searchQuery={searchQuery}
+                        onSearchChange={setSearchQuery}
+                        categories={categories}
+                        selectedCategory={selectedCategory}
+                        onCategoryChange={setSelectedCategory}
+                        onAddToCart={addToCart}
+                        hasMore={hasMore}
+                        onLoadMore={() => setPage(p => p + 1)}
+                        cartQuantities={cartQuantities}
+                    />
 
-                        {/* Product Grid */}
-                        <div className="flex-1 overflow-y-auto p-4">
-                            {loading ? (
-                                <div className="flex items-center justify-center h-64">
-                                    <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-                                </div>
-                            ) : (
-                                <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
-                                    {filteredProducts.map((product) => {
-                                        const selected = isSelected(product.id)
-                                        const imgSrc = product.images?.[0] || product.image
-                                        return (
-                                            <button
-                                                key={product.id}
-                                                onClick={() => toggleProduct(product)}
-                                                className={`relative p-3 rounded-xl border-2 text-left transition-all hover:shadow-md ${selected
-                                                    ? 'border-blue-500 bg-blue-50'
-                                                    : 'border-gray-100 bg-white hover:border-gray-200'
-                                                    }`}
-                                            >
-                                                {/* Checkbox */}
-                                                <div className={`absolute top-2 right-2 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${selected
-                                                    ? 'bg-blue-600 border-blue-600'
-                                                    : 'border-gray-300 bg-white'
-                                                    }`}>
-                                                    {selected && <Check className="w-4 h-4 text-white" />}
-                                                </div>
-
-                                                {/* Image */}
-                                                <div className="w-full aspect-square bg-gray-100 rounded-lg overflow-hidden mb-2">
-                                                    {imgSrc ? (
-                                                        <Image
-                                                            src={imgSrc}
-                                                            alt={product.name}
-                                                            width={120}
-                                                            height={120}
-                                                            className="w-full h-full object-cover"
-                                                        />
-                                                    ) : (
-                                                        <div className="w-full h-full flex items-center justify-center">
-                                                            <Package className="w-10 h-10 text-gray-300" />
-                                                        </div>
-                                                    )}
-                                                </div>
-
-                                                {/* Info */}
-                                                <h3 className="font-medium text-gray-900 text-sm line-clamp-2 mb-1">
-                                                    {product.name}
-                                                </h3>
-                                                <p className="text-xs text-gray-500 mb-1">{product.sku}</p>
-                                                <p className="text-blue-600 font-semibold text-sm">
-                                                    {formatCurrency(product.price)}/{product.unit}
-                                                </p>
-                                            </button>
-                                        )
-                                    })}
-                                </div>
-                            )}
-
-                            {!loading && filteredProducts.length === 0 && (
-                                <div className="text-center text-gray-500 py-12">
-                                    <Package className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                                    <p>Không tìm thấy sản phẩm</p>
-                                </div>
-                            )}
-
-                            {hasMore && !loading && (
-                                <div className="mt-6 flex justify-center">
-                                    <button
-                                        onClick={() => setPage(p => p + 1)}
-                                        className="px-6 py-2.5 bg-blue-50 text-blue-600 rounded-lg font-medium hover:bg-blue-100 transition-colors flex items-center gap-2"
-                                    >
-                                        Xem thêm sản phẩm
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* RIGHT SECTION: Selected Products */}
-                    <div className="w-96 flex flex-col bg-gray-50">
-                        {/* Header */}
-                        <div className="p-4 bg-white border-b border-gray-200">
-                            <div className="flex items-center justify-between">
-                                <h2 className="font-bold text-gray-900 flex items-center gap-2">
-                                    <ShoppingCart className="w-5 h-5 text-blue-600" />
-                                    Đã chọn ({selectedProducts.length})
-                                </h2>
-                                {selectedProducts.length > 0 && (
-                                    <button
-                                        onClick={clearSelection}
-                                        className="text-red-500 text-sm hover:underline"
-                                    >
-                                        Xóa tất cả
-                                    </button>
-                                )}
-                            </div>
-                        </div>
-
-                        {/* Selected Items List */}
-                        <div className="flex-1 overflow-y-auto p-4 space-y-3">
-                            {selectedProducts.length === 0 ? (
-                                <div className="text-center text-gray-400 py-12">
-                                    <Package className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                                    <p className="text-sm">Chọn sản phẩm từ danh sách bên trái</p>
-                                </div>
-                            ) : (
-                                selectedProducts.map((product) => (
-                                    <div
-                                        key={product.id}
-                                        className="bg-white rounded-lg p-3 border border-gray-100 shadow-sm"
-                                    >
-                                        <div className="flex gap-3">
-                                            {/* Image */}
-                                            <div className="w-14 h-14 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
-                                                {product.images?.[0] || product.image ? (
-                                                    <Image
-                                                        src={product.images?.[0] || product.image!}
-                                                        alt={product.name}
-                                                        width={56}
-                                                        height={56}
-                                                        className="w-full h-full object-cover"
-                                                    />
-                                                ) : (
-                                                    <div className="w-full h-full flex items-center justify-center">
-                                                        <Package className="w-6 h-6 text-gray-300" />
-                                                    </div>
-                                                )}
-                                            </div>
-
-                                            {/* Info */}
-                                            <div className="flex-1 min-w-0">
-                                                <h4 className="font-medium text-gray-900 text-sm truncate">
-                                                    {product.name}
-                                                </h4>
-                                                <p className="text-xs text-gray-500">{product.sku}</p>
-                                                <p className="text-blue-600 font-medium text-sm">
-                                                    {formatCurrency(product.price)}/{product.unit}
-                                                </p>
-                                            </div>
-
-                                            {/* Remove */}
-                                            <button
-                                                onClick={() => removeProduct(product.id)}
-                                                className="text-gray-400 hover:text-red-500 p-1"
-                                            >
-                                                <X className="w-4 h-4" />
-                                            </button>
-                                        </div>
-
-                                        {/* Quantity & Subtotal */}
-                                        <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
-                                            <div className="flex items-center gap-2">
-                                                <button
-                                                    onClick={() => updateQuantity(product.id, product.quantity - 1)}
-                                                    className="w-7 h-7 flex items-center justify-center border border-gray-200 rounded hover:bg-gray-50"
-                                                >
-                                                    <Minus className="w-3 h-3" />
-                                                </button>
-                                                <input
-                                                    type="number"
-                                                    value={product.quantity}
-                                                    onChange={(e) => updateQuantity(product.id, parseInt(e.target.value) || 1)}
-                                                    className="w-14 text-center border border-gray-200 rounded py-1 text-sm"
-                                                    min="1"
-                                                />
-                                                <button
-                                                    onClick={() => updateQuantity(product.id, product.quantity + 1)}
-                                                    className="w-7 h-7 flex items-center justify-center border border-gray-200 rounded hover:bg-gray-50"
-                                                >
-                                                    <Plus className="w-3 h-3" />
-                                                </button>
-                                            </div>
-                                            <span className="font-semibold text-gray-900">
-                                                {formatCurrency(product.price * product.quantity)}
-                                            </span>
-                                        </div>
-                                    </div>
-                                ))
-                            )}
-                        </div>
-
-                        {/* Footer - Total & Add to Cart */}
-                        {selectedProducts.length > 0 && (
-                            <div className="p-4 bg-white border-t border-gray-200 space-y-3">
-                                <div className="flex justify-between items-center">
-                                    <span className="text-gray-600">Tổng ({totalItems} sản phẩm):</span>
-                                    <span className="text-xl font-bold text-blue-600">
-                                        {formatCurrency(totalPrice)}
-                                    </span>
-                                </div>
-                                <button
-                                    onClick={handleAddToCart}
-                                    disabled={submitting}
-                                    className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
-                                >
-                                    {submitting ? (
-                                        <>
-                                            <Loader2 className="w-5 h-5 animate-spin" />
-                                            Đang xử lý...
-                                        </>
-                                    ) : (
-                                        <>
-                                            <ShoppingCart className="w-5 h-5" />
-                                            Thêm vào Giỏ Hàng
-                                            <ArrowRight className="w-5 h-5" />
-                                        </>
-                                    )}
-                                </button>
-                            </div>
-                        )}
-                    </div>
+                    {/* Right: Cart + Checkout */}
+                    <CartPanel
+                        cart={cart}
+                        evaluatedCart={evaluatedCart}
+                        evaluating={evaluating}
+                        onUpdateQuantity={updateQuantity}
+                        onSetQuantity={setQuantity}
+                        onRemoveItem={removeFromCart}
+                        onClearCart={clearCart}
+                        onCheckout={handleCheckout}
+                        isProcessing={isProcessing}
+                        projectName={projectName}
+                        onProjectNameChange={setProjectName}
+                        poNumber={poNumber}
+                        onPoNumberChange={setPoNumber}
+                        notes={notes}
+                        onNotesChange={setNotes}
+                        creditLimit={creditLimit}
+                        availableCredit={availableCredit}
+                        shippingFee={shippingFee}
+                        onShippingFeeChange={setShippingFee}
+                        deliveryDate={deliveryDate}
+                        onDeliveryDateChange={setDeliveryDate}
+                        onOpenHistory={fetchHistory}
+                    />
                 </div>
             </main>
+
+            {/* Success Modal */}
+            <SuccessModal
+                order={successOrder}
+                onClose={handleNewOrder}
+                formatCurrency={formatCurrency}
+            />
+
+            {/* History Modal */}
+            <OrderHistoryModal
+                isOpen={isHistoryOpen}
+                onClose={() => setIsHistoryOpen(false)}
+                orders={recentOrders}
+                formatCurrency={formatCurrency}
+            />
         </div>
     )
 }
