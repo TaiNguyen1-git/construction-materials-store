@@ -348,6 +348,17 @@ export default function QuickOrderPage() {
             return
         }
 
+        // Frontend validation
+        if (!deliveryDate) {
+            toast.error('⚠️ Vui lòng chọn ngày giao hàng!', { duration: 3000 })
+            return
+        }
+
+        if (!selectedProject && !projectName.trim()) {
+            toast.error('⚠️ Vui lòng chọn công trình hoặc nhập địa chỉ giao hàng!', { duration: 3000 })
+            return
+        }
+
         setIsProcessing(true)
         const toastId = toast.loading('Đang tạo đơn hàng...')
 
@@ -420,7 +431,9 @@ export default function QuickOrderPage() {
                 setSelectedProject(null)
                 setShippingCalc(null)
             } else {
-                toast.error(data.message || 'Có lỗi xảy ra. Vui lòng thử lại.', { id: toastId })
+                // Extract error message from createErrorResponse structure: { error: { message, code } }
+                const errorMessage = data.error?.message || data.message || 'Có lỗi xảy ra. Vui lòng thử lại.'
+                toast.error(errorMessage, { id: toastId, duration: 5000 })
             }
         } catch (error) {
             console.error('Checkout error:', error)

@@ -140,9 +140,14 @@ export default function CartPanel({
                         className="flex items-center gap-2 cursor-pointer group"
                         onClick={() => setShowProjectDropdown(!showProjectDropdown)}
                     >
-                        <div className={`flex-1 flex items-center gap-2 rounded-2xl px-3 py-2 transition-all ${selectedProject
-                            ? 'bg-blue-50 border border-blue-100'
-                            : 'bg-slate-50 border border-dashed border-slate-200 hover:border-blue-300'
+                        <div className={`flex-1 flex items-center gap-2 rounded-2xl px-3 py-2 transition-all ${
+                            selectedProject
+                                ? 'bg-blue-50 border border-blue-100'
+                                : projectName.trim()
+                                    ? 'bg-blue-50 border border-blue-100'
+                                    : cart.length > 0
+                                        ? 'bg-red-50 border-2 border-dashed border-red-300 animate-pulse'
+                                        : 'bg-slate-50 border border-dashed border-slate-200 hover:border-blue-300'
                             }`}
                         >
                             <MapPin className={`w-3.5 h-3.5 shrink-0 ${selectedProject ? 'text-blue-500' : 'text-slate-300 group-hover:text-blue-400'} transition-colors`} />
@@ -489,17 +494,25 @@ export default function CartPanel({
                         )}
 
                         {/* Delivery date picker */}
-                        <div className="mt-2 flex items-center gap-2">
-                            <Calendar className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-                            <input
-                                type="date"
-                                min={minDate}
-                                value={deliveryDate}
-                                onChange={e => onDeliveryDateChange(e.target.value)}
-                                className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-bold text-slate-700 focus:ring-1 focus:ring-blue-300 outline-none"
-                            />
-                            {!deliveryDate && (
-                                <span className="text-[9px] text-slate-400 italic shrink-0">Chọn ngày giao</span>
+                        <div className="mt-2">
+                            <div className="flex items-center gap-2">
+                                <Calendar className={`w-3.5 h-3.5 shrink-0 ${!deliveryDate && cart.length > 0 ? 'text-red-400' : 'text-blue-400'}`} />
+                                <input
+                                    type="date"
+                                    min={minDate}
+                                    value={deliveryDate}
+                                    onChange={e => onDeliveryDateChange(e.target.value)}
+                                    className={`flex-1 border rounded-lg px-2 py-1.5 text-xs font-bold text-slate-700 focus:ring-1 outline-none transition-all ${
+                                        !deliveryDate && cart.length > 0
+                                            ? 'bg-red-50 border-red-300 focus:ring-red-300'
+                                            : 'bg-slate-50 border-slate-200 focus:ring-blue-300'
+                                    }`}
+                                />
+                            </div>
+                            {!deliveryDate && cart.length > 0 && (
+                                <p className="text-[9px] text-red-400 font-bold mt-0.5 pl-5">
+                                    ⚠️ Bắt buộc chọn ngày giao hàng
+                                </p>
                             )}
                         </div>
                     </div>

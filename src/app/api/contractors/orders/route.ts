@@ -194,7 +194,7 @@ export async function POST(request: NextRequest) {
         }
 
         const body = await request.json()
-        const { items, projectName, poNumber, notes, shippingAddress } = body
+        const { items, projectName, poNumber, notes, shippingAddress, shippingFee, deliveryDate } = body
 
         if (!items || items.length === 0) {
             return NextResponse.json(
@@ -258,23 +258,26 @@ export async function POST(request: NextRequest) {
             return sum + (originalPrice - orderItems[index].unitPrice) * item.quantity
         }, 0)
 
-        // Check credit limit
-        const currentDebt = await getCurrentDebt(customer.id)
-        const availableCredit = customer.creditLimit - currentDebt
-
-        if (netAmount > availableCredit && !customer.creditHold) {
+        // Check credit hold first
+        if (customer.creditHold) {
             return NextResponse.json(
-                createErrorResponse(
-                    `Order exceeds available credit. Available: ${availableCredit.toLocaleString('vi-VN')}đ`,
-                    'CREDIT_EXCEEDED'
-                ),
+                createErrorResponse('Tài khoản của bạn đang bị tạm giữ. Vui lòng liên hệ ý hỗ trợ.', 'CREDIT_HOLD'),
                 { status: 400 }
             )
         }
 
-        if (customer.creditHold) {
+        // Check credit limit
+        const shippingAmount = typeof shippingFee === 'number' ? shippingFee : 0
+        const totalWithShipping = netAmount + shippingAmount
+        const currentDebt = await getCurrentDebt(customer.id)
+        const availableCredit = customer.creditLimit - currentDebt
+
+        if (customer.creditLimit > 0 && totalWithShipping > availableCredit) {
             return NextResponse.json(
-                createErrorResponse('Your credit is on hold. Please contact support.', 'CREDIT_HOLD'),
+                createErrorResponse(
+                    `Đơn hàng vượt hạn mức tín dụng. Hạn mức khả dụng: ${availableCredit.toLocaleString('vi-VN')}đ`,
+                    'CREDIT_EXCEEDED'
+                ),
                 { status: 400 }
             )
         }
@@ -295,12 +298,17 @@ export async function POST(request: NextRequest) {
                     totalAmount,
                     discountAmount,
                     netAmount,
-                    shippingAmount: 0, // Free shipping for contractors
+                    shippingAmount: shippingAmount,
                     taxAmount: 0,
-                    paymentMethod: 'CREDIT', // Ghi nợ
+                    paymentMethod: 'CREDIT',
                     paymentStatus: 'PENDING',
                     paymentType: 'FULL',
-                    notes: projectName ? `Dự án: ${projectName}${poNumber ? ` | Ref: ${poNumber}` : ''}${notes ? ` | ${notes}` : ''}` : notes,
+                    notes: [
+                        projectName ? `Dự án: ${projectName}` : '',
+                        poNumber ? `Ref: ${poNumber}` : '',
+                        deliveryDate ? `Giao ngày: ${deliveryDate}` : '',
+                        notes || ''
+                    ].filter(Boolean).join(' | ') || undefined,
                     shippingAddress: shippingAddress || {
                         address: customer.companyAddress || '',
                         city: ''
