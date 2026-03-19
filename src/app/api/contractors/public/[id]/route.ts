@@ -5,12 +5,28 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import jwt from 'jsonwebtoken'
+
+const getUserRole = (request: NextRequest): string | null => {
+    const token = request.headers.get('authorization')?.replace('Bearer ', '') ||
+        request.cookies.get('access_token')?.value
+    if (!token) return null
+    try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret') as any
+        return decoded?.role || null
+    } catch {
+        return null
+    }
+}
 
 export async function GET(
     request: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const authRole = getUserRole(request)
+        const canViewContactInfo = !!authRole
+
         const { id } = await params
 
         const contractor = await prisma.contractorProfile.findUnique({
@@ -44,6 +60,13 @@ export async function GET(
 
         if (!contractor || !contractor.isVerified) {
             return NextResponse.json({ error: 'Contractor not found' }, { status: 404 })
+        }
+
+        // Hide sensitive PII fields if user is not logged in
+        if (!canViewContactInfo) {
+            (contractor as any).phone = null;
+            (contractor as any).email = null;
+            (contractor as any).address = null;
         }
 
         return NextResponse.json({
