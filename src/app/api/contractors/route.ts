@@ -5,10 +5,27 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { createSuccessResponse, createErrorResponse } from '@/lib/api-types'
+import jwt from 'jsonwebtoken'
+
+const getUserRole = (request: NextRequest): string | null => {
+    const token = request.headers.get('authorization')?.replace('Bearer ', '') ||
+        request.cookies.get('access_token')?.value
+    if (!token) return null
+    try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret') as any
+        return decoded?.role || null
+    } catch {
+        return null
+    }
+}
 
 // GET /api/contractors - List all contractors
 export async function GET(request: NextRequest) {
     try {
+        const authRole = getUserRole(request)
+        // Mở khóa cho TẤT CẢ người dùng đã đăng nhập tài khoản (Bao gồm Customer, Admin, Staff...)
+        const canViewContactInfo = !!authRole
+
         const { searchParams } = new URL(request.url)
 
         // Filters
@@ -43,6 +60,25 @@ export async function GET(request: NextRequest) {
 
         const contractors = await prisma.contractorProfile.findMany({
             where,
+            select: {
+                id: true,
+                displayName: true,
+                bio: true,
+                city: true,
+                district: true,
+                skills: true,
+                experienceYears: true,
+                teamSize: true,
+                avgRating: true,
+                totalProjectsCompleted: true,
+                isVerified: true,
+                portfolioImages: true,
+                portfolioDesc: true,
+                // Chỉ hiển thị SĐT, Email, Địa chỉ chi tiết nếu người dùng đã đăng nhập nền tảng.
+                phone: canViewContactInfo,
+                email: canViewContactInfo,
+                address: canViewContactInfo,
+            },
             orderBy: [
                 { isVerified: 'desc' },
                 { avgRating: 'desc' },
@@ -51,6 +87,7 @@ export async function GET(request: NextRequest) {
             skip,
             take: limit
         })
+
 
         return NextResponse.json(
             createSuccessResponse({

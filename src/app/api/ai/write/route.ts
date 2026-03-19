@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import { prisma } from '@/lib/prisma'
 import { createSuccessResponse, createErrorResponse } from '@/lib/api-types'
+import { checkRateLimit, getRateLimitIdentifier, RateLimitConfigs, formatRateLimitError } from '@/lib/rate-limiter'
 
 // Initialize Gemini client (same as ai-vision-estimator)
 const genAI = process.env.GEMINI_API_KEY
@@ -23,6 +24,18 @@ async function withRetry<T>(fn: () => Promise<T>, maxRetries = 3): Promise<T> {
 
 export async function POST(request: NextRequest) {
     try {
+        const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || request.headers.get('x-real-ip') || 'unknown'
+        const rateLimitId = getRateLimitIdentifier(ip, undefined, 'ai_write')
+        const rateLimitResult = await checkRateLimit(rateLimitId, RateLimitConfigs.AI_API.GUEST)
+
+        if (!rateLimitResult.allowed) {
+             const resetAt = rateLimitResult.resetAt || Date.now() + 60000
+             return NextResponse.json(
+                 createErrorResponse(formatRateLimitError({ ...rateLimitResult, resetAt }), 'RATE_LIMIT_EXCEEDED'),
+                 { status: 429, headers: { 'X-RateLimit-Limit': RateLimitConfigs.AI_API.GUEST.max.toString(), 'X-RateLimit-Remaining': '0', 'X-RateLimit-Reset': resetAt.toString() } }
+             )
+        }
+
         const { prompt, context, type, projectId } = await request.json()
 
         const enrichedContext = { ...context }

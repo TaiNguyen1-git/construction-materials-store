@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { analyzeFloorPlanImage, estimateFromText, recalculateEstimate, EstimatorResult } from '@/lib/ai-vision-estimator'
+import { checkRateLimit, getRateLimitIdentifier, RateLimitConfigs } from '@/lib/rate-limiter'
 import { z } from 'zod'
 
 const estimatorSchema = z.object({
@@ -29,6 +30,17 @@ const estimatorSchema = z.object({
 
 export async function POST(request: NextRequest) {
     try {
+        const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || request.headers.get('x-real-ip') || 'unknown'
+        const rateLimitId = getRateLimitIdentifier(ip, undefined, 'ai_estimator')
+        const rateLimitResult = await checkRateLimit(rateLimitId, RateLimitConfigs.AI_API.GUEST)
+
+        if (!rateLimitResult.allowed) {
+            return NextResponse.json(
+                { success: false, error: 'Bạn đã vượt quá số lần yêu cầu. Vui lòng thử lại sau.' },
+                { status: 429 }
+            )
+        }
+
         const body = await request.json()
 
         const validation = estimatorSchema.safeParse(body)

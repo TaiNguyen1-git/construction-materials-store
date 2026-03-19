@@ -91,6 +91,20 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       }
     }
 
+    // CONTRACTOR can only view projects assigned to them, OR unassigned projects (open for bidding)
+    if (user.role === 'CONTRACTOR') {
+      const contractor = await prisma.customer.findFirst({
+        where: { userId: user.id }
+      })
+
+      const isAssigned = contractor && contractor.id === project.contractorId
+      const isOpenBidding = project.contractorId === null
+
+      if (!isAssigned && !isOpenBidding) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      }
+    }
+
     // Calculate task completion
     const totalTasks = project.projectTasks.length
     const completedTasks = project.projectTasks.filter((task: any) => task.status === 'COMPLETED').length
@@ -142,6 +156,17 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       })
 
       if (!customer || customer.id !== existingProject.customerId) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      }
+    }
+
+    // CONTRACTOR can only update projects assigned to them
+    if (user.role === 'CONTRACTOR') {
+      const contractor = await prisma.customer.findFirst({
+        where: { userId: user.id }
+      })
+
+      if (!contractor || contractor.id !== existingProject.contractorId) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
       }
     }

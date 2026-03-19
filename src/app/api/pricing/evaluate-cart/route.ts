@@ -2,18 +2,78 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { pricingEngine } from '@/lib/pricing-engine'
 import { createSuccessResponse, createErrorResponse } from '@/lib/api-types'
+import jwt from 'jsonwebtoken'
 
 /**
  * POST /api/pricing/evaluate-cart
  * Đánh giá giỏ hàng để tính giá theo bậc và gợi ý upsell.
  */
+
+// Extract Auth context (prevent ID spoofing for normal users, allow override for ADMINs)
+const getAuthContext = async (request: NextRequest): Promise<{ customerId?: string, role?: string }> => {
+    const token = request.headers.get('authorization')?.replace('Bearer ', '') ||
+        request.cookies.get('access_token')?.value
+
+    if (!token) return {}
+
+    try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret') as any
+        if (!decoded?.id) return { role: decoded?.role }
+
+        // Look up the customer record for this user
+        const customer = await prisma.customer.findFirst({
+            where: { userId: decoded.id },
+            select: { id: true }
+        })
+
+        return { customerId: customer?.id || undefined, role: decoded.role }
+    } catch {
+        return {}
+    }
+}
+
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json()
-        const { items, customerId } = body // items: Array<{ productId, quantity }>
+        const { items } = body // items: Array<{ productId, quantity }>
 
-        if (!items || !Array.isArray(items)) {
+        const authContext = await getAuthContext(request)
+        let customerId = undefined
+
+        if (['ADMIN', 'MANAGER', 'EMPLOYEE'].includes(authContext.role as string)) {
+            // ADMIN/EMPLOYEE can evaluate cart on behalf of a specific customer
+            customerId = body.customerId || undefined
+        } else {
+            // CUSTOMER/CONTRACTOR must use their own derived ID.
+            // GUEST will just use undefined (correct behavior for guests).
+            customerId = authContext.customerId
+        }
+
+        if (!items || !Array.isArray(items) || items.length === 0) {
             return NextResponse.json(createErrorResponse('Invalid items', 'VALIDATION_ERROR'), { status: 400 })
+        }
+
+        // Validate each item: quantity must be a positive integer, productId must be a non-empty string
+        for (const item of items) {
+            if (!item.productId || typeof item.productId !== 'string' || item.productId.trim() === '') {
+                return NextResponse.json(
+                    createErrorResponse('Mã sản phẩm không hợp lệ', 'VALIDATION_ERROR'),
+                    { status: 400 }
+                )
+            }
+            if (typeof item.quantity !== 'number' || !Number.isFinite(item.quantity) || item.quantity <= 0) {
+                return NextResponse.json(
+                    createErrorResponse('Số lượng phải là số dương lớn hơn 0', 'VALIDATION_ERROR'),
+                    { status: 400 }
+                )
+            }
+            // Cap max quantity to prevent abuse
+            if (item.quantity > 100000) {
+                return NextResponse.json(
+                    createErrorResponse('Số lượng không được vượt quá 100.000', 'VALIDATION_ERROR'),
+                    { status: 400 }
+                )
+            }
         }
 
         const results = []
@@ -85,3 +145,4 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(createErrorResponse('Internal server error', 'INTERNAL_ERROR'), { status: 500 })
     }
 }
+

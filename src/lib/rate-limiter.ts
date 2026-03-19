@@ -124,6 +124,12 @@ export const RateLimitConfigs = {
     max: 30
   },
 
+  // AI APIs (Writing, estimation, fengshui)
+  AI_API: {
+    GUEST: { windowMs: 60 * 1000, max: 5 }, // 5 reqs/min for generic/guests
+    AUTH: { windowMs: 60 * 1000, max: 20 }, // 20 reqs/min for logged-in users
+  },
+
   // CRUD operations
   CRUD: {
     windowMs: 60 * 1000,

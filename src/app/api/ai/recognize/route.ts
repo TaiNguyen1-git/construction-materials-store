@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSuccessResponse, createErrorResponse } from '@/lib/api-types'
 import { aiRecognition } from '@/lib/ai-material-recognition'
+import { checkRateLimit, getRateLimitIdentifier, RateLimitConfigs, formatRateLimitError } from '@/lib/rate-limiter'
 import { z } from 'zod'
 
 const recognitionSchema = z.object({
@@ -11,6 +12,17 @@ const recognitionSchema = z.object({
 // POST /api/ai/recognize - Recognize material from image or text
 export async function POST(request: NextRequest) {
   try {
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || request.headers.get('x-real-ip') || 'unknown'
+    const rateLimitId = getRateLimitIdentifier(ip, undefined, 'ai_recognize')
+    const rateLimitResult = await checkRateLimit(rateLimitId, RateLimitConfigs.AI_API.GUEST)
+
+    if (!rateLimitResult.allowed) {
+        return NextResponse.json(
+            createErrorResponse(formatRateLimitError(rateLimitResult), 'RATE_LIMIT_EXCEEDED'),
+            { status: 429 }
+        )
+    }
+
     const body = await request.json()
     const validation = recognitionSchema.safeParse(body)
 
@@ -56,6 +68,17 @@ export async function POST(request: NextRequest) {
 // GET /api/ai/recognize?query=xi+mang - Quick search
 export async function GET(request: NextRequest) {
   try {
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || request.headers.get('x-real-ip') || 'unknown'
+    const rateLimitId = getRateLimitIdentifier(ip, undefined, 'ai_recognize')
+    const rateLimitResult = await checkRateLimit(rateLimitId, RateLimitConfigs.AI_API.GUEST)
+
+    if (!rateLimitResult.allowed) {
+        return NextResponse.json(
+            createErrorResponse(formatRateLimitError(rateLimitResult), 'RATE_LIMIT_EXCEEDED'),
+            { status: 429 }
+        )
+    }
+
     const { searchParams } = new URL(request.url)
     const query = searchParams.get('query')
 

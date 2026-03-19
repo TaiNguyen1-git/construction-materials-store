@@ -15,10 +15,11 @@ import {
     Camera, Image as ImageIcon, MessageSquare,
     Clock, Trophy, BadgeCheck, Check,
     Building2, Users, Calendar, ArrowUpRight,
-    Calculator
+    Calculator, Phone, Mail
 } from 'lucide-react'
 import toast, { Toaster } from 'react-hot-toast'
 import Header from '@/components/Header'
+import LoginIncentiveModal from '@/components/LoginIncentiveModal'
 
 export default function ContractorDetailView({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params)
@@ -285,6 +286,37 @@ export default function ContractorDetailView({ params }: { params: Promise<{ id:
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-4">
+                                    <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center">
+                                        <Phone className="w-5 h-5 text-blue-500" />
+                                    </div>
+                                    <div className="flex-1">
+                                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Số điện thoại</p>
+                                        {contractor.phone ? (
+                                            <p className="font-bold text-gray-900">{contractor.phone}</p>
+                                        ) : (
+                                            <button 
+                                                onClick={() => setShowLoginModal(true)}
+                                                className="text-xs font-bold text-blue-600 hover:text-blue-700 bg-blue-50 px-3 py-1.5 rounded-lg mt-1 transition-all active:scale-95 shadow-sm border border-blue-100"
+                                            >
+                                                 Đăng nhập để xem
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-4">
+                                    <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center">
+                                        <Mail className="w-5 h-5 text-indigo-500" />
+                                    </div>
+                                    <div className="flex-1">
+                                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Email</p>
+                                        {contractor.email ? (
+                                            <p className="font-bold text-gray-900">{contractor.email}</p>
+                                        ) : (
+                                            <p className="text-xs font-medium text-gray-400 italic">Đã được ẩn bảo mật</p>
+                                        )}
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-4">
                                     <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center">
                                         <Clock className="w-5 h-5 text-gray-400" />
                                     </div>
@@ -378,6 +410,17 @@ export default function ContractorDetailView({ params }: { params: Promise<{ id:
                     </div>
                 </div>
             )}
+
+            {/* Login Modal for retrieving contact info */}
+            {/* Login Modal for retrieving contact info */}
+            <LoginIncentiveModal
+                isOpen={showLoginModal}
+                onClose={() => setShowLoginModal(false)}
+                feature="general"
+                title="Bảo mật thông tin Nhà Thầu"
+                description="Hệ thống đã ẩn tự động Số điện thoại và Email để bảo vệ Nhà thầu khỏi SPAM. Bạn vui lòng Đăng nhập tài khoản để xem được thông tin liên hệ trực tiếp nhé!"
+            />
+
         </div>
     )
 }

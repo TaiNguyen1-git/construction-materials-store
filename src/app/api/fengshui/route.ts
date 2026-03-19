@@ -1,9 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getFengshuiAdvice } from '@/lib/fengshui-ai'
 import { createSuccessResponse, createErrorResponse } from '@/lib/api-types'
+import { checkRateLimit, getRateLimitIdentifier, RateLimitConfigs, formatRateLimitError } from '@/lib/rate-limiter'
 
 export async function POST(request: NextRequest) {
     try {
+        const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || request.headers.get('x-real-ip') || 'unknown'
+        const rateLimitId = getRateLimitIdentifier(ip, undefined, 'ai_fengshui')
+        const rateLimitResult = await checkRateLimit(rateLimitId, RateLimitConfigs.AI_API.GUEST)
+
+        if (!rateLimitResult.allowed) {
+            return NextResponse.json(
+                createErrorResponse(formatRateLimitError(rateLimitResult), 'RATE_LIMIT_EXCEEDED'),
+                { status: 429 }
+            )
+        }
+
         const { year, direction, projectType } = await request.json()
 
         if (!year || !direction) {
