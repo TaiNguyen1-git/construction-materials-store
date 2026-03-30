@@ -83,6 +83,7 @@ export default function IntegrityDashboard() {
     const [currentPage, setCurrentPage] = useState(1);
     const ITEMS_PER_PAGE = 15;
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
+    const [previewDoc, setPreviewDoc] = useState<KYCDocument | null>(null);
     
     // Modal State
     const [modalConfig, setModalConfig] = useState<{
@@ -414,7 +415,7 @@ export default function IntegrityDashboard() {
                                         </div>
                                     )}
                                 </div>
-                                <button onClick={handleExportCSV} className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 transition-all shadow-md shadow-slate-900/20">
+                                <button onClick={handleExportCSV} className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-all shadow-md shadow-blue-600/20">
                                     <FileDown className="w-4 h-4" /> Export CSV File
                                 </button>
                             </div>
@@ -583,7 +584,13 @@ export default function IntegrityDashboard() {
                                                         </span>
                                                     </div>
                                                 </div>
-                                                <div className="flex gap-2 min-w-[160px]">
+                                                <div className="flex gap-2 min-w-[240px]">
+                                                    <button
+                                                        onClick={() => setPreviewDoc(doc)}
+                                                        className="flex-1 px-4 py-2 text-sm font-bold bg-indigo-50 text-indigo-700 rounded-xl hover:bg-indigo-100 transition-colors"
+                                                    >
+                                                        Chi tiết
+                                                    </button>
                                                     <button
                                                         onClick={() => {
                                                             setModalInput('');
@@ -953,6 +960,56 @@ export default function IntegrityDashboard() {
                     </div>
                 </div>
             )}
+            {/* KYC Detail Drawer */}
+            {previewDoc && (
+                <div className="fixed inset-y-0 right-0 w-full md:w-[450px] bg-white shadow-[-10px_0_40px_rgba(0,0,0,0.1)] transition-transform transform z-[60] flex flex-col">
+                    <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-white z-10">
+                        <h2 className="text-xl font-bold flex items-center gap-2"><Eye className="w-5 h-5 text-indigo-500" /> Chi tiết Hồ sơ KYC</h2>
+                        <button onClick={() => setPreviewDoc(null)} className="p-2 hover:bg-gray-100 rounded-lg text-gray-500"><X className="w-5 h-5"/></button>
+                    </div>
+                    <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-slate-50">
+                        <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+                            <h3 className="font-bold text-gray-500 text-xs uppercase mb-3">Thông tin Khách hàng</h3>
+                            <div className="space-y-3">
+                                <div className="flex justify-between border-b border-gray-50 pb-2">
+                                    <span className="text-sm text-gray-500">Tên:</span>
+                                    <span className="text-sm font-bold text-gray-900">{previewDoc.customer?.contractorProfile?.displayName || previewDoc.customer?.companyName || previewDoc.customer?.user?.name || '---'}</span>
+                                </div>
+                                <div className="flex justify-between border-b border-gray-50 pb-2">
+                                    <span className="text-sm text-gray-500">Email:</span>
+                                    <span className="text-sm font-medium text-gray-800">{previewDoc.customer?.user?.email}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+                            <h3 className="font-bold text-gray-500 text-xs uppercase mb-3">Tài liệu Cung cấp</h3>
+                            <div className="aspect-video bg-gray-100 rounded-xl flex flex-col items-center justify-center text-gray-400 mb-4 border border-dashed border-gray-300">
+                                <Eye className="w-8 h-8 opacity-20 mb-2" />
+                                <span className="text-xs font-semibold">Tài liệu đính kèm (Bản chụp)</span>
+                            </div>
+                            <div className="space-y-3">
+                                <div className="flex justify-between items-center text-sm border-b border-gray-50 pb-2">
+                                    <span className="text-gray-500">Phân loại giấy tờ:</span>
+                                    <span className="font-bold bg-blue-50 text-blue-700 px-2 py-0.5 rounded">{previewDoc.documentType}</span>
+                                </div>
+                                <div className="flex justify-between items-center text-sm border-b border-gray-50 pb-2">
+                                    <span className="text-gray-500">Mã tham chiếu:</span>
+                                    <span className="font-mono text-xs bg-gray-100 px-2 py-0.5 rounded text-gray-600">{previewDoc.id.slice(0, 8).toUpperCase()}</span>
+                                </div>
+                                <div className="flex justify-between items-center text-sm">
+                                    <span className="text-gray-500">Ngày đệ trình:</span>
+                                    <span className="font-medium text-gray-700">{new Date(previewDoc.createdAt).toLocaleString('vi-VN')}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="p-6 border-t border-gray-100 bg-white grid grid-cols-2 gap-3">
+                        <button onClick={() => { setModalInput(''); setModalConfig({ isOpen: true, title: 'Từ chối Hồ sơ KYC', type: 'rejectKYC', targetId: previewDoc.id }); setPreviewDoc(null); }} className="px-4 py-3 font-bold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors">Tự chối & Yêu cầu làm lại</button>
+                        <button onClick={() => { handleKYCAction(previewDoc.id, 'APPROVE'); setPreviewDoc(null); }} className="px-4 py-3 font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-600/20 rounded-xl transition-colors">Xác minh Hợp lệ</button>
+                    </div>
+                </div>
+            )}
+            {previewDoc && <div onClick={() => setPreviewDoc(null)} className="fixed inset-0 bg-slate-900/20 backdrop-blur-sm z-50"></div>}
         </div>
     )
 }
