@@ -119,6 +119,10 @@ model User {
   sessions UserSession[]
   organizationMemberships OrganizationMember[]
   sentInvitations         OrganizationInvitation[]
+
+  // Forum Relations
+  discussions     Discussion[]
+  forumComments   Comment[]
 }
 
 // User Session Management (for multi-device/tab support)
@@ -3912,5 +3916,98 @@ enum QuickQuoteStatus {
   ACCEPTED
   REJECTED
   EXPIRED
+}
+
+// ============================================
+// EXPERT Q&A FORUM
+// ============================================
+
+model ForumCategory {
+  id          String       @id @default(auto()) @map("_id") @db.ObjectId
+  name        String
+  slug        String       @unique
+  icon        String?
+  discussions Discussion[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@map("forum_categories")
+}
+
+model Discussion {
+  id          String        @id @default(auto()) @map("_id") @db.ObjectId
+  title       String
+  content     String
+  authorId    String        @db.ObjectId
+  categoryId  String        @db.ObjectId
+  views       Int           @default(0)
+  upvotes     Int           @default(0)
+  isResolved  Boolean       @default(false)
+  isAnonymous Boolean       @default(false)
+  
+  // Moderation Layer 1 & 2
+  status      ForumStatus   @default(APPROVED)
+  reportCount Int           @default(0)
+  systemFlag  String?       // Ghi chú nếu AI/Bộ lọc tự động bắt (VD: "Chứa Link Spam")
+
+  tags        String[]
+
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  author      User          @relation(fields: [authorId], references: [id])
+  category    ForumCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  comments    Comment[]
+
+  @@map("forum_discussions")
+  @@index([authorId])
+  @@index([categoryId])
+  @@index([createdAt])
+  @@index([isResolved])
+}
+
+model Comment {
+  id           String     @id @default(auto()) @map("_id") @db.ObjectId
+  content      String
+  discussionId String     @db.ObjectId
+  authorId     String     @db.ObjectId
+  isAccepted   Boolean    @default(false)
+  isAnonymous  Boolean    @default(false)
+  upvotes      Int        @default(0)
+  
+  // Moderation Layer 1 & 2
+  status       ForumStatus @default(APPROVED)
+  reportCount  Int        @default(0)
+  systemFlag   String?
+  
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  
+  discussion   Discussion @relation(fields: [discussionId], references: [id], onDelete: Cascade)
+  author       User       @relation(fields: [authorId], references: [id])
+
+  @@map("forum_comments")
+  @@index([discussionId])
+  @@index([authorId])
+  @@index([isAccepted])
+}
+
+model VoteRecord {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId     String   @db.ObjectId
+  targetId   String   @db.ObjectId
+  targetType String   // "DISCUSSION" or "COMMENT"
+  value      Int      // 1 or -1
+  createdAt  DateTime @default(now())
+  
+  @@unique([userId, targetId, targetType])
+  @@map("forum_vote_records")
+}
+
+enum ForumStatus {
+  APPROVED
+  PENDING_REVIEW
+  REJECTED
+  SPAM
 }
 

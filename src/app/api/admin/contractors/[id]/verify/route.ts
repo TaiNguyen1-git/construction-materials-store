@@ -23,7 +23,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         }
 
         // Check admin permission
-        if (userRole !== 'MANAGER') {
+        if (userRole !== 'MANAGER' && userRole !== 'EMPLOYEE') {
             return NextResponse.json(createErrorResponse('Chỉ quản trị viên mới có quyền duyệt hồ sơ', 'FORBIDDEN'), { status: 403 })
         }
 

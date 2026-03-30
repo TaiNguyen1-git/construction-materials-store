@@ -11,7 +11,7 @@ export const revalidate = 1800 // Revalidate every 30 minutes
 
 async function getInitialData() {
   try {
-    const [featuredProducts, categories, productCount, customerCount, orderCount, banners, contractors] = await Promise.all([
+    const [featuredProducts, categories, productCount, customerCount, orderCount, banners, contractors, trendingDiscussions] = await Promise.all([
       // 1. Featured Products
       prisma.product.findMany({
         where: { isFeatured: true, isActive: true },
@@ -48,11 +48,21 @@ async function getInitialData() {
         orderBy: { order: 'asc' }
       }),
 
-      // 5. Featured Contractors
       prisma.contractorProfile.findMany({
         where: { isVerified: true },
         take: 5,
         orderBy: { avgRating: 'desc' }
+      }),
+
+      // 6. Trending Discussions
+      prisma.discussion.findMany({
+        take: 3,
+        include: {
+          author: { select: { id: true, name: true, role: true } },
+          category: { select: { id: true, name: true } },
+          _count: { select: { comments: true } }
+        },
+        orderBy: { views: 'desc' }
       })
     ])
 
@@ -71,7 +81,8 @@ async function getInitialData() {
         sub: b.description || '',
         link: b.link || ''
       })),
-      featuredContractors: JSON.parse(JSON.stringify(contractors))
+      featuredContractors: JSON.parse(JSON.stringify(contractors)),
+      trendingDiscussions: JSON.parse(JSON.stringify(trendingDiscussions))
     }
   } catch (error) {
     console.error('Error pre-fetching home data:', error)
@@ -88,5 +99,6 @@ export default async function Page() {
     initialStats={initialData?.stats}
     initialBanners={initialData?.banners}
     initialFeaturedContractors={initialData?.featuredContractors}
+    initialTrendingDiscussions={initialData?.trendingDiscussions}
   />
 }

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
-import { ArrowRight, Zap, TrendingUp, ShieldCheck, PenTool, Brain, Package, UserPlus, Sparkles, Clock, ShoppingCart } from 'lucide-react'
+import { ArrowRight, Zap, TrendingUp, ShieldCheck, PenTool, Brain, Package, UserPlus, Sparkles, Clock, ShoppingCart, MessageSquare } from 'lucide-react'
 import dynamic from 'next/dynamic'
 import { Toaster } from 'react-hot-toast'
 import toast from 'react-hot-toast'
@@ -78,6 +78,7 @@ interface HomeClientProps {
   initialStats?: Stats
   initialBanners?: Banner[]
   initialFeaturedContractors?: Contractor[]
+  initialTrendingDiscussions?: any[]
 }
 
 export default function HomeClient({
@@ -85,7 +86,8 @@ export default function HomeClient({
   initialCategories = [],
   initialStats,
   initialBanners = [],
-  initialFeaturedContractors = []
+  initialFeaturedContractors = [],
+  initialTrendingDiscussions = []
 }: HomeClientProps) {
   const { user, isAuthenticated } = useAuth()
   const { addItem } = useCartStore()
@@ -97,6 +99,7 @@ export default function HomeClient({
   const [stats, setStats] = useState<Stats>(initialStats || { totalProducts: 850, totalCustomers: 1500, activeOrders: 45 })
   const [banners, setBanners] = useState<Banner[]>(initialBanners.length > 0 ? initialBanners : DEFAULT_BANNERS)
   const [featuredContractors, setFeaturedContractors] = useState<Contractor[]>(initialFeaturedContractors)
+  const [trendingDiscussions] = useState<any[]>(initialTrendingDiscussions)
 
   const [loading, setLoading] = useState(!initialStats)
   const [featuredLoading, setFeaturedLoading] = useState(initialFeaturedProducts.length === 0)
@@ -327,6 +330,57 @@ export default function HomeClient({
         </section>
 
         <ContractorReviewCarousel />
+
+        {/* Forum Trending Section */}
+        {trendingDiscussions.length > 0 && (
+          <section className="py-24 bg-gray-50 border-t border-gray-100">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+              <div className="flex justify-between items-end mb-12">
+                <div>
+                  <h2 className="text-3xl md:text-4xl font-black text-gray-900 tracking-tight">Cộng Đồng <span className="text-blue-600">Hỏi Đáp</span></h2>
+                  <p className="mt-4 text-gray-500 text-lg max-w-2xl">Tham gia thảo luận cùng hàng ngàn chuyên gia, kỹ sư và thợ thầu lành nghề trên toàn quốc.</p>
+                </div>
+                <Link href="/forum" className="hidden sm:flex px-8 py-3 bg-white text-blue-600 border-2 border-blue-100 rounded-xl hover:bg-blue-50 hover:border-blue-200 font-bold transition-colors shadow-sm gap-2 items-center">
+                  <MessageSquare className="w-5 h-5" /> Vào diễn đàn
+                </Link>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8">
+                {trendingDiscussions.map((topic: any) => (
+                  <Link key={topic.id} href={`/forum/discussion/${topic.id}`} className="bg-white rounded-[2rem] p-8 border border-gray-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group flex flex-col justify-between">
+                    <div>
+                      <div className="inline-block px-3 py-1 bg-gray-50 text-gray-500 text-[10px] font-black uppercase tracking-widest rounded-md mb-6 border border-gray-100 group-hover:bg-blue-50 group-hover:text-blue-600 group-hover:border-blue-100 transition-colors">
+                        {topic.category?.name || 'Thảo luận'}
+                      </div>
+                      <h3 className="text-xl font-black text-gray-900 mb-4 line-clamp-3 leading-snug group-hover:text-blue-600 transition-colors">
+                        {topic.title}
+                      </h3>
+                    </div>
+                    <div className="flex items-center justify-between text-sm text-gray-500 mt-8 pt-6 border-t border-gray-50">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-gray-100 border border-gray-200 flex items-center justify-center font-bold text-xs text-gray-600">
+                          {topic.author?.name?.charAt(0) || 'U'}
+                        </div>
+                        <span className="font-bold text-gray-700">{topic.author?.name}</span>
+                      </div>
+                      <div className="flex items-center gap-3 text-xs font-bold text-gray-400">
+                        <span>{topic.views} xem</span>
+                        <div className="w-1 h-1 rounded-full bg-gray-300"></div>
+                        <span className={topic._count?.comments > 0 ? 'text-blue-600' : ''}>{topic._count?.comments || 0} đáp</span>
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+              
+              <div className="mt-10 text-center sm:hidden">
+                <Link href="/forum" className="inline-flex w-full items-center justify-center gap-2 px-6 py-4 bg-white text-blue-600 border-2 border-blue-100 rounded-xl font-bold">
+                  <MessageSquare className="w-5 h-5" /> Vào diễn đàn chung
+                </Link>
+              </div>
+            </div>
+          </section>
+        )}
 
         <FeaturedBrands partners={PARTNERS} />
 

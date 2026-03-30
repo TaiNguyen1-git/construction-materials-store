@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { Package, Heart, User, LogOut, ChevronDown, Home, Tag, Info, Phone, LogIn, UserPlus, Calculator, HardHat, FolderKanban, Sparkles, Building2, Headset } from 'lucide-react'
+import { Package, Heart, User, LogOut, ChevronDown, Home, Tag, Info, Phone, LogIn, UserPlus, Calculator, HardHat, FolderKanban, Sparkles, Building2, Headset, MessageSquare } from 'lucide-react'
 import CartIcon from './CartIcon'
 import NotificationBell from './NotificationBell'
 import { useWishlistStore } from '@/stores/wishlistStore'
@@ -102,6 +102,17 @@ export default function Header() {
                       <div className="text-xs text-gray-500">Đăng & tìm dự án</div>
                     </div>
                   </Link>
+                  <Link
+                    href="/forum"
+                    className="flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gradient-to-r hover:from-primary-50 hover:to-secondary-50 transition-colors"
+                    onClick={() => setShowServicesMenu(false)}
+                  >
+                    <MessageSquare className="h-5 w-5 mr-3 text-cyan-500" />
+                    <div>
+                      <div className="font-semibold">Cộng Đồng Diễn Đàn</div>
+                      <div className="text-xs text-gray-500">Hỏi đáp chuyên gia</div>
+                    </div>
+                  </Link>
                   <div className="border-t border-gray-100 my-1"></div>
                   <Link
                     href="/contractor"
@@ -125,6 +136,7 @@ export default function Header() {
                       <div className="text-xs text-gray-500">Giải pháp cung ứng vật tư 4.0</div>
                     </div>
                   </Link>
+                  <div className="bg-gray-50 rounded-b-xl px-4 py-3 border-t border-gray-100 hidden"></div>
                 </div>
               )}
             </div>

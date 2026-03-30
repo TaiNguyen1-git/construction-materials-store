@@ -101,6 +101,7 @@ export default function AdminLayout({
       icon: HeartHandshake,
       items: [
         { name: 'Tổng Hợp Hỗ Trợ', href: '/admin/customer-care', icon: HeartHandshake },
+        { name: 'Diễn Đàn Chuyên Gia', href: '/admin/forum', icon: MessageCircle },
         { name: 'Tickets', href: '/admin/tickets', icon: Ticket },
         { name: 'Yêu Cầu Hỗ Trợ', href: '/admin/support', icon: Headset },
         { name: 'Tranh Chấp', href: '/admin/disputes', icon: ShieldAlert },
