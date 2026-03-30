@@ -349,8 +349,6 @@ export default function IntegrityDashboard() {
                 <div className="max-w-7xl mx-auto px-4 py-4">
                     <div className="flex items-center justify-between">
                         <div>
-                            <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                                
                             <p className="text-sm text-gray-500">Hệ thống Quản trị Rủi ro & Tuân thủ</p>
                         </div>
                         <Link href="/admin" className="text-blue-600 hover:underline text-sm font-medium">
