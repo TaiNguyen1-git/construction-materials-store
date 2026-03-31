@@ -99,7 +99,7 @@ export async function GET(request: NextRequest) {
 
         return NextResponse.json(createSuccessResponse({
             summary: {
-                netWorth: totalReleased + totalIncoming - totalSpent,
+                netWorth: totalReleased + totalIncoming - unpaidDebt,
                 totalReleased,
                 totalIncoming,
                 totalSpent,

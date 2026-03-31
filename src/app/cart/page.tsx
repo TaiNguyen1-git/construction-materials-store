@@ -54,8 +54,8 @@ export default function CartPage() {
   const [loadingRecommendations, setLoadingRecommendations] = useState(false)
   const [showShippingRates, setShowShippingRates] = useState(false)
 
-  const shippingFee = items.length > 0 ? 50000 : 0
   const totalPrice = getTotalPrice()
+  const shippingFee = (items.length > 0 && totalPrice < 5000000) ? 50000 : 0
   const finalTotal = totalPrice + shippingFee
 
   useEffect(() => {
@@ -214,8 +214,19 @@ export default function CartPage() {
                           <button onClick={() => updateQuantity(item.productId, item.quantity + 1)} className="w-9 h-9 flex items-center justify-center rounded-xl bg-white text-slate-400 hover:text-indigo-600 shadow-sm border border-slate-100 text-lg font-black active:scale-90 transition-all">+</button>
                         </div>
                         <div className="text-right">
-                          <p className="text-3xl font-black text-indigo-600 leading-none tracking-tighter">{(item.price * item.quantity).toLocaleString()} <span className="text-xs font-black uppercase tracking-widest align-top mt-1 inline-block">VNĐ</span></p>
-                          <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.2em] mt-2">{item.price.toLocaleString()} đ / {item.unit}</p>
+                          {(() => {
+                            const isWholesale = item.wholesalePrice && item.minWholesaleQty && item.quantity >= item.minWholesaleQty;
+                            const actualPrice = isWholesale ? item.wholesalePrice! : item.price;
+                            return (
+                              <>
+                                <p className="text-3xl font-black text-indigo-600 leading-none tracking-tighter">{(actualPrice * item.quantity).toLocaleString()} <span className="text-xs font-black uppercase tracking-widest align-top mt-1 inline-block">VNĐ</span></p>
+                                <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.2em] mt-2">
+                                  {isWholesale && <span className="text-emerald-500 mr-2 bg-emerald-50 px-1.5 py-0.5 rounded">GÍA SỈ</span>}
+                                  {actualPrice.toLocaleString()} đ / {item.unit}
+                                </p>
+                              </>
+                            );
+                          })()}
                         </div>
                       </div>
                     </div>

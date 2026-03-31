@@ -314,6 +314,8 @@ export async function POST(request: NextRequest) {
 
     // Create order with transaction — stock check is INSIDE to prevent race conditions
     const order = await prisma.$transaction(async (tx) => {
+      let calculatedTotalAmount = 0
+      
       // ── Step 1: Validate stock INSIDE transaction (atomic check) ──
       for (const item of data.items) {
         const inventoryItem = await tx.inventoryItem.findUnique({
@@ -330,6 +332,32 @@ export async function POST(request: NextRequest) {
             `STOCK_ERROR:${inventoryItem.product.name} chỉ còn ${inventoryItem.availableQuantity} (yêu cầu ${item.quantity})`
           )
         }
+
+        // --- SECURITY 2026: PRICE RE-CALCULATION ---
+        // Không bao giờ tin tưởng giá từ Frontend gửi lên, phải lấy từ CSDL
+        const p = inventoryItem.product
+        const isWholesale = p.wholesalePrice && item.quantity >= p.minWholesaleQty
+        const actualUnitPrice = isWholesale ? p.wholesalePrice! : p.price
+        
+        item.unitPrice = actualUnitPrice
+        item.totalPrice = actualUnitPrice * item.quantity
+        calculatedTotalAmount += item.totalPrice
+      }
+
+      // ── RE-CALCULATE TOTALS ──
+      const calculatedShippingAmount = calculatedTotalAmount >= 5000000 ? 0 : 50000
+      const calculatedNetAmount = calculatedTotalAmount + calculatedShippingAmount
+      
+      let calculatedDepositAmount = data.depositAmount
+      let calculatedRemainingAmount = data.remainingAmount
+
+      if (data.paymentType === 'DEPOSIT') {
+         // Ép cọc 50% cứng tránh Frontend bị hack số tiền cọc
+         calculatedDepositAmount = Math.round(calculatedNetAmount * 0.5)
+         calculatedRemainingAmount = calculatedNetAmount - calculatedDepositAmount
+      } else if (data.paymentType === 'FULL') {
+         calculatedDepositAmount = null
+         calculatedRemainingAmount = null
       }
 
       // ── Step 2: Create the order ──
@@ -352,17 +380,17 @@ export async function POST(request: NextRequest) {
           guestEmail: data.guestEmail,
           guestPhone: data.guestPhone,
           status: initialStatus,
-          totalAmount: data.totalAmount,
-          shippingAmount: data.shippingAmount,
-          netAmount: data.netAmount,
+          totalAmount: calculatedTotalAmount,
+          shippingAmount: calculatedShippingAmount,
+          netAmount: calculatedNetAmount,
           taxAmount: 0,
           discountAmount: 0,
           paymentMethod: data.paymentMethod,
           paymentStatus: 'PENDING',
           paymentType: data.paymentType,
-          depositPercentage: data.depositPercentage,
-          depositAmount: data.depositAmount,
-          remainingAmount: data.remainingAmount,
+          depositPercentage: data.paymentType === 'DEPOSIT' ? 50 : null,
+          depositAmount: calculatedDepositAmount,
+          remainingAmount: calculatedRemainingAmount,
           qrExpiresAt: data.paymentMethod === 'BANK_TRANSFER' ? qrExpiresAt : null,
           shippingAddress: data.shippingAddress,
           notes: data.notes,

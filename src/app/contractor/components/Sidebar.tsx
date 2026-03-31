@@ -23,7 +23,8 @@ import {
     Receipt,
     Shield,
     HelpCircle,
-    MessageSquare
+    MessageSquare,
+    Sparkles
 } from 'lucide-react'
 import { useContractorCartStore } from '@/stores/contractorCartStore'
 
@@ -44,6 +45,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
             title: 'Tổng quan',
             items: [
                 { href: '/contractor/dashboard', icon: Home, label: 'Dashboard' },
+                { href: '/contractor/estimator', icon: Sparkles, label: 'Bóc Tách AI' },
                 { href: '/contractor/projects/find', icon: Briefcase, label: 'Tìm việc mới' },
             ]
         },

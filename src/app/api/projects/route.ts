@@ -134,10 +134,13 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json()
     const {
-      name, description, customerId, contractorId,
+      name, description, customerId: reqCustomerId, contractorId: reqContractorId,
       startDate, endDate, budget, priority, notes, location,
       guestName, guestPhone, guestEmail, isPublic
     } = body
+    
+    let contractorId = reqContractorId;
+    let customerId = reqCustomerId;
 
     // Validate required fields
     if (!name || !startDate || !budget) {
@@ -151,13 +154,19 @@ export async function POST(request: NextRequest) {
     let otpExpiresAt = null
 
     if (user) {
-      // For authenticated customers, link to their account
+      // Find the associated customer profile for both CUSTOMER and CONTRACTOR
+      const userProfile = await prisma.customer.findFirst({
+        where: { userId: user.userId }
+      })
+
       if (user.role === 'CUSTOMER') {
-        const customer = await prisma.customer.findFirst({
-          where: { userId: user.userId }
-        })
-        if (customer) {
-          projectCustomerId = customer.id
+        if (userProfile) {
+          projectCustomerId = userProfile.id
+        }
+      } else if (user.role === 'CONTRACTOR') {
+        // If a contractor creates a project via the Estimator, they are the contractor
+        if (userProfile) {
+          contractorId = userProfile.id // Update the destructured variable
         }
       } else if (customerId) {
         // Admin creating for a customer

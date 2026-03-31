@@ -1,8 +1,9 @@
 'use client'
 
 /**
- * AI Material Estimator Page
- * Refactored to use modular components and shared estimator logic.
+ * Contractor AI Estimator Page
+ * Reuses the core estimator logic but lives within the contractor dashboard.
+ * No public header, no login incentive - contractor is already authenticated.
  */
 
 import { useState, useRef, useEffect } from 'react'
@@ -12,34 +13,36 @@ import {
 } from 'lucide-react'
 import { toast, Toaster } from 'react-hot-toast'
 
+import Sidebar from '../components/Sidebar'
+import ContractorHeader from '../components/ContractorHeader'
+
 import { useAuth } from '@/contexts/auth-context'
 import { useCartStore } from '@/stores/cartStore'
 import { fetchWithAuth } from '@/lib/api-client'
 import { analyzeFloorPlanImage, estimateFromText, recalculateEstimate } from '@/lib/estimator/vision-estimator'
 
-import EstimatorAuthModal from './components/EstimatorAuthModal'
-import SiteHeader from '@/components/Header'
 import FormattedNumberInput from '@/components/FormattedNumberInput'
 
-// Shared types and constants
+// Shared types and constants from the public estimator
 import {
     RoomDimension, EstimatorResult, PROJECT_TYPES,
     LOADING_PHASES, LOADING_TIPS, formatCurrency
-} from './types'
+} from '@/app/estimator/types'
 
-// Modular components
-import EstimatorHeader from './components/EstimatorHeader'
-import InputPanel from './components/InputPanel'
-import LoadingSection from './components/LoadingSection'
-import ReviewSection from './components/ReviewSection'
-import ResultDisplay from './components/ResultDisplay'
-import DetailedEstimateModal from './components/DetailedEstimateModal'
-import LeadCaptureSection from './components/LeadCaptureSection'
+// Reuse modular components
+import EstimatorHeader from '@/app/estimator/components/EstimatorHeader'
+import InputPanel from '@/app/estimator/components/InputPanel'
+import LoadingSection from '@/app/estimator/components/LoadingSection'
+import ReviewSection from '@/app/estimator/components/ReviewSection'
+import ResultDisplay from '@/app/estimator/components/ResultDisplay'
+import DetailedEstimateModal from '@/app/estimator/components/DetailedEstimateModal'
+import LeadCaptureSection from '@/app/estimator/components/LeadCaptureSection'
 
-export default function EstimatorPage() {
+export default function ContractorEstimatorPage() {
     const { user, isAuthenticated } = useAuth()
     const { addItem } = useCartStore()
     const router = useRouter()
+    const [sidebarOpen, setSidebarOpen] = useState(true)
 
     // --- State ---
     const [projectType, setProjectType] = useState<'general' | 'flooring' | 'painting' | 'tiling'>('general')
@@ -60,7 +63,7 @@ export default function EstimatorPage() {
     const [isReviewing, setIsReviewing] = useState(false)
     const [showInputPanel, setShowInputPanel] = useState(true)
 
-    // Review Temp State (Draft measurements)
+    // Review Temp State
     const [reviewArea, setReviewArea] = useState(100)
     const [reviewStyle, setReviewStyle] = useState<'nhà_cấp_4' | 'nhà_phố' | 'biệt_thự'>('nhà_phố')
     const [reviewRoofType, setReviewRoofType] = useState('bê_tông')
@@ -69,13 +72,6 @@ export default function EstimatorPage() {
     // Modals
     const [showDetailedModal, setShowDetailedModal] = useState(false)
     const [showProjectModal, setShowProjectModal] = useState(false)
-    const [showLoginModal, setShowLoginModal] = useState(false)
-
-    // Lead Capture
-    const [leadName, setLeadName] = useState('')
-    const [leadPhone, setLeadPhone] = useState('')
-    const [leadEmail, setLeadEmail] = useState('')
-    const [submittingLead, setSubmittingLead] = useState(false)
 
     // Actions
     const [addingToCart, setAddingToCart] = useState(false)
@@ -100,44 +96,7 @@ export default function EstimatorPage() {
         }
     }, [loading])
 
-    useEffect(() => {
-        if (user) {
-            setLeadName(user.name || '')
-            setLeadEmail(user.email || '')
-        }
-    }, [user])
-
     // --- Handlers ---
-    const handleLeadSubmit = async () => {
-        if (!leadName || !leadPhone) {
-            toast.error('Vui lòng nhập tên và số điện thoại')
-            return
-        }
-        setSubmittingLead(true)
-        try {
-            const res = await fetchWithAuth('/api/leads', {
-                method: 'POST',
-                body: JSON.stringify({
-                    name: leadName,
-                    phone: leadPhone,
-                    email: leadEmail,
-                    source: 'ESTIMATOR',
-                    notes: `Dự án: ${projectType} | Diện tích: ${result?.totalArea}m2 | Ngân sách: ${result?.totalEstimatedCost}`,
-                })
-            })
-            if (res.ok) {
-                toast.success('Đã gửi yêu cầu tư vấn thành công!')
-                setLeadPhone('')
-            } else {
-                toast.error('Không thể gửi yêu cầu, vui lòng thử lại sau.')
-            }
-        } catch {
-            toast.error('Có lỗi xảy ra khi kết nối máy chủ.')
-        } finally {
-            setSubmittingLead(false)
-        }
-    }
-
     const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const files = e.target.files
         if (!files) return
@@ -203,7 +162,7 @@ export default function EstimatorPage() {
                 result.projectType,
                 reviewRooms,
                 reviewStyle,
-                reviewArea * 1.5, // Default wall perimeter approximation
+                reviewArea * 1.5,
                 reviewRoofType,
                 result.fengShuiAdvice
             )
@@ -227,7 +186,7 @@ export default function EstimatorPage() {
             if (m.productId) {
                 addItem({
                     productId: m.productId,
-                    id: m.productId, // Still provide id just in case
+                    id: m.productId,
                     name: m.productName,
                     price: m.price || 0,
                     image: '',
@@ -260,15 +219,8 @@ export default function EstimatorPage() {
                 const data = await res.json()
                 toast.success('Đã lưu dự án thành công!')
                 setShowProjectModal(false)
-                
-                // Route explicitly based on user role to avoid 403 Forbidden
-                const roleString = (user as any)?.role as string;
-                if (roleString === 'CONTRACTOR') {
-                    router.push(`/contractor/projects/${data.data.id}`)
-                } else {
-                    // Default for regular USER (CUSTOMER)
-                    router.push(`/account/projects/${data.data.id}`)
-                }
+                // Contractor always goes to their own project dashboard
+                router.push(`/contractor/projects/${data.data?.id || data.id}`)
             } else {
                 toast.error('Không thể lưu dự án')
             }
@@ -280,9 +232,12 @@ export default function EstimatorPage() {
     }
 
     return (
-        <div className="min-h-screen bg-[#FDFDFD]">
+        <div className="min-h-screen bg-gray-50 flex flex-col">
             <Toaster position="top-right" />
-            {/* --- Modals --- */}
+            <ContractorHeader sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
+            <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+
+            {/* Project Save Modal */}
             {showProjectModal && (
                 <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
                     <div className="bg-white rounded-3xl shadow-2xl p-8 w-full max-w-md animate-in zoom-in-95 duration-200">
@@ -296,7 +251,7 @@ export default function EstimatorPage() {
                                     type="text"
                                     value={projectName}
                                     onChange={(e) => setProjectName(e.target.value)}
-                                    placeholder="VD: Nhà anh Nam - Quận 2"
+                                    placeholder="VD: Công trình Quận 2 - Anh Nam"
                                     className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none font-medium"
                                 />
                             </div>
@@ -350,110 +305,100 @@ export default function EstimatorPage() {
                 />
             )}
 
-            <EstimatorAuthModal
-                isOpen={showLoginModal}
-                onClose={() => setShowLoginModal(false)}
-                onAuthSuccess={() => {
-                    // After successful auth, the UI will auto-update via AuthContext
-                    // The "Save Project" button will appear automatically
-                    toast.success('Giờ bạn có thể lưu dự án rồi!')
-                }}
-            />
-
-            <SiteHeader />
-
-            <main className="max-w-7xl mx-auto px-4 py-8">
-                {result && !isReviewing && (
-                    <ResultDisplay
-                        result={result}
-                        projectType={projectType}
-                        isAuthenticated={isAuthenticated}
-                        addingToCart={addingToCart}
-                        onShowDetailedModal={() => setShowDetailedModal(true)}
-                        onShowProjectModal={() => {
-                            setProjectName(`Dự án ${PROJECT_TYPES.find(t => t.id === projectType)?.name} - ${new Date().toLocaleDateString('vi-VN')}`)
-                            setShowProjectModal(true)
-                        }}
-                        onShowLoginModal={() => setShowLoginModal(true)}
-                        onAddAllToCart={handleAddAllToCart}
-                    />
-                )}
-
-                {!result && <EstimatorHeader />}
-
-                <div className="grid lg:grid-cols-12 gap-10 items-start">
-                    <div className={`lg:col-span-12 xl:col-span-5 space-y-6 ${!showInputPanel && result ? 'hidden lg:block lg:opacity-50 lg:hover:opacity-100 transition-opacity' : ''}`}>
-                        {result && (
-                            <button
-                                onClick={() => setShowInputPanel(!showInputPanel)}
-                                className="w-full flex items-center justify-between px-8 py-4 bg-white rounded-2xl border border-slate-100 shadow-sm text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-indigo-600 transition-colors"
-                            >
-                                {showInputPanel ? 'Ẩn bảng nhập liệu' : 'Hiện bảng nhập liệu để tính lại'}
-                                <ChevronDown className={`w-4 h-4 transition-transform ${showInputPanel ? 'rotate-180' : ''}`} />
-                            </button>
-                        )}
-
-                        {showInputPanel && (
-                            <InputPanel
-                                projectType={projectType}
-                                setProjectType={setProjectType}
-                                inputMode={inputMode}
-                                setInputMode={setInputMode}
-                                description={description}
-                                setDescription={setDescription}
-                                imagesPreview={imagesPreview}
-                                onImageUpload={handleImageUpload}
-                                onRemoveImage={(idx) => {
-                                    setImagesPreview(prev => prev.filter((_, i) => i !== idx))
-                                    setImagesBase64(prev => prev.filter((_, i) => i !== idx))
-                                }}
-                                birthYear={birthYear}
-                                setBirthYear={setBirthYear}
-                                houseDirection={houseDirection}
-                                setHouseDirection={setHouseDirection}
-                                onEstimate={handleEstimate}
-                                loading={loading}
-                                fileInputRef={fileInputRef}
-                            />
-                        )}
+            <main className={`flex-1 pt-[60px] transition-all duration-300 ${sidebarOpen ? 'lg:ml-64' : 'ml-0'}`}>
+                <div className="p-4 lg:p-6 max-w-7xl mx-auto">
+                    {/* Page Header */}
+                    <div className="flex items-center gap-3 mb-6">
+                        <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-200">
+                            <Sparkles className="w-5 h-5 text-white" />
+                        </div>
+                        <div>
+                            <h1 className="text-xl font-black text-gray-900 uppercase tracking-tight">Bóc Tách AI</h1>
+                            <p className="text-xs text-gray-500 font-medium">Ước lượng vật tư thông minh bằng trí tuệ nhân tạo</p>
+                        </div>
                     </div>
 
-                    <div className="lg:col-span-12 xl:col-span-7 space-y-4">
-                        {loading && <LoadingSection loadingPhase={loadingPhase} loadingTip={loadingTip} />}
+                    {result && !isReviewing && (
+                        <ResultDisplay
+                            result={result}
+                            projectType={projectType}
+                            isAuthenticated={isAuthenticated}
+                            addingToCart={addingToCart}
+                            onShowDetailedModal={() => setShowDetailedModal(true)}
+                            onShowProjectModal={() => {
+                                setProjectName(`Dự án ${PROJECT_TYPES.find(t => t.id === projectType)?.name} - ${new Date().toLocaleDateString('vi-VN')}`)
+                                setShowProjectModal(true)
+                            }}
+                            onShowLoginModal={() => {
+                                // Contractor is always authenticated - just open project modal directly
+                                setProjectName(`Dự án ${PROJECT_TYPES.find(t => t.id === projectType)?.name} - ${new Date().toLocaleDateString('vi-VN')}`)
+                                setShowProjectModal(true)
+                            }}
+                            onAddAllToCart={handleAddAllToCart}
+                        />
+                    )}
 
-                        {!loading && isReviewing && (
-                            <ReviewSection
-                                imagesPreview={imagesPreview}
-                                reviewStyle={reviewStyle}
-                                setReviewStyle={setReviewStyle}
-                                reviewRoofType={reviewRoofType}
-                                setReviewRoofType={setReviewRoofType}
-                                reviewArea={reviewArea}
-                                setReviewArea={setReviewArea}
-                                reviewRooms={reviewRooms}
-                                setReviewRooms={setReviewRooms}
-                                onRecalculate={handleFinalRecalculate}
-                                onBack={() => setIsReviewing(false)}
-                                loading={loading}
-                            />
-                        )}
+                    {!result && <EstimatorHeader />}
+
+                    <div className="grid lg:grid-cols-12 gap-10 items-start">
+                        <div className={`lg:col-span-12 xl:col-span-5 space-y-6 ${!showInputPanel && result ? 'hidden lg:block lg:opacity-50 lg:hover:opacity-100 transition-opacity' : ''}`}>
+                            {result && (
+                                <button
+                                    onClick={() => setShowInputPanel(!showInputPanel)}
+                                    className="w-full flex items-center justify-between px-8 py-4 bg-white rounded-2xl border border-slate-100 shadow-sm text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-indigo-600 transition-colors"
+                                >
+                                    {showInputPanel ? 'Ẩn bảng nhập liệu' : 'Hiện bảng nhập liệu để tính lại'}
+                                    <ChevronDown className={`w-4 h-4 transition-transform ${showInputPanel ? 'rotate-180' : ''}`} />
+                                </button>
+                            )}
+
+                            {showInputPanel && (
+                                <InputPanel
+                                    projectType={projectType}
+                                    setProjectType={setProjectType}
+                                    inputMode={inputMode}
+                                    setInputMode={setInputMode}
+                                    description={description}
+                                    setDescription={setDescription}
+                                    imagesPreview={imagesPreview}
+                                    onImageUpload={handleImageUpload}
+                                    onRemoveImage={(idx) => {
+                                        setImagesPreview(prev => prev.filter((_, i) => i !== idx))
+                                        setImagesBase64(prev => prev.filter((_, i) => i !== idx))
+                                    }}
+                                    birthYear={birthYear}
+                                    setBirthYear={setBirthYear}
+                                    houseDirection={houseDirection}
+                                    setHouseDirection={setHouseDirection}
+                                    onEstimate={handleEstimate}
+                                    loading={loading}
+                                    fileInputRef={fileInputRef}
+                                />
+                            )}
+                        </div>
+
+                        <div className="lg:col-span-12 xl:col-span-7 space-y-4">
+                            {loading && <LoadingSection loadingPhase={loadingPhase} loadingTip={loadingTip} />}
+
+                            {!loading && isReviewing && (
+                                <ReviewSection
+                                    imagesPreview={imagesPreview}
+                                    reviewStyle={reviewStyle}
+                                    setReviewStyle={setReviewStyle}
+                                    reviewRoofType={reviewRoofType}
+                                    setReviewRoofType={setReviewRoofType}
+                                    reviewArea={reviewArea}
+                                    setReviewArea={setReviewArea}
+                                    reviewRooms={reviewRooms}
+                                    setReviewRooms={setReviewRooms}
+                                    onRecalculate={handleFinalRecalculate}
+                                    onBack={() => setIsReviewing(false)}
+                                    loading={loading}
+                                />
+                            )}
+                        </div>
                     </div>
                 </div>
-
-                {result && !isReviewing && (
-                    <div className="mt-12">
-                        <LeadCaptureSection
-                            leadName={leadName}
-                            setLeadName={setLeadName}
-                            leadPhone={leadPhone}
-                            setLeadPhone={setLeadPhone}
-                            leadEmail={leadEmail}
-                            setLeadEmail={setLeadEmail}
-                            onSubmit={handleLeadSubmit}
-                            submitting={submittingLead}
-                        />
-                    </div>
-                )}
             </main>
         </div>
     )

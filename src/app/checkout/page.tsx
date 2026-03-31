@@ -83,7 +83,7 @@ export default function CheckoutPage() {
   }, [isAuthenticated, user])
 
   const totalPrice = getTotalPrice()
-  const shippingFee = items.length > 0 ? 50000 : 0
+  const shippingFee = (items.length > 0 && totalPrice < 5000000) ? 50000 : 0
   const finalTotal = totalPrice + shippingFee
 
   const checkCredit = async () => {
@@ -215,12 +215,16 @@ export default function CheckoutPage() {
         guestName: formData.fullName,
         guestEmail: formData.email,
         guestPhone: formData.phone,
-        items: items.map(item => ({
-          productId: item.productId,
-          quantity: item.quantity,
-          unitPrice: item.price,
-          totalPrice: item.price * item.quantity
-        })),
+        items: items.map(item => {
+          const isWholesale = item.wholesalePrice && item.minWholesaleQty && item.quantity >= item.minWholesaleQty;
+          const actualPrice = isWholesale ? item.wholesalePrice! : item.price;
+          return {
+            productId: item.productId,
+            quantity: item.quantity,
+            unitPrice: actualPrice,
+            totalPrice: actualPrice * item.quantity
+          }
+        }),
         shippingAddress: {
           address: formData.address,
           city: formData.city,
@@ -651,15 +655,22 @@ export default function CheckoutPage() {
               <div className="bg-white rounded-[2.5rem] shadow-2xl p-8 sticky top-24 border border-slate-100">
                 <h2 className="text-2xl font-black text-slate-900 mb-8">Đơn Hàng</h2>
                 <div className="space-y-4 mb-8 max-h-64 overflow-y-auto pr-2 custom-scrollbar">
-                  {items.map((item) => (
-                    <div key={item.productId} className="flex justify-between text-sm gap-4">
-                      <div className="flex-1">
-                        <p className="font-bold text-slate-800 line-clamp-1">{item.name}</p>
-                        <p className="text-slate-400 text-[11px] font-medium">{item.quantity} {item.unit} x {item.price.toLocaleString()}₫</p>
+                  {items.map((item) => {
+                    const isWholesale = item.wholesalePrice && item.minWholesaleQty && item.quantity >= item.minWholesaleQty;
+                    const actualPrice = isWholesale ? item.wholesalePrice! : item.price;
+                    return (
+                      <div key={item.productId} className="flex justify-between text-sm gap-4">
+                        <div className="flex-1">
+                          <p className="font-bold text-slate-800 line-clamp-1">{item.name}</p>
+                          <p className="text-slate-400 text-[11px] font-medium">
+                            {isWholesale && <span className="text-emerald-500 font-bold mr-1">[SỈ]</span>}
+                            {item.quantity} {item.unit} x {actualPrice.toLocaleString()}₫
+                          </p>
+                        </div>
+                        <p className="font-black text-slate-900">{(actualPrice * item.quantity).toLocaleString()}₫</p>
                       </div>
-                      <p className="font-black text-slate-900">{(item.price * item.quantity).toLocaleString()}₫</p>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
                 <div className="border-t border-slate-50 pt-6 space-y-3">
                   <div className="flex justify-between text-slate-500 font-medium">
