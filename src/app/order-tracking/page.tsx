@@ -634,8 +634,8 @@ function OrderTrackingContent() {
                             <span className="text-xs font-black text-slate-800">{item.quantity}</span>
                           </div>
                           <div className="text-right">
-                            <p className="text-sm font-black text-slate-900">{item.totalPrice.toLocaleString()}₫</p>
-                            <p className="text-[9px] text-slate-400 font-medium">{item.unitPrice.toLocaleString()}₫ / {item.product.unit || 'cái'}</p>
+                            <p className="text-sm font-black text-slate-900">{item.totalPrice?.toLocaleString()}₫</p>
+                            <p className="text-[9px] text-slate-400 font-medium">{item.unitPrice?.toLocaleString()}₫ / {item.product.unit || 'cái'}</p>
                           </div>
                         </div>
                       </div>
@@ -697,17 +697,17 @@ function OrderTrackingContent() {
                 <div className="space-y-4">
                   <div className="flex justify-between items-center text-xs font-bold text-slate-500">
                     <span className="uppercase tracking-widest">Tạm tính:</span>
-                    <span className="tracking-tight">{order.totalAmount.toLocaleString()}₫</span>
+                    <span className="tracking-tight">{order.totalAmount?.toLocaleString()}₫</span>
                   </div>
                   <div className="flex justify-between items-center text-xs font-bold text-slate-500">
                     <span className="uppercase tracking-widest">Vận chuyển:</span>
-                    <span className="tracking-tight">{order.shippingAmount.toLocaleString()}₫</span>
+                    <span className="tracking-tight">{order.shippingAmount?.toLocaleString() || 0}₫</span>
                   </div>
                   <div className="pt-4 mt-2 border-t border-slate-50">
                     <div className="flex justify-between items-end">
                       <div>
                         <p className="text-[10px] font-black text-blue-500 uppercase tracking-widest mb-1.5">Tổng cộng đơn hàng</p>
-                        <span className="text-3xl font-black text-slate-900 tracking-tighter leading-none">{order.netAmount.toLocaleString()}<span className="text-xs ml-0.5">₫</span></span>
+                        <span className="text-3xl font-black text-slate-900 tracking-tighter leading-none">{order.netAmount?.toLocaleString()}<span className="text-xs ml-0.5">₫</span></span>
                       </div>
                       <div className="text-right">
                         <span className={`text-[9px] font-black px-3 py-1.5 rounded-xl uppercase tracking-widest border ${order.paymentStatus === 'PAID' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-slate-50 text-slate-400 border-slate-100'

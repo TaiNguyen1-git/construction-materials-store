@@ -25,10 +25,15 @@ export async function GET(request: NextRequest) {
         const isObjectId = /^[0-9a-fA-F]{24}$/.test(query)
 
         // Search for orders
+        // If not logged in, we shouldn't show order suggestions to prevent leaking order info
+        if (!customerId) {
+            return NextResponse.json(createSuccessResponse([], 'Suggestions retrieved'))
+        }
+
         const orders = await prisma.order.findMany({
             where: {
                 AND: [
-                    customerId ? { customerId } : { id: 'none' }, // Only show user's orders if logged in
+                    { customerId }, // Only show user's orders if logged in
                     {
                         OR: [
                             { orderNumber: { contains: query, mode: 'insensitive' } },

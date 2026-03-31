@@ -156,6 +156,13 @@ export default function CheckoutPage() {
     }
   }, [finalTotal, isAuthenticated])
 
+  // Lógica: Thanh toán COD bắt buộc phải thanh toán FULL 100%
+  useEffect(() => {
+    if (paymentMethod === 'COD' && paymentType !== 'FULL') {
+      setPaymentType('FULL')
+    }
+  }, [paymentMethod, paymentType])
+
   // Calculate deposit amounts
   const depositAmount = paymentType === 'DEPOSIT'
     ? Math.round(finalTotal * (depositPercentage / 100))
@@ -424,65 +431,70 @@ export default function CheckoutPage() {
                   Loại Thanh Toán
                 </h2>
                 <div className="space-y-3">
-                  <label className={`flex items-center p-4 border-2 rounded-xl cursor-pointer transition-all ${paymentType === 'FULL' ? 'border-primary-600 bg-primary-50' : 'border-gray-300'}`}>
+                  <label className={`flex items-center p-4 border-2 rounded-xl cursor-pointer transition-all ${paymentType === 'FULL' ? 'border-primary-600 bg-primary-50' : 'border-slate-100 hover:border-slate-200'}`}>
                     <input type="radio" name="paymentType" value="FULL" checked={paymentType === 'FULL'} onChange={(e) => setPaymentType(e.target.value as PaymentType)} className="w-5 h-5 text-primary-600" />
                     <div className="ml-4">
                       <span className="font-semibold text-gray-900">💰 Thanh toán đầy đủ</span>
                       <p className="text-sm text-gray-600">{finalTotal.toLocaleString()}đ</p>
                     </div>
                   </label>
-                  <label className={`flex items-center p-4 border-2 rounded-xl cursor-pointer transition-all ${paymentType === 'DEPOSIT' ? 'border-primary-600 bg-primary-50' : 'border-gray-300'}`}>
-                    <input type="radio" name="paymentType" value="DEPOSIT" checked={paymentType === 'DEPOSIT'} onChange={(e) => setPaymentType(e.target.value as PaymentType)} className="w-5 h-5 text-primary-600" />
-                    <div className="ml-4">
-                      <span className="font-semibold text-gray-900">🏦 Đặt cọc 50%</span>
-                      <p className="text-sm text-gray-600">{depositAmount.toLocaleString()}đ ngay, {remainingAmount.toLocaleString()}đ khi nhận hàng</p>
-                    </div>
-                  </label>
 
-                  {/* CREDIT PAYMENT OPTION */}
-                  {checkingCredit ? (
-                    <div className="p-4 border border-dashed border-slate-200 rounded-xl flex items-center gap-2 text-slate-400 text-sm">
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Đang kiểm tra hạn mức tín dụng...
-                    </div>
-                  ) : creditEligible.eligible ? (
-                    <label className={`flex items-center p-4 border-2 rounded-xl cursor-pointer transition-all ${paymentType === 'CREDIT' ? 'border-emerald-600 bg-emerald-50' : 'border-emerald-100 bg-white hover:border-emerald-300'}`}>
-                      <div className="flex items-start gap-4">
-                        <input
-                          type="radio"
-                          name="paymentType"
-                          value="CREDIT"
-                          checked={paymentType === 'CREDIT'}
-                          onChange={(e) => setPaymentType(e.target.value as any)}
-                          className="w-5 h-5 text-emerald-600 mt-1"
-                        />
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-black text-slate-900">💳 Mua Trước Trả Sau</span>
-                            <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 text-[10px] font-black uppercase tracking-wide rounded">SmartBuild Credit</span>
-                          </div>
-                          <p className="text-xs font-medium text-slate-500 mt-1">
-                            Sử dụng hạn mức tín dụng khả dụng của bạn.
-                          </p>
-                          <div className="flex items-center gap-4 mt-2 text-xs">
-                            <span className="text-emerald-700 font-bold">Khả dụng: {creditEligible.available?.toLocaleString()}đ</span>
-                            <span className="text-slate-400">|</span>
-                            <span className="text-slate-500">Thanh toán sau 30-45 ngày</span>
-                          </div>
+                  {paymentMethod !== 'COD' && (
+                    <>
+                      <label className={`flex items-center p-4 border-2 rounded-xl cursor-pointer transition-all ${paymentType === 'DEPOSIT' ? 'border-primary-600 bg-primary-50' : 'border-slate-100 hover:border-slate-200'}`}>
+                        <input type="radio" name="paymentType" value="DEPOSIT" checked={paymentType === 'DEPOSIT'} onChange={(e) => setPaymentType(e.target.value as PaymentType)} className="w-5 h-5 text-primary-600" />
+                        <div className="ml-4">
+                          <span className="font-semibold text-gray-900">🏦 Đặt cọc 50%</span>
+                          <p className="text-sm text-gray-600">{depositAmount.toLocaleString()}đ ngay, {remainingAmount.toLocaleString()}đ khi nhận hàng</p>
                         </div>
-                      </div>
-                    </label>
-                  ) : isAuthenticated && (
-                    // Show reason why not eligible (optional)
-                    <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 opacity-60">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="font-bold text-slate-400 text-sm">💳 Mua Trước Trả Sau</span>
-                        <span className="px-2 py-0.5 bg-slate-200 text-slate-500 text-[10px] font-bold uppercase rounded">Không khả dụng</span>
-                      </div>
-                      <p className="text-xs text-slate-400">
-                        {creditEligible.reason || 'Hạn mức không đủ hoặc chưa được cấp.'}
-                      </p>
-                    </div>
+                      </label>
+
+                      {/* CREDIT PAYMENT OPTION */}
+                      {checkingCredit ? (
+                        <div className="p-4 border border-dashed border-slate-200 rounded-xl flex items-center gap-2 text-slate-400 text-sm">
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Đang kiểm tra hạn mức tín dụng...
+                        </div>
+                      ) : creditEligible.eligible ? (
+                        <label className={`flex items-center p-4 border-2 rounded-xl cursor-pointer transition-all ${paymentType === 'CREDIT' ? 'border-emerald-600 bg-emerald-50' : 'border-emerald-100 bg-white hover:border-emerald-300'}`}>
+                          <div className="flex items-start gap-4">
+                            <input
+                              type="radio"
+                              name="paymentType"
+                              value="CREDIT"
+                              checked={paymentType === 'CREDIT'}
+                              onChange={(e) => setPaymentType(e.target.value as any)}
+                              className="w-5 h-5 text-emerald-600 mt-1"
+                            />
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="font-black text-slate-900">💳 Mua Trước Trả Sau</span>
+                                <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 text-[10px] font-black uppercase tracking-wide rounded">SmartBuild Credit</span>
+                              </div>
+                              <p className="text-xs font-medium text-slate-500 mt-1">
+                                Sử dụng hạn mức tín dụng khả dụng của bạn.
+                              </p>
+                              <div className="flex items-center gap-4 mt-2 text-xs">
+                                <span className="text-emerald-700 font-bold">Khả dụng: {creditEligible.available?.toLocaleString()}đ</span>
+                                <span className="text-slate-400">|</span>
+                                <span className="text-slate-500">Thanh toán sau 30-45 ngày</span>
+                              </div>
+                            </div>
+                          </div>
+                        </label>
+                      ) : isAuthenticated && (
+                        // Show reason why not eligible (optional)
+                        <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 opacity-60">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="font-bold text-slate-400 text-sm">💳 Mua Trước Trả Sau</span>
+                            <span className="px-2 py-0.5 bg-slate-200 text-slate-500 text-[10px] font-bold uppercase rounded">Không khả dụng</span>
+                          </div>
+                          <p className="text-xs text-slate-400">
+                            {creditEligible.reason || 'Hạn mức không đủ hoặc chưa được cấp.'}
+                          </p>
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               </div>

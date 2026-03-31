@@ -7,6 +7,7 @@ import { AuthService } from '@/lib/auth'
 import { verifyTokenFromRequest } from '@/lib/auth-middleware-api'
 import { LoyaltyService } from '@/lib/loyalty-service'
 import { logger, logAPI } from '@/lib/logger'
+import { EmailService } from '@/lib/email/email-service'
 
 const createOrderSchema = z.object({
   customerType: z.enum(['REGISTERED', 'GUEST']).default('GUEST'),
@@ -480,6 +481,32 @@ export async function POST(request: NextRequest) {
           orderId: order.id
         })
       }
+    }
+
+    // --- SEND ORDER CONFIRMATION EMAIL ---
+    try {
+      const emailToUse = order.customer?.user?.email || order.guestEmail
+      const nameToUse = order.customer?.user?.name || order.guestName || 'Quý khách'
+
+      if (emailToUse) {
+        await EmailService.sendOrderConfirmation({
+          email: emailToUse,
+          name: nameToUse,
+          orderNumber: order.orderNumber,
+          totalAmount: order.netAmount,
+          items: order.orderItems.map(item => ({
+             name: item.product.name,
+             quantity: item.quantity,
+             price: item.unitPrice
+          }))
+        })
+        logger.info('Order confirmation email sent', { orderId: order.id, email: emailToUse })
+      }
+    } catch (emailError: any) {
+      logger.error('Error sending order confirmation email', {
+        error: emailError.message,
+        orderId: order.id
+      })
     }
 
     const duration = Date.now() - startTime
