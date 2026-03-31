@@ -189,61 +189,64 @@ export default function FloatingWidgetsContainer() {
                         </div>
                     </div>
 
-                    {/* Main Pulse FAB */}
-                    <button
-                        onClick={() => setIsExpanded(!isExpanded)}
-                        onMouseEnter={() => setIsHovered(true)}
-                        onMouseLeave={() => setIsHovered(false)}
-                        className={`
-                            relative group w-16 h-16 rounded-[2rem] flex items-center justify-center 
-                            shadow-[0_10px_30px_rgba(79,70,229,0.3)] hover:shadow-[0_15px_40px_rgba(79,70,229,0.4)]
-                            transition-all duration-300 hover:scale-105 active:scale-95 pointer-events-auto
-                            ${isExpanded ? 'bg-indigo-600 rotate-90' : 'bg-gradient-to-br from-indigo-600 to-blue-700'}
-                        `}
-                    >
-                        {/* Inner icons */}
-                        {isExpanded ? (
-                            <Plus className="w-8 h-8 text-white rotate-45" />
-                        ) : (
-                            <div className="relative">
-                                <Sparkles className="w-7 h-7 text-white animate-pulse" />
-                                <span className={`absolute -top-1 -right-1 block w-3 h-3 ${getStatusColor()} rounded-full border-2 border-indigo-600`} />
-                            </div>
-                        )}
-
-                        {/* Hover Tooltip */}
-                        {!isExpanded && isHovered && (
-                            <div className="absolute right-20 bg-indigo-600 text-white text-[10px] font-bold px-3 py-2 rounded-xl whitespace-nowrap animate-scaleIn shadow-2xl">
-                                TRUNG TÂM HỖ TRỢ ✨
-                                <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 w-2 h-2 bg-indigo-600 rotate-45" />
-                            </div>
-                        )}
-                    </button>
-
-                    {/* Proactive Engagement Bubble */}
-                    {showProactiveBubble && !isExpanded && (
-                        <div className="mb-4 pointer-events-auto animate-scaleIn">
-                            <div
-                                onClick={() => {
-                                    setActivePanel('chat')
-                                    setShowProactiveBubble(false)
-                                }}
-                                className="relative bg-white px-5 py-3.5 rounded-2xl shadow-[0_8px_30px_rgba(0,0,0,0.12)] cursor-pointer hover:shadow-[0_12px_40px_rgba(79,70,229,0.2)] transition-all duration-300 max-w-[260px] group border border-indigo-100"
-                            >
-                                <p className="text-[13px] font-medium text-gray-700 leading-relaxed group-hover:text-indigo-700 transition-colors">
-                                    {proactiveMessage}
-                                </p>
-                                <button
-                                    onClick={(e) => { e.stopPropagation(); setShowProactiveBubble(false) }}
-                                    className="absolute -top-2 -right-2 w-5 h-5 bg-gray-200 hover:bg-gray-300 rounded-full flex items-center justify-center text-gray-500 text-[10px] transition-colors"
+                    {/* FAB and Proactive Bubble Wrapper */}
+                    <div className="relative flex flex-col items-end">
+                        {/* Proactive Engagement Bubble (Floating on top) */}
+                        {showProactiveBubble && !isExpanded && (
+                            <div className="absolute bottom-[calc(100%+16px)] right-0 pointer-events-auto animate-scaleIn origin-bottom-right z-10">
+                                <div
+                                    onClick={() => {
+                                        setActivePanel('chat')
+                                        setShowProactiveBubble(false)
+                                    }}
+                                    className="relative bg-white px-5 py-3.5 rounded-2xl shadow-[0_8px_30px_rgba(0,0,0,0.12)] cursor-pointer hover:shadow-[0_12px_40px_rgba(79,70,229,0.2)] transition-all duration-300 w-max max-w-[260px] group border border-indigo-100"
                                 >
-                                    ✕
-                                </button>
-                                {/* Arrow pointing to FAB */}
-                                <div className="absolute -bottom-1.5 right-6 w-3 h-3 bg-white border-r border-b border-indigo-100 rotate-45" />
+                                    <p className="text-[13px] font-medium text-gray-700 leading-relaxed group-hover:text-indigo-700 transition-colors">
+                                        {proactiveMessage}
+                                    </p>
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); setShowProactiveBubble(false) }}
+                                        className="absolute -top-2 -left-2 w-5 h-5 bg-gray-200 hover:bg-gray-300 rounded-full flex items-center justify-center text-gray-500 text-[10px] transition-colors"
+                                    >
+                                        ✕
+                                    </button>
+                                    {/* Arrow pointing to FAB */}
+                                    <div className="absolute -bottom-1.5 right-6 w-3 h-3 bg-white border-b border-r border-indigo-100 rotate-45" />
+                                </div>
                             </div>
-                        </div>
-                    )}
+                        )}
+
+                        {/* Main Pulse FAB */}
+                        <button
+                            onClick={() => setIsExpanded(!isExpanded)}
+                            onMouseEnter={() => setIsHovered(true)}
+                            onMouseLeave={() => setIsHovered(false)}
+                            className={`
+                                relative group w-16 h-16 rounded-[2rem] flex items-center justify-center 
+                                shadow-[0_10px_30px_rgba(79,70,229,0.3)] hover:shadow-[0_15px_40px_rgba(79,70,229,0.4)]
+                                transition-all duration-300 hover:scale-105 active:scale-95 pointer-events-auto
+                                ${isExpanded ? 'bg-indigo-600 rotate-90' : 'bg-gradient-to-br from-indigo-600 to-blue-700'}
+                            `}
+                        >
+                            {/* Inner icons */}
+                            {isExpanded ? (
+                                <Plus className="w-8 h-8 text-white rotate-45" />
+                            ) : (
+                                <div className="relative">
+                                    <Sparkles className="w-7 h-7 text-white animate-pulse" />
+                                    <span className={`absolute -top-1 -right-1 block w-3 h-3 ${getStatusColor()} rounded-full border-2 border-indigo-600`} />
+                                </div>
+                            )}
+
+                            {/* Hover Tooltip */}
+                            {!isExpanded && isHovered && !showProactiveBubble && (
+                                <div className="absolute right-20 bg-indigo-600 text-white text-[10px] font-bold px-3 py-2 rounded-xl whitespace-nowrap animate-scaleIn shadow-2xl">
+                                    TRUNG TÂM HỖ TRỢ ✨
+                                    <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 w-2 h-2 bg-indigo-600 rotate-45" />
+                                </div>
+                            )}
+                        </button>
+                    </div>
                 </div>
             )}
 

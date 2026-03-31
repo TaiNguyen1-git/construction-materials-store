@@ -18,7 +18,9 @@ export async function GET(request: NextRequest) {
                     include: {
                         product: { select: { name: true } }
                     }
-                }
+                },
+                order: { select: { orderNumber: true } },
+                customer: { select: { user: { select: { name: true, email: true } }, companyName: true } },
             },
             orderBy: { issueDate: 'desc' }
         })
