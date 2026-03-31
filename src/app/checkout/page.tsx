@@ -198,6 +198,11 @@ export default function CheckoutPage() {
       return
     }
 
+    if (totalPrice < 500000) {
+      toast.error('Đơn hàng chưa đạt mức tối thiểu 500.000đ. Vui lòng quay lại giỏ hàng mua thêm.')
+      return
+    }
+
     if (!validateForm()) {
       return
     }
@@ -732,8 +737,8 @@ export default function CheckoutPage() {
 
                 <button
                   type="submit"
-                  disabled={isProcessing}
-                  className="w-full mt-8 bg-indigo-600 hover:bg-indigo-700 text-white py-4.5 rounded-[1.5rem] font-black text-sm uppercase tracking-widest flex items-center justify-center gap-3 shadow-xl shadow-indigo-100 transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50"
+                  disabled={isProcessing || totalPrice < 500000}
+                  className="w-full mt-8 bg-indigo-600 hover:bg-indigo-700 text-white py-4.5 rounded-[1.5rem] font-black text-sm uppercase tracking-widest flex items-center justify-center gap-3 shadow-xl shadow-indigo-100 transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:hover:scale-100 disabled:cursor-not-allowed"
                 >
                   {isProcessing ? (
                     <><Loader2 className="h-5 w-5 animate-spin" /> ĐANG XỬ LÝ...</>

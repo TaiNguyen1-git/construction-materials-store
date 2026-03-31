@@ -239,8 +239,8 @@ export function getOrderConfirmationHTML(data: OrderConfirmationData): string {
             </div>
           </div>
           <p>Chúng tôi sẽ xử lý đơn hàng của bạn trong thời gian sớm nhất.</p>
-          <a href="${process.env.NEXT_PUBLIC_BASE_URL}/account/orders" class="button">
-            Xem Đơn Hàng
+          <a href="${process.env.NEXT_PUBLIC_BASE_URL}/account/orders" class="button" style="color: #ffffff !important; background-color: #667eea; text-decoration: none; display: inline-block; padding: 12px 30px; border-radius: 5px; font-weight: bold;">
+            <span style="color: #ffffff;">Xem Đơn Hàng</span>
           </a>
           <p style="color: #666; font-size: 14px; margin-top: 30px;">
             Nếu bạn có bất kỳ câu hỏi nào, vui lòng liên hệ với chúng tôi.<br>

@@ -102,6 +102,10 @@ export default function CartPage() {
 
   const handleCheckout = async () => {
     if (items.length === 0) return
+    if (totalPrice < 500000) {
+      toast.error('Đơn hàng chưa đạt mức tối thiểu 500.000đ')
+      return
+    }
     setIsProcessing(true)
     await new Promise(resolve => setTimeout(resolve, 800))
     router.push('/checkout')
@@ -223,7 +227,7 @@ export default function CartPage() {
               <div className="mt-16">
                 <h2 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.3em] mb-8 flex items-center gap-3">
                   <div className="h-[1px] w-12 bg-slate-100"></div>
-                  GỢI Ý VẬT TƯ CÙNG HỆ THỐNG
+                  {totalPrice < 500000 ? 'THÊM 1 CHÚT CHO ĐỦ ĐƠN HÀNG' : 'GỢI Ý VẬT TƯ CÙNG HỆ THỐNG'}
                 </h2>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                   {loadingRecommendations ? (
@@ -283,13 +287,56 @@ export default function CartPage() {
                   <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.2em] text-right leading-none">* ĐÃ BAO GỒM THUẾ GTGT</p>
                 </div>
 
+                {/* Upsell Progress Bar */}
+                <div className="mb-8">
+                  {totalPrice < 500000 ? (
+                    <div className="bg-rose-50 border border-rose-100 rounded-2xl p-4">
+                      <p className="text-xs font-black text-rose-600 mb-2 uppercase tracking-widest flex items-center gap-2">
+                        <span className="text-lg">⚠️</span> CHƯA ĐẠT MỨC TỐI THIỂU
+                      </p>
+                      <p className="text-[10px] text-rose-500 font-bold mb-3">
+                        Bạn cần thêm <strong className="text-rose-700">{(500000 - totalPrice).toLocaleString()}đ</strong> để đủ điều kiện đặt hàng (Tối thiểu 500.000đ).
+                      </p>
+                      <div className="h-2.5 bg-rose-100 rounded-full overflow-hidden">
+                        <div className="h-full bg-rose-500" style={{ width: `${Math.min((totalPrice / 500000) * 100, 100)}%` }}></div>
+                      </div>
+                    </div>
+                  ) : totalPrice < 5000000 ? (
+                    <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-4">
+                      <p className="text-xs font-black text-indigo-600 mb-2 uppercase tracking-widest flex items-center gap-2">
+                        <CheckCircle size={16} /> ĐÃ ĐỦ ĐIỀU KIỆN ĐẶT HÀNG
+                      </p>
+                      <p className="text-[10px] text-indigo-500 font-bold mb-3">
+                        Mua thêm <strong className="text-indigo-700">{(5000000 - totalPrice).toLocaleString()}đ</strong> để được <strong className="text-emerald-600">MIỄN PHÍ VẬN CHUYỂN</strong>.
+                      </p>
+                      <div className="h-2.5 bg-indigo-100 rounded-full overflow-hidden">
+                        <div className="h-full bg-gradient-to-r from-indigo-500 to-blue-500" style={{ width: `${Math.min((totalPrice / 5000000) * 100, 100)}%` }}></div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-4 text-center">
+                      <p className="text-sm font-black text-emerald-600 uppercase tracking-widest flex items-center justify-center gap-2 mb-1">
+                        <Sparkles size={18} /> MIỄN PHÍ VẬN CHUYỂN
+                      </p>
+                      <p className="text-[10px] text-emerald-500 font-bold">
+                        Đơn hàng của bạn đã được hưởng ưu đãi giao hàng miễn phí!
+                      </p>
+                    </div>
+                  )}
+                </div>
+
                 <button
                   onClick={handleCheckout}
-                  disabled={isProcessing}
-                  className="w-full bg-indigo-600 text-white py-6 rounded-2xl font-black text-lg uppercase tracking-[0.3em] shadow-2xl shadow-indigo-100 hover:bg-indigo-700 transition-all flex items-center justify-center gap-3 active:scale-[0.98] group/btn"
+                  disabled={isProcessing || totalPrice < 500000}
+                  className={`w-full py-6 rounded-2xl font-black text-lg uppercase tracking-[0.3em] transition-all flex items-center justify-center gap-3 group/btn ${
+                    totalPrice < 500000 
+                      ? 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200' 
+                      : 'bg-indigo-600 text-white shadow-2xl shadow-indigo-100 hover:bg-indigo-700 active:scale-[0.98]'
+                  }`}
                 >
                   {isProcessing ? <Loader2 className="w-7 h-7 animate-spin" /> : <>THANH TOÁN <ArrowRight size={24} className="group-hover/btn:translate-x-1 transition-transform" /></>}
                 </button>
+
                 <button onClick={handleExportQuote} className="w-full mt-5 bg-white text-slate-400 py-4 rounded-2xl border border-slate-100 font-black text-[11px] uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-slate-50 hover:text-slate-900 transition-all">
                   <FileText size={18} /> XUẤT PHIẾU BÁO GIÁ (PDF)
                 </button>
