@@ -8,7 +8,7 @@ import {
   Search,
   Filter,
   Calendar,
-  DollarSign,
+  Coins,
   CheckCircle,
   Clock,
   AlertCircle,

@@ -11,7 +11,7 @@ import {
     LayoutDashboard,
     Package,
     FileText,
-    DollarSign,
+    Wallet,
     LogOut,
     Menu,
     X,
@@ -116,7 +116,7 @@ export default function SupplierLayout({ children }: { children: React.ReactNode
             group: 'Tài chính',
             items: [
                 { name: 'Hóa đơn', href: '/supplier/invoices', icon: FileText },
-                { name: 'Công nợ', href: '/supplier/payments', icon: DollarSign },
+                { name: 'Công nợ', href: '/supplier/payments', icon: Wallet },
             ]
         },
         {

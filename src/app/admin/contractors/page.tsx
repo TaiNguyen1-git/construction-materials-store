@@ -11,7 +11,7 @@ import {
     Users, Briefcase, TrendingUp, Star,
     Search, Filter, ExternalLink, ShieldCheck,
     AlertCircle, ChevronRight, Loader2,
-    MapPin, DollarSign, CheckCircle2, UserX
+    MapPin, Coins, CheckCircle2, UserX
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 

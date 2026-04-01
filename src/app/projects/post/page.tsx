@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import Header from '@/components/Header'
 import {
     Send, Sparkles, MapPin, Calendar,
-    DollarSign, User, Phone, Mail,
+    Coins, User, Phone, Mail,
     CheckCircle, Loader2, Info, ArrowRight, ArrowLeft,
     Hammer, Paintbrush, Grid3X3, Briefcase, Wrench,
     LayoutGrid, ClipboardList, HardHat, Zap, ShieldCheck
@@ -398,7 +398,7 @@ Sửa chữa ${name || 'công trình'}.
                             <div className="bg-white rounded-[32px] shadow-xl shadow-slate-200/50 p-8 md:p-10 border border-slate-100">
                                 <div className="flex items-center gap-3 mb-8">
                                     <div className="w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-600">
-                                        <DollarSign className="w-5 h-5" />
+                                        <Coins className="w-5 h-5" />
                                     </div>
                                     <h2 className="text-xl font-black text-slate-900 uppercase tracking-tight">Ngân sách & Thời gian</h2>
                                 </div>
@@ -416,7 +416,7 @@ Sửa chữa ${name || 'công trình'}.
                                                 className="w-full pl-12 pr-5 py-4 bg-slate-50 border-2 border-transparent focus:border-emerald-500 focus:bg-white rounded-2xl outline-none font-bold text-slate-700 transition-all"
                                                 required
                                             />
-                                            <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300" />
+                                            <Coins className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300" />
                                         </div>
                                     </div>
                                     <div>

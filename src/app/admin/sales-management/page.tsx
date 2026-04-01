@@ -5,7 +5,7 @@ import { toast } from 'react-hot-toast'
 import {
   Save, Plus, Trash2, FileText, Receipt, X, Edit,
   Search, Filter, ChevronRight, Eye, Send, CheckCircle,
-  Clock, AlertCircle, TrendingUp, DollarSign, ShoppingCart,
+  Clock, AlertCircle, TrendingUp, Coins, ShoppingCart,
   History, User, Truck, BarChart2
 } from 'lucide-react'
 import { fetchWithAuth } from '@/lib/api-client'
@@ -410,7 +410,7 @@ export default function SalesManagementPage() {
         {[
           { label: 'Doanh Thu Tháng', value: invoices.filter(i => (i.invoiceType || i.type) === 'SALES' && i.status === 'PAID').reduce((sum, i) => sum + i.totalAmount, 0), icon: TrendingUp, color: 'bg-emerald-50 text-emerald-600', sub: 'Tổng Doanh Thu' },
           { label: 'Hóa Đơn Chờ', value: invoices.filter(i => i.status === 'PENDING').length, icon: Clock, color: 'bg-amber-50 text-amber-600', sub: 'Chờ Xử Lý' },
-          { label: 'Công Nợ Phải Thu', value: invoices.filter(i => (i.invoiceType || i.type) === 'SALES' && i.status === 'OVERDUE').reduce((sum, i) => sum + i.totalAmount, 0), icon: DollarSign, color: 'bg-red-50 text-red-600', sub: 'Nợ Quá Hạn' },
+          { label: 'Công Nợ Phải Thu', value: invoices.filter(i => (i.invoiceType || i.type) === 'SALES' && i.status === 'OVERDUE').reduce((sum, i) => sum + i.totalAmount, 0), icon: Coins, color: 'bg-red-50 text-red-600', sub: 'Nợ Quá Hạn' },
           { label: 'Tổng Giao Dịch', value: invoices.length, icon: BarChart2, color: 'bg-blue-50 text-blue-600', sub: 'Tổng Khối Lượng' }
         ].map((stat, i) => (
           <div key={i} className="bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm">

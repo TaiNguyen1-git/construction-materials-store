@@ -6,7 +6,7 @@
  */
 
 import { useState } from 'react'
-import { CheckCircle2, Circle, Clock, DollarSign, Image as ImageIcon, ArrowRight, ShieldCheck, Loader2, Send, X } from 'lucide-react'
+import { CheckCircle2, Circle, Clock, Coins, Image as ImageIcon, ArrowRight, ShieldCheck, Loader2, Send, X } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 interface Milestone {
@@ -174,7 +174,7 @@ export default function ProjectTimeline({ milestones, onUpdate, isOwner }: Proje
                                                     disabled={updating === m.id}
                                                     className="w-full py-3 bg-green-600 text-white text-sm font-bold rounded-xl hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-2 shadow-xl shadow-green-100"
                                                 >
-                                                    {updating === m.id ? <Loader2 className="w-5 h-5 animate-spin" /> : <DollarSign className="w-5 h-5" />}
+                                                    {updating === m.id ? <Loader2 className="w-5 h-5 animate-spin" /> : <Coins className="w-5 h-5" />}
                                                     Tất cả đã ổn, Giải ngân ngay cho thợ!
                                                 </button>
                                             </div>

@@ -12,7 +12,7 @@ import {
     Wallet,
     ArrowLeft,
     CreditCard,
-    DollarSign,
+    Coins,
     Clock,
     CheckCircle,
     AlertCircle,

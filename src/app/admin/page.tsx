@@ -9,7 +9,7 @@ import {
 } from 'recharts'
 import {
   Package, ShoppingCart, ClipboardList, FileText, AlertTriangle,
-  Users, DollarSign, Clock, Star, RefreshCw, Sparkles,
+  Users, Coins, Clock, Star, RefreshCw, Sparkles,
   TrendingUp, ArrowUpRight, ArrowDownRight, Zap, Target,
   Calendar, Briefcase, Boxes, LayoutGrid, ChevronRight, ArrowRight
 } from 'lucide-react'
@@ -180,7 +180,7 @@ export default function AdminDashboard() {
     {
       title: 'Tổng doanh thu',
       value: formatCurrency(stats.totalRevenue),
-      icon: DollarSign,
+      icon: Coins,
       color: 'bg-emerald-600 text-white',
       trend: '+23%',
       sub: 'Trong Tháng',

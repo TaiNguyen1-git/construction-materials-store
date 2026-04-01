@@ -9,7 +9,7 @@ import { useState, useEffect } from 'react'
 import {
     Package, TrendingUp, TrendingDown, AlertTriangle, CheckCircle2,
     Loader2, ShoppingCart, ChevronRight, Sparkles, Building2,
-    Clock, Star, DollarSign, Truck, Filter, RefreshCw
+    Clock, Star, Coins, Truck, Filter, RefreshCw
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
@@ -398,7 +398,7 @@ export default function ReorderWizard() {
                                 {/* Savings Opportunity */}
                                 {item.savingsOpportunity && item.savingsOpportunity > 10000 && (
                                     <div className="mt-3 flex items-center gap-2 text-sm text-green-600">
-                                        <DollarSign className="w-4 h-4" />
+                                        <Coins className="w-4 h-4" />
                                         <span>Tiềm năng tiết kiệm: <span className="font-bold">{item.savingsOpportunity.toLocaleString('vi-VN')}đ</span> khi chọn đúng NCC</span>
                                     </div>
                                 )}

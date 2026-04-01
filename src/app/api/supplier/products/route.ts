@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json()
-        const { supplierId, name, sku, price, categoryId, description, images, availableQuantity } = body
+        const { supplierId, name, sku, price, categoryId, description, images, availableQuantity, unit, wholesalePrice, minWholesaleQty } = body
 
         if (!supplierId || !name || !sku || !price || !categoryId) {
             return NextResponse.json(
@@ -72,6 +72,9 @@ export async function POST(request: NextRequest) {
                 description,
                 images: images || [],
                 isActive: true,
+                unit: unit || 'Cái',
+                wholesalePrice: wholesalePrice ? Number(wholesalePrice) : null,
+                minWholesaleQty: minWholesaleQty ? Number(minWholesaleQty) : 10,
                 supplier: {
                     connect: { id: supplierId }
                 },
@@ -102,7 +105,7 @@ export async function POST(request: NextRequest) {
 // This is handled by a dynamic route usually, but for simplicity we can use this one with id in body
 export async function PATCH(request: NextRequest) {
     try {
-        const { id, price, availableQuantity, isActive, images } = await request.json()
+        const { id, price, availableQuantity, isActive, images, unit, wholesalePrice, minWholesaleQty } = await request.json()
 
         if (!id) {
             return NextResponse.json(
@@ -115,6 +118,9 @@ export async function PATCH(request: NextRequest) {
         if (price !== undefined) updateData.price = price
         if (isActive !== undefined) updateData.isActive = isActive
         if (images !== undefined) updateData.images = images
+        if (unit !== undefined) updateData.unit = unit
+        if (wholesalePrice !== undefined) updateData.wholesalePrice = wholesalePrice
+        if (minWholesaleQty !== undefined) updateData.minWholesaleQty = minWholesaleQty
 
         const product = await prisma.product.update({
             where: { id },

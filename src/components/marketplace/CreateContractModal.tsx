@@ -6,7 +6,7 @@
  */
 
 import { useState } from 'react'
-import { X, Plus, Trash2, DollarSign, CheckCircle, AlertTriangle, Percent } from 'lucide-react'
+import { X, Plus, Trash2, Coins, CheckCircle, AlertTriangle, Percent } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 interface Milestone {
@@ -154,7 +154,7 @@ export default function CreateContractModal({
                             Tổng giá trị hợp đồng (VNĐ)
                         </label>
                         <div className="relative">
-                            <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                            <Coins className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                             <input
                                 type="number"
                                 value={totalAmount}

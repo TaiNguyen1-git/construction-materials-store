@@ -15,7 +15,7 @@ import {
     CheckCircle,
     XCircle,
     Clock,
-    DollarSign,
+    Coins,
     Users,
     Calendar,
     RefreshCw,
@@ -666,7 +666,7 @@ export default function ContractManagementPage() {
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-8">
                                 {priceLists.length === 0 ? (
                                     <div className="col-span-full py-24 text-center bg-white rounded-[40px] border border-slate-100">
-                                        <DollarSign className="w-16 h-16 text-slate-200 mx-auto mb-4" />
+                                        <Coins className="w-16 h-16 text-slate-200 mx-auto mb-4" />
                                         <p className="text-sm font-black text-slate-400 uppercase tracking-widest">Hệ thống chưa ghi nhận bảng giá nào</p>
                                         <button onClick={handleSeedPriceLists} className="mt-4 text-blue-600 font-bold uppercase text-[10px] tracking-widest hover:underline underline-offset-4">Tạo nhanh 3 cấp bậc giá mặc định</button>
                                     </div>

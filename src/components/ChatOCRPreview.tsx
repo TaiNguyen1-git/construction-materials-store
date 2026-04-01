@@ -1,6 +1,6 @@
 'use client'
 
-import { FileText, Calendar, Building, Package, DollarSign } from 'lucide-react'
+import { FileText, Calendar, Building, Package, Coins } from 'lucide-react'
 
 export interface InvoiceItem {
   name: string
@@ -117,7 +117,7 @@ export default function ChatOCRPreview({
         <div className="border-t pt-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <DollarSign className="w-4 h-4 text-gray-500" />
+              <Coins className="w-4 h-4 text-gray-500" />
               <span className="font-semibold text-gray-900">Tổng cộng:</span>
             </div>
             <span className="text-xl font-bold text-purple-600">

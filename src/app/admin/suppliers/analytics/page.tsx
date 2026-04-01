@@ -9,7 +9,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import {
     ArrowLeft, Building2, Star, TrendingUp, TrendingDown, Minus,
-    Loader2, RefreshCw, DollarSign, Truck, Package, Clock,
+    Loader2, RefreshCw, Coins, Truck, Package, Clock,
     ChevronRight, Award, AlertTriangle
 } from 'lucide-react'
 

@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react'
 import {
     Zap, Package, TrendingDown, Clock, Search,
     ArrowRight, CheckCircle2, AlertCircle,
-    DollarSign, BarChart3, Filter, MapPin, Calendar, FileText, CheckCircle
+    Wallet, BarChart3, Filter, MapPin, Calendar, FileText, CheckCircle
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
@@ -182,7 +182,7 @@ export default function SupplierOpportunities() {
                 <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col justify-between">
                     <div className="flex justify-between items-center mb-4">
                         <div className="p-3 rounded-2xl bg-emerald-50 text-emerald-600">
-                            <DollarSign size={20} />
+                            <Wallet size={20} />
                         </div>
                     </div>
                     <div>
@@ -391,7 +391,7 @@ export default function SupplierOpportunities() {
                             <div>
                                 <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Đơn giá cung ứng (VNĐ)</label>
                                 <div className="relative">
-                                    <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                                    <Wallet className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                                     <input
                                         type="number"
                                         className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl font-black text-lg focus:bg-white focus:ring-2 focus:ring-sky-500/20 focus:border-sky-400 outline-none transition-all"

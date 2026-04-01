@@ -7,7 +7,7 @@
 
 import { useState, useEffect } from 'react'
 import {
-    X, Send, User, Phone, Mail, Clock, DollarSign, Package,
+    X, Send, User, Phone, Mail, Clock, Coins, Package,
     Plus, Search, Trash2, CheckCircle, AlertTriangle, ChevronRight,
     Sparkles, Loader2, ArrowRight, ShoppingCart
 } from 'lucide-react'

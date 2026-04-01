@@ -7,7 +7,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import toast from 'react-hot-toast'
-import { Bell, ShieldCheck, CheckCircle2, AlertTriangle, Info, Camera, DollarSign } from 'lucide-react'
+import { Bell, ShieldCheck, CheckCircle2, AlertTriangle, Info, Camera, Coins } from 'lucide-react'
 
 
 interface Notification {
@@ -28,7 +28,7 @@ interface NotificationTheme {
 // Map notification types to colors and icons for a premium look
 const NOTIFICATION_THEMES: Record<string, NotificationTheme> = {
     'ORDER_UPDATE': { icon: <Bell className="w-5 h-5 text-blue-600" />, color: 'bg-blue-600', ring: 'ring-blue-100', bg: 'bg-blue-50' },
-    'PAYMENT_RECEIVED': { icon: <DollarSign className="w-5 h-5 text-green-600" />, color: 'bg-green-600', ring: 'ring-green-100', bg: 'bg-green-50' },
+    'PAYMENT_RECEIVED': { icon: <Coins className="w-5 h-5 text-green-600" />, color: 'bg-green-600', ring: 'ring-green-100', bg: 'bg-green-50' },
     'MILESTONE_COMPLETED': { icon: <CheckCircle2 className="w-5 h-5 text-indigo-600" />, color: 'bg-indigo-600', ring: 'ring-indigo-100', bg: 'bg-indigo-50' },
     'SYSTEM_ALERT': { icon: <AlertTriangle className="w-5 h-5 text-amber-600" />, color: 'bg-amber-600', ring: 'ring-amber-100', bg: 'bg-amber-50' },
     'DEFAULT': { icon: <Info className="w-5 h-5 text-blue-600" />, color: 'bg-blue-600', ring: 'ring-blue-100', bg: 'bg-blue-50' }

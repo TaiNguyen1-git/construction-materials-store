@@ -10,7 +10,7 @@ import {
     XCircle,
     ChevronRight,
     MessageSquare,
-    DollarSign,
+    Coins,
     Calendar,
     MapPin,
     ArrowLeft,
@@ -332,7 +332,7 @@ export default function ContractorQuotesPage() {
                                             </div>
                                             <div className="bg-white p-3.5 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-3">
                                                 <div className="w-9 h-9 rounded-xl bg-pink-100 flex items-center justify-center text-pink-600">
-                                                    <DollarSign className="w-5 h-5" />
+                                                    <Coins className="w-5 h-5" />
                                                 </div>
                                                 <div>
                                                     <p className="text-[9px] text-gray-400 font-black uppercase mb-0.5">Ngân sách</p>

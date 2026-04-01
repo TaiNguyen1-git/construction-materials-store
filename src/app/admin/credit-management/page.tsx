@@ -14,7 +14,7 @@ import {
     CheckCircle,
     XCircle,
     Clock,
-    DollarSign,
+    Coins,
     Users,
     TrendingUp,
     Search,
@@ -462,7 +462,7 @@ export default function CreditManagementPage() {
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Số nợ tối thiểu</label>
                                 <div className="relative">
-                                    <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-300" />
+                                    <Coins className="absolute left-4 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-300" />
                                     <input
                                         type="number"
                                         placeholder="VD: 50.000.000"
@@ -625,7 +625,7 @@ export default function CreditManagementPage() {
                                 <div className="space-y-3">
                                     <label className="text-[11px] font-black text-slate-900 uppercase tracking-widest ml-1">Hạn mức tín dụng cá nhân (VND)</label>
                                     <div className="relative group">
-                                        <DollarSign className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 group-focus-within:text-blue-600" />
+                                        <Coins className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 group-focus-within:text-blue-600" />
                                         <input
                                             type="number"
                                             value={editForm.creditLimit}

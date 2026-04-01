@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/auth-context'
 import Sidebar from '../../components/Sidebar'
 import ContractorHeader from '../../components/ContractorHeader'
 import {
-    Search, Filter, MapPin, DollarSign, Calendar,
+    Search, Filter, MapPin, Coins, Calendar,
     Building2, LayoutGrid, List as ListIcon,
     ArrowUpRight, Clock, ShieldCheck, Zap,
     MoreVertical, Bookmark, Send, Eye, X
@@ -253,7 +253,7 @@ export default function FindProjectsPage() {
                             {project.location || 'Toàn quốc'}
                         </span>
                         <span className="flex items-center gap-1.5 font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">
-                            <DollarSign size={14} />
+                            <Coins size={14} />
                             {project.estimatedBudget ? formatCurrency(project.estimatedBudget) : 'Thỏa thuận'}
                         </span>
                     </div>

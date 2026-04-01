@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { FileText, Loader2, CheckCircle, AlertCircle, X, Calendar, DollarSign, ClipboardList } from 'lucide-react'
+import { FileText, Loader2, CheckCircle, AlertCircle, X, Calendar, Coins, ClipboardList } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 interface ChatSummary {
@@ -232,7 +232,7 @@ export default function ChatSummaryButton({
                                         {summary.agreedPrice && (
                                             <div className="bg-green-50 rounded-xl p-3 border border-green-100">
                                                 <div className="flex items-center gap-2 text-green-600 text-xs font-bold mb-1">
-                                                    <DollarSign className="w-3 h-3" />
+                                                    <Coins className="w-3 h-3" />
                                                     Giá thỏa thuận
                                                 </div>
                                                 <p className="text-green-800 font-bold">

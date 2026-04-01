@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Building2, Calendar, DollarSign, MapPin, Save, Loader2, Menu, User, LogOut, Search, Bell } from 'lucide-react'
+import { ArrowLeft, Building2, Calendar, Coins, MapPin, Save, Loader2, Menu, User, LogOut, Search, Bell } from 'lucide-react'
 import Sidebar from '../../components/Sidebar'
 import toast from 'react-hot-toast'
 import { VIETNAM_LOCATIONS } from '@/lib/vn-data'

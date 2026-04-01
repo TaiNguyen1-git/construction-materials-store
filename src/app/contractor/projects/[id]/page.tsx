@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
-    ArrowLeft, MapPin, DollarSign, Calendar,
+    ArrowLeft, MapPin, Coins, Calendar,
     Send, Clock, Users, Eye, CheckCircle,
     AlertTriangle, Share2, Bookmark, Building2,
     FileText, Phone

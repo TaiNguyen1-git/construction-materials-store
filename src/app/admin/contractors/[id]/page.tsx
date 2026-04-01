@@ -9,7 +9,7 @@ import { useState, useEffect, use } from 'react'
 import Link from 'next/link'
 import {
     ArrowLeft, ShieldCheck, Star, Briefcase,
-    DollarSign, MapPin, Phone, Mail, Clock,
+    Coins, MapPin, Phone, Mail, Clock,
     CheckCircle2, AlertCircle, ExternalLink,
     Users, Building, LucideIcon, Loader2,
     Calendar, FileText, TrendingUp, Wallet
@@ -291,7 +291,7 @@ export default function AdminContractorDetail({ params }: { params: Promise<{ id
                             </h4>
                             <div className="grid grid-cols-1 gap-3">
                                 <ActionButton icon={FileText} label="Xuất hồ sơ năng lực (PDF)" onClick={handleExportPDF} />
-                                <ActionButton icon={DollarSign} label="Điều chỉnh hạn mức nợ" onClick={handleAdjustCredit} disabled={actionLoading} />
+                                <ActionButton icon={Coins} label="Điều chỉnh hạn mức nợ" onClick={handleAdjustCredit} disabled={actionLoading} />
                                 <ActionButton icon={AlertCircle} label="Gửi thông báo vi phạm" color="red" onClick={handleReportViolation} disabled={actionLoading} />
                             </div>
                         </div>
@@ -303,7 +303,7 @@ export default function AdminContractorDetail({ params }: { params: Promise<{ id
                         {/* Stats Overview Grid */}
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                             <HighlightCard
-                                icon={DollarSign}
+                                icon={Coins}
                                 label="Tổng thu nhập"
                                 value={summary.totalEarnings.toLocaleString('vi-VN')}
                                 sub="VNĐ thực nhận"

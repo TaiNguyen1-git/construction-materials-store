@@ -19,7 +19,7 @@ import {
   Briefcase,
   X,
   FileText,
-  DollarSign,
+  Coins,
   ChevronRight,
   Calculator
 } from 'lucide-react'

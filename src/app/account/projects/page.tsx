@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { ArrowLeft, Plus, Folder, Calendar, DollarSign, TrendingUp, Search, MapPin, Building2, ChevronRight, Clock } from 'lucide-react'
+import { ArrowLeft, Plus, Folder, Calendar, Coins, TrendingUp, Search, MapPin, Building2, ChevronRight, Clock } from 'lucide-react'
 import { useAuth } from '@/contexts/auth-context'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
@@ -113,7 +113,7 @@ export default function AccountProjectsPage() {
             { label: 'Tổng Dự Án', value: stats.total, icon: Folder, color: 'blue' },
             { label: 'Đang Thực Hiện', value: stats.active, icon: TrendingUp, color: 'orange' },
             { label: 'Đã Hoàn Thành', value: stats.completed, icon: Calendar, color: 'green' },
-            { label: 'Ngân Sách', value: formatCurrency(stats.budget), icon: DollarSign, color: 'purple' },
+            { label: 'Ngân Sách', value: formatCurrency(stats.budget), icon: Coins, color: 'purple' },
           ].map((stat, i) => (
             <div key={i} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
               <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-4 bg-${stat.color}-50 text-${stat.color}-600`}>

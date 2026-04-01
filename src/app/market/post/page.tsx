@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import Header from '@/components/Header'
 import {
     Send, Sparkles, MapPin, Calendar,
-    DollarSign, User, Phone, Mail,
+    Coins, User, Phone, Mail,
     CheckCircle, Loader2, Info, ArrowRight,
     Hammer, Paintbrush, Grid3X3, Briefcase, Wrench
 } from 'lucide-react'
@@ -206,7 +206,7 @@ export default function PostProjectPage() {
                                     <div className="grid grid-cols-2 gap-4">
                                         <div>
                                             <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 block flex items-center gap-1.5">
-                                                <DollarSign className="w-3 h-3" /> Ngân sách dự kiến (VNĐ)
+                                                <Coins className="w-3 h-3" /> Ngân sách dự kiến (VNĐ)
                                             </label>
                                             <input
                                                 name="budget"

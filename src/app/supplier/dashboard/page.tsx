@@ -1,146 +1,30 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { Package, DollarSign, FileText, TrendingUp, Clock, CheckCircle, Download, AlertTriangle, LifeBuoy, ArrowRight, Star, RotateCcw, Zap } from 'lucide-react'
+import { useEffect } from 'react'
+import { Download, CheckCircle } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
-import toast from 'react-hot-toast'
 
-interface DashboardStats {
-    totalOrders: number
-    pendingOrders: number
-    totalRevenue: number
-    pendingPayments: number
-}
-
-interface PerformanceAlert {
-    type: 'warning' | 'critical' | 'info'
-    title: string
-    description: string
-    action: string
-    link: string
-    icon: React.ElementType
-}
+import StatCards from './components/StatCards'
+import PerformanceAlerts from './components/PerformanceAlerts'
+import RecentOrders from './components/RecentOrders'
+import RevenueChart from './components/RevenueChart'
+import { useDashboard } from './hooks/useDashboard'
 
 export default function SupplierDashboard() {
     const router = useRouter()
-    const [stats, setStats] = useState<DashboardStats>({
-        totalOrders: 0,
-        pendingOrders: 0,
-        totalRevenue: 0,
-        pendingPayments: 0
-    })
-    const [recentOrders, setRecentOrders] = useState<any[]>([])
-    const [loading, setLoading] = useState(true)
-    const [performanceAlerts, setPerformanceAlerts] = useState<PerformanceAlert[]>([])
+    const {
+        stats,
+        recentOrders,
+        loading,
+        performanceAlerts,
+        fetchDashboardData,
+        handleExport,
+        formatCurrency
+    } = useDashboard()
 
     useEffect(() => {
         fetchDashboardData()
-    }, [])
-
-    const fetchDashboardData = async () => {
-        try {
-            const supplierId = localStorage.getItem('supplier_id')
-            const token = localStorage.getItem('supplier_token')
-
-            const res = await fetch(`/api/supplier/dashboard?supplierId=${supplierId}`, {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            })
-
-            if (res.ok) {
-                const data = await res.json()
-                if (data.success) {
-                    setStats(data.data.stats)
-                    setRecentOrders(data.data.recentOrders || [])
-
-                    // Generate performance alerts based on stats
-                    const alerts: PerformanceAlert[] = []
-                    if (data.data.stats.pendingOrders > 5) {
-                        alerts.push({
-                            type: 'warning',
-                            title: `${data.data.stats.pendingOrders} PO chờ xử lý`,
-                            description: 'Phản hồi PO trong 4 tiếng để giữ tỷ lệ phản hồi nhanh.',
-                            action: 'Xem đơn hàng',
-                            link: '/supplier/orders',
-                            icon: Clock
-                        })
-                    }
-                    if (data.data.stats.returnRate && data.data.stats.returnRate > 5) {
-                        alerts.push({
-                            type: 'critical',
-                            title: `Tỷ lệ trả hàng ${data.data.stats.returnRate}%`,
-                            description: 'Tỷ lệ trả hàng đang cao hơn trung bình. Kiểm tra chất lượng sản phẩm.',
-                            action: 'Xem chi tiết trả hàng',
-                            link: '/supplier/returns',
-                            icon: RotateCcw
-                        })
-                    }
-                    if (data.data.stats.avgRating && data.data.stats.avgRating < 4.0) {
-                        alerts.push({
-                            type: 'warning',
-                            title: `Rating giao hàng: ${data.data.stats.avgRating}/5`,
-                            description: 'Cải thiện chất lượng đóng gói và thời gian giao hàng.',
-                            action: 'Xem đánh giá',
-                            link: '/supplier/analytics',
-                            icon: Star
-                        })
-                    }
-                    setPerformanceAlerts(alerts)
-                }
-            }
-        } catch (error) {
-            console.error('Failed to fetch dashboard:', error)
-        } finally {
-            setLoading(false)
-        }
-    }
-
-    const handleExport = () => {
-        const loadingToast = toast.loading('Đang chuẩn bị dữ liệu báo cáo...')
-
-        try {
-            // Chuẩn bị dữ liệu CSV
-            const headers = ['Mã Đơn Hàng', 'Sản phẩm', 'Số lượng', 'Trạng thái', 'Ngày tạo']
-            const rows = recentOrders.map(order => [
-                order.orderNumber,
-                order.productName,
-                order.quantity,
-                order.status,
-                new Date(order.createdAt).toLocaleDateString('vi-VN')
-            ])
-
-            const csvContent = [
-                headers.join(','),
-                ...rows.map(row => row.join(','))
-            ].join('\n')
-
-            // Tạo blob và download
-            const blob = new Blob([`\ufeff${csvContent}`], { type: 'text/csv;charset=utf-8;' })
-            const link = document.createElement('a')
-            const url = URL.createObjectURL(blob)
-
-            link.setAttribute('href', url)
-            link.setAttribute('download', `bao_cao_nha_cung_cap_${new Date().toISOString().split('T')[0]}.csv`)
-            link.style.visibility = 'hidden'
-            document.body.appendChild(link)
-            link.click()
-            document.body.removeChild(link)
-
-            toast.success('Báo cáo đã được tải về thành công', { id: loadingToast })
-        } catch (error) {
-            toast.error('Có lỗi xảy ra khi xuất báo cáo', { id: loadingToast })
-        }
-    }
-
-    const formatCurrency = (amount: number) => {
-        return new Intl.NumberFormat('vi-VN', {
-            style: 'currency',
-            currency: 'VND',
-            minimumFractionDigits: 0
-        }).format(amount)
-    }
+    }, [fetchDashboardData])
 
     if (loading) {
         return (
@@ -149,49 +33,6 @@ export default function SupplierDashboard() {
             </div>
         )
     }
-
-    const statCards = [
-        {
-            title: 'Tổng Đơn Hàng',
-            value: stats.totalOrders,
-            icon: Package,
-            color: 'from-blue-600 to-blue-400',
-            textColor: 'text-blue-600',
-            bgLight: 'bg-blue-50',
-            trend: '+12%',
-            description: 'So với tháng trước'
-        },
-        {
-            title: 'Đang Chờ',
-            value: stats.pendingOrders,
-            icon: Clock,
-            color: 'from-amber-500 to-amber-300',
-            textColor: 'text-amber-600',
-            bgLight: 'bg-amber-50',
-            trend: 'Cần xử lý',
-            description: 'Đơn hàng mới'
-        },
-        {
-            title: 'Tổng Doanh Thu',
-            value: formatCurrency(stats.totalRevenue),
-            icon: TrendingUp,
-            color: 'from-emerald-600 to-emerald-400',
-            textColor: 'text-emerald-600',
-            bgLight: 'bg-emerald-50',
-            trend: 'Ổn định',
-            description: 'Vốn quay vòng'
-        },
-        {
-            title: 'Chờ Thanh Toán',
-            value: formatCurrency(stats.pendingPayments),
-            icon: DollarSign,
-            color: 'from-indigo-600 to-indigo-400',
-            textColor: 'text-indigo-600',
-            bgLight: 'bg-indigo-50',
-            trend: 'Kết quả đối soát',
-            description: 'Dòng tiền sắp về'
-        }
-    ]
 
     return (
         <div className="space-y-10 pb-20">
@@ -221,137 +62,17 @@ export default function SupplierDashboard() {
                 </div>
             </div>
 
-            {/* Bento Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                {statCards.map((stat, index) => (
-                    <div key={index} className="group relative bg-white rounded-[2rem] p-8 border border-slate-200/60 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 overflow-hidden">
-                        <div className={`absolute top-0 right-0 w-32 h-32 ${stat.bgLight} rounded-full -mr-12 -mt-12 blur-3xl opacity-50 group-hover:scale-150 transition-transform duration-500`} />
+            <StatCards stats={stats} formatCurrency={formatCurrency} />
 
-                        <div className="relative space-y-4">
-                            <div className="flex items-center justify-between">
-                                <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${stat.color} flex items-center justify-center shadow-lg shadow-slate-200 rotate-3 group-hover:rotate-0 transition-transform`}>
-                                    <stat.icon className="w-6 h-6 text-white" />
-                                </div>
-                                <span className={`text-[10px] font-black px-2 py-1 rounded-lg ${stat.bgLight} ${stat.textColor} uppercase tracking-wider`}>
-                                    {stat.trend}
-                                </span>
-                            </div>
-                            <div>
-                                <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest">{stat.title}</h3>
-                                <p className="text-3xl font-black text-slate-900 mt-1">{stat.value}</p>
-                                <p className="text-xs text-slate-400 mt-2 font-medium">{stat.description}</p>
-                            </div>
-                        </div>
-                    </div>
-                ))}
-            </div>
-
-            {/* Performance Alerts */}
-            {performanceAlerts.length > 0 && (
-                <div className="bg-white rounded-[2rem] border border-amber-200/60 shadow-sm overflow-hidden">
-                    <div className="p-5 bg-amber-50/50 border-b border-amber-100 flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center">
-                                <AlertTriangle className="w-5 h-5 text-amber-600" />
-                            </div>
-                            <div>
-                                <h3 className="font-bold text-slate-900">Cảnh báo hiệu suất</h3>
-                                <p className="text-xs text-slate-500">{performanceAlerts.length} vấn đề cần lưu ý</p>
-                            </div>
-                        </div>
-                        <Link href="/supplier/support" className="flex items-center gap-1 text-xs font-bold text-amber-600 hover:text-amber-700">
-                            <LifeBuoy className="w-3.5 h-3.5" />
-                            Hỗ trợ
-                        </Link>
-                    </div>
-                    <div className="divide-y divide-slate-50">
-                        {performanceAlerts.map((alert, i) => (
-                            <Link
-                                key={i}
-                                href={alert.link}
-                                className={`flex items-center gap-4 p-5 hover:bg-slate-50 transition-colors group ${alert.type === 'critical' ? 'border-l-4 border-l-red-500' : alert.type === 'warning' ? 'border-l-4 border-l-amber-400' : 'border-l-4 border-l-blue-400'
-                                    }`}
-                            >
-                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${alert.type === 'critical' ? 'bg-red-50' : alert.type === 'warning' ? 'bg-amber-50' : 'bg-blue-50'
-                                    }`}>
-                                    <alert.icon className={`w-5 h-5 ${alert.type === 'critical' ? 'text-red-500' : alert.type === 'warning' ? 'text-amber-500' : 'text-blue-500'
-                                        }`} />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-bold text-slate-900">{alert.title}</p>
-                                    <p className="text-xs text-slate-500 mt-0.5">{alert.description}</p>
-                                </div>
-                                <span className="flex items-center gap-1 text-xs font-bold text-blue-600 group-hover:translate-x-1 transition-transform whitespace-nowrap">
-                                    {alert.action}
-                                    <ArrowRight className="w-3.5 h-3.5" />
-                                </span>
-                            </Link>
-                        ))}
-                    </div>
-                </div>
-            )}
+            <PerformanceAlerts alerts={performanceAlerts} />
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                {/* Recent Orders - Taking 2/3 of space */}
-                <div className="lg:col-span-2 space-y-6">
-                    <div className="flex items-center justify-between px-2">
-                        <h2 className="text-xl font-bold text-slate-900 flex items-center gap-3">
-                            <Clock className="w-5 h-5 text-blue-600" />
-                            Đơn hàng mới cập nhật
-                        </h2>
-                        <button
-                            onClick={() => router.push('/supplier/orders')}
-                            className="text-sm font-bold text-blue-600 hover:underline"
-                        >
-                            Xem tất cả
-                        </button>
-                    </div>
-                    <div className="bg-white rounded-[2rem] border border-slate-200/60 shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-700">
-                        <div className="overflow-x-auto">
-                            <table className="w-full">
-                                <thead className="bg-slate-50/50">
-                                    <tr>
-                                        <th className="px-8 py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Mã Đơn Hàng</th>
-                                        <th className="px-8 py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Sản phẩm</th>
-                                        <th className="px-8 py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Số lượng</th>
-                                        <th className="px-8 py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Trạng thái</th>
-                                        <th className="px-8 py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Ngày tạo</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-100">
-                                    {recentOrders.length > 0 ? (
-                                        recentOrders.map((order, index) => (
-                                            <tr key={index} className="group hover:bg-slate-50/50 transition-colors">
-                                                <td className="px-8 py-5 text-sm font-bold text-slate-900">{order.orderNumber}</td>
-                                                <td className="px-8 py-5 text-sm font-medium text-slate-600">{order.productName}</td>
-                                                <td className="px-8 py-5 text-sm font-black text-slate-900">x{order.quantity}</td>
-                                                <td className="px-8 py-5">
-                                                    <span className={`px-3 py-1 text-[10px] font-black rounded-lg uppercase tracking-wider ${order.status === 'COMPLETED' ? 'bg-emerald-100 text-emerald-600' :
-                                                        order.status === 'PENDING' ? 'bg-amber-100 text-amber-600' :
-                                                            'bg-slate-100 text-slate-600'
-                                                        }`}>
-                                                        {order.status}
-                                                    </span>
-                                                </td>
-                                                <td className="px-8 py-5 text-sm font-medium text-slate-400">
-                                                    {new Date(order.createdAt).toLocaleDateString('vi-VN')}
-                                                </td>
-                                            </tr>
-                                        ))
-                                    ) : (
-                                        <tr>
-                                            <td colSpan={5} className="px-8 py-20 text-center">
-                                                <div className="flex flex-col items-center justify-center grayscale opacity-20">
-                                                    <Package className="w-16 h-16 mb-4" />
-                                                    <p className="font-bold uppercase tracking-widest">Chưa có đơn hàng nào</p>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
+                <div className="lg:col-span-2 space-y-8">
+                    {/* Integrated dynamic Revenue Chart */}
+                    <RevenueChart />
+                    
+                    {/* Integrated Recent Orders Table */}
+                    <RecentOrders recentOrders={recentOrders} />
                 </div>
 
                 {/* Sidebar Cards - Taking 1/3 of space */}
@@ -361,13 +82,13 @@ export default function SupplierDashboard() {
                         <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-xl" />
                         <h3 className="text-xl font-bold mb-2">Chương trình đối tác</h3>
                         <p className="text-blue-100 text-sm leading-relaxed mb-6">
-                            Nâng cấp lên hạng vàng để nhận chiết khấu vận chuyển và ưu tiên hiển thị sản phẩm.
+                            Nâng cấp lên hạng vàng hiện đang mở! Bạn có muốn nhận chiết khấu vận chuyển và ưu tiên hiển thị sản phẩm không?
                         </p>
                         <button
                             onClick={() => router.push('/supplier/support')}
                             className="w-full py-3 bg-white text-blue-600 font-bold rounded-xl hover:bg-blue-50 transition-all active:scale-95"
                         >
-                            Tìm hiểu thêm
+                            Tìm hiểu ngay
                         </button>
                     </div>
 
@@ -379,9 +100,9 @@ export default function SupplierDashboard() {
                         </h3>
                         <ul className="space-y-4">
                             {[
-                                'Cập nhật tồn kho thường xuyên',
-                                'Phản hồi PO trong vòng 4 tiếng',
-                                'Đính kèm hóa đơn VAT kịp thời'
+                                'Cập nhật tồn kho hàng ngày',
+                                'Phản hồi PO trong tối đa 4 tiếng',
+                                'Thêm hóa đơn điện tử đính kèm'
                             ].map((tip, i) => (
                                 <li key={i} className="flex gap-3 text-sm text-slate-600 font-medium">
                                     <span className="w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-black flex-shrink-0">

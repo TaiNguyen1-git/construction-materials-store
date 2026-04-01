@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Header from '@/components/Header'
 import {
-    MapPin, Calendar, DollarSign, Users,
+    MapPin, Calendar, Coins, Users,
     Search, Filter, Plus, Briefcase,
     Clock, ArrowRight, Star, ShieldCheck,
     Zap, HardHat, Building2, TrendingUp
@@ -236,7 +236,7 @@ export default function PublicProjectsPage() {
                                             {project.location || 'Toàn quốc'}
                                         </div>
                                         <div className="flex items-center gap-3 text-sm font-black text-emerald-600">
-                                            <DollarSign className="w-4 h-4" />
+                                            <Coins className="w-4 h-4" />
                                             {project.estimatedBudget ? formatCurrency(project.estimatedBudget) : 'Thỏa thuận'}
                                         </div>
                                     </div>

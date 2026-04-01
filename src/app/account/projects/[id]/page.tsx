@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
   Calendar,
-  DollarSign,
+  Coins,
   CheckCircle,
   Clock,
   AlertCircle,

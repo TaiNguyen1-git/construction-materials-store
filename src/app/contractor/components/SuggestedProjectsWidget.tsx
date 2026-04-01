@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { fetchWithAuth } from '@/lib/api-client'
-import { Briefcase, Target, ArrowRight, Zap, Clock, MapPin, DollarSign } from 'lucide-react'
+import { Briefcase, Target, ArrowRight, Zap, Clock, MapPin, Coins } from 'lucide-react'
 
 interface SuggestedProject {
     id: string
@@ -237,7 +237,7 @@ export default function SuggestedProjectsWidget({ displayMode = 'list' }: Sugges
 
                                 <div className="space-y-2 mb-4">
                                     <div className="flex items-center text-xs text-gray-600 bg-gray-50 p-2 rounded-lg">
-                                        <DollarSign className="w-4 h-4 text-gray-400 mr-2" />
+                                        <Coins className="w-4 h-4 text-gray-400 mr-2" />
                                         <span className="font-semibold text-gray-900">
                                             {project.estimatedBudget ? formatCurrency(project.estimatedBudget) : 'Thỏa thuận'}
                                         </span>

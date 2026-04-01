@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
-    ArrowLeft, MapPin, DollarSign, Calendar, Phone, Mail, User,
+    ArrowLeft, MapPin, Coins, Calendar, Phone, Mail, User,
     Send, Clock, Users, Eye, CheckCircle, AlertTriangle, Settings, Share2, ShoppingBag,
     Trophy, Star, Target, ArrowRight
 } from 'lucide-react'
@@ -162,7 +162,7 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
                             <h1 className="text-3xl font-bold text-gray-900 mb-4">{project.title}</h1>
                             <div className="flex flex-wrap gap-4 mb-8 text-sm text-gray-500">
                                 <span className="flex items-center gap-1"><MapPin className="w-4 h-4" /> {project.city}</span>
-                                <span className="flex items-center gap-1 font-bold text-blue-600"><DollarSign className="w-4 h-4" /> {project.estimatedBudget?.toLocaleString()}đ</span>
+                                <span className="flex items-center gap-1 font-bold text-blue-600"><Coins className="w-4 h-4" /> {project.estimatedBudget?.toLocaleString()}đ</span>
                                 <span className="flex items-center gap-1"><Calendar className="w-4 h-4" /> {new Date(project.createdAt).toLocaleDateString('vi-VN')}</span>
                             </div>
 

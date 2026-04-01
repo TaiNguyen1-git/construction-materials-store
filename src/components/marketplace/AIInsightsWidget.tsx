@@ -7,7 +7,7 @@
 
 import { useState, useEffect } from 'react'
 import {
-    Sparkles, TrendingUp, DollarSign, Clock, Shield, Star,
+    Sparkles, TrendingUp, Coins, Clock, Shield, Star,
     ChevronDown, ChevronUp, Loader2, AlertCircle, CheckCircle,
     ArrowRight, Zap
 } from 'lucide-react'
@@ -125,7 +125,7 @@ export default function AIInsightsWidget({ projectId, onSelectApplication }: AII
                         {insights.highlights.bestPrice && (
                             <div className="p-3 bg-white/70 rounded-lg border border-green-200">
                                 <div className="flex items-center gap-1.5 text-green-600 mb-1">
-                                    <DollarSign className="w-4 h-4" />
+                                    <Coins className="w-4 h-4" />
                                     <span className="text-xs font-medium">Giá tốt nhất</span>
                                 </div>
                                 <p className="font-bold text-gray-900 text-sm truncate">

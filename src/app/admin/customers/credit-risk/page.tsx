@@ -4,7 +4,7 @@
 import { useState, useEffect } from 'react'
 import { fetchWithAuth } from '@/lib/api-client'
 import { toast } from 'react-hot-toast'
-import { AlertTriangle, TrendingUp, DollarSign, ShieldAlert, CheckCircle, RefreshCw } from 'lucide-react'
+import { AlertTriangle, TrendingUp, Coins, ShieldAlert, CheckCircle, RefreshCw } from 'lucide-react'
 
 interface RiskAnalysis {
     customerId: string
@@ -105,7 +105,7 @@ export default function CreditRiskPage() {
                         </h3>
                     </div>
                     <div className="p-3 bg-blue-100 rounded-full">
-                        <DollarSign className="h-6 w-6 text-blue-600" />
+                        <Coins className="h-6 w-6 text-blue-600" />
                     </div>
                 </div>
                 <div className="bg-green-50 p-6 rounded-xl border border-green-100 flex items-center justify-between">

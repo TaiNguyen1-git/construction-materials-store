@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { fetchWithAuth } from '@/lib/api-client'
 import {
   Calendar,
-  DollarSign,
+  Coins,
   CheckCircle,
   Clock,
   AlertCircle,
@@ -596,7 +596,7 @@ export default function AdminProjectDetailPage() {
         <div className="bg-white p-4 rounded-lg border">
           <div className="flex items-center">
             <div className="p-2 bg-green-100 rounded-lg">
-              <DollarSign className="h-6 w-6 text-green-600" />
+              <Coins className="h-6 w-6 text-green-600" />
             </div>
             <div className="ml-3">
               <p className="text-sm font-medium text-gray-500">Ngân Sách</p>

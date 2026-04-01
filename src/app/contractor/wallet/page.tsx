@@ -13,7 +13,7 @@ import {
     Copy,
     CheckCircle2,
     Clock,
-    DollarSign,
+    Coins,
     Share2,
     X,
     Loader2,
@@ -265,7 +265,7 @@ export default function ContractorWalletPage() {
                             <div className="flex items-center justify-between mb-4">
                                 <span className="text-gray-500 text-sm font-medium">Tổng thu nhập</span>
                                 <div className="p-2 bg-green-50 rounded-lg text-green-600">
-                                    <DollarSign className="w-5 h-5" />
+                                    <Coins className="w-5 h-5" />
                                 </div>
                             </div>
                             <div className="text-2xl font-bold text-gray-900">{wallet.totalEarned?.toLocaleString()}đ</div>

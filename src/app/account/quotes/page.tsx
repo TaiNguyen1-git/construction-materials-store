@@ -10,7 +10,7 @@ import {
     Filter,
     MessageSquare,
     MapPin,
-    DollarSign,
+    Coins,
     Calendar,
     ChevronRight,
     History,
@@ -453,7 +453,7 @@ export default function CustomerQuotesPage() {
                                             <div className="flex items-center justify-between">
                                                 <h4 className="text-xl font-black text-gray-900 tracking-tight flex items-center gap-3">
                                                     <div className="w-8 h-8 rounded-lg bg-pink-100 flex items-center justify-center">
-                                                        <DollarSign className="w-4 h-4 text-pink-600" />
+                                                        <Coins className="w-4 h-4 text-pink-600" />
                                                     </div>
                                                     Lộ trình Thanh toán & Escrow
                                                 </h4>

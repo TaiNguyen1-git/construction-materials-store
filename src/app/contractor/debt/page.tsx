@@ -20,7 +20,7 @@ import {
     AlertCircle,
     Building2,
     Clock,
-    DollarSign,
+    Coins,
     ChevronRight,
     Download,
     Wallet,

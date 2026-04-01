@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { fetchWithAuth } from '@/lib/api-client'
-import { DollarSign, TrendingUp, TrendingDown, FileText, Download, Calendar } from 'lucide-react'
+import { Coins, TrendingUp, TrendingDown, FileText, Download, Calendar } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 
 interface FinancialSummary {
@@ -190,7 +190,7 @@ export default function FinancialReportsPage() {
         <div className={`bg-gradient-to-br ${summary.netProfit >= 0 ? 'from-blue-500 to-blue-600' : 'from-orange-500 to-orange-600'} p-6 rounded-lg shadow text-white`}>
           <div className="flex items-center justify-between mb-2">
             <div className="text-sm opacity-90">Lợi Nhuận Ròng</div>
-            <DollarSign className="h-5 w-5 opacity-90" />
+            <Coins className="h-5 w-5 opacity-90" />
           </div>
           <div className="text-2xl font-bold">{formatCurrency(summary.netProfit)}</div>
         </div>

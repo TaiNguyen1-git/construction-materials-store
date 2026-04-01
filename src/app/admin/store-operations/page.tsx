@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import {
-    Store, Truck, Wallet, FileText, DollarSign,
+    Store, Truck, Wallet, FileText, Coins,
     GanttChart, Plus, PlusCircle, CheckCircle, Edit
 } from 'lucide-react'
 import { DragStartEvent, DragOverEvent, DragEndEvent } from '@dnd-kit/core'
@@ -367,7 +367,7 @@ export default function StoreOperationsPage() {
         { id: 'dispatch', name: 'Điều Xe Giao Hàng', icon: Truck },
         { id: 'cash', name: 'Đối Soát COD', icon: Wallet },
         { id: 'quotes', name: 'Sổ Báo Giá', icon: FileText },
-        { id: 'expenses', name: 'Chi Phí', icon: DollarSign },
+        { id: 'expenses', name: 'Chi Phí', icon: Coins },
     ] as const
 
     return (
@@ -398,7 +398,7 @@ export default function StoreOperationsPage() {
                         onClick={() => setIsExpenseModalOpen(true)}
                         className="flex items-center gap-2 px-6 py-3.5 bg-blue-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg shadow-blue-500/20 hover:bg-blue-700 hover:-translate-y-0.5 transition-all"
                     >
-                        <DollarSign className="w-4 h-4" /> Ghi Chi Phí
+                        <Coins className="w-4 h-4" /> Ghi Chi Phí
                     </button>
                 </div>
             </div>
@@ -439,7 +439,7 @@ export default function StoreOperationsPage() {
                     <div className="flex items-center justify-between mb-4">
                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">Chi phí hằng ngày</p>
                         <div className="w-8 h-8 rounded-xl bg-red-50 flex items-center justify-center">
-                            <DollarSign className="w-4 h-4 text-red-500" />
+                            <Coins className="w-4 h-4 text-red-500" />
                         </div>
                     </div>
                     <p className="text-2xl font-black text-red-500 tracking-tight">{formatCurrency(expenses.reduce((a, c) => a + c.amount, 0))}</p>
@@ -533,7 +533,7 @@ export default function StoreOperationsPage() {
             {isExpenseModalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md">
                     <div className="bg-white w-full max-w-lg rounded-[40px] shadow-2xl overflow-hidden p-8 animate-in zoom-in-95 duration-300">
-                        <h2 className="text-2xl font-black text-slate-900 mb-6 flex items-center gap-2"><DollarSign className="text-red-500" /> Ghi Chi Phí</h2>
+                        <h2 className="text-2xl font-black text-slate-900 mb-6 flex items-center gap-2"><Coins className="text-red-500" /> Ghi Chi Phí</h2>
                         <form onSubmit={handleExpenseSubmit} className="space-y-4">
                             <select value={expenseForm.category} onChange={e => setExpenseForm({ ...expenseForm, category: e.target.value })} className="w-full p-4 bg-slate-50 border-none rounded-2xl font-bold">
                                 <option value="FUEL">Xăng dầu</option>
