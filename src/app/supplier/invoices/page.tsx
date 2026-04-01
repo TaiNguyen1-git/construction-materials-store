@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
-import { X } from 'lucide-react'
+import { X, FileText, UploadCloud } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 // ── Types ───────────────────────────────────────────────────────────────────────
@@ -302,15 +302,13 @@ export default function SupplierInvoicesPage() {
                     <table className="w-full text-left border-collapse">
                         <thead className="bg-slate-50/50">
                             <tr>
-                                <th className="px-7 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Số hóa đơn</th>
-                                <th className="px-7 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Loại</th>
-                                <th className="px-7 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Ngày phát hành</th>
-                                <th className="px-7 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Hạn TT</th>
-                                <th className="px-7 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-right">Tổng tiền</th>
-                                <th className="px-7 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-right">Còn nợ</th>
-                                <th className="px-7 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Trạng thái</th>
-                                <th className="px-7 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">VAT</th>
-                                <th className="px-7 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-center">Thao tác</th>
+                                <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] whitespace-nowrap">Số hóa đơn</th>
+                                <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] whitespace-nowrap">Loại</th>
+                                <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] whitespace-nowrap">Thời gian</th>
+                                <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-right whitespace-nowrap">Tổng tiền</th>
+                                <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-right whitespace-nowrap">Còn nợ</th>
+                                <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-center whitespace-nowrap">Trạng thái</th>
+                                <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-center whitespace-nowrap">Thao tác</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
@@ -324,63 +322,60 @@ export default function SupplierInvoicesPage() {
                                             className={`group hover:bg-slate-50/50 transition-all duration-200 cursor-pointer ${isOverdue ? 'bg-rose-50/30' : ''}`}
                                             onClick={() => setSelectedInvoice(inv)}
                                         >
-                                            <td className="px-7 py-5">
-                                                <span className="font-black text-blue-600 text-base tracking-tight">{inv.invoiceNumber}</span>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <span className="font-black text-blue-600 text-[13px] tracking-tight">{inv.invoiceNumber.replace(/^INV-[A-Z]+-/, '')}</span>
                                                 {inv.order?.orderNumber && (
                                                     <div className="text-[10px] font-bold text-slate-400 mt-0.5">Đơn #{inv.order.orderNumber}</div>
                                                 )}
                                             </td>
-                                            <td className="px-7 py-5">
-                                                <span className="text-xs font-bold text-slate-600">{typeMap[inv.invoiceType] || inv.invoiceType}</span>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <span className="px-2.5 py-1 bg-slate-100 rounded-md text-[11px] font-bold text-slate-600">{typeMap[inv.invoiceType] || inv.invoiceType}</span>
                                             </td>
-                                            <td className="px-7 py-5">
-                                                <span className="text-sm font-medium text-slate-700">{new Date(inv.issueDate).toLocaleDateString('vi-VN')}</span>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <div className="text-[13px] font-bold text-slate-700">{new Date(inv.issueDate).toLocaleDateString('vi-VN')}</div>
+                                                <div className={`text-[11px] font-medium mt-0.5 ${isOverdue ? 'text-rose-600 font-bold' : 'text-slate-400'}`}>
+                                                    Hạn: {inv.dueDate ? new Date(inv.dueDate).toLocaleDateString('vi-VN') : '—'}
+                                                </div>
                                             </td>
-                                            <td className="px-7 py-5">
-                                                <span className={`text-sm font-medium ${isOverdue ? 'text-rose-600 font-bold' : 'text-slate-500'}`}>
-                                                    {inv.dueDate ? new Date(inv.dueDate).toLocaleDateString('vi-VN') : '—'}
-                                                </span>
+                                            <td className="px-6 py-4 text-right whitespace-nowrap">
+                                                <span className="text-[13px] font-black text-slate-900">{fmt(inv.totalAmount)}</span>
                                             </td>
-                                            <td className="px-7 py-5 text-right">
-                                                <span className="text-sm font-black text-slate-900">{fmt(inv.totalAmount)}</span>
-                                            </td>
-                                            <td className="px-7 py-5 text-right">
-                                                <span className={`text-sm font-bold ${inv.balanceAmount > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                                            <td className="px-6 py-4 text-right whitespace-nowrap">
+                                                <span className={`text-[13px] font-bold ${inv.balanceAmount > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
                                                     {inv.balanceAmount > 0 ? fmt(inv.balanceAmount) : 'Hết nợ'}
                                                 </span>
                                             </td>
-                                            <td className="px-7 py-5">
-                                                <span className={`inline-flex px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${st.bg} ${st.color} ${st.border} border`}>
+                                            <td className="px-6 py-4 text-center whitespace-nowrap">
+                                                <span className={`inline-flex px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${st.bg} ${st.color} ${st.border} border`}>
                                                     {st.label}
                                                 </span>
                                             </td>
-                                            <td className="px-7 py-5" onClick={e => e.stopPropagation()}>
-                                                {inv.vatInvoiceUrl ? (
-                                                    <a
-                                                        href={inv.vatInvoiceUrl}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        className="text-xs font-bold text-emerald-600 hover:underline"
-                                                    >
-                                                        Xem file
-                                                    </a>
-                                                ) : (
-                                                    <label className="cursor-pointer text-xs font-bold text-blue-600 hover:text-blue-800 transition-colors">
-                                                        Tải lên
-                                                        <input
-                                                            type="file"
-                                                            className="hidden"
-                                                            accept="image/*,.pdf"
-                                                            onChange={e => {
-                                                                const file = e.target.files?.[0]
-                                                                if (file) handleUploadVAT(inv.id, file)
-                                                            }}
-                                                        />
-                                                    </label>
-                                                )}
-                                            </td>
-                                            <td className="px-7 py-5 text-center" onClick={e => e.stopPropagation()}>
+                                            <td className="px-6 py-4 text-center whitespace-nowrap" onClick={e => e.stopPropagation()}>
                                                 <div className="flex items-center justify-center gap-2">
+                                                    {inv.vatInvoiceUrl ? (
+                                                        <a
+                                                            href={inv.vatInvoiceUrl}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            title="Xem hóa đơn VAT"
+                                                            className="w-7 h-7 flex items-center justify-center bg-emerald-50 text-emerald-600 hover:bg-emerald-100 rounded-lg transition-all"
+                                                        >
+                                                            <FileText className="w-3.5 h-3.5" />
+                                                        </a>
+                                                    ) : (
+                                                        <label title="Tải lên hóa đơn VAT" className="w-7 h-7 flex items-center justify-center cursor-pointer bg-slate-50 text-slate-400 hover:bg-blue-50 hover:text-blue-600 rounded-lg transition-all">
+                                                            <input
+                                                                type="file"
+                                                                className="hidden"
+                                                                accept="image/*,.pdf"
+                                                                onChange={e => {
+                                                                    const file = e.target.files?.[0]
+                                                                    if (file) handleUploadVAT(inv.id, file)
+                                                                }}
+                                                            />
+                                                            <UploadCloud className="w-3.5 h-3.5" />
+                                                        </label>
+                                                    )}
                                                     <button
                                                         onClick={() => setSelectedInvoice(inv)}
                                                         className="px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
@@ -392,7 +387,7 @@ export default function SupplierInvoicesPage() {
                                                             onClick={() => setPaymentModal(inv)}
                                                             className="px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all"
                                                         >
-                                                            Ghi nhận TT
+                                                            Ghi nhận
                                                         </button>
                                                     )}
                                                 </div>
@@ -402,7 +397,7 @@ export default function SupplierInvoicesPage() {
                                 })
                             ) : (
                                 <tr>
-                                    <td colSpan={9} className="px-7 py-32 text-center">
+                                    <td colSpan={7} className="px-6 py-32 text-center">
                                         <div className="flex flex-col items-center justify-center">
                                             <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mb-6">
                                                 <span className="text-4xl opacity-30">📄</span>
@@ -522,7 +517,7 @@ function InvoiceDetailModal({
                 <body>
                     <div class="header">
                         <h1>Hóa Đơn</h1>
-                        <p>Mã: <strong>${invoice.invoiceNumber}</strong></p>
+                        <p>Mã: <strong>${invoice.invoiceNumber.replace(/^INV-[A-Z]+-/, '')}</strong></p>
                     </div>
                     <div class="meta">
                         <div>
@@ -573,9 +568,14 @@ function InvoiceDetailModal({
                 <div className="p-7 lg:p-9 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
                     <div>
                         <h2 className="text-2xl font-black text-slate-900 tracking-tight">
-                            Hóa đơn {invoice.invoiceNumber}
+                            Hóa đơn {invoice.invoiceNumber.replace(/^INV-[A-Z]+-/, '')}
                         </h2>
-                        <div className="flex items-center gap-3 mt-2">
+                        {invoice.customer && (
+                            <p className="text-sm font-bold text-slate-500 mt-1.5 flex items-center gap-1.5">
+                                Đối tác: <span className="text-slate-800">{invoice.customer.companyName || invoice.customer.user?.name || 'Khách hàng'}</span>
+                            </p>
+                        )}
+                        <div className="flex items-center gap-3 mt-3">
                             <span className={`inline-flex px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${st.bg} ${st.color} ${st.border} border`}>
                                 {st.label}
                             </span>
@@ -782,7 +782,7 @@ function RecordPaymentModal({
     onClose: () => void
     onSuccess: () => void
 }) {
-    const [amount, setAmount] = useState(invoice.balanceAmount.toString())
+    const [amountInput, setAmountInput] = useState(new Intl.NumberFormat('vi-VN').format(Math.round(invoice.balanceAmount)))
     const [method, setMethod] = useState('BANK_TRANSFER')
     const [reference, setReference] = useState('')
     const [notes, setNotes] = useState('')
@@ -790,12 +790,15 @@ function RecordPaymentModal({
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
-        const amt = parseFloat(amount)
+        const rawAmt = amountInput.replace(/\D/g, '')
+        const amt = parseFloat(rawAmt)
+        const maxAmt = Math.round(invoice.balanceAmount)
+        
         if (!amt || amt <= 0) {
             toast.error('Số tiền phải lớn hơn 0')
             return
         }
-        if (amt > invoice.balanceAmount) {
+        if (amt > maxAmt + 1) { // allow a +1 rounding error margin just in case
             toast.error('Số tiền không được vượt quá số nợ còn lại')
             return
         }
@@ -834,7 +837,11 @@ function RecordPaymentModal({
                 <div className="p-7 border-b border-slate-100 flex items-center justify-between">
                     <div>
                         <h3 className="text-xl font-black text-slate-900">Ghi nhận thanh toán</h3>
-                        <p className="text-xs font-bold text-slate-400 mt-1">Hóa đơn {invoice.invoiceNumber} · Còn nợ {fmt(invoice.balanceAmount)}</p>
+                        <p className="text-xs font-bold text-slate-400 mt-1">
+                            Hóa đơn {invoice.invoiceNumber.replace(/^INV-[A-Z]+-/, '')} 
+                            {invoice.customer && ` · Đối tác: ${invoice.customer.companyName || invoice.customer.user?.name || 'Khách hàng'}`} 
+                            {' '}· Còn nợ <span className="text-emerald-600">{fmt(invoice.balanceAmount)}</span>
+                        </p>
                     </div>
                     <button onClick={onClose} className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-700 transition-colors">
                         <X className="w-4 h-4" />
@@ -844,21 +851,21 @@ function RecordPaymentModal({
                     <div>
                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">Số tiền (VND)</label>
                         <input
-                            type="number"
-                            value={amount}
-                            onChange={e => setAmount(e.target.value)}
-                            className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-lg font-black text-slate-900 outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-all"
+                            type="text"
+                            value={amountInput}
+                            onChange={e => {
+                                const raw = e.target.value.replace(/\D/g, '')
+                                setAmountInput(raw ? new Intl.NumberFormat('vi-VN').format(Number(raw)) : '')
+                            }}
+                            className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-lg font-black text-slate-900 outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-all font-mono"
                             placeholder="0"
-                            min={0}
-                            max={invoice.balanceAmount}
-                            step="any"
                             required
                         />
                         <div className="flex gap-2 mt-2">
-                            <button type="button" onClick={() => setAmount(invoice.balanceAmount.toString())} className="text-[10px] font-black text-blue-600 uppercase tracking-widest hover:text-blue-800 px-2 py-1 bg-blue-50 rounded-lg transition-colors">
+                            <button type="button" onClick={() => setAmountInput(new Intl.NumberFormat('vi-VN').format(Math.round(invoice.balanceAmount)))} className="text-[10px] font-black text-blue-600 uppercase tracking-widest hover:text-blue-800 px-2 py-1 bg-blue-50 rounded-lg transition-colors">
                                 Toàn bộ
                             </button>
-                            <button type="button" onClick={() => setAmount((invoice.balanceAmount / 2).toString())} className="text-[10px] font-black text-blue-600 uppercase tracking-widest hover:text-blue-800 px-2 py-1 bg-blue-50 rounded-lg transition-colors">
+                            <button type="button" onClick={() => setAmountInput(new Intl.NumberFormat('vi-VN').format(Math.round(invoice.balanceAmount / 2)))} className="text-[10px] font-black text-blue-600 uppercase tracking-widest hover:text-blue-800 px-2 py-1 bg-blue-50 rounded-lg transition-colors">
                                 50%
                             </button>
                         </div>
@@ -963,7 +970,7 @@ function CancelInvoiceModal({
             <div className="relative bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden">
                 <div className="p-7 border-b border-slate-100">
                     <h3 className="text-xl font-black text-slate-900">Hủy hóa đơn</h3>
-                    <p className="text-xs font-bold text-slate-400 mt-1">{invoice.invoiceNumber} · {fmt(invoice.totalAmount)}</p>
+                    <p className="text-xs font-bold text-slate-400 mt-1">{invoice.invoiceNumber.replace(/^INV-[A-Z]+-/, '')} · {fmt(invoice.totalAmount)}</p>
                 </div>
                 <div className="p-7 space-y-5">
                     <div className="p-4 bg-rose-50 rounded-xl border border-rose-100">
