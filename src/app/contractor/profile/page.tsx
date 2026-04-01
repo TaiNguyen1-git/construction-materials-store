@@ -36,6 +36,8 @@ import toast from 'react-hot-toast'
 import { useAuth } from '@/contexts/auth-context'
 import { fetchWithAuth } from '@/lib/api-client'
 
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+
 interface BusinessDocument {
     id: string
     name: string
@@ -53,13 +55,13 @@ interface FeaturedProject {
 }
 
 export default function ContractorProfilePage() {
-    const { user } = useAuth()
+    const { user, isAuthenticated } = useAuth()
+    const queryClient = useQueryClient()
     const [sidebarOpen, setSidebarOpen] = useState(true)
-    const [loading, setLoading] = useState(false)
     const [saving, setSaving] = useState(false)
     const fileInputRef = useRef<HTMLInputElement>(null)
 
-    // Profile form state
+    // Local form state for editing
     const [profile, setProfile] = useState({
         companyName: '',
         taxId: '',
@@ -72,63 +74,52 @@ export default function ContractorProfilePage() {
         ward: '',
         businessType: '',
         website: '',
-        // Spotlight fields
         highlightBio: '',
         detailedBio: '',
         skills: [] as string[],
         yearsExperience: '0'
     })
 
-    const [featuredProjects, setFeaturedProjects] = useState<FeaturedProject[]>([])
+    const fetchProfile = async () => {
+        const res = await fetchWithAuth('/api/contractors/profile')
+        if (!res.ok) throw new Error('Fetch profile failed')
+        const result = await res.json()
+        return result.data
+    }
 
-    // Documents state
+    const { data: profileData, isLoading: loading } = useQuery({
+        queryKey: ['contractor-profile'],
+        queryFn: fetchProfile,
+        enabled: isAuthenticated,
+        staleTime: 5 * 60 * 1000
+    })
+
+    useEffect(() => {
+        if (profileData) {
+            setProfile({
+                companyName: profileData.companyName || '',
+                taxId: profileData.taxId || '',
+                representativeName: profileData.user?.name || '',
+                email: profileData.user?.email || '',
+                phone: profileData.phone || '',
+                address: profileData.address || '',
+                city: '', 
+                district: '',
+                ward: '',
+                businessType: profileData.businessType || 'contractor',
+                website: profileData.website || '',
+                highlightBio: profileData.highlightBio || '',
+                detailedBio: profileData.detailedBio || '',
+                skills: profileData.skills || [],
+                yearsExperience: profileData.yearsExperience?.toString() || '0'
+            })
+            if (profileData.documents) setDocuments(profileData.documents)
+        }
+    }, [profileData])
+
+    const [featuredProjects, setFeaturedProjects] = useState<FeaturedProject[]>([])
     const [documents, setDocuments] = useState<BusinessDocument[]>([])
     const [uploadingDoc, setUploadingDoc] = useState(false)
-
-    // Load profile data
-    useEffect(() => {
-        const loadProfile = async () => {
-            setLoading(true)
-            try {
-                const res = await fetchWithAuth('/api/contractors/profile')
-
-                if (res.ok) {
-                    const result = await res.json()
-                    if (result.success && result.data) {
-                        const data = result.data
-                        setProfile({
-                            companyName: data.companyName || '',
-                            taxId: data.taxId || '',
-                            representativeName: data.user?.name || '',
-                            email: data.user?.email || '',
-                            phone: data.phone || '',
-                            address: data.address || '',
-                            city: '', // These would normally come from structured address
-                            district: '',
-                            ward: '',
-                            businessType: data.businessType || 'contractor',
-                            website: data.website || '',
-                            highlightBio: data.highlightBio || '',
-                            detailedBio: data.detailedBio || '',
-                            skills: data.skills || [],
-                            yearsExperience: data.yearsExperience?.toString() || '0'
-                        })
-                        // Load documents
-                        if (data.documents) setDocuments(data.documents)
-                    }
-                }
-            } catch (error) {
-                console.error('Failed to load profile:', error)
-                toast.error('Không thể tải thông tin hồ sơ')
-            } finally {
-                setLoading(false)
-            }
-        }
-
-        if (user) {
-            loadProfile()
-        }
-    }, [user])
 
     // Handle input change
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {

@@ -35,6 +35,7 @@ import {
     Trash2,
     ChevronDown
 } from 'lucide-react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { fetchWithAuth } from '@/lib/api-client'
 import { useAuth } from '@/contexts/auth-context'
 
@@ -52,54 +53,39 @@ interface Order {
 }
 
 export default function ContractorOrdersPage() {
-    const { user } = useAuth()
+    const { user, isAuthenticated } = useAuth()
+    const queryClient = useQueryClient()
     const [sidebarOpen, setSidebarOpen] = useState(true)
-    const [orders, setOrders] = useState<Order[]>([])
     const [statusFilter, setStatusFilter] = useState('all')
-    const [loading, setLoading] = useState(true)
-    const [error, setError] = useState<string | null>(null)
     const [page, setPage] = useState(1)
-    const [totalPages, setTotalPages] = useState(1)
     const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
     const [selectedIds, setSelectedIds] = useState<string[]>([])
     const [showViewModal, setShowViewModal] = useState(false)
     const [showDeleteModal, setShowDeleteModal] = useState(false)
     const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false)
 
-    useEffect(() => {
-        if (user) {
-            fetchOrders()
-        }
-    }, [statusFilter, page, user])
-
     const fetchOrders = async () => {
-        setLoading(true)
-        setError(null)
-        try {
-            const params = new URLSearchParams({
-                page: page.toString(),
-                limit: '20',
-                ...(statusFilter !== 'all' && { status: statusFilter })
-            })
+        const params = new URLSearchParams({
+            page: page.toString(),
+            limit: '20',
+            ...(statusFilter !== 'all' && { status: statusFilter })
+        })
 
-            const response = await fetchWithAuth(`/api/contractors/orders?${params}`)
-
-            if (!response.ok) {
-                throw new Error('Failed to fetch orders')
-            }
-
-            const data = await response.json()
-            if (data.success && data.data) {
-                setOrders(data.data.orders || [])
-                setTotalPages(data.data.pagination?.pages || 1)
-            }
-        } catch (err: any) {
-            console.error('Error fetching orders:', err)
-            setError(err.message || 'Không thể tải đơn hàng')
-        } finally {
-            setLoading(false)
-        }
+        const response = await fetchWithAuth(`/api/contractors/orders?${params}`)
+        if (!response.ok) throw new Error('Failed to fetch orders')
+        const data = await response.json()
+        return data.success ? data.data : { orders: [], pagination: { pages: 1 } }
     }
+
+    const { data: ordersData, isLoading: loading, error } = useQuery({
+        queryKey: ['contractor-orders', statusFilter, page],
+        queryFn: fetchOrders,
+        enabled: isAuthenticated,
+        staleTime: 60 * 1000 // Cache for 1 minute
+    })
+
+    const orders = (ordersData?.orders || []) as Order[]
+    const totalPages = ordersData?.pagination?.pages || 1
 
     const handleViewOrder = (order: Order) => {
         setSelectedOrder(order)
@@ -112,7 +98,6 @@ export default function ContractorOrdersPage() {
             return
         }
         toast.success(`Chuyển đến chỉnh sửa đơn ${order.orderNumber}`)
-        // router.push(`/contractor/orders/${order.id}/edit`)
     }
 
     const handleDeleteOrder = (order: Order) => {
@@ -134,7 +119,8 @@ export default function ContractorOrdersPage() {
                 error: 'Không thể xoá đơn hàng'
             }
         )
-        setOrders(orders.filter(o => o.id !== selectedOrder.id))
+        // In reality, call API here
+        queryClient.invalidateQueries({ queryKey: ['contractor-orders'] })
         setSelectedIds(selectedIds.filter(id => id !== selectedOrder.id))
         setShowDeleteModal(false)
     }
@@ -143,7 +129,7 @@ export default function ContractorOrdersPage() {
         if (selectedIds.length === filteredOrders.length) {
             setSelectedIds([])
         } else {
-            setSelectedIds(filteredOrders.map(o => o.id))
+            setSelectedIds(filteredOrders.map((o: Order) => o.id))
         }
     }
 
@@ -157,9 +143,9 @@ export default function ContractorOrdersPage() {
 
     const handleBulkDelete = () => {
         const deletableIds = orders
-            .filter(o => selectedIds.includes(o.id))
-            .filter(o => o.status === 'PENDING' || o.status === 'CANCELLED')
-            .map(o => o.id)
+            .filter((o: Order) => selectedIds.includes(o.id))
+            .filter((o: Order) => o.status === 'PENDING' || o.status === 'CANCELLED')
+            .map((o: Order) => o.id)
 
         if (deletableIds.length === 0) {
             toast.error('Không có đơn hàng nào có thể xoá trong danh sách đã chọn')
@@ -175,9 +161,9 @@ export default function ContractorOrdersPage() {
 
     const confirmBulkDelete = async () => {
         const deletableIds = orders
-            .filter(o => selectedIds.includes(o.id))
-            .filter(o => o.status === 'PENDING' || o.status === 'CANCELLED')
-            .map(o => o.id)
+            .filter((o: Order) => selectedIds.includes(o.id))
+            .filter((o: Order) => o.status === 'PENDING' || o.status === 'CANCELLED')
+            .map((o: Order) => o.id)
 
         toast.promise(
             new Promise((resolve) => setTimeout(resolve, 1500)),
@@ -188,7 +174,8 @@ export default function ContractorOrdersPage() {
             }
         )
 
-        setOrders(orders.filter(o => !deletableIds.includes(o.id)))
+        // API call would go here
+        queryClient.invalidateQueries({ queryKey: ['contractor-orders'] })
         setSelectedIds([])
         setShowBulkDeleteModal(false)
     }
@@ -224,7 +211,7 @@ export default function ContractorOrdersPage() {
 
     const filteredOrders = statusFilter === 'all'
         ? orders
-        : orders.filter(o => o.status === statusFilter)
+        : orders.filter((o: Order) => o.status === statusFilter)
 
     return (
         <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -307,7 +294,7 @@ export default function ContractorOrdersPage() {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-50">
-                                    {filteredOrders.map((order) => (
+                                    {filteredOrders.map((order: Order) => (
                                         <tr key={order.id} className={`hover:bg-primary-50/10 transition-colors group ${selectedIds.includes(order.id) ? 'bg-primary-50/30' : ''}`}>
                                             <td className="px-4 py-2.5 text-center">
                                                 <input

@@ -1,6 +1,7 @@
 'use client'
 
 import { Briefcase, ShoppingCart, Bell, Wallet, ArrowUpRight, ArrowDownRight } from 'lucide-react'
+import React from 'react'
 
 interface StatsProps {
     stats: {
@@ -13,7 +14,7 @@ interface StatsProps {
     loading?: boolean
 }
 
-export default function StatsOverview({ stats, loading }: StatsProps) {
+function StatsOverviewComponent({ stats, loading }: StatsProps) {
     if (loading) {
         return (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -98,3 +99,5 @@ export default function StatsOverview({ stats, loading }: StatsProps) {
         </div>
     )
 }
+
+export default React.memo(StatsOverviewComponent)

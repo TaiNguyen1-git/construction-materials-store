@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import Link from 'next/link'
 import Sidebar from '../components/Sidebar'
 import ContractorHeader from '../components/ContractorHeader'
@@ -14,8 +14,10 @@ import {
     CheckCircle,
     Plus,
     Filter,
-    MapPin
+    MapPin,
+    AlertTriangle
 } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
 import { fetchWithAuth } from '@/lib/api-client'
 import { Badge } from '@/components/ui/badge'
 import { useAuth } from '@/contexts/auth-context'
@@ -31,7 +33,6 @@ interface Project {
     contactPhone: string
     city: string
     district: string
-    // Optional derived fields for UI if we want to keep structure similar
     taskCompletion?: number
     totalTasks?: number
     completedTasks?: number
@@ -42,35 +43,34 @@ interface Project {
 }
 
 export default function ContractorProjectsPage() {
-    const { user } = useAuth()
+    const { user, isAuthenticated } = useAuth()
     const [sidebarOpen, setSidebarOpen] = useState(true)
-    const [projects, setProjects] = useState<Project[]>([])
-    const [loading, setLoading] = useState(true)
     const [search, setSearch] = useState('')
 
-    useEffect(() => {
-        fetchProjects()
-    }, [])
-
     const fetchProjects = async () => {
-        setLoading(true)
-        try {
-            const response = await fetchWithAuth('/api/contractors/projects')
-            if (response.ok) {
-                const result = await response.json()
-                setProjects(result.data || [])
-            }
-        } catch (error) {
-            console.error('Fetch projects error:', error)
-        } finally {
-            setLoading(false)
-        }
+        const response = await fetchWithAuth('/api/contractors/projects')
+        if (!response.ok) throw new Error('Fetch projects failed')
+        const result = await response.json()
+        return (result.data || []) as Project[]
     }
 
-    const filteredProjects = projects.filter(p =>
-        p.title.toLowerCase().includes(search.toLowerCase()) ||
-        p.description.toLowerCase().includes(search.toLowerCase())
-    )
+    const { data: projects = [], isLoading: loading, error, refetch } = useQuery({
+        queryKey: ['contractor-projects'],
+        queryFn: fetchProjects,
+        enabled: isAuthenticated,
+        staleTime: 5 * 60 * 1000 // Cache for 5 minutes
+    })
+
+    const filteredProjects = projects.filter((p: Project) => {
+        const searchLower = search.toLowerCase()
+        const title = (p.title || '').toLowerCase()
+        const description = (p.description || '').toLowerCase()
+        const contactName = (p.contactName || '').toLowerCase()
+        
+        return title.includes(searchLower) || 
+               description.includes(searchLower) || 
+               contactName.includes(searchLower)
+    })
 
     const getStatusColor = (status: string) => {
         switch (status) {
@@ -127,9 +127,23 @@ export default function ContractorProjectsPage() {
                         </button>
                     </div>
 
-                    {loading ? (
-                        <div className="flex justify-center py-12">
-                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+                    {error ? (
+                        <div className="bg-red-50 border border-red-100 rounded-2xl p-8 text-center text-red-600">
+                             <AlertTriangle className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                             <h3 className="font-bold text-lg mb-2">Đã xảy ra lỗi</h3>
+                             <p className="text-sm opacity-80 mb-6">{(error as Error)?.message || 'Không thể tải danh sách công trình'}</p>
+                             <button
+                                onClick={() => refetch()}
+                                className="px-6 py-2 bg-red-600 text-white rounded-xl text-sm font-bold uppercase tracking-wide hover:bg-red-700 transition-all"
+                            >
+                                Thử lại ngay
+                            </button>
+                        </div>
+                    ) : loading ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 animate-pulse">
+                            {[1, 2, 3, 4, 5, 6].map(i => (
+                                <div key={i} className="h-48 bg-white rounded-xl border border-gray-100 shadow-sm" />
+                            ))}
                         </div>
                     ) : projects.length === 0 ? (
                         <div className="bg-white rounded-2xl p-12 text-center border border-dashed border-gray-200">
@@ -137,7 +151,7 @@ export default function ContractorProjectsPage() {
                                 <Building2 className="w-8 h-8 text-gray-300" />
                             </div>
                             <h3 className="text-sm font-black text-gray-900 uppercase mb-1">Chưa có công trình</h3>
-                            <p className="text-xs text-gray-500">Bạn chưa tạo công trình nào trong hệ thống.</p>
+                            <p className="text-xs text-gray-500">Bạn chưa có công trình nào trong hệ thống hoặc do dữ liệu đang được đồng bộ.</p>
                         </div>
                     ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">

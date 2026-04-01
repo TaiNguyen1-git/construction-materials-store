@@ -5,7 +5,9 @@
  * Visualizes income flow and material costs
  */
 
-import { useState, useEffect } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import React from 'react'
+import { fetchWithAuth } from '@/lib/api-client'
 import {
     Wallet, TrendingUp, TrendingDown, ArrowUpRight, ArrowDownRight,
     Calendar, Briefcase, ShoppingCart, Loader2, AlertCircle
@@ -32,29 +34,20 @@ interface FinanceData {
     projects: FinanceProject[]
 }
 
-export default function FinancialDashboard() {
-    const [loading, setLoading] = useState(true)
-    const [data, setData] = useState<FinanceData | null>(null)
-
-
-    useEffect(() => {
-        fetchFinance()
-    }, [])
-
-    const fetchFinance = async () => {
-        try {
-            const token = localStorage.getItem('access_token')
-            const res = await fetch('/api/contractors/finance', {
-                headers: { 'Authorization': token ? `Bearer ${token}` : '' }
-            })
-            const json = await res.json()
-            if (json.success) setData(json.data)
-        } catch (err) {
-            console.error('Fetch finance failed')
-        } finally {
-            setLoading(false)
-        }
+function FinancialDashboardComponent() {
+    const fetchFinance = async (): Promise<FinanceData> => {
+        const res = await fetchWithAuth('/api/contractors/finance')
+        if (!res.ok) throw new Error('Fetch finance failed')
+        const json = await res.json()
+        if (!json.success) throw new Error('Data not success')
+        return json.data
     }
+
+    const { data, isLoading: loading, error } = useQuery({
+        queryKey: ['contractor-finance'],
+        queryFn: fetchFinance,
+        staleTime: 5 * 60 * 1000 // Cache for 5 minutes
+    })
 
     const formatCurrency = (amt: number) => new Intl.NumberFormat('vi-VN').format(amt) + 'đ'
 
@@ -164,3 +157,5 @@ export default function FinancialDashboard() {
         </div>
     )
 }
+
+export default React.memo(FinancialDashboardComponent)

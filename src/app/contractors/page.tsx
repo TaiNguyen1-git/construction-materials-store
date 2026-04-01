@@ -166,9 +166,9 @@ export default function ContractorMarketplace() {
                                 <span className="text-[10px] font-black uppercase tracking-[0.4em]">Đối tác tin cậy - Vững xây tương lai</span>
                             </div>
 
-                            <h1 className="text-6xl md:text-8xl font-black text-white mb-8 tracking-tight leading-[1.2] animate-fade-in-up delay-100 uppercase">
+                            <h1 className="text-6xl md:text-8xl font-black text-white mb-8 tracking-tight leading-[1.4] animate-fade-in-up delay-100 uppercase">
                                 Vươn Tầm <br />
-                                <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-cyan-200 to-blue-500 italic pr-4">Kiến Trúc</span>
+                                <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-cyan-200 to-blue-500 italic pr-4 inline-block py-2">Kiến Trúc</span>
                             </h1>
 
                             <p className="text-xl text-slate-300 font-medium leading-relaxed max-w-2xl mb-12 animate-fade-in-up delay-200 mx-auto lg:mx-0">

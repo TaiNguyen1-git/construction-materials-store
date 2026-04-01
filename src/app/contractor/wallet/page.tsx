@@ -23,11 +23,30 @@ import { toast } from 'react-hot-toast'
 import { useAuth } from '@/contexts/auth-context'
 import { fetchWithAuth } from '@/lib/api-client'
 
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+
+interface Transaction {
+    id: string
+    createdAt: string
+    description: string
+    type: string
+    amount: number
+}
+
+interface WalletData {
+    wallet: {
+        balance: number
+        totalEarned: number
+        transactions: Transaction[]
+    }
+    referralCode: string
+    totalReferrals: number
+}
+
 export default function ContractorWalletPage() {
-    const { user } = useAuth()
+    const { user, isAuthenticated } = useAuth()
+    const queryClient = useQueryClient()
     const [sidebarOpen, setSidebarOpen] = useState(true)
-    const [data, setData] = useState<any>(null)
-    const [loading, setLoading] = useState(true)
     const [showWithdrawModal, setShowWithdrawModal] = useState(false)
     const [withdrawing, setWithdrawing] = useState(false)
     const [withdrawForm, setWithdrawForm] = useState({
@@ -38,26 +57,19 @@ export default function ContractorWalletPage() {
     })
     const router = useRouter()
 
-    useEffect(() => {
-        if (user) {
-            fetchWalletData()
-        }
-    }, [user])
-
-    const fetchWalletData = async () => {
-        try {
-            const res = await fetchWithAuth('/api/contractors/wallet')
-
-            const result = await res.json()
-            if (result.success) {
-                setData(result.data)
-            }
-        } catch (err) {
-            console.error('Error fetching wallet:', err)
-        } finally {
-            setLoading(false)
-        }
+    const fetchWalletData = async (): Promise<WalletData> => {
+        const res = await fetchWithAuth('/api/contractors/wallet')
+        if (!res.ok) throw new Error('Fetch wallet failed')
+        const result = await res.json()
+        return result.data
     }
+
+    const { data, isLoading: loading } = useQuery({
+        queryKey: ['contractor-wallet'],
+        queryFn: fetchWalletData,
+        enabled: isAuthenticated,
+        staleTime: 2 * 60 * 1000 // Cache for 2 minutes
+    })
 
     const copyReferralCode = () => {
         if (data?.referralCode) {
@@ -103,7 +115,7 @@ export default function ContractorWalletPage() {
                 toast.success('Yêu cầu rút tiền đã được gửi! Chúng tôi sẽ xử lý trong 24h.')
                 setShowWithdrawModal(false)
                 setWithdrawForm({ amount: '', bankName: '', accountNumber: '', accountHolder: '' })
-                fetchWalletData() // Refresh wallet data
+                queryClient.invalidateQueries({ queryKey: ['contractor-wallet'] })
             } else {
                 toast.error(result.error?.message || 'Không thể xử lý yêu cầu rút tiền')
             }

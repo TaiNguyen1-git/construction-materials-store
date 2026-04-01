@@ -1,14 +1,24 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import Sidebar from '../components/Sidebar'
 import ContractorHeader from '../components/ContractorHeader'
 import { useAuth } from '@/contexts/auth-context'
 import { fetchWithAuth } from '@/lib/api-client'
 import { Receipt, Download, FileText, CheckCircle, Clock, AlertTriangle, Eye } from 'lucide-react'
 import FormModal from '@/components/FormModal'
+import { useQuery } from '@tanstack/react-query'
 
-// ... existing interfaces ...
+const getStatusInfo = (status: string) => {
+    switch (status) {
+        case 'SENT': return { label: 'Đã phát hành', color: 'bg-green-100 text-green-800', icon: CheckCircle }
+        case 'DRAFT': return { label: 'Nháp', color: 'bg-gray-100 text-gray-800', icon: FileText }
+        case 'PENDING_SIGN': return { label: 'Chờ ký số', color: 'bg-orange-100 text-orange-800', icon: Clock }
+        case 'CANCELLED': return { label: 'Đã hủy', color: 'bg-red-100 text-red-800', icon: AlertTriangle }
+        default: return { label: status, color: 'bg-gray-100 text-gray-800', icon: FileText }
+    }
+}
+
 interface Invoice {
     id: string
     invoiceNumber: string
@@ -27,19 +37,6 @@ interface InvoiceItem {
     total: number
 }
 
-// ... existing InvoiceDetail interface ...
-
-// ... inside component ...
-const getStatusInfo = (status: string) => {
-    switch (status) {
-        case 'SENT': return { label: 'Đã phát hành', color: 'bg-green-100 text-green-800', icon: CheckCircle }
-        case 'DRAFT': return { label: 'Nháp', color: 'bg-gray-100 text-gray-800', icon: FileText }
-        case 'PENDING_SIGN': return { label: 'Chờ ký số', color: 'bg-orange-100 text-orange-800', icon: Clock }
-        case 'CANCELLED': return { label: 'Đã hủy', color: 'bg-red-100 text-red-800', icon: AlertTriangle }
-        default: return { label: status, color: 'bg-gray-100 text-gray-800', icon: FileText }
-    }
-}
-
 interface InvoiceDetail extends Invoice {
     items: InvoiceItem[]
     buyerName: string
@@ -50,47 +47,39 @@ interface InvoiceDetail extends Invoice {
 }
 
 export default function ContractorInvoicesPage() {
-    const { user } = useAuth()
+    const { user, isAuthenticated } = useAuth()
     const [sidebarOpen, setSidebarOpen] = useState(true)
-    const [invoices, setInvoices] = useState<Invoice[]>([])
-    const [loading, setLoading] = useState(true)
     const [viewingInvoice, setViewingInvoice] = useState<InvoiceDetail | null>(null)
 
-    // ... (keep useEffect & fetchInvoices) ...
-    useEffect(() => {
-        if (user) {
-            fetchInvoices()
-        }
-    }, [user])
-
-    const fetchInvoices = async () => {
-        setLoading(true)
+    const fetchInvoices = async (): Promise<Invoice[]> => {
         try {
             const res = await fetchWithAuth('/api/enterprise/invoices')
             if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`)
 
             const data = await res.json()
             if (data.success && data.data.invoices.length > 0) {
-                setInvoices(data.data.invoices)
-            } else {
-                // FALLBACK: Use Mock Data if DB is empty for demo purpose
-                console.log('Using mock data for demo')
-                setInvoices([
-                    { id: 'mock-1', invoiceNumber: 'HD2024000123', sellerName: 'Công ty SmartBuild', totalAmount: 55000000, status: 'SENT', createdAt: '2024-05-15T08:30:00Z', pdfUrl: '#' },
-                    { id: 'mock-2', invoiceNumber: 'HD2024000124', sellerName: 'Nhà máy Thép Hòa Phát', totalAmount: 125000000, status: 'PENDING_SIGN', createdAt: '2024-05-18T10:15:00Z', pdfUrl: '#' },
-                    { id: 'mock-3', invoiceNumber: 'HD2024000125', sellerName: 'Xi măng Vicem', totalAmount: 8900000, status: 'DRAFT', createdAt: '2024-05-20T14:20:00Z', pdfUrl: '#' }
-                ])
+                return data.data.invoices
             }
+            // FALLBACK: Use Mock Data if DB is empty for demo purpose
+            return [
+                { id: 'mock-1', invoiceNumber: 'HD2024000123', sellerName: 'Công ty SmartBuild', totalAmount: 55000000, status: 'SENT', createdAt: '2024-05-15T08:30:00Z', pdfUrl: '#' },
+                { id: 'mock-2', invoiceNumber: 'HD2024000124', sellerName: 'Nhà máy Thép Hòa Phát', totalAmount: 125000000, status: 'PENDING_SIGN', createdAt: '2024-05-18T10:15:00Z', pdfUrl: '#' },
+                { id: 'mock-3', invoiceNumber: 'HD2024000125', sellerName: 'Xi măng Vicem', totalAmount: 8900000, status: 'DRAFT', createdAt: '2024-05-20T14:20:00Z', pdfUrl: '#' }
+            ]
         } catch (error) {
             console.error('Failed to fetch invoices', error)
-            // Error Fallback
-            setInvoices([
+            return [
                 { id: 'mock-error-1', invoiceNumber: 'HD-DEMO-001', sellerName: 'Demo Data (API Error)', totalAmount: 10000000, status: 'SENT', createdAt: new Date().toISOString() },
-            ])
-        } finally {
-            setLoading(false)
+            ]
         }
     }
+
+    const { data: invoices = [], isLoading: loading } = useQuery({
+        queryKey: ['contractor-invoices'],
+        queryFn: fetchInvoices,
+        enabled: isAuthenticated,
+        staleTime: 5 * 60 * 1000 // Cache for 5 minutes
+    })
 
     const handleViewInvoice = async (invoice: Invoice) => {
         try {

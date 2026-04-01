@@ -2,6 +2,7 @@
 
 import { ShoppingBag, ArrowRight, Package, Clock, CheckCircle, XCircle, Plus } from 'lucide-react'
 import Link from 'next/link'
+import React from 'react'
 
 interface Order {
     id: string
@@ -17,7 +18,7 @@ interface RecentOrdersWidgetProps {
     orders: Order[]
 }
 
-export default function RecentOrdersWidget({ orders }: RecentOrdersWidgetProps) {
+function RecentOrdersWidgetComponent({ orders }: RecentOrdersWidgetProps) {
     const formatCurrency = (val: number) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val)
 
     // Status color mapping
@@ -119,3 +120,5 @@ export default function RecentOrdersWidget({ orders }: RecentOrdersWidgetProps) 
         </div>
     )
 }
+
+export default React.memo(RecentOrdersWidgetComponent)

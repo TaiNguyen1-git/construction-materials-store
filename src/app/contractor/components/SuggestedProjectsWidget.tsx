@@ -1,9 +1,11 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import Link from 'next/link'
 import { fetchWithAuth } from '@/lib/api-client'
 import { Briefcase, Target, ArrowRight, Zap, Clock, MapPin, Coins } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
+import React from 'react'
 
 interface SuggestedProject {
     id: string
@@ -38,41 +40,25 @@ interface SuggestedProjectsWidgetProps {
     displayMode?: 'list' | 'grid'
 }
 
-export default function SuggestedProjectsWidget({ displayMode = 'list' }: SuggestedProjectsWidgetProps) {
-    const [projects, setProjects] = useState<SuggestedProject[]>([])
-    const [loading, setLoading] = useState(true)
-    const [error, setError] = useState<string | null>(null)
-
-    useEffect(() => {
-        fetchSuggestedProjects()
-    }, [])
-
-    const fetchSuggestedProjects = async () => {
-        try {
-            setLoading(true)
-            const res = await fetchWithAuth('/api/marketplace/projects/suggested')
-
-            if (res.ok) {
-                const data = await res.json()
-                if (data.success) {
-                    // Combine urgent and matching, prioritize urgent
-                    const combined = [
-                        ...(data.data.urgent || []),
-                        ...(data.data.matching || []),
-                        ...(data.data.recent || [])
-                    ].slice(0, 6)
-                    setProjects(combined)
-                }
-            } else {
-                setError('Không thể tải dữ liệu')
-            }
-        } catch (err) {
-            console.error('Failed to fetch suggested projects:', err)
-            setError('Lỗi kết nối')
-        } finally {
-            setLoading(false)
-        }
+function SuggestedProjectsWidgetComponent({ displayMode = 'list' }: SuggestedProjectsWidgetProps) {
+    const fetchSuggestedProjects = async (): Promise<SuggestedProject[]> => {
+        const res = await fetchWithAuth('/api/marketplace/projects/suggested')
+        if (!res.ok) throw new Error('Không thể tải dữ liệu')
+        const data = await res.json()
+        if (!data.success) throw new Error('Lỗi phản hồi dữ liệu')
+        // Combine urgent and matching, prioritize urgent
+        return [
+            ...(data.data.urgent || []),
+            ...(data.data.matching || []),
+            ...(data.data.recent || [])
+        ].slice(0, 6)
     }
+
+    const { data: projects = [], isLoading: loading, error } = useQuery({
+        queryKey: ['suggested-projects'],
+        queryFn: fetchSuggestedProjects,
+        staleTime: 5 * 60 * 1000 // Cache for 5 minutes
+    })
 
     const formatCurrency = (amount: number) => {
         if (amount >= 1000000000) {
@@ -122,7 +108,7 @@ export default function SuggestedProjectsWidget({ displayMode = 'list' }: Sugges
     if (error) {
         return (
             <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 text-center">
-                <p className="text-gray-500 text-sm">{error}</p>
+                <p className="text-gray-500 text-sm">{error.message}</p>
             </div>
         )
     }
@@ -268,3 +254,5 @@ export default function SuggestedProjectsWidget({ displayMode = 'list' }: Sugges
         </div>
     )
 }
+
+export default React.memo(SuggestedProjectsWidgetComponent)

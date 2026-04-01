@@ -8,6 +8,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '@/contexts/auth-context'
 import { fetchWithAuth } from '@/lib/api-client'
 import Sidebar from '../components/Sidebar'
@@ -32,51 +33,36 @@ interface DashboardStats {
 export default function ContractorDashboardPage() {
     const { user, isAuthenticated, isLoading } = useAuth()
     const [sidebarOpen, setSidebarOpen] = useState(true)
-    const [profile, setProfile] = useState<ContractorProfile | null>(null)
     const router = useRouter()
 
-    const [stats, setStats] = useState<DashboardStats | null>(null)
-    const [statsLoading, setStatsLoading] = useState(true)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const [recentOrders, setRecentOrders] = useState<any[]>([])
-
     useEffect(() => {
-        if (!isLoading) {
-            if (!isAuthenticated) {
-                router.push('/login')
-            } else {
-                fetchProfile()
-                fetchStats()
-            }
+        if (!isLoading && !isAuthenticated) {
+            router.push('/login')
         }
     }, [isAuthenticated, isLoading, router])
 
-    const fetchProfile = async () => {
-        try {
+    const { data: profile } = useQuery({
+        queryKey: ['contractor-profile'],
+        queryFn: async () => {
             const res = await fetchWithAuth('/api/contractors/profile')
-            if (res.ok) {
-                const result = await res.json()
-                setProfile(result.data)
-            }
-        } catch (err) {
-            console.error('Error fetching profile:', err)
-        }
-    }
+            const result = await res.json()
+            return result.data as ContractorProfile
+        },
+        enabled: isAuthenticated
+    })
 
-    const fetchStats = async () => {
-        try {
+    const { data: statsData, isLoading: statsLoading } = useQuery({
+        queryKey: ['contractor-dashboard-stats'],
+        queryFn: async () => {
             const res = await fetchWithAuth('/api/contractors/dashboard-stats')
             const data = await res.json()
-            if (data.success) {
-                setStats(data.stats)
-                setRecentOrders(data.recentOrders || [])
-            }
-        } catch (err) {
-            console.error('Error fetching stats:', err)
-        } finally {
-            setStatsLoading(false)
-        }
-    }
+            return data.success ? { stats: data.stats, recentOrders: data.recentOrders || [] } : null
+        },
+        enabled: isAuthenticated
+    })
+
+    const stats = statsData?.stats || null
+    const recentOrders = statsData?.recentOrders || []
 
     const handleContactSupport = async () => {
         try {
