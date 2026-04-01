@@ -596,7 +596,11 @@ export default function ChatbotPremium({ customerId, onClose }: ChatbotProps) {
                     toast.error(data.error?.message || 'Failed to get response from chatbot')
                 }
             }
-        } catch (error) {
+        } catch (error: any) {
+            if (error.name === 'AbortError') {
+                console.log('Chatbot request was aborted')
+                return // Exit silently
+            }
             console.error('Chatbot error:', error)
             setIsError(true)
             // Update the temporary message with connection error
@@ -607,7 +611,7 @@ export default function ChatbotPremium({ customerId, onClose }: ChatbotProps) {
                 confidence: 1,
                 timestamp: new Date().toISOString()
             } : m))
-            toast.error('Network error. Please check your connection.')
+            toast.error('Lỗi mạng. Vui lòng kiểm tra kết nối của bạn.')
         } finally {
             setIsLoading(false)
             setIsStreaming(false)

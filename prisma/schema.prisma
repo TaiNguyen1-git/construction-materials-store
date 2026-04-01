@@ -740,6 +740,8 @@ model OrderItem {
   totalPrice  Float
   discount    Float   @default(0)
   notes       String?
+  selectedUnit String?
+  conversionFactor Float? @default(1)
   createdAt   DateTime @default(now())
 
   // Relationships
@@ -1991,6 +1993,8 @@ model CartItem {
   productName String
   quantity    Float
   unit        String
+  selectedUnit String?
+  conversionFactor Float? @default(1)
   unitPrice   Float
   originalPrice Float?
   discountPercent Float? @default(0)

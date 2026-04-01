@@ -405,6 +405,45 @@ export default function HelpCenterPage() {
     const [expandedFaq, setExpandedFaq] = useState<number | null>(null)
     const [dbArticles, setDbArticles] = useState<any[]>([])
     const [showGuestModal, setShowGuestModal] = useState(false)
+    const [feedbackStatus, setFeedbackStatus] = useState<Record<string, 'useful' | 'not-useful'>>({})
+
+    // Load initial feedback from localStorage
+    useEffect(() => {
+        const saved = localStorage.getItem('help_feedback')
+        if (saved) {
+            try {
+                setFeedbackStatus(JSON.parse(saved))
+            } catch (e) {
+                console.error('Parse feedback error:', e)
+            }
+        }
+    }, [])
+
+    const handleFeedback = async (articleId: string, helpful: boolean) => {
+        if (feedbackStatus[articleId]) return
+
+        const newStatus = {
+            ...feedbackStatus,
+            [articleId]: (helpful ? 'useful' : 'not-useful') as 'useful' | 'not-useful'
+        }
+        
+        setFeedbackStatus(newStatus)
+        localStorage.setItem('help_feedback', JSON.stringify(newStatus))
+        toast.success('Cám ơn bạn đã gửi góp ý cho chúng tôi!')
+
+        // Attempt to sync with DB if it's a dynamic article (id doesn't start with 'db-')
+        // Actually, we can try for all, the API will handle it
+        try {
+            await fetch(`/api/help/articles/${articleId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ type: helpful ? 'yes' : 'no' })
+            })
+        } catch (error) {
+            console.error('Feedback sync failed:', error)
+            // Silently fail as this might be a static article or transient network issue
+        }
+    }
 
     const handleChatClick = () => {
         if (user) {
@@ -755,15 +794,34 @@ export default function HelpCenterPage() {
 
                             {/* Helpful? */}
                             <div className="mt-10 pt-8 border-t border-slate-100">
-                                <p className="text-sm text-slate-500 font-medium mb-3">Bài viết này có hữu ích không?</p>
-                                <div className="flex gap-3">
-                                    <button className="px-4 py-2 bg-emerald-50 text-emerald-700 rounded-xl text-sm font-bold hover:bg-emerald-100 transition-colors">
-                                        👍 Có, hữu ích
-                                    </button>
-                                    <button className="px-4 py-2 bg-slate-50 text-slate-600 rounded-xl text-sm font-bold hover:bg-slate-100 transition-colors">
-                                        👎 Chưa giúp được
-                                    </button>
-                                </div>
+                                {feedbackStatus[selectedArticle.id] ? (
+                                    <div className="bg-slate-50 p-4 rounded-2xl flex items-center gap-3 animate-in fade-in slide-in-from-bottom-2">
+                                        <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600">
+                                            <Sparkles className="w-5 h-5" />
+                                        </div>
+                                        <p className="text-sm text-slate-600 font-bold">
+                                            Cảm ơn bạn! Ý kiến đóng góp của bạn đã được ghi nhận.
+                                        </p>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <p className="text-sm text-slate-500 font-medium mb-3">Bài viết này có hữu ích không?</p>
+                                        <div className="flex gap-3">
+                                            <button
+                                                onClick={() => handleFeedback(selectedArticle.id, true)}
+                                                className="px-4 py-2 bg-emerald-50 text-emerald-700 rounded-xl text-sm font-bold hover:bg-emerald-100 transition-colors"
+                                            >
+                                                👍 Có, hữu ích
+                                            </button>
+                                            <button
+                                                onClick={() => handleFeedback(selectedArticle.id, false)}
+                                                className="px-4 py-2 bg-slate-50 text-slate-600 rounded-xl text-sm font-bold hover:bg-slate-100 transition-colors"
+                                            >
+                                                👎 Chưa giúp được
+                                            </button>
+                                        </div>
+                                    </>
+                                )}
                             </div>
                         </article>
                     )}

@@ -122,35 +122,50 @@ export default function CartDrawer() {
                       {/* Quantity Controls */}
                       <div className="flex items-center gap-2">
                         <button
-                          onClick={() => updateQuantity(item.productId, item.quantity - 1)}
-                          className="p-1 hover:bg-white rounded border border-gray-300 transition-colors"
+                          onClick={() => {
+                            const factor = item.conversionFactor || 1
+                            updateQuantity(item.productId, item.quantity - factor)
+                          }}
+                          className="p-1.5 hover:bg-white rounded border border-gray-200 transition-colors shadow-sm"
                           aria-label="Giảm số lượng"
                         >
-                          <Minus className="h-4 w-4" />
+                          <Minus className="h-3.5 w-3.5" />
                         </button>
-                        <input
-                          type="number"
-                          value={item.quantity}
-                          onChange={(e) => {
-                            const value = parseInt(e.target.value) || 0
-                            updateQuantity(item.productId, value)
-                          }}
-                          className="w-16 text-center border border-gray-300 rounded py-1 font-semibold"
-                          min="1"
-                        />
+                        
+                        <div className="flex items-center bg-white border border-gray-200 rounded px-2 min-w-[3rem] h-9">
+                          <input
+                            type="number"
+                            value={item.conversionFactor ? Math.round(item.quantity / item.conversionFactor) : item.quantity}
+                            onChange={(e) => {
+                              const val = parseInt(e.target.value) || 0
+                              const factor = item.conversionFactor || 1
+                              updateQuantity(item.productId, val * factor)
+                            }}
+                            className="w-full text-center bg-transparent font-black text-sm text-slate-800 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            min="1"
+                          />
+                          <span className="text-[10px] font-bold text-gray-400 ml-1 uppercase">
+                            {item.selectedUnit || item.unit}
+                          </span>
+                        </div>
+
                         <button
-                          onClick={() => updateQuantity(item.productId, item.quantity + 1)}
-                          className="p-1 hover:bg-white rounded border border-gray-300 transition-colors"
+                          onClick={() => {
+                            const factor = item.conversionFactor || 1
+                            updateQuantity(item.productId, item.quantity + factor)
+                          }}
+                          className="p-1.5 hover:bg-white rounded border border-gray-200 transition-colors shadow-sm"
                           aria-label="Tăng số lượng"
                         >
-                          <Plus className="h-4 w-4" />
+                          <Plus className="h-3.5 w-3.5" />
                         </button>
+                        
                         <button
                           onClick={() => removeItem(item.productId)}
-                          className="ml-auto p-2 hover:bg-red-50 text-red-600 rounded transition-colors"
+                          className="ml-auto p-2 hover:bg-red-50 text-red-500 rounded-lg transition-colors group"
                           aria-label="Xóa sản phẩm"
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <Trash2 className="h-4 w-4 group-hover:scale-110 transition-transform" />
                         </button>
                       </div>
 

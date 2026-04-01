@@ -18,7 +18,9 @@ const createOrderSchema = z.object({
     productId: z.string(),
     quantity: z.number().min(1),
     unitPrice: z.number(),
-    totalPrice: z.number()
+    totalPrice: z.number(),
+    selectedUnit: z.string().optional().nullable(),
+    conversionFactor: z.number().optional().nullable()
   })),
   shippingAddress: z.object({
     address: z.string(),
@@ -177,7 +179,8 @@ export async function GET(request: NextRequest) {
                   name: true,
                   sku: true,
                   price: true,
-                  images: true
+                  images: true,
+                  unit: true
                 }
               }
             }
@@ -401,6 +404,8 @@ export async function POST(request: NextRequest) {
               quantity: item.quantity,
               unitPrice: item.unitPrice,
               totalPrice: item.totalPrice,
+              selectedUnit: item.selectedUnit,
+              conversionFactor: item.conversionFactor,
               discount: 0
             }))
           }
@@ -415,7 +420,7 @@ export async function POST(request: NextRequest) {
           orderItems: {
             include: {
               product: {
-                select: { id: true, name: true, sku: true, price: true, images: true }
+                select: { id: true, name: true, sku: true, price: true, images: true, unit: true }
               }
             }
           }
@@ -524,8 +529,9 @@ export async function POST(request: NextRequest) {
           totalAmount: order.netAmount,
           items: order.orderItems.map(item => ({
              name: item.product.name,
-             quantity: item.quantity,
-             price: item.unitPrice
+             quantity: (item as any).conversionFactor ? item.quantity / (item as any).conversionFactor : item.quantity,
+             unit: (item as any).selectedUnit || (item.product as any).unit,
+             price: (item as any).conversionFactor ? item.unitPrice * (item as any).conversionFactor : item.unitPrice
           }))
         })
         logger.info('Order confirmation email sent', { orderId: order.id, email: emailToUse })

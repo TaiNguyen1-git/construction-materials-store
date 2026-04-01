@@ -120,12 +120,16 @@ export default function CartPage() {
     const tableRows = items.map((item, index) => {
       const isWholesale = item.wholesalePrice && item.minWholesaleQty && item.quantity >= item.minWholesaleQty
       const unitPrice = isWholesale ? item.wholesalePrice! : item.price
+      const displayUnit = item.selectedUnit || item.unit
+      const factor = item.conversionFactor || 1
+      const displayQuantity = item.quantity / factor
+      
       return [
         index + 1,
         item.name.normalize("NFD").replace(/[\u0300-\u036f]/g, ""),
-        item.unit.normalize("NFD").replace(/[\u0300-\u036f]/g, ""),
-        item.quantity,
-        unitPrice.toLocaleString('vi-VN'),
+        displayUnit.normalize("NFD").replace(/[\u0300-\u036f]/g, ""),
+        displayQuantity,
+        (unitPrice * factor).toLocaleString('vi-VN'),
         (unitPrice * item.quantity).toLocaleString('vi-VN')
       ]
     })
@@ -209,20 +213,44 @@ export default function CartPage() {
 
                       <div className="flex justify-between items-end">
                         <div className="flex items-center gap-4 bg-slate-50/50 rounded-2xl p-1.5 border border-slate-100 shadow-inner">
-                          <button onClick={() => updateQuantity(item.productId, item.quantity - 1)} className="w-9 h-9 flex items-center justify-center rounded-xl bg-white text-slate-400 hover:text-indigo-600 shadow-sm border border-slate-100 text-lg font-black active:scale-90 transition-all">-</button>
-                          <span className="font-black text-base w-8 text-center text-slate-900 italic">{item.quantity}</span>
-                          <button onClick={() => updateQuantity(item.productId, item.quantity + 1)} className="w-9 h-9 flex items-center justify-center rounded-xl bg-white text-slate-400 hover:text-indigo-600 shadow-sm border border-slate-100 text-lg font-black active:scale-90 transition-all">+</button>
+                          <button 
+                            onClick={() => {
+                                const factor = item.conversionFactor || 1
+                                updateQuantity(item.productId, item.quantity - factor)
+                            }} 
+                            className="w-9 h-9 flex items-center justify-center rounded-xl bg-white text-slate-400 hover:text-indigo-600 shadow-sm border border-slate-100 text-lg font-black active:scale-90 transition-all font-black"
+                          >
+                            -
+                          </button>
+                          <div className="flex flex-col items-center min-w-[3rem]">
+                            <span className="font-black text-lg text-slate-900 italic leading-none">
+                              {item.conversionFactor ? Math.round(item.quantity / item.conversionFactor) : item.quantity}
+                            </span>
+                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1">
+                              {item.selectedUnit || item.unit}
+                            </span>
+                          </div>
+                          <button 
+                            onClick={() => {
+                                const factor = item.conversionFactor || 1
+                                updateQuantity(item.productId, item.quantity + factor)
+                            }} 
+                            className="w-9 h-9 flex items-center justify-center rounded-xl bg-white text-slate-400 hover:text-indigo-600 shadow-sm border border-slate-100 text-lg font-black active:scale-90 transition-all font-black"
+                          >
+                            +
+                          </button>
                         </div>
                         <div className="text-right">
                           {(() => {
                             const isWholesale = item.wholesalePrice && item.minWholesaleQty && item.quantity >= item.minWholesaleQty;
                             const actualPrice = isWholesale ? item.wholesalePrice! : item.price;
+                            const factor = item.conversionFactor || 1;
                             return (
                               <>
                                 <p className="text-3xl font-black text-indigo-600 leading-none tracking-tighter">{(actualPrice * item.quantity).toLocaleString()} <span className="text-xs font-black uppercase tracking-widest align-top mt-1 inline-block">VNĐ</span></p>
                                 <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.2em] mt-2">
                                   {isWholesale && <span className="text-emerald-500 mr-2 bg-emerald-50 px-1.5 py-0.5 rounded">GÍA SỈ</span>}
-                                  {actualPrice.toLocaleString()} đ / {item.unit}
+                                  {(actualPrice * factor).toLocaleString()} đ / {item.selectedUnit || item.unit}
                                 </p>
                               </>
                             );

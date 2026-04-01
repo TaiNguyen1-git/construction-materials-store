@@ -13,6 +13,8 @@ export interface CartItem {
   maxStock?: number
   wholesalePrice?: number
   minWholesaleQty?: number
+  selectedUnit?: string
+  conversionFactor?: number
 }
 
 interface CartStore {

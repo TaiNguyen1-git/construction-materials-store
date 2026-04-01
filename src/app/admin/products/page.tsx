@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { toast } from 'react-hot-toast'
 import { fetchWithAuth } from '@/lib/api-client'
 import FormattedNumberInput from '@/components/FormattedNumberInput'
-import { Package, Building, Plus, Tag } from 'lucide-react'
+import { Package, Building, Plus, Tag, Upload, X } from 'lucide-react'
 import ConfirmDialog from '@/components/ConfirmDialog'
 import FormModal from '@/components/FormModal'
 
@@ -178,6 +178,33 @@ export default function ProductsSuppliersPage() {
       }
     } catch { toast.error('Lỗi tải nhà cung cấp') }
     finally { setSuppliersLoading(false) }
+  }
+
+  const [uploadingImage, setUploadingImage] = useState(false)
+  const [inputMode, setInputMode] = useState<'upload' | 'url'>('upload')
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploadingImage(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      const res = await fetchWithAuth('/api/upload', {
+        method: 'POST',
+        body: formData,
+        // FormData handles Content-Type
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setProductForm(f => ({ ...f, images: [...f.images, data.fileUrl] }))
+        toast.success('Đã tải ảnh lên thành công!')
+      }
+    } catch { toast.error('Lỗi khi tải ảnh lên') }
+    finally { setUploadingImage(false) }
+  }
+
+  const removeImage = (index: number) => {
+    setProductForm(f => ({ ...f, images: f.images.filter((_, i) => i !== index) }))
   }
 
   // --- CRUD HANDLERS ---
@@ -397,8 +424,93 @@ export default function ProductsSuppliersPage() {
             </div>
             <div className="flex items-center pt-6">
               <input id="isActive" type="checkbox" checked={productForm.isActive} onChange={e => setProductForm({ ...productForm, isActive: e.target.checked })} className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500" />
-              <label htmlFor="isActive" className="ml-2 block text-sm text-gray-900">Đang hoạt động</label>
+              <label htmlFor="isActive" className="ml-2 block text-sm text-gray-900 font-medium">Đang kinh doanh</label>
             </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Mô tả chi tiết</label>
+            <textarea
+              rows={3}
+              value={productForm.description}
+              onChange={e => setProductForm({ ...productForm, description: e.target.value })}
+              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+              placeholder="Thông số kỹ thuật, ứng dụng, tiêu chuẩn..."
+            />
+          </div>
+          <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+            <label className="block text-sm font-black text-slate-700 mb-3 uppercase tracking-wider">Hình ảnh sản phẩm</label>
+            
+            {/* Image Preview Grid */}
+            <div className="grid grid-cols-4 sm:grid-cols-6 gap-3 mb-4">
+              {productForm.images.length > 0 ? productForm.images.map((img, idx) => (
+                <div key={idx} className="relative aspect-square rounded-xl border-2 border-white shadow-sm overflow-hidden bg-white group ring-1 ring-slate-200">
+                  <img src={img} alt="" className="w-full h-full object-cover" />
+                  <button type="button" onClick={() => removeImage(idx)} className="absolute top-1 right-1 p-1 bg-red-500/90 text-white rounded-full opacity-0 group-hover:opacity-100 transition-all hover:bg-red-600">
+                    <X size={10} strokeWidth={3} />
+                  </button>
+                  {idx === 0 && (
+                    <div className="absolute bottom-0 left-0 right-0 bg-blue-600 text-[8px] text-white text-center font-black py-0.5 uppercase tracking-tighter">
+                      Ảnh chính
+                    </div>
+                  )}
+                </div>
+              )) : (
+                <div className="col-span-full py-8 border-2 border-dashed border-slate-200 rounded-xl flex flex-col items-center justify-center bg-white/50 text-slate-400">
+                  <Package className="w-8 h-8 mb-2 opacity-20" />
+                  <span className="text-[10px] font-bold uppercase tracking-widest opacity-40">Chưa có ảnh nào</span>
+                </div>
+              )}
+            </div>
+
+            {/* Input Selection Tabs */}
+            <div className="flex items-center gap-1 p-1 bg-slate-200/50 rounded-lg w-fit mb-4">
+              <button 
+                type="button" 
+                onClick={() => setInputMode('upload')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-md text-[10px] font-black uppercase tracking-wider transition-all ${inputMode === 'upload' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+              >
+                <Upload size={14} /> Tải từ máy
+              </button>
+              <button 
+                type="button" 
+                onClick={() => setInputMode('url')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-md text-[10px] font-black uppercase tracking-wider transition-all ${inputMode === 'url' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+              >
+                <Tag size={14} /> Dán từ Link
+              </button>
+            </div>
+
+            {inputMode === 'upload' ? (
+              <div className="relative group">
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  className="absolute inset-0 opacity-0 cursor-pointer z-10" 
+                  onChange={handleImageUpload} 
+                  disabled={uploadingImage} 
+                />
+                <div className={`flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-xl transition-all ${uploadingImage ? 'bg-slate-100 border-slate-300' : 'bg-white border-blue-200 group-hover:border-blue-400 group-hover:bg-blue-50/30'}`}>
+                  <Upload className={`w-8 h-8 mb-2 ${uploadingImage ? 'text-slate-400 animate-pulse' : 'text-blue-500'}`} />
+                  <span className="text-[11px] font-bold text-slate-600">
+                    {uploadingImage ? 'Đang xử lý file...' : 'Nhấp hoặc kéo ảnh vào đây để tải lên'}
+                  </span>
+                  <p className="mt-1 text-[9px] text-slate-400">Chấp nhận JPG, PNG, WebP (Tối đa 10MB)</p>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <textarea
+                  rows={3}
+                  value={productForm.images.join('\n')}
+                  onChange={e => setProductForm({ ...productForm, images: e.target.value.split('\n').map(s => s.trim()).filter(s => !!s) })}
+                  className="block w-full rounded-xl border-slate-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-[11px] font-medium text-slate-600 bg-white"
+                  placeholder="Nhập đường dẫn ảnh sản phẩm...&#10;Dán mỗi link trên một dòng mới"
+                />
+                <p className="text-[9px] text-amber-600 font-bold italic px-1">
+                  * Hệ thống sẽ tự động cập nhật danh sách ảnh phía trên theo thời gian thực.
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </FormModal>

@@ -222,7 +222,9 @@ export default function CheckoutPage() {
             productId: item.productId,
             quantity: item.quantity,
             unitPrice: actualPrice,
-            totalPrice: actualPrice * item.quantity
+            totalPrice: actualPrice * item.quantity,
+            selectedUnit: item.selectedUnit || null,
+            conversionFactor: item.conversionFactor || 1
           }
         }),
         shippingAddress: {
@@ -664,7 +666,7 @@ export default function CheckoutPage() {
                           <p className="font-bold text-slate-800 line-clamp-1">{item.name}</p>
                           <p className="text-slate-400 text-[11px] font-medium">
                             {isWholesale && <span className="text-emerald-500 font-bold mr-1">[SỈ]</span>}
-                            {item.quantity} {item.unit} x {actualPrice.toLocaleString()}₫
+                             {item.conversionFactor ? Math.round(item.quantity / item.conversionFactor) : item.quantity} {item.selectedUnit || item.unit} x {(actualPrice * (item.conversionFactor || 1)).toLocaleString()}₫
                           </p>
                         </div>
                         <p className="font-black text-slate-900">{(actualPrice * item.quantity).toLocaleString()}₫</p>

@@ -3,7 +3,7 @@
 import { useState, useEffect, use } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { Package, ShoppingCart, Truck, Shield, RotateCcw, Plus, Minus, Star, Sparkles } from 'lucide-react'
+import { Package, ShoppingCart, Truck, Shield, RotateCcw, Plus, Minus, Star, Sparkles, ChevronLeft, ChevronRight } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import Header from '@/components/Header'
 import WishlistButton from '@/components/WishlistButton'
@@ -12,6 +12,7 @@ import ComparisonBar from '@/components/ComparisonBar'
 import ReviewsSection from '@/components/ReviewsSection'
 import { useCartStore } from '@/stores/cartStore'
 import toast, { Toaster } from 'react-hot-toast'
+import { getAvailableUnits, UnitConversion, convertToBase } from '@/utils/unitConverter'
 
 interface Product {
     id: string
@@ -54,6 +55,8 @@ export default function ProductDetailClient({ params }: { params: Promise<{ id: 
     const [loading, setLoading] = useState(true)
     const [selectedImageIndex, setSelectedImageIndex] = useState(0)
     const [quantity, setQuantity] = useState(1)
+    const [availableUnits, setAvailableUnits] = useState<UnitConversion[]>([])
+    const [selectedUnit, setSelectedUnit] = useState<UnitConversion | null>(null)
     const [similarProducts, setSimilarProducts] = useState<Recommendation[]>([])
     const [loadingSimilar, setLoadingSimilar] = useState(false)
 
@@ -62,6 +65,14 @@ export default function ProductDetailClient({ params }: { params: Promise<{ id: 
             fetchProduct()
         }
     }, [productId])
+
+    useEffect(() => {
+        if (product) {
+            const units = getAvailableUnits(product.unit)
+            setAvailableUnits(units)
+            setSelectedUnit(units[0])
+        }
+    }, [product])
 
     const fetchProduct = async () => {
         try {
@@ -108,17 +119,25 @@ export default function ProductDetailClient({ params }: { params: Promise<{ id: 
 
     const handleQuantityChange = (change: number) => {
         const newQuantity = quantity + change
-        const maxQuantity = product?.inventoryItem?.availableQuantity || 0
-        if (newQuantity >= 1 && newQuantity <= maxQuantity) {
+        const factor = selectedUnit?.factor || 1
+        const maxQuantityInBase = product?.inventoryItem?.availableQuantity || 0
+        
+        if (newQuantity >= 1 && (newQuantity * factor) <= maxQuantityInBase) {
             setQuantity(newQuantity)
+        } else if ((newQuantity * factor) > maxQuantityInBase) {
+            const maxDisplay = Math.floor(maxQuantityInBase / factor)
+            setQuantity(maxDisplay)
+            toast.error(`Chỉ còn ${maxQuantityInBase} ${product?.unit} trong kho`, { id: 'max-stock' })
         }
     }
 
     const handleAddToCart = () => {
-        if (!product) return
+        if (!product || !selectedUnit) return
 
-        if (!product.inventoryItem?.availableQuantity || product.inventoryItem.availableQuantity <= 0) {
-            toast.error('Sản phẩm đã hết hàng!')
+        const baseQuantity = convertToBase(quantity, selectedUnit.factor)
+
+        if (!product.inventoryItem?.availableQuantity || product.inventoryItem.availableQuantity < baseQuantity) {
+            toast.error('Sản phẩm đã hết hàng hoặc không đủ số lượng!')
             return
         }
 
@@ -131,10 +150,12 @@ export default function ProductDetailClient({ params }: { params: Promise<{ id: 
             unit: product.unit || 'pcs',
             image: product.images?.[0],
             maxStock: product.inventoryItem?.availableQuantity,
-            quantity,
+            quantity: baseQuantity,
+            selectedUnit: selectedUnit.label,
+            conversionFactor: selectedUnit.factor
         })
 
-        toast.success(`Đã thêm ${quantity} ${product.name} vào giỏ hàng!`)
+        toast.success(`Đã thêm ${quantity} ${selectedUnit.label} vào giỏ hàng!`)
     }
 
     if (loading) {
@@ -177,22 +198,69 @@ export default function ProductDetailClient({ params }: { params: Promise<{ id: 
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-12">
-                    <div className="lg:col-span-5 space-y-3">
-                        <div className="relative aspect-square bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100 max-h-[480px]">
-                            {product.images && product.images.length > 0 ? (
-                                <Image
-                                    src={product.images[selectedImageIndex]}
-                                    alt={product.name}
-                                    fill
-                                    className="object-contain p-2"
-                                    priority
-                                />
+                    <div className="lg:col-span-5 space-y-4">
+                        <div className="relative aspect-square bg-white rounded-3xl shadow-xl overflow-hidden border border-gray-100 max-h-[480px] group">
+                            {product.images && product.images.length > 0 && product.images[selectedImageIndex] ? (
+                                <>
+                                    <Image
+                                        src={product.images[selectedImageIndex]}
+                                        alt={product.name}
+                                        fill
+                                        className="object-contain p-4 group-hover:scale-105 transition-transform duration-700"
+                                        priority
+                                    />
+                                    {product.images.length > 1 && (
+                                        <>
+                                            <button 
+                                                onClick={(e) => {
+                                                    e.preventDefault();
+                                                    setSelectedImageIndex((prev) => (prev === 0 ? product.images.length - 1 : prev - 1));
+                                                }}
+                                                className="absolute left-4 top-1/2 -translate-y-1/2 p-2 bg-white/80 backdrop-blur-md rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-all hover:bg-white text-slate-800"
+                                            >
+                                                <ChevronLeft className="w-5 h-5" />
+                                            </button>
+                                            <button 
+                                                onClick={(e) => {
+                                                    e.preventDefault();
+                                                    setSelectedImageIndex((prev) => (prev === product.images.length - 1 ? 0 : prev + 1));
+                                                }}
+                                                className="absolute right-4 top-1/2 -translate-y-1/2 p-2 bg-white/80 backdrop-blur-md rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-all hover:bg-white text-slate-800"
+                                            >
+                                                <ChevronRight className="w-5 h-5" />
+                                            </button>
+                                            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 px-3 py-1 bg-black/20 backdrop-blur-md rounded-full text-[10px] text-white font-black italic">
+                                                {selectedImageIndex + 1} / {product.images.length}
+                                            </div>
+                                        </>
+                                    )}
+                                </>
                             ) : (
                                 <div className="w-full h-full flex items-center justify-center bg-gray-50">
                                     <Package className="h-20 w-20 text-gray-300" />
                                 </div>
                             )}
                         </div>
+
+                        {/* Image Gallery Thumbnails */}
+                        {product.images && product.images.length > 1 && (
+                            <div className="flex gap-2.5 overflow-x-auto pb-2 scrollbar-hide">
+                                {product.images.map((img, idx) => (
+                                    <button
+                                        key={idx}
+                                        onClick={() => setSelectedImageIndex(idx)}
+                                        className={`relative w-20 h-20 rounded-xl overflow-hidden shrink-0 border-2 transition-all ${
+                                            selectedImageIndex === idx 
+                                                ? 'border-primary-600 scale-95 shadow-md' 
+                                                : 'border-white hover:border-primary-200'
+                                        }`}
+                                    >
+                                        <Image src={img} alt={`${product.name} shadow-${idx}`} fill className="object-cover" />
+                                        {selectedImageIndex === idx && <div className="absolute inset-0 bg-primary-600/10 backdrop-blur-[1px]"></div>}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
                     </div>
 
                     <div className="lg:col-span-7 space-y-4">
@@ -238,19 +306,116 @@ export default function ProductDetailClient({ params }: { params: Promise<{ id: 
                         </div>
 
                         {inStock && (
-                            <div className="space-y-3">
-                                <div className="grid grid-cols-12 gap-3 pb-2 border-b border-gray-100">
-                                    <div className="col-span-4 flex items-center bg-gray-50 rounded-xl border border-gray-200 h-14">
-                                        <button onClick={() => handleQuantityChange(-1)} disabled={quantity <= 1} className="flex-1 text-center">-</button>
-                                        <span className="w-10 text-center font-bold">{quantity}</span>
-                                        <button onClick={() => handleQuantityChange(1)} className="flex-1 text-center">+</button>
+                            <div className="space-y-6 pt-4 border-t border-slate-100">
+                                {/* Unit Picker */}
+                                {availableUnits.length > 1 && (
+                                    <div className="space-y-3">
+                                        <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Đơn vị nhập hàng</h3>
+                                        <div className="flex flex-wrap gap-2">
+                                            {availableUnits.map((u) => {
+                                                const maxBase = product.inventoryItem?.availableQuantity || 0;
+                                                const maxForUnit = Math.floor(maxBase / u.factor);
+                                                const isDisabled = maxForUnit === 0 && u.factor > 1; // Base unit (factor 1) should never be disabled unless stock is 0
+                                                
+                                                return (
+                                                    <button
+                                                        key={u.name}
+                                                        disabled={isDisabled}
+                                                        onClick={() => {
+                                                            const currentBaseQty = quantity * (selectedUnit?.factor || 1);
+                                                            const newQty = Math.floor(currentBaseQty / u.factor);
+                                                            
+                                                            setSelectedUnit(u);
+                                                            
+                                                            if (newQty * u.factor > maxBase) {
+                                                                const capped = Math.floor(maxBase / u.factor);
+                                                                setQuantity(capped || (maxBase > 0 ? 1 : 0));
+                                                            } else {
+                                                                setQuantity(newQty || (maxBase > 0 ? 1 : 0));
+                                                            }
+                                                        }}
+                                                        className={`px-4 py-2 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all border relative ${
+                                                            isDisabled
+                                                                ? 'bg-slate-50 text-slate-300 border-slate-100 cursor-not-allowed opacity-60 grayscale'
+                                                                : selectedUnit?.name === u.name
+                                                                    ? 'bg-primary-600 text-white border-primary-600 shadow-md shadow-primary-100 scale-105'
+                                                                    : 'bg-white text-slate-500 border-slate-200 hover:border-primary-300 hover:text-primary-600'
+                                                        }`}
+                                                        title={isDisabled ? `Tồn kho (${maxBase}) không đủ 1 ${u.label}` : ''}
+                                                    >
+                                                        {u.label}
+                                                        {maxForUnit > 0 && selectedUnit?.name !== u.name && (
+                                                            <span className="absolute -top-2 -right-2 bg-emerald-500 text-[8px] text-white px-1.5 rounded-sm font-black shadow-sm z-10">
+                                                                TỐI ĐA {maxForUnit}
+                                                            </span>
+                                                        )}
+                                                        {isDisabled && (
+                                                            <span className="absolute -bottom-1 -right-1 bg-red-400 w-2 h-2 rounded-full border border-white"></span>
+                                                        )}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
                                     </div>
-                                    <button
-                                        onClick={handleAddToCart}
-                                        className="col-span-8 bg-primary-600 text-white rounded-xl font-black text-sm h-14"
-                                    >
-                                        MUA NGAY
-                                    </button>
+                                )}
+
+                                <div className="space-y-3">
+                                    <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Số lượng đặt hàng</h3>
+                                    <div className="grid grid-cols-12 gap-3 pb-2">
+                                        <div className="col-span-12 sm:col-span-5 flex flex-col gap-2">
+                                            <div className="flex items-center bg-slate-50 rounded-2xl border border-slate-200 h-16 shadow-inner-sm overflow-hidden group focus-within:border-primary-500 focus-within:ring-2 focus-within:ring-primary-100 transition-all">
+                                                <button 
+                                                    onClick={() => handleQuantityChange(-1)} 
+                                                    disabled={quantity <= 1} 
+                                                    className="w-12 h-full flex items-center justify-center text-slate-400 hover:text-primary-600 hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-transparent transition-colors font-black text-xl"
+                                                >
+                                                    <Minus size={18} />
+                                                </button>
+                                                <input 
+                                                    type="number"
+                                                    value={quantity}
+                                                    onChange={(e) => {
+                                                        const val = parseInt(e.target.value) || 0
+                                                        const factor = selectedUnit?.factor || 1
+                                                        const maxQuantityInBase = product?.inventoryItem?.availableQuantity || 0
+                                                        
+                                                        if ((val * factor) > maxQuantityInBase) {
+                                                            const maxDisplay = Math.floor(maxQuantityInBase / factor)
+                                                            setQuantity(maxDisplay)
+                                                            toast.error(`Chỉ còn ${maxQuantityInBase} ${product?.unit} trong kho`, { id: 'max-stock' })
+                                                        } else {
+                                                            setQuantity(val)
+                                                        }
+                                                    }}
+                                                    onBlur={() => {
+                                                        if (quantity < 1) setQuantity(1)
+                                                    }}
+                                                    className="flex-1 min-w-0 h-full bg-transparent text-center font-black text-lg text-slate-800 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                                />
+                                                <button 
+                                                    onClick={() => handleQuantityChange(1)} 
+                                                    disabled={selectedUnit ? (quantity + 1) * selectedUnit.factor > (product?.inventoryItem?.availableQuantity || 0) : false}
+                                                    className="w-12 h-full flex items-center justify-center text-slate-400 hover:text-primary-600 transition-colors hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-transparent font-black text-xl"
+                                                >
+                                                    <Plus size={18} />
+                                                </button>
+                                            </div>
+                                            
+                                            {selectedUnit && selectedUnit.factor > 1 && (
+                                                <div className="px-2 text-[10px] font-bold text-primary-600 italic animate-in fade-in slide-in-from-left-2 duration-300">
+                                                    = {(quantity * selectedUnit.factor).toLocaleString()} {product?.unit}
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <button
+                                            onClick={handleAddToCart}
+                                            className="col-span-12 sm:col-span-7 bg-gradient-to-r from-primary-600 to-indigo-600 text-white rounded-2xl font-black text-sm h-16 shadow-lg shadow-blue-200 hover:shadow-indigo-300 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3 uppercase tracking-widest"
+                                        >
+                                            <ShoppingCart size={20} />
+                                            <span>MUA NGAY</span>
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         )}
@@ -263,15 +428,29 @@ export default function ProductDetailClient({ params }: { params: Promise<{ id: 
                             <Sparkles size={14} className="text-primary-600" /> Combo Khuyên Dùng
                         </h2>
                         <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-                            {similarProducts.map(p => (
-                                <div key={p.id} className="bg-white p-2 rounded-xl shadow-sm border border-gray-100">
-                                    <div className="aspect-square relative mb-2">
-                                        <Image src={p.images?.[0]} alt={p.name} fill className="object-contain" />
+                            {similarProducts.map(p => {
+                                const imageSrc = p.images?.[0] || ''
+                                return (
+                                    <div key={p.id} className="bg-white p-2 rounded-xl shadow-sm border border-gray-100">
+                                        <div className="aspect-square relative mb-2 bg-gray-50 rounded-lg overflow-hidden">
+                                            {imageSrc ? (
+                                                <Image 
+                                                    src={imageSrc} 
+                                                    alt={p.name} 
+                                                    fill 
+                                                    className="object-contain p-1" 
+                                                />
+                                            ) : (
+                                                <div className="w-full h-full flex items-center justify-center">
+                                                    <Package className="w-8 h-8 text-gray-200" />
+                                                </div>
+                                            )}
+                                        </div>
+                                        <h3 className="text-[10px] font-bold line-clamp-1 text-gray-800">{p.name}</h3>
+                                        <p className="text-xs font-black text-primary-600">{p.price.toLocaleString()}đ</p>
                                     </div>
-                                    <h3 className="text-[10px] font-bold line-clamp-1">{p.name}</h3>
-                                    <p className="text-xs font-black text-primary-600">{p.price.toLocaleString()}đ</p>
-                                </div>
-                            ))}
+                                )
+                            })}
                         </div>
                     </div>
                 )}
