@@ -20,6 +20,10 @@ import {
     Sparkles
 } from 'lucide-react'
 import Header from '@/components/Header'
+import { useRouter } from 'next/navigation'
+import { useAuth } from '@/contexts/auth-context'
+import GuestInfoModal from '@/components/GuestInfoModal'
+import toast, { Toaster } from 'react-hot-toast'
 
 // Số điện thoại Zalo từ biến môi trường
 const ZALO_PHONE = process.env.NEXT_PUBLIC_CONTACT_PHONE || '0987654321'
@@ -393,11 +397,59 @@ const FAQ_ITEMS = [
 ]
 
 export default function HelpCenterPage() {
+    const router = useRouter()
+    const { user } = useAuth()
     const [searchQuery, setSearchQuery] = useState('')
     const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
     const [selectedArticle, setSelectedArticle] = useState<any | null>(null)
     const [expandedFaq, setExpandedFaq] = useState<number | null>(null)
     const [dbArticles, setDbArticles] = useState<any[]>([])
+    const [showGuestModal, setShowGuestModal] = useState(false)
+
+    const handleChatClick = () => {
+        if (user) {
+            router.push('/messages?partnerId=admin_support')
+        } else {
+            setShowGuestModal(true)
+        }
+    }
+
+    const handleGuestSubmit = async (info: { name: string; phone: string; email: string; message: string }) => {
+        const loadingToast = toast.loading('Đang khởi tạo hỗ trợ...')
+        try {
+            // Save guest info to localStorage
+            const guestId = `guest_${Date.now()}`
+            localStorage.setItem('user_id', guestId)
+            localStorage.setItem('user_name', info.name)
+            localStorage.setItem('user_phone', info.phone)
+
+            // Auto-create conversation with admin_support
+            const res = await fetch('/api/chat/conversations', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    senderId: guestId,
+                    senderName: info.name,
+                    recipientId: 'admin_support',
+                    recipientName: 'Hỗ trợ SmartBuild',
+                    initialMessage: info.message || 'Tôi cần hỗ trợ từ trang Trợ giúp'
+                })
+            })
+
+            if (res.ok) {
+                toast.success('Đã kết nối! Đang chuyển đến phòng chat...', { id: loadingToast })
+                setShowGuestModal(false)
+                setTimeout(() => {
+                    router.push('/messages?partnerId=admin_support')
+                }, 1000)
+            } else {
+                toast.error('Không thể khởi tạo chat. Vui lòng thử lại sau.', { id: loadingToast })
+            }
+        } catch (error) {
+            console.error('Guest chat init error:', error)
+            toast.error('Lỗi kết nối hệ thống.', { id: loadingToast })
+        }
+    }
 
     // Fetch dynamic articles
     useEffect(() => {
@@ -411,11 +463,11 @@ export default function HelpCenterPage() {
     const mergedCategories = useMemo(() => {
         const categories = [...HELP_CATEGORIES]
 
-        dbArticles.forEach(article => {
-            const catIndex = categories.findIndex(c => c.title === article.category)
+        dbArticles.forEach((article: any) => {
+            const catIndex = categories.findIndex((c: any) => c.title === article.category)
             if (catIndex > -1) {
                 // Add to existing category
-                if (!categories[catIndex].articles.find(a => a.id === article.id)) {
+                if (!categories[catIndex].articles.find((a: any) => a.id === article.id)) {
                     categories[catIndex].articles.push({
                         id: article.id,
                         title: article.title,
@@ -447,8 +499,8 @@ export default function HelpCenterPage() {
         const query = searchQuery.toLowerCase()
         const results: any[] = []
 
-        mergedCategories.forEach(cat => {
-            cat.articles.forEach(article => {
+        mergedCategories.forEach((cat: any) => {
+            cat.articles.forEach((article: any) => {
                 if (
                     article.title.toLowerCase().includes(query) ||
                     article.content.toLowerCase().includes(query)
@@ -468,6 +520,7 @@ export default function HelpCenterPage() {
     return (
         <>
             <Header />
+            <Toaster position="top-right" />
             <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white pt-20">
                 {/* Hero Section */}
                 <div className="bg-gradient-to-br from-indigo-600 via-blue-600 to-cyan-500 text-white py-16 relative overflow-hidden">
@@ -725,13 +778,13 @@ export default function HelpCenterPage() {
                                 <p className="text-blue-100 font-medium">Đội ngũ hỗ trợ của chúng tôi sẵn sàng giúp bạn 7 ngày/tuần.</p>
                             </div>
                             <div className="flex flex-col sm:flex-row gap-3">
-                                <Link
-                                    href="/messages"
+                                <button
+                                    onClick={handleChatClick}
                                     className="flex items-center justify-center gap-2 px-6 py-3 bg-white text-indigo-600 rounded-2xl font-bold hover:bg-blue-50 transition-colors shadow-lg"
                                 >
                                     <MessageCircle className="w-5 h-5" />
                                     Chat ngay
-                                </Link>
+                                </button>
                                 <a
                                     href={`https://zalo.me/${ZALO_PHONE.replace(/[^0-9]/g, '')}`}
                                     target="_blank"
@@ -744,6 +797,12 @@ export default function HelpCenterPage() {
                         </div>
                     </div>
                 </div>
+
+                <GuestInfoModal 
+                    isOpen={showGuestModal} 
+                    onClose={() => setShowGuestModal(false)}
+                    onSubmit={handleGuestSubmit}
+                />
             </div>
         </>
     )
