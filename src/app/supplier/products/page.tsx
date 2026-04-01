@@ -11,7 +11,8 @@ import {
     CheckCircle2,
     Upload,
     Loader2,
-    AlertCircle
+    AlertCircle,
+    Trash2
 } from 'lucide-react'
 import Image from 'next/image'
 
@@ -154,6 +155,30 @@ export default function SupplierProducts() {
             fetchProducts()
         } catch (error) {
             console.error('Toggle status error:', error)
+        }
+    }
+
+    const handleDelete = async (id: string, name: string) => {
+        if (!confirm(`Bạn có chắc chắn muốn xóa sản phẩm "${name}" vĩnh viễn không?`)) return;
+
+        try {
+            const token = localStorage.getItem('supplier_token')
+            const res = await fetch(`/api/supplier/products?id=${id}`, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            })
+            const data = await res.json()
+            if (res.ok && data.success) {
+                setMessage({ type: 'success', text: 'Đã xóa sản phẩm thành công' })
+                fetchProducts()
+                setTimeout(() => setMessage(null), 3000)
+            } else {
+                setMessage({ type: 'error', text: data.message || 'Không thể xóa sản phẩm. Có thể sản phẩm đã được liên kết với một đơn hàng.' })
+            }
+        } catch (error) {
+            setMessage({ type: 'error', text: 'Lỗi kết nối khi xóa sản phẩm' })
         }
     }
 
@@ -300,152 +325,142 @@ export default function SupplierProducts() {
                 </div>
             )}
 
-            {/* Product Grid/Table */}
-            <div className="bg-white rounded-[2.5rem] border border-slate-200/60 shadow-xl shadow-slate-200/40 overflow-hidden">
-                <div className="overflow-x-auto custom-scrollbar">
-                    <table className="w-full">
-                        <thead className="bg-slate-50/50">
-                            <tr>
-                                <th className="px-8 py-6 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Thông tin sản phẩm</th>
-                                <th className="px-8 py-6 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Danh mục</th>
-                                <th className="px-8 py-6 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Giá niêm yết</th>
-                                <th className="px-8 py-6 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Kho khả dụng</th>
-                                <th className="px-8 py-6 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Trạng thái</th>
-                                <th className="px-8 py-6 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">Hành động</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                            {filteredProducts.length > 0 ? (
-                                filteredProducts.map((product) => {
-                                    const isEditing = editingId === product.id;
-                                    const stock = product.inventoryItem?.availableQuantity || 0;
+            {/* Product Grid */}
+            {filteredProducts.length === 0 ? (
+                <div className="bg-white rounded-[2.5rem] border border-slate-200/60 shadow-xl shadow-slate-200/40 py-32 flex flex-col items-center justify-center grayscale opacity-50">
+                    <Package className="w-20 h-20 mb-6 text-slate-300" />
+                    <p className="text-xl font-black uppercase tracking-[0.3em] text-slate-400">Không tìm thấy sản phẩm</p>
+                </div>
+            ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                    {filteredProducts.map((product) => {
+                        const isEditing = editingId === product.id;
+                        const stock = product.inventoryItem?.availableQuantity || 0;
 
-                                    return (
-                                        <tr key={product.id} className={`group transition-all duration-300 ${isEditing ? 'bg-blue-50/30' : 'hover:bg-slate-50/50'}`}>
-                                            <td className="px-8 py-6">
-                                                <div className="flex items-center gap-5">
-                                                    <div className="w-16 h-16 relative rounded-2xl bg-slate-100 overflow-hidden border border-slate-200 shadow-sm group-hover:scale-105 transition-transform duration-300">
-                                                        {product.images?.[0] ? (
-                                                            <Image
-                                                                src={product.images[0]}
-                                                                alt={product.name}
-                                                                fill
-                                                                className="object-cover"
-                                                            />
-                                                        ) : (
-                                                            <div className="w-full h-full flex items-center justify-center bg-slate-100 text-slate-300">
-                                                                <Package className="w-8 h-8" />
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                    <div>
-                                                        <p className="font-bold text-slate-900 group-hover:text-blue-600 transition-colors line-clamp-1">{product.name}</p>
-                                                        <div className="flex items-center gap-2 mt-1">
-                                                            <span className="text-[10px] font-black bg-slate-100 text-slate-500 px-2 py-0.5 rounded-md uppercase tracking-tighter">SKU</span>
-                                                            <span className="text-xs font-mono text-slate-400">{product.sku}</span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td className="px-8 py-6">
-                                                <span className="px-3 py-1 bg-indigo-50 text-indigo-600 text-[10px] font-black rounded-lg uppercase tracking-wide">
-                                                    {product.category?.name}
-                                                </span>
-                                            </td>
-                                            <td className="px-8 py-6">
-                                                {isEditing ? (
-                                                    <div className="relative">
-                                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold">đ</span>
-                                                        <input
-                                                            type="number"
-                                                            className="w-40 pl-8 pr-4 py-2 bg-white border-2 border-blue-600 rounded-xl outline-none shadow-lg shadow-blue-100 font-bold text-slate-900"
-                                                            value={editData.price}
-                                                            onChange={(e) => setEditData({ ...editData, price: Number(e.target.value) })}
-                                                        />
-                                                    </div>
-                                                ) : (
-                                                    <span className="text-lg font-black text-slate-900">{formatCurrency(product.price)}</span>
-                                                )}
-                                            </td>
-                                            <td className="px-8 py-6">
-                                                {isEditing ? (
+                        return (
+                            <div key={product.id} className="group bg-white rounded-[2rem] border border-slate-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 overflow-hidden flex flex-col relative">
+                                {/* Action Overlay (visible on hover) */}
+                                {!isEditing && (
+                                    <div className="absolute inset-x-0 top-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 flex justify-end gap-2 bg-gradient-to-b from-black/50 to-transparent">
+                                        <button
+                                            onClick={() => handleToggleActive(product.id, product.isActive)}
+                                            className="w-10 h-10 bg-white/90 backdrop-blur text-slate-700 rounded-xl flex items-center justify-center hover:bg-white hover:text-blue-600 transition-all shadow-lg"
+                                            title="Bật/Tắt"
+                                        >
+                                            {product.isActive ? <CheckCircle2 className="w-5 h-5 text-emerald-500" /> : <AlertCircle className="w-5 h-5 text-rose-500" />}
+                                        </button>
+                                        <button
+                                            onClick={() => handleEdit(product)}
+                                            className="w-10 h-10 bg-white/90 backdrop-blur text-slate-700 rounded-xl flex items-center justify-center hover:bg-blue-600 hover:text-white transition-all shadow-lg"
+                                            title="Sửa nhanh"
+                                        >
+                                            <Edit2 className="w-5 h-5" />
+                                        </button>
+                                        <button
+                                            onClick={() => handleDelete(product.id, product.name)}
+                                            className="w-10 h-10 bg-white/90 backdrop-blur text-slate-700 rounded-xl flex items-center justify-center hover:bg-rose-50 hover:text-rose-600 transition-all shadow-lg"
+                                            title="Xóa vĩnh viễn"
+                                        >
+                                            <Trash2 className="w-5 h-5" />
+                                        </button>
+                                    </div>
+                                )}
+
+                                {/* Image Area */}
+                                <div className="aspect-[4/3] w-full relative bg-slate-50 overflow-hidden">
+                                    {product.images?.[0] ? (
+                                        <Image
+                                            src={product.images[0]}
+                                            alt={product.name}
+                                            fill
+                                            className={`object-cover transition-transform duration-700 ${!isEditing ? 'group-hover:scale-105' : ''} ${!product.isActive ? 'grayscale opacity-70' : ''}`}
+                                        />
+                                    ) : (
+                                        <div className="w-full h-full flex items-center justify-center text-slate-300">
+                                            <Package className="w-16 h-16" />
+                                        </div>
+                                    )}
+                                    {/* Stock Badge Overlay */}
+                                    <div className="absolute bottom-3 left-3 flex items-center gap-1.5 px-3 py-1.5 bg-white/90 backdrop-blur-md rounded-xl shadow-sm border border-white/20">
+                                        <div className={`w-2 h-2 rounded-full ${stock > 10 ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`} />
+                                        <span className={`text-[10px] font-black uppercase tracking-widest ${stock > 10 ? 'text-emerald-700' : 'text-rose-700'}`}>
+                                            {isEditing ? (
+                                                <input
+                                                    type="number"
+                                                    className="w-16 bg-transparent outline-none border-b border-slate-300 text-center text-slate-900"
+                                                    value={editData.availableQuantity}
+                                                    onChange={(e) => setEditData({ ...editData, availableQuantity: Number(e.target.value) })}
+                                                />
+                                            ) : (
+                                                `${stock} có sẵn`
+                                            )}
+                                        </span>
+                                    </div>
+                                    {!product.isActive && (
+                                        <div className="absolute inset-0 flex items-center justify-center bg-slate-900/30 backdrop-blur-[2px]">
+                                            <span className="px-4 py-2 bg-rose-500 text-white text-[10px] font-black rounded-lg uppercase tracking-widest shadow-xl rotate-12">Đã ngưng bán</span>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Content Area */}
+                                <div className="p-6 flex flex-col flex-1 bg-white relative z-10">
+                                    <div className="flex items-center justify-between mb-3 gap-2">
+                                        <span className="px-2.5 py-1 bg-slate-100/80 text-slate-500 text-[9px] font-black rounded-lg uppercase tracking-widest line-clamp-1 border border-slate-200/50">
+                                            {product.category?.name || 'Khác'}
+                                        </span>
+                                        <div className="flex items-center gap-1.5 shrink-0">
+                                            <span className="text-[9px] font-black bg-slate-100/80 text-slate-400 px-1.5 py-0.5 rounded-md uppercase tracking-widest border border-slate-200/50">SKU</span>
+                                            <span className="text-[10px] font-mono font-bold text-slate-500">{product.sku}</span>
+                                        </div>
+                                    </div>
+
+                                    <h3 className="text-lg font-black text-slate-900 leading-tight mb-4 flex-1 group-hover:text-blue-600 transition-colors line-clamp-2">
+                                        {product.name}
+                                    </h3>
+
+                                    <div className="flex items-end justify-between mt-auto">
+                                        <div className="w-full">
+                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Giá Sỉ B2B</p>
+                                            {isEditing ? (
+                                                <div className="relative">
+                                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold">đ</span>
                                                     <input
                                                         type="number"
-                                                        className="w-24 px-4 py-2 bg-white border-2 border-blue-600 rounded-xl outline-none shadow-lg shadow-blue-100 font-bold text-slate-900"
-                                                        value={editData.availableQuantity}
-                                                        onChange={(e) => setEditData({ ...editData, availableQuantity: Number(e.target.value) })}
+                                                        className="w-full pl-8 pr-3 py-2.5 bg-white border-2 border-blue-600 rounded-xl outline-none shadow-lg shadow-blue-100 font-bold text-slate-900 text-lg"
+                                                        value={editData.price}
+                                                        onChange={(e) => setEditData({ ...editData, price: Number(e.target.value) })}
                                                     />
-                                                ) : (
-                                                    <div className="flex items-center gap-3">
-                                                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black ${stock > 10 ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'
-                                                            }`}>
-                                                            {stock}
-                                                        </div>
-                                                        <span className={`text-[10px] font-black uppercase tracking-widest ${stock > 10 ? 'text-emerald-500' : 'text-rose-500'
-                                                            }`}>
-                                                            {stock > 10 ? 'Ổn định' : 'Gần hết'}
-                                                        </span>
-                                                    </div>
-                                                )}
-                                            </td>
-                                            <td className="px-8 py-6">
-                                                <button
-                                                    onClick={() => handleToggleActive(product.id, product.isActive)}
-                                                    className={`group/btn relative px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-300 ${product.isActive
-                                                        ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white'
-                                                        : 'bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white'
-                                                        }`}
-                                                >
-                                                    <span className="relative z-10">{product.isActive ? 'Đang kích hoạt' : 'Tạm ngưng'}</span>
-                                                </button>
-                                            </td>
-                                            <td className="px-8 py-6">
-                                                <div className="flex items-center justify-center gap-2">
-                                                    {isEditing ? (
-                                                        <>
-                                                            <button
-                                                                onClick={() => handleSave(product.id)}
-                                                                className="w-10 h-10 bg-emerald-500 text-white rounded-xl flex items-center justify-center hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-100"
-                                                                title="Lưu"
-                                                            >
-                                                                <Save className="w-5 h-5" />
-                                                            </button>
-                                                            <button
-                                                                onClick={() => setEditingId(null)}
-                                                                className="w-10 h-10 bg-slate-100 text-slate-400 rounded-xl flex items-center justify-center hover:bg-slate-200 transition-all font-bold"
-                                                                title="Hủy"
-                                                            >
-                                                                <X className="w-5 h-5" />
-                                                            </button>
-                                                        </>
-                                                    ) : (
-                                                        <button
-                                                            onClick={() => handleEdit(product)}
-                                                            className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center hover:bg-blue-600 hover:text-white transition-all group-hover:shadow-lg group-hover:shadow-blue-100"
-                                                            title="Chỉnh sửa nhanh"
-                                                        >
-                                                            <Edit2 className="w-4 h-4" />
-                                                        </button>
-                                                    )}
                                                 </div>
-                                            </td>
-                                        </tr>
-                                    );
-                                })
-                            ) : (
-                                <tr>
-                                    <td colSpan={6} className="px-8 py-32 text-center">
-                                        <div className="flex flex-col items-center justify-center grayscale opacity-10">
-                                            <Package className="w-20 h-20 mb-6" />
-                                            <p className="text-xl font-black uppercase tracking-[0.3em]">Không có dữ liệu</p>
+                                            ) : (
+                                                <p className="text-xl font-black text-slate-900">{formatCurrency(product.price)}</p>
+                                            )}
                                         </div>
-                                    </td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
+                                    </div>
+
+                                    {/* Action row when strictly editing */}
+                                    {isEditing && (
+                                        <div className="mt-5 flex items-center justify-end gap-3 pt-5 border-t border-slate-100">
+                                            <button
+                                                onClick={() => setEditingId(null)}
+                                                className="flex-[1] py-3 bg-slate-100 text-slate-500 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-200 transition-all"
+                                            >
+                                                Hủy
+                                            </button>
+                                            <button
+                                                onClick={() => handleSave(product.id)}
+                                                className="flex-[2] py-3 bg-emerald-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-200 flex items-center justify-center gap-2"
+                                            >
+                                                <Save className="w-4 h-4" /> Lưu Lại
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )
+                    })}
                 </div>
-            </div>
+            )}
 
             {/* Create Product Modal */}
             {isCreating && (

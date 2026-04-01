@@ -146,3 +146,43 @@ export async function PATCH(request: NextRequest) {
         )
     }
 }
+
+// DELETE /api/supplier/products - Delete a product
+export async function DELETE(request: NextRequest) {
+    try {
+        const { searchParams } = new URL(request.url)
+        const id = searchParams.get('id')
+
+        if (!id) {
+            return NextResponse.json(
+                createErrorResponse('Product ID required', 'VALIDATION_ERROR'),
+                { status: 400 }
+            )
+        }
+
+        // Check if product exists
+        const product = await prisma.product.findUnique({
+            where: { id }
+        })
+
+        if (!product) {
+            return NextResponse.json(
+                createErrorResponse('Product not found', 'NOT_FOUND'),
+                { status: 404 }
+            )
+        }
+
+        // Delete product
+        await prisma.product.delete({
+            where: { id }
+        })
+
+        return NextResponse.json(createSuccessResponse(null, 'Xóa sản phẩm thành công'))
+    } catch (error) {
+        console.error('Delete supplier product error:', error)
+        return NextResponse.json(
+             createErrorResponse('Không thể xóa sản phẩm. Có thể sản phẩm này đã được liên kết với một đơn hàng.', 'SERVER_ERROR'),
+             { status: 500 }
+        )
+    }
+}
