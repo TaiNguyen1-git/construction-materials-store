@@ -1,0 +1,72 @@
+/**
+ * @description Centralized permission constants for the construction materials store.
+ * Use these keys to guard UI and API actions.
+ */
+
+export const PERMISSIONS = {
+  // Orders Module
+  ORDERS_VIEW: 'ORD_VIEW',
+  ORDERS_CREATE: 'ORD_CREATE',
+  ORDERS_EDIT_PRICE: 'ORD_EDIT_PRICE',
+  ORDERS_DELETE: 'ORD_DELETE',
+  ORDERS_PRINT: 'ORD_PRINT',
+  ORDERS_APPROVE_DEPOSIT: 'ORD_APPROVE_DEPOSIT',
+
+  // Store Operations Module
+  OPS_DISPATCH: 'OPS_DISPATCH',
+  OPS_CASH_CONFIRM: 'OPS_CASH_CONFIRM',
+  OPS_EXPENSE_CREATE: 'OPS_EXPENSE_CREATE',
+  OPS_QUOTE_CREATE: 'OPS_QUOTE_CREATE',
+
+  // Inventory Module
+  INV_VIEW: 'INV_VIEW',
+  INV_EDIT: 'INV_EDIT',
+  INV_STOCK_IN_OUT: 'INV_STOCK_IN_OUT',
+
+  // Customers & Organizations
+  CUS_VIEW: 'CUS_VIEW',
+  CUS_EDIT: 'CUS_EDIT',
+  ORG_MANAGE: 'ORG_MANAGE',
+
+  // Finance Module
+  FIN_VIEW_REPORTS: 'FIN_VIEW_REPORTS',
+  FIN_PAYROLL_MANAGE: 'FIN_PAYROLL_MANAGE',
+
+  // HR Module
+  HRM_VIEW: 'HRM_VIEW',
+  HRM_EDIT: 'HRM_EDIT',
+
+  // System Module
+  SYS_AUDIT_VIEW: 'SYS_AUDIT_VIEW',
+  SYS_USER_MANAGE: 'SYS_USER_MANAGE',
+  SYS_SETTINGS: 'SYS_SETTINGS',
+} as const;
+
+export type Permission = typeof PERMISSIONS[keyof typeof PERMISSIONS];
+
+/**
+ * Predefined role mappings (Defaults)
+ */
+export const ROLE_PERMISSIONS: Record<string, Permission[]> = {
+  MANAGER: Object.values(PERMISSIONS), // All access
+  EMPLOYEE: [
+    PERMISSIONS.ORDERS_VIEW,
+    PERMISSIONS.ORDERS_CREATE,
+    PERMISSIONS.OPS_QUOTE_CREATE,
+    PERMISSIONS.INV_VIEW,
+    PERMISSIONS.CUS_VIEW,
+  ],
+  ACCOUNTANT: [
+    PERMISSIONS.ORDERS_VIEW,
+    PERMISSIONS.OPS_CASH_CONFIRM,
+    PERMISSIONS.OPS_EXPENSE_CREATE,
+    PERMISSIONS.FIN_VIEW_REPORTS,
+    PERMISSIONS.FIN_PAYROLL_MANAGE,
+  ],
+  WAREHOUSE_STAFF: [
+    PERMISSIONS.INV_VIEW,
+    PERMISSIONS.INV_EDIT,
+    PERMISSIONS.INV_STOCK_IN_OUT,
+    PERMISSIONS.OPS_DISPATCH,
+  ],
+};

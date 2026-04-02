@@ -6,6 +6,7 @@ import authService, { AuthState, LoginCredentials, RegisterData, AuthResponse } 
 import { User } from '@prisma/client'
 import SessionPromptModal from '@/components/auth/SessionPromptModal'
 import { getDefaultRedirectPath } from '@/lib/auth-redirect'
+import { ROLE_PERMISSIONS, Permission } from '@/lib/permissions'
 
 // Define the context type
 interface AuthContextType {
@@ -28,6 +29,7 @@ interface AuthContextType {
   dismiss2FAPrompt: () => Promise<void>
   acceptSession: () => Promise<void>
   declineSession: () => void
+  hasPermission: (permission: string) => boolean
 }
 
 // Create the context
@@ -259,6 +261,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }))
   }
 
+  // Core Permission Checker
+  const hasPermission = (permission: string): boolean => {
+    if (!authState.user) return false
+    
+    // Managers have full access (*)
+    if (authState.user.role === 'MANAGER') return true
+
+    // Check custom permissions from DB if available
+    const userPermissions = (authState.user as any).permissions as string[] | undefined
+    if (userPermissions && userPermissions.length > 0) {
+      return userPermissions.includes(permission)
+    }
+
+    // Fallback to role-based default permissions
+    const defaultPermissions = ROLE_PERMISSIONS[authState.user.role] || []
+    return defaultPermissions.includes(permission as Permission)
+  }
+
   // Context value
   const contextValue: AuthContextType = {
     user: authState.user,
@@ -280,6 +300,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     dismiss2FAPrompt,
     acceptSession,
     declineSession,
+    hasPermission,
   }
 
   return (

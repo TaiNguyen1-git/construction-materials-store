@@ -51,6 +51,7 @@ import { LucideIcon } from 'lucide-react'
 import NotificationBell from '@/components/NotificationBell'
 import AdminPushManager from '@/components/admin/AdminPushManager'
 import { useAuth } from '@/contexts/auth-context'
+import GlobalSearch from '@/components/admin/GlobalSearch'
 
 interface NavItem {
   name: string;
@@ -161,6 +162,7 @@ export default function AdminLayout({
       icon: Settings,
       roles: ['MANAGER'],
       items: [
+        { name: 'Quản Lý Vai Trò', href: '/admin/settings/roles', icon: ShieldCheck },
         { name: 'Thông Báo Hệ Thống', href: '/admin/announcements', icon: Bell },
         { name: 'Quản Lý Banner', href: '/admin/banners', icon: Star },
         { name: 'Báo Cáo Lợi Nhuận', href: '/admin/financial-reports', icon: PieChart },
@@ -399,13 +401,19 @@ export default function AdminLayout({
             </button>
           </div>
 
-          {/* Breadcrumbs or Page Title */}
-          <div className="hidden md:flex items-center gap-2">
-            <div className="p-2 bg-slate-100 rounded-lg text-slate-400">
-              <Building className="w-4 h-4" />
+          {/* Breadcrumbs & Global Search */}
+          <div className="hidden md:flex items-center gap-8 flex-1">
+            <div className="flex items-center gap-2">
+              <div className="p-2 bg-slate-100 rounded-lg text-slate-400">
+                <Building className="w-4 h-4" />
+              </div>
+              <ChevronRight className="w-4 h-4 text-slate-300" />
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Dashboard</span>
             </div>
-            <ChevronRight className="w-4 h-4 text-slate-300" />
-            <span className="text-xs font-black text-slate-400 uppercase tracking-widest">SmartBuild Dashboard</span>
+            
+            <div className="max-w-md w-full">
+              <GlobalSearch />
+            </div>
           </div>
 
           <div className="flex items-center gap-6">
