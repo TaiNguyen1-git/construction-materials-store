@@ -2,6 +2,8 @@
 
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { fetchWithAuth } from '@/lib/api-client'
+import toast from 'react-hot-toast'
+import { formatCurrency, formatNumber } from '@/lib/format-utils'
 
 // Components
 import DashboardSkeleton from './components/dashboard/DashboardSkeleton'
@@ -41,8 +43,8 @@ export default function AdminDashboard() {
       const result = await resp.json()
       return result.data as DashboardData
     },
-    staleTime: 5 * 60000, // 5 minutes
-    refetchInterval: 60000 // Refresh every minute in background
+    staleTime: 5 * 60000, 
+    refetchInterval: 60000 
   })
 
   // Fetch AI Summary with TanStack Query
@@ -60,13 +62,15 @@ export default function AdminDashboard() {
   const handleSendReport = async () => {
     try {
       const res = await fetchWithAuth('/api/admin/reports/trigger?type=DAILY')
-      if (res.ok) alert('📊 Báo cáo ngày đã được gửi tới email!')
-      else alert('❌ Lỗi khi gửi báo cáo')
-    } catch (e) {}
+      if (res.ok) {
+        toast.success('📊 Báo cáo ngày đã được gửi tới email!')
+      } else {
+        toast.error('❌ Lỗi khi gửi báo cáo')
+      }
+    } catch (e) {
+      toast.error('❌ Hệ thống đang bận, vui lòng thử lại sau.')
+    }
   }
-
-  const formatCurrency = (v: number) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', minimumFractionDigits: 0 }).format(v)
-  const formatNumber = (v: number) => new Intl.NumberFormat('vi-VN').format(v)
 
   if (dashboardLoading) return <DashboardSkeleton />
 

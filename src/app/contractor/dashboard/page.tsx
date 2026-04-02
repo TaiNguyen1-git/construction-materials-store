@@ -5,51 +5,24 @@
  * Main dashboard for verified contractors with Financial Insights
  */
 
-import { useState, useEffect } from 'react'
-import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '@/contexts/auth-context'
 import { fetchWithAuth } from '@/lib/api-client'
-import Sidebar from '../components/Sidebar'
-import ContractorHeader from '../components/ContractorHeader'
+import { useRouter } from 'next/navigation'
+import toast from 'react-hot-toast'
+
+// Components
 import SuggestedProjectsWidget from '../components/SuggestedProjectsWidget'
 import NotificationPrefsWidget from '../components/NotificationPrefsWidget'
 import FinancialDashboard from '@/components/contractor/FinancialDashboard'
-import ContractorOnboardingBanner from '@/components/ContractorOnboardingBanner'
 import StatsOverview from '@/components/contractor/StatsOverview'
-import { Building2, Users as UsersIcon } from 'lucide-react'
 import RecentOrdersWidget from '@/components/contractor/RecentOrdersWidget'
-import { ContractorProfile } from '@prisma/client'
-
-interface DashboardStats {
-    activeProjects: number
-    pendingOrders: number
-    unreadNotifications: number
-    totalSpent: number
-    thisMonthSpent: number
-}
+import { Building2, Users as UsersIcon } from 'lucide-react'
+import Link from 'next/link'
 
 export default function ContractorDashboardPage() {
-    const { user, isAuthenticated, isLoading } = useAuth()
-    const [sidebarOpen, setSidebarOpen] = useState(true)
+    const { isAuthenticated } = useAuth()
     const router = useRouter()
-
-    useEffect(() => {
-        if (!isLoading && !isAuthenticated) {
-            router.push('/login')
-        }
-    }, [isAuthenticated, isLoading, router])
-
-    const { data: profile } = useQuery({
-        queryKey: ['contractor-profile'],
-        queryFn: async () => {
-            const res = await fetchWithAuth('/api/contractors/profile')
-            const result = await res.json()
-            return result.data as ContractorProfile
-        },
-        enabled: isAuthenticated
-    })
 
     const { data: statsData, isLoading: statsLoading } = useQuery({
         queryKey: ['contractor-dashboard-stats'],
@@ -72,91 +45,84 @@ export default function ContractorDashboardPage() {
 
             const data = await res.json()
             if (data.success && data.conversationId) {
-                // Redirect to messages page with specific conversation open
                 router.push(`/contractor/messages?id=${data.conversationId}`)
             } else {
-                alert('Hiện tại tổng đài đang bận, vui lòng thử lại sau.')
+                toast.error('Hiện tại tổng đài đang bận, vui lòng thử lại sau.')
             }
         } catch (err) {
             console.error('Support connection failed:', err)
-            // Fallback to general messages
+            toast.error('Không thể kết nối với hỗ trợ.')
             router.push('/contractor/messages')
         }
     }
 
     return (
-        <div className="min-h-screen bg-gray-50 flex flex-col">
-            <ContractorHeader sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
-            <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+            {/* Stats Overview */}
+            <StatsOverview 
+                stats={stats || { activeProjects: 0, pendingOrders: 0, unreadNotifications: 0, totalSpent: 0, thisMonthSpent: 0 }} 
+                loading={statsLoading} 
+            />
 
-            {/* Main Content */}
-            <main className={`flex-1 pt-[60px] transition-all duration-300 ${sidebarOpen ? 'lg:ml-64' : 'ml-0'}`}>
-                <div className="p-4 lg:p-6 max-w-7xl mx-auto">
-                    {/* Stats Overview */}
-                    <StatsOverview stats={stats || { activeProjects: 0, pendingOrders: 0, unreadNotifications: 0, totalSpent: 0, thisMonthSpent: 0 }} loading={statsLoading} />
+            <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
+                <div className="xl:col-span-8 space-y-8">
+                    {/* 1. HERO: Dự án phù hợp */}
+                    <section>
+                        <SuggestedProjectsWidget displayMode="grid" />
+                    </section>
 
-                    <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
-                        {/* MAIN CONTENT (Chiếm 8/12 cột ~ 66%) */}
-                        <div className="xl:col-span-8 space-y-8">
-                            {/* 1. HERO: Dự án phù hợp - Ưu tiên số 1 */}
-                            <section>
-                                <SuggestedProjectsWidget displayMode="grid" />
-                            </section>
+                    {/* 2. Tài chính */}
+                    <section>
+                        <FinancialDashboard />
+                    </section>
 
-                            {/* 2. Tài chính - Cần không gian rộng */}
-                            <section>
-                                <FinancialDashboard />
-                            </section>
-
-                            {/* 3. Đơn hàng - Xếp dưới cùng */}
-                            <section>
-                                <div className="bg-white rounded-2xl p-1 border border-gray-100 shadow-sm overflow-hidden">
-                                    <RecentOrdersWidget orders={recentOrders} />
-                                </div>
-                            </section>
+                    {/* 3. Đơn hàng */}
+                    <section>
+                        <div className="bg-white rounded-[2.5rem] p-2 border border-gray-100 shadow-sm overflow-hidden">
+                            <RecentOrdersWidget orders={recentOrders} />
                         </div>
+                    </section>
+                </div>
 
-                        {/* RIGHT SIDEBAR (Chiếm 4/12 cột ~ 33%) - Sticky */}
-                        <div className="xl:col-span-4 space-y-6 xl:sticky xl:top-[80px]">
-                            {/* Thông báo - Luôn hiển thị ở trên cùng sidebar */}
-                            <NotificationPrefsWidget />
+                {/* Right Sidebar Widgets */}
+                <div className="xl:col-span-4 space-y-6">
+                    <NotificationPrefsWidget />
 
-                            {/* Tổ chức B2B */}
-                            <div className="bg-gradient-to-br from-indigo-900 to-primary-900 rounded-2xl p-6 text-white text-center shadow-lg relative overflow-hidden">
-                                <div className="relative z-10">
-                                    <h3 className="font-bold mb-2 text-left flex items-center gap-2">
-                                        <UsersIcon className="w-5 h-5 text-indigo-300" />
-                                        Tổ chức B2B
-                                    </h3>
-                                    <p className="text-indigo-100 text-[11px] mb-4 text-left leading-relaxed">Quản lý đội ngũ thợ, phân quyền thu mua và chia sẻ dự án trong tổ chức của bạn.</p>
-                                    <Link href="/contractor/organization" className="block outline-none">
-                                        <button className="bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs font-bold py-2.5 px-4 rounded-xl transition-all w-full backdrop-blur-md">
-                                            Quản lý đội nhóm
-                                        </button>
-                                    </Link>
-                                </div>
-                                <div className="absolute top-[-20px] right-[-20px] opacity-10">
-                                    <Building2 className="w-24 h-24" />
-                                </div>
-                            </div>
-
-                            {/* Banner hỗ trợ */}
-                            <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm relative overflow-hidden">
-                                <div className="relative z-10">
-                                    <h3 className="font-bold mb-2 text-gray-900">Cần hỗ trợ?</h3>
-                                    <p className="text-gray-500 text-xs mb-4">Đội ngũ CSKH chuyên nghiệp luôn sẵn sàng 24/7</p>
-                                    <button
-                                        onClick={handleContactSupport}
-                                        className="bg-indigo-600 text-white text-sm font-bold py-2.5 px-4 rounded-xl hover:bg-indigo-700 transition-all w-full shadow-md hover:shadow-lg active:scale-95 transform duration-150"
-                                    >
-                                        Chat ngay
-                                    </button>
-                                </div>
-                            </div>
+                    {/* B2B Organization */}
+                    <div className="bg-gradient-to-br from-indigo-900 to-primary-900 rounded-[2.5rem] p-10 text-white relative overflow-hidden shadow-xl shadow-indigo-100 group">
+                        <div className="relative z-10">
+                            <h3 className="font-black text-xl mb-2 flex items-center gap-3">
+                                <UsersIcon className="w-6 h-6 text-indigo-300" />
+                                Tổ chức B2B
+                            </h3>
+                            <p className="text-indigo-100 text-[10px] mb-8 opacity-70 leading-relaxed uppercase tracking-[0.2em] font-black">Hợp tác & Quản trị thợ</p>
+                            <Link href="/contractor/organization">
+                                <button className="bg-white text-indigo-900 text-[11px] font-black py-4 px-6 rounded-2xl transition-all w-full shadow-lg hover:bg-slate-100 uppercase tracking-widest active:scale-95">
+                                    Quản lý đội nhóm
+                                </button>
+                            </Link>
+                        </div>
+                        <div className="absolute top-[-20px] right-[-20px] opacity-10 group-hover:scale-125 transition-transform duration-1000">
+                            <Building2 className="w-48 h-48" />
                         </div>
                     </div>
+
+                    {/* Support Banner */}
+                    <div className="bg-white rounded-[2.5rem] p-10 border border-gray-100 shadow-sm relative overflow-hidden group">
+                        <div className="relative z-10">
+                            <h3 className="font-black text-gray-900 text-xl mb-1">Cần hỗ trợ?</h3>
+                            <p className="text-gray-500 text-xs mb-8 font-bold uppercase tracking-widest opacity-60">Đội ngũ chuyên nghiệp 24/7</p>
+                            <button
+                                onClick={handleContactSupport}
+                                className="bg-slate-900 text-white text-[11px] font-black py-4 px-6 rounded-2xl hover:bg-black transition-all w-full shadow-lg uppercase tracking-widest active:scale-95"
+                            >
+                                Chat ngay
+                            </button>
+                        </div>
+                        <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-indigo-50/50 rounded-full group-hover:scale-150 transition-transform duration-1000"></div>
+                    </div>
                 </div>
-            </main>
+            </div>
         </div>
     )
 }

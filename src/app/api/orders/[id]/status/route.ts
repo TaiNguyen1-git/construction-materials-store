@@ -72,10 +72,10 @@ export async function PUT(
     }
 
 
-    // TODO: Add trackingNumber to Order schema or handle it differently
-    // if (trackingNumber) {
-    //   (updateData as any).trackingNumber = trackingNumber
-    // }
+    // Add trackingNumber to Order (now in schema)
+    if (trackingNumber) {
+      updateData.trackingNumber = trackingNumber
+    }
 
     if (note) {
       updateData.notes = note
@@ -220,14 +220,6 @@ export async function PUT(
     if (status === 'CONFIRMED' || status === 'CONFIRMED_AWAITING_DEPOSIT') {
       const customerEmail = updatedOrder.customer?.user?.email || updatedOrder.guestEmail
       const customerName = updatedOrder.customer?.user?.name || updatedOrder.guestName || 'Quý khách'
-
-      console.log('📧 Email Debug (status route):', {
-        customerEmail,
-        customerName,
-        guestEmail: updatedOrder.guestEmail,
-        status,
-        orderNumber: updatedOrder.orderNumber
-      })
 
       if (customerEmail) {
         import('@/lib/email-service').then(({ EmailService }) => {

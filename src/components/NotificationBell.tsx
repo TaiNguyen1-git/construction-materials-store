@@ -344,6 +344,13 @@ export default function NotificationBell() {
         } else {
           window.location.href = `/order-tracking?orderId=${notification.referenceId}`
         }
+      } else if (notification.referenceType === 'MILESTONE') {
+        const isContractor = window.location.pathname.startsWith('/contractor')
+        if (isContractor) {
+          window.location.href = `/contractor/projects` // Could be more specific if we had project ID
+        } else {
+          window.location.href = `/account/projects`
+        }
       } else if (notification.referenceType === 'PRODUCT' || notification.type === 'LOW_STOCK' || notification.type === 'REORDER_NEEDED') {
         if (isAdmin) {
           window.location.href = `/admin/products`

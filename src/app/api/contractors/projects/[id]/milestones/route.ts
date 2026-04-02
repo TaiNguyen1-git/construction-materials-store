@@ -54,8 +54,7 @@ export async function POST(
                 percentage: 0, // Calculated or set by user
                 order: milestoneCount + 1,
                 status: 'PENDING',
-                // TODO: Verify if dueDate exists in PaymentMilestone schema
-                // dueDate: dueDate ? new Date(dueDate) : null
+                dueDate: dueDate ? new Date(dueDate) : null
             }
         })
 

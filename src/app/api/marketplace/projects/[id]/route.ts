@@ -14,7 +14,7 @@ export async function GET(
     try {
         const { id } = await params
 
-        const project = await prisma.constructionProject.findUnique({
+        let project = await prisma.constructionProject.findUnique({
             where: { id },
             include: {
                 applications: {
@@ -25,7 +25,39 @@ export async function GET(
                     }
                 }
             }
-        })
+        }) as any
+
+        // Fallback to internal Project if not found in marketplace
+        if (!project) {
+            const internalProject = await (prisma as any).project.findUnique({
+                where: { id },
+                include: {
+                    customer: { select: { user: { select: { name: true } } } }
+                }
+            })
+
+            if (internalProject) {
+                // Map internal Project to marketplace format
+                project = {
+                    id: internalProject.id,
+                    title: internalProject.name,
+                    description: internalProject.description || '',
+                    projectType: internalProject.category || 'OTHER',
+                    location: internalProject.location || '',
+                    city: internalProject.location?.split(',').pop()?.trim() || 'Biên Hòa',
+                    estimatedBudget: internalProject.budget,
+                    budgetType: 'NEGOTIABLE',
+                    requirements: [],
+                    materialsNeeded: [],
+                    contactName: internalProject.guestName || internalProject.customer?.user?.name || 'Khách hàng',
+                    status: internalProject.status,
+                    isUrgent: false,
+                    viewCount: internalProject.progress, // dummy or other metric
+                    createdAt: internalProject.createdAt,
+                    applications: []
+                }
+            }
+        }
 
         if (!project) {
             return NextResponse.json(
@@ -34,11 +66,15 @@ export async function GET(
             )
         }
 
-        // Increment view count
-        await prisma.constructionProject.update({
-            where: { id },
-            data: { viewCount: project.viewCount + 1 }
-        })
+        // Increment view count if it's a real construction project
+        if (project.viewCount !== undefined && (!project.status || project.status === 'OPEN')) {
+            try {
+                await prisma.constructionProject.update({
+                    where: { id },
+                    data: { viewCount: (project.viewCount || 0) + 1 }
+                }).catch(() => { /* Ignore fallback errors */ })
+            } catch (e) {}
+        }
 
         return NextResponse.json(
             createSuccessResponse(project, 'Project loaded'),

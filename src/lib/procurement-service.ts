@@ -382,6 +382,16 @@ export class ProcurementService {
             }
         })
 
+        // Gửi thông báo cho nhà cung cấp
+        import('./notification-service').then(({ createPONotificationForSupplier }) => {
+            createPONotificationForSupplier({
+                id: purchaseOrder.id,
+                orderNumber: purchaseOrder.orderNumber,
+                supplierId: purchaseOrder.supplierId,
+                netAmount: purchaseOrder.netAmount
+            }).catch(err => console.error('Notify supplier error:', err))
+        }).catch(() => { })
+
         return purchaseOrder
     }
 

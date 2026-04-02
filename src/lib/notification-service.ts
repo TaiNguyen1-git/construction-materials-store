@@ -21,6 +21,7 @@ export interface Notification {
   productName?: string
   orderId?: string
   orderNumber?: string
+  milestoneId?: string
   data?: Record<string, unknown>
 }
 
@@ -267,9 +268,6 @@ export async function getAllNotifications(): Promise<Notification[]> {
 /**
  * Save notification to database for a specific user
  */
-/**
- * Save notification to database for a specific user
- */
 export async function saveNotificationForUser(notification: Notification, userId: string, userRole: string = 'CUSTOMER') {
   // 1. Save to Database
   await prisma.notification.create({
@@ -280,8 +278,8 @@ export async function saveNotificationForUser(notification: Notification, userId
       message: notification.message,
       priority: notification.priority as Priority,
       read: false,
-      referenceId: notification.orderId || notification.productId,
-      referenceType: notification.orderId ? 'ORDER' : notification.productId ? 'PRODUCT' : null,
+      referenceId: notification.orderId || notification.productId || notification.milestoneId,
+      referenceType: notification.orderId ? 'ORDER' : notification.productId ? 'PRODUCT' : notification.milestoneId ? 'MILESTONE' : null,
       metadata: (notification.data || {}) as any
     }
   })
@@ -297,12 +295,67 @@ export async function saveNotificationForUser(notification: Notification, userId
     read: false,
     createdAt: new Date().toISOString(),
     data: notification.data,
-    referenceId: notification.orderId || notification.productId,
-    referenceType: notification.orderId ? 'ORDER' : notification.productId ? 'PRODUCT' : undefined
+    referenceId: notification.orderId || notification.productId || notification.milestoneId,
+    referenceType: notification.orderId ? 'ORDER' : notification.productId ? 'PRODUCT' : notification.milestoneId ? 'MILESTONE' : undefined
   }).catch(err => console.error('Firebase push error (non-critical):', err))
 
   // 3. Auto-cleanup old notifications in Firebase
   cleanupOldFirebaseNotifications(userId, 100).catch(() => { })
+}
+
+/**
+ * Save notification to database for a specific supplier
+ */
+export async function saveNotificationForSupplier(notification: Notification, supplierId: string) {
+  // 1. Save to Database
+  await prisma.notification.create({
+    data: {
+      supplierId,
+      type: notification.type as NotificationType,
+      title: notification.title,
+      message: notification.message,
+      priority: notification.priority as Priority,
+      read: false,
+      referenceId: notification.orderId || notification.productId,
+      referenceType: notification.orderId ? 'ORDER' : notification.productId ? 'PRODUCT' : null,
+      metadata: (notification.data || {}) as any
+    }
+  })
+
+  // 2. Push to Firebase (supplier's personal path using supplierId)
+  pushNotificationToFirebase({
+    userId: supplierId,
+    userRole: 'SUPPLIER',
+    type: notification.type,
+    title: notification.title,
+    message: notification.message,
+    priority: notification.priority,
+    read: false,
+    createdAt: new Date().toISOString(),
+    data: notification.data,
+    referenceId: notification.orderId || notification.productId,
+    referenceType: notification.orderId ? 'ORDER' : notification.productId ? 'PRODUCT' : undefined
+  }).catch(err => console.error('Firebase push error (supplier):', err))
+  
+  // 3. Email notification for high priority
+  if (notification.priority === 'HIGH') {
+    const supplier = await prisma.supplier.findUnique({
+      where: { id: supplierId },
+      select: { email: true, name: true }
+    })
+    
+    if (supplier?.email) {
+      const email = supplier.email
+      import('@/lib/email-service').then(({ EmailService }) => {
+        EmailService.sendGenericNotificationEmail({
+          email: email!,
+          subject: notification.title,
+          message: notification.message,
+          priority: 'HIGH'
+        })
+      }).catch(() => {})
+    }
+  }
 }
 
 /**
@@ -716,4 +769,29 @@ export async function notifyMatchingContractors(project: {
 
     await saveNotificationForUser(notification, userId, 'CUSTOMER')
   }
+}
+
+/**
+ * Notify supplier of new Purchase Order
+ */
+export async function createPONotificationForSupplier(po: {
+  id: string
+  orderNumber: string
+  supplierId: string
+  netAmount: number
+}) {
+  const notification: Notification = {
+    type: 'ORDER_NEW',
+    priority: 'HIGH',
+    title: `Đơn đặt hàng mới: ${po.orderNumber}`,
+    message: `Bạn nhận được đơn đặt hàng mới với tổng giá trị ${po.netAmount.toLocaleString('vi-VN')}đ`,
+    orderId: po.id,
+    data: {
+      poId: po.id,
+      orderNumber: po.orderNumber,
+      netAmount: po.netAmount
+    }
+  }
+
+  await saveNotificationForSupplier(notification, po.supplierId)
 }

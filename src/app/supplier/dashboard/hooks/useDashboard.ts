@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react'
 import { Clock, RotateCcw, Star } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { formatCurrency as formatCurrencyUtil } from '@/lib/format-utils'
 
 interface DashboardStats {
     totalOrders: number
@@ -35,6 +36,11 @@ export function useDashboard() {
             const supplierId = localStorage.getItem('supplier_id')
             const token = localStorage.getItem('supplier_token')
 
+            if (!supplierId || !token) {
+                // If no local storage, possibly handled by layout auth check
+                return
+            }
+
             const res = await fetch(`/api/supplier/dashboard?supplierId=${supplierId}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             })
@@ -47,30 +53,32 @@ export function useDashboard() {
 
                     // Generate performance alerts
                     const alerts: PerformanceAlert[] = []
-                    if (data.data.stats.pendingOrders > 5) {
+                    const s = data.data.stats
+                    
+                    if (s.pendingOrders > 5) {
                         alerts.push({
                             type: 'warning',
-                            title: `${data.data.stats.pendingOrders} PO chờ xử lý`,
+                            title: `${s.pendingOrders} PO chờ xử lý`,
                             description: 'Phản hồi PO trong 4 tiếng để giữ tỷ lệ phản hồi nhanh',
                             action: 'Xem đơn hàng',
                             link: '/supplier/orders',
                             icon: Clock
                         })
                     }
-                    if (data.data.stats.returnRate && data.data.stats.returnRate > 5) {
+                    if (s.returnRate && s.returnRate > 5) {
                         alerts.push({
                             type: 'critical',
-                            title: `Tỷ lệ trả hàng ${data.data.stats.returnRate}%`,
+                            title: `Tỷ lệ trả hàng ${s.returnRate}%`,
                             description: 'Kiểm tra chất lượng đóng gói ngay',
                             action: 'Kiểm tra trả hàng',
                             link: '/supplier/returns',
                             icon: RotateCcw
                         })
                     }
-                    if (data.data.stats.avgRating && data.data.stats.avgRating < 4.0) {
+                    if (s.avgRating && s.avgRating < 4.0) {
                         alerts.push({
                             type: 'warning',
-                            title: `Đánh giá Tệ: ${data.data.stats.avgRating}/5`,
+                            title: `Đánh giá Tệ: ${s.avgRating}/5`,
                             description: 'Khách hàng có trải nghiệm k tốt, hãy cải thiện. Cần xử lý sớm',
                             action: 'Xem phản hồi',
                             link: '/supplier/analytics',
@@ -118,13 +126,9 @@ export function useDashboard() {
         }
     }, [recentOrders])
 
-    const formatCurrency = (amount: number) => {
-        return new Intl.NumberFormat('vi-VN', {
-            style: 'currency',
-            currency: 'VND',
-            minimumFractionDigits: 0
-        }).format(amount)
-    }
+    const formatCurrency = useCallback((amount: number) => {
+        return formatCurrencyUtil(amount)
+    }, [])
 
     return {
         stats,
