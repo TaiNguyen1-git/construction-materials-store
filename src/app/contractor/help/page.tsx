@@ -22,11 +22,15 @@ import {
     Loader2,
     Bot,
     User,
-    ArrowLeft
+    ArrowLeft,
+    ShieldCheck,
+    Zap,
+    Cpu,
+    Sparkles,
+    Activity,
+    ShieldAlert
 } from 'lucide-react'
 import Link from 'next/link'
-import ContractorHeader from '../components/ContractorHeader'
-import Sidebar from '../components/Sidebar'
 import { Toaster, toast } from 'react-hot-toast'
 
 interface FAQItem {
@@ -49,104 +53,60 @@ interface ChatMessage {
 
 const FAQ_DATA: FAQCategory[] = [
     {
-        title: 'Hạn mức tín dụng',
+        title: 'Credit Limit Protocol',
         icon: CreditCard,
-        color: 'from-blue-500 to-indigo-500',
+        color: 'from-blue-600 to-indigo-700',
         faqs: [
             {
-                question: 'Làm sao để nâng hạn mức tín dụng?',
-                answer: 'Bạn cần duy trì lịch sử thanh toán đúng hạn trong ít nhất 3 tháng và có doanh thu mua hàng ổn định. Truy cập trang Công nợ → "Yêu cầu nâng hạn mức" để gửi đề nghị. Hạn mức sẽ được xem xét trong 2-3 ngày làm việc.'
+                question: 'How do I elevate my institutional credit ceiling?',
+                answer: 'Maintain a 100% on-time settlement record for at least 3 fiscal cycles with consistent procurement volume. Submit a formal request via Debt Center → "Elevate Limit". Review cycle: 48-72 operational hours.'
             },
             {
-                question: 'Tại sao hạn mức tín dụng của tôi bị giảm?',
-                answer: 'Hạn mức có thể bị điều chỉnh nếu: (1) Thanh toán trễ hạn nhiều lần, (2) Tỷ lệ trả hàng cao, (3) Tài khoản không hoạt động quá 60 ngày. Liên hệ hỗ trợ để biết chi tiết cụ thể.'
-            },
-            {
-                question: 'Hạn mức tín dụng được tính thế nào?',
-                answer: 'Hạn mức được tính dựa trên: Doanh thu trung bình 3 tháng, lịch sử thanh toán, quy mô dự án hiện tại, và xếp hạng nhà thầu. Hạn mức mặc định cho nhà thầu mới là 50 triệu VNĐ.'
+                question: 'Why was my liquid credit retracted?',
+                answer: 'Credit retraction occurs due to: (1) Multiple settlement delays, (2) Excessive asset returns, (3) Account inactivity exceeding 60 cycles. Consult our risk audit team for specific telemetry.'
             }
         ]
     },
     {
-        title: 'Quy trình giải ngân Escrow',
+        title: 'Escrow Disbursement',
         icon: Banknote,
-        color: 'from-emerald-500 to-green-500',
+        color: 'from-emerald-600 to-green-700',
         faqs: [
             {
-                question: 'Tiền Escrow được giải ngân khi nào?',
-                answer: 'Tiền Escrow được giải ngân sau khi: (1) Milestone được nghiệm thu bởi chủ đầu tư, (2) Không có tranh chấp mở trong 48h, (3) Admin phê duyệt giải ngân. Thời gian chuyển tiền: 1-3 ngày làm việc sau khi giải ngân.'
+                question: 'When is the Escrow liquidity released?',
+                answer: 'Disbursement triggers upon: (1) Milestone verification by Principal, (2) Zero dispute flags for 48h, (3) Institutional audit approval. Transmission window: 1-3 operational cycles.'
             },
             {
-                question: 'Tại sao tiền Escrow bị giữ lâu?',
-                answer: 'Các lý do thường gặp: (1) Milestone chưa được nghiệm thu, (2) Đang có tranh chấp liên quan, (3) Thiếu hồ sơ/bằng chứng hoàn thành, (4) Chủ đầu tư chưa xác nhận. Kiểm tra trang Dự án để biết trạng thái cụ thể.'
-            },
-            {
-                question: 'Phí Escrow là bao nhiêu?',
-                answer: 'Phí dịch vụ Escrow là 2% giá trị giao dịch, trừ trực tiếp khi giải ngân. Nhà thầu hạng Vàng trở lên được giảm còn 1.5%. Không thu phí nếu giao dịch bị hủy trước khi giải ngân.'
+                question: 'Why is my Escrow capital restricted?',
+                answer: 'Restrictions apply if: (1) Milestone lacks verification evidence, (2) Active dispute protocols exist, (3) Insufficient completion documentation, (4) Principal hasn\'t authorized release. Verify project telemetry for status.'
             }
         ]
     },
     {
-        title: 'Chính sách chiết khấu',
+        title: 'Residual Commissions',
         icon: Wallet,
-        color: 'from-purple-500 to-violet-500',
+        color: 'from-purple-600 to-violet-700',
         faqs: [
             {
-                question: 'Tôi được chiết khấu bao nhiêu phần trăm?',
-                answer: 'Chiết khấu phụ thuộc vào: (1) Hạng thành viên: Bạc 3-5%, Vàng 5-8%, Kim Cương 8-12%, (2) Volume mua hàng tháng, (3) Chương trình khuyến mãi đang diễn ra. Xem chi tiết trong trang Công nợ.'
+                question: 'What is my current commission multiplier?',
+                answer: 'Multipliers scale with tier: Silver (3-5%), Gold (5-8%), Elite/Diamond (8-12%). Your effective rate is dynamically calculated based on monthly aggregate procurement volume.'
             },
             {
-                question: 'Hoa hồng Affiliate được tính thế nào?',
-                answer: 'Bạn nhận 2-5% giá trị đơn hàng đầu tiên của mỗi nhà thầu bạn giới thiệu. Hoa hồng được ghi nhận trong Ví hoa hồng và có thể rút về tài khoản ngân hàng sau 30 ngày.'
-            }
-        ]
-    },
-    {
-        title: 'Bảo hiểm công trình',
-        icon: Shield,
-        color: 'from-amber-500 to-orange-500',
-        faqs: [
-            {
-                question: 'Bảo hiểm công trình bao gồm những gì?',
-                answer: 'Gói bảo hiểm cơ bản bao gồm: (1) Bảo hiểm tai nạn lao động cho thợ, (2) Bảo hiểm cháy nổ tại công trường, (3) Bảo hiểm hư hỏng vật tư do thiên tai. Phí bảo hiểm tùy thuộc quy mô dự án.'
-            },
-            {
-                question: 'Làm sao để mua bảo hiểm?',
-                answer: 'Truy cập menu "Bảo hiểm công trình" trong sidebar → chọn gói phù hợp → nhập thông tin dự án → thanh toán trực tuyến. Bảo hiểm có hiệu lực ngay sau khi thanh toán thành công.'
-            }
-        ]
-    },
-    {
-        title: 'Quy trình nghiệm thu',
-        icon: FileText,
-        color: 'from-rose-500 to-pink-500',
-        faqs: [
-            {
-                question: 'Quy trình nghiệm thu milestone hoạt động ra sao?',
-                answer: 'Bước 1: Hoàn thành công việc → Bước 2: Upload ảnh/video bằng chứng → Bước 3: Chủ đầu tư kiểm tra và phê duyệt → Bước 4: Admin xác nhận → Bước 5: Giải ngân Escrow. Nếu bị từ chối, bạn có thể bổ sung bằng chứng hoặc mở hòa giải.'
-            },
-            {
-                question: 'Nếu chủ đầu tư không đồng ý nghiệm thu?',
-                answer: 'Bạn có thể: (1) Bổ sung ảnh/video bằng chứng hoàn thành, (2) Gửi yêu cầu hòa giải qua trang Tranh chấp, (3) Liên hệ Admin can thiệp nếu hòa giải không thành công.'
+                question: 'How is Affiliate revenue calculated?',
+                answer: 'You capture 2.0% residual commission on all successful procurement phases from entities onboarded via your protocol token. Revenue matures in the Liquid Wallet post 30-day clearing window.'
             }
         ]
     }
 ]
 
-// Pre-built AI responses for common questions
 const AI_QUICK_REPLIES: Record<string, string> = {
-    'hạn mức': 'Hạn mức tín dụng của bạn phụ thuộc vào lịch sử thanh toán, doanh thu mua hàng và xếp hạng nhà thầu. Bạn có thể yêu cầu nâng hạn mức tại trang Công nợ → "Yêu cầu nâng hạn mức". Thời gian xem xét: 2-3 ngày làm việc.',
-    'giải ngân': 'Tiền Escrow được giải ngân sau khi milestone được nghiệm thu và không có tranh chấp mở. Quy trình: Nghiệm thu → Xác nhận Admin → Giải ngân (1-3 ngày). Kiểm tra trang Dự án để theo dõi trạng thái.',
-    'chiết khấu': 'Mức chiết khấu phụ thuộc vào hạng thành viên: Bạc (3-5%), Vàng (5-8%), Kim Cương (8-12%). Volume mua hàng tháng càng cao, chiết khấu càng tốt.',
-    'trả hàng': 'Chính sách trả hàng: Trong 7 ngày kể từ ngày nhận, sản phẩm chưa sử dụng, còn nguyên đai kiện. Liên hệ trang Đơn hàng → chọn đơn → "Yêu cầu trả hàng".',
-    'bảo hiểm': 'SmartBuild cung cấp bảo hiểm công trình gồm: tai nạn lao động, cháy nổ, hư hỏng vật tư thiên tai. Truy cập menu "Bảo hiểm công trình" để đăng ký.',
-    'hoa hồng': 'Hoa hồng Affiliate: 2-5% đơn hàng đầu tiên của nhà thầu bạn giới thiệu. Tiền vào Ví hoa hồng, rút được sau 30 ngày. Xem chi tiết tại trang Ví.',
-    'phí': 'Phí nền tảng: (1) Phí Escrow: 2% (VIP: 1.5%), (2) Phí rút tiền: 10.000đ/lần, (3) Không có phí duy trì tài khoản hàng tháng.',
-    'thanh toán': 'Các hình thức thanh toán: (1) Chuyển khoản ngân hàng, (2) Thanh toán bằng Ví, (3) Mua trả chậm (theo hạn mức tín dụng). QR thanh toán có sẵn tại trang Công nợ.',
+    'limit': 'Credit ceiling is determined by settlement history and procurement volume. Access Debt Center → "Elevate Limit" to initialize the audit protocol.',
+    'escrow': 'Escrow disbursement triggers post-milestone verification. Current transmission window: 24-72h post-audit.',
+    'commission': 'Tier-based multipliers range from 3% to 12%. Check your Corporate Matrix to view active commission strategy.',
+    'insurance': 'SmartBuild deploys high-integrity risk mitigation for vertical builds, transit, and personnel. Reference the Risk Vault for active protocols.',
 }
 
 export default function ContractorHelpHub() {
-    const [sidebarOpen, setSidebarOpen] = useState(true)
     const [searchTerm, setSearchTerm] = useState('')
     const [expandedCategory, setExpandedCategory] = useState<number | null>(null)
     const [expandedFaq, setExpandedFaq] = useState<string | null>(null)
@@ -154,7 +114,7 @@ export default function ContractorHelpHub() {
     const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
         {
             role: 'assistant',
-            content: 'Xin chào! Tôi là trợ lý tài chính của SmartBuild. Tôi có thể giúp bạn giải đáp thắc mắc về hạn mức tín dụng, giải ngân Escrow, chiết khấu, và các chính sách tài chính khác. Hãy đặt câu hỏi!',
+            content: 'Institutional Protocol Active. I am the SmartBuild AI Core. I can assist with recursive logic regarding credit limits, Escrow disbursement cycles, and risk mitigation strategies. Present your query.',
             timestamp: new Date()
         }
     ])
@@ -171,9 +131,8 @@ export default function ContractorHelpHub() {
         const query = chatInput.toLowerCase()
         setChatInput('')
 
-        // Simulate AI response with keyword matching
         setTimeout(() => {
-            let response = 'Cảm ơn câu hỏi! Tôi chưa có thông tin cụ thể về vấn đề này. Bạn có thể:\n• Xem FAQ bên dưới để tìm câu trả lời\n• Tạo yêu cầu hỗ trợ tại trang Tranh chấp\n• Liên hệ hotline: 1900 xxxx\n\nBạn cần hỗ trợ thêm về vấn đề nào?'
+            let response = 'Contextual mismatch: I lack specific telemetry on this query. Recommended actions:\n• Audit FAQ modules below\n• Initialize Dispute Protocol\n• Connect with Institutional Support: 1900 xxxx'
 
             for (const [keyword, reply] of Object.entries(AI_QUICK_REPLIES)) {
                 if (query.includes(keyword)) {
@@ -197,240 +156,243 @@ export default function ContractorHelpHub() {
     })).filter(cat => cat.faqs.length > 0) : FAQ_DATA
 
     return (
-        <div className="min-h-screen bg-[#F8FAFC]">
-            <Toaster position="top-right" />
-            <ContractorHeader sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
-            <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+        <div className="space-y-12 animate-in fade-in duration-500 pb-24 max-w-7xl mx-auto">
+            {/* High-Intelligence Header */}
+            <div className="text-center space-y-8 py-12">
+                <div className="inline-flex p-6 bg-slate-900 text-white rounded-[2.5rem] shadow-2xl shadow-slate-200 relative group overflow-hidden">
+                    <div className="absolute inset-0 bg-gradient-to-br from-blue-600/20 to-purple-600/20 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                    <HelpCircle className="w-12 h-12 relative z-10" />
+                    <div className="absolute -top-2 -right-2 p-2 bg-blue-500 rounded-full animate-pulse shadow-lg shadow-blue-500/50"></div>
+                </div>
+                
+                <div className="space-y-4">
+                    <h1 className="text-5xl font-black text-slate-900 tracking-tighter uppercase italic">Institutional Knowledge Hub</h1>
+                    <p className="text-slate-500 font-bold uppercase text-[10px] tracking-[0.3em] max-w-xl mx-auto leading-relaxed">
+                        Giải đáp thắc mắc về tài chính, chính sách chiết khấu, Escrow, bảo hiểm và quy trình nghiệm thu B2B
+                    </p>
+                </div>
 
-            <main className={`pt-[60px] transition-all duration-300 ${sidebarOpen ? 'lg:ml-64' : 'ml-0'}`}>
-                <div className="p-4 lg:p-6 max-w-5xl mx-auto space-y-8">
-                    {/* Header */}
-                    <div className="text-center py-8">
-                        <div className="inline-flex p-3.5 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl shadow-lg shadow-indigo-200 mb-4">
-                            <HelpCircle className="w-8 h-8 text-white" />
+                <div className="relative max-w-2xl mx-auto flex items-center gap-4">
+                    <div className="relative flex-1">
+                        <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-6 h-6 text-slate-300" />
+                        <input
+                            type="text"
+                            placeholder="Search Knowledge Base Protocol..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="w-full pl-16 pr-8 py-6 bg-white border border-slate-100 rounded-[2rem] text-sm font-bold shadow-xl shadow-slate-100 focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500 outline-none transition-all placeholder:text-slate-300 italic"
+                        />
+                    </div>
+                    <button className="w-20 h-20 bg-slate-900 text-white rounded-[1.8rem] flex items-center justify-center hover:bg-black transition-all shadow-xl shadow-slate-200 active:scale-90">
+                        <Cpu size={24} />
+                    </button>
+                </div>
+            </div>
+
+            {/* Tactical Quick Links */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+                {[
+                    { label: 'Debt Center', href: '/contractor/debt', icon: CreditCard, color: 'bg-blue-50 text-blue-600 border-blue-100 hover:bg-blue-600 hover:text-white' },
+                    { label: 'Risk Vault', href: '/contractor/disputes', icon: ShieldAlert, color: 'bg-rose-50 text-rose-600 border-rose-100 hover:bg-rose-600 hover:text-white' },
+                    { label: 'Liquidity Hub', href: '/contractor/wallet', icon: Wallet, color: 'bg-emerald-50 text-emerald-600 border-emerald-100 hover:bg-emerald-600 hover:text-white' },
+                    { label: 'Risk Mitigation', href: '/contractor/insurance', icon: ShieldCheck, color: 'bg-amber-50 text-amber-600 border-amber-100 hover:bg-amber-600 hover:text-white' },
+                ].map((link, i) => (
+                    <Link
+                        key={i}
+                        href={link.href}
+                        className={`p-8 rounded-[2.5rem] border-2 ${link.color} flex flex-col items-center gap-6 transition-all duration-500 group relative overflow-hidden`}
+                    >
+                        <div className="p-4 bg-white/20 rounded-2xl group-hover:scale-110 transition-transform">
+                            <link.icon className="w-8 h-8" />
                         </div>
-                        <h1 className="text-3xl font-black text-slate-900 mt-4">Trung tâm Hỗ trợ Nhà thầu</h1>
-                        <p className="text-slate-500 font-medium mt-2 max-w-lg mx-auto">
-                            Giải đáp thắc mắc về tài chính, chính sách chiết khấu, Escrow, bảo hiểm và quy trình nghiệm thu
-                        </p>
+                        <span className="text-[10px] font-black uppercase tracking-[0.2em] italic">{link.label}</span>
+                        <ExternalLink className="absolute bottom-4 right-4 w-4 h-4 opacity-0 group-hover:opacity-40 transition-opacity" />
+                    </Link>
+                ))}
+            </div>
 
-                        {/* Search */}
-                        <div className="relative max-w-md mx-auto mt-6">
-                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+            {/* FAQ Matrix - High Density */}
+            <div className="grid gap-8">
+                {filteredFAQs.map((category, catIdx) => {
+                    const CategoryIcon = category.icon
+                    const isExpanded = expandedCategory === catIdx
+
+                    return (
+                        <div key={catIdx} className={`bg-white rounded-[3.5rem] border ${isExpanded ? 'border-slate-200 shadow-2xl shadow-slate-200/50' : 'border-slate-100 shadow-sm'} overflow-hidden transition-all duration-700`}>
+                            <button
+                                onClick={() => setExpandedCategory(isExpanded ? null : catIdx)}
+                                className="w-full flex items-center gap-8 p-10 text-left hover:bg-slate-50/50 transition-all"
+                            >
+                                <div className={`w-16 h-16 rounded-[1.8rem] bg-gradient-to-br ${category.color} flex items-center justify-center shadow-xl shadow-slate-200`}>
+                                    <CategoryIcon className="w-8 h-8 text-white" />
+                                </div>
+                                <div className="flex-1 space-y-1">
+                                    <h3 className="text-2xl font-black text-slate-900 uppercase italic tracking-tighter">{category.title}</h3>
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">{category.faqs.length} Protocols Documented</p>
+                                </div>
+                                <div className={`w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center transition-transform duration-500 ${isExpanded ? 'rotate-180 bg-slate-900 text-white' : 'text-slate-300'}`}>
+                                    <ChevronDown className="w-6 h-6" />
+                                </div>
+                            </button>
+
+                            {isExpanded && (
+                                <div className="px-10 pb-10 space-y-4 animate-in slide-in-from-top-4 duration-500">
+                                    {category.faqs.map((faq, faqIdx) => {
+                                        const faqKey = `${catIdx}-${faqIdx}`
+                                        const isFaqExpanded = expandedFaq === faqKey
+
+                                        return (
+                                            <div key={faqIdx} className="bg-slate-50 rounded-[2rem] overflow-hidden group">
+                                                <button
+                                                    onClick={() => setExpandedFaq(isFaqExpanded ? null : faqKey)}
+                                                    className="w-full flex items-center gap-6 px-8 py-6 text-left transition-colors"
+                                                >
+                                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${isFaqExpanded ? 'bg-slate-900 text-white' : 'bg-white text-slate-300'}`}>
+                                                        <Lightbulb className="w-5 h-5" />
+                                                    </div>
+                                                    <span className={`text-sm font-black uppercase italic tracking-tight flex-1 ${isFaqExpanded ? 'text-slate-900' : 'text-slate-600 opacity-60'}`}>
+                                                        {faq.question}
+                                                    </span>
+                                                    <ChevronRight className={`w-5 h-5 text-slate-200 transition-transform ${isFaqExpanded ? 'rotate-90 text-slate-900' : ''}`} />
+                                                </button>
+                                                {isFaqExpanded && (
+                                                    <div className="px-8 pb-8 pl-24">
+                                                        <div className="bg-white p-8 rounded-[1.8rem] border border-slate-100 shadow-inner">
+                                                            <p className="text-sm font-bold text-slate-600 leading-relaxed italic">
+                                                                {faq.answer}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )
+                                    })}
+                                </div>
+                            )}
+                        </div>
+                    )
+                })}
+            </div>
+
+            {/* Corporate Emergency Contact */}
+            <div className="bg-slate-900 rounded-[3.5rem] p-12 text-white relative overflow-hidden group shadow-2xl shadow-slate-300">
+                <div className="absolute top-0 right-0 w-96 h-96 bg-blue-500/10 rounded-full blur-[100px] -mr-48 -mt-48 transition-all duration-1000 group-hover:scale-150"></div>
+                <div className="absolute bottom-0 left-0 w-64 h-64 bg-purple-500/10 rounded-full blur-[80px] -ml-32 -mb-32"></div>
+
+                <div className="relative z-10 flex flex-col lg:flex-row items-center gap-12 text-center lg:text-left">
+                    <div className="flex-1 space-y-4">
+                        <h3 className="text-4xl font-black italic tracking-tighter uppercase">Protocol Failure?</h3>
+                        <p className="text-slate-400 font-bold uppercase text-[10px] tracking-[0.3em] max-w-xl">Our Institutional Elite Support units are active and awaiting transmission for high-priority escalations.</p>
+                    </div>
+                    <div className="flex flex-col sm:flex-row gap-6">
+                        <Link
+                            href="/contractor/disputes"
+                            className="px-10 py-5 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-black text-[10px] uppercase tracking-[0.2em] rounded-2xl flex items-center justify-center gap-3 transition-all active:scale-95 backdrop-blur-md"
+                        >
+                            <Scale size={18} /> Initialize Mediation
+                        </Link>
+                        <a
+                            href="tel:1900xxxx"
+                            className="px-10 py-5 bg-blue-600 text-white font-black text-[10px] uppercase tracking-[0.2em] rounded-2xl hover:bg-blue-700 transition-all flex items-center justify-center gap-3 shadow-2xl shadow-blue-500/20 active:scale-95"
+                        >
+                            <AlertCircle size={18} /> Direct Tactical Link
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            {/* AI Assistant Widget - Standardized Placement */}
+            {!showChat ? (
+                <button
+                    onClick={() => setShowChat(true)}
+                    className="fixed bottom-10 right-10 z-[100] w-20 h-20 bg-slate-900 text-white rounded-[2rem] shadow-2xl shadow-slate-400 hover:bg-black hover:scale-110 transition-all flex items-center justify-center group border-2 border-white/20"
+                >
+                    <Bot className="w-8 h-8 group-hover:rotate-12 transition-transform" />
+                    <div className="absolute -top-1 -right-1 w-6 h-6 bg-blue-500 rounded-full border-4 border-white animate-bounce shadow-lg shadow-blue-500/50"></div>
+                </button>
+            ) : (
+                <div className="fixed bottom-10 right-10 z-[100] w-[450px] bg-white rounded-[3.5rem] shadow-[0_50px_100px_rgba(0,0,0,0.15)] border border-slate-100 overflow-hidden flex flex-col animate-in slide-in-from-bottom-10 duration-500" style={{ maxHeight: '650px' }}>
+                    <div className="bg-slate-900 p-8 text-white flex items-center justify-between relative overflow-hidden">
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full blur-3xl"></div>
+                        <div className="flex items-center gap-5 relative z-10">
+                            <div className="w-14 h-14 bg-white/5 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/10 group-hover:scale-110 transition-transform">
+                                <Bot className="w-7 h-7 text-blue-400" />
+                            </div>
+                            <div>
+                                <h4 className="text-lg font-black uppercase italic tracking-tighter">AI Core Assistant</h4>
+                                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                                    <Activity className="w-3 h-3 text-emerald-500" /> Protocol Active • V-3.5
+                                </p>
+                            </div>
+                        </div>
+                        <button onClick={() => setShowChat(false)} className="w-10 h-10 bg-white/5 hover:bg-white/10 rounded-xl flex items-center justify-center transition-colors relative z-10">
+                            <ChevronDown size={20} />
+                        </button>
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto p-8 space-y-6 bg-slate-50/30 scrollbar-hide" style={{ height: '400px' }}>
+                        {chatMessages.map((msg, i) => (
+                            <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                                <div className={`max-w-[85%] rounded-[2rem] p-6 shadow-sm border ${msg.role === 'user' 
+                                    ? 'bg-slate-900 text-white rounded-br-none border-slate-800' 
+                                    : 'bg-white text-slate-800 rounded-bl-none border-slate-100'
+                                }`}>
+                                    <div className="flex items-center gap-3 mb-3">
+                                        {msg.role === 'assistant' ? (
+                                            <Sparkles className="w-3.5 h-3.5 text-blue-500" />
+                                        ) : (
+                                            <User className="w-3.5 h-3.5 text-slate-400" />
+                                        )}
+                                        <span className={`text-[10px] font-black uppercase tracking-widest ${msg.role === 'user' ? 'text-slate-500' : 'text-slate-400'}`}>
+                                            {msg.role === 'user' ? 'Operator' : 'AI Core'}
+                                        </span>
+                                    </div>
+                                    <p className="text-xs font-bold leading-relaxed italic whitespace-pre-wrap">{msg.content}</p>
+                                </div>
+                            </div>
+                        ))}
+                        {chatLoading && (
+                            <div className="flex justify-start">
+                                <div className="bg-white border border-slate-100 rounded-[2rem] rounded-bl-none p-6 shadow-sm flex items-center gap-4">
+                                    <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-300">Processing Knowledge...</span>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="p-8 bg-white border-t border-slate-50 space-y-6">
+                        <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+                            {['Limit Audit', 'Disbursement', 'Commissions', 'Risk mitigation'].map(q => (
+                                <button
+                                    key={q}
+                                    onClick={() => { setChatInput(q); }}
+                                    className="px-5 py-2.5 bg-slate-50 text-slate-400 hover:bg-slate-900 hover:text-white rounded-full text-[9px] font-black uppercase tracking-widest whitespace-nowrap transition-all border border-slate-100"
+                                >
+                                    {q}
+                                </button>
+                            ))}
+                        </div>
+                        <div className="flex gap-4">
                             <input
                                 type="text"
-                                placeholder="Tìm kiếm câu hỏi..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full pl-12 pr-4 py-3.5 bg-white border border-slate-200 rounded-2xl text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400"
+                                placeholder="Present query to AI core..."
+                                value={chatInput}
+                                onChange={(e) => setChatInput(e.target.value)}
+                                onKeyDown={(e) => e.key === 'Enter' && handleAIChat()}
+                                className="flex-1 px-8 py-5 bg-slate-50 border-none rounded-[1.5rem] text-sm font-bold italic focus:ring-4 focus:ring-blue-500/10 outline-none"
                             />
-                        </div>
-                    </div>
-
-                    {/* Quick Links */}
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        {[
-                            { label: 'Xem Công nợ', href: '/contractor/debt', icon: CreditCard, color: 'bg-blue-50 text-blue-600 border-blue-100' },
-                            { label: 'Tạo Tranh chấp', href: '/contractor/disputes', icon: Scale, color: 'bg-red-50 text-red-600 border-red-100' },
-                            { label: 'Ví hoa hồng', href: '/contractor/wallet', icon: Wallet, color: 'bg-emerald-50 text-emerald-600 border-emerald-100' },
-                            { label: 'Bảo hiểm', href: '/contractor/insurance', icon: Shield, color: 'bg-amber-50 text-amber-600 border-amber-100' },
-                        ].map((link, i) => (
-                            <Link
-                                key={i}
-                                href={link.href}
-                                className={`p-4 rounded-2xl border ${link.color} flex items-center gap-3 hover:shadow-md transition-all group`}
+                            <button
+                                onClick={handleAIChat}
+                                disabled={chatLoading || !chatInput.trim()}
+                                className="w-16 h-16 bg-blue-600 text-white rounded-[1.5rem] disabled:opacity-30 hover:bg-blue-700 transition-all flex items-center justify-center active:scale-90"
                             >
-                                <link.icon className="w-5 h-5" />
-                                <span className="text-sm font-bold">{link.label}</span>
-                                <ExternalLink className="w-3.5 h-3.5 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
-                            </Link>
-                        ))}
-                    </div>
-
-                    {/* FAQ Accordion */}
-                    <div className="space-y-4">
-                        {filteredFAQs.map((category, catIdx) => {
-                            const CategoryIcon = category.icon
-                            const isExpanded = expandedCategory === catIdx
-
-                            return (
-                                <div key={catIdx} className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-                                    <button
-                                        onClick={() => setExpandedCategory(isExpanded ? null : catIdx)}
-                                        className="w-full flex items-center gap-4 p-5 text-left hover:bg-slate-50 transition-colors"
-                                    >
-                                        <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${category.color} flex items-center justify-center shadow-sm`}>
-                                            <CategoryIcon className="w-5 h-5 text-white" />
-                                        </div>
-                                        <div className="flex-1">
-                                            <h3 className="font-bold text-slate-900">{category.title}</h3>
-                                            <p className="text-xs text-slate-400 mt-0.5">{category.faqs.length} câu hỏi</p>
-                                        </div>
-                                        <div className={`transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}>
-                                            <ChevronDown className="w-5 h-5 text-slate-400" />
-                                        </div>
-                                    </button>
-
-                                    {isExpanded && (
-                                        <div className="border-t border-slate-50 divide-y divide-slate-50">
-                                            {category.faqs.map((faq, faqIdx) => {
-                                                const faqKey = `${catIdx}-${faqIdx}`
-                                                const isFaqExpanded = expandedFaq === faqKey
-
-                                                return (
-                                                    <div key={faqIdx}>
-                                                        <button
-                                                            onClick={() => setExpandedFaq(isFaqExpanded ? null : faqKey)}
-                                                            className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-slate-50/50 transition-colors"
-                                                        >
-                                                            <Lightbulb className={`w-4 h-4 flex-shrink-0 ${isFaqExpanded ? 'text-amber-500' : 'text-slate-300'}`} />
-                                                            <span className={`text-sm font-medium ${isFaqExpanded ? 'text-slate-900' : 'text-slate-600'}`}>
-                                                                {faq.question}
-                                                            </span>
-                                                            <ChevronRight className={`w-4 h-4 text-slate-300 ml-auto flex-shrink-0 transition-transform ${isFaqExpanded ? 'rotate-90' : ''}`} />
-                                                        </button>
-                                                        {isFaqExpanded && (
-                                                            <div className="px-5 pb-4 pl-12">
-                                                                <p className="text-sm text-slate-600 leading-relaxed bg-slate-50 p-4 rounded-xl">
-                                                                    {faq.answer}
-                                                                </p>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                )
-                                            })}
-                                        </div>
-                                    )}
-                                </div>
-                            )
-                        })}
-                    </div>
-
-                    {/* AI Chat Widget - Fixed Bottom Right */}
-                    {!showChat ? (
-                        <button
-                            onClick={() => setShowChat(true)}
-                            className="fixed bottom-6 right-6 z-50 bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-4 rounded-full shadow-xl shadow-indigo-200 hover:shadow-2xl hover:scale-105 transition-all group"
-                        >
-                            <Bot className="w-6 h-6 group-hover:rotate-12 transition-transform" />
-                        </button>
-                    ) : (
-                        <div className="fixed bottom-6 right-6 z-50 w-[380px] bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col" style={{ maxHeight: '500px' }}>
-                            {/* Chat Header */}
-                            <div className="bg-gradient-to-r from-indigo-600 to-purple-600 p-4 text-white flex items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-9 h-9 bg-white/20 rounded-xl flex items-center justify-center">
-                                        <Bot className="w-5 h-5" />
-                                    </div>
-                                    <div>
-                                        <h4 className="font-bold text-sm">AI Tư vấn Tài chính</h4>
-                                        <p className="text-[10px] text-indigo-200">Hỗ trợ 24/7 • Phản hồi nhanh</p>
-                                    </div>
-                                </div>
-                                <button onClick={() => setShowChat(false)} className="p-1 hover:bg-white/20 rounded-lg">
-                                    <ChevronDown className="w-5 h-5" />
-                                </button>
-                            </div>
-
-                            {/* Chat Messages */}
-                            <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50/50" style={{ maxHeight: '300px' }}>
-                                {chatMessages.map((msg, i) => (
-                                    <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                                        <div className={`max-w-[85%] rounded-2xl p-3 ${msg.role === 'user'
-                                            ? 'bg-indigo-600 text-white rounded-br-md'
-                                            : 'bg-white border border-slate-200 rounded-bl-md shadow-sm'
-                                            }`}>
-                                            <div className="flex items-center gap-1.5 mb-1">
-                                                {msg.role === 'assistant' ? (
-                                                    <Bot className="w-3 h-3 text-indigo-500" />
-                                                ) : (
-                                                    <User className="w-3 h-3 text-indigo-200" />
-                                                )}
-                                                <span className={`text-[10px] font-bold ${msg.role === 'user' ? 'text-indigo-200' : 'text-slate-400'}`}>
-                                                    {msg.role === 'user' ? 'Bạn' : 'AI SmartBuild'}
-                                                </span>
-                                            </div>
-                                            <p className={`text-xs whitespace-pre-wrap leading-relaxed ${msg.role === 'user' ? 'text-white' : 'text-slate-700'}`}>
-                                                {msg.content}
-                                            </p>
-                                        </div>
-                                    </div>
-                                ))}
-                                {chatLoading && (
-                                    <div className="flex justify-start">
-                                        <div className="bg-white border border-slate-200 rounded-2xl rounded-bl-md p-3 shadow-sm">
-                                            <div className="flex items-center gap-2">
-                                                <Loader2 className="w-3 h-3 animate-spin text-indigo-500" />
-                                                <span className="text-xs text-slate-400">Đang trả lời...</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Quick Suggestions */}
-                            <div className="px-4 py-2 flex gap-2 overflow-x-auto border-t border-slate-50">
-                                {['Hạn mức', 'Giải ngân', 'Chiết khấu', 'Phí'].map(q => (
-                                    <button
-                                        key={q}
-                                        onClick={() => { setChatInput(q); }}
-                                        className="px-3 py-1.5 bg-indigo-50 text-indigo-600 rounded-full text-[10px] font-bold whitespace-nowrap hover:bg-indigo-100 transition-colors"
-                                    >
-                                        {q}
-                                    </button>
-                                ))}
-                            </div>
-
-                            {/* Chat Input */}
-                            <div className="p-3 border-t border-slate-100 bg-white">
-                                <div className="flex gap-2">
-                                    <input
-                                        type="text"
-                                        placeholder="Hỏi về tài chính..."
-                                        value={chatInput}
-                                        onChange={(e) => setChatInput(e.target.value)}
-                                        onKeyDown={(e) => e.key === 'Enter' && handleAIChat()}
-                                        className="flex-1 px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-                                    />
-                                    <button
-                                        onClick={handleAIChat}
-                                        disabled={chatLoading || !chatInput.trim()}
-                                        className="px-3 py-2.5 bg-indigo-600 text-white rounded-xl disabled:opacity-50 hover:bg-indigo-700 transition-colors"
-                                    >
-                                        <Send className="w-4 h-4" />
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Contact Section */}
-                    <div className="bg-gradient-to-r from-slate-900 to-slate-800 rounded-3xl p-8 text-white">
-                        <div className="flex flex-col md:flex-row items-center gap-6">
-                            <div className="flex-1">
-                                <h3 className="text-xl font-black mb-2">Không tìm thấy câu trả lời?</h3>
-                                <p className="text-slate-400 text-sm">Đội ngũ tư vấn tài chính của SmartBuild luôn sẵn sàng hỗ trợ bạn.</p>
-                            </div>
-                            <div className="flex gap-3">
-                                <Link
-                                    href="/contractor/disputes"
-                                    className="px-6 py-3 bg-white text-slate-900 font-bold text-sm rounded-xl hover:bg-slate-100 transition-colors flex items-center gap-2"
-                                >
-                                    <MessageSquare className="w-4 h-4" />
-                                    Tạo tranh chấp
-                                </Link>
-                                <a
-                                    href="tel:1900xxxx"
-                                    className="px-6 py-3 bg-indigo-600 text-white font-bold text-sm rounded-xl hover:bg-indigo-700 transition-colors flex items-center gap-2"
-                                >
-                                    <AlertCircle className="w-4 h-4" />
-                                    Gọi 1900 xxxx
-                                </a>
-                            </div>
+                                <Send className="w-6 h-6" />
+                            </button>
                         </div>
                     </div>
                 </div>
-            </main>
+            )}
         </div>
     )
 }

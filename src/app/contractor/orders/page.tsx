@@ -7,8 +7,6 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import Sidebar from '../components/Sidebar'
-import ContractorHeader from '../components/ContractorHeader'
 import toast from 'react-hot-toast'
 import {
     Building2,
@@ -33,11 +31,15 @@ import {
     Calendar,
     Edit,
     Trash2,
-    ChevronDown
+    ChevronDown,
+    Activity,
+    Clock,
+    CheckCircle2
 } from 'lucide-react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { fetchWithAuth } from '@/lib/api-client'
 import { useAuth } from '@/contexts/auth-context'
+import { formatCurrency } from '@/lib/format-utils'
 
 interface Order {
     id: string
@@ -55,7 +57,6 @@ interface Order {
 export default function ContractorOrdersPage() {
     const { user, isAuthenticated } = useAuth()
     const queryClient = useQueryClient()
-    const [sidebarOpen, setSidebarOpen] = useState(true)
     const [statusFilter, setStatusFilter] = useState('all')
     const [page, setPage] = useState(1)
     const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
@@ -119,17 +120,16 @@ export default function ContractorOrdersPage() {
                 error: 'Không thể xoá đơn hàng'
             }
         )
-        // In reality, call API here
         queryClient.invalidateQueries({ queryKey: ['contractor-orders'] })
         setSelectedIds(selectedIds.filter(id => id !== selectedOrder.id))
         setShowDeleteModal(false)
     }
 
     const toggleSelectAll = () => {
-        if (selectedIds.length === filteredOrders.length) {
+        if (selectedIds.length === orders.length) {
             setSelectedIds([])
         } else {
-            setSelectedIds(filteredOrders.map((o: Order) => o.id))
+            setSelectedIds(orders.map((o: Order) => o.id))
         }
     }
 
@@ -151,11 +151,6 @@ export default function ContractorOrdersPage() {
             toast.error('Không có đơn hàng nào có thể xoá trong danh sách đã chọn')
             return
         }
-
-        if (deletableIds.length < selectedIds.length) {
-            toast.error(`Chỉ có thể xoá ${deletableIds.length}/${selectedIds.length} đơn hàng đã chọn`)
-        }
-
         setShowBulkDeleteModal(true)
     }
 
@@ -174,27 +169,19 @@ export default function ContractorOrdersPage() {
             }
         )
 
-        // API call would go here
         queryClient.invalidateQueries({ queryKey: ['contractor-orders'] })
         setSelectedIds([])
         setShowBulkDeleteModal(false)
     }
 
-    const formatCurrency = (amount: number) => {
-        return new Intl.NumberFormat('vi-VN', {
-            style: 'currency',
-            currency: 'VND'
-        }).format(amount)
-    }
-
     const getStatusColor = (status: string) => {
         switch (status) {
-            case 'DELIVERED': return 'bg-green-100 text-green-700'
+            case 'DELIVERED': return 'bg-emerald-100 text-emerald-700'
             case 'PROCESSING': return 'bg-orange-100 text-orange-700'
             case 'SHIPPED': return 'bg-blue-100 text-blue-700'
-            case 'PENDING': return 'bg-gray-100 text-gray-700'
+            case 'PENDING': return 'bg-slate-100 text-slate-700'
             case 'CANCELLED': return 'bg-red-100 text-red-700'
-            default: return 'bg-gray-100 text-gray-700'
+            default: return 'bg-slate-100 text-slate-700'
         }
     }
 
@@ -209,274 +196,299 @@ export default function ContractorOrdersPage() {
         }
     }
 
-    const filteredOrders = statusFilter === 'all'
-        ? orders
-        : orders.filter((o: Order) => o.status === statusFilter)
-
     return (
-        <div className="min-h-screen bg-gray-50 flex flex-col">
-            <ContractorHeader sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
-            <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+        <div className="space-y-10 animate-in fade-in duration-500 pb-20 max-w-7xl mx-auto">
+            {/* Page Header */}
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+                <div className="space-y-2">
+                    <h1 className="text-4xl font-black text-slate-900 tracking-tighter uppercase italic flex items-center gap-4">
+                        <Package className="w-10 h-10 text-orange-600" />
+                        Order History
+                    </h1>
+                    <p className="text-slate-500 font-bold uppercase text-[10px] tracking-[0.2em]">Quản lý và theo dõi trạng thái đơn vật tư B2B</p>
+                </div>
 
-            {/* Main Content */}
-            <main className={`flex-1 pt-[60px] transition-all duration-300 ${sidebarOpen ? 'lg:ml-64' : 'ml-0'}`}>
-                <div className="p-4 lg:p-6 max-w-7xl mx-auto">
-                    {/* Header - Compact */}
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-                        <div>
-                            <h1 className="text-xl font-black text-gray-900 uppercase tracking-tight">Đơn hàng của tôi</h1>
-                            <p className="text-xs text-gray-500 font-medium mt-1">Quản lý và theo dõi trạng thái đơn hàng</p>
-                        </div>
+                <div className="flex bg-slate-100 p-1.5 rounded-[2rem] gap-1">
+                    <button
+                        onClick={() => setStatusFilter('all')}
+                        className={`px-8 py-3 rounded-[1.8rem] text-[10px] font-black uppercase tracking-widest transition-all ${statusFilter === 'all' ? 'bg-white text-orange-600 shadow-xl shadow-orange-500/10' : 'text-slate-400 hover:text-slate-600'}`}
+                    >
+                        Tất cả
+                    </button>
+                    <button
+                        onClick={() => setStatusFilter('PENDING')}
+                        className={`px-8 py-3 rounded-[1.8rem] text-[10px] font-black uppercase tracking-widest transition-all ${statusFilter === 'PENDING' ? 'bg-white text-orange-600 shadow-xl shadow-orange-500/10' : 'text-slate-400 hover:text-slate-600'}`}
+                    >
+                        Chờ Duyệt
+                    </button>
+                    <button
+                        onClick={() => setStatusFilter('DELIVERED')}
+                        className={`px-8 py-3 rounded-[1.8rem] text-[10px] font-black uppercase tracking-widest transition-all ${statusFilter === 'DELIVERED' ? 'bg-white text-orange-600 shadow-xl shadow-orange-500/10' : 'text-slate-400 hover:text-slate-600'}`}
+                    >
+                        Đã giao
+                    </button>
+                </div>
+            </div>
+
+            {/* Content Table Container */}
+            <div className="bg-white rounded-[3.5rem] border border-slate-100 shadow-sm overflow-hidden animate-in slide-in-from-bottom-5 duration-700">
+                <div className="p-10 border-b border-slate-50 flex items-center justify-between">
+                    <div className="relative group flex-1 max-w-md">
+                        <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300 group-focus-within:text-orange-500 transition-colors" />
+                        <input
+                            type="text"
+                            placeholder="Find orders by number or project..."
+                            className="w-full pl-16 pr-6 py-4.5 bg-slate-50 border-transparent rounded-[1.8rem] text-sm focus:bg-white focus:ring-4 focus:ring-orange-500/5 focus:border-orange-500/20 outline-none transition-all font-bold placeholder:text-slate-300"
+                        />
                     </div>
-
-                    {/* Filters - High Density */}
-                    <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-100 mb-6 font-medium">
-                        <div className="flex flex-wrap gap-3 items-center">
-                            <div className="flex items-center gap-2 px-2">
-                                <Filter className="w-4 h-4 text-gray-400" />
-                                <span className="text-xs font-bold text-gray-600 uppercase tracking-wide">Lọc theo:</span>
-                            </div>
-                            <div className="relative">
-                                <select
-                                    value={statusFilter}
-                                    onChange={(e) => setStatusFilter(e.target.value)}
-                                    className="appearance-none bg-gray-50 border border-gray-200 rounded-lg pl-3 pr-8 py-2 text-xs font-bold text-gray-700 outline-none focus:ring-2 focus:ring-primary-100 hover:bg-gray-100 transition-colors"
-                                >
-                                    <option value="all">Tất cả trạng thái</option>
-                                    <option value="PENDING">Chờ xác nhận</option>
-                                    <option value="PROCESSING">Đang xử lý</option>
-                                    <option value="SHIPPED">Đang giao</option>
-                                    <option value="DELIVERED">Đã giao</option>
-                                    <option value="CANCELLED">Đã hủy</option>
-                                </select>
-                                <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
-                            </div>
-
-                            <div className="flex-1" />
-
-                            {selectedIds.length > 0 && (
-                                <button
-                                    onClick={handleBulkDelete}
-                                    className="flex items-center gap-1.5 bg-red-50 text-red-600 px-3 py-1.5 rounded-lg font-black uppercase text-[10px] tracking-widest hover:bg-red-100 transition-all border border-red-100 shadow-sm"
-                                >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                    Xoá ({selectedIds.length})
-                                </button>
-                            )}
-                            <button className="flex items-center gap-1.5 text-gray-500 hover:text-primary-600 px-3 py-1.5 border border-gray-200 rounded-lg hover:bg-primary-50 hover:border-primary-100 transition-all text-xs font-bold uppercase tracking-wide">
-                                <Download className="w-3.5 h-3.5" />
-                                Xuất Excel
+                    <div className="flex items-center gap-4">
+                        {selectedIds.length > 0 && (
+                            <button
+                                onClick={handleBulkDelete}
+                                className="px-8 py-4.5 bg-red-50 text-red-600 rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest hover:bg-red-100 transition-all border border-red-100 flex items-center gap-3"
+                            >
+                                <Trash2 size={16} /> Delete ({selectedIds.length})
                             </button>
-                        </div>
-                    </div>
-
-                    {/* Orders Table - High Density */}
-                    <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                        <div className="overflow-x-auto">
-                            <table className="w-full">
-                                <thead className="bg-gray-50/50 border-b border-gray-100">
-                                    <tr>
-                                        <th className="px-4 py-3 text-center w-10">
-                                            <input
-                                                type="checkbox"
-                                                checked={selectedIds.length === filteredOrders.length && filteredOrders.length > 0}
-                                                onChange={toggleSelectAll}
-                                                className="w-3.5 h-3.5 rounded border-gray-300 text-primary-600 focus:ring-primary-500 cursor-pointer"
-                                            />
-                                        </th>
-                                        <th className="text-left px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-500">Mã đơn</th>
-                                        <th className="text-left px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-500">Ngày đặt</th>
-                                        <th className="text-left px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-500">Dự án</th>
-                                        <th className="text-center px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-500">SP</th>
-                                        <th className="text-right px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-500">Thành tiền</th>
-                                        <th className="text-center px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-500">Trạng thái</th>
-                                        <th className="text-center px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-500">Thao tác</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-50">
-                                    {filteredOrders.map((order: Order) => (
-                                        <tr key={order.id} className={`hover:bg-primary-50/10 transition-colors group ${selectedIds.includes(order.id) ? 'bg-primary-50/30' : ''}`}>
-                                            <td className="px-4 py-2.5 text-center">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={selectedIds.includes(order.id)}
-                                                    onChange={() => toggleSelectOrder(order.id)}
-                                                    className="w-3.5 h-3.5 rounded border-gray-300 text-primary-600 focus:ring-primary-500 cursor-pointer"
-                                                />
-                                            </td>
-                                            <td className="px-4 py-2.5">
-                                                <span className="font-bold text-xs text-primary-600 group-hover:underline cursor-pointer" onClick={() => handleViewOrder(order)}>{order.orderNumber}</span>
-                                            </td>
-                                            <td className="px-4 py-2.5 text-xs text-gray-500 font-medium">{order.date}</td>
-                                            <td className="px-4 py-2.5">
-                                                <div className="flex items-center gap-1.5">
-                                                    <div className="w-1 h-4 bg-gray-200 rounded-full group-hover:bg-primary-400 transition-colors" />
-                                                    <span className="text-xs font-semibold text-gray-700">{order.project}</span>
-                                                </div>
-                                            </td>
-                                            <td className="px-4 py-2.5 text-center text-xs font-bold text-gray-500">{order.items}</td>
-                                            <td className="px-4 py-2.5 text-right font-black text-xs text-gray-900">
-                                                {formatCurrency(order.total)}
-                                            </td>
-                                            <td className="px-4 py-2.5 text-center">
-                                                <span className={`inline-block px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider ${getStatusColor(order.status)}`}>
-                                                    {getStatusText(order.status)}
-                                                </span>
-                                            </td>
-                                            <td className="px-4 py-2.5 text-center">
-                                                <div className="flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                    <button
-                                                        onClick={() => handleViewOrder(order)}
-                                                        className="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
-                                                        title="Xem chi tiết"
-                                                    >
-                                                        <Eye className="w-4 h-4" />
-                                                    </button>
-                                                    {order.status === 'PENDING' && (
-                                                        <button
-                                                            onClick={() => handleEditOrder(order)}
-                                                            className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
-                                                            title="Chỉnh sửa"
-                                                        >
-                                                            <Edit className="w-4 h-4" />
-                                                        </button>
-                                                    )}
-                                                    {(order.status === 'PENDING' || order.status === 'CANCELLED') && (
-                                                        <button
-                                                            onClick={() => handleDeleteOrder(order)}
-                                                            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                                            title="Xoá đơn"
-                                                        >
-                                                            <Trash2 className="w-4 h-4" />
-                                                        </button>
-                                                    )}
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-
-                        {/* Pagination - Compact */}
-                        <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100 bg-gray-50/30">
-                            <p className="text-[11px] font-medium text-gray-500">
-                                Hiển thị <span className="font-bold text-gray-900">1-{filteredOrders.length}</span> / {filteredOrders.length} đơn hàng
-                            </p>
-                            <div className="flex items-center gap-1.5">
-                                <button className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md disabled:opacity-50" disabled>
-                                    <ChevronLeft className="w-4 h-4" />
-                                </button>
-                                <button className="px-2.5 py-1 bg-primary-600 text-white rounded-md text-[11px] font-bold shadow-sm shadow-primary-200">1</button>
-                                <button className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md disabled:opacity-50" disabled>
-                                    <ChevronRight className="w-4 h-4" />
-                                </button>
-                            </div>
-                        </div>
+                        )}
+                        <button className="px-8 py-4.5 bg-slate-900 text-white rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all flex items-center gap-3 shadow-xl shadow-slate-200">
+                            <Download size={16} /> Export CSV
+                        </button>
                     </div>
                 </div>
-            </main>
 
-            {/* View Order Modal */}
+                <div className="overflow-x-auto">
+                    <table className="w-full border-collapse">
+                        <thead>
+                            <tr className="bg-slate-50/50">
+                                <th className="px-8 py-6 text-center w-20">
+                                    <input
+                                        type="checkbox"
+                                        checked={selectedIds.length === orders.length && orders.length > 0}
+                                        onChange={toggleSelectAll}
+                                        className="w-5 h-5 rounded-lg border-slate-200 text-orange-600 focus:ring-orange-500 cursor-pointer"
+                                    />
+                                </th>
+                                <th className="text-left px-6 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 italic">Order ID</th>
+                                <th className="text-left px-6 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 italic">Project Name</th>
+                                <th className="text-left px-6 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 italic">Created At</th>
+                                <th className="text-right px-6 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 italic">Financial Value</th>
+                                <th className="text-center px-6 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 italic">Workflow</th>
+                                <th className="text-center px-6 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 italic">Interaction</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-50/50">
+                            {loading ? (
+                                [1, 2, 3, 4, 5].map(i => (
+                                    <tr key={i} className="animate-pulse">
+                                        <td colSpan={7} className="px-8 py-6"><div className="h-10 bg-slate-50 rounded-2xl w-full" /></td>
+                                    </tr>
+                                ))
+                            ) : orders.length === 0 ? (
+                                <tr>
+                                    <td colSpan={7} className="px-8 py-40 text-center">
+                                        <div className="flex flex-col items-center gap-6 opacity-30">
+                                            <Package size={80} className="text-slate-200" />
+                                            <p className="text-[10px] font-black uppercase tracking-[0.3em]">No transaction records found</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ) : (
+                                orders.map((order) => (
+                                    <tr key={order.id} className={`group hover:bg-slate-50/80 transition-all duration-300 ${selectedIds.includes(order.id) ? 'bg-orange-50/30' : ''}`}>
+                                        <td className="px-8 py-8 text-center">
+                                            <input
+                                                type="checkbox"
+                                                checked={selectedIds.includes(order.id)}
+                                                onChange={() => toggleSelectOrder(order.id)}
+                                                className="w-5 h-5 rounded-lg border-slate-200 text-orange-600 focus:ring-orange-500 cursor-pointer"
+                                            />
+                                        </td>
+                                        <td className="px-6 py-8">
+                                            <span 
+                                                onClick={() => handleViewOrder(order)}
+                                                className="font-black text-xs text-orange-600 cursor-pointer hover:underline underline-offset-4 decoration-2"
+                                            >
+                                                #{order.orderNumber}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-8">
+                                            <div className="flex items-center gap-4">
+                                                <div className="w-1.5 h-10 bg-slate-100 rounded-full group-hover:bg-orange-400 transition-all duration-500" />
+                                                <span className="text-xs font-black text-slate-800 uppercase tracking-tighter truncate max-w-[200px] italic">{order.project}</span>
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-8 text-xs font-bold text-slate-400 tabular-nums">{order.date}</td>
+                                        <td className="px-6 py-8 text-right">
+                                            <span className="text-xs font-black text-slate-900 tabular-nums italic">{formatCurrency(order.total)}</span>
+                                        </td>
+                                        <td className="px-6 py-8 text-center">
+                                            <span className={`inline-block px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest shadow-sm ${getStatusColor(order.status)}`}>
+                                                {getStatusText(order.status)}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-8 text-center">
+                                            <div className="flex items-center justify-center gap-3">
+                                                <button
+                                                    onClick={() => handleViewOrder(order)}
+                                                    className="w-10 h-10 flex items-center justify-center bg-slate-50 text-slate-400 hover:bg-slate-900 hover:text-white rounded-xl transition-all active:scale-90"
+                                                    title="Quick View"
+                                                >
+                                                    <Eye size={16} />
+                                                </button>
+                                                {order.status === 'PENDING' && (
+                                                    <button
+                                                        onClick={() => handleEditOrder(order)}
+                                                        className="w-10 h-10 flex items-center justify-center bg-slate-50 text-slate-400 hover:bg-orange-500 hover:text-white rounded-xl transition-all active:scale-90"
+                                                        title="Modify"
+                                                    >
+                                                        <Edit size={16} />
+                                                    </button>
+                                                )}
+                                                {(order.status === 'PENDING' || order.status === 'CANCELLED') && (
+                                                    <button
+                                                        onClick={() => handleDeleteOrder(order)}
+                                                        className="w-10 h-10 flex items-center justify-center bg-slate-50 text-slate-400 hover:bg-red-500 hover:text-white rounded-xl transition-all active:scale-90"
+                                                        title="Revoke"
+                                                    >
+                                                        <Trash2 size={16} />
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+
+                <div className="flex items-center justify-between px-10 py-8 bg-slate-50/50">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                        Architectural View <span className="text-slate-900">1-{orders.length}</span> of {orders.length} Records
+                    </p>
+                    <div className="flex items-center gap-2">
+                        <button className="w-10 h-10 flex items-center justify-center bg-white border border-slate-100 rounded-xl text-slate-400 hover:text-slate-900 transition-all disabled:opacity-30" disabled>
+                            <ChevronLeft size={16} />
+                        </button>
+                        <button className="w-10 h-10 bg-orange-600 text-white rounded-xl text-[10px] font-black group shadow-lg shadow-orange-500/20">1</button>
+                        <button className="w-10 h-10 flex items-center justify-center bg-white border border-slate-100 rounded-xl text-slate-400 hover:text-slate-900 transition-all disabled:opacity-30" disabled>
+                            <ChevronRight size={16} />
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            {/* Modals */}
             {showViewModal && selectedOrder && (
-                <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4 backdrop-blur-sm">
-                    <div className="bg-white rounded-3xl w-full max-w-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200 text-gray-900 border border-gray-100">
-                        <div className="p-6 bg-blue-600 text-white flex justify-between items-center">
-                            <div>
-                                <h3 className="font-black uppercase tracking-tight text-white">Chi tiết đơn hàng</h3>
-                                <p className="text-xs text-blue-100">{selectedOrder.orderNumber} • {selectedOrder.date}</p>
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[110] flex items-center justify-center p-6 animate-in fade-in duration-300">
+                    <div className="bg-white rounded-[4rem] w-full max-w-2xl shadow-2xl overflow-hidden animate-in zoom-in duration-300 border border-white/20">
+                        <div className="p-12 bg-slate-900 text-white flex justify-between items-center relative">
+                            <div className="absolute top-0 right-0 w-40 h-40 bg-white/5 rounded-full -mr-20 -mt-20 blur-3xl"></div>
+                            <div className="relative z-10">
+                                <h3 className="text-3xl font-black uppercase tracking-tighter italic mb-1">Logistics Detail</h3>
+                                <p className="text-slate-400 font-bold uppercase text-[10px] tracking-widest">{selectedOrder.orderNumber} • Project Deployment</p>
                             </div>
-                            <button onClick={() => setShowViewModal(false)} className="bg-white/10 hover:bg-white/20 p-2 rounded-full transition-colors text-white border-none cursor-pointer">
-                                <X className="w-6 h-6" />
+                            <button 
+                                onClick={() => setShowViewModal(false)} 
+                                className="w-12 h-12 bg-white/10 hover:bg-white/20 rounded-2xl flex items-center justify-center transition-all group"
+                            >
+                                <X size={24} className="group-hover:rotate-90 transition-transform" />
                             </button>
                         </div>
-                        <div className="p-8 space-y-6">
-                            <div className="grid grid-cols-2 gap-8">
-                                <div className="space-y-4">
-                                    <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100">
-                                        <p className="text-[10px] font-black text-gray-400 uppercase mb-1">Thông tin dự án</p>
-                                        <p className="font-bold text-gray-900">{selectedOrder.project}</p>
+                        
+                        <div className="p-12 space-y-10">
+                            <div className="grid grid-cols-2 gap-10">
+                                <div className="space-y-8">
+                                    <div className="space-y-2">
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Construction Authority</p>
+                                        <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100 italic font-black text-slate-900 uppercase tracking-tighter">
+                                            {selectedOrder.project}
+                                        </div>
                                     </div>
-                                    <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100">
-                                        <p className="text-[10px] font-black text-gray-400 uppercase mb-1">Trạng thái vận chuyển</p>
-                                        <span className={`inline-block px-3 py-1 rounded-full text-[10px] font-black uppercase ${getStatusColor(selectedOrder.status)}`}>
-                                            {getStatusText(selectedOrder.status)}
-                                        </span>
+                                    <div className="space-y-2">
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Transaction Status</p>
+                                        <div className="flex">
+                                            <span className={`px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-sm ${getStatusColor(selectedOrder.status)}`}>
+                                                {getStatusText(selectedOrder.status)}
+                                            </span>
+                                        </div>
                                     </div>
                                 </div>
-                                <div className="space-y-4">
-                                    <div className="p-4 bg-blue-50 rounded-2xl border border-blue-100">
-                                        <p className="text-[10px] font-black text-blue-400 uppercase mb-1">Tổng thanh toán</p>
-                                        <p className="text-2xl font-black text-blue-600">{formatCurrency(selectedOrder.total)}</p>
+                                <div className="space-y-8">
+                                    <div className="space-y-2 text-right">
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2 text-right">Capital Value</p>
+                                        <div className="p-8 bg-orange-50 rounded-[2.5rem] border border-orange-100 flex flex-col items-end">
+                                            <p className="text-3xl font-black text-orange-600 italic tracking-tighter">{formatCurrency(selectedOrder.total)}</p>
+                                        </div>
                                     </div>
-                                    <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100">
-                                        <p className="text-[10px] font-black text-gray-400 uppercase mb-1">Số lượng mặt hàng</p>
-                                        <p className="font-bold text-gray-900">{selectedOrder.items} sản phẩm</p>
+                                    <div className="space-y-2 text-right">
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2 text-right">Itemization</p>
+                                        <p className="text-xl font-black text-slate-900 uppercase italic tracking-tighter">{selectedOrder.items} Commercial Units</p>
                                     </div>
                                 </div>
                             </div>
 
-                            <div className="pt-6 border-t border-gray-100 flex gap-4">
-                                <button onClick={() => setShowViewModal(false)} className="flex-1 py-4 bg-gray-100 text-gray-600 rounded-2xl font-black uppercase tracking-widest hover:bg-gray-200 transition-all">Đóng</button>
+                            <div className="pt-10 flex gap-6">
+                                <button onClick={() => setShowViewModal(false)} className="flex-1 py-6 bg-slate-100 text-slate-400 rounded-3xl font-black text-[10px] uppercase tracking-[0.3em] hover:bg-slate-200 transition-all">Dismiss</button>
                                 {selectedOrder.status === 'SHIPPED' && selectedOrder.deliveryToken && (
                                     <Link
                                         href={`/track/${selectedOrder.deliveryToken}`}
-                                        className="flex-1 py-4 bg-emerald-600 text-white rounded-2xl font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-100 flex items-center justify-center gap-2"
+                                        className="flex-[2] py-6 bg-emerald-600 text-white rounded-3xl font-black text-[10px] uppercase tracking-[0.3em] hover:bg-emerald-700 transition-all shadow-2xl shadow-emerald-500/20 flex items-center justify-center gap-4 group"
                                     >
-                                        Theo dõi vận chuyển
+                                        Live Track Progress <ArrowRight size={18} className="group-hover:translate-x-2 transition-transform" />
                                     </Link>
                                 )}
-                                <button className="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-lg shadow-blue-100">In hóa đơn</button>
+                                <button className="flex-1 py-6 bg-slate-900 text-white rounded-3xl font-black text-[10px] uppercase tracking-[0.3em] hover:bg-black transition-all shadow-2xl shadow-slate-900/20">Document Print</button>
                             </div>
                         </div>
                     </div>
                 </div>
             )}
 
-            {/* Delete Confirmation Modal */}
             {showDeleteModal && selectedOrder && (
-                <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4 backdrop-blur-sm">
-                    <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
-                        <div className="p-6 bg-red-600 text-white flex justify-between items-center text-white">
-                            <h3 className="font-black uppercase tracking-tight text-white">Xác nhận xoá đơn</h3>
-                            <button onClick={() => setShowDeleteModal(false)} className="text-white hover:bg-white/20 p-1 rounded-full border-none cursor-pointer"><X className="w-6 h-6" /></button>
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[120] flex items-center justify-center p-6">
+                    <div className="bg-white rounded-[4rem] w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in duration-300">
+                        <div className="p-10 bg-red-600 text-white relative">
+                            <h3 className="text-2xl font-black uppercase tracking-tighter italic">Revoke Access</h3>
                         </div>
-                        <div className="p-8 text-center space-y-6">
-                            <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mx-auto">
-                                <Trash2 className="w-10 h-10 text-red-600" />
+                        <div className="p-12 text-center space-y-10">
+                            <div className="w-24 h-24 bg-red-50 rounded-[2.5rem] flex items-center justify-center mx-auto group-hover:rotate-12 transition-all">
+                                <Trash2 size={40} className="text-red-500" />
                             </div>
-                            <div>
-                                <h4 className="text-xl font-black text-gray-900 mb-2">Bạn chắc chắn muốn xoá?</h4>
-                                <p className="text-gray-500 text-sm">Đơn hàng <span className="font-bold text-red-600">{selectedOrder.orderNumber}</span> sẽ được xoá vĩnh viễn và không thể khôi phục.</p>
+                            <div className="space-y-4">
+                                <h4 className="text-2xl font-black text-slate-900 tracking-tighter uppercase italic">Confirm Revocation?</h4>
+                                <p className="text-slate-500 font-bold uppercase text-[10px] tracking-widest leading-relaxed">
+                                    Đơn hàng <span className="text-red-600">#{selectedOrder.orderNumber}</span> sẽ được gỡ bỏ vĩnh viễn khỏi hệ thống lưu trữ B2B.
+                                </p>
                             </div>
                             <div className="flex gap-4">
-                                <button onClick={() => setShowDeleteModal(false)} className="flex-1 py-4 bg-gray-100 text-gray-600 rounded-2xl font-black uppercase tracking-widest hover:bg-gray-200 transition-all border-none cursor-pointer">Hủy</button>
-                                <button onClick={confirmDelete} className="flex-1 py-4 bg-red-600 text-white rounded-2xl font-black uppercase tracking-widest hover:bg-red-700 transition-all shadow-lg shadow-red-100 border-none cursor-pointer">Xác nhận xoá</button>
+                                <button onClick={() => setShowDeleteModal(false)} className="flex-1 py-6 bg-slate-100 text-slate-400 rounded-3xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-200 transition-all shadow-sm">Abort</button>
+                                <button onClick={confirmDelete} className="flex-1 py-6 bg-red-600 text-white rounded-3xl font-black text-[10px] uppercase tracking-widest hover:bg-red-700 transition-all shadow-xl shadow-red-500/20">Execute</button>
                             </div>
                         </div>
                     </div>
                 </div>
             )}
 
-            {/* Bulk Delete Confirmation Modal */}
             {showBulkDeleteModal && (
-                <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4 backdrop-blur-sm">
-                    <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
-                        <div className="p-6 bg-red-600 text-white flex justify-between items-center text-white">
-                            <h3 className="font-black uppercase tracking-tight text-white">Xoá hàng loạt</h3>
-                            <button onClick={() => setShowBulkDeleteModal(false)} className="text-white hover:bg-white/20 p-1 rounded-full border-none cursor-pointer"><X className="w-6 h-6" /></button>
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[120] flex items-center justify-center p-6">
+                    <div className="bg-white rounded-[4rem] w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in duration-300">
+                        <div className="p-10 bg-red-600 text-white">
+                            <h3 className="text-2xl font-black uppercase tracking-tighter italic">Bulk Revocation</h3>
                         </div>
-                        <div className="p-8 text-center space-y-6">
-                            <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mx-auto">
-                                <Trash2 className="w-10 h-10 text-red-600" />
+                        <div className="p-12 text-center space-y-10">
+                            <div className="w-24 h-24 bg-red-50 rounded-[2.5rem] flex items-center justify-center mx-auto">
+                                <Trash2 size={40} className="text-red-500" />
                             </div>
-                            <div>
-                                <h4 className="text-xl font-black text-gray-900 mb-2">Xác nhận xoá nhiều đơn?</h4>
-                                <p className="text-gray-500 text-sm">Bạn đang chuẩn bị xoá <span className="font-bold text-red-600">{selectedIds.length}</span> đơn hàng đã chọn. Hành động này không thể khôi phục.</p>
+                            <div className="space-y-4">
+                                <h4 className="text-2xl font-black text-slate-900 tracking-tighter uppercase italic">Wipe Selection?</h4>
+                                <p className="text-slate-500 font-bold uppercase text-[10px] tracking-widest leading-relaxed">
+                                    Bạn đang chuẩn bị xoá <span className="text-red-600 font-black">{selectedIds.length}</span> bản ghi giao dịch đã chọn.
+                                </p>
                             </div>
                             <div className="flex gap-4">
-                                <button onClick={() => setShowBulkDeleteModal(false)} className="flex-1 py-4 bg-gray-100 text-gray-600 rounded-2xl font-black uppercase tracking-widest hover:bg-gray-200 transition-all border-none cursor-pointer">Hủy</button>
-                                <button onClick={confirmBulkDelete} className="flex-1 py-4 bg-red-600 text-white rounded-2xl font-black uppercase tracking-widest hover:bg-red-700 transition-all shadow-lg shadow-red-100 border-none cursor-pointer">Xoá tất cả</button>
+                                <button onClick={() => setShowBulkDeleteModal(false)} className="flex-1 py-6 bg-slate-100 text-slate-400 rounded-3xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-200 transition-all">Abort</button>
+                                <button onClick={confirmBulkDelete} className="flex-1 py-6 bg-red-600 text-white rounded-3xl font-black text-[10px] uppercase tracking-widest hover:bg-red-700 transition-all shadow-xl shadow-red-500/20">Execute All</button>
                             </div>
                         </div>
                     </div>

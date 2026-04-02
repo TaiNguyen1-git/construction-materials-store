@@ -1,24 +1,17 @@
 'use client'
 
-/**
- * Contractor Quick Order Page — POS-Style
- * All-in-one: Product grid (left) + Cart & Checkout (right)
- * Auto shipping fee calculation via Haversine formula
- */
-
 import { useState, useEffect, useRef } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/contexts/auth-context'
 import { fetchWithAuth } from '@/lib/api-client'
 import toast from 'react-hot-toast'
-import Sidebar from '../components/Sidebar'
-import ContractorHeader from '../components/ContractorHeader'
 
 import { Product, CartItem, EvaluatedCart, SuccessOrderData, ContractorProject, ShippingCalculation } from './types'
 import ProductGrid from './components/ProductGrid'
 import CartPanel from './components/CartPanel'
 import SuccessModal from './components/SuccessModal'
 import OrderHistoryModal from './components/OrderHistoryModal'
+import { LayoutGrid, ShoppingCart, Zap, Layers, Cpu, Activity } from 'lucide-react'
 
 const formatCurrency = (val: number) =>
     new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val)
@@ -28,7 +21,8 @@ const CART_STORAGE_KEY = 'contractor-quick-order-cart'
 export default function QuickOrderPage() {
     const { user } = useAuth()
     const router = useRouter()
-    const [sidebarOpen, setSidebarOpen] = useState(true)
+    const searchParams = useSearchParams()
+    const initialProjectId = searchParams.get('projectId')
 
     // ─── Products ────────────────────────────────────────────────────────────
     const [products, setProducts] = useState<Product[]>([])
@@ -70,10 +64,6 @@ export default function QuickOrderPage() {
     const [isHistoryOpen, setIsHistoryOpen] = useState(false)
     const [recentOrders, setRecentOrders] = useState<any[]>([])
 
-    // ═════════════════════════════════════════════════════════════════════════
-    // Effects
-    // ═════════════════════════════════════════════════════════════════════════
-
     // Debounce search
     useEffect(() => {
         const timer = setTimeout(() => {
@@ -83,7 +73,7 @@ export default function QuickOrderPage() {
         return () => clearTimeout(timer)
     }, [searchQuery])
 
-    // Load categories once
+    // Load categories
     useEffect(() => {
         const fetchCategories = async () => {
             try {
@@ -102,17 +92,14 @@ export default function QuickOrderPage() {
         const fetchProducts = async () => {
             try {
                 if (page === 1) setLoading(true)
-
                 const queryParams = new URLSearchParams()
                 queryParams.append('limit', '40')
                 queryParams.append('page', page.toString())
                 if (debouncedSearch) queryParams.append('q', debouncedSearch)
                 if (selectedCategory !== 'all') queryParams.append('category', selectedCategory)
-
                 const res = await fetch(`/api/products?${queryParams.toString()}`)
                 const json = await res.json()
                 const data = json.data?.data || json.data || []
-
                 if (page === 1) {
                     setProducts(data)
                 } else {
@@ -122,7 +109,6 @@ export default function QuickOrderPage() {
                         return [...prev, ...newProducts]
                     })
                 }
-
                 setHasMore(data.length === 40)
             } catch (error) {
                 console.error('Failed to fetch products:', error)
@@ -133,12 +119,10 @@ export default function QuickOrderPage() {
         fetchProducts()
     }, [page, debouncedSearch, selectedCategory])
 
-    // Reset page on category change
     useEffect(() => {
         setPage(1)
     }, [selectedCategory])
 
-    // Load cart from localStorage
     useEffect(() => {
         try {
             const saved = localStorage.getItem(CART_STORAGE_KEY)
@@ -146,12 +130,10 @@ export default function QuickOrderPage() {
         } catch { }
     }, [])
 
-    // Save cart to localStorage
     useEffect(() => {
         localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart))
     }, [cart])
 
-    // Load contractor profile + projects
     useEffect(() => {
         if (user) {
             fetchContractorProfile()
@@ -159,25 +141,20 @@ export default function QuickOrderPage() {
         }
     }, [user])
 
-    // Evaluate cart with B2B pricing (debounced)
     useEffect(() => {
         if (evaluateTimeoutRef.current) clearTimeout(evaluateTimeoutRef.current)
-
         if (cart.length === 0 || !user?.id) {
             setEvaluatedCart(null)
             return
         }
-
         evaluateTimeoutRef.current = setTimeout(() => {
             evaluateCartPricing()
         }, 600)
-
         return () => {
             if (evaluateTimeoutRef.current) clearTimeout(evaluateTimeoutRef.current)
         }
     }, [cart, user])
 
-    // Auto-calculate shipping when project or cart total changes
     useEffect(() => {
         if (selectedProject?.lat && selectedProject?.lng) {
             calculateShipping(selectedProject.lat, selectedProject.lng)
@@ -185,10 +162,6 @@ export default function QuickOrderPage() {
             setShippingCalc(null)
         }
     }, [selectedProject, evaluatedCart, cart])
-
-    // ═════════════════════════════════════════════════════════════════════════
-    // API Calls
-    // ═════════════════════════════════════════════════════════════════════════
 
     const fetchContractorProfile = async () => {
         try {
@@ -201,9 +174,7 @@ export default function QuickOrderPage() {
                     setAvailableCredit(profile.availableCredit || 0)
                 }
             }
-        } catch (error) {
-            console.error('Error fetching contractor profile:', error)
-        }
+        } catch {}
     }
 
     const fetchProjects = async () => {
@@ -212,12 +183,15 @@ export default function QuickOrderPage() {
             if (response.ok) {
                 const data = await response.json()
                 if (data.success && data.data) {
-                    setProjects(data.data)
+                    const allProjects = data.data as ContractorProject[]
+                    setProjects(allProjects)
+                    if (initialProjectId) {
+                        const found = allProjects.find(p => p.id === initialProjectId)
+                        if (found) setSelectedProject(found)
+                    }
                 }
             }
-        } catch (error) {
-            console.error('Error fetching projects:', error)
-        }
+        } catch {}
     }
 
     const evaluateCartPricing = async () => {
@@ -238,9 +212,7 @@ export default function QuickOrderPage() {
             if (data.success && data.data) {
                 setEvaluatedCart(data.data)
             }
-        } catch (error) {
-            console.error('Error evaluating cart:', error)
-        } finally {
+        } catch {} finally {
             setEvaluating(false)
         }
     }
@@ -248,10 +220,8 @@ export default function QuickOrderPage() {
     const calculateShipping = async (lat: number, lng: number) => {
         setShippingLoading(true)
         try {
-            // Calculate order total for free shipping check
             const orderTotal = evaluatedCart?.summary?.totalPrice
                 ?? cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0)
-
             const response = await fetch('/api/shipping/calculate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -261,9 +231,7 @@ export default function QuickOrderPage() {
             if (data.success && data.data) {
                 setShippingCalc(data.data)
             }
-        } catch (error) {
-            console.error('Error calculating shipping:', error)
-        } finally {
+        } catch {} finally {
             setShippingLoading(false)
         }
     }
@@ -276,53 +244,41 @@ export default function QuickOrderPage() {
             if (res.ok && data.success) {
                 setRecentOrders(data.data?.orders || data.data?.data || [])
             } else {
-                toast.error('Lỗi tải lịch sử đơn hàng')
+                toast.error('Telemetry Sync Failure')
             }
         } catch {
-            toast.error('Lỗi kết nối khi tải lịch sử')
+            toast.error('Sync Timeout')
         }
     }
-
-    // ═════════════════════════════════════════════════════════════════════════
-    // Cart Actions
-    // ═════════════════════════════════════════════════════════════════════════
 
     const addToCart = (product: Product) => {
         const available = product.inventoryItem?.availableQuantity ?? Number.MAX_SAFE_INTEGER
         const existing = cart.find(item => item.product.id === product.id)
         const currentQty = existing ? existing.quantity : 0
-
         if (currentQty >= available) {
-            toast.error(`Sản phẩm này chỉ còn ${available} trong kho!`, { duration: 3000 })
+            toast.error(`Stock Conflict: Only ${available} available`, { duration: 3000 })
             return
         }
-
         setCart(prev => {
             const itemInPrev = prev.find(item => item.product.id === product.id)
             if (itemInPrev) {
                 return prev.map(item =>
-                    item.product.id === product.id
-                        ? { ...item, quantity: item.quantity + 1 }
-                        : item
+                    item.product.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
                 )
             }
             return [...prev, { product, quantity: 1 }]
         })
-        toast.success(`Đã thêm: ${product.name}`, { duration: 1000 })
+        toast.success(`Unit Loaded: ${product.name}`, { duration: 1000 })
     }
 
     const updateQuantity = (productId: string, delta: number) => {
         const item = cart.find(i => i.product.id === productId)
         if (!item) return
-        
         const available = item.product.inventoryItem?.availableQuantity ?? Number.MAX_SAFE_INTEGER
-        const newQty = item.quantity + delta
-        
         if (delta > 0 && item.quantity >= available) {
-            toast.error(`Sản phẩm này chỉ còn ${available} trong kho!`, { duration: 3000 })
+            toast.error(`Stock Restriction: Only ${available} available`, { duration: 3000 })
             return
         }
-
         setCart(prev => prev.map(it => {
             if (it.product.id === productId) {
                 const nextQty = it.quantity + delta
@@ -338,23 +294,15 @@ export default function QuickOrderPage() {
             removeFromCart(productId)
             return
         }
-        
         const item = cart.find(i => i.product.id === productId)
         if (!item) return
-        
         const available = item.product.inventoryItem?.availableQuantity ?? Number.MAX_SAFE_INTEGER
         if (qty > available) {
-            toast.error(`Sản phẩm này chỉ còn ${available} trong kho!`, { duration: 3000 })
-            // Set limit
-            setCart(prev => prev.map(it =>
-                it.product.id === productId ? { ...it, quantity: available } : it
-            ))
+            toast.error(`Stock Restriction: Only ${available} available`, { duration: 3000 })
+            setCart(prev => prev.map(it => it.product.id === productId ? { ...it, quantity: available } : it))
             return
         }
-
-        setCart(prev => prev.map(it =>
-            it.product.id === productId ? { ...it, quantity: qty } : it
-        ))
+        setCart(prev => prev.map(it => it.product.id === productId ? { ...it, quantity: qty } : it))
     }
 
     const removeFromCart = (productId: string) => {
@@ -366,134 +314,92 @@ export default function QuickOrderPage() {
         setEvaluatedCart(null)
     }
 
-    // Cart quantities map for ProductGrid badges
     const cartQuantities: Record<string, number> = {}
-    cart.forEach(item => {
-        cartQuantities[item.product.id] = item.quantity
-    })
-
-    // ═════════════════════════════════════════════════════════════════════════
-    // Checkout
-    // ═════════════════════════════════════════════════════════════════════════
+    cart.forEach(item => { cartQuantities[item.product.id] = item.quantity })
 
     const handleCheckout = async () => {
         if (cart.length === 0) {
-            toast.error('Giỏ hàng trống!')
+            toast.error('Cart Empty: Null Transmission Rejected')
             return
         }
-
-        // Frontend validation
         if (!deliveryDate) {
-            toast.error('⚠️ Vui lòng chọn ngày giao hàng!', { duration: 3000 })
+            toast.error('Tactical Error: Selection of Delivery Cycle Required', { duration: 3000 })
             return
         }
-
         if (!selectedProject && !projectName.trim()) {
-            toast.error('⚠️ Vui lòng chọn công trình hoặc nhập địa chỉ giao hàng!', { duration: 3000 })
+            toast.error('Tactical Error: Target Location Node Required', { duration: 3000 })
             return
         }
-
         setIsProcessing(true)
-        const toastId = toast.loading('Đang tạo đơn hàng...')
-
+        const toastId = toast.loading('Synchronizing Order Payload...')
         try {
             const shippingFee = shippingCalc?.finalFee ?? 0
-
             const response = await fetchWithAuth('/api/contractors/orders', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    items: cart.map(item => ({
-                        productId: item.product.id,
-                        quantity: item.quantity
-                    })),
+                    items: cart.map(item => ({ productId: item.product.id, quantity: item.quantity })),
                     projectName: projectName || selectedProject?.title || '',
                     poNumber,
                     shippingFee,
                     deliveryDate: deliveryDate || undefined,
                     shippingDistance: shippingCalc?.distanceKm || undefined,
-                    notes: [
-                        notes,
-                        deliveryDate ? `Giao ngày: ${deliveryDate}` : '',
-                        shippingCalc ? `VC: ${shippingCalc.distanceKm}km / ${formatCurrency(shippingFee)}` : ''
-                    ].filter(Boolean).join(' | ') || undefined
+                    notes: [notes, deliveryDate ? `Giao ngày: ${deliveryDate}` : '', shippingCalc ? `VC: ${shippingCalc.distanceKm}km / ${formatCurrency(shippingFee)}` : ''].filter(Boolean).join(' | ') || undefined
                 })
             })
-
             const data = await response.json()
-
             if (response.ok && data.success) {
                 toast.dismiss(toastId)
-
                 const order = data.data
                 const orderNumber = order?.orderNumber || order?.id?.slice(-8) || 'B2B-' + Date.now()
-
-                // Build success order data
-                const subtotal = evaluatedCart?.summary?.totalOriginal
-                    ?? cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0)
+                const subtotal = evaluatedCart?.summary?.totalOriginal ?? cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0)
                 const discountTotal = evaluatedCart?.summary?.totalDiscount ?? 0
-                const total = (evaluatedCart?.summary?.totalPrice
-                    ?? cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0)) + shippingFee
-
-                setSuccessOrder({
-                    id: order?.id || 'N/A',
-                    orderNumber,
-                    projectName: projectName || selectedProject?.title || '',
-                    items: cart.map(item => {
-                        const evaluated = evaluatedCart?.items?.find(i => i.productId === item.product.id)
-                        return {
-                            name: item.product.name,
-                            quantity: item.quantity,
-                            unitPrice: item.product.price,
-                            effectivePrice: evaluated?.effectivePrice ?? item.product.price,
-                            total: evaluated?.totalPrice ?? (item.product.price * item.quantity)
-                        }
-                    }),
-                    subtotal,
-                    discountTotal,
-                    shippingFee,
-                    total,
-                    createdAt: new Date().toISOString()
-                })
-
-                // Reset
-                clearCart()
-                setProjectName('')
-                setPoNumber('')
-                setNotes('')
-                setDeliveryDate('')
-                setSelectedProject(null)
-                setShippingCalc(null)
+                const total = (evaluatedCart?.summary?.totalPrice ?? cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0)) + shippingFee
+                setSuccessOrder({ id: order?.id || 'N/A', orderNumber, projectName: projectName || selectedProject?.title || '', items: cart.map(item => { const evaluated = evaluatedCart?.items?.find(i => i.productId === item.product.id); return { name: item.product.name, quantity: item.quantity, unitPrice: item.product.price, effectivePrice: evaluated?.effectivePrice ?? item.product.price, total: evaluated?.totalPrice ?? (item.product.price * item.quantity) } }), subtotal, discountTotal, shippingFee, total, createdAt: new Date().toISOString() })
+                clearCart(); setProjectName(''); setPoNumber(''); setNotes(''); setDeliveryDate(''); setSelectedProject(null); setShippingCalc(null)
             } else {
-                // Extract error message from createErrorResponse structure: { error: { message, code } }
-                const errorMessage = data.error?.message || data.message || 'Có lỗi xảy ra. Vui lòng thử lại.'
-                toast.error(errorMessage, { id: toastId, duration: 5000 })
+                toast.error(data.error?.message || data.message || 'Transmission Rejected', { id: toastId, duration: 5000 })
             }
-        } catch (error) {
-            console.error('Checkout error:', error)
-            toast.error('Lỗi kết nối khi đặt hàng', { id: toastId })
+        } catch {
+            toast.error('Transmission Timeout', { id: toastId })
         } finally {
             setIsProcessing(false)
         }
     }
 
-    const handleNewOrder = () => {
-        setSuccessOrder(null)
-    }
-
-    // ═════════════════════════════════════════════════════════════════════════
-    // Render
-    // ═════════════════════════════════════════════════════════════════════════
-
     return (
-        <div className="min-h-screen bg-gray-50 flex flex-col">
-            <ContractorHeader sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
-            <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+        <div className="flex flex-col h-full bg-slate-50/50 rounded-[3.5rem] border border-slate-100 overflow-hidden shadow-2xl animate-in fade-in duration-1000">
+            {/* POS Control Bar */}
+            <div className="bg-slate-900 px-10 py-6 text-white flex items-center justify-between relative overflow-hidden flex-shrink-0">
+                <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl"></div>
+                <div className="relative z-10 flex items-center gap-6">
+                    <div className="w-12 h-12 bg-white/5 rounded-2xl flex items-center justify-center border border-white/10 group-hover:scale-110 transition-transform">
+                        <ShoppingCart className="w-6 h-6 text-blue-400" />
+                    </div>
+                    <div className="space-y-1">
+                        <h1 className="text-xl font-black uppercase italic tracking-tighter">Material Management Terminal</h1>
+                        <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                            <Activity className="w-3 h-3 text-emerald-500" /> POS Mode Active • Operational Integrity: 100%
+                        </p>
+                    </div>
+                </div>
+                <div className="relative z-10 flex items-center gap-4">
+                    <div className="text-right mr-6">
+                        <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">Available Liquid Credit</p>
+                        <p className="text-lg font-black italic tracking-tighter text-emerald-400">{formatCurrency(availableCredit)}</p>
+                    </div>
+                    <button onClick={fetchHistory} className="px-6 py-3 bg-white/5 hover:bg-white/10 rounded-[1.2rem] text-[10px] font-black uppercase tracking-widest transition-all border border-white/10 italic">
+                        Node History
+                    </button>
+                    <button onClick={() => router.back()} className="px-6 py-3 bg-white/5 hover:bg-white/10 rounded-[1.2rem] text-[10px] font-black uppercase tracking-widest transition-all border border-white/10 italic">
+                        Exit Matrix
+                    </button>
+                </div>
+            </div>
 
-            <main className={`flex-1 pt-[73px] transition-all duration-300 ${sidebarOpen ? 'lg:ml-64' : 'ml-0'}`}>
-                <div className="flex h-[calc(100vh-73px)] gap-5 p-5 animate-in fade-in duration-500">
-
-                    {/* Left: Product Grid */}
+            <div className="flex flex-1 overflow-hidden">
+                {/* Left: Product Grid */}
+                <div className="flex-1 overflow-hidden p-6 lg:p-8 bg-white rounded-br-[3.5rem] relative">
                     <ProductGrid
                         products={products}
                         loading={loading}
@@ -507,8 +413,10 @@ export default function QuickOrderPage() {
                         onLoadMore={() => setPage(p => p + 1)}
                         cartQuantities={cartQuantities}
                     />
+                </div>
 
-                    {/* Right: Cart + Checkout */}
+                {/* Right: Cart + Checkout */}
+                <div className="w-[450px] bg-slate-50/80 border-l border-slate-100 p-6 lg:p-8 overflow-y-auto scrollbar-hide flex flex-col">
                     <CartPanel
                         cart={cart}
                         evaluatedCart={evaluatedCart}
@@ -537,22 +445,10 @@ export default function QuickOrderPage() {
                         onOpenHistory={fetchHistory}
                     />
                 </div>
-            </main>
+            </div>
 
-            {/* Success Modal */}
-            <SuccessModal
-                order={successOrder}
-                onClose={handleNewOrder}
-                formatCurrency={formatCurrency}
-            />
-
-            {/* History Modal */}
-            <OrderHistoryModal
-                isOpen={isHistoryOpen}
-                onClose={() => setIsHistoryOpen(false)}
-                orders={recentOrders}
-                formatCurrency={formatCurrency}
-            />
+            <SuccessModal order={successOrder} onClose={() => setSuccessOrder(null)} formatCurrency={formatCurrency} />
+            <OrderHistoryModal isOpen={isHistoryOpen} onClose={() => setIsHistoryOpen(false)} orders={recentOrders} formatCurrency={formatCurrency} />
         </div>
     )
 }

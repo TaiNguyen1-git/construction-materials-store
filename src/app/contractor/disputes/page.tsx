@@ -2,20 +2,11 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { Toaster, toast } from 'react-hot-toast'
-import { AlertCircle, FileText, CheckCircle2, Clock, Plus, Camera, X, Building2, User, MessageSquare, Sparkles, ArrowRight, Scale, ThumbsUp, Loader2, ChevronRight } from 'lucide-react'
+import { AlertCircle, FileText, CheckCircle2, Clock, Plus, Camera, X, Building2, User, MessageSquare, Sparkles, ArrowRight, Scale, ThumbsUp, Loader2, ChevronRight, Gavel, ShieldAlert, History, MessageCircle } from 'lucide-react'
 import { fetchWithAuth } from '@/lib/api-client'
-import ContractorHeader from '../components/ContractorHeader'
-import Sidebar from '../components/Sidebar'
-
-const Spinner = () => (
-    <div className="flex justify-center items-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
-    </div>
-)
 
 export default function ContractorDisputePage() {
     const fileInputRef = useRef<HTMLInputElement>(null)
-    const [sidebarOpen, setSidebarOpen] = useState(true)
     const [disputes, setDisputes] = useState<any[]>([])
     const [orders, setOrders] = useState<any[]>([])
     const [loading, setLoading] = useState(true)
@@ -85,10 +76,10 @@ export default function ContractorDisputePage() {
                     ...prev,
                     evidence: [...prev.evidence, result.data.url]
                 }))
-                toast.success('Đã tải lên hình ảnh')
+                toast.success('Evidence uploaded successfully')
             }
         } catch (error) {
-            toast.error('Lỗi khi tải ảnh lên')
+            toast.error('Failed to transmit evidence')
         } finally {
             setUploadingImage(false)
         }
@@ -101,20 +92,18 @@ export default function ContractorDisputePage() {
         }))
     }
 
-    // AI Mediation suggestions based on reason
     const MEDIATION_SUGGESTIONS: Record<string, string> = {
-        'Vật tư kém chất lượng': '🔧 Giải pháp gợi ý:\n\n1. Chụp ảnh vật tư bị lỗi và gửi cho cửa hàng qua chat\n2. Yêu cầu đổi trả trong vòng 7 ngày kể từ ngày nhận\n3. Nếu vật tư đã sử dụng một phần, liên hệ yêu cầu credit/giảm giá cho đơn tiếp theo\n\n⏱ Thời gian xử lý trung bình: 2-3 ngày làm việc',
-        'Giao thiếu vật tư': '📦 Giải pháp gợi ý:\n\n1. Kiểm tra phiếu giao hàng và đối chiếu với đơn đặt\n2. Liên hệ cửa hàng qua chat để xác nhận thiếu mặt hàng nào\n3. Cửa hàng sẽ giao bổ sung trong 24-48h nếu xác nhận thiếu\n\n💡 Tip: Luôn kiểm tra hàng trước mặt shipper khi nhận',
-        'Giao hàng chậm': '🚛 Giải pháp gợi ý:\n\n1. Kiểm tra trạng thái đơn hàng trong trang "Đơn hàng đã đặt"\n2. Nếu chậm >2 ngày, bạn có quyền yêu cầu hoàn phí vận chuyển\n3. Liên hệ cửa hàng để thương lượng lịch giao mới\n\n⚠️ Nếu ảnh hưởng tiến độ thi công, đề nghị bồi thường chi phí nhân công chờ',
-        'Sai quy cách vật tư': '📐 Giải pháp gợi ý:\n\n1. So sánh thông số vật tư thực tế với thông số trên đơn\n2. Yêu cầu đổi đúng quy cách trong vòng 7 ngày\n3. Không sử dụng vật tư sai quy cách — giữ nguyên trạng để đổi\n\n📋 Lưu ý: Giữ nguyên bao bì, tem mác để đảm bảo quyền đổi trả',
-        'Chủ nhà không thanh toán': '💰 Giải pháp gợi ý:\n\n1. Gửi nhắc nhở thanh toán qua tin nhắn trong app\n2. Nếu có Escrow, tiền sẽ được giải ngân sau nghiệm thu milestone\n3. Nếu không có Escrow, gửi thông báo chính thức qua email\n\n⚖️ Sau 7 ngày không phản hồi, bạn có quyền mở tranh chấp chính thức',
-        'Yêu cầu thay đổi ngoài hợp đồng': '📝 Giải pháp gợi ý:\n\n1. Lập phụ lục hợp đồng cho phần thay đổi\n2. Tính toán chi phí phát sinh và gửi báo giá bổ sung\n3. Chỉ thi công khi có xác nhận bằng văn bản (tin nhắn cũng được)\n\n🛡 Tip: Sử dụng tính năng "Sửa đổi hợp đồng" trong trang Hợp đồng',
+        'Vật tư kém chất lượng': '🔧 Operational Protocol Suggestion:\n\n1. Capture HD evidence of sub-standard assets and transmit via B2B Chat\n2. Invoke "Quality Assurance Recall" within 7 business days\n3. For partial asset consumption, negotiate "Commercial Credit" for upcoming procurement batches',
+        'Giao thiếu vật tư': '📦 Logistics Audit Suggestion:\n\n1. Cross-reference digital delivery tokens with physical asset count\n2. Initiate "Logistics Reconciliation" via real-time vendor communications\n3. Request expedited re-delivery within 24-48h window upon confirmation',
+        'Giao hàng chậm': '🚛 Scheduling Protocol Suggestion:\n\n1. Verify "Live Tracking" temporal data in Logistics Hub\n2. If delay exceeds >48h, claim "Performance Penalty" covering delivery overhead\n3. Negotiate new high-priority deployment slot with vendor project management',
+        'Sai quy cách vật tư': '📐 Geometric Accuracy Suggestion:\n\n1. Contrast physical dimensions with digital procurement specifications\n2. Trigger "Asset Exchange Protocol" within 7-day liability window\n3. Ensure asset integrity remains intact — avoid deployment of incorrect units',
+        'Chủ nhà không thanh toán': '💰 Revenue Recovery Suggestion:\n\n1. Transmit "Commercial Remittance Notice" via portal messaging system\n2. If Escrow is active, liquidity will be released post-milestone validation\n3. For non-Escrow transactions, issue formal "Institutional Recovery Notification" via verified channels',
+        'Yêu cầu thay đổi ngoài hợp đồng': '📝 Project Variation Suggestion:\n\n1. Formalize "Change Order Appendix" for all architectural modifications\n2. Calculate additional fiscal impact and submit via "Dynamic Bidding" module\n3. Halt deployment until digital confirmation of the modified protocol is secured',
     }
 
     const handleMediationCheck = (e: React.FormEvent) => {
         e.preventDefault()
-        // Show mediation suggestion instead of submitting directly
-        const suggestion = MEDIATION_SUGGESTIONS[form.reason] || `💬 Gợi ý chung:\n\n1. Liên hệ trực tiếp với đối tác qua chat để trao đổi\n2. Cung cấp đầy đủ bằng chứng (ảnh, video, biên bản)\n3. Đề xuất giải pháp cụ thể mà bạn mong muốn\n\nNếu không thể thỏa thuận, bạn có thể chuyển sang tranh chấp chính thức để Admin can thiệp.`
+        const suggestion = MEDIATION_SUGGESTIONS[form.reason] || `💬 Strategic Overview:\n\n1. Initiate direct resolution dialogue via integrated B2B communication channels\n2. Provide comprehensive evidence vault (Imagery, Metadata, Field Reports)\n3. Propose a specific commercial resolution framework for evaluation`
         setMediationSuggestion(suggestion)
         setMediationStep('suggestion')
     }
@@ -143,396 +132,398 @@ export default function ContractorDisputePage() {
             })
 
             if (res.ok) {
-                toast.success('Đã gửi khiếu nại thành công!')
+                toast.success('Dispute case successfully logged in the resolution vault')
                 setShowForm(false)
                 setMediationStep('form')
                 setForm({ orderId: '', targetType: 'STORE', reason: '', description: '', evidence: [] })
                 fetchData()
             } else {
-                toast.error('Có lỗi xảy ra')
+                toast.error('Case registration failed')
             }
         } catch (error) {
-            toast.error('Lỗi kết nối')
+            toast.error('Protocol transmission error')
         } finally {
             setSubmitting(false)
         }
     }
 
-    if (loading) return (
-        <div className="min-h-screen bg-gray-50 flex flex-col">
-            <ContractorHeader sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
-            <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-            <main className={`flex-1 pt-[60px] transition-all duration-300 ${sidebarOpen ? 'lg:ml-64' : 'ml-0'}`}>
-                <div className="flex justify-center p-20"><Spinner /></div>
-            </main>
-        </div>
-    )
-
     return (
-        <div className="min-h-screen bg-gray-50 flex flex-col">
+        <div className="space-y-10 animate-in fade-in duration-500 pb-20 max-w-7xl mx-auto">
             <Toaster position="top-right" />
-            <ContractorHeader sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
-            <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+            
+            {/* High Impact Resolution Header */}
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+                <div className="space-y-2">
+                    <h1 className="text-4xl font-black text-slate-900 tracking-tighter uppercase italic flex items-center gap-4">
+                        <Gavel className="w-10 h-10 text-rose-600" />
+                        Dispute Vault
+                    </h1>
+                    <p className="text-slate-500 font-bold uppercase text-[10px] tracking-[0.2em]">Hệ thống giải quyết tranh chấp & Trung tâm hòa giải B2B</p>
+                </div>
 
-            <main className={`flex-1 pt-[60px] transition-all duration-300 ${sidebarOpen ? 'lg:ml-64' : 'ml-0'}`}>
-                <div className="p-4 lg:p-6 max-w-4xl mx-auto">
-                    <div className="flex justify-between items-center mb-8">
-                        <div>
-                            <h1 className="text-2xl font-bold flex items-center gap-2 text-slate-900">
-                                <AlertCircle className="text-primary-600" /> Trung tâm Tranh chấp Nhà thầu
-                            </h1>
-                            <p className="text-gray-500 font-medium text-sm">Phản hồi về vật tư hoặc vấn đề với đối tác</p>
-                        </div>
-                        <button
-                            onClick={() => setShowForm(!showForm)}
-                            className="bg-primary-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-primary-700 transition-all shadow-md hover:shadow-lg active:scale-95"
-                        >
-                            {showForm ? 'Hủy' : <><Plus size={18} /> Gửi khiếu nại</>}
-                        </button>
+                <div className="flex items-center gap-4">
+                    <button
+                        onClick={() => {
+                            setShowForm(!showForm)
+                            if (showForm) setMediationStep('form')
+                        }}
+                        className={`px-8 py-4 ${showForm ? 'bg-slate-100 text-slate-500' : 'bg-rose-600 text-white shadow-xl shadow-rose-500/20'} rounded-[1.5rem] text-[10px] font-black uppercase tracking-[0.2em] hover:scale-105 transition-all flex items-center gap-3 active:scale-95`}
+                    >
+                        {showForm ? <><X size={16} /> Abort Case</> : <><ShieldAlert size={16} /> Log New Case</>}
+                    </button>
+                </div>
+            </div>
+
+            {showForm && (
+                <div className="bg-white p-12 rounded-[3.5rem] border border-slate-100 shadow-2xl mb-12 animate-in slide-in-from-top-10 duration-700 overflow-hidden relative">
+                    <div className="absolute top-0 right-0 w-96 h-96 bg-rose-500/5 rounded-full blur-[100px] -mr-48 -mt-48"></div>
+                    
+                    {/* Resolution Progress Protocol */}
+                    <div className="flex items-center gap-6 mb-12 pb-8 border-b border-slate-50 relative z-10">
+                        {[
+                            { step: 'form', label: 'Case Context', icon: FileText, color: 'text-blue-500', bg: 'bg-blue-50' },
+                            { step: 'suggestion', label: 'AI Strategy', icon: Sparkles, color: 'text-amber-500', bg: 'bg-amber-50' },
+                            { step: 'escalate', label: 'Adjudication', icon: Scale, color: 'text-rose-500', bg: 'bg-rose-50' }
+                        ].map((m, i) => (
+                            <div key={m.step} className="flex items-center gap-6">
+                                <div className={`flex items-center gap-4 px-6 py-3 rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest transition-all duration-500 ${mediationStep === m.step ? `${m.bg} ${m.color} shadow-lg shadow-black/5` : 'bg-slate-50 text-slate-300 opacity-40'}`}>
+                                    <m.icon size={16} />
+                                    {m.label}
+                                </div>
+                                {i < 2 && <ArrowRight size={14} className="text-slate-100" />}
+                            </div>
+                        ))}
                     </div>
 
-                    {showForm && (
-                        <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-xl mb-12 animate-in fade-in slide-in-from-top-4 duration-300">
-                            {/* Mediation Steps Indicator */}
-                            <div className="flex items-center gap-3 mb-6 pb-4 border-b border-gray-100">
-                                <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold ${mediationStep === 'form' ? 'bg-primary-100 text-primary-700' : 'bg-gray-100 text-gray-400'}`}>
-                                    <span className="w-5 h-5 rounded-full bg-current/20 flex items-center justify-center text-[10px]">1</span>
-                                    Mô tả vấn đề
+                    {/* Stage 01: Case Documentation */}
+                    {mediationStep === 'form' && (
+                        <form onSubmit={handleMediationCheck} className="space-y-10 relative z-10">
+                            <div className="grid md:grid-cols-2 gap-10">
+                                <div className="space-y-4">
+                                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Linked Transaction Record</label>
+                                    <select
+                                        required
+                                        value={form.orderId}
+                                        onChange={e => setForm({ ...form, orderId: e.target.value })}
+                                        className="w-full bg-slate-50 border border-slate-100 rounded-[1.8rem] px-8 py-5 text-sm font-black italic tracking-tight focus:bg-white focus:ring-4 focus:ring-rose-500/5 focus:border-rose-500/20 outline-none transition-all"
+                                    >
+                                        <option value="">-- SELECT TRANSACTION PROTOCOL --</option>
+                                        {orders.map((o: any) => (
+                                            <option key={o.id} value={o.id}>#{o.orderNumber} - {o.customer?.user?.name || 'PRIVATE CLIENT'}</option>
+                                        ))}
+                                    </select>
                                 </div>
-                                <ArrowRight size={14} className="text-gray-300" />
-                                <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold ${mediationStep === 'suggestion' ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-400'}`}>
-                                    <Sparkles className="w-3.5 h-3.5" />
-                                    Gợi ý hòa giải
-                                </div>
-                                <ArrowRight size={14} className="text-gray-300" />
-                                <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold ${mediationStep === 'escalate' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-400'}`}>
-                                    <Scale className="w-3.5 h-3.5" />
-                                    Tranh chấp
+
+                                <div className="space-y-4">
+                                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Target Counterparty</label>
+                                    <div className="flex gap-4 p-2 bg-slate-50 rounded-[1.8rem] border border-slate-100 h-[64px]">
+                                        <button
+                                            type="button"
+                                            onClick={() => setForm({ ...form, targetType: 'STORE' })}
+                                            className={`flex-1 rounded-[1.2rem] text-[10px] font-black transition-all flex items-center justify-center gap-3 uppercase tracking-widest ${form.targetType === 'STORE' ? 'bg-white text-rose-600 shadow-xl border border-black/5' : 'text-slate-400'}`}
+                                        >
+                                            <Building2 size={16} /> Commercial Vendor
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setForm({ ...form, targetType: 'CUSTOMER' })}
+                                            className={`flex-1 rounded-[1.2rem] text-[10px] font-black transition-all flex items-center justify-center gap-3 uppercase tracking-widest ${form.targetType === 'CUSTOMER' ? 'bg-white text-rose-600 shadow-xl border border-black/5' : 'text-slate-400'}`}
+                                        >
+                                            <User size={16} /> Project Principal
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
 
-                            {/* Step 1: Form */}
-                            {mediationStep === 'form' && (
-                                <form onSubmit={handleMediationCheck} className="space-y-6">
-                                    <div className="grid md:grid-cols-2 gap-6">
-                                        <div>
-                                            <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Đơn hàng liên quan</label>
-                                            <select
-                                                required
-                                                value={form.orderId}
-                                                onChange={e => setForm({ ...form, orderId: e.target.value })}
-                                                className="w-full bg-slate-50 border border-slate-100 rounded-xl p-3 text-sm font-bold focus:ring-2 focus:ring-primary-500/20 focus:border-primary-400 outline-none transition-all"
+                            <div className="space-y-4">
+                                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Categorical Conflict Primary Reason</label>
+                                <select
+                                    required
+                                    value={form.reason}
+                                    onChange={e => setForm({ ...form, reason: e.target.value })}
+                                    className="w-full bg-slate-50 border border-slate-100 rounded-[1.8rem] px-8 py-5 text-sm font-black italic tracking-tight focus:bg-white focus:ring-4 focus:ring-rose-500/5 focus:border-rose-500/20 outline-none transition-all"
+                                >
+                                    <option value="">-- CLASSIFY DISPUTE ORIGIN --</option>
+                                    {form.targetType === 'STORE' ? (
+                                        <>
+                                            <option value="Vật tư kém chất lượng">SUB-STANDARD ASSET QUALITY</option>
+                                            <option value="Giao thiếu vật tư">LOGISTICS QUANTITY DISCREPANCY</option>
+                                            <option value="Giao hàng chậm">TEMPORAL LOGISTICS VIOLATION</option>
+                                            <option value="Sai quy cách vật tư">ASSET SPECIFICATION ERROR</option>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <option value="Chủ nhà không thanh toán">NON-SETTLEMENT OF REVENUE</option>
+                                            <option value="Yêu cầu thay đổi ngoài hợp đồng">UNAUTHORIZED PROTOCOL VARIATION</option>
+                                            <option value="Gây khó dễ thi công">OPERATIONAL INTERFERENCE</option>
+                                            <option value="Vi phạm điều khoản an toàn">SAFETY PROTOCOL BREACH</option>
+                                        </>
+                                    )}
+                                    <option value="Khác">UNCLASSIFIED PROTOCOL VARIANCE</option>
+                                </select>
+                            </div>
+
+                            <div className="space-y-4">
+                                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Operational Incident Report</label>
+                                <textarea
+                                    required
+                                    value={form.description}
+                                    onChange={e => setForm({ ...form, description: e.target.value })}
+                                    rows={5}
+                                    className="w-full bg-slate-50 border border-slate-100 rounded-[2.5rem] px-10 py-8 text-sm font-bold leading-relaxed focus:bg-white focus:ring-4 focus:ring-rose-500/5 focus:border-rose-500/20 outline-none transition-all placeholder:text-slate-200"
+                                    placeholder="Provide detailed chronological logs of the incident and desired commercial resolution..."
+                                ></textarea>
+                            </div>
+
+                            <div className="space-y-6">
+                                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Verification Evidence Vault</label>
+                                <div className="flex flex-wrap gap-6">
+                                    {form.evidence.map((url, idx) => (
+                                        <div key={idx} className="relative w-32 h-32 group">
+                                            <img src={url} alt="Evidence" className="w-full h-full object-cover rounded-[1.8rem] border-[3px] border-slate-100 shadow-sm" />
+                                            <button
+                                                type="button"
+                                                onClick={() => removeEvidence(idx)}
+                                                className="absolute -top-3 -right-3 bg-slate-900 text-white rounded-2xl w-10 h-10 flex items-center justify-center shadow-xl opacity-0 group-hover:opacity-100 transition-all hover:bg-rose-600"
                                             >
-                                                <option value="">-- Chọn đơn hàng --</option>
-                                                {orders.map((o: any) => (
-                                                    <option key={o.id} value={o.id}>#{o.orderNumber} - {o.customer?.user?.name || 'Khách hàng'}</option>
-                                                ))}
-                                            </select>
+                                                <X size={18} />
+                                            </button>
                                         </div>
+                                    ))}
 
-                                        <div>
-                                            <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Đối tượng khiếu nại</label>
-                                            <div className="flex gap-2 p-1.5 bg-slate-50 rounded-xl border border-slate-100">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setForm({ ...form, targetType: 'STORE' })}
-                                                    className={`flex-1 py-1.5 rounded-lg text-xs font-black transition-all flex items-center justify-center gap-2 ${form.targetType === 'STORE' ? 'bg-white text-indigo-600 shadow-sm border border-slate-100' : 'text-slate-400'}`}
-                                                >
-                                                    <Building2 size={14} /> Cửa hàng
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setForm({ ...form, targetType: 'CUSTOMER' })}
-                                                    className={`flex-1 py-1.5 rounded-lg text-xs font-black transition-all flex items-center justify-center gap-2 ${form.targetType === 'CUSTOMER' ? 'bg-white text-indigo-600 shadow-sm border border-slate-100' : 'text-slate-400'}`}
-                                                >
-                                                    <User size={14} /> Chủ nhà
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
+                                    <input
+                                        type="file"
+                                        ref={fileInputRef}
+                                        onChange={handleFileUpload}
+                                        className="hidden"
+                                        accept="image/*"
+                                    />
 
-                                    <div>
-                                        <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Lý do khiếu nại</label>
-                                        <select
-                                            required
-                                            value={form.reason}
-                                            onChange={e => setForm({ ...form, reason: e.target.value })}
-                                            className="w-full bg-slate-50 border border-slate-100 rounded-xl p-3 text-sm font-bold focus:ring-2 focus:ring-primary-500/20 focus:border-primary-400 outline-none transition-all"
-                                        >
-                                            <option value="">-- Chọn lý do --</option>
-                                            {form.targetType === 'STORE' ? (
-                                                <>
-                                                    <option value="Vật tư kém chất lượng">Vật tư kém chất lượng</option>
-                                                    <option value="Giao thiếu vật tư">Giao thiếu vật tư</option>
-                                                    <option value="Giao hàng chậm">Giao hàng chậm (Ảnh hưởng thợ)</option>
-                                                    <option value="Sai quy cách vật tư">Sai quy cách vật tư</option>
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <option value="Chủ nhà không thanh toán">Chủ nhà không thanh toán</option>
-                                                    <option value="Yêu cầu thay đổi ngoài hợp đồng">Yêu cầu thay đổi ngoài hợp đồng</option>
-                                                    <option value="Gây khó dễ thi công">Gây khó dễ thi công</option>
-                                                    <option value="Vi phạm điều khoản an toàn">Vi phạm điều khoản an toàn</option>
-                                                </>
-                                            )}
-                                            <option value="Khác">Khác</option>
-                                        </select>
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Mô tả chi tiết</label>
-                                        <textarea
-                                            required
-                                            value={form.description}
-                                            onChange={e => setForm({ ...form, description: e.target.value })}
-                                            rows={4}
-                                            className="w-full bg-slate-50 border border-slate-100 rounded-xl p-3 text-sm font-medium focus:ring-2 focus:ring-primary-500/20 focus:border-primary-400 outline-none transition-all"
-                                            placeholder="Mô tả cụ thể sự việc và mong muốn giải quyết..."
-                                        ></textarea>
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Hình ảnh bằng chứng</label>
-                                        <div className="flex flex-wrap gap-4">
-                                            {form.evidence.map((url, idx) => (
-                                                <div key={idx} className="relative w-24 h-24 group">
-                                                    <img src={url} alt="Evidence" className="w-full h-full object-cover rounded-xl border border-gray-200" />
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => removeEvidence(idx)}
-                                                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
-                                                    >
-                                                        <X size={12} />
-                                                    </button>
-                                                </div>
-                                            ))}
-
-                                            <input
-                                                type="file"
-                                                ref={fileInputRef}
-                                                onChange={handleFileUpload}
-                                                className="hidden"
-                                                accept="image/*"
-                                            />
-
-                                            <div
-                                                onClick={() => fileInputRef.current?.click()}
-                                                className={`w-24 h-24 bg-slate-50 rounded-xl flex flex-col items-center justify-center border-2 border-dashed border-slate-200 text-slate-400 cursor-pointer hover:bg-slate-100 hover:border-primary-300 hover:text-primary-400 transition-all ${uploadingImage ? 'animate-pulse pointer-events-none' : ''}`}
-                                            >
-                                                {uploadingImage ? (
-                                                    <Loader2 className="w-6 h-6 animate-spin text-primary-500" />
-                                                ) : (
-                                                    <>
-                                                        <Camera size={24} />
-                                                        <span className="text-[10px] mt-1 font-bold">Thêm ảnh</span>
-                                                    </>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="flex justify-end pt-4">
-                                        <button
-                                            type="submit"
-                                            disabled={uploadingImage}
-                                            className="bg-amber-500 text-white px-8 py-3 rounded-xl font-black text-sm hover:bg-amber-600 disabled:bg-gray-400 transition-all shadow-lg flex items-center gap-2 active:scale-95"
-                                        >
-                                            <Sparkles size={18} />
-                                            Xem gợi ý hòa giải
-                                        </button>
-                                    </div>
-                                </form>
-                            )}
-
-                            {/* Step 2: Mediation Suggestion */}
-                            {mediationStep === 'suggestion' && (
-                                <div className="space-y-6">
-                                    <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6">
-                                        <div className="flex items-center gap-3 mb-4">
-                                            <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center">
-                                                <Sparkles className="w-5 h-5 text-amber-600" />
-                                            </div>
-                                            <div>
-                                                <h3 className="font-bold text-amber-900">Gợi ý hòa giải — "{form.reason}"</h3>
-                                                <p className="text-xs text-amber-600 font-bold uppercase tracking-widest">Hệ thống tư vấn tự động</p>
-                                            </div>
-                                        </div>
-                                        <div className="bg-white rounded-xl p-5 border border-amber-100">
-                                            <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{mediationSuggestion}</p>
-                                        </div>
-                                    </div>
-
-                                    <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
-                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 px-1">Vấn đề của bạn:</p>
-                                        <p className="text-sm text-slate-600 font-medium px-1">{form.description}</p>
-                                    </div>
-
-                                    <div className="flex flex-col sm:flex-row gap-4 pt-2">
-                                        <button
-                                            onClick={() => setMediationStep('form')}
-                                            className="px-6 py-3 border border-slate-200 text-slate-500 rounded-xl font-bold text-xs hover:bg-slate-50 transition-colors uppercase tracking-widest"
-                                        >
-                                            ← Quay lại
-                                        </button>
-                                        <button
-                                            onClick={() => {
-                                                toast.success('Cảm ơn! Hãy thử liên hệ đối tác trước nhé.')
-                                                setShowForm(false)
-                                                setMediationStep('form')
-                                                setForm({ orderId: '', targetType: 'STORE', reason: '', description: '', evidence: [] })
-                                            }}
-                                            className="flex-1 px-6 py-3 bg-emerald-600 text-white rounded-xl font-black text-xs hover:bg-emerald-700 transition-colors flex items-center justify-center gap-2 shadow-lg shadow-emerald-100 active:scale-95 uppercase tracking-widest"
-                                        >
-                                            <ThumbsUp size={16} />
-                                            Giải quyết theo gợi ý
-                                        </button>
-                                        <button
-                                            onClick={() => handleSubmit()}
-                                            disabled={submitting}
-                                            className="px-6 py-3 bg-red-600 text-white rounded-xl font-black text-xs hover:bg-red-700 disabled:bg-gray-400 transition-colors flex items-center gap-2 shadow-lg shadow-red-100 active:scale-95 uppercase tracking-widest"
-                                        >
-                                            <Scale size={16} />
-                                            {submitting ? 'Đang gửi...' : 'Mở tranh chấp'}
-                                        </button>
+                                    <div
+                                        onClick={() => fileInputRef.current?.click()}
+                                        className={`w-32 h-32 bg-slate-50 rounded-[2.5rem] flex flex-col items-center justify-center border-[3px] border-dashed border-slate-200 text-slate-300 cursor-pointer hover:bg-white hover:border-rose-400 hover:text-rose-500 transition-all duration-500 ${uploadingImage ? 'animate-pulse pointer-events-none' : ''}`}
+                                    >
+                                        {uploadingImage ? (
+                                            <Loader2 className="w-8 h-8 animate-spin text-rose-500" />
+                                        ) : (
+                                            <>
+                                                <Camera size={32} />
+                                                <span className="text-[10px] mt-2 font-black uppercase tracking-widest">Add Evidence</span>
+                                            </>
+                                        )}
                                     </div>
                                 </div>
-                            )}
-                        </div>
+                            </div>
+
+                            <div className="flex justify-end pt-10">
+                                <button
+                                    type="submit"
+                                    disabled={uploadingImage}
+                                    className="bg-amber-500 text-white px-12 py-6 rounded-[2rem] font-black text-[11px] uppercase tracking-[0.3em] italic hover:bg-amber-600 disabled:bg-slate-200 transition-all shadow-2xl shadow-amber-500/20 flex items-center gap-4 active:scale-95"
+                                >
+                                    <Sparkles size={20} />
+                                    Generate AI Resolution Strategy
+                                </button>
+                            </div>
+                        </form>
                     )}
 
-                    <div className="space-y-6">
-                        <h2 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Lịch sử khiếu nại & Tranh chấp</h2>
-                        {disputes.length === 0 ? (
-                            <div className="bg-white p-16 text-center rounded-[32px] border border-dashed border-slate-200 text-slate-400 shadow-sm">
-                                <Scale className="mx-auto mb-4 opacity-20" size={56} />
-                                <p className="font-bold text-slate-500">Bạn chưa có khiếu nại nào hiện tại</p>
-                                <p className="text-xs text-slate-400 mt-1">Mọi vấn đề sẽ được Ban quản trị nỗ lực giải quyết minh bạch</p>
+                    {/* Stage 02: AI Dynamic Strategy */}
+                    {mediationStep === 'suggestion' && (
+                        <div className="space-y-10 relative z-10 animate-in zoom-in duration-500">
+                            <div className="bg-amber-50/50 border-[3px] border-amber-500 border-dashed rounded-[3.5rem] p-12">
+                                <div className="flex items-center gap-6 mb-8">
+                                    <div className="w-16 h-16 bg-amber-500 rounded-[2rem] flex items-center justify-center text-white shadow-xl shadow-amber-500/20">
+                                        <Sparkles size={32} />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-2xl font-black text-amber-900 uppercase italic tracking-tighter">AI Tactical Suggestion</h3>
+                                        <p className="text-[10px] text-amber-600 font-black uppercase tracking-[0.3em]">Commercial Intelligence Engine</p>
+                                    </div>
+                                </div>
+                                <div className="bg-white rounded-[2.5rem] p-10 border border-amber-100 shadow-inner">
+                                    <p className="text-lg text-slate-800 font-bold whitespace-pre-wrap leading-relaxed italic">“{mediationSuggestion}”</p>
+                                </div>
                             </div>
-                        ) : (
-                            <div className="grid gap-4">
-                                {disputes.map((dis, i) => (
-                                    <div key={i} className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all group">
-                                        <div className="flex justify-between items-start mb-4">
-                                            <div>
-                                                <div className="flex items-center gap-3 mb-2">
-                                                    <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black tracking-widest uppercase ${dis.status === 'OPEN' ? 'bg-blue-50 text-blue-600 border border-blue-100' :
-                                                        dis.status === 'UNDER_REVIEW' ? 'bg-orange-50 text-orange-600 border border-orange-100' :
-                                                            dis.status === 'RESOLVED' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' :
-                                                                'bg-slate-50 text-slate-600 border border-slate-100'
-                                                        }`}>
-                                                        {dis.status === 'OPEN' ? 'Mới' :
-                                                            dis.status === 'UNDER_REVIEW' ? 'Đang duyệt' :
-                                                                dis.status === 'RESOLVED' ? 'Đã xử lý' : 'Từ chối'}
-                                                    </span>
-                                                    <span className="text-sm font-black text-slate-900">{dis.reason}</span>
-                                                    <span className="text-[10px] text-slate-400 font-bold bg-slate-50 px-2 py-0.5 rounded border border-slate-100">
-                                                        {dis.type === 'CONTRACTOR_TO_STORE' ? 'VS Cửa hàng' : 'VS Chủ nhà'}
-                                                    </span>
-                                                </div>
-                                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight flex items-center gap-1.5">
-                                                    <Clock size={10} /> {new Date(dis.createdAt).toLocaleString('vi-VN')}
-                                                </p>
-                                            </div>
-                                            <div className="p-2 bg-slate-50 rounded-xl group-hover:scale-110 transition-transform">
-                                                <FileText size={20} className="text-slate-300 group-hover:text-indigo-500" />
-                                            </div>
+
+                            <div className="flex flex-col sm:flex-row gap-6 pt-6">
+                                <button
+                                    onClick={() => setMediationStep('form')}
+                                    className="px-10 py-6 border-2 border-slate-100 text-slate-400 rounded-3xl font-black text-[10px] uppercase tracking-[0.3em] hover:bg-slate-50 transition-all active:scale-95"
+                                >
+                                    ← Modify Context
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        toast.success('Strategy accepted. Initiating direct resolution.')
+                                        setShowForm(false)
+                                        setMediationStep('form')
+                                        setForm({ orderId: '', targetType: 'STORE', reason: '', description: '', evidence: [] })
+                                    }}
+                                    className="flex-1 px-10 py-6 bg-emerald-600 text-white rounded-3xl font-black text-[10px] uppercase tracking-[0.3em] hover:bg-emerald-700 transition-all flex items-center justify-center gap-4 shadow-2xl shadow-emerald-500/20 active:scale-95"
+                                >
+                                    <ThumbsUp size={20} />
+                                    Execute Tactical Solution
+                                </button>
+                                <button
+                                    onClick={() => handleSubmit()}
+                                    disabled={submitting}
+                                    className="px-10 py-6 bg-rose-600 text-white rounded-3xl font-black text-[10px] uppercase tracking-[0.3em] hover:bg-rose-700 disabled:bg-slate-200 transition-all flex items-center gap-4 shadow-2xl shadow-rose-500/20 active:scale-95"
+                                >
+                                    <Scale size={20} />
+                                    {submitting ? 'Registering...' : 'Escalate to Adjudication'}
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* Historical Case Records - Bento Interaction */}
+            <div className="space-y-8">
+                <div className="flex items-center gap-4 px-4">
+                    <History size={20} className="text-slate-300" />
+                    <h2 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.4em] italic">Historical Conflict Logs & Active Records</h2>
+                </div>
+                
+                {disputes.length === 0 ? (
+                    <div className="bg-white p-32 text-center rounded-[4rem] border-[3px] border-dashed border-slate-100 text-slate-200 shadow-sm flex flex-col items-center gap-8 group">
+                        <Scale className="opacity-5 group-hover:opacity-10 transition-opacity duration-1000 group-hover:rotate-12" size={120} />
+                        <div className="space-y-3">
+                            <p className="font-black text-slate-900 uppercase italic tracking-tighter text-3xl">Protocol Intact</p>
+                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em] max-w-sm mx-auto">No commercial or logistics disputes detected in the current operational cycle.</p>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="grid gap-8">
+                        {disputes.map((dis, i) => (
+                            <div key={i} className="bg-white p-10 rounded-[3.5rem] border border-slate-100 shadow-sm hover:shadow-2xl hover:shadow-slate-200/50 transition-all duration-700 group overflow-hidden relative">
+                                <div className="absolute top-0 right-0 w-4 h-full bg-slate-50 group-hover:bg-rose-500 transition-all duration-700"></div>
+                                
+                                <div className="flex justify-between items-start mb-8 pr-6">
+                                    <div className="space-y-4">
+                                        <div className="flex items-center gap-4">
+                                            <span className={`px-5 py-1.5 rounded-2xl text-[9px] font-black tracking-widest uppercase shadow-sm ${dis.status === 'OPEN' ? 'bg-blue-500 text-white' :
+                                                dis.status === 'UNDER_REVIEW' ? 'bg-amber-500 text-white' :
+                                                    dis.status === 'RESOLVED' ? 'bg-emerald-500 text-white' :
+                                                        'bg-slate-500 text-white'
+                                                }`}>
+                                                {dis.status === 'OPEN' ? 'Initialized' :
+                                                    dis.status === 'UNDER_REVIEW' ? 'Audit in Progress' :
+                                                        dis.status === 'RESOLVED' ? 'Legally Resolved' : 'Deactivated'}
+                                            </span>
+                                            <h3 className="text-2xl font-black text-slate-900 uppercase italic tracking-tighter">{dis.reason}</h3>
+                                            <span className="text-[9px] text-slate-400 font-black bg-slate-50 px-4 py-1.5 rounded-2xl border border-slate-100 uppercase tracking-widest">
+                                                Target: {dis.type === 'CONTRACTOR_TO_STORE' ? 'Vendor' : 'Principal'}
+                                            </span>
                                         </div>
-
-                                        <p className="text-sm text-slate-600 mb-6 bg-slate-50/50 p-4 rounded-xl leading-relaxed font-medium">
-                                            {dis.description}
+                                        <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest flex items-center gap-3">
+                                            <Clock size={12} className="text-rose-400" /> Transmitted: {new Date(dis.createdAt).toLocaleString('vi-VN')}
                                         </p>
+                                    </div>
+                                    <div className="w-16 h-16 bg-slate-50 rounded-[1.8rem] flex items-center justify-center group-hover:bg-rose-50 group-hover:scale-110 transition-all duration-700">
+                                        <FileSearch size={28} className="text-slate-300 group-hover:text-rose-500" />
+                                    </div>
+                                </div>
 
-                                        {dis.evidence && dis.evidence.length > 0 && (
-                                            <div className="flex gap-3 mb-6 overflow-x-auto pb-2 custom-scrollbar">
-                                                {dis.evidence.map((ev: any, idx: number) => (
-                                                    <img key={idx} src={ev.imageUrl} alt="Evidence" className="w-20 h-20 object-cover rounded-xl border border-slate-100 shadow-sm shrink-0 hover:scale-105 transition-transform" />
-                                                ))}
-                                            </div>
-                                        )}
+                                <div className="bg-slate-50/50 p-8 rounded-[2.5rem] mb-10 border border-slate-100 relative group-hover:bg-white transition-all duration-700 shadow-inner group-hover:shadow-xl group-hover:shadow-black/5">
+                                    <p className="text-sm text-slate-700 leading-relaxed font-bold italic">
+                                        “{dis.description}”
+                                    </p>
+                                </div>
 
-                                        {dis.resolution && (
-                                            <div className="bg-emerald-50 border border-emerald-100/50 p-5 rounded-2xl flex gap-4 mb-6 shadow-sm">
-                                                <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center shrink-0">
-                                                    <CheckCircle2 className="text-emerald-600" size={20} />
-                                                </div>
-                                                <div>
-                                                    <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-1">Quyết định Ban quản trị</p>
-                                                    <p className="text-sm text-emerald-900 font-bold leading-relaxed italic">“{dis.resolution}”</p>
-                                                </div>
-                                            </div>
-                                        )}
+                                {dis.evidence && dis.evidence.length > 0 && (
+                                    <div className="flex gap-6 mb-10 overflow-x-auto pb-4 custom-scrollbar">
+                                        {dis.evidence.map((ev: any, idx: number) => (
+                                            <img key={idx} src={ev.imageUrl} alt="Evidence" className="w-24 h-24 object-cover rounded-[1.8rem] border border-slate-100 shadow-sm shrink-0 hover:scale-110 hover:-rotate-3 transition-all duration-500 cursor-zoom-in" />
+                                        ))}
+                                    </div>
+                                )}
 
-                                        <div className="border-t border-slate-100 pt-5">
-                                            <details className="group/messages">
-                                                <summary className="text-[10px] font-black text-slate-400 cursor-pointer list-none flex items-center gap-2 hover:text-indigo-600 transition-colors uppercase tracking-[0.2em]">
-                                                    <MessageSquare size={14} /> Thảo luận ({dis.comments?.length || 0})
-                                                    <ChevronRight size={10} className="ml-auto group-open/messages:rotate-90 transition-transform" />
-                                                </summary>
-
-                                                <div className="mt-5 space-y-4">
-                                                    <div className="max-h-[300px] overflow-y-auto space-y-3 pr-2 custom-scrollbar">
-                                                        {dis.comments?.map((comment: any, idx: number) => (
-                                                            <div key={idx} className={`p-4 rounded-2xl border ${comment.author.role === 'ADMIN' ? 'bg-blue-50 border-blue-100/50 ml-6 shadow-sm shadow-blue-50' : 'bg-slate-50 border-slate-100 mr-6'}`}>
-                                                                <div className="flex justify-between items-center mb-1.5">
-                                                                    <span className={`text-[9px] font-black uppercase tracking-widest ${comment.author.role === 'ADMIN' ? 'text-blue-600' : 'text-slate-400'}`}>
-                                                                        {comment.author.name} {comment.author.role === 'ADMIN' && '(Quản trị viên)'}
-                                                                    </span>
-                                                                    <span className="text-[9px] text-slate-300 font-bold">{new Date(comment.createdAt).toLocaleString('vi-VN')}</span>
-                                                                </div>
-                                                                <p className="text-xs text-slate-700 font-medium leading-relaxed">{comment.content}</p>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-
-                                                    <div className="relative mt-3">
-                                                        <input
-                                                            type="text"
-                                                            placeholder="Nhập phản hồi hoặc bằng chứng bổ sung..."
-                                                            className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-medium focus:ring-2 focus:ring-primary-500/10 focus:border-primary-400 outline-none pr-12 transition-all shadow-inner"
-                                                            onKeyDown={async (e) => {
-                                                                if (e.key === 'Enter') {
-                                                                    const content = e.currentTarget.value.trim()
-                                                                    if (!content) return
-                                                                    const input = e.currentTarget
-
-                                                                    try {
-                                                                        const meRes = await fetchWithAuth('/api/auth/me')
-                                                                        const me = await meRes.json()
-
-                                                                        const res = await fetchWithAuth('/api/disputes/comments', {
-                                                                            method: 'POST',
-                                                                            body: JSON.stringify({
-                                                                                disputeId: dis.id,
-                                                                                authorId: me.id,
-                                                                                content
-                                                                            })
-                                                                        })
-
-                                                                        if (res.ok) {
-                                                                            input.value = ''
-                                                                            fetchData()
-                                                                        }
-                                                                    } catch (err) {
-                                                                        toast.error('Lỗi gửi phản hồi')
-                                                                    }
-                                                                }
-                                                            }}
-                                                        />
-                                                        <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5 pointer-events-none">
-                                                            <span className="text-[8px] font-black text-slate-300 uppercase bg-slate-100 px-1 py-0.5 rounded">Enter</span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </details>
+                                {dis.resolution && (
+                                    <div className="bg-emerald-50/50 border-[3px] border-emerald-500 border-dashed p-10 rounded-[3rem] flex gap-8 mb-10 shadow-2xl shadow-emerald-500/5 animate-in slide-in-from-left-10 duration-1000">
+                                        <div className="w-16 h-16 bg-emerald-500 text-white rounded-[1.8rem] flex items-center justify-center shrink-0 shadow-lg shadow-emerald-500/20">
+                                            <CheckCircle2 size={32} />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <p className="text-[11px] font-black text-emerald-600 uppercase tracking-[0.3em]">Institutional Adjudication Final Ruling</p>
+                                            <p className="text-xl text-emerald-900 font-black leading-relaxed italic tracking-tight">“{dis.resolution}”</p>
                                         </div>
                                     </div>
-                                ))}
+                                )}
+
+                                <div className="border-t border-slate-50 pt-8 mt-4">
+                                    <details className="group/messages">
+                                        <summary className="text-[10px] font-black text-slate-400 cursor-pointer list-none flex items-center gap-4 hover:text-rose-600 transition-all uppercase tracking-[0.3em]">
+                                            <div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center group-hover/messages:bg-rose-50 transition-colors">
+                                                <MessageCircle size={18} />
+                                            </div>
+                                            Resolution Dialogue Vault ({dis.comments?.length || 0} Entries)
+                                            <ChevronRight size={14} className="ml-auto group-open/messages:rotate-90 transition-transform duration-500" />
+                                        </summary>
+
+                                        <div className="mt-8 space-y-6">
+                                            <div className="max-h-[400px] overflow-y-auto space-y-4 pr-4 custom-scrollbar">
+                                                {dis.comments?.map((comment: any, idx: number) => (
+                                                    <div key={idx} className={`p-8 rounded-[2.5rem] border ${comment.author.role === 'ADMIN' ? 'bg-blue-600 text-white border-transparent ml-12 shadow-2xl shadow-blue-500/20' : 'bg-slate-50 border-slate-100 mr-12'}`}>
+                                                        <div className="flex justify-between items-center mb-3">
+                                                            <span className={`text-[9px] font-black uppercase tracking-widest ${comment.author.role === 'ADMIN' ? 'text-blue-100' : 'text-slate-400'}`}>
+                                                                {comment.author.name} {comment.author.role === 'ADMIN' && '[REGIONAL ADMIN]'}
+                                                            </span>
+                                                            <span className={`text-[9px] font-bold ${comment.author.role === 'ADMIN' ? 'text-blue-200' : 'text-slate-300'}`}>{new Date(comment.createdAt).toLocaleString('vi-VN')}</span>
+                                                        </div>
+                                                        <p className={`text-sm font-bold leading-relaxed ${comment.author.role === 'ADMIN' ? 'italic' : ''}`}>{comment.content}</p>
+                                                    </div>
+                                                ))}
+                                            </div>
+
+                                            <div className="relative pt-4">
+                                                <input
+                                                    type="text"
+                                                    placeholder="Transmit tactical rebuttal or supplementary evidence protocol..."
+                                                    className="w-full bg-slate-950 border-none rounded-[1.8rem] px-10 py-6 text-sm font-bold text-white placeholder:text-slate-600 focus:ring-4 focus:ring-rose-500/20 outline-none transition-all shadow-2xl shadow-black/20"
+                                                    onKeyDown={async (e) => {
+                                                        if (e.key === 'Enter') {
+                                                            const content = e.currentTarget.value.trim()
+                                                            if (!content) return
+                                                            const input = e.currentTarget
+
+                                                            try {
+                                                                const meRes = await fetchWithAuth('/api/auth/me')
+                                                                const me = await meRes.json()
+
+                                                                const res = await fetchWithAuth('/api/disputes/comments', {
+                                                                    method: 'POST',
+                                                                    body: JSON.stringify({
+                                                                        disputeId: dis.id,
+                                                                        authorId: me.id,
+                                                                        content
+                                                                    })
+                                                                })
+
+                                                                if (res.ok) {
+                                                                    input.value = ''
+                                                                    fetchData()
+                                                                    toast.success('Transmission confirmed')
+                                                                }
+                                                            } catch (err) {
+                                                                toast.error('Transmission failure')
+                                                            }
+                                                        }
+                                                    }}
+                                                />
+                                                <div className="absolute right-6 top-1/2 -translate-y-1/2 flex items-center gap-4 pointer-events-none opacity-40">
+                                                    <span className="text-[10px] font-black text-white uppercase bg-white/10 px-3 py-1 rounded-lg">Execute Transaction</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </details>
+                                </div>
                             </div>
-                        )}
+                        ))}
                     </div>
-                </div>
-            </main>
+                )}
+            </div>
         </div>
     )
 }
-

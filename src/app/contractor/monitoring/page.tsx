@@ -1,11 +1,9 @@
 'use client'
 
 import React, { useState, useEffect, useRef } from 'react'
-import { Map as MapIcon, Users, AlertTriangle, Crosshair, RefreshCw, Navigation, Loader2, Info, ChevronRight, Projector, Activity } from 'lucide-react'
-import ContractorHeader from '../components/ContractorHeader'
-import Sidebar from '../components/Sidebar'
+import { Map as MapIcon, Users, AlertTriangle, Crosshair, RefreshCw, Navigation, Loader2, Info, ChevronRight, Activity } from 'lucide-react'
 import { fetchWithAuth } from '@/lib/api-client'
-import toast, { Toaster } from 'react-hot-toast'
+import toast from 'react-hot-toast'
 
 interface Project {
     id: string
@@ -29,10 +27,8 @@ interface WorkerReport {
 }
 
 export default function ContractorMonitoringPage() {
-    const [sidebarOpen, setSidebarOpen] = useState(true)
     const [data, setData] = useState<{ projects: Project[], reports: WorkerReport[] } | null>(null)
     const [loading, setLoading] = useState(true)
-    const [currentTime, setCurrentTime] = useState<string>('')
     const mapRef = useRef<HTMLDivElement>(null)
     const leafletRef = useRef<any>(null)
     const markersRef = useRef<any[]>([])
@@ -58,7 +54,6 @@ export default function ContractorMonitoringPage() {
 
     useEffect(() => {
         fetchData()
-        setCurrentTime(new Date().toLocaleString('vi-VN'))
     }, [])
 
     useEffect(() => {
@@ -172,128 +167,120 @@ export default function ContractorMonitoringPage() {
     }
 
     return (
-        <div className="min-h-screen bg-slate-50 flex flex-col font-sans overflow-hidden">
-            <Toaster position="top-right" />
-            <ContractorHeader sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
-            <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+        <div className="h-[calc(100vh-140px)] flex flex-col font-sans overflow-hidden animate-in fade-in duration-500">
+            <div className="flex-1 relative flex flex-col rounded-[2.5rem] overflow-hidden shadow-2xl border border-slate-100 bg-slate-50">
+                {/* Header Overlay */}
+                <div className="absolute top-8 left-8 right-8 z-10 flex flex-col lg:flex-row gap-6 pointer-events-none">
+                    <div className="bg-white/70 backdrop-blur-2xl p-6 rounded-[2rem] shadow-2xl border border-white/50 pointer-events-auto flex items-center gap-6 group hover:bg-white/90 transition-all duration-500">
+                        <div className="w-14 h-14 bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-3xl flex items-center justify-center text-white shadow-xl shadow-blue-500/20 group-hover:rotate-6 transition-all">
+                            <MapIcon size={28} />
+                        </div>
+                        <div>
+                            <h1 className="text-2xl font-black text-slate-900 tracking-tighter flex items-center gap-3 uppercase italic">
+                                Project Monitoring
+                                <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-ping"></span>
+                            </h1>
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1.5 flex items-center gap-2">
+                                <Activity size={12} className="text-blue-500" />
+                                Hệ thống giám sát vận hành AI thời gian thực
+                            </p>
+                        </div>
+                    </div>
 
-            <main className={`flex-1 transition-all duration-500 ${sidebarOpen ? 'lg:ml-64' : 'ml-0'} bg-white relative h-screen flex flex-col`}>
-                <div className="h-[60px] w-full shrink-0" /> {/* Top Header Safe Area */}
-
-                <div className="flex-1 relative flex flex-col m-8 rounded-[2.5rem] overflow-hidden shadow-2xl border border-slate-100 bg-slate-50">
-                    {/* Header Overlay */}
-                    <div className="absolute top-8 left-8 right-8 z-10 flex flex-col lg:flex-row gap-6 pointer-events-none">
-                        <div className="bg-white/70 backdrop-blur-2xl p-6 rounded-[2rem] shadow-2xl border border-white/50 pointer-events-auto flex items-center gap-6 group hover:bg-white/90 transition-all duration-500">
-                            <div className="w-14 h-14 bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-3xl flex items-center justify-center text-white shadow-xl shadow-blue-500/20 group-hover:rotate-6 transition-all">
-                                <MapIcon size={28} />
+                    <div className="flex gap-3 pointer-events-auto">
+                        <div className="bg-white/70 backdrop-blur-xl px-8 py-5 rounded-[2rem] shadow-xl border border-white/50 flex items-center gap-4">
+                            <div className="p-3 bg-blue-50 rounded-2xl">
+                                <Users className="text-blue-600" size={20} />
                             </div>
                             <div>
-                                <h1 className="text-2xl font-black text-slate-900 tracking-tighter flex items-center gap-3 uppercase italic">
-                                    Project Monitoring
-                                    <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-ping"></span>
-                                </h1>
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1.5 flex items-center gap-2">
-                                    <Activity size={12} className="text-blue-500" />
-                                    Hệ thống giám sát vặn hành AI thời gian thực
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Báo cáo</p>
+                                <p className="text-xl font-black text-slate-900 leading-none">{data?.reports.length || 0}</p>
+                            </div>
+                        </div>
+                        <div className="bg-white/70 backdrop-blur-xl px-8 py-5 rounded-[2rem] shadow-xl border border-white/50 flex items-center gap-4">
+                            <div className="p-3 bg-red-50 rounded-2xl">
+                                <AlertTriangle className="text-red-500" size={20} />
+                            </div>
+                            <div>
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Cảnh báo</p>
+                                <p className="text-xl font-black text-red-600 leading-none">
+                                    {data?.reports.filter(r => getDistance(r.lat, r.lng, r.project.lat, r.project.lng) > 300).length || 0}
                                 </p>
                             </div>
                         </div>
-
-                        <div className="flex gap-3 pointer-events-auto">
-                            <div className="bg-white/70 backdrop-blur-xl px-8 py-5 rounded-[2rem] shadow-xl border border-white/50 flex items-center gap-4">
-                                <div className="p-3 bg-blue-50 rounded-2xl">
-                                    <Users className="text-blue-600" size={20} />
-                                </div>
-                                <div>
-                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Báo cáo</p>
-                                    <p className="text-xl font-black text-slate-900 leading-none">{data?.reports.length || 0}</p>
-                                </div>
-                            </div>
-                            <div className="bg-white/70 backdrop-blur-xl px-8 py-5 rounded-[2rem] shadow-xl border border-white/50 flex items-center gap-4">
-                                <div className="p-3 bg-red-50 rounded-2xl">
-                                    <AlertTriangle className="text-red-500" size={20} />
-                                </div>
-                                <div>
-                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Cảnh báo</p>
-                                    <p className="text-xl font-black text-red-600 leading-none">
-                                        {data?.reports.filter(r => getDistance(r.lat, r.lng, r.project.lat, r.project.lng) > 300).length || 0}
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Map Container */}
-                    <div ref={mapRef} className="w-full h-full" />
-
-                    {/* Sidebar Panel Overlay */}
-                    <div className="absolute right-8 top-44 bottom-10 w-80 z-10 hidden xl:flex flex-col gap-6 pointer-events-none">
-                        <div className="bg-white/60 backdrop-blur-3xl rounded-[3rem] shadow-2xl border border-white/40 p-8 overflow-hidden flex flex-col flex-1 pointer-events-auto group hover:bg-white/80 transition-all duration-500">
-                            <div className="flex items-center justify-between mb-8">
-                                <h3 className="text-[11px] font-black text-slate-900 uppercase tracking-[0.3em] flex items-center gap-3">
-                                    <Navigation size={14} className="text-blue-600" />
-                                    Live Reports
-                                </h3>
-                                <RefreshCw
-                                    onClick={fetchData}
-                                    className={`w-4 h-4 text-slate-400 cursor-pointer hover:text-blue-600 transition-colors ${loading ? 'animate-spin' : ''}`}
-                                />
-                            </div>
-
-                            <div className="flex-1 overflow-y-auto space-y-4 pr-3 custom-scrollbar">
-                                {data?.reports.length === 0 ? (
-                                    <div className="flex flex-col items-center justify-center h-40 gap-4 opacity-50">
-                                        <Info className="w-10 h-10 text-slate-300" />
-                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Không có báo cáo</span>
-                                    </div>
-                                ) : data?.reports.map(r => {
-                                    const distance = getDistance(r.lat, r.lng, r.project.lat, r.project.lng)
-                                    const isFraud = distance > 300
-                                    return (
-                                        <div
-                                            key={r.id}
-                                            className={`p-5 rounded-[2rem] border transition-all cursor-pointer hover:scale-[1.02] ${isFraud ? 'bg-red-50/50 border-red-100 hover:bg-red-50' : 'bg-white border-slate-100 hover:border-blue-100 hover:shadow-lg hover:shadow-blue-500/5'}`}
-                                            onClick={() => leafletRef.current?.setView([r.lat, r.lng], 16)}
-                                        >
-                                            <div className="flex gap-4 mb-4">
-                                                <div className="w-14 h-14 rounded-2xl overflow-hidden bg-slate-100 border-2 border-white shadow-sm flex-shrink-0">
-                                                    <img src={r.photoUrl} className="w-full h-full object-cover" />
-                                                </div>
-                                                <div className="flex-1 min-w-0 flex flex-col justify-center">
-                                                    <p className="text-sm font-black text-slate-900 truncate uppercase tracking-tight">{r.workerName}</p>
-                                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">{new Date(r.createdAt).toLocaleTimeString('vi-VN')}</p>
-                                                </div>
-                                            </div>
-                                            <div className={`text-[9px] font-black uppercase tracking-[0.15em] flex items-center gap-2 px-3 py-1.5 rounded-full ${isFraud ? 'bg-red-500/10 text-red-600 border border-red-200/50' : 'bg-emerald-500/10 text-emerald-600 border border-emerald-200/50'}`}>
-                                                <div className={`w-1.5 h-1.5 rounded-full ${isFraud ? 'bg-red-500 animate-pulse outline outline-4 outline-red-500/20' : 'bg-emerald-500'}`}></div>
-                                                {isFraud ? `SAI VỊ TRÍ (${Math.round(distance)}M)` : 'Vị trí hợp lệ'}
-                                            </div>
-                                        </div>
-                                    )
-                                })}
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Bottom Utility Overlay */}
-                    <div className="absolute bottom-8 left-8 z-10 hidden md:flex items-center gap-4">
-                        <button
-                            onClick={fetchData}
-                            className="bg-white/80 backdrop-blur-xl p-5 rounded-3xl shadow-xl border border-white text-slate-900 hover:bg-white hover:scale-105 active:scale-95 transition-all"
-                        >
-                            <RefreshCw className={loading ? 'animate-spin' : ''} size={24} />
-                        </button>
-                        <button
-                            className="bg-blue-600 p-5 rounded-4xl shadow-2xl shadow-blue-500/40 text-white hover:bg-blue-700 hover:scale-110 active:scale-90 transition-all"
-                            onClick={() => {
-                                if (data?.reports[0]) leafletRef.current?.setView([data.reports[0].lat, data.reports[0].lng], 12)
-                            }}
-                        >
-                            <Crosshair size={24} />
-                        </button>
                     </div>
                 </div>
-            </main>
+
+                {/* Map Container */}
+                <div ref={mapRef} className="w-full h-full" />
+
+                {/* Sidebar Panel Overlay */}
+                <div className="absolute right-8 top-44 bottom-10 w-80 z-10 hidden xl:flex flex-col gap-6 pointer-events-none">
+                    <div className="bg-white/60 backdrop-blur-3xl rounded-[3rem] shadow-2xl border border-white/40 p-8 overflow-hidden flex flex-col flex-1 pointer-events-auto group hover:bg-white/80 transition-all duration-500">
+                        <div className="flex items-center justify-between mb-8">
+                            <h3 className="text-[11px] font-black text-slate-900 uppercase tracking-[0.3em] flex items-center gap-3">
+                                <Navigation size={14} className="text-blue-600" />
+                                Live Reports
+                            </h3>
+                            <RefreshCw
+                                onClick={fetchData}
+                                className={`w-4 h-4 text-slate-400 cursor-pointer hover:text-blue-600 transition-colors ${loading ? 'animate-spin' : ''}`}
+                            />
+                        </div>
+
+                        <div className="flex-1 overflow-y-auto space-y-4 pr-3 custom-scrollbar">
+                            {data?.reports.length === 0 ? (
+                                <div className="flex flex-col items-center justify-center h-40 gap-4 opacity-50">
+                                    <Info className="w-10 h-10 text-slate-300" />
+                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Không có báo cáo</span>
+                                </div>
+                            ) : data?.reports.map(r => {
+                                const distance = getDistance(r.lat, r.lng, r.project.lat, r.project.lng)
+                                const isFraud = distance > 300
+                                return (
+                                    <div
+                                        key={r.id}
+                                        className={`p-5 rounded-[2rem] border transition-all cursor-pointer hover:scale-[1.02] ${isFraud ? 'bg-red-50/50 border-red-100 hover:bg-red-50' : 'bg-white border-slate-100 hover:border-blue-100 hover:shadow-lg hover:shadow-blue-500/5'}`}
+                                        onClick={() => leafletRef.current?.setView([r.lat, r.lng], 16)}
+                                    >
+                                        <div className="flex gap-4 mb-4">
+                                            <div className="w-14 h-14 rounded-2xl overflow-hidden bg-slate-100 border-2 border-white shadow-sm flex-shrink-0">
+                                                <img src={r.photoUrl} className="w-full h-full object-cover" />
+                                            </div>
+                                            <div className="flex-1 min-w-0 flex flex-col justify-center">
+                                                <p className="text-sm font-black text-slate-900 truncate uppercase tracking-tight">{r.workerName}</p>
+                                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">{new Date(r.createdAt).toLocaleTimeString('vi-VN')}</p>
+                                            </div>
+                                        </div>
+                                        <div className={`text-[9px] font-black uppercase tracking-[0.15em] flex items-center gap-2 px-3 py-1.5 rounded-full ${isFraud ? 'bg-red-500/10 text-red-600 border border-red-200/50' : 'bg-emerald-500/10 text-emerald-600 border border-emerald-200/50'}`}>
+                                            <div className={`w-1.5 h-1.5 rounded-full ${isFraud ? 'bg-red-500 animate-pulse outline outline-4 outline-red-500/20' : 'bg-emerald-500'}`}></div>
+                                            {isFraud ? `SAI VỊ TRÍ (${Math.round(distance)}M)` : 'Vị trí hợp lệ'}
+                                        </div>
+                                    </div>
+                                )
+                            })}
+                        </div>
+                    </div>
+                </div>
+
+                {/* Bottom Utility Overlay */}
+                <div className="absolute bottom-8 left-8 z-10 hidden md:flex items-center gap-4">
+                    <button
+                        onClick={fetchData}
+                        className="bg-white/80 backdrop-blur-xl p-5 rounded-3xl shadow-xl border border-white text-slate-900 hover:bg-white hover:scale-105 active:scale-95 transition-all"
+                    >
+                        <RefreshCw className={loading ? 'animate-spin' : ''} size={24} />
+                    </button>
+                    <button
+                        className="bg-blue-600 p-5 rounded-4xl shadow-2xl shadow-blue-500/40 text-white hover:bg-blue-700 hover:scale-110 active:scale-90 transition-all"
+                        onClick={() => {
+                            if (data?.reports[0]) leafletRef.current?.setView([data.reports[0].lat, data.reports[0].lng], 12)
+                        }}
+                    >
+                        <Crosshair size={24} />
+                    </button>
+                </div>
+            </div>
 
             <style jsx global>{`
                 .custom-div-icon { background: none; border: none; }
@@ -305,7 +292,7 @@ export default function ContractorMonitoringPage() {
                 
                 .worker-marker { position: relative; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; }
                 .marker-avatar { position: relative; z-index: 10; width: 40px; height: 40px; background: white; border-radius: 14px; overflow: hidden; border: 3px solid white; box-shadow: 0 15px 35px rgba(0,0,0,0.3); }
-                .marker-avatar img { width: 100%; h-full; object-cover; }
+                .marker-avatar img { width: 100%; height: 100%; object-fit: cover; }
                 .marker-pulse { position: absolute; width: 100%; height: 100%; border-radius: 50%; opacity: 0; }
                 
                 .marker-fraud .marker-avatar { border-color: #ef4444; }

@@ -2,27 +2,20 @@
 
 import React, { useState, useEffect } from 'react'
 import {
-    Users, Building2, UserPlus, Shield,
+    Users, Building2, Shield,
     ArrowLeft, Plus,
-    UserCog, Building, Info,
+    Building, Info,
     Loader2
 } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { fetchWithAuth } from '@/lib/api-client'
 import { toast } from 'react-hot-toast'
-import { useAuth } from '@/contexts/auth-context' // Assuming this context exists
-
-// Contractor Layout Components
-import Sidebar from '../components/Sidebar'
-import ContractorHeader from '../components/ContractorHeader'
+import { useAuth } from '@/contexts/auth-context'
 
 export default function ContractorOrganizationPage() {
     const { user, isAuthenticated, isLoading: authLoading } = useAuth()
     const router = useRouter()
-
-    // Layout State
-    const [sidebarOpen, setSidebarOpen] = useState(true)
 
     const [organizations, setOrganizations] = useState<any[]>([])
     const [loading, setLoading] = useState(true)
@@ -76,140 +69,127 @@ export default function ContractorOrganizationPage() {
         }
     }
 
-    if (authLoading) {
-        return (
-            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-                <Loader2 className="w-10 h-10 animate-spin text-blue-600" />
-            </div>
-        )
-    }
-
     return (
-        <div className="min-h-screen bg-gray-50 flex flex-col">
-            <ContractorHeader sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
-            <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-
-            <main className={`flex-1 pt-[60px] transition-all duration-300 ${sidebarOpen ? 'lg:ml-64' : 'ml-0'}`}>
-                <div className="p-4 lg:p-8 max-w-7xl mx-auto space-y-8">
-                    {/* Header */}
-                    <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-                        <div className="space-y-4">
-                            <Link href="/contractor/dashboard" className="inline-flex items-center text-slate-400 hover:text-blue-600 font-black text-[10px] uppercase tracking-widest bg-white px-4 py-2 rounded-xl shadow-sm border border-slate-100 transition-all">
-                                <ArrowLeft className="h-4 w-4 mr-2" /> Quay lại Dashboard
-                            </Link>
-                            <h1 className="text-3xl md:text-4xl font-black text-slate-900 tracking-tighter uppercase">
-                                🏢 Quản Lý Tổ Chức <span className="text-blue-600">(B2B)</span>
-                            </h1>
-                            <p className="text-slate-500 font-medium">Quản lý đội ngũ thợ, phân quyền và chia sẻ dự án.</p>
-                        </div>
-
-                        {!isAuthenticated && !authLoading && (
-                            <div className="bg-red-50 border border-red-100 rounded-2xl p-4 text-red-600 text-sm font-bold flex items-center gap-3">
-                                <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-                                Vui lòng đăng nhập để quản lý tổ chức.
-                                <Link href="/login" className="ml-auto underline">Đăng nhập ngay</Link>
-                            </div>
-                        )}
-
-                        <button
-                            onClick={() => setShowCreateModal(true)}
-                            className="bg-blue-600 text-white px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-blue-700 shadow-xl shadow-blue-100 transition-all active:scale-95 flex items-center gap-3"
-                        >
-                            <Plus size={18} /> Tạo tổ chức mới
-                        </button>
+        <div className="space-y-8 animate-in fade-in duration-500 pb-20">
+            <div className="max-w-7xl mx-auto space-y-8">
+                {/* Header */}
+                <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+                    <div className="space-y-4">
+                        <Link href="/contractor/dashboard" className="inline-flex items-center text-slate-400 hover:text-blue-600 font-black text-[10px] uppercase tracking-widest bg-white px-4 py-2 rounded-xl shadow-sm border border-slate-100 transition-all">
+                            <ArrowLeft className="h-4 w-4 mr-2" /> Quay lại Dashboard
+                        </Link>
+                        <h1 className="text-3xl md:text-4xl font-black text-slate-900 tracking-tighter uppercase">
+                            🏢 Quản Lý Tổ Chức <span className="text-blue-600">(B2B)</span>
+                        </h1>
+                        <p className="text-slate-500 font-medium">Quản lý đội ngũ thợ, phân quyền và chia sẻ dự án.</p>
                     </div>
 
-                    {/* Info Alert */}
-                    <div className="bg-amber-50 border border-amber-100 rounded-3xl p-6 flex gap-4 items-start">
-                        <div className="bg-amber-100 p-2 rounded-xl text-amber-600">
-                            <Info size={20} />
+                    {!isAuthenticated && !authLoading && (
+                        <div className="bg-red-50 border border-red-100 rounded-2xl p-4 text-red-600 text-sm font-bold flex items-center gap-3">
+                            <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                            Vui lòng đăng nhập để quản lý tổ chức.
+                            <Link href="/login" className="ml-auto underline">Đăng nhập ngay</Link>
                         </div>
-                        <div>
-                            <h4 className="font-black text-amber-900 text-sm uppercase tracking-tight">Về Tổ Chức Nhà Thầu</h4>
-                            <p className="text-amber-700 text-sm mt-1 leading-relaxed">
-                                Tạo tổ chức để thêm các thành viên (cai thợ, kế toán) vào cùng quản lý dự án. Các thành viên có thể đặt hàng và báo cáo tiến độ thay bạn.
-                            </p>
-                        </div>
+                    )}
+
+                    <button
+                        onClick={() => setShowCreateModal(true)}
+                        className="bg-blue-600 text-white px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-blue-700 shadow-xl shadow-blue-100 transition-all active:scale-95 flex items-center gap-3"
+                    >
+                        <Plus size={18} /> Tạo tổ chức mới
+                    </button>
+                </div>
+
+                {/* Info Alert */}
+                <div className="bg-amber-50 border border-amber-100 rounded-3xl p-6 flex gap-4 items-start">
+                    <div className="bg-amber-100 p-2 rounded-xl text-amber-600">
+                        <Info size={20} />
                     </div>
-
-                    {/* Organizations List */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {loading ? (
-                            <div className="col-span-full flex justify-center py-20">
-                                <Loader2 className="w-8 h-8 animate-spin text-slate-300" />
-                            </div>
-                        ) : organizations.length > 0 ? (
-                            organizations.map((org) => (
-                                <div key={org.id} className="bg-white rounded-[32px] p-8 border border-slate-100 shadow-sm hover:shadow-xl hover:border-blue-200 transition-all group overflow-hidden relative">
-                                    <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-all">
-                                        <Building size={120} />
-                                    </div>
-
-                                    <div className="relative z-10">
-                                        <div className="flex items-center gap-4 mb-6">
-                                            <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600 border border-blue-100 font-black text-2xl">
-                                                {org.name.charAt(0).toUpperCase()}
-                                            </div>
-                                            <div>
-                                                <h3 className="text-2xl font-black text-slate-900 tracking-tight">{org.name}</h3>
-                                                <div className="flex items-center gap-2">
-                                                    <span className={`px-2 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-widest ${org.userRole === 'OWNER' ? 'bg-purple-100 text-purple-600' :
-                                                        org.userRole === 'ADMIN' ? 'bg-blue-100 text-blue-600' :
-                                                            'bg-slate-100 text-slate-600'
-                                                        }`}>
-                                                        {org.userRole}
-                                                    </span>
-                                                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">• {org.memberCount} Thành viên</span>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <div className="space-y-3 mb-8">
-                                            <div className="flex items-center gap-3 text-sm text-slate-500 font-medium">
-                                                <Shield className="w-4 h-4 text-blue-400" />
-                                                Mã số thuế: {org.taxCode || 'Chưa cập nhật'}
-                                            </div>
-                                            <div className="flex items-center gap-3 text-sm text-slate-500 font-medium">
-                                                <Building2 className="w-4 h-4 text-blue-400" />
-                                                Địa chỉ: {org.address || 'Chưa cập nhật'}
-                                            </div>
-                                        </div>
-
-                                        <div className="flex gap-3 pt-6 border-t border-slate-50">
-                                            <Link href={`/contractor/organization/${org.id}`} className="flex-1">
-                                                <button className="w-full bg-blue-500 text-white py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-600 transition-all shadow-lg shadow-blue-200 active:scale-95">
-                                                    Quản lý thành viên
-                                                </button>
-                                            </Link>
-                                            <Link href={`/contractor/organization/${org.id}/approvals`} className="flex-1">
-                                                <button className="w-full bg-white border border-slate-200 text-slate-600 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:border-blue-400 hover:text-blue-600 transition-all shadow-sm active:scale-95">
-                                                    Duyệt đơn hàng
-                                                </button>
-                                            </Link>
-                                        </div>
-                                    </div>
-                                </div>
-                            ))
-                        ) : (
-                            <div className="col-span-2 py-20 bg-white rounded-[40px] border border-dashed border-slate-200 flex flex-col items-center justify-center text-center space-y-6">
-                                <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center text-slate-400 shadow-inner">
-                                    <Users size={32} />
-                                </div>
-                                <div>
-                                    <h3 className="text-xl font-black text-slate-900 uppercase">Bạn chưa tham gia tổ chức nào</h3>
-                                    <p className="text-slate-500 font-medium mt-1">Hãy tạo tổ chức mới hoặc nhờ quản trị viên gửi lời mời tham gia.</p>
-                                </div>
-                                <button
-                                    onClick={() => setShowCreateModal(true)}
-                                    className="bg-blue-600 text-white px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-blue-700 shadow-xl shadow-blue-100 transition-all active:scale-95"
-                                >
-                                    Bắt đầu ngay
-                                </button>
-                            </div>
-                        )}
+                    <div>
+                        <h4 className="font-black text-amber-900 text-sm uppercase tracking-tight">Về Tổ Chức Nhà Thầu</h4>
+                        <p className="text-amber-700 text-sm mt-1 leading-relaxed">
+                            Tạo tổ chức để thêm các thành viên (cai thợ, kế toán) vào cùng quản lý dự án. Các thành viên có thể đặt hàng và báo cáo tiến độ thay bạn.
+                        </p>
                     </div>
                 </div>
-            </main>
+
+                {/* Organizations List */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {loading ? (
+                        <div className="col-span-full flex justify-center py-20">
+                            <Loader2 className="w-8 h-8 animate-spin text-slate-300" />
+                        </div>
+                    ) : organizations.length > 0 ? (
+                        organizations.map((org) => (
+                            <div key={org.id} className="bg-white rounded-[32px] p-8 border border-slate-100 shadow-sm hover:shadow-xl hover:border-blue-200 transition-all group overflow-hidden relative">
+                                <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-all">
+                                    <Building size={120} />
+                                </div>
+
+                                <div className="relative z-10">
+                                    <div className="flex items-center gap-4 mb-6">
+                                        <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600 border border-blue-100 font-black text-2xl">
+                                            {org.name.charAt(0).toUpperCase()}
+                                        </div>
+                                        <div>
+                                            <h3 className="text-2xl font-black text-slate-900 tracking-tight">{org.name}</h3>
+                                            <div className="flex items-center gap-2">
+                                                <span className={`px-2 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-widest ${org.userRole === 'OWNER' ? 'bg-purple-100 text-purple-600' :
+                                                    org.userRole === 'ADMIN' ? 'bg-blue-100 text-blue-600' :
+                                                        'bg-slate-100 text-slate-600'
+                                                    }`}>
+                                                    {org.userRole}
+                                                </span>
+                                                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">• {org.memberCount} Thành viên</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-3 mb-8">
+                                        <div className="flex items-center gap-3 text-sm text-slate-500 font-medium">
+                                            <Shield className="w-4 h-4 text-blue-400" />
+                                            Mã số thuế: {org.taxCode || 'Chưa cập nhật'}
+                                        </div>
+                                        <div className="flex items-center gap-3 text-sm text-slate-500 font-medium">
+                                            <Building2 className="w-4 h-4 text-blue-400" />
+                                            Địa chỉ: {org.address || 'Chưa cập nhật'}
+                                        </div>
+                                    </div>
+
+                                    <div className="flex gap-3 pt-6 border-t border-slate-50">
+                                        <Link href={`/contractor/organization/${org.id}`} className="flex-1">
+                                            <button className="w-full bg-blue-500 text-white py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-600 transition-all shadow-lg shadow-blue-200 active:scale-95">
+                                                Quản lý thành viên
+                                            </button>
+                                        </Link>
+                                        <Link href={`/contractor/organization/${org.id}/approvals`} className="flex-1">
+                                            <button className="w-full bg-white border border-slate-200 text-slate-600 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:border-blue-400 hover:text-blue-600 transition-all shadow-sm active:scale-95">
+                                                Duyệt đơn hàng
+                                            </button>
+                                        </Link>
+                                    </div>
+                                </div>
+                            </div>
+                        ))
+                    ) : (
+                        <div className="col-span-2 py-20 bg-white rounded-[40px] border border-dashed border-slate-200 flex flex-col items-center justify-center text-center space-y-6">
+                            <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center text-slate-400 shadow-inner">
+                                <Users size={32} />
+                            </div>
+                            <div>
+                                <h3 className="text-xl font-black text-slate-900 uppercase">Bạn chưa tham gia tổ chức nào</h3>
+                                <p className="text-slate-500 font-medium mt-1">Hãy tạo tổ chức mới hoặc nhờ quản trị viên gửi lời mời tham gia.</p>
+                            </div>
+                            <button
+                                onClick={() => setShowCreateModal(true)}
+                                className="bg-blue-600 text-white px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-blue-700 shadow-xl shadow-blue-100 transition-all active:scale-95"
+                            >
+                                Bắt đầu ngay
+                            </button>
+                        </div>
+                    )}
+                </div>
+            </div>
 
             {/* Create Modal */}
             {showCreateModal && (

@@ -9,19 +9,14 @@
 import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-    Loader2, ChevronDown, CheckCircle, FolderPlus, Sparkles, ShoppingCart, ArrowRight, Plus
+    Loader2, ChevronDown, CheckCircle, FolderPlus, Sparkles, ShoppingCart, ArrowRight, Plus, Activity
 } from 'lucide-react'
-import { toast, Toaster } from 'react-hot-toast'
-
-import Sidebar from '../components/Sidebar'
-import ContractorHeader from '../components/ContractorHeader'
+import { toast } from 'react-hot-toast'
 
 import { useAuth } from '@/contexts/auth-context'
 import { useCartStore } from '@/stores/cartStore'
 import { fetchWithAuth } from '@/lib/api-client'
 import { analyzeFloorPlanImage, estimateFromText, recalculateEstimate } from '@/lib/estimator/vision-estimator'
-
-import FormattedNumberInput from '@/components/FormattedNumberInput'
 
 // Shared types and constants from the public estimator
 import {
@@ -30,19 +25,16 @@ import {
 } from '@/app/estimator/types'
 
 // Reuse modular components
-import EstimatorHeader from '@/app/estimator/components/EstimatorHeader'
 import InputPanel from '@/app/estimator/components/InputPanel'
 import LoadingSection from '@/app/estimator/components/LoadingSection'
 import ReviewSection from '@/app/estimator/components/ReviewSection'
 import ResultDisplay from '@/app/estimator/components/ResultDisplay'
 import DetailedEstimateModal from '@/app/estimator/components/DetailedEstimateModal'
-import LeadCaptureSection from '@/app/estimator/components/LeadCaptureSection'
 
 export default function ContractorEstimatorPage() {
     const { user, isAuthenticated } = useAuth()
     const { addItem } = useCartStore()
     const router = useRouter()
-    const [sidebarOpen, setSidebarOpen] = useState(true)
 
     // --- State ---
     const [projectType, setProjectType] = useState<'general' | 'flooring' | 'painting' | 'tiling'>('general')
@@ -219,7 +211,6 @@ export default function ContractorEstimatorPage() {
                 const data = await res.json()
                 toast.success('Đã lưu dự án thành công!')
                 setShowProjectModal(false)
-                // Contractor always goes to their own project dashboard
                 router.push(`/contractor/projects/${data.data?.id || data.id}`)
             } else {
                 toast.error('Không thể lưu dự án')
@@ -232,64 +223,65 @@ export default function ContractorEstimatorPage() {
     }
 
     return (
-        <div className="min-h-screen bg-gray-50 flex flex-col">
-            <Toaster position="top-right" />
-            <ContractorHeader sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
-            <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+        <div className="space-y-10 animate-in fade-in duration-500 pb-20 max-w-7xl mx-auto">
+            {/* Page Header */}
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+                <div className="space-y-2">
+                    <h1 className="text-4xl font-black text-slate-900 tracking-tighter uppercase italic flex items-center gap-4">
+                        <Sparkles className="w-10 h-10 text-indigo-600" />
+                        AI Estimator
+                    </h1>
+                    <p className="text-slate-500 font-bold uppercase text-[10px] tracking-[0.2em]">Hệ thống bóc tách vật tư & dự toán chi phí AI</p>
+                </div>
+            </div>
 
             {/* Project Save Modal */}
             {showProjectModal && (
-                <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-                    <div className="bg-white rounded-3xl shadow-2xl p-8 w-full max-w-md animate-in zoom-in-95 duration-200">
-                        <h3 className="text-xl font-black text-gray-900 mb-6 flex items-center gap-2">
-                            <FolderPlus className="text-indigo-600" /> Lưu Thành Dự Án
+                <div className="fixed inset-0 z-[110] flex items-center justify-center bg-slate-900/60 backdrop-blur-md p-6 animate-in fade-in duration-300">
+                    <div className="bg-white rounded-[3.5rem] shadow-2xl p-12 w-full max-w-md animate-in zoom-in duration-300 border border-white/20">
+                        <h3 className="text-2xl font-black text-slate-900 mb-8 uppercase tracking-tighter italic flex items-center gap-4">
+                            <FolderPlus className="text-indigo-600 w-8 h-8" /> 
+                            Save Project
                         </h3>
-                        <div className="space-y-4">
-                            <div>
-                                <label className="text-xs font-bold text-gray-500 mb-1 block">Tên dự án</label>
+                        <div className="space-y-6">
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Tên dự án</label>
                                 <input
                                     type="text"
                                     value={projectName}
                                     onChange={(e) => setProjectName(e.target.value)}
                                     placeholder="VD: Công trình Quận 2 - Anh Nam"
-                                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none font-medium"
+                                    className="w-full px-8 py-5 bg-slate-50 rounded-[1.8rem] font-black text-slate-900 outline-none border border-transparent focus:bg-white focus:border-blue-500/20 transition-all text-sm"
                                 />
                             </div>
 
                             {result && (
-                                <div className="bg-indigo-50/50 p-4 rounded-2xl border border-indigo-100 flex flex-col gap-2">
-                                    <div className="flex justify-between text-sm">
-                                        <span className="text-gray-500">Diện tích:</span>
-                                        <span className="font-semibold text-gray-800">{(result.totalArea || 0).toFixed(1)} m²</span>
+                                <div className="bg-indigo-50/50 p-8 rounded-[2.5rem] border border-indigo-100/50 space-y-3">
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Diện tích</span>
+                                        <span className="text-sm font-black text-slate-800">{(result.totalArea || 0).toFixed(1)} m²</span>
                                     </div>
-                                    <div className="flex justify-between text-sm">
-                                        <span className="text-gray-500">Ngân sách dự kiến:</span>
-                                        <span className="font-semibold text-indigo-600">{formatCurrency(result.totalEstimatedCost)}</span>
-                                    </div>
-                                    <div className="flex justify-between text-sm">
-                                        <span className="text-gray-500">Số loại vật liệu:</span>
-                                        <span className="font-semibold text-gray-800">{result.materials.length} sản phẩm</span>
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Dự toán</span>
+                                        <span className="text-sm font-black text-indigo-600 italic underline decoration-2">{formatCurrency(result.totalEstimatedCost)}</span>
                                     </div>
                                 </div>
                             )}
 
-                            <div className="flex gap-3 pt-4">
+                            <div className="flex gap-4 pt-4">
                                 <button
                                     onClick={() => setShowProjectModal(false)}
-                                    className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 font-medium transition-colors"
+                                    className="flex-1 py-5 bg-slate-100 text-slate-400 rounded-3xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-200 transition-all"
                                 >
                                     Hủy
                                 </button>
                                 <button
                                     onClick={handleCreateProject}
                                     disabled={creatingProject || !projectName.trim()}
-                                    className="flex-1 px-4 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 font-semibold transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                                    className="flex-[2] py-5 bg-indigo-600 text-white rounded-3xl font-black text-[10px] uppercase tracking-widest hover:bg-indigo-700 shadow-xl shadow-indigo-500/20 flex items-center justify-center gap-3 active:scale-95 disabled:opacity-50"
                                 >
-                                    {creatingProject ? (
-                                        <> <Loader2 className="w-4 h-4 animate-spin" /> Đang tạo... </>
-                                    ) : (
-                                        <> <CheckCircle className="w-4 h-4" /> Tạo Dự Án </>
-                                    )}
+                                    {creatingProject ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle size={18} />}
+                                    Lưu Dự Án
                                 </button>
                             </div>
                         </div>
@@ -305,54 +297,40 @@ export default function ContractorEstimatorPage() {
                 />
             )}
 
-            <main className={`flex-1 pt-[60px] transition-all duration-300 ${sidebarOpen ? 'lg:ml-64' : 'ml-0'}`}>
-                <div className="p-4 lg:p-6 max-w-7xl mx-auto">
-                    {/* Page Header */}
-                    <div className="flex items-center gap-3 mb-6">
-                        <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-200">
-                            <Sparkles className="w-5 h-5 text-white" />
-                        </div>
-                        <div>
-                            <h1 className="text-xl font-black text-gray-900 uppercase tracking-tight">Bóc Tách AI</h1>
-                            <p className="text-xs text-gray-500 font-medium">Ước lượng vật tư thông minh bằng trí tuệ nhân tạo</p>
-                        </div>
-                    </div>
+            <div className="space-y-10">
+                {result && !isReviewing && (
+                    <ResultDisplay
+                        result={result}
+                        projectType={projectType}
+                        isAuthenticated={isAuthenticated}
+                        addingToCart={addingToCart}
+                        onShowDetailedModal={() => setShowDetailedModal(true)}
+                        onShowProjectModal={() => {
+                            setProjectName(`Dự án ${PROJECT_TYPES.find(t => t.id === projectType)?.name} - ${new Date().toLocaleDateString('vi-VN')}`)
+                            setShowProjectModal(true)
+                        }}
+                        onShowLoginModal={() => {
+                            setProjectName(`Dự án ${PROJECT_TYPES.find(t => t.id === projectType)?.name} - ${new Date().toLocaleDateString('vi-VN')}`)
+                            setShowProjectModal(true)
+                        }}
+                        onAddAllToCart={handleAddAllToCart}
+                    />
+                )}
 
-                    {result && !isReviewing && (
-                        <ResultDisplay
-                            result={result}
-                            projectType={projectType}
-                            isAuthenticated={isAuthenticated}
-                            addingToCart={addingToCart}
-                            onShowDetailedModal={() => setShowDetailedModal(true)}
-                            onShowProjectModal={() => {
-                                setProjectName(`Dự án ${PROJECT_TYPES.find(t => t.id === projectType)?.name} - ${new Date().toLocaleDateString('vi-VN')}`)
-                                setShowProjectModal(true)
-                            }}
-                            onShowLoginModal={() => {
-                                // Contractor is always authenticated - just open project modal directly
-                                setProjectName(`Dự án ${PROJECT_TYPES.find(t => t.id === projectType)?.name} - ${new Date().toLocaleDateString('vi-VN')}`)
-                                setShowProjectModal(true)
-                            }}
-                            onAddAllToCart={handleAddAllToCart}
-                        />
-                    )}
+                <div className="grid lg:grid-cols-12 gap-12 items-start">
+                    <div className={`lg:col-span-12 xl:col-span-5 space-y-8 ${!showInputPanel && result ? 'hidden lg:block lg:opacity-50 lg:hover:opacity-100 transition-all' : ''}`}>
+                        {result && (
+                            <button
+                                onClick={() => setShowInputPanel(!showInputPanel)}
+                                className="w-full flex items-center justify-between px-10 py-6 bg-white rounded-[2.5rem] border border-slate-100 shadow-sm text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-indigo-600 hover:border-indigo-100 transition-all group"
+                            >
+                                {showInputPanel ? 'Ẩn bảng nhập liệu' : 'Kích hoạt lại bảng nhập liệu'}
+                                <ChevronDown className={`w-5 h-5 transition-transform group-hover:translate-y-0.5 ${showInputPanel ? 'rotate-180' : ''}`} />
+                            </button>
+                        )}
 
-                    {!result && <EstimatorHeader />}
-
-                    <div className="grid lg:grid-cols-12 gap-10 items-start">
-                        <div className={`lg:col-span-12 xl:col-span-5 space-y-6 ${!showInputPanel && result ? 'hidden lg:block lg:opacity-50 lg:hover:opacity-100 transition-opacity' : ''}`}>
-                            {result && (
-                                <button
-                                    onClick={() => setShowInputPanel(!showInputPanel)}
-                                    className="w-full flex items-center justify-between px-8 py-4 bg-white rounded-2xl border border-slate-100 shadow-sm text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-indigo-600 transition-colors"
-                                >
-                                    {showInputPanel ? 'Ẩn bảng nhập liệu' : 'Hiện bảng nhập liệu để tính lại'}
-                                    <ChevronDown className={`w-4 h-4 transition-transform ${showInputPanel ? 'rotate-180' : ''}`} />
-                                </button>
-                            )}
-
-                            {showInputPanel && (
+                        {showInputPanel && (
+                            <div className="bg-white rounded-[3.5rem] p-4 shadow-sm border border-slate-100">
                                 <InputPanel
                                     projectType={projectType}
                                     setProjectType={setProjectType}
@@ -374,13 +352,19 @@ export default function ContractorEstimatorPage() {
                                     loading={loading}
                                     fileInputRef={fileInputRef}
                                 />
-                            )}
-                        </div>
+                            </div>
+                        )}
+                    </div>
 
-                        <div className="lg:col-span-12 xl:col-span-7 space-y-4">
-                            {loading && <LoadingSection loadingPhase={loadingPhase} loadingTip={loadingTip} />}
+                    <div className="lg:col-span-12 xl:col-span-7 space-y-10">
+                        {loading && (
+                            <div className="bg-white rounded-[3.5rem] p-2 overflow-hidden border border-slate-100 shadow-sm">
+                                <LoadingSection loadingPhase={loadingPhase} loadingTip={loadingTip} />
+                            </div>
+                        )}
 
-                            {!loading && isReviewing && (
+                        {!loading && isReviewing && (
+                            <div className="animate-in slide-in-from-right-10 duration-500">
                                 <ReviewSection
                                     imagesPreview={imagesPreview}
                                     reviewStyle={reviewStyle}
@@ -395,11 +379,23 @@ export default function ContractorEstimatorPage() {
                                     onBack={() => setIsReviewing(false)}
                                     loading={loading}
                                 />
-                            )}
-                        </div>
+                            </div>
+                        )}
+
+                        {!loading && !isReviewing && !result && (
+                            <div className="bg-slate-50/50 rounded-[4rem] border-4 border-dashed border-slate-100 p-20 flex flex-col items-center justify-center text-center space-y-8 group">
+                                <div className="w-40 h-40 bg-white rounded-[3rem] shadow-xl flex items-center justify-center text-indigo-500 group-hover:scale-110 group-hover:rotate-6 transition-all duration-700">
+                                    <Sparkles size={64} className="animate-pulse" />
+                                </div>
+                                <div className="space-y-4">
+                                    <h2 className="text-3xl font-black text-slate-800 uppercase tracking-tighter italic">Ready for AI Analysis</h2>
+                                    <p className="text-slate-400 font-bold uppercase text-[10px] tracking-widest max-w-sm">Nhập mô tả hoặc tải lên bản vẽ để AI bắt đầu quá trình bóc tách vật tư tự động</p>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
-            </main>
+            </div>
         </div>
     )
 }

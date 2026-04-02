@@ -1,24 +1,14 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Plus, Users, Copy, ExternalLink, Package, Check, X, Clock, RefreshCw, Download } from 'lucide-react'
+import { Plus, Users, Copy, ExternalLink, Package, Check, X, Clock, RefreshCw, Download, ArrowRight, ShieldCheck, Zap } from 'lucide-react'
 import toast from 'react-hot-toast'
 import Link from 'next/link'
-import Sidebar from '../components/Sidebar'
-import ContractorHeader from '../components/ContractorHeader'
 import { useAuth } from '@/contexts/auth-context'
 import { fetchWithAuth } from '@/lib/api-client'
 
 export default function ContractorTeamPage() {
     const { user } = useAuth()
-    const [sidebarOpen, setSidebarOpen] = useState(false)
-
-    useEffect(() => {
-        if (window.innerWidth >= 1024) {
-            setSidebarOpen(true)
-        }
-    }, [])
-
     const [activeTab, setActiveTab] = useState<'LINKS' | 'REQUESTS' | 'MEMBERS'>('REQUESTS')
     const [data, setData] = useState<any>({ projects: [], requests: [], reports: [] })
     const [organizations, setOrganizations] = useState<any[]>([])
@@ -28,9 +18,6 @@ export default function ContractorTeamPage() {
     const [showOrgModal, setShowOrgModal] = useState(false)
     const [createOrgData, setCreateOrgData] = useState({ name: '', taxCode: '', address: '' })
     const [submittingOrg, setSubmittingOrg] = useState(false)
-
-    // Member Invite State (Future feature)
-    const [showInviteModal, setShowInviteModal] = useState(false)
 
     const fetchData = async () => {
         setLoading(true)
@@ -111,7 +98,6 @@ export default function ContractorTeamPage() {
                 await navigator.clipboard.writeText(link)
                 toast.success('Đã copy link báo cáo')
             } else {
-                // Fallback
                 const textArea = document.createElement("textarea")
                 textArea.value = link
                 textArea.style.position = "fixed"
@@ -170,280 +156,309 @@ export default function ContractorTeamPage() {
     }
 
     return (
-        <div className="min-h-screen bg-gray-50 flex flex-col">
-            <ContractorHeader sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
-            <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-
-            {/* Main Content */}
-            <main className={`flex-1 pt-[73px] transition-all duration-300 ${sidebarOpen ? 'lg:ml-64' : 'ml-0'}`}>
-                <div className="p-6 lg:p-8 max-w-7xl mx-auto">
-                    <h1 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-2">
-                        <Users className="w-6 h-6" /> Quản lý Đội thợ & Vật tư
+        <div className="space-y-10 animate-in fade-in duration-500 pb-20 max-w-7xl mx-auto">
+            {/* Page Header */}
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+                <div className="space-y-2">
+                    <h1 className="text-4xl font-black text-slate-900 tracking-tighter uppercase italic flex items-center gap-4">
+                        <Users className="w-10 h-10 text-blue-600" />
+                        Team & Logistics
                     </h1>
-
-                    {/* Tabs */}
-                    <div className="flex gap-4 mb-6 border-b border-gray-200">
-                        <button
-                            onClick={() => setActiveTab('REQUESTS')}
-                            className={`pb-3 px-1 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'REQUESTS' ? 'border-orange-500 text-orange-600' : 'border-transparent text-gray-400 hover:text-gray-600'}`}
-                        >
-                            <Package className="w-4 h-4" />
-                            Yêu cầu Vật tư
-                            {data.requests.length > 0 && <span className="bg-orange-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">{data.requests.length}</span>}
-                        </button>
-                        <button
-                            onClick={() => setActiveTab('LINKS')}
-                            className={`pb-3 px-1 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'LINKS' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-400 hover:text-gray-600'}`}
-                        >
-                            <ExternalLink className="w-4 h-4" />
-                            Link Báo cáo / QR
-                        </button>
-                        <button
-                            onClick={() => setActiveTab('MEMBERS')}
-                            className={`pb-3 px-1 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'MEMBERS' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-400 hover:text-gray-600'}`}
-                        >
-                            <Users className="w-4 h-4" />
-                            Thành viên Đội (B2B)
-                        </button>
-                    </div>
-
-                    {loading ? (
-                        <div className="flex justify-center p-12"><RefreshCw className="w-6 h-6 animate-spin text-gray-400" /></div>
-                    ) : (
-                        <>
-                            {activeTab === 'REQUESTS' && (
-                                <div className="space-y-4">
-                                    {data.requests.length === 0 ? (
-                                        <div className="text-center p-12 bg-gray-50 rounded-xl text-gray-500">
-                                            Không có yêu cầu vật tư nào cần duyệt
-                                        </div>
-                                    ) : (
-                                        data.requests.map((req: any) => (
-                                            <div key={req.id} className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
-                                                <div className="flex justify-between items-start mb-4">
-                                                    <div>
-                                                        <div className="flex items-center gap-2 mb-1">
-                                                            <span className="bg-orange-100 text-orange-700 px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider">Mới</span>
-                                                            <span className="text-sm font-bold text-gray-900">{req.project?.title || 'Dự án chưa đặt tên'}</span>
-                                                        </div>
-                                                        <p className="text-sm text-gray-500">
-                                                            Yêu cầu bởi <span className="font-bold text-gray-900">{req.workerName}</span> • {new Date(req.createdAt).toLocaleString('vi-VN')}
-                                                        </p>
-                                                    </div>
-                                                    <div className="flex gap-2">
-                                                        <button className="p-2 hover:bg-red-50 text-red-500 rounded-lg transition-colors border border-transparent hover:border-red-100">
-                                                            <X className="w-5 h-5" />
-                                                        </button>
-                                                        <button
-                                                            onClick={() => handleApproveRequest(req.id, req.items)}
-                                                            className="px-4 py-2 bg-black text-white rounded-lg text-sm font-bold hover:bg-gray-800 transition-colors flex items-center gap-2"
-                                                        >
-                                                            <Check className="w-4 h-4" /> Duyệt & Thêm vào Giỏ
-                                                        </button>
-                                                    </div>
-                                                </div>
-
-                                                <div className="bg-gray-50 rounded-lg p-4">
-                                                    <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Danh sách vật tư</h4>
-                                                    <div className="space-y-2">
-                                                        {req.items.map((item: any, i: number) => (
-                                                            <div key={i} className="flex justify-between items-center text-sm border-b border-gray-100 last:border-0 pb-2 last:pb-0">
-                                                                <span className="font-medium text-gray-700">{item.name}</span>
-                                                                <span className="font-bold text-gray-900 bg-white px-2 py-1 rounded border border-gray-200 shadow-sm">{item.quantity} {item.unit}</span>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                    {req.notes && (
-                                                        <div className="mt-4 pt-3 border-t border-gray-200 text-sm text-gray-600 italic">
-                                                            "{req.notes}"
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        ))
-                                    )}
-                                </div>
-                            )}
-
-                            {activeTab === 'LINKS' && (
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                    {data.projects.map((project: any) => (
-                                        <div key={project.id} className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
-                                            <div className="flex justify-between items-start mb-4">
-                                                <h3 className="font-bold text-gray-900 line-clamp-1" title={project.name}>{project.name}</h3>
-                                                <span className={`text-[10px] font-bold px-2 py-1 rounded-full uppercase ${project.status === 'IN_PROGRESS' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
-                                                    {project.status === 'IN_PROGRESS' ? 'Đang thi công' : project.status}
-                                                </span>
-                                            </div>
-
-                                            <div className="bg-blue-50 rounded-lg p-5 mb-4 text-center border border-blue-100">
-                                                {project.activeToken ? (
-                                                    <div className="flex flex-col items-center">
-                                                        <div className="bg-white p-3 rounded-xl shadow-sm mb-3">
-                                                            <img
-                                                                src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(`${window.location.origin}/report/${project.activeToken}`)}`}
-                                                                alt="QR Code"
-                                                                className="w-24 h-24 mix-blend-multiply"
-                                                            />
-                                                        </div>
-                                                        <p className="text-[10px] text-blue-700 font-black uppercase tracking-widest mb-2">Quét để báo cáo</p>
-                                                        <button
-                                                            onClick={() => handleDownloadQR(project.id, project.activeToken)}
-                                                            className="text-[10px] text-blue-600 font-bold hover:underline flex items-center gap-1"
-                                                        >
-                                                            <Download className="w-3 h-3" /> Tải mã về in
-                                                        </button>
-                                                    </div>
-                                                ) : (
-                                                    <p className="text-sm text-gray-400 italic py-2">Chưa có link báo cáo</p>
-                                                )}
-                                            </div>
-
-                                            {project.activeToken ? (
-                                                <div className="flex gap-2">
-                                                    <button
-                                                        onClick={() => copyLink(project.activeToken)}
-                                                        className="flex-1 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-100"
-                                                    >
-                                                        <Copy className="w-4 h-4" /> Copy Link
-                                                    </button>
-                                                    <Link
-                                                        href={`/report/${project.activeToken}`}
-                                                        target="_blank"
-                                                        className="px-3 py-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors"
-                                                        title="Mở thử"
-                                                    >
-                                                        <ExternalLink className="w-4 h-4" />
-                                                    </Link>
-                                                </div>
-                                            ) : (
-                                                <button
-                                                    onClick={() => handleGenerateToken(project.id)}
-                                                    className="w-full py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-100"
-                                                >
-                                                    <Plus className="w-4 h-4" /> Tạo Link Báo Cáo
-                                                </button>
-                                            )}
-                                        </div>
-                                    ))}
-                                    {data.projects.length === 0 && (
-                                        <div className="col-span-full text-center p-12 text-gray-400">
-                                            Bạn chưa có dự án nào đang chạy.
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-
-                            {activeTab === 'MEMBERS' && (
-                                <div className="space-y-6">
-                                    {/* Empty State */}
-                                    {organizations.length === 0 ? (
-                                        <div className="bg-white rounded-2xl p-8 text-center border border-gray-200">
-                                            <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                                                <Users className="w-8 h-8 text-blue-500" />
-                                            </div>
-                                            <h3 className="text-lg font-bold text-gray-900 mb-2">Chưa có tổ chức B2B</h3>
-                                            <p className="text-gray-500 mb-6 max-w-md mx-auto">
-                                                Tạo tổ chức để quản lý nhân sự, phân quyền duyệt đơn hàng và theo dõi hoạt động của đội nhóm chuyên nghiệp hơn.
-                                            </p>
-                                            <button
-                                                onClick={() => setShowOrgModal(true)}
-                                                className="px-6 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-100 flex items-center gap-2 mx-auto"
-                                            >
-                                                <Plus className="w-5 h-5" /> Tạo Đội Nhóm B2B
-                                            </button>
-                                        </div>
-                                    ) : (
-                                        <div className="space-y-8">
-                                            {organizations.map(org => (
-                                                <div key={org.id} className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-                                                    <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50">
-                                                        <div className="flex items-center gap-4">
-                                                            <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center text-blue-600 font-bold text-xl border border-gray-200">
-                                                                {org.name.charAt(0).toUpperCase()}
-                                                            </div>
-                                                            <div>
-                                                                <h3 className="font-bold text-gray-900 text-lg">{org.name}</h3>
-                                                                <p className="text-xs text-gray-500 font-medium">{org.memberCount} thành viên</p>
-                                                            </div>
-                                                        </div>
-                                                        <Link href={`/account/organization/${org.id}`} className="text-blue-600 font-bold text-sm hover:underline flex items-center gap-1">
-                                                            Quản lý chi tiết <ExternalLink className="w-4 h-4" />
-                                                        </Link>
-                                                    </div>
-
-                                                    {/* We could list simplified members here if the API returned them directly,
-                                                        but for now we redirect to the specialized page for full management */}
-                                                    <div className="p-8 text-center bg-white">
-                                                        <p className="text-gray-500 mb-4">Quản lý nâng cao: thêm nhân viên, phân quyền duyệt đơn, hạn mức chi tiêu.</p>
-                                                        <Link href={`/account/organization/${org.id}`}>
-                                                            <button className="px-5 py-2.5 border-2 border-slate-100 hover:border-blue-500 hover:text-blue-600 rounded-xl font-bold text-slate-600 transition-all">
-                                                                Mở Dashboard Tổ chức
-                                                            </button>
-                                                        </Link>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-                        </>
-                    )}
+                    <p className="text-slate-500 font-bold uppercase text-[10px] tracking-[0.2em]">Quản lý đội ngũ thợ, link báo cáo & yêu cầu vật tư</p>
                 </div>
 
-                {/* Create Organization Modal */}
-                {showOrgModal && (
-                    <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4 backdrop-blur-sm">
-                        <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
-                            <div className="p-6 bg-gradient-to-r from-blue-600 to-indigo-600 text-white flex justify-between items-center">
-                                <h3 className="font-black uppercase tracking-tight">Tạo Đội Nhóm B2B</h3>
-                                <button onClick={() => setShowOrgModal(false)}><X className="w-6 h-6" /></button>
-                            </div>
-                            <form onSubmit={handleCreateOrg} className="p-6 space-y-4">
-                                <div className="space-y-1">
-                                    <label className="text-[10px] font-black text-gray-400 uppercase ml-2">Tên Đội / Công ty</label>
+                <div className="flex bg-slate-100 p-1.5 rounded-[2rem] gap-1">
+                    <button
+                        onClick={() => setActiveTab('REQUESTS')}
+                        className={`px-8 py-3 rounded-[1.8rem] text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-3 ${activeTab === 'REQUESTS' ? 'bg-white text-blue-600 shadow-xl shadow-blue-500/10' : 'text-slate-400 hover:text-slate-600'}`}
+                    >
+                        <Package size={16} />
+                        Vật Tư
+                        {data.requests.length > 0 && <span className="bg-red-500 text-white w-4 h-4 flex items-center justify-center rounded-full text-[8px]">{data.requests.length}</span>}
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('LINKS')}
+                        className={`px-8 py-3 rounded-[1.8rem] text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-3 ${activeTab === 'LINKS' ? 'bg-white text-blue-600 shadow-xl shadow-blue-500/10' : 'text-slate-400 hover:text-slate-600'}`}
+                    >
+                        <Zap size={16} /> Báo cáo
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('MEMBERS')}
+                        className={`px-8 py-3 rounded-[1.8rem] text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-3 ${activeTab === 'MEMBERS' ? 'bg-white text-blue-600 shadow-xl shadow-blue-500/10' : 'text-slate-400 hover:text-slate-600'}`}
+                    >
+                        <ShieldCheck size={16} /> B2B Org
+                    </button>
+                </div>
+            </div>
+
+            {loading ? (
+                <div className="flex flex-col items-center justify-center py-40 gap-4 opacity-50">
+                    <Loader2 className="w-12 h-12 animate-spin text-blue-600" />
+                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Đang đồng bộ dữ liệu...</span>
+                </div>
+            ) : (
+                <div className="grid grid-cols-1 gap-8">
+                    {activeTab === 'REQUESTS' && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            {data.requests.length === 0 ? (
+                                <div className="col-span-full py-32 bg-white rounded-[3rem] border-2 border-dashed border-slate-100 flex flex-col items-center justify-center text-center space-y-6">
+                                    <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center text-slate-300">
+                                        <Package size={40} />
+                                    </div>
+                                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Không có yêu cầu vật tư đang chờ</p>
+                                </div>
+                            ) : (
+                                data.requests.map((req: any) => (
+                                    <div key={req.id} className="bg-white rounded-[3rem] p-10 border border-slate-100 shadow-sm hover:shadow-2xl transition-all group animate-in slide-in-from-bottom-5">
+                                        <div className="flex justify-between items-start mb-8">
+                                            <div className="space-y-2">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-10 h-10 bg-orange-50 rounded-2xl flex items-center justify-center text-orange-600">
+                                                        <Activity size={18} />
+                                                    </div>
+                                                    <div>
+                                                        <h3 className="text-xl font-black text-slate-900 tracking-tighter uppercase">{req.project?.title || 'Dự án chưa xác định'}</h3>
+                                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                                                            Nơi gửi: <span className="text-slate-900">{req.workerName}</span>
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <span className="text-[9px] font-black bg-slate-50 px-3 py-1.5 rounded-full text-slate-400 uppercase tracking-widest">{new Date(req.createdAt).toLocaleTimeString('vi-VN')}</span>
+                                        </div>
+
+                                        <div className="bg-slate-50 rounded-[2rem] p-8 mb-8 space-y-4">
+                                            {req.items.map((item: any, i: number) => (
+                                                <div key={i} className="flex justify-between items-center bg-white p-5 rounded-2xl border border-slate-100 shadow-sm group-hover:scale-[1.02] transition-transform">
+                                                    <span className="text-sm font-black text-slate-800 uppercase italic">{item.name}</span>
+                                                    <span className="text-xs font-black text-blue-600 bg-blue-50 px-4 py-2 rounded-xl">
+                                                        {item.quantity} {item.unit}
+                                                    </span>
+                                                </div>
+                                            ))}
+                                            {req.notes && (
+                                                <div className="mt-6 p-4 border-l-4 border-orange-200 bg-orange-50/30 text-xs font-medium text-slate-600 italic">
+                                                    "{req.notes}"
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <div className="flex gap-4">
+                                            <button className="flex-1 py-5 bg-white border border-slate-200 text-slate-400 rounded-[1.8rem] font-black text-[10px] uppercase tracking-widest hover:bg-red-50 hover:text-red-600 hover:border-red-100 transition-all flex items-center justify-center gap-3 active:scale-95">
+                                                <X size={16} /> Từ chối
+                                            </button>
+                                            <button
+                                                onClick={() => handleApproveRequest(req.id, req.items)}
+                                                className="flex-[2] py-5 bg-blue-600 text-white rounded-[1.8rem] font-black text-[10px] uppercase tracking-widest hover:bg-blue-700 transition-all shadow-xl shadow-blue-500/20 flex items-center justify-center gap-3 active:scale-95"
+                                            >
+                                                <Check size={16} /> Duyệt đơn
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    )}
+
+                    {activeTab === 'LINKS' && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                            {data.projects.map((project: any) => (
+                                <div key={project.id} className="bg-white rounded-[3rem] p-10 border border-slate-100 shadow-sm hover:shadow-2xl transition-all group overflow-hidden relative">
+                                    <div className="absolute -right-10 -top-10 w-40 h-40 bg-blue-50 rounded-full opacity-0 group-hover:opacity-100 transition-all duration-700 -z-10 blur-3xl"></div>
+                                    
+                                    <div className="flex justify-between items-center mb-10">
+                                        <h3 className="text-2xl font-black text-slate-900 tracking-tighter uppercase italic line-clamp-1">{project.name}</h3>
+                                        <div className="w-3 h-3 bg-emerald-500 rounded-full animate-pulse shadow-lg shadow-emerald-500/50"></div>
+                                    </div>
+
+                                    <div className="bg-slate-50/50 rounded-[2.5rem] p-10 mb-10 flex flex-col items-center justify-center border border-slate-100">
+                                        {project.activeToken ? (
+                                            <>
+                                                <div className="bg-white p-6 rounded-[2.5rem] shadow-2xl mb-8 border border-slate-50 group-hover:rotate-2 transition-transform">
+                                                    <img
+                                                        src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(`${window.location.origin}/report/${project.activeToken}`)}`}
+                                                        alt="QR Code"
+                                                        className="w-40 h-40 grayscale group-hover:grayscale-0 transition-all"
+                                                    />
+                                                </div>
+                                                <button
+                                                    onClick={() => handleDownloadQR(project.id, project.activeToken)}
+                                                    className="text-[10px] font-black text-blue-600 uppercase tracking-[0.2em] flex items-center gap-3 hover:gap-5 transition-all"
+                                                >
+                                                    Tải mã QR <ArrowRight size={14} />
+                                                </button>
+                                            </>
+                                        ) : (
+                                            <div className="py-10 text-center space-y-4">
+                                                <div className="w-16 h-16 bg-white rounded-3xl flex items-center justify-center text-slate-200 mx-auto border-2 border-dashed border-slate-200">
+                                                    <Zap size={24} />
+                                                </div>
+                                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Link báo cáo chưa được kích hoạt</p>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {project.activeToken ? (
+                                        <div className="flex gap-4">
+                                            <button
+                                                onClick={() => copyLink(project.activeToken)}
+                                                className="flex-1 py-5 bg-blue-600 text-white rounded-[1.8rem] font-black text-[10px] uppercase tracking-widest hover:bg-blue-700 shadow-xl shadow-blue-500/20 active:scale-95 transition-all flex items-center justify-center gap-3"
+                                            >
+                                                <Copy size={16} /> Copy Link
+                                            </button>
+                                            <Link
+                                                href={`/report/${project.activeToken}`}
+                                                target="_blank"
+                                                className="w-20 py-5 bg-slate-100 text-slate-600 rounded-[1.8rem] flex items-center justify-center hover:bg-slate-200 transition-all"
+                                            >
+                                                <ExternalLink size={18} />
+                                            </Link>
+                                        </div>
+                                    ) : (
+                                        <button
+                                            onClick={() => handleGenerateToken(project.id)}
+                                            className="w-full py-5 bg-black text-white rounded-[1.8rem] font-black text-[10px] uppercase tracking-widest hover:bg-slate-800 shadow-xl active:scale-95 transition-all flex items-center justify-center gap-3"
+                                        >
+                                            <Plus size={16} /> Kích hoạt link báo cáo
+                                        </button>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    {activeTab === 'MEMBERS' && (
+                        <div className="space-y-10">
+                            {organizations.length === 0 ? (
+                                <div className="bg-white rounded-[4rem] p-32 text-center border border-slate-100 shadow-sm flex flex-col items-center space-y-10 group">
+                                    <div className="w-32 h-32 bg-blue-50 rounded-[3rem] flex items-center justify-center text-blue-600 group-hover:rotate-12 transition-all duration-500">
+                                        <ShieldCheck size={64} />
+                                    </div>
+                                    <div className="space-y-4">
+                                        <h3 className="text-4xl font-black text-slate-900 tracking-tighter uppercase italic">Professional B2B Network</h3>
+                                        <p className="text-slate-500 font-medium max-w-xl mx-auto leading-relaxed">
+                                            Thiết lập tổ chức để quản lý nhân sự, phân quyền duyệt đơn hàng và theo dõi hoạt động của đội thợ chuyên nghiệp theo mô hình doanh nghiệp B2B.
+                                        </p>
+                                    </div>
+                                    <button
+                                        onClick={() => setShowOrgModal(true)}
+                                        className="px-12 py-6 bg-blue-600 text-white rounded-[2rem] font-black text-xs uppercase tracking-[0.3em] hover:bg-blue-700 shadow-2xl shadow-blue-500/30 transition-all hover:scale-105 active:scale-95 flex items-center gap-4"
+                                    >
+                                        Tạo Đội Nhóm B2B <Plus size={20} />
+                                    </button>
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                                    {organizations.map(org => (
+                                        <div key={org.id} className="bg-white rounded-[3.5rem] border border-slate-100 p-12 hover:shadow-2xl transition-all relative overflow-hidden group">
+                                            <div className="absolute top-0 left-0 w-2 h-full bg-blue-600"></div>
+                                            <div className="flex items-center gap-8 mb-12">
+                                                <div className="w-24 h-24 bg-slate-50 rounded-4xl flex items-center justify-center text-blue-600 font-black text-4xl border border-slate-100 group-hover:scale-110 transition-all duration-500">
+                                                    {org.name.charAt(0).toUpperCase()}
+                                                </div>
+                                                <div>
+                                                    <h3 className="text-3xl font-black text-slate-900 tracking-tighter uppercase italic">{org.name}</h3>
+                                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mt-2 flex items-center gap-2">
+                                                        <Users size={12} className="text-blue-500" />
+                                                        {org.memberCount} Thành viên chính thức
+                                                    </p>
+                                                </div>
+                                            </div>
+
+                                            <div className="bg-slate-50/50 rounded-[2.5rem] p-10 mb-10 border border-slate-100 text-center">
+                                                <p className="text-xs font-bold text-slate-500 uppercase tracking-widest leading-relaxed">
+                                                    Bạn đang quản lý tổ chức này dưới vai trò Nhà Thầu Chính. Bạn có toàn quyền quản lý nhân sự và hạn mức chi tiêu.
+                                                </p>
+                                            </div>
+
+                                            <Link href={`/contractor/organization/${org.id}`} className="block">
+                                                <button className="w-full py-6 bg-black text-white rounded-3xl font-black text-[10px] uppercase tracking-[0.3em] hover:bg-white hover:text-black border-2 border-transparent hover:border-black transition-all flex items-center justify-center gap-4 group">
+                                                    Vào Dashboard Quản lý <ArrowRight size={18} className="group-hover:translate-x-2 transition-all" />
+                                                </button>
+                                            </Link>
+                                        </div>
+                                    ))}
+                                    
+                                    <div 
+                                        onClick={() => setShowOrgModal(true)}
+                                        className="bg-slate-50 rounded-[3.5rem] border-4 border-dashed border-slate-200 flex flex-col items-center justify-center py-20 px-10 text-center group cursor-pointer hover:border-blue-300 hover:bg-blue-50/30 transition-all"
+                                    >
+                                        <div className="w-20 h-20 bg-white rounded-4xl flex items-center justify-center text-slate-300 group-hover:text-blue-500 group-hover:scale-110 transition-all mb-6">
+                                            <Plus size={40} />
+                                        </div>
+                                        <h4 className="text-xl font-black text-slate-900 uppercase tracking-tighter italic">Tạo thêm tổ chức mới</h4>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2">Mở rộng mạng lưới B2B chuyên nghiệp</p>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* Create Organization Modal */}
+            {showOrgModal && (
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[100] flex items-center justify-center p-6 animate-in fade-in duration-300">
+                    <div className="bg-white rounded-[3.5rem] w-full max-w-lg shadow-2xl overflow-hidden animate-in zoom-in duration-300 border border-white/20">
+                        <div className="p-12 bg-gradient-to-tr from-blue-700 via-blue-600 to-indigo-600 text-white relative">
+                            <button 
+                                onClick={() => setShowOrgModal(false)}
+                                className="absolute top-10 right-10 w-10 h-10 bg-white/10 rounded-2xl flex items-center justify-center hover:bg-white/20 transition-all"
+                            >
+                                <X size={20} />
+                            </button>
+                            <h3 className="text-3xl font-black uppercase tracking-tighter italic mb-2">Create B2B Network</h3>
+                            <p className="text-blue-100 font-bold uppercase text-[10px] tracking-[0.2em] opacity-80">Thiết lập đơn vị vận hành chuyên nghiệp</p>
+                        </div>
+                        
+                        <form onSubmit={handleCreateOrg} className="p-12 space-y-8">
+                            <div className="space-y-6">
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Tên Đội / Công ty</label>
                                     <input
                                         type="text"
                                         value={createOrgData.name}
                                         onChange={(e) => setCreateOrgData({ ...createOrgData, name: e.target.value })}
                                         placeholder="Ví dụ: Đội thi công A"
-                                        className="w-full px-4 py-3 bg-gray-50 rounded-2xl font-bold outline-none border border-transparent focus:border-blue-200 transition-all"
+                                        className="w-full px-8 py-5 bg-slate-50 rounded-[1.8rem] font-black text-slate-900 outline-none border border-transparent focus:bg-white focus:border-blue-500/20 focus:ring-4 focus:ring-blue-500/5 transition-all text-sm placeholder:text-slate-300"
                                         required
                                     />
                                 </div>
-                                <div className="space-y-1">
-                                    <label className="text-[10px] font-black text-gray-400 uppercase ml-2">Mã số thuế (Tùy chọn)</label>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Mã số thuế (Tùy chọn)</label>
                                     <input
                                         type="text"
                                         value={createOrgData.taxCode}
                                         onChange={(e) => setCreateOrgData({ ...createOrgData, taxCode: e.target.value })}
-                                        placeholder="Để trống nếu không có"
-                                        className="w-full px-4 py-3 bg-gray-50 rounded-2xl font-bold outline-none border border-transparent focus:border-blue-200 transition-all"
+                                        placeholder="Nhập MST doanh nghiệp"
+                                        className="w-full px-8 py-5 bg-slate-50 rounded-[1.8rem] font-black text-slate-900 outline-none border border-transparent focus:bg-white focus:border-blue-500/20 focus:ring-4 focus:ring-blue-500/5 transition-all text-sm placeholder:text-slate-300"
                                     />
                                 </div>
-                                <div className="space-y-1">
-                                    <label className="text-[10px] font-black text-gray-400 uppercase ml-2">Địa chỉ</label>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Địa chỉ</label>
                                     <input
                                         type="text"
                                         value={createOrgData.address}
                                         onChange={(e) => setCreateOrgData({ ...createOrgData, address: e.target.value })}
-                                        placeholder="Địa chỉ trụ sở"
-                                        className="w-full px-4 py-3 bg-gray-50 rounded-2xl font-bold outline-none border border-transparent focus:border-blue-200 transition-all"
+                                        placeholder="Địa chỉ trụ sở chính"
+                                        className="w-full px-8 py-5 bg-slate-50 rounded-[1.8rem] font-black text-slate-900 outline-none border border-transparent focus:bg-white focus:border-blue-500/20 focus:ring-4 focus:ring-blue-500/5 transition-all text-sm placeholder:text-slate-300"
                                     />
                                 </div>
-                                <button
-                                    type="submit"
-                                    disabled={submittingOrg}
-                                    className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-lg shadow-blue-100 flex justify-center items-center gap-2"
-                                >
-                                    {submittingOrg ? <RefreshCw className="w-5 h-5 animate-spin" /> : 'Tạo ngay'}
-                                </button>
-                            </form>
-                        </div>
+                            </div>
+                            
+                            <button
+                                type="submit"
+                                disabled={submittingOrg}
+                                className="w-full py-6 bg-blue-600 text-white rounded-[1.8rem] font-black uppercase tracking-[0.3em] hover:bg-blue-700 transition-all shadow-2xl shadow-blue-500/30 flex justify-center items-center gap-4 text-xs active:scale-95 disabled:opacity-50"
+                            >
+                                {submittingOrg ? <RefreshCw className="w-5 h-5 animate-spin" /> : 'Xác nhận tạo đơn vị'}
+                            </button>
+                        </form>
                     </div>
-                )}
-            </main>
+                </div>
+            )}
         </div>
     )
 }
+
+const Loader2 = ({ className }: { className?: string }) => <RefreshCw className={className} />

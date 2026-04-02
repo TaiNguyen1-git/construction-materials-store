@@ -1,15 +1,8 @@
 'use client'
 
-/**
- * Project Timeline Page for Contractors
- * View comprehensive timeline of project progress
- */
-
-import { use } from 'react'
+import { use, useState } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Building2, Menu, User, LogOut } from 'lucide-react'
-import { useState, useEffect } from 'react'
-import Sidebar from '../../../components/Sidebar'
+import { ArrowLeft, Building2, Clock, Activity, Layers, Cpu, Sparkles } from 'lucide-react'
 import ProjectTimeline from '@/components/ProjectTimeline'
 import { useAuth } from '@/contexts/auth-context'
 
@@ -18,82 +11,69 @@ export default function ContractorProjectTimelinePage({
 }: {
     params: Promise<{ id: string }>
 }) {
-    const { user, logout } = useAuth()
+    const { user } = useAuth()
     const { id } = use(params)
-    const [sidebarOpen, setSidebarOpen] = useState(false)
-
-    // No basic useEffect needed as user is handled by useAuth
-
-    const handleLogout = async () => {
-        await logout()
-        window.location.href = '/contractor'
-    }
 
     return (
-        <div className="min-h-screen bg-gray-50">
-            {/* Top Navigation */}
-            <nav className="fixed top-0 left-0 right-0 z-30 bg-white border-b border-gray-200 shadow-sm">
-                <div className="px-4 lg:px-6 py-4">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                            <button
-                                onClick={() => setSidebarOpen(true)}
-                                className="lg:hidden p-2 text-gray-600 hover:bg-gray-100 rounded-lg"
-                            >
-                                <Menu className="w-6 h-6" />
-                            </button>
-                            <Link href="/contractor/dashboard" className="flex items-center gap-3">
-                                <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
-                                    <Building2 className="w-6 h-6 text-white" />
-                                </div>
-                                <div className="hidden sm:block">
-                                    <span className="text-xl font-bold text-gray-900">SmartBuild</span>
-                                    <span className="text-blue-600 font-semibold ml-1">PRO</span>
-                                </div>
-                            </Link>
+        <div className="space-y-12 animate-in fade-in duration-700 pb-24 max-w-5xl mx-auto">
+            {/* Tactical Timeline Header */}
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-8">
+                <div className="space-y-2">
+                    <button
+                        onClick={() => window.history.back()}
+                        className="flex items-center gap-4 text-slate-400 hover:text-slate-900 font-black text-[10px] uppercase tracking-widest transition-all group italic mb-4"
+                    >
+                        <div className="w-10 h-10 rounded-[1rem] bg-white border border-slate-100 flex items-center justify-center group-hover:bg-slate-900 group-hover:text-white transition-all shadow-sm">
+                            <ArrowLeft size={16} />
                         </div>
+                        Return to Node Detail
+                    </button>
+                    <h1 className="text-4xl font-black text-slate-900 tracking-tighter uppercase italic flex items-center gap-4">
+                        <Clock className="w-10 h-10 text-blue-600" />
+                        Operational Timeline
+                    </h1>
+                    <p className="text-slate-500 font-bold uppercase text-[10px] tracking-[0.2em]">Theo dõi tiến độ chi tiết qua các giai đoạn thi công B2B</p>
+                </div>
 
-                        <div className="flex items-center gap-3">
-                            <div className="hidden sm:flex items-center gap-2 text-gray-700 px-3 py-2 bg-gray-50 rounded-lg">
-                                <User className="w-4 h-4 text-blue-600" />
-                                <span className="font-medium text-sm">{user?.name}</span>
-                            </div>
-                            <button
-                                onClick={handleLogout}
-                                className="p-2 text-gray-500 hover:text-red-600 rounded-lg"
-                            >
-                                <LogOut className="w-5 h-5" />
-                            </button>
+                <div className="hidden md:flex items-center gap-3 text-blue-600 font-black text-[9px] uppercase tracking-widest bg-blue-50 px-4 py-2 rounded-full border border-blue-100 italic">
+                    <Activity size={14} className="animate-pulse" /> Telemetry: Synchronized
+                </div>
+            </div>
+
+            {/* Main Timeline Terminal */}
+            <div className="bg-white rounded-[3.5rem] p-10 lg:p-16 shadow-2xl shadow-slate-200/50 border border-slate-50 relative overflow-hidden group">
+                <div className="absolute top-0 right-0 w-80 h-80 bg-blue-600/5 rounded-full blur-[80px] -mr-32 -mt-32 transition-all duration-1000 group-hover:scale-110"></div>
+                
+                <div className="relative z-10">
+                    <div className="flex items-center gap-6 mb-12 pb-10 border-b border-slate-50">
+                        <div className="w-16 h-16 bg-slate-950 text-white rounded-[1.5rem] flex items-center justify-center shadow-xl shadow-slate-200">
+                            <Layers size={32} />
                         </div>
+                        <div className="space-y-1">
+                            <h2 className="text-2xl font-black uppercase italic tracking-tight text-slate-900">Sequence Analysis</h2>
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Shard: {id}</p>
+                        </div>
+                    </div>
+
+                    <div className="px-2">
+                        <ProjectTimeline projectId={id} showExportButton={true} />
                     </div>
                 </div>
-            </nav>
+            </div>
 
-            <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-
-            <main className="lg:ml-64 pt-[73px]">
-                <div className="p-6 lg:p-8 max-w-5xl mx-auto">
-                    {/* Breadcrumb */}
-                    <div className="mb-6">
-                        <Link
-                            href={`/contractor/projects/${id}`}
-                            className="inline-flex items-center gap-2 text-gray-500 hover:text-blue-600 transition-colors text-sm font-medium"
-                        >
-                            <ArrowLeft className="w-4 h-4" />
-                            Quay lại chi tiết công trình
-                        </Link>
+            {/* Tactical Advisor */}
+            <div className="bg-slate-950 rounded-[3.5rem] p-12 text-white relative overflow-hidden group">
+                <div className="absolute top-0 right-0 w-48 h-48 bg-blue-500/10 rounded-full blur-3xl"></div>
+                <div className="flex items-center gap-8">
+                    <div className="w-16 h-16 bg-white/5 rounded-2xl flex items-center justify-center flex-shrink-0 border border-white/5 group-hover:rotate-12 transition-transform">
+                        <Cpu size={32} className="text-blue-400" />
                     </div>
-
-                    {/* Title */}
-                    <div className="mb-6">
-                        <h1 className="text-2xl font-black text-gray-900">Timeline Thực hiện</h1>
-                        <p className="text-gray-500">Theo dõi tiến độ chi tiết qua các giai đoạn thi công</p>
+                    <div className="space-y-1">
+                        <h3 className="text-xl font-black italic tracking-tighter uppercase whitespace-nowrap">Timeline Integrity Protocol</h3>
+                        <p className="text-xs font-bold text-slate-500 italic leading-relaxed">System automates sequential shifts based on field telemetry. Discrepancies require immediate principal override.</p>
                     </div>
-
-                    {/* Timeline Component */}
-                    <ProjectTimeline projectId={id} showExportButton={true} />
                 </div>
-            </main>
+            </div>
         </div>
     )
 }

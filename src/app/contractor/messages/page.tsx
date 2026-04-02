@@ -7,10 +7,8 @@ import {
     Search, User, MoreVertical,
     Phone, ArrowLeft, Loader2,
     Trash2, Flag, Info, Check, CheckCheck,
-    Image as ImageIcon, FileText, X, Video, ChevronDown
+    Image as ImageIcon, FileText, X, Video, ChevronDown, Activity
 } from 'lucide-react'
-import Sidebar from '../components/Sidebar'
-import ContractorHeader from '../components/ContractorHeader'
 import { fetchWithAuth } from '@/lib/api-client'
 import { getFirebaseDatabase } from '@/lib/firebase'
 import { ref, onChildAdded, off, serverTimestamp } from 'firebase/database'
@@ -21,7 +19,6 @@ import { useAuth } from '@/contexts/auth-context'
 function MessagesContent() {
     const searchParams = useSearchParams()
     const { user } = useAuth()
-    const [sidebarOpen, setSidebarOpen] = useState(true)
     const [conversations, setConversations] = useState<any[]>([])
     const [selectedId, setSelectedId] = useState<string | null>(searchParams.get('id'))
     const [loading, setLoading] = useState(true)
@@ -68,7 +65,6 @@ function MessagesContent() {
             const newMsg = snapshot.val()
             if (newMsg) {
                 setMessages(prev => {
-                    // Prevent duplicates (from optimistic UI or first load)
                     if (prev.some(m => m.id === newMsg.id || (m.tempId && m.tempId === newMsg.tempId))) {
                         return prev.map(m => (m.tempId === newMsg.tempId ? newMsg : m))
                     }
@@ -82,19 +78,16 @@ function MessagesContent() {
         }
     }, [selectedId])
 
-    // Auto-scroll to bottom
     const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
         if (messagesEndRef.current) {
             messagesEndRef.current.scrollIntoView({ behavior })
         }
     }
 
-    // Scroll when messages change
     useEffect(() => {
         scrollToBottom()
     }, [messages])
 
-    // Click outside listener for menu
     useEffect(() => {
         function handleClickOutside(event: any) {
             if (menuRef.current && !menuRef.current.contains(event.target)) {
@@ -111,7 +104,6 @@ function MessagesContent() {
             if (res.ok) {
                 const json = await res.json()
                 setConversations(json.data)
-                // If no conversation is selected but we have some, select the first one
                 if (!selectedId && json.data.length > 0) {
                     setSelectedId(json.data[0].id)
                 }
@@ -163,7 +155,6 @@ function MessagesContent() {
             isSending: true
         }
 
-        // 1. Optimistic Update (Immediate UI response)
         setMessages(prev => [...prev, optimisticMsg])
         setNewMessage('')
         scrollToBottom()
@@ -171,26 +162,23 @@ function MessagesContent() {
         try {
             const res = await fetchWithAuth('/api/chat/messages', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     conversationId: selectedId,
                     content: content,
                     fileUrl: fileData?.fileUrl,
                     fileName: fileData?.fileName,
                     fileType: fileData?.fileType,
-                    tempId: tempId // Send tempId to track it
+                    tempId: tempId
                 })
             })
 
             if (!res.ok) {
                 toast.error('Gửi tin nhắn thất bại')
-                // Remove optimistic message on error
                 setMessages(prev => prev.filter(m => m.id !== tempId))
                 setNewMessage(content)
             } else {
-                fetchConversations() // Update sidebar
+                fetchConversations()
             }
         } catch (err) {
             console.error('Send message error:', err)
@@ -214,7 +202,6 @@ function MessagesContent() {
 
             const data = await res.json()
             if (data.success) {
-                // Send a message with this file
                 await handleSendMessage(undefined, data)
                 toast.success('Đã gửi tệp đính kèm')
             } else {
@@ -236,23 +223,12 @@ function MessagesContent() {
 
     const handleCall = (type: 'audio' | 'video' = 'audio') => {
         if (!selectedConv) return
-
         const otherUserId = user?.id === selectedConv.participant1Id ? selectedConv.participant2Id : selectedConv.participant1Id
         const otherUserName = user?.id === selectedConv.participant1Id ? selectedConv.participant2Name : selectedConv.participant1Name
-
         if ((window as any).__startCall) {
             (window as any).__startCall(otherUserId, otherUserName, selectedConv.id, type)
         } else {
             toast.error('Hệ thống gọi chưa sẵn sàng')
-        }
-    }
-
-    const handleMenuAction = (action: string) => {
-        setShowMenu(false)
-        if (action === 'delete') {
-            if (confirm('Bạn có chắc muốn xóa cuộc hội thoại này?')) {
-                toast.success('Tính năng đang phát triển')
-            }
         }
     }
 
@@ -283,10 +259,10 @@ function MessagesContent() {
                         <img
                             src={msg.fileUrl}
                             alt={msg.fileName}
-                            className="max-w-[240px] max-h-[320px] w-auto h-auto rounded-xl cursor-pointer hover:scale-[1.02] transition-transform duration-200 border border-white/20 shadow-sm bg-black/5"
+                            className="max-w-[300px] rounded-3xl cursor-pointer hover:opacity-90 transition-opacity border border-white/10"
                             onClick={() => window.open(msg.fileUrl, '_blank')}
                         />
-                        {msg.content && <p className="text-sm">{msg.content}</p>}
+                        {msg.content && <p className="text-sm font-medium px-2">{msg.content}</p>}
                     </div>
                 )
             }
@@ -295,14 +271,14 @@ function MessagesContent() {
                     href={msg.fileUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center gap-3 p-3 bg-white/10 rounded-lg hover:bg-white/20 transition-colors"
+                    className="flex items-center gap-4 p-4 bg-white/10 rounded-3xl hover:bg-white/20 transition-all"
                 >
-                    <div className="bg-white/20 p-2 rounded">
-                        <FileText className="w-5 h-5 text-white" />
+                    <div className="bg-white/20 p-3 rounded-2xl">
+                        <FileText className="w-6 h-6 text-white" />
                     </div>
                     <div className="flex-1 min-w-0">
-                        <p className="text-sm font-bold truncate">{msg.fileName}</p>
-                        <p className="text-[10px] opacity-70 uppercase">Tệp đính kèm</p>
+                        <p className="text-xs font-black truncate uppercase tracking-widest">{msg.fileName}</p>
+                        <p className="text-[10px] opacity-70 uppercase font-black mt-1 tracking-widest">Document File</p>
                     </div>
                 </a>
             )
@@ -317,285 +293,279 @@ function MessagesContent() {
                 const isMe = msg.senderId === user?.id
 
                 return (
-                    <div className={`flex flex-col gap-3 min-w-[220px] ${isMe ? 'text-white' : 'text-gray-800'}`}>
-                        <div className="flex items-center gap-4">
-                            <div className={`w-12 h-12 flex items-center justify-center rounded-2xl shadow-inner ${isMe ? 'bg-white/10 backdrop-blur-md' : 'bg-blue-50 text-blue-600'}`}>
-                                {isVideo ? <Video className="w-6 h-6" /> : <Phone className="w-6 h-6" />}
+                    <div className={`flex flex-col gap-4 min-w-[280px] p-2 ${isMe ? 'text-white' : 'text-slate-800'}`}>
+                        <div className="flex items-center gap-6">
+                            <div className={`w-16 h-16 flex items-center justify-center rounded-[2rem] shadow-inner ${isMe ? 'bg-white/10 backdrop-blur-md' : 'bg-blue-50 text-blue-600'}`}>
+                                {isVideo ? <Video className="w-8 h-8" /> : <Phone className="w-8 h-8" />}
                             </div>
                             <div>
-                                <h4 className="font-black text-sm tracking-tight">{isVideo ? 'CUỘC GỌI VIDEO' : 'CUỘC GỌI THOẠI'}</h4>
-                                <div className="flex items-center gap-1.5">
-                                    <div className={`w-1.5 h-1.5 rounded-full ${isMe ? 'bg-green-300' : 'bg-green-500'}`} />
-                                    <p className="text-[11px] opacity-80 font-bold uppercase tracking-widest">{durationStr}</p>
+                                <h4 className="font-black text-lg tracking-tighter uppercase italic">{isVideo ? 'Video Engagement' : 'Voice Interaction'}</h4>
+                                <div className="flex items-center gap-2 mt-1">
+                                    <div className={`w-2 h-2 rounded-full ${isMe ? 'bg-green-300' : 'bg-green-500'} animate-pulse`} />
+                                    <p className="text-[10px] opacity-80 font-black uppercase tracking-[0.2em]">{durationStr}</p>
                                 </div>
                             </div>
                         </div>
                         <button
                             onClick={() => handleCall(isVideo ? 'video' : 'audio')}
-                            className={`w-full py-3 rounded-xl text-[10px] font-black uppercase tracking-[0.15em] transition-all hover:scale-[1.02] active:scale-[0.98] shadow-sm ${isMe ? 'bg-white text-blue-600 hover:bg-white/90' : 'bg-blue-600 text-white hover:bg-blue-700'
-                                }`}
+                            className={`w-full py-5 rounded-3xl text-[10px] font-black uppercase tracking-[0.3em] transition-all hover:scale-[1.02] active:scale-[0.98] shadow-xl ${isMe ? 'bg-white text-blue-600 hover:bg-slate-50 shadow-blue-900/10' : 'bg-blue-600 text-white hover:bg-blue-700 shadow-blue-500/20'}`}
                         >
-                            GỌI LẠI NGAY
+                            Connect Again
                         </button>
                     </div>
                 )
             } catch (e) {
-                return <p className="text-sm leading-relaxed">{msg.content}</p>
+                return <p className="text-sm font-medium leading-relaxed">{msg.content}</p>
             }
         }
-        return <p className="text-sm leading-relaxed">{msg.content}</p>
+        return <p className="text-sm font-medium leading-relaxed">{msg.content}</p>
     }
 
     return (
-        <div className="h-screen bg-white flex flex-col overflow-hidden">
-
-
+        <div className="h-[calc(100vh-100px)] flex bg-white rounded-[3rem] overflow-hidden border border-slate-100 shadow-2xl relative shadow-slate-200/50">
             {user && <ChatCallManager userId={user.id} userName={user.name || 'Người dùng'} />}
 
-            <ContractorHeader sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
-            <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-
-            {/* Main Chat Interface - Fixed height based on viewport to match Admin precision */}
-            <main className={`flex-1 pt-[82px] transition-all duration-300 ${sidebarOpen ? 'lg:ml-64' : 'ml-0'} h-[calc(100vh)] flex overflow-hidden bg-gray-50`}>
-                {/* Sidebar: Conversations List */}
-                <div className="w-80 border-r border-gray-100 flex flex-col bg-white">
-                    <div className="p-4 border-b border-gray-50">
-                        <div className="flex items-center justify-between mb-4">
-                            <h2 className="text-2xl font-black text-gray-900">Hội thoại</h2>
-                            <button className="p-2 bg-gray-50 rounded-full hover:bg-gray-100 transition-colors">
-                                <MessageCircle className="w-5 h-5 text-gray-600" />
-                            </button>
-                        </div>
-                        <div className="relative">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                            <input
-                                type="text"
-                                placeholder="Tìm kiếm tin nhắn..."
-                                className="w-full pl-10 pr-4 py-2 bg-gray-100 border-none rounded-2xl text-sm focus:ring-2 focus:ring-blue-500"
-                            />
-                        </div>
+            {/* Sidebar: Conversations List */}
+            <div className="w-96 border-r border-slate-50 flex flex-col bg-white overflow-hidden">
+                <div className="p-10 pb-6">
+                    <h2 className="text-3xl font-black text-slate-900 tracking-tighter uppercase italic mb-8">Hub</h2>
+                    <div className="relative group">
+                        <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
+                        <input
+                            type="text"
+                            placeholder="Find connections..."
+                            className="w-full pl-14 pr-6 py-4.5 bg-slate-50 border-transparent rounded-[1.8rem] text-sm focus:bg-white focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500/20 outline-none transition-all font-bold placeholder:text-slate-300"
+                        />
                     </div>
-                    <div className="flex-1 overflow-y-auto">
-                        {loading ? (
-                            <div className="flex flex-col items-center justify-center p-8 text-gray-400 gap-3">
-                                <Loader2 className="w-6 h-6 animate-spin" />
-                                <span className="text-xs font-bold uppercase tracking-wider">Đang tải...</span>
+                </div>
+                <div className="flex-1 overflow-y-auto px-4 pb-10 space-y-2 custom-scrollbar">
+                    {loading ? (
+                        <div className="flex flex-col items-center justify-center py-20 gap-4 opacity-50">
+                            <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Syncing database...</span>
+                        </div>
+                    ) : conversations.length === 0 ? (
+                        <div className="py-20 text-center space-y-4">
+                            <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto text-slate-200">
+                                <MessageCircle size={32} />
                             </div>
-                        ) : conversations.length === 0 ? (
-                            <div className="p-8 text-center text-gray-400 text-sm italic">
-                                Chưa có hội thoại nào
-                            </div>
-                        ) : (
-                            conversations.map(conv => (
+                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">No active threads found</p>
+                        </div>
+                    ) : (
+                        conversations.map(conv => {
+                            const unread = user?.id === conv.participant1Id ? conv.unread1 : conv.unread2
+                            const otherName = user?.id === conv.participant1Id ? conv.participant2Name : conv.participant1Name
+                            return (
                                 <button
                                     key={conv.id}
                                     onClick={() => setSelectedId(conv.id)}
-                                    className={`w-full p-4 flex items-center gap-3 hover:bg-gray-50 transition-colors border-r-4 ${selectedId === conv.id ? 'bg-blue-50/50 border-blue-600' : 'border-transparent'}`}
+                                    className={`w-full p-6 rounded-[2rem] flex items-center gap-5 hover:bg-slate-50 transition-all group overflow-hidden relative ${selectedId === conv.id ? 'bg-blue-50/50' : ''}`}
                                 >
+                                    {selectedId === conv.id && (
+                                        <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-blue-600 rounded-r-full shadow-[0_0_15px_rgba(37,99,235,0.4)]"></div>
+                                    )}
                                     <div className="relative flex-shrink-0">
-                                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-lg shadow-sm">
-                                            {(user?.id === conv.participant1Id ? conv.participant2Name : conv.participant1Name).charAt(0)}
+                                        <div className={`w-14 h-14 rounded-[1.5rem] flex items-center justify-center text-white font-black text-xl shadow-lg transition-transform duration-500 group-hover:scale-110 ${selectedId === conv.id ? 'bg-blue-600 shadow-blue-500/20' : 'bg-slate-900 shadow-slate-200'}`}>
+                                            {otherName.charAt(0).toUpperCase()}
                                         </div>
-                                        <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 border-2 border-white rounded-full"></div>
+                                        <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-emerald-500 border-4 border-white rounded-full shadow-sm"></div>
                                     </div>
-                                    <div className="flex-1 text-left min-w-0">
+                                    <div className="flex-1 text-left min-w-0 space-y-1">
                                         <div className="flex justify-between items-baseline mb-0.5">
-                                            <h4 className="font-bold text-gray-900 truncate text-sm">
-                                                {user?.id === conv.participant1Id ? conv.participant2Name : conv.participant1Name}
+                                            <h4 className="font-black text-slate-900 truncate uppercase tracking-tighter text-sm italic">
+                                                {otherName}
                                             </h4>
-                                            <span className="text-[10px] text-gray-400 whitespace-nowrap ml-2">
-                                                {conv.lastMessageAt ? new Date(conv.lastMessageAt).toLocaleDateString() === new Date().toLocaleDateString()
-                                                    ? formatTime(conv.lastMessageAt)
-                                                    : new Date(conv.lastMessageAt).toLocaleDateString('vi-VN') : ''}
+                                            <span className="text-[9px] font-black text-slate-400 whitespace-nowrap ml-3 uppercase">
+                                                {conv.lastMessageAt ? new Date(conv.lastMessageAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : ''}
                                             </span>
                                         </div>
-                                        <p className={`text-xs truncate ${conv.unread1 > 0 || conv.unread2 > 0 ? 'font-bold text-gray-950' : 'text-gray-500'}`}>
-                                            {formatLastMessage(conv.lastMessage)}
-                                        </p>
-                                    </div>
-                                </button>
-                            ))
-                        )}
-                    </div>
-                </div>
-
-                {/* Chat Area */}
-                <div className="flex-1 flex flex-col bg-white relative">
-                    {selectedConv ? (
-                        <>
-                            {/* Chat Header - Sticky top to ensure it never moves */}
-                            <div className="sticky top-0 h-[72px] shrink-0 px-6 bg-white/95 backdrop-blur-sm border-b border-gray-100 flex items-center justify-between z-40">
-                                <div className="flex items-center gap-3">
-                                    <button onClick={() => setSelectedId(null)} className="md:hidden p-2 -ml-2 text-gray-400 hover:text-gray-900 transition-colors"><ArrowLeft className="w-5 h-5" /></button>
-                                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold shadow-sm">
-                                        {displayName.charAt(0)}
-                                    </div>
-                                    <div className="min-w-0">
-                                        <h3 className="font-bold text-gray-900 truncate">{displayName || 'Đang tải...'}</h3>
-                                        <div className="flex items-center gap-1.5">
-                                            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                                            <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">Đang hoạt động</p>
+                                        <div className="flex items-center justify-between gap-3">
+                                            <p className={`text-xs truncate ${unread > 0 ? 'font-black text-slate-900' : 'text-slate-400 font-medium'}`}>
+                                                {formatLastMessage(conv.lastMessage)}
+                                            </p>
+                                            {unread > 0 && (
+                                                <div className="min-w-[1.2rem] h-5 bg-red-500 text-white rounded-full flex items-center justify-center px-1.5 text-[8px] font-black shadow-lg shadow-red-500/30 animate-pulse">
+                                                    {unread}
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
+                                </button>
+                            )
+                        })
+                    )}
+                </div>
+            </div>
+
+            {/* Chat Area */}
+            <div className="flex-1 flex flex-col bg-white relative overflow-hidden">
+                {selectedConv ? (
+                    <>
+                        <div className="h-24 px-10 border-b border-slate-50 flex items-center justify-between bg-white/80 backdrop-blur-xl z-20 sticky top-0">
+                            <div className="flex items-center gap-6">
+                                <button 
+                                    onClick={() => setSelectedId(null)} 
+                                    className="md:hidden w-10 h-10 flex items-center justify-center bg-slate-50 rounded-2xl text-slate-400 hover:text-slate-900"
+                                >
+                                    <ArrowLeft className="w-5 h-5" />
+                                </button>
+                                <div className="w-12 h-12 rounded-2xl bg-blue-600 flex items-center justify-center text-white font-black shadow-xl shadow-blue-500/20">
+                                    {displayName.charAt(0).toUpperCase()}
                                 </div>
+                                <div>
+                                    <h3 className="font-black text-slate-900 truncate uppercase tracking-tighter italic text-lg">{displayName}</h3>
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse shadow-sm shadow-emerald-500/50"></div>
+                                        <p className="text-[9px] text-slate-400 font-black uppercase tracking-[0.2em]">Active Communication Portal</p>
+                                    </div>
+                                </div>
+                            </div>
 
-                                <div className="flex gap-1" ref={menuRef}>
-                                    <button onClick={() => handleCall('audio')} className="p-2.5 text-blue-600 hover:bg-blue-50 rounded-full transition-all duration-200" title="Gọi thoại">
-                                        <Phone className="w-5 h-5" />
+                            <div className="flex gap-3" ref={menuRef}>
+                                <button onClick={() => handleCall('audio')} className="w-12 h-12 flex items-center justify-center bg-slate-50 text-slate-400 hover:bg-blue-600 hover:text-white rounded-2xl transition-all shadow-sm active:scale-90" title="Audio Call">
+                                    <Phone size={20} />
+                                </button>
+                                <button onClick={() => handleCall('video')} className="w-12 h-12 flex items-center justify-center bg-slate-50 text-slate-400 hover:bg-blue-600 hover:text-white rounded-2xl transition-all shadow-sm active:scale-90" title="Video Meeting">
+                                    <Video size={20} />
+                                </button>
+                                <div className="relative">
+                                    <button 
+                                        onClick={() => setShowMenu(!showMenu)} 
+                                        className={`w-12 h-12 flex items-center justify-center rounded-2xl transition-all shadow-sm ${showMenu ? 'bg-slate-900 text-white' : 'bg-slate-50 text-slate-400 hover:bg-slate-100'}`}
+                                    >
+                                        <MoreVertical size={20} />
                                     </button>
-                                    <button onClick={() => handleCall('video')} className="p-2.5 text-blue-600 hover:bg-blue-50 rounded-full transition-all duration-200" title="Gọi video">
-                                        <Video className="w-5 h-5" />
-                                    </button>
-                                    <button onClick={() => setShowMenu(!showMenu)} className={`p-2.5 rounded-full transition-all duration-200 ${showMenu ? 'bg-gray-100 text-gray-900' : 'text-gray-400 hover:bg-gray-100'}`}>
-                                        <MoreVertical className="w-5 h-5" />
-                                    </button>
-
                                     {showMenu && (
-                                        <div className="absolute right-6 top-[60px] w-56 bg-white rounded-2xl shadow-2xl border border-gray-100 py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
-                                            <button onClick={() => handleMenuAction('info')} className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-3 font-medium">
-                                                <User className="w-4 h-4 text-gray-400" /> Xem hồ sơ chi tiết
+                                        <div className="absolute right-0 top-16 w-64 bg-slate-900 rounded-[2rem] shadow-2xl p-3 z-50 animate-in fade-in slide-in-from-top-4 duration-300">
+                                            <button className="w-full text-left px-5 py-4 text-[10px] text-white/70 hover:text-white hover:bg-white/10 rounded-2xl flex items-center gap-4 font-black uppercase tracking-widest transition-all">
+                                                <User size={16} /> Connection Space
                                             </button>
-                                            <button onClick={() => handleMenuAction('report')} className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-3 font-medium">
-                                                <Flag className="w-4 h-4 text-gray-400" /> Báo cáo vi phạm
-                                            </button>
-                                            <div className="h-px bg-gray-50 my-2 mx-2" />
-                                            <button onClick={() => handleMenuAction('delete')} className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-3 font-bold">
-                                                <Trash2 className="w-4 h-4" /> Xóa hội thoại
+                                            <div className="h-px bg-white/5 my-2 mx-3" />
+                                            <button className="w-full text-left px-5 py-4 text-[10px] text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-2xl flex items-center gap-4 font-black uppercase tracking-widest transition-all">
+                                                <Trash2 size={16} /> Discard Thread
                                             </button>
                                         </div>
                                     )}
                                 </div>
                             </div>
+                        </div>
 
-                            {/* Messages Container */}
-                            <div
-                                ref={scrollContainerRef}
-                                onScroll={handleScroll}
-                                className="flex-1 overflow-y-auto px-6 py-6 space-y-4 bg-gray-50/30 relative custom-scrollbar"
-                            >
-                                {messages.map((msg, idx) => {
-                                    const isMe = msg.senderId === user?.id
-                                    const showAvatar = !isMe && (idx === 0 || messages[idx - 1].senderId !== msg.senderId)
+                        <div
+                            ref={scrollContainerRef}
+                            onScroll={handleScroll}
+                            className="flex-1 overflow-y-auto px-10 py-10 space-y-8 bg-white relative custom-scrollbar scroll-smooth"
+                        >
+                            {messages.map((msg, idx) => {
+                                const isMe = msg.senderId === user?.id
+                                const firstInGroup = idx === 0 || messages[idx - 1].senderId !== msg.senderId
 
-                                    return (
-                                        <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'} items-end gap-2`}>
-                                            {!isMe && (
-                                                <div className="w-8 h-8 rounded-full flex-shrink-0">
-                                                    {showAvatar ? (
-                                                        <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-xs font-bold text-gray-600">
-                                                            {msg.senderName.charAt(0)}
-                                                        </div>
-                                                    ) : <div className="w-8" />}
-                                                </div>
-                                            )}
+                                return (
+                                    <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'} items-end gap-5 animate-in fade-in slide-in-from-bottom-2 duration-300`}>
+                                        {!isMe && (
+                                            <div className="w-12 h-12 flex-shrink-0">
+                                                {firstInGroup ? (
+                                                    <div className="w-12 h-12 rounded-2xl bg-slate-900 flex items-center justify-center text-[10px] font-black text-white shadow-xl">
+                                                        {msg.senderName.charAt(0).toUpperCase()}
+                                                    </div>
+                                                ) : <div className="w-12" />}
+                                            </div>
+                                        )}
 
-                                            <div className={`max-w-[70%] group relative`}>
-                                                <div className={`p-3.5 rounded-2xl shadow-sm border ${isMe
-                                                    ? 'bg-blue-600 text-white border-blue-500 rounded-br-none'
-                                                    : 'bg-white text-gray-800 border-gray-100 rounded-bl-none'
-                                                    }`}>
-                                                    {renderMessageContent(msg)}
-                                                </div>
-                                                <div className={`flex items-center gap-1.5 mt-1 ${isMe ? 'justify-end' : 'justify-start'}`}>
-                                                    <span className="text-[9px] text-gray-400 font-bold uppercase transition-opacity">
-                                                        {formatTime(msg.createdAt)}
-                                                    </span>
-                                                    {isMe && (msg.isRead ? <CheckCheck className="w-3 h-3 text-blue-500" /> : <Check className="w-3 h-3 text-gray-300" />)}
-                                                </div>
+                                        <div className={`max-w-[75%] relative group`}>
+                                            <div className={`px-8 py-6 rounded-[2.5rem] shadow-sm relative transition-transform duration-300 ${isMe
+                                                ? 'bg-blue-600 text-white shadow-blue-500/10 rounded-br-none'
+                                                : 'bg-slate-50 text-slate-900 rounded-bl-none'
+                                                }`}>
+                                                {renderMessageContent(msg)}
+                                            </div>
+                                            <div className={`flex items-center gap-2.5 mt-2 ${isMe ? 'justify-end pr-1' : 'justify-start pl-1'}`}>
+                                                <span className="text-[8px] text-slate-300 font-black uppercase tracking-[0.2em] group-hover:opacity-100 transition-opacity">
+                                                    {formatTime(msg.createdAt)}
+                                                </span>
+                                                {isMe && (
+                                                    <div className={msg.isRead ? 'text-blue-500' : 'text-slate-200'}>
+                                                        <CheckCheck size={12} />
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
-                                    )
-                                })}
-                                <div ref={messagesEndRef} className="h-2" />
-
-                            </div>
-
-                            {/* Scroll to Bottom Button - Fixed positioning for visibility */}
-                            {showScrollButton && (
-                                <button
-                                    onClick={() => scrollToBottom()}
-                                    className="absolute bottom-24 right-8 p-4 bg-white text-blue-600 rounded-full shadow-2xl border border-blue-50 animate-bounce active:scale-110 transition-all z-50 group"
-                                >
-                                    <ChevronDown className="w-6 h-6" />
-                                    <span className="absolute -top-12 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-[10px] py-2 px-4 rounded-xl opacity-0 group-hover:opacity-100 transition-all whitespace-nowrap font-black shadow-2xl border border-white/10">
-                                        MỚI NHẤT ↓
-                                    </span>
-                                </button>
-                            )}
-
-                            {/* Chat Input */}
-                            <div className="p-4 bg-white border-t border-gray-100">
-                                <div className="max-w-4xl mx-auto flex items-end gap-2 bg-gray-100 p-2 rounded-3xl">
-                                    <button
-                                        onClick={() => fileInputRef.current?.click()}
-                                        disabled={uploading}
-                                        className="p-3 text-gray-500 hover:text-blue-600 hover:bg-white rounded-full transition-all"
-                                        title="Đính kèm tệp"
-                                    >
-                                        {uploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Paperclip className="w-5 h-5" />}
-                                    </button>
-                                    <input
-                                        type="file"
-                                        ref={fileInputRef}
-                                        onChange={handleFileUpload}
-                                        className="hidden"
-                                    />
-
-                                    <div className="flex-1">
-                                        <textarea
-                                            rows={1}
-                                            placeholder="Gửi tin nhắn..."
-                                            className="w-full p-3 bg-transparent border-none rounded-2xl text-sm focus:ring-0 resize-none max-h-32"
-                                            value={newMessage}
-                                            onChange={(e) => setNewMessage(e.target.value)}
-                                            onKeyDown={(e) => {
-                                                if (e.key === 'Enter' && !e.shiftKey) {
-                                                    e.preventDefault()
-                                                    handleSendMessage()
-                                                }
-                                            }}
-                                        />
                                     </div>
-
-                                    <button
-                                        onClick={() => handleSendMessage()}
-                                        disabled={sending || (!newMessage.trim() && !uploading)}
-                                        className="p-3 bg-blue-600 text-white rounded-full hover:bg-blue-700 disabled:opacity-50 shadow-lg shadow-blue-200 transition-all hover:scale-105 active:scale-95"
-                                    >
-                                        {sending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
-                                    </button>
-                                </div>
-                                <p className="text-[9px] text-gray-400 text-center mt-2 font-bold uppercase tracking-widest">Tin nhắn được mã hóa đầu cuối</p>
-                            </div>
-                        </>
-                    ) : (
-                        <div className="flex-1 flex flex-col items-center justify-center p-12 text-center bg-gray-50/30">
-                            <div className="w-32 h-32 bg-blue-50 rounded-full flex items-center justify-center mb-8 shadow-inner animate-pulse">
-                                <MessageCircle className="w-16 h-16 text-blue-200" />
-                            </div>
-                            <h3 className="text-3xl font-black text-gray-900 mb-3">Chào mừng bạn quay lại!</h3>
-                            <p className="text-gray-500 max-w-sm font-medium leading-relaxed">Hãy chọn một cuộc hội thoại từ danh sách bên trái để bắt đầu trao đổi với khách hàng và đối tác.</p>
-                            <button onClick={fetchConversations} className="mt-8 px-8 py-3 bg-blue-600 text-white rounded-full font-black text-sm shadow-xl shadow-blue-100 hover:bg-blue-700 transition-all hover:-translate-y-1">LÀM MỚI DANH SÁCH</button>
+                                )
+                            })}
+                            <div ref={messagesEndRef} className="h-4" />
                         </div>
-                    )}
-                </div>
-            </main>
+
+                        {showScrollButton && (
+                            <button
+                                onClick={() => scrollToBottom()}
+                                className="absolute bottom-32 right-10 w-16 h-16 bg-white text-blue-600 rounded-[1.8rem] shadow-2xl border border-blue-50 flex items-center justify-center animate-bounce z-40 active:scale-90 transition-all"
+                            >
+                                <ChevronDown size={28} />
+                            </button>
+                        )}
+
+                        <div className="px-10 py-10 bg-white border-t border-slate-50">
+                            <div className="max-w-5xl mx-auto flex items-end gap-4 bg-slate-50 p-3 rounded-[2.8rem] border border-slate-200/50 shadow-sm transition-all focus-within:bg-white focus-within:shadow-2xl focus-within:shadow-slate-200/50 focus-within:border-blue-500/20">
+                                <button
+                                    onClick={() => fileInputRef.current?.click()}
+                                    disabled={uploading}
+                                    className="w-14 h-14 flex items-center justify-center text-slate-400 hover:text-blue-600 hover:bg-white rounded-full transition-all shrink-0 active:scale-90"
+                                >
+                                    {uploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Paperclip size={24} />}
+                                </button>
+                                <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" />
+
+                                <textarea
+                                    rows={1}
+                                    placeholder="Type high-priority message..."
+                                    className="flex-1 py-4 bg-transparent border-none rounded-2xl text-sm font-bold focus:ring-0 resize-none max-h-40 placeholder:text-slate-300"
+                                    value={newMessage}
+                                    onChange={(e) => setNewMessage(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter' && !e.shiftKey) {
+                                            e.preventDefault()
+                                            handleSendMessage()
+                                        }
+                                    }}
+                                />
+
+                                <button
+                                    onClick={() => handleSendMessage()}
+                                    disabled={sending || (!newMessage.trim() && !uploading)}
+                                    className="w-14 h-14 flex items-center justify-center bg-blue-600 text-white rounded-[1.8rem] hover:bg-blue-700 disabled:opacity-50 shadow-xl shadow-blue-500/30 transition-all hover:scale-105 active:scale-95 shrink-0"
+                                >
+                                    {sending ? <Loader2 className="w-6 h-6 animate-spin" /> : <Send size={22} />}
+                                </button>
+                            </div>
+                        </div>
+                    </>
+                ) : (
+                    <div className="flex-1 flex flex-col items-center justify-center p-20 text-center animate-in fade-in duration-700">
+                        <div className="w-48 h-48 bg-slate-50 rounded-[4rem] flex items-center justify-center mb-10 group hover:rotate-12 transition-all duration-700 shadow-inner">
+                            <MessageCircle size={80} className="text-slate-200 group-hover:text-blue-600 transition-colors" />
+                        </div>
+                        <h3 className="text-4xl font-black text-slate-900 mb-4 uppercase tracking-tighter italic">Select Thread</h3>
+                        <p className="text-slate-400 max-w-sm font-bold uppercase text-[10px] tracking-[0.2em] leading-relaxed">Kết nối trực tiếp với nhà cung cấp, khách hàng & đội ngũ thi công của bạn ngay bây giờ.</p>
+                    </div>
+                )}
+            </div>
         </div>
     )
 }
 
 export default function MessagesPage() {
     return (
-        <Suspense fallback={
-            <div className="min-h-screen bg-white flex items-center justify-center">
-                <div className="flex flex-col items-center gap-4">
-                    <Loader2 className="w-10 h-10 animate-spin text-blue-600" />
-                    <span className="text-xs font-black text-gray-400 uppercase tracking-widest">Đang tải ứng dụng tin nhắn...</span>
+        <div className="h-full animate-in fade-in duration-500">
+            <Suspense fallback={
+                <div className="h-[calc(100vh-120px)] bg-white rounded-[3rem] border border-slate-100 flex items-center justify-center">
+                    <div className="flex flex-col items-center gap-6">
+                        <div className="w-16 h-16 border-4 border-slate-100 border-t-blue-600 rounded-full animate-spin"></div>
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic animate-pulse">Syncing Encrypted Channel...</span>
+                    </div>
                 </div>
-            </div>
-        }>
-            <MessagesContent />
-        </Suspense>
+            }>
+                <MessagesContent />
+            </Suspense>
+        </div>
     )
 }
-

@@ -1,16 +1,13 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import Sidebar from '../components/Sidebar'
-import ContractorHeader from '../components/ContractorHeader'
 import { useAuth } from '@/contexts/auth-context'
-import { Shield, AlertTriangle, FileText, CheckCircle, Clock, Download, X } from 'lucide-react'
+import { Shield, AlertTriangle, FileText, CheckCircle, Clock, Download, X, ShieldCheck, HeartPulse, Building2, Zap, ArrowUpRight, History, CreditCard, Lock } from 'lucide-react'
 import FormModal from '@/components/FormModal'
 import { toast } from 'react-hot-toast'
 
 export default function ContractorInsurancePage() {
     const { user } = useAuth()
-    const [sidebarOpen, setSidebarOpen] = useState(true)
     const [viewingPolicy, setViewingPolicy] = useState<any>(null)
     const [reportingClaim, setReportingClaim] = useState<any>(null)
     const [showBuyModal, setShowBuyModal] = useState(false)
@@ -24,25 +21,22 @@ export default function ContractorInsurancePage() {
         estimatedLoss: ''
     })
 
-    // No basic useEffect needed as user is handled by useAuth
-
     const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files.length > 0) {
             const newFiles = Array.from(e.target.files)
             setSelectedFiles([...selectedFiles, ...newFiles])
-            toast.success(`Đã chọn ${newFiles.length} file`)
+            toast.success(`Protocol: ${newFiles.length} evidence tokens registered`)
         }
     }
 
     const handleBuyPolicy = (type: string) => {
         setBuyingType(type)
-        // Mock buying process
         toast.promise(
             new Promise((resolve) => setTimeout(resolve, 2000)),
             {
-                loading: 'Đang khởi tạo hợp đồng...',
-                success: 'Đăng ký thành công! Vui lòng thanh toán phí bảo hiểm.',
-                error: 'Lỗi'
+                loading: 'Initializing Institutional Contract...',
+                success: 'Protocol registered successfully! Awaiting fiscal settlement.',
+                error: 'Transmission Failure'
             }
         ).then(() => {
             setShowBuyModal(false)
@@ -53,34 +47,33 @@ export default function ContractorInsurancePage() {
     const insuranceTypes = [
         {
             id: 'MATERIAL_TRANSIT',
-            name: 'Bảo hiểm Vận chuyển (Material Transit)',
-            desc: 'Bảo vệ hàng hóa vật liệu xây dựng trong quá trình vận chuyển.',
-            price: 'Từ 0.1% giá trị hàng',
-            icon: '🚛'
+            name: 'Material Transit Protocol',
+            desc: 'Protects bulk construction assets during logistics and deployment phases.',
+            price: 'From 0.1% Asset Value',
+            icon: <Building2 className="w-6 h-6" />
         },
         {
             id: 'CONSTRUCTION_ALL_RISK',
-            name: 'Bảo hiểm Mọi rủi ro Xây dựng (CAR)',
-            desc: 'Bảo vệ toàn diện cho công trình, vật tư và trách nhiệm bên thứ 3.',
-            price: 'Từ 0.5% giá trị công trình',
-            icon: '🏗️'
+            name: 'CAR Risk Mitigation (CAR)',
+            desc: 'Comprehensive structural, asset, and third-party liability coverage.',
+            price: 'From 0.5% Project Value',
+            icon: <ShieldCheck className="w-6 h-6" />
         },
         {
             id: 'WORKERS_COMPENSATION',
-            name: 'Bảo hiểm Tai nạn Công nhân',
-            desc: 'Bảo vệ tai nạn lao động cho công nhân trên công trường.',
-            price: '200.000đ / người / năm',
-            icon: '👷'
+            name: 'Force Integrity Protection',
+            desc: 'Operational accident coverage for ground personnel and engineering teams.',
+            price: '200.000 VNĐ / Unit / Year',
+            icon: <HeartPulse className="w-6 h-6" />
         }
     ]
 
-    // Mock data for demo
     const policies = [
         {
             id: '1',
             policyNumber: 'BH-MAT-2024-00123',
             type: 'MATERIAL_TRANSIT',
-            insurer: 'PVI Insurance',
+            insurer: 'PVI Institutional Insurance',
             coverage: 500000000,
             expiryDate: '2024-05-30',
             status: 'ACTIVE',
@@ -90,7 +83,7 @@ export default function ContractorInsurancePage() {
             id: '2',
             policyNumber: 'BH-CAR-2024-00456',
             type: 'CONSTRUCTION_ALL_RISK',
-            insurer: 'Bảo Việt',
+            insurer: 'Bao Viet Global',
             coverage: 2000000000,
             expiryDate: '2024-12-31',
             status: 'ACTIVE',
@@ -98,9 +91,7 @@ export default function ContractorInsurancePage() {
         }
     ]
 
-    const handleViewContract = (policy: any) => {
-        setViewingPolicy(policy)
-    }
+    const handleViewContract = (policy: any) => setViewingPolicy(policy)
 
     const handleReportClaim = (policy: any) => {
         setReportingClaim(policy)
@@ -113,292 +104,354 @@ export default function ContractorInsurancePage() {
 
     const submitClaim = () => {
         if (!claimForm.description || !claimForm.estimatedLoss) {
-            toast.error('Vui lòng điền đầy đủ thông tin sự cố')
+            toast.error('Context validation failed: Incident data incomplete')
             return
         }
 
-        // Mock submission
         toast.promise(
             new Promise((resolve) => setTimeout(resolve, 1500)),
             {
-                loading: 'Đang gửi yêu cầu bồi thường...',
-                success: 'Đã gửi yêu cầu thành công! Mã hồ sơ: CLM-2024-8892',
-                error: 'Có lỗi xảy ra'
+                loading: 'Transmitting claim protocol to underwriter...',
+                success: 'Claim authorized! Reference: CLM-2024-8892',
+                error: 'Submission Timeout'
             }
-        ).then(() => {
-            setReportingClaim(null)
-        })
+        ).then(() => setReportingClaim(null))
     }
 
     return (
-        <div className="min-h-screen bg-gray-50 flex flex-col">
+        <div className="space-y-10 animate-in fade-in duration-500 pb-20 max-w-7xl mx-auto">
+            {/* High-Integrity Header */}
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+                <div className="space-y-2">
+                    <h1 className="text-4xl font-black text-slate-900 tracking-tighter uppercase italic flex items-center gap-4">
+                        <Shield className="w-10 h-10 text-emerald-600" />
+                        Risk Mitigation Vault
+                    </h1>
+                    <p className="text-slate-500 font-bold uppercase text-[10px] tracking-[0.2em]">Quản lý bảo hiểm công trình & Đội ngũ nhân sự thi công</p>
+                </div>
 
-            <ContractorHeader sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
-            <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+                <div className="flex items-center gap-4">
+                    <button
+                        onClick={() => setShowBuyModal(true)}
+                        className="px-8 py-4 bg-slate-900 text-white rounded-[1.5rem] text-[10px] font-black uppercase tracking-[0.2em] hover:bg-black transition-all flex items-center gap-3 shadow-xl shadow-slate-200 active:scale-95"
+                    >
+                        <Zap size={16} /> Deploy New Coverage
+                    </button>
+                    <button className="w-14 h-14 bg-white border border-slate-100 rounded-[1.2rem] flex items-center justify-center text-slate-400 hover:text-emerald-600 transition-all active:scale-90">
+                        <Download size={18} />
+                    </button>
+                </div>
+            </div>
 
-            <main className={`flex-1 pt-[73px] transition-all duration-300 ${sidebarOpen ? 'lg:ml-64' : 'ml-0'}`}>
-                <div className="p-6 lg:p-8 max-w-7xl mx-auto">
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-                        <div>
-                            <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
-                                <Shield className="w-8 h-8 text-green-600" />
-                                Bảo hiểm Công trình
-                            </h1>
-                            <p className="text-gray-500 mt-1">Quản lý các gói bảo hiểm và yêu cầu bồi thường (Claims)</p>
+            {/* Active Coverage Grid - Bento Architecture */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {policies.map(policy => (
+                    <div key={policy.id} className="bg-white rounded-[3.5rem] p-10 border border-slate-100 shadow-sm hover:shadow-2xl hover:shadow-slate-200/50 transition-all duration-700 group overflow-hidden relative">
+                        <div className="absolute top-0 right-0 px-8 py-3 bg-emerald-500 text-white text-[9px] font-black uppercase tracking-widest rounded-bl-[2rem] shadow-lg shadow-emerald-500/20 group-hover:scale-110 transition-transform origin-top-right">ACTIVE PROTOCOL</div>
+                        
+                        <div className="flex items-start gap-8 mb-10">
+                            <div className="w-20 h-20 rounded-[2rem] bg-slate-50 flex items-center justify-center flex-shrink-0 group-hover:bg-emerald-50 transition-colors duration-500 shadow-inner">
+                                <Shield className="w-10 h-10 text-slate-300 group-hover:text-emerald-600 transition-colors" />
+                            </div>
+                            <div className="space-y-1 pt-2">
+                                <h3 className="text-2xl font-black text-slate-900 uppercase italic tracking-tighter group-hover:text-emerald-600 transition-colors">
+                                    {policy.type === 'MATERIAL_TRANSIT' ? 'Material Transit' : 'CAR Multi-Risk'}
+                                </h3>
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] font-mono tabular-nums">{policy.policyNumber}</p>
+                            </div>
                         </div>
-                        <button
-                            onClick={() => setShowBuyModal(true)}
-                            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 font-medium flex items-center gap-2 transition-colors shadow-sm"
-                        >
-                            + Mua gói bảo hiểm mới
-                        </button>
+
+                        <div className="grid grid-cols-2 gap-10 py-8 border-y border-slate-50 relative">
+                            <div className="space-y-1">
+                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest opacity-60">Institutional Underwriter</p>
+                                <p className="text-base font-black text-slate-800 uppercase italic tracking-tight">{policy.insurer}</p>
+                            </div>
+                            <div className="space-y-1">
+                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest opacity-60">Max Liability Ceiling</p>
+                                <p className="text-base font-black text-slate-900 tabular-nums italic text-emerald-600">{policy.coverage.toLocaleString('vi-VN')} đ</p>
+                            </div>
+                            <div className="space-y-1">
+                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest opacity-60">Expiration Temporal Mark</p>
+                                <p className="text-base font-black text-slate-800 tabular-nums tabular-nums uppercase italic">{new Date(policy.expiryDate).toLocaleDateString('vi-VN', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
+                            </div>
+                            <div className="space-y-1">
+                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest opacity-60">Fiscal Status</p>
+                                <div className="flex items-center gap-2 text-emerald-600 font-black text-[10px] uppercase tracking-widest pt-1">
+                                    <CheckCircle className="w-3.5 h-3.5" /> Fully Remitted
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="mt-10 flex gap-6">
+                            <button
+                                onClick={() => handleViewContract(policy)}
+                                className="flex-1 py-5 bg-slate-50 text-slate-400 hover:bg-slate-900 hover:text-white rounded-[1.8rem] text-[10px] font-black uppercase tracking-[0.2em] italic flex items-center justify-center gap-3 transition-all active:scale-95 shadow-sm"
+                            >
+                                <FileText size={16} /> Audit Contract
+                            </button>
+                            <button
+                                onClick={() => handleReportClaim(policy)}
+                                className="flex-1 py-5 bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white border border-rose-100 rounded-[1.8rem] text-[10px] font-black uppercase tracking-[0.2em] italic flex items-center justify-center gap-3 transition-all active:scale-95"
+                            >
+                                <AlertTriangle size={16} /> File Claim
+                            </button>
+                        </div>
                     </div>
+                ))}
+            </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                        {policies.map(policy => (
-                            <div key={policy.id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 relative overflow-hidden group hover:shadow-md transition-all">
-                                <div className="absolute top-0 right-0 bg-green-500 text-white text-xs px-3 py-1 rounded-bl font-bold tracking-wide">ACTIVE</div>
+            {/* Historical Incident Log */}
+            <div className="bg-white rounded-[3.5rem] border border-slate-100 shadow-sm overflow-hidden animate-in slide-in-from-bottom-5 duration-1000">
+                <div className="p-10 border-b border-slate-50 flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 bg-slate-900 text-white rounded-2xl flex items-center justify-center shadow-xl shadow-slate-200">
+                            <History size={20} />
+                        </div>
+                        <div>
+                            <h2 className="text-xl font-black uppercase italic tracking-tight">Active Claims & Incident Logs</h2>
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Lịch sử yêu cầu bồi thường và giám định hiện trường</p>
+                        </div>
+                    </div>
+                </div>
+                <div className="py-32 text-center flex flex-col items-center gap-6 group">
+                    <div className="w-32 h-32 bg-slate-50 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-1000 border-2 border-dashed border-slate-200">
+                        <FileText className="w-12 h-12 text-slate-200 group-hover:text-emerald-500 transition-colors" />
+                    </div>
+                    <div className="space-y-2">
+                        <h3 className="text-xl font-black italic text-slate-900 uppercase tracking-tighter">Operational Safety Intact</h3>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest max-w-[320px] mx-auto opacity-60">No pending claim protocols detected. Strategic risk mitigation remains within nominal parameters.</p>
+                    </div>
+                </div>
+            </div>
 
-                                <div className="flex items-start gap-4">
-                                    <div className="w-14 h-14 rounded-xl bg-blue-50 flex items-center justify-center flex-shrink-0 group-hover:bg-blue-100 transition-colors">
-                                        <Shield className="w-7 h-7 text-blue-600" />
-                                    </div>
-                                    <div className="flex-1">
-                                        <h3 className="font-bold text-gray-900 text-lg">
-                                            {policy.type === 'MATERIAL_TRANSIT' ? 'Bảo hiểm Vận chuyển' : 'Bảo hiểm Mọi rủi ro'}
-                                        </h3>
-                                        <p className="text-sm text-gray-500 font-mono mt-1">{policy.policyNumber}</p>
-                                    </div>
+            {/* Premium Modals */}
+            <FormModal
+                isOpen={showBuyModal}
+                onClose={() => setShowBuyModal(false)}
+                title="Initialize New Coverage Protocol"
+                size="lg"
+            >
+                <div className="p-12 space-y-10 animate-in zoom-in duration-300">
+                    <div className="space-y-4">
+                        <h3 className="text-2xl font-black italic tracking-tighter uppercase text-slate-900">Selection Tier</h3>
+                        <p className="text-sm font-bold text-slate-500 leading-relaxed italic">Select the institutional mitigation package aligned with your tactical mission. Underwriters: PVI Institutional, Bao Viet Global, PTI Strategic.</p>
+                    </div>
+                    
+                    <div className="grid gap-6">
+                        {insuranceTypes.map(type => (
+                            <div key={type.id} className="group border-2 border-slate-50 hover:border-emerald-500/20 hover:bg-emerald-50/30 rounded-[2.5rem] p-8 transition-all cursor-pointer flex items-center gap-8 relative overflow-hidden">
+                                <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 rounded-full blur-3xl group-hover:bg-emerald-500/10 transition-all"></div>
+                                <div className="w-20 h-20 bg-white rounded-[1.8rem] flex items-center justify-center text-slate-400 group-hover:text-emerald-600 shadow-xl shadow-slate-200 transition-all group-hover:scale-110">
+                                    {type.icon}
                                 </div>
-
-                                <div className="mt-6 grid grid-cols-2 gap-y-4 gap-x-8 text-sm border-t border-gray-100 pt-4">
-                                    <div>
-                                        <p className="text-gray-500 text-xs uppercase font-medium">Nhà bảo hiểm</p>
-                                        <p className="font-semibold text-gray-900 mt-0.5">{policy.insurer}</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-gray-500 text-xs uppercase font-medium">Bồi thường tối đa</p>
-                                        <p className="font-bold text-gray-900 mt-0.5">{policy.coverage.toLocaleString('vi-VN')} đ</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-gray-500 text-xs uppercase font-medium">Hiệu lực đến</p>
-                                        <p className="font-medium text-gray-900 mt-0.5">{new Date(policy.expiryDate).toLocaleDateString('vi-VN')}</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-gray-500 text-xs uppercase font-medium">Trạng thái phí</p>
-                                        <span className="inline-flex items-center gap-1 text-green-700 font-medium text-xs mt-0.5 bg-green-50 px-2 py-0.5 rounded">
-                                            <CheckCircle className="w-3 h-3" /> Đã đóng
-                                        </span>
-                                    </div>
+                                <div className="flex-1 space-y-2">
+                                    <h4 className="text-xl font-black text-slate-900 uppercase italic tracking-tighter">{type.name}</h4>
+                                    <p className="text-[11px] font-bold text-slate-500 italic max-w-sm">{type.desc}</p>
                                 </div>
-
-                                <div className="mt-6 flex gap-3">
+                                <div className="text-right space-y-3 relative z-10">
+                                    <p className="text-xl font-black text-emerald-600 italic tabular-nums">{type.price}</p>
                                     <button
-                                        onClick={() => handleViewContract(policy)}
-                                        className="flex-1 bg-white border border-gray-300 text-gray-700 py-2.5 rounded-lg hover:bg-gray-50 font-medium text-sm flex items-center justify-center gap-2 transition-colors"
+                                        onClick={() => handleBuyPolicy(type.id)}
+                                        disabled={buyingType === type.id}
+                                        className="px-6 py-3 bg-slate-900 text-white text-[9px] font-black uppercase tracking-[0.2em] rounded-xl hover:bg-black transition-all disabled:opacity-30 active:scale-95"
                                     >
-                                        <FileText className="w-4 h-4" />
-                                        Hợp đồng
-                                    </button>
-                                    <button
-                                        onClick={() => handleReportClaim(policy)}
-                                        className="flex-1 bg-red-50 text-red-700 py-2.5 rounded-lg hover:bg-red-100 font-medium text-sm border border-red-200 flex items-center justify-center gap-2 transition-colors"
-                                    >
-                                        <AlertTriangle className="w-4 h-4" />
-                                        Yêu cầu bồi thường
+                                        {buyingType === type.id ? 'TRANSMITTING...' : 'INITIALIZE'}
                                     </button>
                                 </div>
                             </div>
                         ))}
                     </div>
+                </div>
+            </FormModal>
 
-                    {/* Claim History */}
-                    <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-                        <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 rounded-t-xl">
-                            <h3 className="font-bold text-gray-900 flex items-center gap-2">
-                                <Clock className="w-5 h-5 text-gray-500" />
-                                Lịch sử Yêu cầu Bồi thường (Claims)
-                            </h3>
-                        </div>
-                        <div className="p-12 text-center">
-                            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                                <FileText className="w-8 h-8 text-gray-400" />
+            <FormModal
+                isOpen={!!viewingPolicy}
+                onClose={() => setViewingPolicy(null)}
+                title="Operational Contract Audit"
+                size="lg"
+            >
+                {viewingPolicy && (
+                    <div className="p-12 space-y-12 animate-in zoom-in duration-300">
+                        <div className="flex justify-between items-end border-b-4 border-slate-900 pb-10">
+                            <div className="space-y-4">
+                                <h3 className="text-4xl font-black italic tracking-tighter uppercase">{viewingPolicy.type === 'MATERIAL_TRANSIT' ? 'Material Transit' : 'Risk Multi-CAR'}</h3>
+                                <div className="flex items-center gap-4">
+                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest font-mono">{viewingPolicy.policyNumber}</span>
+                                    <span className="px-5 py-2 bg-emerald-500 text-white rounded-full text-[9px] font-black uppercase tracking-widest shadow-lg shadow-emerald-500/20">Protocol Verified</span>
+                                </div>
                             </div>
-                            <h3 className="text-gray-900 font-medium mb-1">Chưa có yêu cầu bồi thường nào</h3>
-                            <p className="text-gray-500 text-sm">Nếu gặp sự cố, hãy gửi yêu cầu bồi thường ngay để được hỗ trợ.</p>
+                            <Shield className="w-16 h-16 text-slate-100" />
+                        </div>
+
+                        <div className="grid gap-10">
+                            <div className="p-10 bg-slate-50 rounded-[3rem] space-y-6">
+                                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] flex items-center gap-3">
+                                    <Lock size={14} className="text-emerald-500" /> Essential Coverage Parameters
+                                </h4>
+                                <ul className="space-y-4 text-sm font-bold text-slate-700 italic">
+                                    <li className="flex items-start gap-4">
+                                        <div className="w-2 h-2 bg-emerald-500 rounded-full mt-2 shadow-[0_0_8px_rgba(16,185,129,0.5)]"></div>
+                                        Comprehensive asset protection for {viewingPolicy.type === 'MATERIAL_TRANSIT' ? 'transit logistics from origin hub to operational site' : 'vertical build structural integrity against physical threats'}.
+                                    </li>
+                                    <li className="flex items-start gap-4">
+                                        <div className="w-2 h-2 bg-emerald-500 rounded-full mt-2 shadow-[0_0_8px_rgba(16,185,129,0.5)]"></div>
+                                        Mission Radius: {viewingPolicy.type === 'MATERIAL_TRANSIT' ? 'Total loss, structural warping due to logistics incident, pyrotechnic events, or force majeure' : 'Seismic activity, hydrologic events, operational oversight, or institutional sub-standard deployment'}.
+                                    </li>
+                                    <li className="flex items-start gap-4">
+                                        <div className="w-2 h-2 bg-emerald-500 rounded-full mt-2 shadow-[0_0_8px_rgba(16,185,129,0.5)]"></div>
+                                        Deductible Threshold: 5,000,000 VNĐ per verified incident.
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+
+                        <div className="flex justify-end gap-6 border-t border-slate-50 pt-10">
+                            <button onClick={() => setViewingPolicy(null)} className="px-10 py-5 bg-slate-100 text-slate-400 rounded-3xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-slate-200 transition-all">Dismiss Audit</button>
+                            <button className="px-10 py-5 bg-emerald-600 text-white rounded-3xl font-black text-[10px] uppercase tracking-[0.2em] shadow-2xl shadow-emerald-500/20 hover:bg-emerald-700 transition-all flex items-center gap-3">
+                                <Download size={16} /> Sync PDF to Vault
+                            </button>
                         </div>
                     </div>
+                )}
+            </FormModal>
 
-                    {/* Modals */}
-
-                    {/* NEW: Buy Insurance Modal */}
-                    <FormModal
-                        isOpen={showBuyModal}
-                        onClose={() => setShowBuyModal(false)}
-                        title="Đăng ký Gói Bảo hiểm Mới"
-                        size="lg"
-                    >
-                        <div className="p-6 space-y-4">
-                            <p className="text-gray-600 text-sm">Chọn gói bảo hiểm phù hợp với nhu cầu của bạn. Đối tác bảo hiểm uy tín: PVI, Bảo Việt, PTI.</p>
-                            <div className="grid gap-4">
-                                {insuranceTypes.map(type => (
-                                    <div key={type.id} className="border border-gray-200 rounded-xl p-4 hover:border-blue-300 hover:bg-blue-50 transition-all cursor-pointer flex items-center gap-4">
-                                        <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center text-2xl shadow-sm border border-gray-100">
-                                            {type.icon}
-                                        </div>
-                                        <div className="flex-1">
-                                            <h4 className="font-bold text-gray-900">{type.name}</h4>
-                                            <p className="text-xs text-gray-500 mt-0.5">{type.desc}</p>
-                                        </div>
-                                        <div className="text-right">
-                                            <p className="text-sm font-semibold text-blue-600">{type.price}</p>
-                                            <button
-                                                onClick={() => handleBuyPolicy(type.id)}
-                                                disabled={buyingType === type.id}
-                                                className="mt-2 px-3 py-1 bg-blue-600 text-white text-xs rounded font-medium hover:bg-blue-700 disabled:opacity-50"
-                                            >
-                                                {buyingType === type.id ? 'Đang xử lý...' : 'Chọn mua'}
-                                            </button>
-                                        </div>
-                                    </div>
-                                ))}
+            <FormModal
+                isOpen={!!reportingClaim}
+                onClose={() => setReportingClaim(null)}
+                title="Operational Incident Transmission"
+                size="md"
+            >
+                {reportingClaim && (
+                    <div className="p-12 space-y-10 animate-in zoom-in duration-300">
+                        <div className="bg-rose-50 p-8 rounded-[2.5rem] border-2 border-rose-100 border-dashed flex items-start gap-6">
+                            <AlertTriangle className="w-10 h-10 text-rose-600 flex-shrink-0" />
+                            <div className="space-y-1">
+                                <p className="text-[10px] font-black text-rose-800 uppercase tracking-widest">Protocol Warning</p>
+                                <p className="text-xs font-bold text-rose-700 leading-relaxed italic">Freeze incident perimeter and secure HD visual evidence. Verified audit units will deploy within a 2-hour window post-receipt.</p>
                             </div>
                         </div>
-                    </FormModal>
 
-                    {/* View Contract Modal */}
-                    <FormModal
-                        isOpen={!!viewingPolicy}
-                        onClose={() => setViewingPolicy(null)}
-                        title="Chi tiết Hợp đồng Bảo hiểm"
-                        size="lg"
-                    >
-                        {viewingPolicy && (
-                            <div className="p-6 space-y-6">
-                                <div className="bg-gray-50 p-4 rounded-lg flex justify-between items-center">
-                                    <div>
-                                        <h3 className="font-bold text-lg">{viewingPolicy.type === 'MATERIAL_TRANSIT' ? 'Bảo hiểm Vận chuyển' : 'Bảo hiểm Mọi rủi ro'}</h3>
-                                        <p className="text-sm text-gray-500">{viewingPolicy.policyNumber}</p>
-                                    </div>
-                                    <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-bold">ACTIVE</span>
+                        <div className="space-y-8">
+                            <div className="space-y-3">
+                                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Linked Insurance Protocol</label>
+                                <input
+                                    type="text"
+                                    value={`${reportingClaim.policyNumber} - ${reportingClaim.insurer}`}
+                                    disabled
+                                    className="w-full px-8 py-5 bg-slate-50 border-none rounded-[1.5rem] text-[10px] font-black uppercase tracking-tighter text-slate-400"
+                                />
+                            </div>
+                            <div className="grid grid-cols-2 gap-6">
+                                <div className="space-y-3">
+                                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Incident Temporal Mark</label>
+                                    <input
+                                        type="date"
+                                        value={claimForm.incidentDate}
+                                        onChange={(e) => setClaimForm({ ...claimForm, incidentDate: e.target.value })}
+                                        className="w-full px-8 py-5 bg-slate-50 border-none rounded-[1.5rem] text-sm font-black focus:ring-4 focus:ring-rose-500/10 outline-none"
+                                    />
                                 </div>
-
-                                <div className="prose max-w-none text-sm text-gray-600">
-                                    <h4 className="font-bold text-gray-900">Điều khoản chính</h4>
-                                    <ul className="list-disc pl-5 space-y-2">
-                                        <li>Bảo vệ toàn diện cho {viewingPolicy.type === 'MATERIAL_TRANSIT' ? 'hàng hóa trong quá trình vận chuyển từ kho đến công trình' : 'công trình xây dựng trước mọi rủi ro vật chất'}.</li>
-                                        <li>Phạm vi bảo hiểm: {viewingPolicy.type === 'MATERIAL_TRANSIT' ? 'Hư hỏng, mất mát do tai nạn lật xe, cháy nổ, thiên tai' : 'Cháy nổ, sét đánh, lũ lụt, trộm cắp, sơ suất trong thi công'}.</li>
-                                        <li>Mức khấu trừ: 5,000,000 VNĐ / vụ.</li>
-                                        <li>Thời hạn thông báo sự cố: Trong vòng 24h kể từ khi xảy ra sự cố.</li>
-                                    </ul>
-                                </div>
-
-                                <div className="flex gap-3 justify-end pt-4 border-t">
-                                    <button onClick={() => setViewingPolicy(null)} className="px-4 py-2 border rounded-lg hover:bg-gray-50">Đóng</button>
-                                    <button className="px-4 py-2 bg-blue-600 text-white rounded-lg flex items-center gap-2 hover:bg-blue-700">
-                                        <Download className="w-4 h-4" /> Tải Hợp đồng PDF
-                                    </button>
+                                <div className="space-y-3">
+                                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Estimated Loss (VNĐ)</label>
+                                    <input
+                                        type="number"
+                                        placeholder="EX: 50,000,000"
+                                        value={claimForm.estimatedLoss}
+                                        onChange={(e) => setClaimForm({ ...claimForm, estimatedLoss: e.target.value })}
+                                        className="w-full px-8 py-5 bg-slate-50 border-none rounded-[1.5rem] text-sm font-black italic tracking-tighter focus:ring-4 focus:ring-rose-500/10 outline-none"
+                                    />
                                 </div>
                             </div>
-                        )}
-                    </FormModal>
+                            <div className="space-y-3">
+                                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Critical Situation Narrative</label>
+                                <textarea
+                                    rows={5}
+                                    placeholder="Provide high-density narrative of incident trajectory and structural impact..."
+                                    value={claimForm.description}
+                                    onChange={(e) => setClaimForm({ ...claimForm, description: e.target.value })}
+                                    className="w-full px-10 py-8 bg-slate-50 border-none rounded-[2.5rem] text-sm font-bold italic leading-relaxed focus:ring-4 focus:ring-rose-500/10 outline-none"
+                                ></textarea>
+                            </div>
 
-                    {/* Report Claim Modal */}
-                    <FormModal
-                        isOpen={!!reportingClaim}
-                        onClose={() => setReportingClaim(null)}
-                        title="Gửi Yêu cầu Bồi thường (File a Claim)"
-                        size="md"
-                    >
-                        {reportingClaim && (
-                            <div className="p-6 space-y-4">
-                                <div className="bg-red-50 p-4 rounded-lg border border-red-100 flex items-start gap-3">
-                                    <AlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-                                    <div>
-                                        <p className="text-sm text-red-800 font-medium">Lưu ý quan trọng</p>
-                                        <p className="text-xs text-red-700 mt-1">Vui lòng giữ nguyên hiện trường và chụp ảnh chi tiết các thiệt hại. Nhân viên giám định sẽ liên hệ trong vòng 2h.</p>
-                                    </div>
-                                </div>
-
+                            <div
+                                className="border-[3px] border-dashed border-slate-100 rounded-[2.5rem] p-10 text-center hover:bg-slate-50 cursor-pointer transition-all duration-500 group relative"
+                                onClick={() => document.getElementById('claim-file-upload')?.click()}
+                            >
+                                <input
+                                    type="file"
+                                    id="claim-file-upload"
+                                    multiple
+                                    className="hidden"
+                                    onChange={handleFileSelect}
+                                />
                                 <div className="space-y-4">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Hợp đồng bảo hiểm</label>
-                                        <input
-                                            type="text"
-                                            value={`${reportingClaim.policyNumber} - ${reportingClaim.insurer}`}
-                                            disabled
-                                            className="w-full px-3 py-2 bg-gray-100 border rounded-lg text-gray-500"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Ngày xảy ra sự cố</label>
-                                        <input
-                                            type="date"
-                                            value={claimForm.incidentDate}
-                                            onChange={(e) => setClaimForm({ ...claimForm, incidentDate: e.target.value })}
-                                            className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Giá trị thiệt hại ước tính (VNĐ)</label>
-                                        <input
-                                            type="number"
-                                            placeholder="VD: 50,000,000"
-                                            value={claimForm.estimatedLoss}
-                                            onChange={(e) => setClaimForm({ ...claimForm, estimatedLoss: e.target.value })}
-                                            className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Mô tả sự cố & Thiệt hại</label>
-                                        <textarea
-                                            rows={4}
-                                            placeholder="Mô tả chi tiết nguyên nhân, diễn biến và mức độ thiệt hại..."
-                                            value={claimForm.description}
-                                            onChange={(e) => setClaimForm({ ...claimForm, description: e.target.value })}
-                                            className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                                        ></textarea>
-                                    </div>
-
-                                    <div
-                                        className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:bg-gray-50 cursor-pointer transition-colors relative"
-                                        onClick={() => document.getElementById('claim-file-upload')?.click()}
-                                    >
-                                        <input
-                                            type="file"
-                                            id="claim-file-upload"
-                                            multiple
-                                            className="hidden"
-                                            onChange={handleFileSelect}
-                                        />
-                                        <p className="text-sm text-gray-500">Kéo thả hoặc click để tải lên ảnh hiện trường/biên bản</p>
-                                        <button className="mt-2 text-blue-600 text-sm font-medium hover:underline">Chọn file</button>
-
-                                        {selectedFiles.length > 0 && (
-                                            <div className="mt-3 text-left bg-blue-50 p-2 rounded text-xs text-blue-700">
-                                                <p className="font-bold mb-1">Đã chọn {selectedFiles.length} file:</p>
-                                                <ul className="list-disc pl-4">
-                                                    {selectedFiles.map((f, i) => (
-                                                        <li key={i}>{f.name}</li>
-                                                    ))}
-                                                </ul>
-                                            </div>
-                                        )}
-                                    </div>
+                                    <Camera className="w-12 h-12 text-slate-200 group-hover:text-rose-500 group-hover:scale-110 transition-all mx-auto" />
+                                    <p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.3em] group-hover:text-rose-600 transition-colors">Inject Incident Evidence Vault</p>
                                 </div>
 
-                                <div className="flex gap-3 justify-end pt-4 border-t">
-                                    <button onClick={() => setReportingClaim(null)} className="px-4 py-2 border rounded-lg hover:bg-gray-50">Hủy bỏ</button>
-                                    <button onClick={submitClaim} className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium">
-                                        Gửi Yêu cầu
-                                    </button>
-                                </div>
+                                {selectedFiles.length > 0 && (
+                                    <div className="mt-6 text-left bg-rose-50/50 p-6 rounded-[1.8rem] space-y-4 border border-rose-100">
+                                        <p className="text-[9px] font-black uppercase tracking-widest text-rose-600">Active Registry: {selectedFiles.length} Tokens</p>
+                                        <div className="flex flex-wrap gap-3">
+                                            {selectedFiles.map((f, i) => (
+                                                <span key={i} className="px-3 py-1 bg-white border border-rose-100 rounded-lg text-[9px] font-black uppercase text-rose-800">{f.name}</span>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
-                        )}
-                    </FormModal>
-                </div>
-            </main>
+                        </div>
+
+                        <div className="flex gap-6 pt-10 border-t border-slate-50">
+                            <button onClick={() => setReportingClaim(null)} className="flex-1 py-6 bg-slate-100 text-slate-400 rounded-3xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-slate-200 transition-all">Abort Incident Report</button>
+                            <button onClick={submitClaim} className="flex-[2] py-6 bg-rose-600 text-white rounded-3xl font-black text-[10px] uppercase tracking-[0.2em] shadow-2xl shadow-rose-500/20 hover:bg-rose-700 transition-all flex items-center justify-center gap-3 active:scale-95">
+                                <ShieldAlert size={20} /> Transmit Protocol
+                            </button>
+                        </div>
+                    </div>
+                )}
+            </FormModal>
         </div>
     )
 }
 
+function Camera(props: any) {
+    return (
+        <svg
+            {...props}
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+        >
+            <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" />
+            <circle cx="12" cy="13" r="3" />
+        </svg>
+    )
+}
+
+function ShieldAlert(props: any) {
+    return (
+        <svg
+            {...props}
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+        >
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10" />
+            <path d="M12 8v4" />
+            <path d="M12 16h.01" />
+        </svg>
+    )
+}
