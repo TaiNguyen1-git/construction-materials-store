@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { 
   Map as MapIcon, 
   ChevronRight, 
@@ -8,9 +9,9 @@ import {
   MapPin, 
   Target,
   ArrowUpRight,
-  Filter
+  Filter,
+  X
 } from 'lucide-react'
-import { motion } from 'framer-motion'
 
 interface RegionData {
   region: string
@@ -31,6 +32,7 @@ const MOCK_REGIONS: RegionData[] = [
 
 export default function RegionalSalesAnalytics({ formatCurrency }: { formatCurrency: (v: number) => string }) {
   const [selectedRegion, setSelectedRegion] = useState<RegionData>(MOCK_REGIONS[0])
+  const [showFullReport, setShowFullReport] = useState(false)
 
   return (
     <div className="bg-white rounded-[40px] shadow-2xl shadow-slate-200/50 border border-white overflow-hidden flex flex-col lg:flex-row h-full group">
@@ -143,11 +145,102 @@ export default function RegionalSalesAnalytics({ formatCurrency }: { formatCurre
                ))}
           </div>
 
-          <button className="mt-8 w-full py-4 bg-slate-900 text-white rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] shadow-xl shadow-slate-900/20 hover:bg-slate-800 transition-all flex items-center justify-center gap-3">
+          <button 
+            onClick={() => setShowFullReport(true)}
+            className="mt-8 w-full py-5 bg-blue-600 text-white rounded-3xl text-[11px] font-black uppercase tracking-[0.2em] shadow-2xl shadow-blue-500/40 hover:bg-blue-700 hover:-translate-y-1 active:scale-95 transition-all duration-300 flex items-center justify-center gap-3 ring-4 ring-blue-50"
+          >
               Xem báo cáo vùng đầy đủ
-              <ArrowUpRight className="w-4 h-4" />
+              <ArrowUpRight className="w-5 h-5" />
           </button>
       </div>
+
+      {/* Full Report Modal */}
+      <AnimatePresence>
+        {showFullReport && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+             <motion.div 
+               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+               onClick={() => setShowFullReport(false)}
+               className="absolute inset-0 bg-slate-900/40 backdrop-blur-md"
+             />
+             
+             <motion.div 
+               initial={{ opacity: 0, scale: 0.9, y: 20 }}
+               animate={{ opacity: 1, scale: 1, y: 0 }}
+               exit={{ opacity: 0, scale: 0.9, y: 20 }}
+               className="relative w-full max-w-4xl bg-white rounded-[48px] shadow-2xl overflow-hidden p-12 border border-white/20"
+             >
+                <div className="flex justify-between items-center mb-12">
+                   <div>
+                      <h2 className="text-3xl font-black text-slate-900 tracking-tight">Báo Cáo: {selectedRegion.region}</h2>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mt-1">Phân tích chuyên sâu dữ liệu xây dựng 2026</p>
+                   </div>
+                   <button onClick={() => setShowFullReport(false)} className="p-3 hover:bg-slate-100 rounded-2xl transition-colors">
+                      <X className="w-6 h-6 text-slate-400" />
+                   </button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                   <div className="col-span-2 space-y-8">
+                      <div className="p-8 bg-slate-50 rounded-[32px] border border-slate-100 shadow-inner">
+                         <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-6 flex items-center gap-2">
+                           <TrendingUp className="w-4 h-4 text-blue-600" /> Tỷ lệ mặt hàng tiêu thụ
+                         </h3>
+                         <div className="space-y-4">
+                            {[
+                               { name: 'Gạch ốp lát', share: 45, color: 'bg-blue-600' },
+                               { name: 'Xi măng Hà Tiên', share: 30, color: 'bg-indigo-500' },
+                               { name: 'Sắt thép Hòa Phát', share: 15, color: 'bg-emerald-500' },
+                               { name: 'Sơn & Chống thấm', share: 10, color: 'bg-slate-300' },
+                            ].map(item => (
+                               <div key={item.name} className="space-y-1">
+                                  <div className="flex justify-between text-[10px] font-bold text-slate-700 uppercase tracking-widest">
+                                     <span>{item.name}</span>
+                                     <span>{item.share}%</span>
+                                  </div>
+                                  <div className="h-4 bg-white rounded-full overflow-hidden border border-slate-200 p-1">
+                                     <motion.div 
+                                        initial={{ width: 0 }} animate={{ width: `${item.share}%` }} transition={{ delay: 0.3, duration: 1 }}
+                                        className={`h-full rounded-full ${item.color}`}
+                                     />
+                                  </div>
+                               </div>
+                            ))}
+                         </div>
+                      </div>
+                   </div>
+
+                   <div className="space-y-6">
+                      <div className="p-6 bg-gradient-to-br from-blue-600 to-blue-700 text-white rounded-[32px] shadow-xl shadow-blue-500/30">
+                         <p className="text-[10px] font-black uppercase tracking-widest opacity-60 mb-2">Tiềm năng tháng tới</p>
+                         <p className="text-2xl font-black tracking-tight">{formatCurrency(selectedRegion.revenue * 1.15)}</p>
+                         <div className="mt-4 flex items-center gap-2 text-[10px] font-black bg-white/20 w-fit px-3 py-1.5 rounded-full uppercase tracking-tighter">
+                            <ArrowUpRight className="w-3 h-3" /> Tăng trưởng dự báo +15%
+                         </div>
+                      </div>
+
+                      <div className="p-6 bg-white border border-slate-100 rounded-[32px] shadow-lg shadow-slate-200/50 space-y-4">
+                         <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Top Dự Án Cao Cấp</h4>
+                         {[1, 2, 3].map(i => (
+                            <div key={i} className="flex gap-3 items-center">
+                               <div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center font-black text-slate-400 text-xs shadow-inner">0{i}</div>
+                               <div className="text-[11px] font-bold text-slate-600 tracking-tight">Khu đô thị {['Skyline', 'Riverside', 'GreenPark'][i-1]}</div>
+                            </div>
+                         ))}
+                      </div>
+                   </div>
+                </div>
+
+                <div className="mt-12 pt-8 border-t border-slate-100 flex items-center justify-between">
+                    <p className="text-xs text-slate-400 italic font-bold leading-relaxed max-w-sm">Dữ liệu được tổng hợp từ lịch trình xe giao hàng và báo cáo doanh thu tại chỗ.</p>
+                    <button className="flex items-center gap-2 px-8 py-4 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-slate-800 transition-all shadow-xl shadow-slate-900/10">
+                       Xuất file PDF chi tiết
+                    </button>
+                </div>
+             </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

@@ -411,7 +411,7 @@ export default function AdminLayout({
               <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Dashboard</span>
             </div>
             
-            <div className="max-w-md w-full">
+            <div className="max-w-2xl w-full">
               <GlobalSearch />
             </div>
           </div>

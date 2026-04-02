@@ -122,15 +122,12 @@ export default function GlobalSearch() {
       {/* Search Trigger Button for Header */}
       <button 
         onClick={handleOpen}
-        className="flex items-center gap-4 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 border border-slate-200/50 rounded-2xl transition-all duration-300 w-full md:w-64 group"
+        className="flex items-center gap-4 px-6 py-3 bg-slate-50/50 hover:bg-white border border-slate-200/50 hover:border-blue-200 rounded-2xl transition-all duration-500 w-full group shadow-sm hover:shadow-md"
       >
-        <Search className="w-4 h-4 text-slate-400 group-hover:text-blue-500" />
+        <Search className="w-5 h-5 text-slate-400 group-hover:text-blue-500 group-hover:scale-110 transition-all" />
         <span className="text-sm font-bold text-slate-400 group-hover:text-slate-600 transition-colors flex-1 text-left">
-          Tìm kiếm nhanh...
+          Tìm kiếm bất cứ thứ gì... (Đơn hàng, Khách hàng, Tính năng)
         </span>
-        <kbd className="hidden sm:inline-flex h-5 select-none items-center gap-1 rounded border bg-white px-1.5 font-mono text-[10px] font-black text-slate-400 opacity-100 uppercase tracking-tighter">
-          <span className="text-xs">Ctrl</span> K
-        </kbd>
       </button>
 
       {/* Command Palette Modal */}
