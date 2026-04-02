@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { Map as MapIcon, Users, AlertTriangle, Crosshair, RefreshCw, Navigation, Loader2, Info, ChevronRight, Activity } from 'lucide-react'
 import { fetchWithAuth } from '@/lib/api-client'
-import toast from 'react-hot-toast'
+import toast, { Toaster } from 'react-hot-toast'
 
 interface Project {
     id: string
@@ -46,7 +46,7 @@ export default function ContractorMonitoringPage() {
             }
         } catch (error) {
             console.error('Fetch monitoring data error:', error)
-            toast.error('Lỗi tải dữ liệu giám sát')
+            toast.error('Lỗi kết nối dữ liệu giám sát thời gian thực')
         } finally {
             setLoading(false)
         }
@@ -167,43 +167,44 @@ export default function ContractorMonitoringPage() {
     }
 
     return (
-        <div className="h-[calc(100vh-140px)] flex flex-col font-sans overflow-hidden animate-in fade-in duration-500">
-            <div className="flex-1 relative flex flex-col rounded-[2.5rem] overflow-hidden shadow-2xl border border-slate-100 bg-slate-50">
+        <div className="h-[calc(100vh-140px)] flex flex-col font-sans overflow-hidden animate-in fade-in duration-1000">
+            <Toaster position="top-right" />
+            <div className="flex-1 relative flex flex-col rounded-[3.5rem] overflow-hidden shadow-2xl border border-slate-100 bg-slate-50 shadow-blue-100">
                 {/* Header Overlay */}
-                <div className="absolute top-8 left-8 right-8 z-10 flex flex-col lg:flex-row gap-6 pointer-events-none">
-                    <div className="bg-white/70 backdrop-blur-2xl p-6 rounded-[2rem] shadow-2xl border border-white/50 pointer-events-auto flex items-center gap-6 group hover:bg-white/90 transition-all duration-500">
-                        <div className="w-14 h-14 bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-3xl flex items-center justify-center text-white shadow-xl shadow-blue-500/20 group-hover:rotate-6 transition-all">
-                            <MapIcon size={28} />
+                <div className="absolute top-10 left-10 right-10 z-10 flex flex-col lg:flex-row gap-6 pointer-events-none">
+                    <div className="bg-white/70 backdrop-blur-3xl p-8 rounded-[2.5rem] shadow-2xl border border-white/50 pointer-events-auto flex items-center gap-8 group hover:bg-white/90 transition-all duration-700">
+                        <div className="w-16 h-16 bg-blue-600 rounded-3xl flex items-center justify-center text-white shadow-2xl shadow-blue-500/30 group-hover:rotate-12 transition-all">
+                            <MapIcon size={32} />
                         </div>
-                        <div>
-                            <h1 className="text-2xl font-black text-slate-900 tracking-tighter flex items-center gap-3 uppercase italic">
-                                Project Monitoring
-                                <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-ping"></span>
+                        <div className="space-y-1">
+                            <h1 className="text-3xl font-black text-slate-900 tracking-tighter flex items-center gap-4 uppercase italic">
+                                Giám sát thi công
+                                <span className="w-3 h-3 bg-emerald-500 rounded-full animate-ping"></span>
                             </h1>
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1.5 flex items-center gap-2">
-                                <Activity size={12} className="text-blue-500" />
-                                Hệ thống giám sát vận hành AI thời gian thực
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] flex items-center gap-3 italic">
+                                <Activity size={14} className="text-blue-500" />
+                                Hệ thống tọa độ & Vận hành AI thời gian thực
                             </p>
                         </div>
                     </div>
 
-                    <div className="flex gap-3 pointer-events-auto">
-                        <div className="bg-white/70 backdrop-blur-xl px-8 py-5 rounded-[2rem] shadow-xl border border-white/50 flex items-center gap-4">
-                            <div className="p-3 bg-blue-50 rounded-2xl">
-                                <Users className="text-blue-600" size={20} />
+                    <div className="flex gap-4 pointer-events-auto">
+                        <div className="bg-white/70 backdrop-blur-2xl px-10 py-6 rounded-[2.2rem] shadow-xl border border-white/50 flex items-center gap-5">
+                            <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center">
+                                <Users className="text-blue-600" size={24} />
                             </div>
-                            <div>
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Báo cáo</p>
-                                <p className="text-xl font-black text-slate-900 leading-none">{data?.reports.length || 0}</p>
+                            <div className="space-y-0.5">
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic leading-none">Báo cáo thợ</p>
+                                <p className="text-2xl font-black text-slate-900 italic tracking-tighter leading-none">{data?.reports.length || 0}</p>
                             </div>
                         </div>
-                        <div className="bg-white/70 backdrop-blur-xl px-8 py-5 rounded-[2rem] shadow-xl border border-white/50 flex items-center gap-4">
-                            <div className="p-3 bg-red-50 rounded-2xl">
-                                <AlertTriangle className="text-red-500" size={20} />
+                        <div className="bg-white/70 backdrop-blur-2xl px-10 py-6 rounded-[2.2rem] shadow-xl border border-white/50 flex items-center gap-5">
+                            <div className="w-12 h-12 bg-rose-50 rounded-2xl flex items-center justify-center">
+                                <AlertTriangle className="text-rose-600" size={24} />
                             </div>
-                            <div>
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Cảnh báo</p>
-                                <p className="text-xl font-black text-red-600 leading-none">
+                            <div className="space-y-0.5">
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic leading-none">Vi phạm tọa độ</p>
+                                <p className="text-2xl font-black text-rose-600 italic tracking-tighter leading-none">
                                     {data?.reports.filter(r => getDistance(r.lat, r.lng, r.project.lat, r.project.lng) > 300).length || 0}
                                 </p>
                             </div>
@@ -215,24 +216,28 @@ export default function ContractorMonitoringPage() {
                 <div ref={mapRef} className="w-full h-full" />
 
                 {/* Sidebar Panel Overlay */}
-                <div className="absolute right-8 top-44 bottom-10 w-80 z-10 hidden xl:flex flex-col gap-6 pointer-events-none">
-                    <div className="bg-white/60 backdrop-blur-3xl rounded-[3rem] shadow-2xl border border-white/40 p-8 overflow-hidden flex flex-col flex-1 pointer-events-auto group hover:bg-white/80 transition-all duration-500">
-                        <div className="flex items-center justify-between mb-8">
-                            <h3 className="text-[11px] font-black text-slate-900 uppercase tracking-[0.3em] flex items-center gap-3">
-                                <Navigation size={14} className="text-blue-600" />
-                                Live Reports
+                <div className="absolute right-10 top-48 bottom-10 w-96 z-10 hidden xl:flex flex-col gap-8 pointer-events-none">
+                    <div className="bg-white/60 backdrop-blur-3xl rounded-[3.5rem] shadow-2xl border border-white/40 p-10 overflow-hidden flex flex-col flex-1 pointer-events-auto group hover:bg-white/80 transition-all duration-700">
+                        <div className="flex items-center justify-between mb-10">
+                            <h3 className="text-[11px] font-black text-slate-900 uppercase tracking-[0.4em] flex items-center gap-4 italic">
+                                <Navigation size={18} className="text-blue-600" />
+                                Nhật ký hiện trường
                             </h3>
-                            <RefreshCw
+                            <button 
                                 onClick={fetchData}
-                                className={`w-4 h-4 text-slate-400 cursor-pointer hover:text-blue-600 transition-colors ${loading ? 'animate-spin' : ''}`}
-                            />
+                                className="w-10 h-10 flex items-center justify-center rounded-xl bg-white hover:bg-blue-600 hover:text-white transition-all shadow-sm group/ref"
+                            >
+                                <RefreshCw
+                                    className={`w-5 h-5 text-slate-400 group-hover/ref:text-white transition-colors ${loading ? 'animate-spin' : ''}`}
+                                />
+                            </button>
                         </div>
 
-                        <div className="flex-1 overflow-y-auto space-y-4 pr-3 custom-scrollbar">
+                        <div className="flex-1 overflow-y-auto space-y-6 pr-4 custom-scrollbar">
                             {data?.reports.length === 0 ? (
-                                <div className="flex flex-col items-center justify-center h-40 gap-4 opacity-50">
-                                    <Info className="w-10 h-10 text-slate-300" />
-                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Không có báo cáo</span>
+                                <div className="flex flex-col items-center justify-center h-60 gap-6 opacity-30">
+                                    <Info className="w-16 h-16 text-slate-300" />
+                                    <span className="text-xs font-black text-slate-400 uppercase tracking-[0.3em] italic">Không có dữ liệu</span>
                                 </div>
                             ) : data?.reports.map(r => {
                                 const distance = getDistance(r.lat, r.lng, r.project.lat, r.project.lng)
@@ -240,21 +245,24 @@ export default function ContractorMonitoringPage() {
                                 return (
                                     <div
                                         key={r.id}
-                                        className={`p-5 rounded-[2rem] border transition-all cursor-pointer hover:scale-[1.02] ${isFraud ? 'bg-red-50/50 border-red-100 hover:bg-red-50' : 'bg-white border-slate-100 hover:border-blue-100 hover:shadow-lg hover:shadow-blue-500/5'}`}
-                                        onClick={() => leafletRef.current?.setView([r.lat, r.lng], 16)}
+                                        className={`p-6 rounded-[2.5rem] border transition-all cursor-pointer hover:scale-[1.03] active:scale-95 ${isFraud ? 'bg-rose-50/50 border-rose-100 hover:bg-rose-100/50' : 'bg-white border-slate-100 hover:border-blue-200 hover:shadow-2xl hover:shadow-blue-100'}`}
+                                        onClick={() => {
+                                            toast.success(`Đang nhắm tọa độ: ${r.workerName}`, { duration: 1000 });
+                                            leafletRef.current?.setView([r.lat, r.lng], 16);
+                                        }}
                                     >
-                                        <div className="flex gap-4 mb-4">
-                                            <div className="w-14 h-14 rounded-2xl overflow-hidden bg-slate-100 border-2 border-white shadow-sm flex-shrink-0">
+                                        <div className="flex gap-5 mb-5">
+                                            <div className="w-16 h-16 rounded-2xl overflow-hidden bg-slate-100 border-4 border-white shadow-lg flex-shrink-0">
                                                 <img src={r.photoUrl} className="w-full h-full object-cover" />
                                             </div>
-                                            <div className="flex-1 min-w-0 flex flex-col justify-center">
-                                                <p className="text-sm font-black text-slate-900 truncate uppercase tracking-tight">{r.workerName}</p>
-                                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">{new Date(r.createdAt).toLocaleTimeString('vi-VN')}</p>
+                                            <div className="flex-1 min-w-0 flex flex-col justify-center space-y-1">
+                                                <p className="text-base font-black text-slate-900 truncate uppercase tracking-tighter italic">{r.workerName}</p>
+                                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">{new Date(r.createdAt).toLocaleTimeString('vi-VN')}</p>
                                             </div>
                                         </div>
-                                        <div className={`text-[9px] font-black uppercase tracking-[0.15em] flex items-center gap-2 px-3 py-1.5 rounded-full ${isFraud ? 'bg-red-500/10 text-red-600 border border-red-200/50' : 'bg-emerald-500/10 text-emerald-600 border border-emerald-200/50'}`}>
-                                            <div className={`w-1.5 h-1.5 rounded-full ${isFraud ? 'bg-red-500 animate-pulse outline outline-4 outline-red-500/20' : 'bg-emerald-500'}`}></div>
-                                            {isFraud ? `SAI VỊ TRÍ (${Math.round(distance)}M)` : 'Vị trí hợp lệ'}
+                                        <div className={`text-[9px] font-black uppercase tracking-[0.2em] flex items-center justify-center gap-3 px-5 py-3 rounded-2xl italic leading-none border ${isFraud ? 'bg-rose-600 text-white border-rose-600 shadow-xl shadow-rose-200' : 'bg-emerald-50 text-emerald-600 border-emerald-100 shadow-sm'}`}>
+                                            {!isFraud && <div className="w-2 h-2 bg-emerald-500 rounded-full shadow-[0_0_8px_rgba(16,185,129,0.5)]"></div>}
+                                            {isFraud ? `SAI LỆCH TỌA ĐỘ (${Math.round(distance)}M)` : 'VỊ TRÍ HỢP LỆ'}
                                         </div>
                                     </div>
                                 )
@@ -264,20 +272,21 @@ export default function ContractorMonitoringPage() {
                 </div>
 
                 {/* Bottom Utility Overlay */}
-                <div className="absolute bottom-8 left-8 z-10 hidden md:flex items-center gap-4">
+                <div className="absolute bottom-10 left-10 z-10 hidden md:flex items-center gap-6">
                     <button
                         onClick={fetchData}
-                        className="bg-white/80 backdrop-blur-xl p-5 rounded-3xl shadow-xl border border-white text-slate-900 hover:bg-white hover:scale-105 active:scale-95 transition-all"
+                        className="bg-white/90 backdrop-blur-2xl w-16 h-16 rounded-[1.8rem] shadow-2xl border border-white text-slate-900 hover:bg-blue-600 hover:text-white hover:scale-110 active:scale-90 transition-all flex items-center justify-center group"
                     >
-                        <RefreshCw className={loading ? 'animate-spin' : ''} size={24} />
+                        <RefreshCw className={loading ? 'animate-spin' : 'group-hover:rotate-180 transition-transform duration-700'} size={28} />
                     </button>
                     <button
-                        className="bg-blue-600 p-5 rounded-4xl shadow-2xl shadow-blue-500/40 text-white hover:bg-blue-700 hover:scale-110 active:scale-90 transition-all"
+                        className="bg-blue-600 w-16 h-16 rounded-[2rem] shadow-2xl shadow-blue-500/40 text-white hover:bg-blue-700 hover:scale-110 active:scale-90 transition-all flex items-center justify-center group"
                         onClick={() => {
+                            toast.success('Đang tái định vị trung tâm...', { duration: 1000 });
                             if (data?.reports[0]) leafletRef.current?.setView([data.reports[0].lat, data.reports[0].lng], 12)
                         }}
                     >
-                        <Crosshair size={24} />
+                        <Crosshair size={28} className="group-hover:scale-125 transition-transform" />
                     </button>
                 </div>
             </div>

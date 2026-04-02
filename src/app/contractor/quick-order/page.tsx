@@ -4,14 +4,14 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/contexts/auth-context'
 import { fetchWithAuth } from '@/lib/api-client'
-import toast from 'react-hot-toast'
+import toast, { Toaster } from 'react-hot-toast'
 
 import { Product, CartItem, EvaluatedCart, SuccessOrderData, ContractorProject, ShippingCalculation } from './types'
 import ProductGrid from './components/ProductGrid'
 import CartPanel from './components/CartPanel'
 import SuccessModal from './components/SuccessModal'
 import OrderHistoryModal from './components/OrderHistoryModal'
-import { LayoutGrid, ShoppingCart, Zap, Layers, Cpu, Activity } from 'lucide-react'
+import { LayoutGrid, ShoppingCart, Zap, Layers, Cpu, Activity, ArrowLeft } from 'lucide-react'
 
 const formatCurrency = (val: number) =>
     new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val)
@@ -239,15 +239,16 @@ export default function QuickOrderPage() {
     const fetchHistory = async () => {
         setIsHistoryOpen(true)
         try {
+            toast.loading('Đang đồng bộ lịch sử đơn hàng...', { duration: 1500 })
             const res = await fetchWithAuth('/api/contractors/orders?limit=10')
             const data = await res.json()
             if (res.ok && data.success) {
                 setRecentOrders(data.data?.orders || data.data?.data || [])
             } else {
-                toast.error('Telemetry Sync Failure')
+                toast.error('Lỗi kết nối dữ liệu lịch sử.')
             }
         } catch {
-            toast.error('Sync Timeout')
+            toast.error('Không thể đồng bộ dữ liệu.')
         }
     }
 
@@ -256,7 +257,7 @@ export default function QuickOrderPage() {
         const existing = cart.find(item => item.product.id === product.id)
         const currentQty = existing ? existing.quantity : 0
         if (currentQty >= available) {
-            toast.error(`Stock Conflict: Only ${available} available`, { duration: 3000 })
+            toast.error(`Sản phẩm này đã hết hàng: Chỉ còn ${available} sản phẩm`, { duration: 3000 })
             return
         }
         setCart(prev => {
@@ -268,7 +269,7 @@ export default function QuickOrderPage() {
             }
             return [...prev, { product, quantity: 1 }]
         })
-        toast.success(`Unit Loaded: ${product.name}`, { duration: 1000 })
+        toast.success(`Đã thêm vào giỏ: ${product.name}`, { duration: 1000 })
     }
 
     const updateQuantity = (productId: string, delta: number) => {
@@ -276,7 +277,7 @@ export default function QuickOrderPage() {
         if (!item) return
         const available = item.product.inventoryItem?.availableQuantity ?? Number.MAX_SAFE_INTEGER
         if (delta > 0 && item.quantity >= available) {
-            toast.error(`Stock Restriction: Only ${available} available`, { duration: 3000 })
+            toast.error(`Thông báo: Chỉ còn ${available} sản phẩm trong kho`, { duration: 3000 })
             return
         }
         setCart(prev => prev.map(it => {
@@ -298,7 +299,7 @@ export default function QuickOrderPage() {
         if (!item) return
         const available = item.product.inventoryItem?.availableQuantity ?? Number.MAX_SAFE_INTEGER
         if (qty > available) {
-            toast.error(`Stock Restriction: Only ${available} available`, { duration: 3000 })
+            toast.error(`Thông báo: Chỉ còn ${available} sản phẩm trong kho`, { duration: 3000 })
             setCart(prev => prev.map(it => it.product.id === productId ? { ...it, quantity: available } : it))
             return
         }
@@ -307,11 +308,13 @@ export default function QuickOrderPage() {
 
     const removeFromCart = (productId: string) => {
         setCart(prev => prev.filter(item => item.product.id !== productId))
+        toast.success('Đã gỡ sản phẩm khỏi giỏ hàng')
     }
 
     const clearCart = () => {
         setCart([])
         setEvaluatedCart(null)
+        toast.success('Đã làm trống giỏ hàng')
     }
 
     const cartQuantities: Record<string, number> = {}
@@ -319,19 +322,19 @@ export default function QuickOrderPage() {
 
     const handleCheckout = async () => {
         if (cart.length === 0) {
-            toast.error('Cart Empty: Null Transmission Rejected')
+            toast.error('Giỏ hàng trống: Vui lòng thêm sản phẩm trước khi thanh toán.')
             return
         }
         if (!deliveryDate) {
-            toast.error('Tactical Error: Selection of Delivery Cycle Required', { duration: 3000 })
+            toast.error('Thiếu thông tin: Vui lòng chọn ngày giao hàng dự kiến.', { duration: 3000 })
             return
         }
         if (!selectedProject && !projectName.trim()) {
-            toast.error('Tactical Error: Target Location Node Required', { duration: 3000 })
+            toast.error('Thiếu thông tin: Vui lòng chọn hoặc nhập tên công trình nhận hàng.', { duration: 3000 })
             return
         }
         setIsProcessing(true)
-        const toastId = toast.loading('Synchronizing Order Payload...')
+        const toastId = toast.loading('Đang khởi tạo đơn hàng B2B...')
         try {
             const shippingFee = shippingCalc?.finalFee ?? 0
             const response = await fetchWithAuth('/api/contractors/orders', {
@@ -350,6 +353,7 @@ export default function QuickOrderPage() {
             const data = await response.json()
             if (response.ok && data.success) {
                 toast.dismiss(toastId)
+                toast.success('Đặt hàng thành công!')
                 const order = data.data
                 const orderNumber = order?.orderNumber || order?.id?.slice(-8) || 'B2B-' + Date.now()
                 const subtotal = evaluatedCart?.summary?.totalOriginal ?? cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0)
@@ -358,10 +362,10 @@ export default function QuickOrderPage() {
                 setSuccessOrder({ id: order?.id || 'N/A', orderNumber, projectName: projectName || selectedProject?.title || '', items: cart.map(item => { const evaluated = evaluatedCart?.items?.find(i => i.productId === item.product.id); return { name: item.product.name, quantity: item.quantity, unitPrice: item.product.price, effectivePrice: evaluated?.effectivePrice ?? item.product.price, total: evaluated?.totalPrice ?? (item.product.price * item.quantity) } }), subtotal, discountTotal, shippingFee, total, createdAt: new Date().toISOString() })
                 clearCart(); setProjectName(''); setPoNumber(''); setNotes(''); setDeliveryDate(''); setSelectedProject(null); setShippingCalc(null)
             } else {
-                toast.error(data.error?.message || data.message || 'Transmission Rejected', { id: toastId, duration: 5000 })
+                toast.error(data.error?.message || data.message || 'Lỗi đặt hàng: Vui lòng kiểm tra lại.', { id: toastId, duration: 5000 })
             }
         } catch {
-            toast.error('Transmission Timeout', { id: toastId })
+            toast.error('Lỗi kết nối: Vui lòng thử lại sau giây lát.', { id: toastId })
         } finally {
             setIsProcessing(false)
         }
@@ -369,37 +373,42 @@ export default function QuickOrderPage() {
 
     return (
         <div className="flex flex-col h-full bg-slate-50/50 rounded-[3.5rem] border border-slate-100 overflow-hidden shadow-2xl animate-in fade-in duration-1000">
+            <Toaster position="top-right" />
+            
             {/* POS Control Bar */}
-            <div className="bg-slate-900 px-10 py-6 text-white flex items-center justify-between relative overflow-hidden flex-shrink-0">
-                <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl"></div>
-                <div className="relative z-10 flex items-center gap-6">
-                    <div className="w-12 h-12 bg-white/5 rounded-2xl flex items-center justify-center border border-white/10 group-hover:scale-110 transition-transform">
-                        <ShoppingCart className="w-6 h-6 text-blue-400" />
-                    </div>
+            <div className="bg-indigo-600 px-10 py-8 text-white flex items-center justify-between relative overflow-hidden flex-shrink-0 shadow-xl z-20">
+                <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl"></div>
+                <div className="relative z-10 flex items-center gap-7">
+                    <button 
+                        onClick={() => router.back()}
+                        className="w-12 h-12 bg-white/10 hover:bg-white/20 rounded-2xl flex items-center justify-center transition-all border border-white/10 active:scale-95"
+                    >
+                        <ArrowLeft className="w-6 h-6" />
+                    </button>
                     <div className="space-y-1">
-                        <h1 className="text-xl font-black uppercase italic tracking-tighter">Material Management Terminal</h1>
-                        <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                            <Activity className="w-3 h-3 text-emerald-500" /> POS Mode Active • Operational Integrity: 100%
+                        <h1 className="text-2xl font-black uppercase italic tracking-tighter leading-none">Trung tâm mua sắm vật tư</h1>
+                        <p className="text-[10px] font-black text-blue-200 uppercase tracking-widest flex items-center gap-3">
+                            <Activity className="w-3 h-3 text-emerald-400" /> Hệ thống POS B2B đang hoạt động • Bảo mật 100%
                         </p>
                     </div>
                 </div>
-                <div className="relative z-10 flex items-center gap-4">
-                    <div className="text-right mr-6">
-                        <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">Available Liquid Credit</p>
-                        <p className="text-lg font-black italic tracking-tighter text-emerald-400">{formatCurrency(availableCredit)}</p>
+                <div className="relative z-10 flex items-center gap-6">
+                    <div className="text-right mr-4">
+                        <p className="text-[9px] font-black uppercase tracking-[0.2em] text-blue-200 opacity-80">Hạn mức khả dụng</p>
+                        <p className="text-2xl font-black italic tracking-tighter text-emerald-300 tabular-nums">{formatCurrency(availableCredit)}</p>
                     </div>
-                    <button onClick={fetchHistory} className="px-6 py-3 bg-white/5 hover:bg-white/10 rounded-[1.2rem] text-[10px] font-black uppercase tracking-widest transition-all border border-white/10 italic">
-                        Node History
+                    <button onClick={fetchHistory} className="px-8 py-4 bg-white text-indigo-600 hover:bg-slate-50 rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest transition-all shadow-xl shadow-black/20 italic active:scale-95">
+                        Lịch sử đơn hàng
                     </button>
-                    <button onClick={() => router.back()} className="px-6 py-3 bg-white/5 hover:bg-white/10 rounded-[1.2rem] text-[10px] font-black uppercase tracking-widest transition-all border border-white/10 italic">
-                        Exit Matrix
+                    <button onClick={() => router.back()} className="px-8 py-4 bg-white/10 hover:bg-white/20 rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest transition-all border border-white/10 italic">
+                        Thoát hệ thống
                     </button>
                 </div>
             </div>
 
             <div className="flex flex-1 overflow-hidden">
                 {/* Left: Product Grid */}
-                <div className="flex-1 overflow-hidden p-6 lg:p-8 bg-white rounded-br-[3.5rem] relative">
+                <div className="flex-1 overflow-hidden p-6 lg:p-10 bg-white rounded-br-[4rem] relative">
                     <ProductGrid
                         products={products}
                         loading={loading}
@@ -416,7 +425,7 @@ export default function QuickOrderPage() {
                 </div>
 
                 {/* Right: Cart + Checkout */}
-                <div className="w-[450px] bg-slate-50/80 border-l border-slate-100 p-6 lg:p-8 overflow-y-auto scrollbar-hide flex flex-col">
+                <div className="w-[480px] bg-slate-50/80 border-l border-slate-100 p-6 lg:p-10 overflow-y-auto scrollbar-hide flex flex-col shadow-2xl z-10">
                     <CartPanel
                         cart={cart}
                         evaluatedCart={evaluatedCart}
