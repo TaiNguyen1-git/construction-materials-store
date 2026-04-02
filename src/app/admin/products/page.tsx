@@ -14,6 +14,7 @@ import {
 
 import ProductSection from './components/ProductSection'
 import SupplierSection from './components/SupplierSection'
+import { TableSkeleton } from '@/components/admin/skeletons/AdminSkeletons'
 
 export default function ProductsSuppliersPage() {
   const [expandedSections, setExpandedSections] = useState({

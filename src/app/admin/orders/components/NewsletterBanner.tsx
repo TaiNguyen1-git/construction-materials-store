@@ -4,7 +4,11 @@ import { toast } from 'react-hot-toast'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, Send, Mail, CheckCircle2, ChevronDown } from 'lucide-react'
 
-const NewsletterBanner: React.FC = () => {
+interface NewsletterBannerProps {
+  customers: any[]
+}
+
+const NewsletterBanner: React.FC<NewsletterBannerProps> = ({ customers = [] }) => {
   const router = useRouter()
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showListModal, setShowListModal] = useState(false)
@@ -14,28 +18,27 @@ const NewsletterBanner: React.FC = () => {
   const [targetSegment, setTargetSegment] = useState<'ALL' | 'VIP' | 'NEW' | 'B2B' | 'CUSTOM'>('ALL')
   const [selectedEmails, setSelectedEmails] = useState<string[]>([])
 
+  // Dynamic segmentation based on real data
+  const vipCustomers = customers.filter(c => c.customerType === 'VIP' || (c.totalOrders > 5))
+  const newCustomers = customers.filter(c => {
+    const createdDate = new Date(c.createdAt)
+    const thirtyDaysAgo = new Date()
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+    return createdDate > thirtyDaysAgo
+  })
+  const b2bCustomers = customers.filter(c => c.customerType === 'B2B' || c.isCompany)
+
   const SEGMENTS = {
-    ALL: { name: 'Tất cả khách hàng', count: 450, icon: '🌍' },
-    VIP: { name: 'Khách hàng VIP (Loyal)', count: 65, icon: '💎' },
-    NEW: { name: 'Khách hàng mới (30 ngày)', count: 120, icon: '🆕' },
-    B2B: { name: 'Dự án & Đối tác B2B', count: 85, icon: '🏗️' },
+    ALL: { name: 'Tất cả khách hàng', count: customers.length, icon: '🌍' },
+    VIP: { name: 'Khách hàng VIP', count: vipCustomers.length, icon: '💎' },
+    NEW: { name: 'Khách hàng mới', count: newCustomers.length, icon: '🆕' },
+    B2B: { name: 'Dự án & B2B', count: b2bCustomers.length, icon: '🏗️' },
     CUSTOM: { name: 'Danh sách đã chọn', count: selectedEmails.length, icon: '🎯' }
   }
 
-  const MOCK_LEADS = [
-    { email: 'thanh.nguyen@smartbuild.vn', date: '2026-03-28', status: 'Active' },
-    { email: 'hoang.le@vinconstruction.com', date: '2026-03-29', status: 'Active' },
-    { email: 'anh.tuan@decorplus.vn', date: '2026-03-25', status: 'Unsubscribed' },
-    { email: 'mai.lan@buildinghub.vn', date: '2026-03-22', status: 'Active' },
-    { email: 'phuc.dang@betong.vn', date: '2026-03-15', status: 'Active' },
-    { email: 'nam.tran@quangtrung.com', date: '2026-03-12', status: 'Active' },
-    { email: 'linh.vu@decor.vn', date: '2026-03-10', status: 'Active' },
-    { email: 'quan.nguyen@smart.vn', date: '2026-03-05', status: 'Unsubscribed' },
-  ]
-
-  const filteredLeads = MOCK_LEADS.filter(l => l.email.toLowerCase().includes(searchQuery.toLowerCase()))
-  const ITEMS_PER_PAGE = 5
-  const totalPages = Math.ceil(450 / ITEMS_PER_PAGE)
+  const filteredLeads = customers.filter(l => l.email.toLowerCase().includes(searchQuery.toLowerCase()))
+  const ITEMS_PER_PAGE = 8
+  const totalPages = Math.ceil(filteredLeads.length / ITEMS_PER_PAGE)
   const displayLeads = filteredLeads.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE)
 
   const toggleSelect = (email: string) => {
@@ -57,7 +60,7 @@ const NewsletterBanner: React.FC = () => {
     await new Promise(r => setTimeout(r, 2000))
     setIsLaunching(false)
     setShowCreateModal(false)
-    toast.success(`Chiến dịch đã được khởi chạy tới ${SEGMENTS[targetSegment].count} khách hàng!`, {
+    toast.success(`Chiến dịch đã được khởi chạy tới ${SEGMENTS[targetSegment].count} khách hàng thực tế!`, {
       icon: '🚀',
       duration: 5000,
       style: { background: '#333', color: '#fff', borderRadius: '16px', fontWeight: 'black' }
@@ -79,8 +82,8 @@ const NewsletterBanner: React.FC = () => {
              <h2 className="text-2xl font-black tracking-tight">Hệ thống Email Marketing</h2>
           </div>
           <p className="text-blue-100/80 max-w-2xl text-sm font-medium leading-relaxed">
-            Hệ thống ghi nhận <span className="text-white font-black bg-white/10 px-2 py-1 rounded-lg">450 khách hàng</span> đang chờ báo giá. 
-            Hãy kích hoạt chiến dịch <span className="text-yellow-300 font-bold underline decoration-yellow-300/40">Bảng giá tháng 4</span> để tối ưu hóa doanh thu ngay bây giờ!
+            Hệ thống ghi nhận <span className="text-white font-black bg-white/10 px-2 py-1 rounded-lg">{customers.length} khách hàng</span> trong Database. 
+            Hãy kích hoạt chiến dịch <span className="text-yellow-300 font-bold underline decoration-yellow-300/40">Bảng giá dự án 2026</span> ngay bây giờ!
           </p>
         </div>
 
@@ -117,7 +120,7 @@ const NewsletterBanner: React.FC = () => {
                initial={{ opacity: 0, scale: 0.95, y: 30 }}
                animate={{ opacity: 1, scale: 1, y: 0 }}
                exit={{ opacity: 0, scale: 0.95, y: 30 }}
-               className="relative w-full max-w-3xl bg-white rounded-[40px] shadow-3xl overflow-hidden flex flex-col max-h-[85vh]"
+               className="relative w-full max-w-4xl bg-white rounded-[40px] shadow-3xl overflow-hidden flex flex-col max-h-[90vh]"
              >
                 <div className="p-10 pb-6 flex justify-between items-center bg-white z-10 border-b border-slate-50">
                    <div className="flex items-center gap-3">
@@ -127,7 +130,7 @@ const NewsletterBanner: React.FC = () => {
                       <div>
                          <h3 className="text-xl font-black text-slate-900 tracking-tight">Cơ Sở Dữ Liệu Email</h3>
                          <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">
-                            {selectedEmails.length > 0 ? `Đã chọn ${selectedEmails.length} khách khách` : `Tổng cộng 450 khách hàng đăng ký`}
+                            {selectedEmails.length > 0 ? `Đã chọn ${selectedEmails.length} khách khách` : `Kết nối Database - ${customers.length} kết quả`}
                          </p>
                       </div>
                    </div>
@@ -143,7 +146,7 @@ const NewsletterBanner: React.FC = () => {
                       </span>
                       <input 
                         type="text" 
-                        placeholder="Tìm kiếm Email khách hàng..."
+                        placeholder="Tìm kiếm theo Email hoặc Tên khách hàng thực tế..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         className="w-full pl-12 pr-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold text-slate-700 focus:outline-none focus:ring-4 focus:ring-blue-100 transition-all shadow-inner"
@@ -158,68 +161,84 @@ const NewsletterBanner: React.FC = () => {
                             <th className="py-4 w-10">
                                <input type="checkbox" checked={displayLeads.length > 0 && displayLeads.every(l => selectedEmails.includes(l.email))} onChange={toggleSelectAll} className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
                             </th>
-                            <th className="py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest">Email Address</th>
-                            <th className="py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest">Subscriber Date</th>
-                            <th className="py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest text-right">Status</th>
+                            <th className="py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest">Tên khách hàng</th>
+                            <th className="py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest">Email Address / Phone</th>
+                            <th className="py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest text-right">Loại khách</th>
                          </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-50">
-                         {displayLeads.map((lead, idx) => (
-                            <tr key={idx} className={`group hover:bg-blue-50/50 transition-colors ${selectedEmails.includes(lead.email) ? 'bg-blue-50/30' : ''}`}>
+                         {displayLeads.map((cust, idx) => (
+                            <tr key={idx} className={`group hover:bg-blue-50/50 transition-colors ${selectedEmails.includes(cust.email) ? 'bg-blue-50/30' : ''}`}>
                                <td className="py-4">
-                                  <input type="checkbox" checked={selectedEmails.includes(lead.email)} onChange={() => toggleSelect(lead.email)} className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
+                                  <input type="checkbox" checked={selectedEmails.includes(cust.email)} onChange={() => toggleSelect(cust.email)} className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
                                </td>
-                               <td className="py-4 text-sm font-bold text-slate-700">{lead.email}</td>
-                               <td className="py-4 text-xs font-bold text-slate-400">{lead.date}</td>
+                               <td className="py-4">
+                                  <p className="text-sm font-black text-slate-900">{cust.fullName || cust.name || 'Khách hàng'}</p>
+                                  <p className="text-[10px] font-bold text-slate-400">{new Date(cust.createdAt).toLocaleDateString('vi-VN')}</p>
+                               </td>
+                               <td className="py-4">
+                                  <p className="text-xs font-bold text-slate-700">{cust.email}</p>
+                                  <p className="text-[10px] font-bold text-slate-400">{cust.phone || 'Chưa cập nhật SĐT'}</p>
+                                </td>
                                <td className="py-4 text-right">
                                   <span className={`px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${
-                                     lead.status === 'Active' ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-400'
+                                     cust.customerType === 'VIP' ? 'bg-amber-100 text-amber-700' : 
+                                     cust.customerType === 'B2B' ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-500'
                                   }`}>
-                                     {lead.status}
+                                     {cust.customerType || 'NORMAL'}
                                   </span>
                                </td>
                             </tr>
                          ))}
                       </tbody>
                    </table>
+                   {displayLeads.length === 0 && (
+                      <div className="py-20 text-center">
+                         <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 border border-slate-100">
+                            <Mail className="w-6 h-6 text-slate-300" />
+                         </div>
+                         <p className="text-sm font-black text-slate-900">Không tìm thấy khách hàng nào</p>
+                         <p className="text-xs font-bold text-slate-400 mt-1">Vui lòng kiểm tra lại từ khóa tìm kiếm</p>
+                      </div>
+                   )}
                 </div>
 
                 {/* Pagination Controls */}
-                <div className="px-10 py-4 flex items-center justify-between border-t border-slate-100 bg-white shadow-sm">
-                   <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                      Trang {currentPage} / {totalPages}
+                <div className="px-10 py-4 flex items-center justify-between border-t border-slate-100 bg-white shadow-sm z-10">
+                   <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                      TRANG {currentPage} / {totalPages || 1}
                    </div>
                    <div className="flex gap-2">
                       <button 
                         disabled={currentPage === 1}
                         onClick={() => setCurrentPage(p => p - 1)}
-                        className="px-4 py-2 rounded-xl border border-slate-200 text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 disabled:opacity-30 transition-all"
+                        className="px-6 py-2.5 rounded-xl border border-slate-200 text-[10px] font-black text-slate-900 uppercase tracking-widest hover:bg-slate-100 disabled:opacity-30 transition-all bg-white shadow-sm"
                       >
                          Trang Trước
                       </button>
                       <button 
-                        disabled={currentPage === totalPages}
+                        disabled={currentPage >= totalPages}
                         onClick={() => setCurrentPage(p => p + 1)}
-                        className="px-4 py-2 rounded-xl border border-slate-200 text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 disabled:opacity-30 transition-all"
+                        className="px-6 py-2.5 rounded-xl border border-slate-200 text-[10px] font-black text-slate-900 uppercase tracking-widest hover:bg-slate-100 disabled:opacity-30 transition-all bg-white shadow-sm"
                       >
                          Trang Sau
                       </button>
                    </div>
                 </div>
 
-                <div className="p-8 pb-10 flex items-center justify-between bg-slate-50/50 border-t border-white gap-4">
-                   <div className="flex gap-3">
+                <div className="p-8 pb-10 flex flex-col sm:flex-row items-center justify-between bg-slate-50 border-t border-white gap-4">
+                   <div className="flex gap-3 w-full sm:w-auto">
                       <button 
-                        onClick={() => toast.success('Đang khởi tạo file CSV...', { icon: '📊' })}
-                        className="px-6 py-3 bg-white border border-slate-200 text-slate-900 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 transition-all shadow-sm"
+                        onClick={() => toast.success('Đang khởi tạo file CSV từ Database...', { icon: '📊' })}
+                        className="flex-1 sm:flex-none px-6 py-3 bg-white border border-slate-200 text-slate-900 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 transition-all shadow-sm"
                       >
-                         Xuất (CSV)
+                         XUẤT (CSV)
                       </button>
                       <button 
                         onClick={() => setSelectedEmails([])}
                         className={`px-6 py-3 text-red-500 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-red-50 transition-all ${selectedEmails.length === 0 ? 'hidden' : 'block'}`}
                       >
-                         Bỏ chọn
+                         BỎ CHỌN
                       </button>
                    </div>
 
@@ -230,10 +249,10 @@ const NewsletterBanner: React.FC = () => {
                         setTargetSegment('CUSTOM')
                         setShowCreateModal(true)
                      }}
-                     className="px-8 py-3 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-xl shadow-blue-500/30 disabled:opacity-50 disabled:shadow-none flex items-center gap-2"
+                     className="w-full sm:w-auto px-10 py-3 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-xl shadow-blue-500/30 disabled:opacity-50 disabled:shadow-none flex items-center justify-center gap-2"
                    >
                       <Send className="w-3.5 h-3.5" />
-                      Gửi Email cho {selectedEmails.length} khách đã chọn
+                      GỬI EMAIL CHO {selectedEmails.length} KHÁCH ĐÃ CHỌN
                    </button>
                 </div>
              </motion.div>

@@ -12,6 +12,7 @@ import {
   History, Download, ArrowUpRight, ArrowDownRight, User, MapPin
 } from 'lucide-react'
 import Pagination from '@/components/Pagination'
+import { PageSkeleton } from '@/components/admin/skeletons/AdminSkeletons'
 import InventoryAnalytics from '@/components/admin/InventoryAnalytics'
 import InventoryManagement from '@/components/admin/InventoryManagement'
 import SmartInventoryAlerts from '@/components/admin/SmartInventoryAlerts'
@@ -261,12 +262,7 @@ function InventoryContent() {
   const urgentRecommendations = recommendations.filter(r => r.priority === 'URGENT')
 
   if (loading) {
-    return (
-      <div className="flex flex-col items-center justify-center h-[60vh] space-y-4">
-        <div className="w-12 h-12 border-4 border-blue-600/10 border-t-blue-600 rounded-full animate-spin"></div>
-        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Đang Tải Kho...</p>
-      </div>
-    )
+    return <PageSkeleton />
   }
 
   return (

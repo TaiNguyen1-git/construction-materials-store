@@ -4,6 +4,7 @@ import React from 'react'
 import { Building, Search, Plus, ChevronUp, ChevronDown, User, Mail, Phone, MapPin, Star, Edit, Trash2 } from 'lucide-react'
 import { Supplier } from '../types'
 import Pagination from '@/components/Pagination'
+import { TableSkeleton } from '@/components/admin/skeletons/AdminSkeletons'
 
 interface SupplierSectionProps {
     suppliers: Supplier[]
@@ -76,9 +77,7 @@ export default function SupplierSection({
                     </div>
 
                     {loading ? (
-                        <div className="flex items-center justify-center h-32">
-                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                        </div>
+                        <TableSkeleton rows={8} />
                     ) : (
                         <>
                             <div className="overflow-hidden border border-slate-100 rounded-2xl shadow-sm overflow-x-auto">

@@ -13,6 +13,7 @@ import NewsletterBanner from './components/NewsletterBanner'
 import OrderFilters from './components/OrderFilters'
 import OrderBulkActions from './components/OrderBulkActions'
 import OrdersTable from './components/OrdersTable'
+import { TableSkeleton } from '@/components/admin/skeletons/AdminSkeletons'
 
 // Dynamic Imports for Modals
 const OrderDetailsModal = dynamic(() => import('./components/OrderDetailsModal'), {
@@ -306,7 +307,6 @@ export default function OrdersPage() {
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-black text-slate-900 flex items-center gap-3">
           Quản Lý Đơn Hàng
-          {ordersLoading && <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>}
         </h1>
         <button 
           onClick={() => {
@@ -329,7 +329,7 @@ export default function OrdersPage() {
         </button>
       </div>
 
-      <NewsletterBanner />
+      <NewsletterBanner customers={customers} />
 
       <OrderFilters 
         filters={filters} searchInput={searchInput} setSearchInput={setSearchInput}
@@ -345,25 +345,24 @@ export default function OrdersPage() {
         getStatusLabel={getStatusLabel}
       />
 
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden relative">
-        {ordersLoading && (
-          <div className="absolute inset-0 bg-white/30 backdrop-blur-[1px] z-10 flex items-center justify-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-          </div>
-        )}
-        <OrdersTable 
-          orders={orders} selectedOrderIds={selectedOrderIds}
-          toggleSelectAll={() => setSelectedOrderIds(selectedOrderIds.length === orders.length ? [] : orders.map((o: Order)=>o.id))}
-          toggleSelectOrder={(id: string) => setSelectedOrderIds(p => p.includes(id) ? p.filter(i=>i!==id) : [...p, id])}
-          getStatusColor={getStatusColor} getStatusLabel={getStatusLabel} getNextStatus={getNextStatus}
-          onView={(o: Order) => { setSelectedOrder(o); setShowModal(true) }}
-          onPrint={handlePrint} onDelete={(o: Order) => { setDeletingOrder(o); setShowDeleteDialog(true) }}
-          onConfirm={(id: string, action: string, reason?: string) => confirmMutation.mutate({ id, action, reason })} 
-          onConfirmDeposit={(id: string) => depositMutation.mutate(id)} 
-          onUpdateStatus={(id: string, status: string) => updateStatusMutation.mutate({ id, status })}
-          onOpenQR={(o: Order) => window.open(`https://img.vietqr.io/image/${BANK_INFO.bankId}-${BANK_INFO.accountNumber}-compact.png?amount=${o.totalAmount}&addInfo=DH%20${o.orderNumber}&accountName=${BANK_INFO.accountName}`)}
-        />
-      </div>
+      {ordersLoading ? (
+        <TableSkeleton rows={10} />
+      ) : (
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden relative">
+          <OrdersTable 
+            orders={orders} selectedOrderIds={selectedOrderIds}
+            toggleSelectAll={() => setSelectedOrderIds(selectedOrderIds.length === orders.length ? [] : orders.map((o: Order)=>o.id))}
+            toggleSelectOrder={(id: string) => setSelectedOrderIds(p => p.includes(id) ? p.filter(i=>i!==id) : [...p, id])}
+            getStatusColor={getStatusColor} getStatusLabel={getStatusLabel} getNextStatus={getNextStatus}
+            onView={(o: Order) => { setSelectedOrder(o); setShowModal(true) }}
+            onPrint={handlePrint} onDelete={(o: Order) => { setDeletingOrder(o); setShowDeleteDialog(true) }}
+            onConfirm={(id: string, action: string, reason?: string) => confirmMutation.mutate({ id, action, reason })} 
+            onConfirmDeposit={(id: string) => depositMutation.mutate(id)} 
+            onUpdateStatus={(id: string, status: string) => updateStatusMutation.mutate({ id, status })}
+            onOpenQR={(o: Order) => window.open(`https://img.vietqr.io/image/${BANK_INFO.bankId}-${BANK_INFO.accountNumber}-compact.png?amount=${o.totalAmount}&addInfo=DH%20${o.orderNumber}&accountName=${BANK_INFO.accountName}`)}
+          />
+        </div>
+      )}
 
       <Pagination 
         currentPage={paginationData.page} totalPages={paginationData.pages}

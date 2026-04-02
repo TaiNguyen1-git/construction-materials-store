@@ -11,6 +11,7 @@ import {
   Calendar, ShoppingBag, Edit, Trash2,
   Search, X, Users, CheckCircle, AlertCircle, Plus
 } from 'lucide-react'
+import { TableSkeleton } from '@/components/admin/skeletons/AdminSkeletons'
 
 interface Customer {
   id: string
@@ -263,12 +264,9 @@ export default function CustomersPage() {
             <tbody className="divide-y divide-slate-50">
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center">
-                    <div className="flex flex-col items-center gap-3">
-                      <div className="w-10 h-10 border-4 border-blue-600/20 border-t-blue-600 rounded-full animate-spin"></div>
-                      <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Đang tải dữ liệu...</span>
-                    </div>
-                  </td>
+                   <td colSpan={6} className="p-0">
+                      <TableSkeleton rows={10} />
+                   </td>
                 </tr>
               ) : paginatedCustomers.length === 0 ? (
                 <tr>
