@@ -336,16 +336,40 @@ export default function AIEstimatorPage() {
                                             <p className="text-[10px] font-bold text-blue-500 uppercase tracking-widest">Ngân sách AI</p>
                                             <p className="text-xl font-bold text-blue-600 tabular-nums">{formatCurrency(res.totalCost)}</p>
                                         </div>
-                                        <div className="flex gap-2">
+                                        <div className="flex gap-2 relative z-10">
                                             <button 
-                                                onClick={() => toast.success('Đã gửi liên kết báo cáo!')}
-                                                className="w-10 h-10 flex items-center justify-center bg-white border border-slate-200 shadow-sm hover:bg-blue-50 text-slate-500 hover:text-blue-600 rounded-lg transition-all"
+                                                onClick={(e) => {
+                                                    e.stopPropagation()
+                                                    const shareUrl = `${window.location.origin}/contractor/estimator?sharedId=${res.id}`
+                                                    navigator.clipboard.writeText(shareUrl).then(() => {
+                                                        toast.success('Đã copy link báo cáo vào Clipboard!')
+                                                    })
+                                                }}
+                                                className="w-10 h-10 flex items-center justify-center bg-white border border-slate-200 shadow-sm hover:bg-blue-50 text-slate-500 hover:text-blue-600 focus:ring-2 focus:ring-blue-600/20 rounded-lg transition-all"
+                                                title="Sao chép link chia sẻ"
                                             >
                                                 <Share2 size={18} />
                                             </button>
                                             <button 
-                                                onClick={() => toast.loading('Đang chuẩn bị bản in...', { duration: 1500 })}
-                                                className="w-10 h-10 flex items-center justify-center bg-white border border-slate-200 shadow-sm hover:bg-blue-50 text-slate-500 hover:text-blue-600 rounded-lg transition-all"
+                                                onClick={(e) => {
+                                                    e.stopPropagation()
+                                                    toast.loading('Đang xuất file Báo Cáo chi tiết...', { duration: 1500, id: 'download-toast' })
+                                                    setTimeout(() => {
+                                                        const docContent = `BÁO CÁO DỰ TOÁN AI B2B\n=============================\n\nDự án: ${res.projectName}\nHạng mục: ${res.title}\nNgày tự động trích xuất: ${res.date}\nTrạng thái: ${res.status}\n\n1. KẾT QUẢ TÀI CHÍNH\n-----------------------------\nTổng ngân sách dự kiến: ${formatCurrency(res.totalCost)}\nBiên lợi nhuận an toàn (Margin): +${res.margin.toFixed(1)}%\n\n2. MÔ PHỎNG RỦI RO LÕI\n-----------------------------\nRủi ro trượt giá vật tư (Market Risk): ${marketRisk.toFixed(1)}%\nĐộ tin cậy thuật toán AI (Confidence): ${confidenceScore}%\n\n---\nTài liệu tự động tạo bởi Hệ thống Nhà thầu B2B.`
+                                                        const blob = new Blob([docContent], { type: 'text/plain;charset=utf-8' })
+                                                        const url = URL.createObjectURL(blob)
+                                                        const a = document.createElement('a')
+                                                        a.href = url
+                                                        a.download = `Du_Toan_AI_${res.id}.txt`
+                                                        document.body.appendChild(a)
+                                                        a.click()
+                                                        document.body.removeChild(a)
+                                                        URL.revokeObjectURL(url)
+                                                        toast.success('Đã tải xuống thành công!', { id: 'download-toast' })
+                                                    }, 1500)
+                                                }}
+                                                className="w-10 h-10 flex items-center justify-center bg-white border border-slate-200 shadow-sm hover:bg-blue-50 text-slate-500 hover:text-blue-600 focus:ring-2 focus:ring-blue-600/20 rounded-lg transition-all"
+                                                title="Tải xuống File text"
                                             >
                                                 <Download size={18} />
                                             </button>

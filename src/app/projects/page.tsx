@@ -133,7 +133,7 @@ export default function PublicProjectsPage() {
                                         </li>
                                     ))}
                                 </ul>
-                                <Link href="/contractor/register" className="w-full py-4 bg-slate-900 text-white rounded-xl font-black text-xs text-center block hover:bg-slate-800 transition-all">
+                                <Link href="/contractor/register" className="w-full py-4 bg-blue-600 text-white rounded-xl font-black text-xs text-center block hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/20">
                                     ĐĂNG KÝ HÀNH NGHỀ
                                 </Link>
                             </div>

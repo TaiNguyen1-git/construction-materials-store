@@ -214,80 +214,80 @@ export default function ContractorProfilePage() {
     const getStatusBadge = (status: BusinessDocument['status']) => {
         switch (status) {
             case 'verified':
-                return <span className="px-5 py-2 bg-emerald-500 text-white rounded-xl text-[9px] font-bold uppercase tracking-widest shadow-lg shadow-emerald-500/20">Đã xác thực</span>
+                return <span className="px-3 py-1 bg-emerald-100 text-emerald-700 rounded-md text-xs font-semibold">Đã xác thực</span>
             case 'rejected':
-                return <span className="px-5 py-2 bg-rose-500 text-white rounded-2xl text-[9px] font-black uppercase tracking-widest shadow-lg shadow-rose-500/20">Rejected</span>
+                return <span className="px-3 py-1 bg-rose-100 text-rose-700 rounded-md text-xs font-semibold">Từ chối</span>
             default:
-                return <span className="px-5 py-2 bg-amber-500 text-white rounded-2xl text-[9px] font-black uppercase tracking-widest shadow-lg shadow-amber-500/20">Awaiting audit</span>
+                return <span className="px-3 py-1 bg-amber-100 text-amber-700 rounded-md text-xs font-semibold">Chờ duyệt</span>
         }
     }
 
     return (
-        <div className="space-y-10 animate-in fade-in duration-500 pb-20 max-w-7xl mx-auto">
-            {/* Architectural Header */}
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-                <div className="space-y-2">
-                    <h1 className="text-4xl font-black text-slate-900 tracking-tighter uppercase italic flex items-center gap-4">
-                        <Fingerprint className="w-10 h-10 text-indigo-600" />
-                        Infrastructure Identity
+        <div className="space-y-6 animate-in fade-in duration-500 pb-12 max-w-7xl mx-auto">
+            {/* Header */}
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 pb-6 border-b border-slate-100">
+                <div className="space-y-1">
+                    <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
+                        <Fingerprint className="w-6 h-6 text-blue-600" />
+                        Hồ sơ Doanh nghiệp
                     </h1>
-                    <p className="text-slate-500 font-bold uppercase text-[10px] tracking-[0.2em]">Quản lý danh tính doanh nghiệp & Hồ sơ năng lực B2B</p>
+                    <p className="text-sm text-slate-500">Quản lý danh tính doanh nghiệp & Hồ sơ năng lực B2B</p>
                 </div>
 
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-3">
                     <button
                         onClick={handleSave}
                         disabled={saving}
-                        className="px-8 py-4 bg-slate-900 text-white rounded-[1.5rem] text-[10px] font-black uppercase tracking-[0.2em] hover:bg-black transition-all flex items-center gap-3 shadow-xl shadow-slate-200 active:scale-95"
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 transition-all flex items-center gap-2 shadow-sm disabled:opacity-50"
                     >
                         {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} 
-                        {saving ? 'Syncing...' : 'Sync Vault'}
+                        {saving ? 'Đang lưu...' : 'Lưu Hồ sơ'}
                     </button>
                 </div>
             </div>
 
             {loading ? (
-                <div className="h-[600px] bg-white rounded-[3.5rem] border border-slate-100 flex items-center justify-center">
-                    <div className="flex flex-col items-center gap-4">
-                        <Loader2 className="w-10 h-10 animate-spin text-indigo-600" />
-                        <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Accessing Institutional Data...</p>
+                <div className="h-[600px] bg-white rounded-2xl border border-slate-200 shadow-sm flex items-center justify-center">
+                    <div className="flex flex-col items-center gap-3">
+                        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+                        <p className="text-sm text-slate-500 font-medium tracking-wide">Đang tải cấu trúc dữ liệu...</p>
                     </div>
                 </div>
             ) : (
-                <div className="grid lg:grid-cols-12 gap-10">
-                    <div className="lg:col-span-8 space-y-10">
+                <div className="grid lg:grid-cols-12 gap-8">
+                    <div className="lg:col-span-8 space-y-8">
                         {/* Core Identity Information Block */}
-                        <div className="bg-white rounded-[3.5rem] border border-slate-100 shadow-sm p-12 space-y-12 animate-in slide-in-from-bottom-5 duration-700">
-                            <div className="flex items-center justify-between border-b border-slate-50 pb-8">
-                                <div className="space-y-2">
-                                    <h2 className="text-2xl font-black text-slate-900 uppercase italic tracking-tighter flex items-center gap-4">
-                                        <Building2 className="w-7 h-7 text-indigo-600" />
-                                        Corporate Matrix
+                        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8 space-y-8 animate-in slide-in-from-bottom-5 duration-700">
+                            <div className="flex items-center justify-between border-b border-slate-100 pb-6">
+                                <div className="space-y-1">
+                                    <h2 className="text-xl font-bold text-slate-900 flex items-center gap-3">
+                                        <Building2 className="w-6 h-6 text-blue-600" />
+                                        Thông tin Cơ bản
                                     </h2>
-                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Thông tin thực thể pháp lý</p>
+                                    <p className="text-sm text-slate-500">Thông tin thực thể pháp lý doanh nghiệp</p>
                                 </div>
-                                <ShieldCheck className="w-10 h-10 text-emerald-500 opacity-20" />
+                                <ShieldCheck className="w-8 h-8 text-emerald-500 opacity-20" />
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 {[
-                                    { label: 'Institutional Name', name: 'companyName', value: profile.companyName, icon: Building2 },
-                                    { label: 'Fiscal Tax ID', name: 'taxId', value: profile.taxId, icon: Award },
-                                    { label: 'Commercial Principal', name: 'representativeName', value: profile.representativeName, icon: User },
-                                    { label: 'Corporate Tier', name: 'businessType', value: profile.businessType, icon: Zap, type: 'select', options: ['contractor', 'developer', 'retailer'] }
+                                    { label: 'Tên Doanh nghiệp', name: 'companyName', value: profile.companyName, icon: Building2 },
+                                    { label: 'Mã số thuế', name: 'taxId', value: profile.taxId, icon: Award },
+                                    { label: 'Người đại diện', name: 'representativeName', value: profile.representativeName, icon: User },
+                                    { label: 'Loại hình Kinh doanh', name: 'businessType', value: profile.businessType, icon: Zap, type: 'select', options: ['contractor', 'developer', 'retailer'] }
                                 ].map((field, i) => (
-                                    <div key={i} className="space-y-4">
-                                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">{field.label}</label>
+                                    <div key={i} className="space-y-2">
+                                        <label className="block text-sm font-bold text-slate-700">{field.label}</label>
                                         <div className="relative group">
-                                            <field.icon className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300 group-focus-within:text-indigo-500 transition-colors" />
+                                            <field.icon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-blue-600 transition-colors" />
                                             {field.type === 'select' ? (
                                                 <select
                                                     name={field.name}
                                                     value={field.value}
                                                     onChange={handleChange}
-                                                    className="w-full pl-16 pr-6 py-4.5 bg-slate-50 border-transparent rounded-[1.8rem] text-sm focus:bg-white focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500/20 outline-none transition-all font-bold uppercase italic tracking-tighter"
+                                                    className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 outline-none transition-all"
                                                 >
-                                                    {field.options?.map(opt => <option key={opt} value={opt}>{opt.toUpperCase()}</option>)}
+                                                    {field.options?.map(opt => <option key={opt} value={opt}>{opt === 'contractor' ? 'Nhà Thầu' : opt === 'developer' ? 'Chủ Đầu Tư' : 'Bán Lẻ'}</option>)}
                                                 </select>
                                             ) : (
                                                 <input
@@ -295,7 +295,7 @@ export default function ContractorProfilePage() {
                                                     name={field.name}
                                                     value={field.value}
                                                     onChange={handleChange}
-                                                    className="w-full pl-16 pr-6 py-4.5 bg-slate-50 border-transparent rounded-[1.8rem] text-sm focus:bg-white focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500/20 outline-none transition-all font-bold italic tracking-tighter uppercase"
+                                                    className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 outline-none transition-all"
                                                 />
                                             )}
                                         </div>
@@ -303,88 +303,88 @@ export default function ContractorProfilePage() {
                                 ))}
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 {[
-                                    { label: 'Commercial Email', name: 'email', value: profile.email, icon: Mail },
-                                    { label: 'SĐT đã xác thực', name: 'phone', value: profile.phone, icon: Phone }
+                                    { label: 'Email Liên hệ', name: 'email', value: profile.email, icon: Mail },
+                                    { label: 'Số điện thoại', name: 'phone', value: profile.phone, icon: Phone }
                                 ].map((field, i) => (
-                                    <div key={i} className="space-y-4">
-                                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">{field.label}</label>
+                                    <div key={i} className="space-y-2">
+                                        <label className="block text-sm font-bold text-slate-700">{field.label}</label>
                                         <div className="relative group">
-                                            <field.icon className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300 group-focus-within:text-indigo-500 transition-colors" />
+                                            <field.icon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-blue-600 transition-colors" />
                                             <input
                                                 type="text"
                                                 name={field.name}
                                                 value={field.value}
                                                 onChange={handleChange}
-                                                className="w-full pl-16 pr-6 py-4.5 bg-slate-50 border-transparent rounded-[1.8rem] text-sm focus:bg-white focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500/20 outline-none transition-all font-bold italic tracking-tighter"
+                                                className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 outline-none transition-all"
                                             />
                                         </div>
                                     </div>
                                 ))}
                             </div>
 
-                            <div className="space-y-4">
-                                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Administrative Center / HQ</label>
+                            <div className="space-y-2">
+                                <label className="block text-sm font-bold text-slate-700">Trụ sở chính / Địa chỉ giao dịch</label>
                                 <div className="relative group">
-                                    <MapPin className="absolute left-6 top-6 w-5 h-5 text-slate-300 group-focus-within:text-indigo-500 transition-colors" />
+                                    <MapPin className="absolute left-4 top-4 w-5 h-5 text-slate-400 group-focus-within:text-blue-600 transition-colors" />
                                     <textarea
                                         name="address"
                                         value={profile.address}
                                         onChange={handleChange}
                                         rows={3}
-                                        className="w-full pl-16 pr-6 py-5 bg-slate-50 border-transparent rounded-[2.5rem] text-sm focus:bg-white focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500/20 outline-none transition-all font-bold italic tracking-tighter uppercase"
+                                        className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 outline-none transition-all resize-none"
                                     />
                                 </div>
                             </div>
                         </div>
 
                         {/* Professional Spotlight Block */}
-                        <div className="bg-white rounded-[3.5rem] border border-slate-100 shadow-sm p-12 space-y-12 animate-in slide-in-from-bottom-5 duration-1000">
-                            <div className="flex items-center justify-between border-b border-slate-50 pb-8">
-                                <div className="space-y-2">
-                                    <h2 className="text-2xl font-black text-slate-900 uppercase italic tracking-tighter flex items-center gap-4">
-                                        <Zap className="w-7 h-7 text-amber-500 fill-current" />
-                                        Operational Spotlight
+                        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8 space-y-8 animate-in slide-in-from-bottom-5 duration-1000">
+                            <div className="flex items-center justify-between border-b border-slate-100 pb-6">
+                                <div className="space-y-1">
+                                    <h2 className="text-xl font-bold text-slate-900 flex items-center gap-3">
+                                        <Award className="w-6 h-6 text-blue-600" />
+                                        Hồ sơ Năng lực
                                     </h2>
-                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Hồ sơ năng lực & Thế mạnh thi công</p>
+                                    <p className="text-sm text-slate-500">Khẳng định giá trị & Thế mạnh thi công</p>
                                 </div>
-                                <Award className="w-10 h-10 text-amber-500 opacity-20" />
+                                <Award className="w-8 h-8 text-blue-600 opacity-20" />
                             </div>
 
-                            <div className="space-y-8">
-                                <div className="space-y-4">
-                                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">High-Impact Headline</label>
+                            <div className="space-y-6">
+                                <div className="space-y-2">
+                                    <label className="block text-sm font-bold text-slate-700">Giá trị cốt lõi / Slogan</label>
                                     <input
                                         type="text"
                                         name="highlightBio"
                                         value={profile.highlightBio}
                                         onChange={handleChange}
-                                        placeholder="MISSION STATEMENT / UNIQUE VALUE PROPOSITION..."
-                                        className="w-full px-10 py-5 bg-slate-50 border-transparent rounded-[2rem] text-sm focus:bg-white focus:ring-4 focus:ring-amber-500/5 focus:border-amber-500/20 outline-none transition-all font-black italic tracking-tighter uppercase"
+                                        placeholder="Ví dụ: Kiến tạo không gian - Vững bền tương lai..."
+                                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 outline-none transition-all"
                                     />
                                 </div>
 
-                                <div className="grid md:grid-cols-2 gap-10">
-                                    <div className="space-y-4">
-                                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Yearly Tenacity</label>
+                                <div className="grid md:grid-cols-2 gap-6">
+                                    <div className="space-y-2">
+                                        <label className="block text-sm font-bold text-slate-700">Năm Kinh nghiệm</label>
                                         <div className="relative group">
                                             <input
                                                 type="number"
                                                 name="yearsExperience"
                                                 value={profile.yearsExperience}
                                                 onChange={handleChange}
-                                                className="w-full px-10 py-5 bg-slate-50 border-transparent rounded-[2rem] text-2xl focus:bg-white focus:ring-4 focus:ring-amber-500/5 focus:border-amber-500/20 outline-none transition-all font-black italic tracking-tighter tabular-nums"
+                                                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-lg font-bold focus:bg-white focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 outline-none transition-all tabular-nums"
                                             />
-                                            <span className="absolute right-10 top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-300 uppercase tracking-widest">Years in Field</span>
+                                            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-slate-500 font-medium">Năm</span>
                                         </div>
                                     </div>
-                                    <div className="space-y-4">
-                                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Technical Proficiencies</label>
+                                    <div className="space-y-2">
+                                        <label className="block text-sm font-bold text-slate-700">Hạng mục Chuyên môn</label>
                                         <input
                                             type="text"
-                                            placeholder="DELINEATE WITH COMMAS..."
-                                            className="w-full px-10 py-5 bg-slate-50 border-transparent rounded-[2rem] text-sm focus:bg-white focus:ring-4 focus:ring-amber-500/5 focus:border-amber-500/20 outline-none transition-all font-black italic tracking-tight uppercase"
+                                            placeholder="Cách nhau bởi dấu phẩy..."
+                                            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 outline-none transition-all"
                                             onBlur={(e) => {
                                                 const skills = e.target.value.split(',').map(s => s.trim()).filter(s => s)
                                                 setProfile(prev => ({ ...prev, skills }))
@@ -394,37 +394,35 @@ export default function ContractorProfilePage() {
                                     </div>
                                 </div>
 
-                                <div className="space-y-4">
-                                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Executive Narrative</label>
+                                <div className="space-y-2">
+                                    <label className="block text-sm font-bold text-slate-700">Mô tả Năng lực Chi tiết</label>
                                     <textarea
                                         name="detailedBio"
                                         value={profile.detailedBio}
                                         onChange={handleChange}
                                         rows={6}
-                                        className="w-full px-10 py-8 bg-slate-50 border-transparent rounded-[3rem] text-sm focus:bg-white focus:ring-4 focus:ring-amber-500/5 focus:border-amber-500/20 outline-none transition-all font-bold leading-relaxed italic placeholder:text-slate-200"
-                                        placeholder="DEEP DIVE INTO OPERATIONAL EXCELLENCE & STRATEGIC ADVANTAGES..."
+                                        className="w-full px-4 py-4 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 outline-none transition-all resize-none"
+                                        placeholder="Giới thiệu chi tiết về quy mô, năng lực và các công trình tiêu biểu..."
                                     />
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <div className="lg:col-span-4 space-y-10">
+                    <div className="lg:col-span-4 space-y-8">
                         {/* Legal Accountability Vault */}
-                        <div className="bg-slate-900 rounded-[3.5rem] p-12 space-y-10 shadow-2xl text-white relative overflow-hidden">
-                            <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-[80px] -mr-32 -mt-32"></div>
-                            
+                        <div className="bg-slate-50 rounded-2xl p-8 border border-slate-200 shadow-sm space-y-8 relative overflow-hidden">
                             <div className="relative z-10 space-y-6">
-                                <div className="space-y-2">
-                                    <h2 className="text-2xl font-black uppercase italic tracking-tighter flex items-center gap-4">
-                                        <ShieldCheck className="w-7 h-7 text-indigo-400" />
-                                        Legal Vault
+                                <div className="space-y-1">
+                                    <h2 className="text-xl font-bold flex items-center gap-2 text-slate-900">
+                                        <ShieldCheck className="w-6 h-6 text-blue-600" />
+                                        Tài liệu Pháp lý
                                     </h2>
-                                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Tài liệu pháp lý & Kiểm định</p>
+                                    <p className="text-sm text-slate-500">Giấy phép & Chứng nhận</p>
                                 </div>
 
                                 {/* Upload Trigger */}
-                                <div className="border border-white/10 bg-white/5 rounded-[2.5rem] p-8 text-center space-y-6 group/upload cursor-pointer hover:bg-white/10 transition-all duration-500 border-dashed relative">
+                                <div className="border-2 border-slate-300 bg-white rounded-xl p-8 text-center space-y-4 group/upload cursor-pointer hover:bg-blue-50 hover:border-blue-300 transition-all border-dashed relative">
                                     <input
                                         ref={fileInputRef}
                                         type="file"
@@ -435,53 +433,53 @@ export default function ContractorProfilePage() {
                                     />
                                     <label htmlFor="doc-vault-upload" className="cursor-pointer block space-y-4">
                                         {uploadingDoc ? (
-                                            <Loader2 className="w-12 h-12 text-indigo-400 animate-spin mx-auto" />
+                                            <Loader2 className="w-10 h-10 text-blue-600 animate-spin mx-auto" />
                                         ) : (
-                                            <Upload className="w-12 h-12 text-slate-700 group-hover/upload:text-indigo-400 transition-colors mx-auto" />
+                                            <Upload className="w-10 h-10 text-slate-400 group-hover/upload:text-blue-600 transition-colors mx-auto" />
                                         )}
                                         <div className="space-y-1">
-                                            <p className="text-[10px] font-black uppercase tracking-[0.2em]">{uploadingDoc ? 'TRANSMITTING...' : 'INJECT PROTOCOL'}</p>
-                                            <p className="text-[9px] font-bold text-slate-500 uppercase tracking-[0.2em]">PDF / IMAGE • MAX 10MB</p>
+                                            <p className="text-sm font-bold text-slate-700">{uploadingDoc ? 'Đang Tải Lên...' : 'Tải Tài Liệu Mới'}</p>
+                                            <p className="text-xs text-slate-500">PDF hoặc Ảnh • Tối đa 10MB</p>
                                         </div>
                                     </label>
                                 </div>
 
                                 {/* Documents Registry */}
-                                <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar-dark">
+                                <div className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
                                     {documents.length === 0 ? (
-                                        <div className="text-center py-20 opacity-20">
-                                            <FileText className="w-12 h-12 mx-auto mb-4" />
-                                            <p className="text-[10px] font-black uppercase tracking-widest">Vault Empty</p>
+                                        <div className="text-center py-12 text-slate-400">
+                                            <FileText className="w-10 h-10 mx-auto mb-3 opacity-50" />
+                                            <p className="text-sm font-medium">Chưa có tài liệu nào</p>
                                         </div>
                                     ) : (
                                         documents.map((doc) => (
-                                            <div key={doc.id} className="bg-white/5 border border-white/5 rounded-[2rem] p-6 space-y-4 group/doc hover:bg-white/10 transition-all">
+                                            <div key={doc.id} className="bg-white border border-slate-200 rounded-xl p-4 space-y-4 shadow-sm hover:shadow-md transition-all">
                                                 <div className="flex items-start justify-between">
-                                                    <div className="flex items-center gap-4 min-w-0">
-                                                        <div className="w-12 h-12 bg-white/5 rounded-2xl flex items-center justify-center text-slate-500 group-hover/doc:text-indigo-400 transition-colors">
-                                                            <FileText size={20} />
+                                                    <div className="flex items-center gap-3 min-w-0">
+                                                        <div className="w-10 h-10 bg-slate-50 rounded-lg flex items-center justify-center text-slate-500">
+                                                            <FileText size={18} />
                                                         </div>
                                                         <div className="min-w-0">
-                                                            <p className="text-xs font-black uppercase tracking-tighter truncate text-slate-300">{doc.name}</p>
-                                                            <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest">{doc.type} • {new Date(doc.uploadedAt).toLocaleDateString('vi-VN')}</p>
+                                                            <p className="text-sm font-bold text-slate-900 truncate">{doc.name}</p>
+                                                            <p className="text-xs text-slate-500">{doc.type} • {new Date(doc.uploadedAt).toLocaleDateString('vi-VN')}</p>
                                                         </div>
                                                     </div>
                                                     <button 
                                                         onClick={() => deleteDocument(doc.id)}
-                                                        className="p-2 text-slate-700 hover:text-rose-500 transition-colors"
+                                                        className="p-1.5 text-slate-400 hover:text-rose-600 transition-colors bg-slate-50 hover:bg-rose-50 rounded-md"
                                                     >
                                                         <Trash2 size={16} />
                                                     </button>
                                                 </div>
-                                                <div className="flex items-center justify-between gap-4">
+                                                <div className="flex items-center justify-between gap-4 border-t border-slate-100 pt-3 mt-1">
                                                     {getStatusBadge(doc.status)}
                                                     <a
                                                         href={doc.url}
                                                         target="_blank"
                                                         rel="noopener noreferrer"
-                                                        className="w-10 h-10 bg-white/5 hover:bg-indigo-600 rounded-xl flex items-center justify-center transition-all group/eye"
+                                                        className="w-8 h-8 bg-slate-50 hover:bg-blue-600 text-slate-600 hover:text-white rounded-lg flex items-center justify-center transition-all"
                                                     >
-                                                        <Eye size={16} className="text-slate-500 group-hover/eye:text-white" />
+                                                        <Eye size={16} />
                                                     </a>
                                                 </div>
                                             </div>
@@ -492,36 +490,33 @@ export default function ContractorProfilePage() {
                         </div>
 
                         {/* Social & Digital Presence Block */}
-                        <div className="bg-white rounded-[3.5rem] border border-slate-100 shadow-sm p-10 space-y-10">
-                            <div className="space-y-2">
-                                <h2 className="text-xl font-black uppercase italic tracking-tighter flex items-center gap-4">
-                                    <Globe className="w-6 h-6 text-blue-500" />
-                                    Digital Hub
+                        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8 space-y-6">
+                            <div className="space-y-1 pb-4 border-b border-slate-100">
+                                <h2 className="text-xl font-bold flex items-center gap-2 text-slate-900">
+                                    <Globe className="w-6 h-6 text-blue-600" />
+                                    Hiện diện Số
                                 </h2>
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Kênh truyền thông & Website</p>
+                                <p className="text-sm text-slate-500">Kênh truyền thông & Website</p>
                             </div>
 
-                            <div className="space-y-4">
-                                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Corporate Website</label>
+                            <div className="space-y-2">
+                                <label className="block text-sm font-bold text-slate-700">Website Công ty</label>
                                 <div className="relative group">
-                                    <Globe className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300 group-focus-within:text-blue-500 transition-colors" />
+                                    <Globe className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-blue-600 transition-colors" />
                                     <input
                                         type="url"
                                         name="website"
                                         value={profile.website}
                                         onChange={handleChange}
-                                        className="w-full pl-16 pr-6 py-4.5 bg-slate-50 border-transparent rounded-[1.8rem] text-sm focus:bg-white focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500/20 outline-none transition-all font-bold italic tracking-tighter text-blue-600"
-                                        placeholder="HTTPS://WWW.MATRIX.ORG"
+                                        className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 outline-none transition-all text-blue-600"
+                                        placeholder="https://www.congty.com"
                                     />
                                 </div>
                             </div>
 
-                            <div className="p-8 bg-slate-900 rounded-[2.5rem] text-white flex flex-col items-center justify-center gap-6 text-center shadow-xl shadow-slate-200 group cursor-pointer overflow-hidden relative active:scale-95 transition-all">
-                                <div className="absolute top-0 left-0 w-full h-full bg-blue-600/10 -translate-x-full group-hover:translate-x-0 transition-transform duration-700"></div>
-                                <div className="relative z-10 flex flex-col items-center gap-4">
-                                    <ArrowUpRight className="w-10 h-10 text-blue-400" />
-                                    <p className="text-[11px] font-black uppercase tracking-[0.3em] italic">Open External Portfolio</p>
-                                </div>
+                            <div className="p-6 bg-slate-50 border border-slate-200 rounded-xl flex flex-col items-center justify-center gap-4 text-center group cursor-pointer hover:bg-white hover:border-blue-300 hover:shadow-sm transition-all">
+                                <ArrowUpRight className="w-8 h-8 text-slate-400 group-hover:text-blue-600 transition-colors" />
+                                <p className="text-sm font-bold text-slate-700 group-hover:text-blue-600 transition-colors">Xem Trang Hồ sơ Công khai</p>
                             </div>
                         </div>
                     </div>

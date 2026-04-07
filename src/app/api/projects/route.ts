@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireAuth } from '@/lib/auth-middleware-api'
 import { UserRole } from '@/lib/auth'
+import { EmailService } from '@/lib/email-service'
 
 // GET /api/projects - Get all projects
 export async function GET(request: NextRequest) {
@@ -182,8 +183,18 @@ export async function POST(request: NextRequest) {
       otpCode = Math.floor(100000 + Math.random() * 900000).toString() // 6 digit OTP
       otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000) // 10 minutes expiry
 
-      // In a real app, you would send this via SMS/Email
-      console.log(`[VERIFICATION] OTP for project "${name}" to ${guestPhone}: ${otpCode}`)
+      // Send OTP via Email
+      console.log(`[VERIFICATION] OTP for project "${name}" to ${guestPhone} / ${guestEmail}: ${otpCode}`)
+      
+      if (guestEmail) {
+        await EmailService.sendOTP({
+            email: guestEmail,
+            name: guestName || 'Khách hàng',
+            otpCode,
+            type: 'VERIFICATION',
+            expiresInMinutes: 10
+        }).catch(err => console.error("[VERIFICATION] Email failed to send:", err));
+      }
     }
 
     // Create project

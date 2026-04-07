@@ -153,6 +153,10 @@ Sửa chữa ${name || 'công trình'}.
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value } = e.target
+        if (name === 'budget') {
+            setFormData(prev => ({ ...prev, budget: value.replace(/\D/g, '') }))
+            return
+        }
         setFormData(prev => ({ ...prev, [name]: value }))
     }
 
@@ -164,8 +168,8 @@ Sửa chữa ${name || 'công trình'}.
             return
         }
 
-        if (!isAuthenticated && (!formData.guestName || !formData.guestPhone)) {
-            toast.error('Quý khách vui lòng để lại tên và số điện thoại liên hệ')
+        if (!isAuthenticated && (!formData.guestName || !formData.guestPhone || !formData.guestEmail)) {
+            toast.error('Quý khách vui lòng để lại tên, số điện thoại và Email liên hệ')
             return
         }
 
@@ -186,7 +190,7 @@ Sửa chữa ${name || 'công trình'}.
                 if (data.requiresVerification) {
                     setProjectId(data.projectId)
                     setVerifying(true)
-                    toast.success('Vui lòng kiểm tra mã xác thực gửi đến điện thoại')
+                    toast.success('Vui lòng kiểm tra mã xác thực gửi đến Email của bạn')
                     return
                 }
             }
@@ -251,7 +255,7 @@ Sửa chữa ${name || 'công trình'}.
                         </div>
                         <h2 className="text-2xl font-black text-slate-900 mb-2 uppercase text-center">Xác thực chính chủ</h2>
                         <p className="text-slate-500 text-sm text-center mb-10 font-medium">
-                            Chúng tôi đã gửi mã xác thực gồm 6 chữ số đến số điện thoại của bạn để tránh tin rác.
+                            Chúng tôi đã gửi mã xác thực gồm 6 chữ số đến Email của bạn để đảm bảo tính xác thực.
                         </p>
 
                         <div className="space-y-6">
@@ -271,7 +275,7 @@ Sửa chữa ${name || 'công trình'}.
                             <button
                                 type="submit"
                                 disabled={loading}
-                                className="w-full py-5 bg-slate-900 text-white rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-primary-600 transition-all flex items-center justify-center gap-3 shadow-xl shadow-slate-200"
+                                className="w-full py-5 bg-blue-600 text-white rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-blue-700 transition-all flex items-center justify-center gap-3 shadow-xl shadow-blue-600/20"
                             >
                                 {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Xác thực ngay'}
                             </button>
@@ -409,10 +413,10 @@ Sửa chữa ${name || 'công trình'}.
                                         <div className="relative">
                                             <input
                                                 name="budget"
-                                                type="number"
-                                                value={formData.budget}
+                                                type="text"
+                                                value={formData.budget ? Number(formData.budget).toLocaleString('vi-VN') : ''}
                                                 onChange={handleInputChange}
-                                                placeholder="VD: 50000000"
+                                                placeholder="VD: 50.000.000"
                                                 className="w-full pl-12 pr-5 py-4 bg-slate-50 border-2 border-transparent focus:border-emerald-500 focus:bg-white rounded-2xl outline-none font-bold text-slate-700 transition-all"
                                                 required
                                             />
@@ -491,15 +495,16 @@ Sửa chữa ${name || 'công trình'}.
                                         </div>
                                     </div>
                                     <div className="mt-6">
-                                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">Email (Không bắt buộc)</label>
+                                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 block">Email nhận mã xác thực *</label>
                                         <div className="relative">
                                             <input
                                                 name="guestEmail"
                                                 type="email"
                                                 value={formData.guestEmail}
                                                 onChange={handleInputChange}
-                                                placeholder="Để nhận báo giá qua email (Nếu có)"
+                                                placeholder="VD: email@example.com"
                                                 className="w-full pl-12 pr-5 py-4 bg-slate-50 border-2 border-slate-100 focus:border-primary-500 focus:bg-white rounded-2xl outline-none font-bold text-slate-700 transition-all placeholder:font-medium placeholder:text-slate-300"
+                                                required
                                             />
                                             <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                                         </div>

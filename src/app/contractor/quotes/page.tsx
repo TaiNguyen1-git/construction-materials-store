@@ -168,42 +168,42 @@ export default function ContractorQuotesPage() {
 
     const getStatusText = (status: string) => {
         switch (status) {
-            case 'PENDING': return 'New Incoming'
-            case 'REPLIED': return 'Bidding Sent'
-            case 'ACCEPTED': return 'Contracted'
-            case 'REJECTED': return 'Rejected'
-            case 'CANCELLED': return 'Revoked'
+            case 'PENDING': return 'Chờ xử lý'
+            case 'REPLIED': return 'Đã gửi báo giá'
+            case 'ACCEPTED': return 'Đã chốt HĐ'
+            case 'REJECTED': return 'Từ chối'
+            case 'CANCELLED': return 'Đã hủy'
             default: return status
         }
     }
 
     return (
-        <div className="space-y-10 animate-in fade-in duration-500 pb-20 max-w-[1600px] mx-auto">
-            {/* High Impact Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 px-1">
+        <div className="space-y-8 animate-in fade-in duration-500 pb-20 max-w-[1600px] mx-auto">
+            {/* Header */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                 <div className="space-y-1">
-                    <h1 className="text-3xl font-bold text-slate-900 tracking-tight flex items-center gap-3">
-                        <Zap className="w-8 h-8 text-blue-600" />
-                        Bidding Hub
+                    <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
+                        <MessageSquare className="w-6 h-6 text-blue-600" />
+                        Báo giá & Đấu thầu
                     </h1>
-                    <p className="text-slate-500 text-sm font-medium">Commercial Strategy & Project Acquisition Center</p>
+                    <p className="text-slate-500 text-sm">Quản lý yêu cầu báo giá và chiến lược đấu thầu dự án</p>
                 </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
+                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
                     <div>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Queue Size</p>
-                        <p className="text-3xl font-bold text-slate-900 tabular-nums">{quotes.filter(q => q.status === 'PENDING').length}</p>
+                        <p className="text-sm font-semibold text-slate-500 mb-1">Chờ xử lý</p>
+                        <p className="text-2xl font-bold text-slate-900 tabular-nums">{quotes.filter(q => q.status === 'PENDING').length}</p>
                     </div>
                     <div className="w-12 h-12 rounded-xl bg-amber-50 flex items-center justify-center text-amber-500">
                         <Clock size={24} />
                     </div>
                 </div>
-                <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
+                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
                     <div>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Acquired Projects</p>
-                        <p className="text-3xl font-bold text-slate-900 tabular-nums">{quotes.filter(q => q.status === 'ACCEPTED').length}</p>
+                        <p className="text-sm font-semibold text-slate-500 mb-1">Dự án đã chốt</p>
+                        <p className="text-2xl font-bold text-slate-900 tabular-nums">{quotes.filter(q => q.status === 'ACCEPTED').length}</p>
                     </div>
                     <div className="w-12 h-12 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-500">
                         <CheckCircle size={24} />
@@ -211,17 +211,17 @@ export default function ContractorQuotesPage() {
                 </div>
             </div>
 
-            <div className="grid lg:grid-cols-12 gap-10">
-                {/* List - Left Column - High Density Interaction */}
-                <div className="lg:col-span-4 space-y-4 max-h-[800px] overflow-y-auto pr-4 custom-scrollbar">
+            <div className="grid lg:grid-cols-12 gap-8">
+                {/* List - Left Column */}
+                <div className="lg:col-span-4 space-y-4 max-h-[800px] overflow-y-auto pr-2 custom-scrollbar">
                     {loading ? (
                         Array(5).fill(0).map((_, i) => (
-                            <div key={i} className="bg-slate-50 h-32 rounded-3xl animate-pulse" />
+                            <div key={i} className="bg-slate-50 h-32 rounded-xl animate-pulse border border-slate-100" />
                         ))
                     ) : quotes.length === 0 ? (
-                        <div className="bg-white rounded-[3rem] p-16 border border-dashed border-slate-200 text-center space-y-6">
-                            <History className="w-20 h-20 text-slate-100 mx-auto" />
-                            <p className="text-slate-400 font-black uppercase tracking-[0.2em] text-[10px]">Vault is empty</p>
+                        <div className="bg-slate-50 rounded-2xl p-12 border-2 border-dashed border-slate-200 text-center space-y-4">
+                            <History className="w-12 h-12 text-slate-300 mx-auto" />
+                            <p className="text-slate-500 font-medium text-sm">Chưa có yêu cầu báo giá nào</p>
                         </div>
                     ) : (
                         quotes.map(quote => (
@@ -237,31 +237,31 @@ export default function ContractorQuotesPage() {
                                         setItems([{ description: '', quantity: 1, unit: 'm2', unitPrice: 0, category: 'Vật tư', isNew: true }])
                                     }
                                 }}
-                                className={`p-6 rounded-2xl border-2 transition-all duration-300 cursor-pointer group relative overflow-hidden ${selectedQuote?.id === quote.id
+                                className={`p-5 rounded-2xl border transition-all duration-200 cursor-pointer group ${selectedQuote?.id === quote.id
                                     ? 'bg-blue-50 border-blue-600 shadow-sm'
-                                    : 'bg-white border-slate-100 hover:border-blue-200 shadow-sm'
+                                    : 'bg-white border-slate-200 hover:border-blue-300 shadow-sm'
                                     }`}
                             >
-                                <div className="flex justify-between items-start mb-4">
-                                    <span className={`text-[9px] font-bold px-3 py-1 rounded-lg uppercase tracking-widest transition-colors ${selectedQuote?.id === quote.id ? 'bg-blue-600 text-white' : getStatusStyle(quote.status)}`}>
+                                <div className="flex justify-between items-start mb-3">
+                                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-md ${selectedQuote?.id === quote.id ? 'bg-blue-600 text-white' : getStatusStyle(quote.status)}`}>
                                         {getStatusText(quote.status)}
                                     </span>
-                                    <span className={`text-[9px] font-bold uppercase tracking-widest ${selectedQuote?.id === quote.id ? 'text-blue-600/60' : 'text-slate-400'}`}>
+                                    <span className={`text-xs font-medium ${selectedQuote?.id === quote.id ? 'text-blue-600/80' : 'text-slate-500'}`}>
                                         {new Date(quote.createdAt).toLocaleDateString('vi-VN')}
                                     </span>
                                 </div>
-                                <h3 className={`font-bold text-lg flex items-center gap-2 transition-colors tracking-tight ${selectedQuote?.id === quote.id ? 'text-blue-900' : 'text-slate-900'}`}>
+                                <h3 className={`font-bold text-base flex items-center gap-2 ${selectedQuote?.id === quote.id ? 'text-blue-900' : 'text-slate-900'}`}>
                                     #{quote.id.slice(-6).toUpperCase()}
                                 </h3>
-                                <p className={`text-[10px] font-bold uppercase tracking-widest mt-1 ${selectedQuote?.id === quote.id ? 'text-blue-600/80' : 'text-slate-400'}`}>{quote.customer.user.name}</p>
-                                <p className={`text-[11px] mt-4 line-clamp-2 leading-relaxed font-medium ${selectedQuote?.id === quote.id ? 'text-slate-600' : 'text-slate-500'}`}>{quote.details}</p>
+                                <p className={`text-sm font-medium mt-1 ${selectedQuote?.id === quote.id ? 'text-blue-800' : 'text-slate-600'}`}>{quote.customer.user.name}</p>
+                                <p className={`text-sm mt-3 line-clamp-2 leading-relaxed ${selectedQuote?.id === quote.id ? 'text-blue-700/80' : 'text-slate-500'}`}>{quote.details}</p>
 
-                                <div className={`mt-5 pt-4 border-t flex items-center justify-between ${selectedQuote?.id === quote.id ? 'border-blue-100' : 'border-slate-50'}`}>
-                                    <div className={`flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest ${selectedQuote?.id === quote.id ? 'text-blue-500' : 'text-slate-400'}`}>
-                                        <MapPin className="w-3 h-3" />
-                                        {quote.location || 'GLOBAL'}
+                                <div className={`mt-4 pt-4 border-t flex items-center justify-between ${selectedQuote?.id === quote.id ? 'border-blue-200' : 'border-slate-100'}`}>
+                                    <div className={`flex items-center gap-1.5 text-xs font-medium ${selectedQuote?.id === quote.id ? 'text-blue-700' : 'text-slate-500'}`}>
+                                        <MapPin className="w-3.5 h-3.5" />
+                                        {quote.location || 'Toàn quốc'}
                                     </div>
-                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-300 ${selectedQuote?.id === quote.id ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20' : 'bg-slate-50 text-slate-300 group-hover:bg-blue-600 group-hover:text-white'}`}>
+                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${selectedQuote?.id === quote.id ? 'bg-blue-600 text-white' : 'bg-slate-50 text-slate-400 group-hover:bg-blue-600 group-hover:text-white'}`}>
                                         <ChevronRight className="w-4 h-4" />
                                     </div>
                                 </div>
@@ -270,152 +270,143 @@ export default function ContractorQuotesPage() {
                     )}
                 </div>
 
-                {/* Detail Area - High Premium Commercial Interface */}
+                {/* Detail Area */}
                 <div className="lg:col-span-8 h-full">
                     {selectedQuote ? (
-                        <div className="bg-white rounded-3xl shadow-xl border border-slate-100 overflow-hidden min-h-[800px] flex flex-col animate-in slide-in-from-right-10 duration-700">
-                            {/* Detailed Commercial Header */}
-                            <div className="p-8 md:p-10 border-b border-slate-100 bg-slate-50 relative">
-                                <div className="absolute top-0 right-0 w-64 h-64 bg-blue-600/5 rounded-full blur-[80px] -mr-32 -mt-32"></div>
-                                <div className="relative z-10">
-                                    <div className="flex flex-col md:flex-row justify-between items-start gap-6 mb-8">
-                                        <div className="space-y-1">
-                                            <div className="flex items-center gap-4">
-                                                <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Chi tiết báo giá</h2>
-                                                <span className={`px-4 py-1.5 rounded-xl text-[9px] font-bold uppercase tracking-widest shadow-sm ${selectedQuote.status === 'ACCEPTED' ? 'bg-emerald-500 text-white' : 'bg-blue-600 text-white'}`}>
-                                                    {getStatusText(selectedQuote.status)}
-                                                </span>
-                                            </div>
-                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Mã định danh: <span className="text-slate-900">#{selectedQuote.id.toUpperCase()}</span></p>
+                        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col animate-in slide-in-from-right-10 duration-500">
+                            {/* Header */}
+                            <div className="p-8 border-b border-slate-100 bg-white">
+                                <div className="flex flex-col md:flex-row justify-between items-start gap-4 mb-6">
+                                    <div className="space-y-1">
+                                        <div className="flex items-center gap-3">
+                                            <h2 className="text-xl font-bold text-slate-900">Chi tiết Báo giá</h2>
+                                            <span className={`px-3 py-1 rounded-md text-xs font-semibold ${selectedQuote.status === 'ACCEPTED' ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'}`}>
+                                                {getStatusText(selectedQuote.status)}
+                                            </span>
                                         </div>
-                                        <div className="flex gap-3">
-                                            <Link
-                                                href={`/contractor/quotes/${selectedQuote.id}/negotiate`}
-                                                className="px-6 py-3 bg-blue-600 text-white rounded-xl font-bold text-[10px] uppercase tracking-widest hover:bg-blue-700 active:scale-95 transition-all flex items-center gap-3 shadow-lg shadow-blue-500/20"
-                                            >
-                                                <Zap className="w-4 h-4 fill-current" />
-                                                Live Strategy
-                                            </Link>
-                                            <button className="w-12 h-12 bg-white hover:bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-center transition-all group shadow-sm">
-                                                <Download size={20} className="text-slate-400 group-hover:text-slate-600 group-hover:translate-y-0.5 transition-all" />
-                                            </button>
-                                        </div>
+                                        <p className="text-sm font-semibold text-slate-500">ID: #{selectedQuote.id.toUpperCase()}</p>
                                     </div>
+                                    <div className="flex gap-2">
+                                        <Link
+                                            href={`/contractor/quotes/${selectedQuote.id}/negotiate`}
+                                            className="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold text-sm hover:bg-blue-700 transition-all flex items-center gap-2"
+                                        >
+                                            <MessageSquare className="w-4 h-4" />
+                                            Thương thảo Live
+                                        </Link>
+                                    </div>
+                                </div>
 
-                                    <div className="grid md:grid-cols-3 gap-4">
-                                        {[
-                                            { label: 'Counterparty', value: selectedQuote.customer.user.name, icon: User, color: 'text-blue-600', bg: 'bg-blue-50' },
-                                            { label: 'Project Mapping', value: selectedQuote.project?.name || 'Open Portfolio', icon: Building2, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-                                            { label: 'Liquidity Reserve', value: `${selectedQuote.budget?.toLocaleString()}đ`, icon: Coins, color: 'text-amber-600', bg: 'bg-amber-50' }
-                                        ].map((stat, i) => (
-                                            <div key={i} className="bg-white p-5 rounded-2xl border border-slate-100 flex items-center gap-5 group hover:shadow-md transition-all duration-300">
-                                                <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${stat.bg} ${stat.color}`}>
-                                                    <stat.icon size={20} />
-                                                </div>
-                                                <div className="min-w-0">
-                                                    <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mb-0.5">{stat.label}</p>
-                                                    <p className="font-bold text-slate-900 text-xs truncate uppercase tracking-tight">{stat.value}</p>
-                                                </div>
+                                <div className="grid md:grid-cols-3 gap-4">
+                                    {[
+                                        { label: 'Khách hàng', value: selectedQuote.customer.user.name, icon: User, color: 'text-blue-600', bg: 'bg-blue-50' },
+                                        { label: 'Dự án liên kết', value: selectedQuote.project?.name || 'Chưa liên kết', icon: Building2, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+                                        { label: 'Ngân sách (dự kiến)', value: `${selectedQuote.budget?.toLocaleString() || 0}đ`, icon: Coins, color: 'text-amber-600', bg: 'bg-amber-50' }
+                                    ].map((stat, i) => (
+                                        <div key={i} className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex items-center gap-4">
+                                            <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${stat.bg} ${stat.color}`}>
+                                                <stat.icon size={18} />
                                             </div>
-                                        ))}
-                                    </div>
+                                            <div className="min-w-0">
+                                                <p className="text-xs text-slate-500 font-semibold mb-0.5">{stat.label}</p>
+                                                <p className="font-bold text-slate-900 text-sm truncate">{stat.value}</p>
+                                            </div>
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
 
-                            <div className="p-8 md:p-10 space-y-10 flex-1 overflow-y-auto custom-scrollbar">
-                                {/* Requirements Display */}
-                                <div className="space-y-4">
-                                    <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-2">
-                                        <AlertCircle className="w-4 h-4 text-amber-500" />
-                                        Primary Objectives & Constraints
+                            <div className="p-8 space-y-8 flex-1 overflow-y-auto custom-scrollbar">
+                                {/* Requirements */}
+                                <div className="space-y-3">
+                                    <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                                        <AlertCircle className="w-4 h-4 text-blue-600" />
+                                        Yêu cầu từ khách hàng
                                     </h4>
-                                    <div className="p-6 bg-slate-50 rounded-2xl text-slate-700 leading-relaxed border border-slate-100 font-medium italic text-sm">
-                                        "{selectedQuote.details}"
+                                    <div className="p-5 bg-slate-50 rounded-xl text-slate-700 leading-relaxed border border-slate-100 text-sm">
+                                        {selectedQuote.details}
                                     </div>
                                 </div>
 
-                                {/* BoQ Dynamic Editor */}
-                                <div className="space-y-5">
-                                    <div className="flex justify-between items-end px-1">
-                                        <div className="space-y-1">
-                                            <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Bill of Quantities</h4>
-                                            <p className="text-xl font-bold text-slate-900 tracking-tight uppercase">Bảng phân rã hạng mục</p>
-                                        </div>
+                                {/* BoQ Editor */}
+                                <div className="space-y-4">
+                                    <div className="flex justify-between items-center px-1">
+                                        <h4 className="text-sm font-bold text-slate-900">Bảng phân rã hạng mục báo giá (BOQ)</h4>
                                         {(selectedQuote.status === 'PENDING' || selectedQuote.status === 'REPLIED' || selectedQuote.status === 'ACCEPTED') && (
                                             <button
                                                 onClick={addItem}
-                                                className="px-5 py-2.5 bg-slate-900 text-white rounded-xl font-bold text-[10px] uppercase tracking-widest hover:bg-black transition-all flex items-center gap-2 shadow-md active:scale-95"
+                                                className="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg font-semibold text-xs hover:bg-slate-200 transition-all flex items-center gap-2"
                                             >
                                                 <Plus size={14} /> Thêm hạng mục
                                             </button>
                                         )}
                                     </div>
 
-                                    <div className="overflow-hidden border border-slate-100 rounded-2xl bg-white shadow-sm">
-                                        <table className="w-full text-xs">
+                                    <div className="overflow-hidden border border-slate-200 rounded-xl bg-white">
+                                        <table className="w-full text-sm">
                                             <thead>
-                                                <tr className="bg-slate-50/80 border-b border-slate-100 text-slate-400">
-                                                    <th className="py-4 px-6 text-left font-bold uppercase tracking-widest">Mô tả hạng mục</th>
-                                                    <th className="py-4 px-2 text-center w-20 font-bold uppercase tracking-widest">SL</th>
-                                                    <th className="py-4 px-2 text-center w-20 font-bold uppercase tracking-widest">ĐVT</th>
-                                                    <th className="py-4 px-4 text-right w-36 font-bold uppercase tracking-widest">Đơn giá</th>
-                                                    <th className="py-4 px-6 text-right w-40 font-bold uppercase tracking-widest">Thành tiền</th>
-                                                    <th className="py-4 w-12"></th>
+                                                <tr className="bg-slate-50 border-b border-slate-200 text-slate-600">
+                                                    <th className="py-3 px-4 text-left font-semibold">Hạng mục</th>
+                                                    <th className="py-3 px-2 text-center w-20 font-semibold">SL</th>
+                                                    <th className="py-3 px-2 text-center w-20 font-semibold">ĐVT</th>
+                                                    <th className="py-3 px-4 text-right w-36 font-semibold">Đơn giá</th>
+                                                    <th className="py-3 px-4 text-right w-40 font-semibold">Thành tiền</th>
+                                                    <th className="py-3 w-10"></th>
                                                 </tr>
                                             </thead>
-                                            <tbody className="divide-y divide-slate-50">
+                                            <tbody className="divide-y divide-slate-100">
                                                 {items.map((item, idx) => (
-                                                    <tr key={idx} className="group hover:bg-slate-50/30 transition-all">
-                                                        <td className="py-5 px-6">
+                                                    <tr key={idx} className="group hover:bg-slate-50/50 transition-all">
+                                                        <td className="py-3 px-4">
                                                             <input
-                                                                className="w-full bg-transparent border-none focus:ring-0 font-bold text-slate-900 p-0 placeholder:text-slate-200"
-                                                                placeholder="NHẬP MÔ TẢ HẠNG MỤC..."
+                                                                className="w-full bg-transparent border-none focus:ring-0 font-medium text-slate-900 p-0 placeholder:text-slate-300"
+                                                                placeholder="Mô tả hạng mục..."
                                                                 value={item.description}
                                                                 onChange={e => updateItem(idx, 'description', e.target.value)}
                                                                 disabled={selectedQuote.status === 'ACCEPTED' && !item.isNew}
                                                             />
                                                         </td>
-                                                        <td className="py-5 px-2">
+                                                        <td className="py-3 px-2">
                                                             <input
                                                                 type="number"
-                                                                className="w-full bg-transparent border-none focus:ring-0 text-center font-bold p-0 text-slate-400 tabular-nums"
+                                                                className="w-full bg-transparent border-none focus:ring-0 text-center p-0 tabular-nums text-slate-700"
                                                                 value={item.quantity}
                                                                 onChange={e => updateItem(idx, 'quantity', parseFloat(e.target.value) || 0)}
                                                             />
                                                         </td>
-                                                        <td className="py-5 px-2">
+                                                        <td className="py-3 px-2">
                                                             <input
-                                                                className="w-full bg-transparent border-none focus:ring-0 text-center font-bold p-0 text-slate-300 uppercase text-[9px] tracking-widest"
+                                                                className="w-full bg-transparent border-none focus:ring-0 text-center p-0 text-slate-500 uppercase text-xs"
                                                                 value={item.unit}
                                                                 onChange={e => updateItem(idx, 'unit', e.target.value)}
                                                             />
                                                         </td>
-                                                        <td className="py-5 px-4">
+                                                        <td className="py-3 px-4">
                                                             <input
                                                                 type="number"
-                                                                className="w-full bg-transparent border-none focus:ring-0 text-right font-bold p-0 text-blue-600 tabular-nums"
+                                                                className="w-full bg-transparent border-none focus:ring-0 text-right p-0 tabular-nums text-slate-700"
                                                                 value={item.unitPrice}
                                                                 onChange={e => updateItem(idx, 'unitPrice', e.target.value)}
                                                             />
                                                         </td>
-                                                        <td className="py-5 px-6 text-right font-bold text-slate-900 tabular-nums text-sm">
+                                                        <td className="py-3 px-4 text-right font-semibold text-slate-900 tabular-nums">
                                                             {(item.quantity * (parseFloat(item.unitPrice) || 0)).toLocaleString()}đ
                                                         </td>
-                                                        <td className="py-5 text-right pr-4">
+                                                        <td className="py-3 text-right pr-4">
                                                             <button 
                                                                 onClick={() => removeItem(idx)} 
-                                                                className="w-8 h-8 flex items-center justify-center bg-rose-50 text-rose-500 rounded-lg opacity-0 group-hover:opacity-100 transition-all hover:bg-rose-500 hover:text-white"
+                                                                className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-md opacity-0 group-hover:opacity-100 transition-all"
                                                             >
-                                                                <Trash2 size={12} />
+                                                                <Trash2 size={14} />
                                                             </button>
                                                         </td>
                                                     </tr>
                                                 ))}
                                             </tbody>
                                             <tfoot>
-                                                <tr className="bg-slate-900 text-white">
-                                                    <td colSpan={4} className="py-6 px-6 text-[10px] font-bold tracking-widest text-slate-400 uppercase">Tổng cộng báo giá dự toán</td>
-                                                    <td className="py-6 px-6 text-2xl font-bold text-right tracking-tight text-blue-400 tabular-nums">
+                                                <tr className="bg-slate-50 border-t border-slate-200">
+                                                    <td colSpan={4} className="py-4 px-4 font-bold text-slate-700">TỔNG BÁO GIÁ</td>
+                                                    <td className="py-4 px-4 text-lg font-bold text-right text-blue-600 tabular-nums">
                                                         {totalPrice.toLocaleString()}đ
                                                     </td>
                                                     <td></td>
@@ -425,15 +416,15 @@ export default function ContractorQuotesPage() {
                                     </div>
                                 </div>
 
-                                {/* Decision Support & Communications */}
-                                <div className="space-y-6">
+                                {/* Actions */}
+                                <div className="space-y-4 pt-4 border-t border-slate-100">
                                     {selectedQuote.status === 'PENDING' || selectedQuote.status === 'REPLIED' ? (
-                                        <div className="space-y-5">
+                                        <div className="space-y-4">
                                             <div className="space-y-1.5">
-                                                <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Strategic Narrative</h4>
+                                                <h4 className="text-sm font-bold text-slate-900">Cam kết & Thông điệp gửi khách hàng</h4>
                                                 <textarea
-                                                    className="w-full p-6 bg-slate-50 border border-slate-100 rounded-2xl focus:bg-white focus:ring-4 focus:ring-blue-600/5 focus:border-blue-600/20 outline-none min-h-[120px] font-bold text-xs shadow-inner transition-all placeholder:text-slate-300"
-                                                    placeholder="Articulate your technical commitment, SLA, and operational delivery timeline..."
+                                                    className="w-full p-4 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 outline-none text-sm min-h-[100px] transition-all"
+                                                    placeholder="Ghi chú về tiến độ thi công, bảo hành, cam kết chất lượng..."
                                                     value={replyForm.message}
                                                     onChange={e => setReplyForm({ ...replyForm, message: e.target.value })}
                                                 />
@@ -441,54 +432,47 @@ export default function ContractorQuotesPage() {
                                             <button
                                                 onClick={() => handleReply()}
                                                 disabled={submitting}
-                                                className="w-full py-5 bg-blue-600 text-white rounded-2xl font-bold text-sm uppercase tracking-widest hover:bg-blue-700 shadow-lg shadow-blue-500/20 transition-all flex items-center justify-center gap-3 disabled:bg-slate-200 group active:scale-95"
+                                                className="w-full py-3.5 bg-blue-600 text-white rounded-xl font-bold text-sm hover:bg-blue-700 transition-all disabled:bg-blue-300 disabled:cursor-not-allowed flex justify-center items-center gap-2"
                                             >
                                                 {submitting ? (
                                                     <div className="animate-spin w-5 h-5 border-2 border-white/30 border-t-white rounded-full" />
                                                 ) : (
                                                     <>
-                                                        <Send className="w-5 h-5 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
-                                                        Execute Transmission
+                                                        <Send className="w-4 h-4" /> Gửi Báo Giá Ngay
                                                     </>
                                                 )}
                                             </button>
                                         </div>
                                     ) : selectedQuote.status === 'ACCEPTED' ? (
-                                        <div className="space-y-6 animate-in zoom-in duration-500">
-                                            <div className="bg-emerald-50/50 p-10 rounded-3xl border-2 border-emerald-500 border-dashed text-center flex flex-col items-center gap-4">
-                                                <div className="w-16 h-16 bg-emerald-500 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-emerald-500/20">
-                                                    <CheckCircle size={32} />
+                                        <div className="space-y-4">
+                                            <div className="bg-emerald-50 p-6 rounded-2xl border border-emerald-100 text-center space-y-2">
+                                                <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center text-emerald-600 mx-auto mb-2 shadow-sm">
+                                                    <CheckCircle size={24} />
                                                 </div>
-                                                <div className="space-y-1">
-                                                    <h3 className="text-xl font-bold text-emerald-900 uppercase tracking-tight">Agreement Finalized</h3>
-                                                    <p className="text-emerald-700 font-bold text-[9px] uppercase tracking-widest max-w-sm mx-auto">Tất cả điều khoản đã được đối tác phê chuẩn. Bạn có thể khởi tạo Change Order cho các hạng mục phát sinh.</p>
-                                                </div>
+                                                <h3 className="text-emerald-800 font-bold">Khách hàng đã chấp thuận</h3>
+                                                <p className="text-emerald-600 text-sm">Hợp đồng đã thiết lập. Bạn có thể tạo Phụ lục phát sinh (Change Order) nếu cần.</p>
                                             </div>
                                             <button
                                                 onClick={() => handleReply('CREATE_CHANGE_ORDER')}
-                                                className="w-full py-5 bg-slate-900 text-white rounded-2xl font-bold text-sm uppercase tracking-widest hover:bg-black shadow-lg shadow-slate-900/10 transition-all flex items-center justify-center gap-3 active:scale-95"
+                                                className="w-full py-3.5 bg-white border border-slate-200 text-slate-700 rounded-xl font-bold text-sm hover:bg-slate-50 transition-all flex justify-center items-center gap-2"
                                             >
-                                                <Plus size={20} />
-                                                Initiate Change Order
+                                                <Plus size={16} /> Tạo hạng mục Phát sinh
                                             </button>
                                         </div>
                                     ) : (
-                                        <div className="p-16 bg-slate-50 rounded-3xl text-center">
-                                            <span className="text-2xl font-bold text-slate-200 uppercase tracking-widest">Deactivated Status</span>
+                                        <div className="p-8 bg-slate-50 border border-slate-200 rounded-2xl text-center">
+                                            <p className="font-semibold text-slate-500">Yêu cầu báo giá đã vô hiệu hóa</p>
                                         </div>
                                     )}
                                 </div>
                             </div>
                         </div>
                     ) : (
-                        <div className="h-full bg-white rounded-3xl border-2 border-dashed border-slate-100 flex flex-col items-center justify-center p-16 text-center space-y-8 group">
-                            <div className="relative">
-                                <div className="absolute inset-0 bg-blue-600/5 blur-[40px] rounded-full group-hover:bg-blue-600/10 transition-all duration-700"></div>
-                                <FileText className="w-40 h-40 text-slate-50 relative z-10 group-hover:scale-105 transition-transform duration-700" />
-                            </div>
-                            <div className="space-y-3">
-                                <h3 className="text-2xl font-bold text-slate-900 tracking-tight">Commercial Review Required</h3>
-                                <p className="text-slate-400 font-bold max-w-sm mx-auto leading-relaxed text-[10px] uppercase tracking-widest opacity-60">Vui lòng chọn một bản ghi đấu thầu từ bảng điều khiển bên trái để bắt đầu phân tích kỹ thuật và định giá thương mại.</p>
+                        <div className="h-full bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center p-12 text-center space-y-4">
+                            <FileText className="w-24 h-24 text-slate-200" />
+                            <div className="space-y-1">
+                                <h3 className="text-lg font-bold text-slate-700">Chưa chọn yêu cầu</h3>
+                                <p className="text-slate-500 text-sm max-w-sm mx-auto">Vui lòng chọn một yêu cầu báo giá từ danh sách bên trái để bắt đầu lập dự toán và gửi phản hồi.</p>
                             </div>
                         </div>
                     )}
