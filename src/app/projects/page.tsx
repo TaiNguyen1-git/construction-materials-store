@@ -52,7 +52,23 @@ export default function PublicProjectsPage() {
             if (res.ok) {
                 const data = await res.json()
                 console.log('Fetched marketplace projects:', data)
-                const mappedProjects = (data.projects || []).map((p: any) => ({
+                
+                interface ApiProject {
+                    id: string;
+                    name: string;
+                    description: string;
+                    status: string;
+                    createdAt: string;
+                    budget: number;
+                    location?: string;
+                    category?: string;
+                    guestName?: string;
+                    priority?: string;
+                    customer?: { user?: { name: string } };
+                    projectTasks?: { id: string; status: string }[];
+                }
+                
+                const mappedProjects = (data.data || data.projects || []).map((p: ApiProject) => ({
                     id: p.id,
                     title: p.name,
                     description: p.description,

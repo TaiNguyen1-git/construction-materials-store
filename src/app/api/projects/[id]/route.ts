@@ -1,26 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import jwt from 'jsonwebtoken'
-
-// Mock token verification for development
-const verifyToken = async (request: NextRequest) => {
-  const token = request.headers.get('authorization')?.replace('Bearer ', '') ||
-    request.cookies.get('access_token')?.value
-
-  if (!token) return null
-
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret') as any
-    return decoded
-  } catch {
-    return null
-  }
-}
+import { verifyTokenFromRequest } from '@/lib/auth-middleware-api'
 
 // GET /api/projects/[id] - Get project by ID
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const user = await verifyToken(request)
+    const user = verifyTokenFromRequest(request)
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -83,7 +68,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     // Check if user has permission to view this project
     if (user.role === 'CUSTOMER') {
       const customer = await prisma.customer.findFirst({
-        where: { userId: user.id }
+        where: { userId: user.userId }
       })
 
       if (!customer || customer.id !== project.customerId) {
@@ -94,7 +79,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     // CONTRACTOR can only view projects assigned to them, OR unassigned projects (open for bidding)
     if (user.role === 'CONTRACTOR') {
       const contractor = await prisma.customer.findFirst({
-        where: { userId: user.id }
+        where: { userId: user.userId }
       })
 
       const isAssigned = contractor && contractor.id === project.contractorId
@@ -131,14 +116,14 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 // PUT /api/projects/[id] - Update project
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const user = await verifyToken(request)
+    const user = verifyTokenFromRequest(request)
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const { id } = await params
     const body = await request.json()
-    const { name, description, status, startDate, endDate, budget, priority, notes, progress } = body
+    const { name, description, status, startDate, endDate, budget, priority, notes, progress, moderationStatus, isVerified } = body
 
     // Check if project exists
     const existingProject = await (prisma as any).project.findUnique({
@@ -152,7 +137,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     // Check if user has permission to update this project
     if (user.role === 'CUSTOMER') {
       const customer = await prisma.customer.findFirst({
-        where: { userId: user.id }
+        where: { userId: user.userId }
       })
 
       if (!customer || customer.id !== existingProject.customerId) {
@@ -163,7 +148,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     // CONTRACTOR can only update projects assigned to them
     if (user.role === 'CONTRACTOR') {
       const contractor = await prisma.customer.findFirst({
-        where: { userId: user.id }
+        where: { userId: user.userId }
       })
 
       if (!contractor || contractor.id !== existingProject.contractorId) {
@@ -175,16 +160,18 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     const updatedProject = await (prisma as any).project.update({
       where: { id },
       data: {
-        name,
-        description,
-        status,
+        name: name !== undefined ? name : undefined,
+        description: description !== undefined ? description : undefined,
+        status: status !== undefined ? status : undefined,
         startDate: startDate ? new Date(startDate) : undefined,
-        endDate: endDate ? new Date(endDate) : null,
+        endDate: endDate === '' ? null : endDate ? new Date(endDate) : undefined,
         budget: budget !== undefined ? parseFloat(budget) : undefined,
-        priority,
-        notes,
+        priority: priority !== undefined ? priority : undefined,
+        notes: notes !== undefined ? notes : undefined,
         progress: progress !== undefined ? parseInt(progress) : undefined,
-        contractorId: body.contractorId
+        contractorId: body.contractorId !== undefined ? body.contractorId : undefined,
+        moderationStatus: moderationStatus !== undefined ? moderationStatus : undefined,
+        isVerified: isVerified !== undefined ? isVerified : undefined
       },
       include: {
         customer: {
@@ -210,8 +197,8 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 // DELETE /api/projects/[id] - Delete project
 export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const user = await verifyToken(request)
-    if (!user || user.role !== 'MANAGER') {
+    const user = verifyTokenFromRequest(request)
+    if (!user || (user.role !== 'MANAGER' && user.role !== 'EMPLOYEE')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
