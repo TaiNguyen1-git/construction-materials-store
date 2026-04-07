@@ -23,6 +23,11 @@ import {
     Bot,
     User,
     ArrowLeft,
+    Building2,
+    Truck,
+    Gavel,
+    LifeBuoy,
+    Phone,
     ShieldCheck,
     Zap,
     Cpu,
@@ -158,115 +163,99 @@ export default function ContractorHelpHub() {
     return (
         <div className="space-y-12 animate-in fade-in duration-500 pb-24 max-w-7xl mx-auto">
             {/* High-Intelligence Header */}
-            <div className="text-center space-y-8 py-12">
-                <div className="inline-flex p-6 bg-slate-900 text-white rounded-[2.5rem] shadow-2xl shadow-slate-200 relative group overflow-hidden">
-                    <div className="absolute inset-0 bg-gradient-to-br from-blue-600/20 to-purple-600/20 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                    <HelpCircle className="w-12 h-12 relative z-10" />
-                    <div className="absolute -top-2 -right-2 p-2 bg-blue-500 rounded-full animate-pulse shadow-lg shadow-blue-500/50"></div>
-                </div>
-                
-                <div className="space-y-4">
-                    <h1 className="text-5xl font-black text-slate-900 tracking-tighter uppercase italic">Institutional Knowledge Hub</h1>
-                    <p className="text-slate-500 font-bold uppercase text-[10px] tracking-[0.3em] max-w-xl mx-auto leading-relaxed">
-                        Giải đáp thắc mắc về tài chính, chính sách chiết khấu, Escrow, bảo hiểm và quy trình nghiệm thu B2B
-                    </p>
+            <div className="space-y-8 py-12">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                    <div className="space-y-1">
+                        <h1 className="text-3xl font-bold text-slate-900 tracking-tight flex items-center gap-3">
+                            <MessageSquare className="w-8 h-8 text-blue-600" />
+                            Trung tâm hỗ trợ
+                        </h1>
+                        <p className="text-slate-500 text-sm font-medium">Tìm kiếm giải pháp & Kết nối với đội ngũ vận hành 24/7</p>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                        <button className="px-6 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 transition-all flex items-center gap-2 shadow-md shadow-blue-500/10 active:scale-95">
+                            <LifeBuoy size={18} /> Gửi yêu cầu hỗ trợ
+                        </button>
+                    </div>
                 </div>
 
-                <div className="relative max-w-2xl mx-auto flex items-center gap-4">
-                    <div className="relative flex-1">
-                        <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-6 h-6 text-slate-300" />
-                        <input
-                            type="text"
-                            placeholder="Search Knowledge Base Protocol..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full pl-16 pr-8 py-6 bg-white border border-slate-100 rounded-[2rem] text-sm font-bold shadow-xl shadow-slate-100 focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500 outline-none transition-all placeholder:text-slate-300 italic"
-                        />
+                <div className="bg-white p-6 md:p-8 rounded-2xl border border-slate-100 shadow-sm relative overflow-hidden">
+                    <div className="relative z-10 space-y-6">
+                        <div className="relative group max-w-2xl mx-auto">
+                            <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300 group-focus-within:text-blue-500 transition-colors" />
+                            <input
+                                type="text"
+                                placeholder="Nhập vấn đề bạn đang gặp phải (ví dụ: thanh toán, vận chuyển...)"
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="w-full pl-16 pr-8 py-5 bg-slate-50 border-none rounded-2xl text-base focus:bg-white focus:ring-4 focus:ring-blue-600/5 outline-none transition-all font-semibold placeholder:text-slate-400"
+                            />
+                        </div>
+                        <div className="flex flex-wrap justify-center gap-2">
+                            {['Thanh toán ví', 'Vận chuyển vật tư', 'Bảo hiểm dự án', 'Khiếu nại cửa hàng'].map(tag => (
+                                <button key={tag} className="px-4 py-1.5 bg-slate-50 text-slate-500 rounded-full text-[11px] font-bold hover:bg-blue-50 hover:text-blue-600 transition-all">#{tag}</button>
+                            ))}
+                        </div>
                     </div>
-                    <button className="w-20 h-20 bg-slate-900 text-white rounded-[1.8rem] flex items-center justify-center hover:bg-black transition-all shadow-xl shadow-slate-200 active:scale-90">
-                        <Cpu size={24} />
-                    </button>
                 </div>
             </div>
 
             {/* Tactical Quick Links */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 {[
-                    { label: 'Debt Center', href: '/contractor/debt', icon: CreditCard, color: 'bg-blue-50 text-blue-600 border-blue-100 hover:bg-blue-600 hover:text-white' },
-                    { label: 'Risk Vault', href: '/contractor/disputes', icon: ShieldAlert, color: 'bg-rose-50 text-rose-600 border-rose-100 hover:bg-rose-600 hover:text-white' },
-                    { label: 'Liquidity Hub', href: '/contractor/wallet', icon: Wallet, color: 'bg-emerald-50 text-emerald-600 border-emerald-100 hover:bg-emerald-600 hover:text-white' },
-                    { label: 'Risk Mitigation', href: '/contractor/insurance', icon: ShieldCheck, color: 'bg-amber-50 text-amber-600 border-amber-100 hover:bg-amber-600 hover:text-white' },
-                ].map((link, i) => (
-                    <Link
-                        key={i}
-                        href={link.href}
-                        className={`p-8 rounded-[2.5rem] border-2 ${link.color} flex flex-col items-center gap-6 transition-all duration-500 group relative overflow-hidden`}
-                    >
-                        <div className="p-4 bg-white/20 rounded-2xl group-hover:scale-110 transition-transform">
-                            <link.icon className="w-8 h-8" />
+                    { id: 'payment', label: 'Tài chính & Ví', icon: Wallet, color: 'text-blue-500', bg: 'bg-blue-50' },
+                    { id: 'logistics', label: 'Vận chuyển vật tư', icon: Truck, color: 'text-amber-500', bg: 'bg-amber-50' },
+                    { id: 'insurance', label: 'Bảo hiểm & Rủi ro', icon: ShieldCheck, color: 'text-emerald-500', bg: 'bg-emerald-50' },
+                    { id: 'disputes', label: 'Khiếu nại B2B', icon: Gavel, color: 'text-purple-500', bg: 'bg-purple-50' }
+                ].map(cat => (
+                    <div key={cat.id} className="group bg-white p-8 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md hover:border-blue-100 transition-all cursor-pointer">
+                        <div className={`w-14 h-14 ${cat.bg} ${cat.color} rounded-xl flex items-center justify-center mb-6 shadow-inner group-hover:scale-110 transition-transform`}>
+                            <cat.icon size={28} />
                         </div>
-                        <span className="text-[10px] font-black uppercase tracking-[0.2em] italic">{link.label}</span>
-                        <ExternalLink className="absolute bottom-4 right-4 w-4 h-4 opacity-0 group-hover:opacity-40 transition-opacity" />
-                    </Link>
+                        <h3 className="text-lg font-bold text-slate-900 group-hover:text-blue-600 transition-colors">{cat.label}</h3>
+                        <p className="text-xs font-semibold text-slate-400 mt-2">Xem 12 tài liệu liên quan</p>
+                    </div>
                 ))}
             </div>
 
-            {/* FAQ Matrix - High Density */}
+            {/* FAQ Matrix */}
             <div className="grid gap-8">
                 {filteredFAQs.map((category, catIdx) => {
                     const CategoryIcon = category.icon
                     const isExpanded = expandedCategory === catIdx
 
                     return (
-                        <div key={catIdx} className={`bg-white rounded-[3.5rem] border ${isExpanded ? 'border-slate-200 shadow-2xl shadow-slate-200/50' : 'border-slate-100 shadow-sm'} overflow-hidden transition-all duration-700`}>
+                        <div key={catIdx} className={`bg-white rounded-2xl border ${isExpanded ? 'border-blue-200 shadow-lg shadow-blue-50' : 'border-slate-100 shadow-sm'} overflow-hidden transition-all duration-700`}>
                             <button
                                 onClick={() => setExpandedCategory(isExpanded ? null : catIdx)}
-                                className="w-full flex items-center gap-8 p-10 text-left hover:bg-slate-50/50 transition-all"
+                                className="w-full flex items-center gap-6 p-8 text-left hover:bg-slate-50/50 transition-all"
                             >
-                                <div className={`w-16 h-16 rounded-[1.8rem] bg-gradient-to-br ${category.color} flex items-center justify-center shadow-xl shadow-slate-200`}>
-                                    <CategoryIcon className="w-8 h-8 text-white" />
+                                <div className={`w-14 h-14 rounded-xl bg-blue-50 flex items-center justify-center`}>
+                                    <CategoryIcon className="w-7 h-7 text-blue-600" />
                                 </div>
-                                <div className="flex-1 space-y-1">
-                                    <h3 className="text-2xl font-black text-slate-900 uppercase italic tracking-tighter">{category.title}</h3>
-                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">{category.faqs.length} Protocols Documented</p>
+                                <div className="flex-1">
+                                    <h3 className="text-xl font-bold text-slate-900">{category.title}</h3>
+                                    <p className="text-xs font-semibold text-slate-400">{category.faqs.length} câu hỏi thường gặp</p>
                                 </div>
-                                <div className={`w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center transition-transform duration-500 ${isExpanded ? 'rotate-180 bg-slate-900 text-white' : 'text-slate-300'}`}>
-                                    <ChevronDown className="w-6 h-6" />
+                                <div className={`w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center transition-transform duration-500 ${isExpanded ? 'rotate-180 bg-blue-600 text-white' : 'text-slate-400'}`}>
+                                    <ChevronDown className="w-5 h-5" />
                                 </div>
                             </button>
 
                             {isExpanded && (
-                                <div className="px-10 pb-10 space-y-4 animate-in slide-in-from-top-4 duration-500">
-                                    {category.faqs.map((faq, faqIdx) => {
-                                        const faqKey = `${catIdx}-${faqIdx}`
-                                        const isFaqExpanded = expandedFaq === faqKey
-
-                                        return (
-                                            <div key={faqIdx} className="bg-slate-50 rounded-[2rem] overflow-hidden group">
-                                                <button
-                                                    onClick={() => setExpandedFaq(isFaqExpanded ? null : faqKey)}
-                                                    className="w-full flex items-center gap-6 px-8 py-6 text-left transition-colors"
-                                                >
-                                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${isFaqExpanded ? 'bg-slate-900 text-white' : 'bg-white text-slate-300'}`}>
-                                                        <Lightbulb className="w-5 h-5" />
-                                                    </div>
-                                                    <span className={`text-sm font-black uppercase italic tracking-tight flex-1 ${isFaqExpanded ? 'text-slate-900' : 'text-slate-600 opacity-60'}`}>
-                                                        {faq.question}
-                                                    </span>
-                                                    <ChevronRight className={`w-5 h-5 text-slate-200 transition-transform ${isFaqExpanded ? 'rotate-90 text-slate-900' : ''}`} />
-                                                </button>
-                                                {isFaqExpanded && (
-                                                    <div className="px-8 pb-8 pl-24">
-                                                        <div className="bg-white p-8 rounded-[1.8rem] border border-slate-100 shadow-inner">
-                                                            <p className="text-sm font-bold text-slate-600 leading-relaxed italic">
-                                                                {faq.answer}
-                                                            </p>
-                                                        </div>
-                                                    </div>
-                                                )}
+                                <div className="px-8 pb-8 space-y-4">
+                                    {category.faqs.map((faq, faqIdx) => (
+                                        <details key={faqIdx} className="group bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden transition-all hover:bg-slate-50">
+                                            <summary className="p-6 cursor-pointer list-none flex items-center justify-between">
+                                                <span className="text-base font-bold text-slate-900 pr-8">{faq.question}</span>
+                                                <ChevronRight className="w-5 h-5 text-slate-300 group-open:rotate-90 transition-transform" />
+                                            </summary>
+                                            <div className="px-6 pb-6 pt-0 border-t border-slate-50 mt-1">
+                                                <p className="text-sm font-semibold text-slate-600 leading-relaxed italic pt-4">“{faq.answer}”</p>
                                             </div>
-                                        )
-                                    })}
+                                        </details>
+                                    ))}
                                 </div>
                             )}
                         </div>
@@ -274,54 +263,61 @@ export default function ContractorHelpHub() {
                 })}
             </div>
 
-            {/* Corporate Emergency Contact */}
-            <div className="bg-slate-900 rounded-[3.5rem] p-12 text-white relative overflow-hidden group shadow-2xl shadow-slate-300">
-                <div className="absolute top-0 right-0 w-96 h-96 bg-blue-500/10 rounded-full blur-[100px] -mr-48 -mt-48 transition-all duration-1000 group-hover:scale-150"></div>
-                <div className="absolute bottom-0 left-0 w-64 h-64 bg-purple-500/10 rounded-full blur-[80px] -ml-32 -mb-32"></div>
-
-                <div className="relative z-10 flex flex-col lg:flex-row items-center gap-12 text-center lg:text-left">
-                    <div className="flex-1 space-y-4">
-                        <h3 className="text-4xl font-black italic tracking-tighter uppercase">Protocol Failure?</h3>
-                        <p className="text-slate-400 font-bold uppercase text-[10px] tracking-[0.3em] max-w-xl">Our Institutional Elite Support units are active and awaiting transmission for high-priority escalations.</p>
-                    </div>
-                    <div className="flex flex-col sm:flex-row gap-6">
-                        <Link
-                            href="/contractor/disputes"
-                            className="px-10 py-5 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-black text-[10px] uppercase tracking-[0.2em] rounded-2xl flex items-center justify-center gap-3 transition-all active:scale-95 backdrop-blur-md"
-                        >
-                            <Scale size={18} /> Initialize Mediation
-                        </Link>
-                        <a
-                            href="tel:1900xxxx"
-                            className="px-10 py-5 bg-blue-600 text-white font-black text-[10px] uppercase tracking-[0.2em] rounded-2xl hover:bg-blue-700 transition-all flex items-center justify-center gap-3 shadow-2xl shadow-blue-500/20 active:scale-95"
-                        >
-                            <AlertCircle size={18} /> Direct Tactical Link
-                        </a>
-                    </div>
+            {/* Contact Support Channels */}
+            <div className="space-y-8">
+                <div className="flex items-center gap-4">
+                    <div className="w-10 h-1 bg-blue-600 rounded-full"></div>
+                    <h2 className="text-[11px] font-bold text-slate-400 uppercase tracking-[0.3em]">Kết nối hỗ trợ trực tiếp</h2>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    {[
+                        { icon: MessageSquare, label: 'Chat trực tuyến', desc: 'Kết nối ngay với chuyên viên hỗ trợ', action: 'Bắt đầu chat', color: 'bg-blue-600', href: '#' },
+                        { icon: Phone, label: 'Hotline 24/7', desc: 'Hỗ trợ khẩn cấp qua số điện thoại', action: '1900 xxxx', color: 'bg-slate-900', href: 'tel:1900xxxx' }
+                    ].map((channel, i) => (
+                        <div key={i} className="bg-white p-8 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-all flex items-center gap-6 group">
+                            <div className={`w-16 h-16 ${channel.color} text-white rounded-xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform`}>
+                                <channel.icon size={28} />
+                            </div>
+                            <div className="flex-1 space-y-1">
+                                <h3 className="text-lg font-bold text-slate-900">{channel.label}</h3>
+                                <p className="text-xs font-semibold text-slate-500 italic">{channel.desc}</p>
+                            </div>
+                            {channel.href.startsWith('tel') ? (
+                                <a href={channel.href} className={`px-6 py-2.5 rounded-xl text-xs font-bold text-white transition-all active:scale-95 ${channel.color}`}>
+                                    {channel.action}
+                                </a>
+                            ) : (
+                                <button onClick={() => setShowChat(true)} className={`px-6 py-2.5 rounded-xl text-xs font-bold text-white transition-all active:scale-95 ${channel.color}`}>
+                                    {channel.action}
+                                </button>
+                            )}
+                        </div>
+                    ))}
                 </div>
             </div>
 
-            {/* AI Assistant Widget - Standardized Placement */}
+            {/* AI Assistant Widget */}
             {!showChat ? (
                 <button
                     onClick={() => setShowChat(true)}
-                    className="fixed bottom-10 right-10 z-[100] w-20 h-20 bg-slate-900 text-white rounded-[2rem] shadow-2xl shadow-slate-400 hover:bg-black hover:scale-110 transition-all flex items-center justify-center group border-2 border-white/20"
+                    className="fixed bottom-8 right-8 z-[100] w-16 h-16 bg-blue-600 text-white rounded-2xl shadow-xl shadow-blue-500/20 hover:bg-blue-700 hover:scale-110 transition-all flex items-center justify-center group border-2 border-white/20"
                 >
                     <Bot className="w-8 h-8 group-hover:rotate-12 transition-transform" />
-                    <div className="absolute -top-1 -right-1 w-6 h-6 bg-blue-500 rounded-full border-4 border-white animate-bounce shadow-lg shadow-blue-500/50"></div>
+                    <div className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full border-2 border-white animate-pulse shadow-lg"></div>
                 </button>
             ) : (
-                <div className="fixed bottom-10 right-10 z-[100] w-[450px] bg-white rounded-[3.5rem] shadow-[0_50px_100px_rgba(0,0,0,0.15)] border border-slate-100 overflow-hidden flex flex-col animate-in slide-in-from-bottom-10 duration-500" style={{ maxHeight: '650px' }}>
-                    <div className="bg-slate-900 p-8 text-white flex items-center justify-between relative overflow-hidden">
-                        <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full blur-3xl"></div>
-                        <div className="flex items-center gap-5 relative z-10">
-                            <div className="w-14 h-14 bg-white/5 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/10 group-hover:scale-110 transition-transform">
-                                <Bot className="w-7 h-7 text-blue-400" />
+                <div className="fixed bottom-8 right-8 z-[100] w-[400px] bg-white rounded-3xl shadow-[0_30px_60px_rgba(0,0,0,0.12)] border border-slate-100 overflow-hidden flex flex-col animate-in slide-in-from-bottom-10 duration-500" style={{ maxHeight: '600px' }}>
+                    <div className="bg-slate-900 p-6 text-white flex items-center justify-between relative overflow-hidden">
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-blue-600/10 rounded-full blur-3xl"></div>
+                        <div className="flex items-center gap-4 relative z-10">
+                            <div className="w-12 h-12 bg-white/5 backdrop-blur-md rounded-xl flex items-center justify-center border border-white/10">
+                                <Bot className="w-6 h-6 text-blue-400" />
                             </div>
                             <div>
-                                <h4 className="text-lg font-black uppercase italic tracking-tighter">AI Core Assistant</h4>
-                                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                                    <Activity className="w-3 h-3 text-emerald-500" /> Protocol Active • V-3.5
+                                <h4 className="text-base font-bold">Hỗ trợ thông minh</h4>
+                                <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                                    <Activity className="w-3 h-3 text-emerald-500" /> System Online • v4.0
                                 </p>
                             </div>
                         </div>
@@ -330,30 +326,30 @@ export default function ContractorHelpHub() {
                         </button>
                     </div>
 
-                    <div className="flex-1 overflow-y-auto p-8 space-y-6 bg-slate-50/30 scrollbar-hide" style={{ height: '400px' }}>
+                    <div className="flex-1 overflow-y-auto p-6 space-y-5 bg-slate-50/30 scrollbar-hide" style={{ height: '350px' }}>
                         {chatMessages.map((msg, i) => (
                             <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                                <div className={`max-w-[85%] rounded-[2rem] p-6 shadow-sm border ${msg.role === 'user' 
-                                    ? 'bg-slate-900 text-white rounded-br-none border-slate-800' 
+                                <div className={`max-w-[85%] rounded-2xl p-4 shadow-sm border ${msg.role === 'user' 
+                                    ? 'bg-blue-600 text-white rounded-br-none border-blue-500' 
                                     : 'bg-white text-slate-800 rounded-bl-none border-slate-100'
                                 }`}>
-                                    <div className="flex items-center gap-3 mb-3">
+                                    <div className="flex items-center gap-3 mb-2">
                                         {msg.role === 'assistant' ? (
-                                            <Sparkles className="w-3.5 h-3.5 text-blue-500" />
+                                            <Sparkles className="w-3 h-3 text-blue-500" />
                                         ) : (
-                                            <User className="w-3.5 h-3.5 text-slate-400" />
+                                            <User className="w-3 h-3 text-slate-300" />
                                         )}
-                                        <span className={`text-[10px] font-black uppercase tracking-widest ${msg.role === 'user' ? 'text-slate-500' : 'text-slate-400'}`}>
-                                            {msg.role === 'user' ? 'Operator' : 'AI Core'}
+                                        <span className={`text-[9px] font-bold uppercase tracking-wider ${msg.role === 'user' ? 'text-blue-100' : 'text-slate-400'}`}>
+                                            {msg.role === 'user' ? 'Bạn' : 'SmartBuild AI'}
                                         </span>
                                     </div>
-                                    <p className="text-xs font-bold leading-relaxed italic whitespace-pre-wrap">{msg.content}</p>
+                                    <p className="text-xs font-semibold leading-relaxed whitespace-pre-wrap">{msg.content}</p>
                                 </div>
                             </div>
                         ))}
                         {chatLoading && (
                             <div className="flex justify-start">
-                                <div className="bg-white border border-slate-100 rounded-[2rem] rounded-bl-none p-6 shadow-sm flex items-center gap-4">
+                                <div className="bg-white border border-slate-100 rounded-2xl rounded-bl-none p-6 shadow-sm flex items-center gap-4">
                                     <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
                                     <span className="text-[10px] font-black uppercase tracking-widest text-slate-300">Processing Knowledge...</span>
                                 </div>
@@ -361,33 +357,33 @@ export default function ContractorHelpHub() {
                         )}
                     </div>
 
-                    <div className="p-8 bg-white border-t border-slate-50 space-y-6">
-                        <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
-                            {['Limit Audit', 'Disbursement', 'Commissions', 'Risk mitigation'].map(q => (
+                    <div className="p-6 bg-white border-t border-slate-100 space-y-4">
+                        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+                            {['Nâng hạn mức', 'Giải ngân Escrow', 'Hoa hồng', 'Bảo hiểm công trình'].map(q => (
                                 <button
                                     key={q}
                                     onClick={() => { setChatInput(q); }}
-                                    className="px-5 py-2.5 bg-slate-50 text-slate-400 hover:bg-slate-900 hover:text-white rounded-full text-[9px] font-black uppercase tracking-widest whitespace-nowrap transition-all border border-slate-100"
+                                    className="px-4 py-1.5 bg-slate-50 text-slate-500 hover:bg-blue-600 hover:text-white rounded-full text-[10px] font-bold transition-all border border-slate-100 whitespace-nowrap"
                                 >
                                     {q}
                                 </button>
                             ))}
                         </div>
-                        <div className="flex gap-4">
+                        <div className="flex gap-3">
                             <input
                                 type="text"
-                                placeholder="Present query to AI core..."
+                                placeholder="Nhập câu hỏi của bạn..."
                                 value={chatInput}
                                 onChange={(e) => setChatInput(e.target.value)}
                                 onKeyDown={(e) => e.key === 'Enter' && handleAIChat()}
-                                className="flex-1 px-8 py-5 bg-slate-50 border-none rounded-[1.5rem] text-sm font-bold italic focus:ring-4 focus:ring-blue-500/10 outline-none"
+                                className="flex-1 px-5 py-3 bg-slate-50 border-none rounded-xl text-xs font-bold focus:ring-2 focus:ring-blue-600/10 outline-none"
                             />
                             <button
                                 onClick={handleAIChat}
                                 disabled={chatLoading || !chatInput.trim()}
-                                className="w-16 h-16 bg-blue-600 text-white rounded-[1.5rem] disabled:opacity-30 hover:bg-blue-700 transition-all flex items-center justify-center active:scale-90"
+                                className="w-12 h-12 bg-blue-600 text-white rounded-xl disabled:opacity-30 hover:bg-blue-700 transition-all flex items-center justify-center active:scale-90"
                             >
-                                <Send className="w-6 h-6" />
+                                <Send className="w-5 h-5" />
                             </button>
                         </div>
                     </div>

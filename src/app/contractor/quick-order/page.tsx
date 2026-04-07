@@ -11,7 +11,13 @@ import ProductGrid from './components/ProductGrid'
 import CartPanel from './components/CartPanel'
 import SuccessModal from './components/SuccessModal'
 import OrderHistoryModal from './components/OrderHistoryModal'
-import { LayoutGrid, ShoppingCart, Zap, Layers, Cpu, Activity, ArrowLeft } from 'lucide-react'
+import { 
+    LayoutGrid, ShoppingCart, Plus, Minus, X, Trash2,
+    Zap, Package, Truck, ChevronDown, ChevronUp,
+    CreditCard, History, Calendar, FileText,
+    Building2, Loader2, MapPin, Info, Gift,
+    Pause, Save, Banknote, Layers, Cpu, Activity, ArrowLeft
+} from 'lucide-react'
 
 const formatCurrency = (val: number) =>
     new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val)
@@ -63,6 +69,7 @@ export default function QuickOrderPage() {
     const [successOrder, setSuccessOrder] = useState<SuccessOrderData | null>(null)
     const [isHistoryOpen, setIsHistoryOpen] = useState(false)
     const [recentOrders, setRecentOrders] = useState<any[]>([])
+    const [drafts, setDrafts] = useState<any[]>([])
 
     // Debounce search
     useEffect(() => {
@@ -127,6 +134,9 @@ export default function QuickOrderPage() {
         try {
             const saved = localStorage.getItem(CART_STORAGE_KEY)
             if (saved) setCart(JSON.parse(saved))
+            
+            const savedDrafts = localStorage.getItem('contractor-order-drafts')
+            if (savedDrafts) setDrafts(JSON.parse(savedDrafts))
         } catch { }
     }, [])
 
@@ -211,10 +221,12 @@ export default function QuickOrderPage() {
             const data = await response.json()
             if (data.success && data.data) {
                 setEvaluatedCart(data.data)
+                return data.data
             }
         } catch {} finally {
             setEvaluating(false)
         }
+        return null
     }
 
     const calculateShipping = async (lat: number, lng: number) => {
@@ -320,7 +332,7 @@ export default function QuickOrderPage() {
     const cartQuantities: Record<string, number> = {}
     cart.forEach(item => { cartQuantities[item.product.id] = item.quantity })
 
-    const handleCheckout = async () => {
+    const handleCheckout = async (paymentMethod: 'CREDIT' | 'TRANSFER' = 'CREDIT') => {
         if (cart.length === 0) {
             toast.error('Giỏ hàng trống: Vui lòng thêm sản phẩm trước khi thanh toán.')
             return
@@ -334,7 +346,8 @@ export default function QuickOrderPage() {
             return
         }
         setIsProcessing(true)
-        const toastId = toast.loading('Đang khởi tạo đơn hàng B2B...')
+        const toastId = toast.loading('Đang khởi tạo đơn hàng...')
+
         try {
             const shippingFee = shippingCalc?.finalFee ?? 0
             const response = await fetchWithAuth('/api/contractors/orders', {
@@ -346,6 +359,7 @@ export default function QuickOrderPage() {
                     poNumber,
                     shippingFee,
                     deliveryDate: deliveryDate || undefined,
+                    paymentMethod: paymentMethod === 'TRANSFER' ? 'BANK_TRANSFER' : 'CREDIT',
                     shippingDistance: shippingCalc?.distanceKm || undefined,
                     notes: [notes, deliveryDate ? `Giao ngày: ${deliveryDate}` : '', shippingCalc ? `VC: ${shippingCalc.distanceKm}km / ${formatCurrency(shippingFee)}` : ''].filter(Boolean).join(' | ') || undefined
                 })
@@ -359,7 +373,29 @@ export default function QuickOrderPage() {
                 const subtotal = evaluatedCart?.summary?.totalOriginal ?? cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0)
                 const discountTotal = evaluatedCart?.summary?.totalDiscount ?? 0
                 const total = (evaluatedCart?.summary?.totalPrice ?? cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0)) + shippingFee
-                setSuccessOrder({ id: order?.id || 'N/A', orderNumber, projectName: projectName || selectedProject?.title || '', items: cart.map(item => { const evaluated = evaluatedCart?.items?.find(i => i.productId === item.product.id); return { name: item.product.name, quantity: item.quantity, unitPrice: item.product.price, effectivePrice: evaluated?.effectivePrice ?? item.product.price, total: evaluated?.totalPrice ?? (item.product.price * item.quantity) } }), subtotal, discountTotal, shippingFee, total, createdAt: new Date().toISOString() })
+                
+                setSuccessOrder({ 
+                    id: order?.id || 'N/A', 
+                    orderNumber, 
+                    projectName: projectName || selectedProject?.title || '', 
+                    items: cart.map(item => { 
+                        const evaluated = evaluatedCart?.items?.find(i => i.productId === item.product.id); 
+                        return { 
+                            name: item.product.name, 
+                            quantity: item.quantity, 
+                            unitPrice: item.product.price, 
+                            effectivePrice: evaluated?.effectivePrice ?? item.product.price, 
+                            total: evaluated?.totalPrice ?? (item.product.price * item.quantity) 
+                        } 
+                    }), 
+                    subtotal, 
+                    discountTotal, 
+                    shippingFee, 
+                    total, 
+                    paymentMethod,
+                    createdAt: new Date().toISOString() 
+                })
+                
                 clearCart(); setProjectName(''); setPoNumber(''); setNotes(''); setDeliveryDate(''); setSelectedProject(null); setShippingCalc(null)
             } else {
                 toast.error(data.error?.message || data.message || 'Lỗi đặt hàng: Vui lòng kiểm tra lại.', { id: toastId, duration: 5000 })
@@ -371,70 +407,117 @@ export default function QuickOrderPage() {
         }
     }
 
+    const handleSaveDraft = () => {
+        if (cart.length === 0) return
+        const label = selectedProject?.title || projectName || `Đơn nháp #${drafts.length + 1}`
+        const newDraft = {
+            id: Date.now().toString(),
+            label,
+            cart: [...cart],
+            selectedProject,
+            projectName,
+            poNumber,
+            notes,
+            deliveryDate,
+            savedAt: new Date().toISOString()
+        }
+        const updated = [newDraft, ...drafts]
+        setDrafts(updated)
+        localStorage.setItem('contractor-order-drafts', JSON.stringify(updated))
+        toast.success(`Đã lưu nháp: ${label}`)
+    }
+
+    const handleLoadDraft = (draft: any) => {
+        setCart(draft.cart)
+        if (draft.selectedProject) setSelectedProject(draft.selectedProject)
+        if (draft.projectName) setProjectName(draft.projectName)
+        if (draft.poNumber) setPoNumber(draft.poNumber)
+        if (draft.notes) setNotes(draft.notes)
+        if (draft.deliveryDate) setDeliveryDate(draft.deliveryDate)
+        toast.success(`Đã mở bản nháp: ${draft.label}`)
+    }
+
+    const handleDeleteDraft = (id: string) => {
+        const updated = drafts.filter(d => d.id !== id)
+        setDrafts(updated)
+        localStorage.setItem('contractor-order-drafts', JSON.stringify(updated))
+    }
+
     return (
-        <div className="flex flex-col h-full bg-slate-50/50 rounded-[3.5rem] border border-slate-100 overflow-hidden shadow-2xl animate-in fade-in duration-1000">
+        <div className="flex flex-col h-[calc(100vh-140px)] bg-white rounded-[2rem] border border-slate-100 overflow-hidden shadow-2xl animate-in fade-in duration-1000">
             <Toaster position="top-right" />
             
-            {/* POS Control Bar */}
-            <div className="bg-indigo-600 px-10 py-8 text-white flex items-center justify-between relative overflow-hidden flex-shrink-0 shadow-xl z-20">
-                <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl"></div>
-                <div className="relative z-10 flex items-center gap-7">
+            {/* 1. POS Control Bar (STICKY TOP) */}
+            <div className="bg-indigo-600 px-8 py-4 text-white flex items-center justify-between relative overflow-hidden shrink-0 shadow-lg z-20">
+                <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl opacity-50"></div>
+                <div className="relative z-10 flex items-center gap-5">
                     <button 
                         onClick={() => router.back()}
-                        className="w-12 h-12 bg-white/10 hover:bg-white/20 rounded-2xl flex items-center justify-center transition-all border border-white/10 active:scale-95"
+                        className="p-2.5 bg-white/10 hover:bg-white/20 rounded-xl transition-all active:scale-95"
                     >
-                        <ArrowLeft className="w-6 h-6" />
+                        <ArrowLeft className="w-5 h-5" />
                     </button>
-                    <div className="space-y-1">
-                        <h1 className="text-2xl font-black uppercase italic tracking-tighter leading-none">Trung tâm mua sắm vật tư</h1>
-                        <p className="text-[10px] font-black text-blue-200 uppercase tracking-widest flex items-center gap-3">
-                            <Activity className="w-3 h-3 text-emerald-400" /> Hệ thống POS B2B đang hoạt động • Bảo mật 100%
+                    <div>
+                        <h1 className="text-lg font-black tracking-tighter leading-none flex items-center gap-2">
+                            TRUNG TÂM MUA SẮM VẬT TƯ
+                            <Activity className="w-4 h-4 text-emerald-400 animate-pulse" />
+                        </h1>
+                        <p className="text-[9px] text-indigo-100 font-bold uppercase tracking-[0.2em] opacity-80 mt-1">
+                            Hệ thống POS B2B trực tuyến • Bảo mật 100%
                         </p>
                     </div>
                 </div>
-                <div className="relative z-10 flex items-center gap-6">
-                    <div className="text-right mr-4">
-                        <p className="text-[9px] font-black uppercase tracking-[0.2em] text-blue-200 opacity-80">Hạn mức khả dụng</p>
-                        <p className="text-2xl font-black italic tracking-tighter text-emerald-300 tabular-nums">{formatCurrency(availableCredit)}</p>
+
+                <div className="relative z-10 flex items-center gap-4">
+                    <div className="hidden xl:flex flex-col items-end mr-4">
+                        <span className="text-[9px] font-black uppercase text-indigo-200 tracking-widest leading-none mb-1">Hạn mức khả dụng</span>
+                        <span className="text-xl font-black text-emerald-400 leading-none tabular-nums">
+                            {formatCurrency(availableCredit)}
+                        </span>
                     </div>
-                    <button onClick={fetchHistory} className="px-8 py-4 bg-white text-indigo-600 hover:bg-slate-50 rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest transition-all shadow-xl shadow-black/20 italic active:scale-95">
-                        Lịch sử đơn hàng
+
+                    <button 
+                        onClick={fetchHistory}
+                        className="px-5 py-2.5 bg-white text-indigo-600 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-indigo-50 transition-all shadow-md active:scale-95"
+                    >
+                        Lịch sử
                     </button>
-                    <button onClick={() => router.back()} className="px-8 py-4 bg-white/10 hover:bg-white/20 rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest transition-all border border-white/10 italic">
-                        Thoát hệ thống
+                    <button 
+                        onClick={() => router.push('/contractor')}
+                        className="px-5 py-2.5 bg-indigo-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-indigo-400 transition-all active:scale-95 border border-indigo-400/50"
+                    >
+                        Thoát
                     </button>
                 </div>
             </div>
 
-            <div className="flex flex-1 overflow-hidden">
-                {/* Left: Product Grid */}
-                <div className="flex-1 overflow-hidden p-6 lg:p-10 bg-white rounded-br-[4rem] relative">
-                    <ProductGrid
-                        products={products}
-                        loading={loading}
-                        searchQuery={searchQuery}
-                        onSearchChange={setSearchQuery}
-                        categories={categories}
-                        selectedCategory={selectedCategory}
-                        onCategoryChange={setSelectedCategory}
-                        onAddToCart={addToCart}
-                        hasMore={hasMore}
-                        onLoadMore={() => setPage(p => p + 1)}
-                        cartQuantities={cartQuantities}
-                    />
+            {/* 2. Main Interface Area (FLEX-1 MIN-H-0) */}
+            <div className="flex-1 flex min-h-0 overflow-hidden bg-slate-50/30">
+                {/* Left: Product Selection */}
+                <div className="flex-[1.8] flex flex-col min-h-0 overflow-hidden p-4 lg:p-6">
+                    <div className="flex-1 flex flex-col min-h-0 bg-white rounded-[24px] shadow-sm border border-slate-100 overflow-hidden">
+                        <ProductGrid
+                            products={products}
+                            loading={loading}
+                            searchQuery={searchQuery}
+                            onSearchChange={setSearchQuery}
+                            categories={categories}
+                            selectedCategory={selectedCategory}
+                            onCategoryChange={setSelectedCategory}
+                            onAddToCart={addToCart}
+                            hasMore={hasMore}
+                            onLoadMore={() => setPage(p => p + 1)}
+                            cartQuantities={cartQuantities}
+                        />
+                    </div>
                 </div>
 
-                {/* Right: Cart + Checkout */}
-                <div className="w-[480px] bg-slate-50/80 border-l border-slate-100 p-6 lg:p-10 overflow-y-auto scrollbar-hide flex flex-col shadow-2xl z-10">
+                {/* Right: Cart + Checkout (STICKY SIDEBAR) */}
+                <div className="w-full lg:w-[480px] flex-shrink-0 flex flex-col min-h-0 border-l border-slate-100">
                     <CartPanel
                         cart={cart}
                         evaluatedCart={evaluatedCart}
                         evaluating={evaluating}
-                        onUpdateQuantity={updateQuantity}
-                        onSetQuantity={setQuantity}
-                        onRemoveItem={removeFromCart}
-                        onClearCart={clearCart}
-                        onCheckout={handleCheckout}
                         isProcessing={isProcessing}
                         projectName={projectName}
                         onProjectNameChange={setProjectName}
@@ -442,16 +525,25 @@ export default function QuickOrderPage() {
                         onPoNumberChange={setPoNumber}
                         notes={notes}
                         onNotesChange={setNotes}
+                        deliveryDate={deliveryDate}
+                        onDeliveryDateChange={setDeliveryDate}
+                        onRemoveItem={removeFromCart}
+                        onUpdateQuantity={updateQuantity}
+                        onSetQuantity={(id, qty) => setCart(prev => prev.map(item => item.product.id === id ? { ...item, quantity: qty } : item))}
+                        onClearCart={clearCart}
+                        onCheckout={handleCheckout}
                         projects={projects}
                         selectedProject={selectedProject}
                         onSelectProject={setSelectedProject}
                         shippingCalc={shippingCalc}
                         shippingLoading={shippingLoading}
-                        deliveryDate={deliveryDate}
-                        onDeliveryDateChange={setDeliveryDate}
                         creditLimit={creditLimit}
                         availableCredit={availableCredit}
                         onOpenHistory={fetchHistory}
+                        onSaveDraft={handleSaveDraft}
+                        onLoadDraft={handleLoadDraft}
+                        drafts={drafts}
+                        onDeleteDraft={handleDeleteDraft}
                     />
                 </div>
             </div>

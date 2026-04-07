@@ -50,6 +50,7 @@ export interface SuccessOrderData {
     discountTotal: number
     shippingFee: number
     total: number
+    paymentMethod?: string
     createdAt: string
 }
 

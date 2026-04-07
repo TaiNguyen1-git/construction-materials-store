@@ -56,7 +56,7 @@ export async function GET(
         const quotes = await (prisma as any).quoteRequest.findMany({
             where: {
                 projectId: id,
-                status: 'APPROVED'
+                status: 'ACCEPTED'
             },
             include: {
                 milestones: true
@@ -70,19 +70,30 @@ export async function GET(
         // Build timeline phases
         const phases = buildTimelinePhases(project, quoteMilestones)
 
-        // Mock AI Summary if requested
-        let aiSummary = ""
-        if (includeAI) {
-            aiSummary = `Dự án "${project.title || project.name}" hiện đang đạt tiến độ khoảng 65%. Các hạng mục thô đã hoàn thành 90%, đang chuyển sang giai đoạn hoàn thiện. Tình trạng vật tư ổn định, các báo cáo hàng ngày từ hiện trường cho thấy chất lượng thi công đạt chuẩn.`
-        }
-
-        const workerReports = (project as any).workerReports || []
-        const materialRequests = (project as any).siteMaterialRequests || []
-
         // Calculate overall progress
         const overallProgress = phases.length > 0
             ? Math.round(phases.reduce((sum, p) => sum + p.progress, 0) / phases.length)
             : 0
+
+        // Build a semi-dynamic AI Summary based on real metrics
+        let aiSummary = ""
+        if (includeAI) {
+            const reportCount = (project as any).workerReports?.length || 0;
+            const materialCount = (project as any).siteMaterialRequests?.length || 0;
+            
+            if (overallProgress === 0) {
+                aiSummary = `Dự án "${project.title || project.name}" vừa mới được khởi tạo và đang ở giai đoạn chuẩn bị. Hiện tại chưa ghi nhận báo cáo thi công từ hiện trường. Cần tập trung chuẩn bị vật tư và đội ngũ nhân sự để bắt đầu các giai đoạn đầu tiên.`
+            } else if (overallProgress < 30) {
+                aiSummary = `Dự án "${project.title || project.name}" đã hoàn thành khoảng ${overallProgress}% khối lượng công việc. Các báo cáo gần đây (${reportCount} báo cáo) cho thấy tiến độ đang ở những bước đầu. Tình hình vật tư (${materialCount} yêu cầu) cần được theo dõi sát sao để đảm bảo không gián đoạn.`
+            } else if (overallProgress < 80) {
+                aiSummary = `Dự án "${project.title || project.name}" đang thi công ổn định với tiến độ đạt ${overallProgress}%. Phần thô cơ bản đã vào guồng, đội ngũ thi công đã gửi ${reportCount} báo cáo chi tiết. Chất lượng công trình đang được kiểm soát tốt thông qua các mốc thanh toán đã giải ngân.`
+            } else {
+                aiSummary = `Dự án "${project.title || project.name}" đang đi vào giai đoạn hoàn thiện cuối cùng với tiến độ ấn tượng: ${overallProgress}%. Hầu hết các hạng mục chính đã hoàn tất. Cần rà soát kỹ các chi tiết hoàn thiện để chuẩn bị bàn giao cho chủ đầu tư.`
+            }
+        }
+
+        const workerReports = (project as any).workerReports || []
+        const materialRequests = (project as any).siteMaterialRequests || []
 
         return NextResponse.json({
             success: true,

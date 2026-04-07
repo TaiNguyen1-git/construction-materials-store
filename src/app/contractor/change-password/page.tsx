@@ -96,7 +96,7 @@ export default function ChangePasswordPage() {
                 </div>
 
                 <div className="hidden md:flex items-center gap-3 text-emerald-500 font-black text-[9px] uppercase tracking-widest bg-emerald-50 px-4 py-2 rounded-full border border-emerald-100 italic">
-                    <ShieldCheck size={14} /> Identity Verified: {user?.name || 'Authorized'}
+                    <ShieldCheck size={14} /> Danh tính đã xác thực: {user?.name || 'Hệ thống'}
                 </div>
             </div>
 
@@ -209,7 +209,7 @@ export default function ChangePasswordPage() {
                                     )}
                                     {passwordsMatch && (
                                         <p className="flex items-center gap-3 text-[9px] font-black text-emerald-500 uppercase tracking-[0.2em] ml-4 italic px-4 py-2 bg-emerald-50 w-fit rounded-lg animate-in fade-in slide-in-from-left-2 transition-all">
-                                            <Sparkles size={14} /> Synchronous Success: Verified
+                                            <Sparkles size={14} /> Hệ thống đồng bộ: Đã xác thực
                                         </p>
                                     )}
                                 </div>

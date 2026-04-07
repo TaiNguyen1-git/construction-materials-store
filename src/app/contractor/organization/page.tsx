@@ -4,14 +4,15 @@ import React, { useState, useEffect } from 'react'
 import {
     Users, Building2, Shield,
     ArrowLeft, Plus,
-    Building, Info,
-    Loader2, ChevronRight, Activity, Cpu, Sparkles
+    Info,
+    Loader2, ChevronRight, Activity, Cpu, Sparkles, Save
 } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { fetchWithAuth } from '@/lib/api-client'
 import { toast, Toaster } from 'react-hot-toast'
 import { useAuth } from '@/contexts/auth-context'
+import { Badge } from '@/components/ui/badge'
 
 export default function ContractorOrganizationPage() {
     const { user, isAuthenticated, isLoading: authLoading } = useAuth()
@@ -38,7 +39,7 @@ export default function ContractorOrganizationPage() {
                 setOrganizations(data.data || [])
             }
         } catch (err) {
-            toast.error('Giao thức lỗi: Không thể đồng bộ danh sách tổ chức.')
+            toast.error('Không thể đồng bộ danh sách tổ chức.')
         } finally {
             setLoading(false)
         }
@@ -47,7 +48,7 @@ export default function ContractorOrganizationPage() {
     const handleCreate = async (e: React.FormEvent) => {
         e.preventDefault()
         setSubmitting(true)
-        const toastId = toast.loading('Đang khởi tạo thực thể B2B trên mạng lưới...')
+        const toastId = toast.loading('Đang khởi tạo tổ chức...')
         try {
             const res = await fetchWithAuth('/api/organizations', {
                 method: 'POST',
@@ -55,124 +56,119 @@ export default function ContractorOrganizationPage() {
                 body: JSON.stringify(createData)
             })
             if (res.ok) {
-                toast.success('Đã kích hoạt tổ chức mới thành công!', { id: toastId })
+                toast.success('Đã khởi tạo tổ chức thành công!', { id: toastId })
                 setShowCreateModal(false)
                 setCreateData({ name: '', taxCode: '', address: '' })
                 fetchOrganizations()
             } else {
                 const err = await res.json()
-                toast.error(err.error || 'Lỗi: Tên tổ chức đã tồn tại hoặc không hợp lệ.', { id: toastId })
+                toast.error(err.error || 'Lỗi: Tên tổ chức không hợp lệ.', { id: toastId })
             }
         } catch (err) {
-            toast.error('Lỗi kết nối vệ tinh: Vui lòng thử lại.', { id: toastId })
+            toast.error('Lỗi kết nối: Vui lòng thử lại.', { id: toastId })
         } finally {
             setSubmitting(false)
         }
     }
 
     return (
-        <div className="animate-in fade-in slide-in-from-bottom-8 duration-1000 space-y-12 pb-24 max-w-7xl mx-auto">
+        <div className="space-y-8 pb-20 max-w-7xl mx-auto">
             <Toaster position="top-right" />
             
-            {/* Header / Command Navigation */}
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-10">
-                <div className="space-y-4">
-                    <div className="flex items-center gap-6">
-                        <Link
-                            href="/contractor/dashboard"
-                            className="w-14 h-14 flex items-center justify-center bg-white border border-slate-100 text-slate-400 hover:text-blue-600 rounded-[1.5rem] transition-all shadow-sm active:scale-90 group"
-                        >
-                            <ArrowLeft className="w-6 h-6 group-hover:-translate-x-1 transition-transform" />
-                        </Link>
-                        <h1 className="text-5xl font-black text-slate-900 tracking-tighter uppercase italic flex items-center gap-5 leading-none">
-                            <Building2 className="w-12 h-12 text-blue-600" />
-                            Mạng lưới B2B
-                        </h1>
-                    </div>
-                    <p className="text-slate-400 font-black uppercase text-[10px] tracking-[0.3em] italic ml-20">Thiết lập & Điều hành tổ chức thi công chuyên nghiệp</p>
+            {/* Standard Header */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 px-4 sm:px-0">
+                <div className="space-y-1">
+                    <h1 className="text-3xl font-bold text-slate-900 tracking-tight flex items-center gap-3">
+                        <Building2 className="w-8 h-8 text-primary" />
+                        Tổ chức & Công ty
+                    </h1>
+                    <p className="text-slate-500 text-sm font-medium">Quản lý mạng lưới và phân quyền nhân sự B2B</p>
                 </div>
 
-                <button
-                    onClick={() => setShowCreateModal(true)}
-                    className="px-10 py-6 bg-blue-600 text-white rounded-[2.5rem] font-black text-[10px] uppercase tracking-[0.3em] hover:bg-blue-700 transition-all shadow-2xl shadow-blue-500/30 flex items-center justify-center gap-4 active:scale-95 italic group"
-                >
-                    <Plus size={20} className="group-hover:rotate-180 transition-transform duration-500" /> Khởi tạo Tổ chức
-                </button>
+                <div className="flex items-center gap-3">
+                    <Link
+                        href="/contractor/dashboard"
+                        className="w-10 h-10 flex items-center justify-center bg-white border border-slate-200 text-slate-400 hover:text-primary rounded-xl transition-all shadow-sm active:scale-90"
+                    >
+                        <ArrowLeft className="w-5 h-5" />
+                    </Link>
+                    <button
+                        onClick={() => setShowCreateModal(true)}
+                        className="px-6 py-2.5 bg-primary text-white rounded-xl text-sm font-semibold flex items-center gap-2 hover:opacity-90 transition-all shadow-sm active:scale-95"
+                    >
+                        <Plus size={18} /> Thêm tổ chức
+                    </button>
+                </div>
             </div>
 
-            {/* Strategic Info Module */}
-            <div className="bg-indigo-600 rounded-[3.5rem] p-12 lg:p-14 text-white relative overflow-hidden shadow-2xl shadow-indigo-200 group">
-                <div className="absolute top-0 right-0 w-96 h-96 bg-white/5 rounded-full blur-[100px] -mr-48 -mt-48 transition-all duration-1000 group-hover:scale-125"></div>
-                <div className="relative z-10 flex flex-col md:flex-row items-center gap-12">
-                    <div className="w-24 h-24 bg-white/10 rounded-[2.5rem] flex items-center justify-center border border-white/10 shadow-inner group-hover:rotate-12 transition-transform shadow-blue-500">
-                        <Cpu size={40} className="text-blue-200" />
+            {/* Info Banner */}
+            <div className="bg-indigo-600 rounded-3xl p-8 text-white relative overflow-hidden shadow-xl shadow-indigo-100">
+                <div className="relative z-10 flex flex-col md:flex-row items-center gap-8">
+                    <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center shrink-0">
+                        <Shield size={32} />
                     </div>
-                    <div className="space-y-3 flex-1">
-                        <h4 className="text-[10px] font-black text-blue-300 uppercase tracking-[0.4em] italic mb-1 flex items-center gap-3">
-                            <Activity size={14} className="animate-pulse" /> Vận hành thực thể (Entity Operations)
+                    <div className="space-y-1 flex-1">
+                        <h4 className="text-sm font-bold text-indigo-200 uppercase tracking-wider mb-1 flex items-center gap-2">
+                             Quản trị Pháp nhân
                         </h4>
-                        <p className="text-lg font-bold text-slate-100 italic tracking-tight leading-relaxed">
-                            Kích hoạt vai trò "Nhà thầu Pháp nhân" để quản lý dòng tiền, nhân sự tập trung và tham gia các gói đấu thầu dự án quy mô lớn. 
-                            Mọi đơn hàng từ thành viên sẽ được chuyển đến bạn phê duyệt trước khi kích hoạt thanh toán.
+                        <p className="text-base font-semibold text-white/90 leading-relaxed">
+                            Thiết lập tổ chức để quản lý dòng tiền tập trung, phê duyệt vật tư từ các thành viên trong đội thợ và tham gia đấu thầu các dự án quy mô lớn.
                         </p>
                     </div>
                 </div>
             </div>
 
-            {/* Organizations Grid Marketplace */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+            {/* Organizations Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {loading ? (
-                    Array.from({ length: 4 }).map((_, i) => (
-                        <div key={i} className="bg-white rounded-[3.5rem] p-14 border border-slate-50 h-64 animate-pulse shadow-sm"></div>
+                    Array.from({ length: 2 }).map((_, i) => (
+                        <div key={i} className="bg-white rounded-2xl p-8 border border-slate-50 h-56 animate-pulse shadow-sm"></div>
                     ))
                 ) : organizations.length > 0 ? (
                     organizations.map((org) => (
-                        <div key={org.id} className="bg-white rounded-[4rem] p-12 lg:p-14 border border-slate-50 shadow-2xl shadow-slate-200/40 group overflow-hidden relative transition-all hover:scale-[1.02]">
-                            {/* Role Stripe */}
-                            <div className="absolute top-0 left-0 w-3 h-full bg-blue-600"></div>
-                            
-                            <div className="relative z-10 space-y-12">
-                                <div className="flex items-center gap-8">
-                                    <div className="w-24 h-24 bg-slate-50 rounded-[2.5rem] flex items-center justify-center text-blue-600 border border-slate-100 font-black text-4xl italic shadow-inner group-hover:shadow-2xl group-hover:shadow-blue-100 transition-all">
+                        <div key={org.id} className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm hover:shadow-md transition-all group overflow-hidden">
+                            <div className="space-y-6">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-16 h-16 bg-slate-50 rounded-xl flex items-center justify-center text-primary border border-slate-100 font-bold text-2xl group-hover:bg-primary group-hover:text-white transition-all">
                                         {org.name.charAt(0).toUpperCase()}
                                     </div>
-                                    <div className="space-y-2">
-                                        <h3 className="text-3xl font-black text-slate-900 tracking-tighter uppercase italic">{org.name}</h3>
-                                        <div className="flex items-center gap-4">
-                                            <span className={`px-5 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest italic border ${org.userRole === 'OWNER' ? 'bg-indigo-600 text-white border-indigo-600 shadow-xl shadow-indigo-100' :
-                                                org.userRole === 'ADMIN' ? 'bg-blue-600 text-white border-blue-600 shadow-xl shadow-blue-100' :
-                                                    'bg-slate-100 text-slate-400 border-slate-200'
+                                    <div className="space-y-1">
+                                        <h3 className="text-xl font-bold text-slate-900 line-clamp-1">{org.name}</h3>
+                                        <div className="flex items-center gap-3">
+                                            <Badge className={`px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border shadow-none ${org.userRole === 'OWNER' ? 'bg-indigo-600/10 text-indigo-600 border-indigo-200' :
+                                                org.userRole === 'ADMIN' ? 'bg-blue-600/10 text-blue-600 border-blue-200' :
+                                                    'bg-slate-100 text-slate-500 border-slate-200'
                                                 }`}>
                                                 {org.userRole === 'OWNER' ? 'Chủ sở hữu' : org.userRole === 'ADMIN' ? 'Quản trị viên' : 'Thành viên'}
-                                            </span>
-                                            <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest italic flex items-center gap-2">
-                                                <Users size={14} className="text-blue-500" />
+                                            </Badge>
+                                            <span className="text-[11px] text-slate-400 font-bold flex items-center gap-1.5">
+                                                <Users size={14} className="text-primary/60" />
                                                 {org.memberCount} Thành viên
                                             </span>
                                         </div>
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-10 border-t border-slate-50">
-                                    <div className="space-y-1">
-                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest italic leading-none">Mã số thuế</p>
-                                        <p className="font-black text-slate-900 italic tracking-tight">{org.taxCode || 'CHƯA XÁC THỰC'}</p>
+                                <div className="grid grid-cols-2 gap-4 pt-4 border-t border-slate-50">
+                                    <div className="space-y-0.5">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Mã số thuế</p>
+                                        <p className="text-sm font-bold text-slate-700">{org.taxCode || 'Chưa cập nhật'}</p>
                                     </div>
-                                    <div className="space-y-1">
-                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest italic leading-none">Trụ sở chính</p>
-                                        <p className="font-black text-slate-900 italic tracking-tight truncate">{org.address || 'Liên hệ để cập nhật'}</p>
+                                    <div className="space-y-0.5">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Trụ sở</p>
+                                        <p className="text-sm font-bold text-slate-700 truncate">{org.address || 'Hồ Chí Minh'}</p>
                                     </div>
                                 </div>
 
-                                <div className="flex flex-col sm:flex-row gap-5">
+                                <div className="flex flex-col sm:flex-row gap-3 pt-2">
                                     <Link href={`/contractor/organization/${org.id}`} className="flex-1">
-                                        <button className="w-full bg-blue-600 text-white py-6 rounded-[2rem] font-black text-[10px] uppercase tracking-widest hover:bg-blue-700 transition-all shadow-xl shadow-blue-500/20 active:scale-95 flex items-center justify-center gap-3 italic">
-                                            <Users size={18} /> Nhân sự & Phân quyền
+                                        <button className="w-full bg-slate-900 text-white py-3 rounded-xl font-bold text-xs uppercase tracking-wider hover:opacity-90 transition-all flex items-center justify-center gap-2">
+                                            <Users size={16} /> Nhân sự
                                         </button>
                                     </Link>
                                     <Link href={`/contractor/organization/${org.id}/approvals`} className="flex-1">
-                                        <button className="w-full bg-white border border-slate-100 text-slate-900 py-6 rounded-[2rem] font-black text-[10px] uppercase tracking-widest hover:bg-slate-50 transition-all active:scale-95 flex items-center justify-center gap-3 italic shadow-sm">
-                                            <Shield size={18} className="text-indigo-600" /> Duyệt Vật tư
+                                        <button className="w-full bg-white border border-slate-200 text-slate-700 py-3 rounded-xl font-bold text-xs uppercase tracking-wider hover:bg-slate-50 transition-all flex items-center justify-center gap-2">
+                                            <Shield size={16} className="text-indigo-600" /> Duyệt Vật tư
                                         </button>
                                     </Link>
                                 </div>
@@ -180,86 +176,84 @@ export default function ContractorOrganizationPage() {
                         </div>
                     ))
                 ) : (
-                    <div className="col-span-full py-40 bg-white rounded-[4rem] border-4 border-dashed border-slate-50 flex flex-col items-center justify-center text-center space-y-10 group cursor-pointer hover:border-blue-200 hover:bg-blue-50/20 transition-all duration-700">
-                        <div className="w-32 h-32 bg-slate-50 rounded-[3.5rem] flex items-center justify-center text-slate-200 group-hover:rotate-12 group-hover:scale-110 transition-all duration-700 shadow-inner">
-                            <Building size={64} />
+                    <div className="col-span-full py-32 bg-white rounded-3xl border border-dashed border-slate-200 flex flex-col items-center justify-center text-center space-y-6">
+                        <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center text-slate-300">
+                            <Building size={40} />
                         </div>
-                        <div className="space-y-4">
-                            <h3 className="text-3xl font-black text-slate-900 uppercase italic tracking-tighter">Hệ thống chưa ghi nhận Tổ chức</h3>
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] italic max-w-lg mx-auto">Vui lòng khởi tạo một thực thể B2B để bắt đầu mô hình quản lý nhân sự chuyên nghiệp.</p>
+                        <div className="space-y-1">
+                            <h3 className="text-xl font-bold text-slate-900">Chưa có tổ chức nào</h3>
+                            <p className="text-sm text-slate-400 font-medium">Khởi tạo tổ chức để vận hành đội nhóm chuyên nghiệp hơn.</p>
                         </div>
                         <button
                             onClick={() => setShowCreateModal(true)}
-                            className="bg-blue-600 text-white px-12 py-7 rounded-[2.5rem] font-black text-[10px] uppercase tracking-[0.3em] hover:bg-blue-700 shadow-2xl shadow-blue-500/30 transition-all active:scale-95 italic flex items-center gap-4"
+                            className="bg-primary text-white px-8 py-3 rounded-xl font-bold text-sm shadow-md hover:opacity-90 transition-all active:scale-95"
                         >
-                            <Sparkles size={20} /> Thiết lập B2B ngay
+                            Thiết lập Tổ chức ngay
                         </button>
                     </div>
                 )}
             </div>
 
-            {/* Create Entity Shard Modal */}
+            {/* Create Modal */}
             {showCreateModal && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
-                    <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-xl animate-in fade-in duration-500" onClick={() => !submitting && setShowCreateModal(false)} />
-                    <div className="relative bg-white w-full max-w-xl rounded-[4rem] shadow-2xl overflow-hidden border border-slate-100 animate-in zoom-in-95 duration-500">
-                        <div className="p-14 bg-blue-600 text-white relative">
-                            <div className="absolute top-0 right-0 w-48 h-48 bg-white/10 rounded-full -mr-24 -mt-24"></div>
-                            <h3 className="text-4xl font-black tracking-tighter uppercase italic mb-2">Khởi tạo Thực thể</h3>
-                            <p className="text-blue-100 font-black uppercase text-[10px] tracking-[0.2em] italic opacity-80">Thiết lập cấu trúc vận hành cho doanh nghiệp thầu</p>
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm animate-in fade-in" onClick={() => !submitting && setShowCreateModal(false)} />
+                    <div className="relative bg-white w-full max-w-lg rounded-2xl shadow-xl overflow-hidden animate-in zoom-in-95">
+                        <div className="p-6 bg-slate-900 text-white">
+                            <h3 className="text-xl font-bold uppercase tracking-tight">Thêm Tổ chức mới</h3>
                         </div>
 
-                        <form onSubmit={handleCreate} className="p-14 space-y-10 group/form">
-                            <div className="space-y-8">
-                                <div className="space-y-3">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic ml-4 leading-none">Danh xưng Tổ chức (Tên công ty/đội)</label>
+                        <form onSubmit={handleCreate} className="p-6 space-y-6">
+                            <div className="space-y-4">
+                                <div className="space-y-1.5">
+                                    <label className="text-xs font-bold text-slate-400 uppercase tracking-wider px-1">Tên Tổ chức / Công ty</label>
                                     <input
                                         type="text"
                                         required
                                         value={createData.name}
                                         onChange={e => setCreateData({ ...createData, name: e.target.value })}
                                         placeholder="Vd: Công ty Xây Dựng Số 1"
-                                        className="w-full px-10 py-6 bg-slate-50 border-none rounded-[2rem] text-sm font-black italic uppercase outline-none focus:ring-4 focus:ring-blue-500/10 focus:bg-white transition-all placeholder:text-slate-200"
+                                        className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-semibold outline-none focus:ring-2 focus:ring-primary/10 focus:bg-white transition-all"
                                     />
                                 </div>
-                                <div className="space-y-3">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic ml-4 leading-none">Mã số thuế (Tùy chọn)</label>
+                                <div className="space-y-1.5">
+                                    <label className="text-xs font-bold text-slate-400 uppercase tracking-wider px-1">Mã số thuế</label>
                                     <input
                                         type="text"
                                         value={createData.taxCode}
                                         onChange={e => setCreateData({ ...createData, taxCode: e.target.value })}
                                         placeholder="010xxxxxxx"
-                                        className="w-full px-10 py-6 bg-slate-50 border-none rounded-[2rem] text-sm font-black tabular-nums italic outline-none focus:ring-4 focus:ring-blue-500/10 focus:bg-white transition-all placeholder:text-slate-200"
+                                        className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-semibold outline-none focus:ring-2 focus:ring-primary/10 focus:bg-white transition-all"
                                     />
                                 </div>
-                                <div className="space-y-3">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic ml-4 leading-none">Địa chỉ kinh doanh tập trung</label>
+                                <div className="space-y-1.5">
+                                    <label className="text-xs font-bold text-slate-400 uppercase tracking-wider px-1">Địa chỉ trụ sở</label>
                                     <input
                                         type="text"
                                         value={createData.address}
                                         onChange={e => setCreateData({ ...createData, address: e.target.value })}
                                         placeholder="Vd: Số 123 Đường Láng, Hà Nội"
-                                        className="w-full px-10 py-6 bg-slate-50 border-none rounded-[2rem] text-sm font-black italic outline-none focus:ring-4 focus:ring-blue-500/10 focus:bg-white transition-all placeholder:text-slate-200"
+                                        className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-semibold outline-none focus:ring-2 focus:ring-primary/10 focus:bg-white transition-all"
                                     />
                                 </div>
                             </div>
 
-                            <div className="flex flex-col sm:flex-row gap-5 pt-4">
+                            <div className="flex gap-3 pt-2">
                                 <button
                                     type="button"
                                     disabled={submitting}
                                     onClick={() => setShowCreateModal(false)}
-                                    className="flex-1 py-10 bg-slate-50 text-slate-400 font-black rounded-[2.5rem] hover:bg-slate-100 transition-all text-[11px] uppercase tracking-[0.3em] italic active:scale-95"
+                                    className="flex-1 py-3 bg-slate-100 text-slate-500 font-bold rounded-xl text-xs uppercase tracking-wider hover:bg-slate-200 transition-all"
                                 >
-                                    Hủy bỏ
+                                    Hủy
                                 </button>
                                 <button
                                     type="submit"
                                     disabled={submitting}
-                                    className="flex-[2] py-10 bg-blue-600 text-white font-black rounded-[2.5rem] shadow-2xl shadow-blue-500/30 flex items-center justify-center gap-4 text-[11px] uppercase tracking-[0.3em] italic hover:bg-blue-700 active:scale-95 disabled:opacity-50 group/save"
+                                    className="flex-[2] py-3 bg-primary text-white font-bold rounded-xl text-xs uppercase tracking-wider shadow-lg flex items-center justify-center gap-2 hover:opacity-90 active:scale-95"
                                 >
-                                    {submitting ? <Loader2 className="w-8 h-8 animate-spin" /> : <SaveIcon className="w-8 h-8 group-hover/save:scale-125 transition-transform" />}
-                                    Xác nhận khởi tạo
+                                    {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save size={16} />}
+                                    Lưu tổ chức
                                 </button>
                             </div>
                         </form>
@@ -270,6 +264,6 @@ export default function ContractorOrganizationPage() {
     )
 }
 
-const SaveIcon = ({ className }: { className?: string }) => (
-    <svg className={className} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+const Building = ({ className, size }: { className?: string, size?: number }) => (
+    <svg className={className} width={size || 24} height={size || 24} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="16" height="20" x="4" y="2" rx="2" ry="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M8 10h.01"/><path d="M16 10h.01"/><path d="M8 14h.01"/><path d="M16 14h.01"/></svg>
 )

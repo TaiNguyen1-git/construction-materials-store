@@ -10,11 +10,11 @@ import { formatCurrency } from '@/lib/format-utils'
 
 const getStatusInfo = (status: string) => {
     switch (status) {
-        case 'SENT': return { label: 'Issued Digitally', color: 'bg-emerald-100 text-emerald-800', icon: CheckCircle }
-        case 'DRAFT': return { label: 'Working Draft', color: 'bg-slate-100 text-slate-800', icon: FileText }
-        case 'PENDING_SIGN': return { label: 'Await Signature', color: 'bg-orange-100 text-orange-800', icon: Clock }
-        case 'CANCELLED': return { label: 'Revoked', color: 'bg-rose-100 text-rose-800', icon: AlertTriangle }
-        default: return { label: status, color: 'bg-slate-100 text-slate-800', icon: FileText }
+        case 'SENT': return { label: 'Đã phát hành', color: 'bg-blue-50 text-blue-700', icon: CheckCircle }
+        case 'DRAFT': return { label: 'Bản nháp', color: 'bg-slate-100 text-slate-700', icon: FileText }
+        case 'PENDING_SIGN': return { label: 'Chờ ký', color: 'bg-amber-100 text-amber-700', icon: Clock }
+        case 'CANCELLED': return { label: 'Đã hủy', color: 'bg-rose-100 text-rose-700', icon: AlertTriangle }
+        default: return { label: status, color: 'bg-slate-100 text-slate-700', icon: FileText }
     }
 }
 
@@ -105,36 +105,36 @@ export default function ContractorInvoicesPage() {
     return (
         <div className="space-y-10 animate-in fade-in duration-500 pb-20 max-w-7xl mx-auto">
             {/* High Precision Header */}
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-                <div className="space-y-2">
-                    <h1 className="text-4xl font-black text-slate-900 tracking-tighter uppercase italic flex items-center gap-4">
-                        <Receipt className="w-10 h-10 text-emerald-600" />
-                        Billing Ledger
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                <div className="space-y-1">
+                    <h1 className="text-3xl font-bold text-slate-900 tracking-tight flex items-center gap-3">
+                        <Receipt className="w-8 h-8 text-blue-600" />
+                        Hóa đơn điện tử (VAT)
                     </h1>
-                    <p className="text-slate-500 font-bold uppercase text-[10px] tracking-[0.2em]">Quản lý hóa đơn điện tử (VAT) & Lưu trữ tài chính pháp định</p>
+                    <p className="text-slate-500 text-sm font-medium">Quản lý hóa đơn & lưu trữ tài chính pháp định</p>
                 </div>
 
-                <div className="flex items-center gap-4">
-                    <button className="px-8 py-4 bg-slate-900 text-white rounded-[1.5rem] text-[10px] font-black uppercase tracking-[0.2em] hover:bg-black transition-all flex items-center gap-3 shadow-xl shadow-slate-200">
-                        <ShieldCheck size={16} /> Batch Signature
+                <div className="flex items-center gap-3">
+                    <button className="px-6 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 transition-all flex items-center gap-2 shadow-md shadow-blue-500/10">
+                        <ShieldCheck size={18} /> Ký hàng loạt
                     </button>
                 </div>
             </div>
 
             {/* Invoices List Table - Bento Architecture */}
-            <div className="bg-white rounded-[3.5rem] border border-slate-100 shadow-sm overflow-hidden animate-in slide-in-from-bottom-5 duration-700">
-                <div className="p-10 border-b border-slate-50 flex items-center justify-between">
-                    <div className="relative group flex-1 max-w-md">
-                        <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300 group-focus-within:text-emerald-500 transition-colors" />
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden animate-in slide-in-from-bottom-5 duration-700">
+                <div className="p-6 border-b border-slate-50 flex items-center justify-between">
+                    <div className="relative group flex-1 max-w-sm">
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 group-focus-within:text-blue-500 transition-colors" />
                         <input
                             type="text"
-                            placeholder="Find records by serial or vendor..."
-                            className="w-full pl-16 pr-6 py-4.5 bg-slate-50 border-transparent rounded-[1.8rem] text-sm focus:bg-white focus:ring-4 focus:ring-emerald-500/5 focus:border-emerald-500/20 outline-none transition-all font-bold placeholder:text-slate-300"
+                            placeholder="Tìm theo số hóa đơn hoặc nhà cung cấp..."
+                            className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-blue-600/10 outline-none transition-all font-medium placeholder:text-slate-400"
                         />
                     </div>
-                    <div className="flex items-center gap-4">
-                        <button className="px-8 py-4.5 bg-slate-50 text-slate-400 rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest hover:bg-slate-100 transition-all flex items-center gap-3">
-                            <Filter size={16} /> Advanced Filter
+                    <div className="flex items-center gap-3">
+                        <button className="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl text-xs font-bold hover:bg-slate-50 transition-all flex items-center gap-2">
+                            <Filter size={14} /> Lọc nâng cao
                         </button>
                     </div>
                 </div>
@@ -143,12 +143,12 @@ export default function ContractorInvoicesPage() {
                     <table className="w-full border-collapse">
                         <thead>
                             <tr className="bg-slate-50/50">
-                                <th className="text-left px-10 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 italic">Serial ID</th>
-                                <th className="text-left px-6 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 italic">Issued At</th>
-                                <th className="text-left px-6 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 italic">Commercial Vendor</th>
-                                <th className="text-right px-6 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 italic">Financial Value</th>
-                                <th className="text-center px-6 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 italic">Verification</th>
-                                <th className="text-right px-10 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 italic">Interaction</th>
+                                <th className="text-left px-6 py-4 text-[10px] font-bold uppercase tracking-wider text-slate-400">Mã hóa đơn</th>
+                                <th className="text-left px-6 py-4 text-[10px] font-bold uppercase tracking-wider text-slate-400">Ngày phát hành</th>
+                                <th className="text-left px-6 py-4 text-[10px] font-bold uppercase tracking-wider text-slate-400">Nhà cung cấp</th>
+                                <th className="text-right px-6 py-4 text-[10px] font-bold uppercase tracking-wider text-slate-400">Giá trị</th>
+                                <th className="text-center px-6 py-4 text-[10px] font-bold uppercase tracking-wider text-slate-400">Trạng thái</th>
+                                <th className="text-right px-6 py-4 text-[10px] font-bold uppercase tracking-wider text-slate-400">Thao tác</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50/50">
@@ -171,38 +171,35 @@ export default function ContractorInvoicesPage() {
                                 invoices.map(invoice => {
                                     const status = getStatusInfo(invoice.status)
                                     return (
-                                        <tr key={invoice.id} className="group hover:bg-slate-50/80 transition-all duration-300">
-                                            <td className="px-10 py-8">
-                                                <span className="font-black text-xs text-slate-900 group-hover:text-emerald-600 transition-colors tabular-nums">{invoice.invoiceNumber}</span>
+                                        <tr key={invoice.id} className="group hover:bg-slate-50 transition-all border-b border-slate-50 last:border-0">
+                                            <td className="px-6 py-5">
+                                                <span className="font-bold text-xs text-slate-900 group-hover:text-blue-600 transition-colors tabular-nums">{invoice.invoiceNumber}</span>
                                             </td>
-                                            <td className="px-6 py-8 text-xs font-bold text-slate-400 tabular-nums">
+                                            <td className="px-6 py-5 text-xs font-semibold text-slate-500 tabular-nums">
                                                 {new Date(invoice.createdAt).toLocaleDateString('vi-VN')}
                                             </td>
-                                            <td className="px-6 py-8">
-                                                <div className="flex items-center gap-4">
-                                                    <div className="w-1.5 h-10 bg-slate-100 rounded-full group-hover:bg-emerald-400 transition-all duration-500" />
-                                                    <span className="text-xs font-black text-slate-800 uppercase tracking-tighter italic">{invoice.sellerName}</span>
-                                                </div>
+                                            <td className="px-6 py-5">
+                                                <span className="text-xs font-bold text-slate-800">{invoice.sellerName}</span>
                                             </td>
-                                            <td className="px-6 py-8 text-right">
-                                                <span className="text-sm font-black text-slate-900 tabular-nums italic">{invoice.totalAmount.toLocaleString('vi-VN')}đ</span>
+                                            <td className="px-6 py-5 text-right">
+                                                <span className="text-sm font-bold text-slate-900 tabular-nums">{invoice.totalAmount.toLocaleString('vi-VN')}đ</span>
                                             </td>
-                                            <td className="px-6 py-8 text-center">
-                                                <span className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest shadow-sm ${status.color}`}>
+                                            <td className="px-6 py-5 text-center">
+                                                <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider ${status.color}`}>
                                                     <status.icon className="w-3 h-3" />
                                                     {status.label}
                                                 </span>
                                             </td>
-                                            <td className="px-10 py-8 text-right">
-                                                <div className="flex items-center justify-end gap-3">
+                                            <td className="px-6 py-5 text-right">
+                                                <div className="flex items-center justify-end gap-2">
                                                     <button
                                                         onClick={() => handleViewInvoice(invoice)}
-                                                        className="w-10 h-10 flex items-center justify-center bg-slate-50 text-slate-400 hover:bg-slate-900 hover:text-white rounded-xl transition-all shadow-sm active:scale-90"
-                                                        title="Detailed Audit"
+                                                        className="w-9 h-9 flex items-center justify-center bg-slate-50 text-slate-400 hover:bg-blue-600 hover:text-white rounded-lg transition-all shadow-sm active:scale-90"
+                                                        title="Xem chi tiết"
                                                     >
                                                         <Eye size={16} />
                                                     </button>
-                                                    <button className="w-10 h-10 flex items-center justify-center bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white rounded-xl transition-all shadow-sm active:scale-90" title="Download Vault">
+                                                    <button className="w-9 h-9 flex items-center justify-center bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white rounded-lg transition-all shadow-sm active:scale-90" title="Tải xuống">
                                                         <Download size={14} />
                                                     </button>
                                                 </div>
@@ -224,77 +221,77 @@ export default function ContractorInvoicesPage() {
                 size="lg"
             >
                 {viewingInvoice && (
-                    <div className="bg-white p-12 space-y-12 animate-in zoom-in duration-300">
+                    <div className="bg-white p-8 space-y-8 animate-in zoom-in duration-300">
                         {/* Modal Header */}
-                        <div className="border-b-4 border-slate-900 pb-10 flex justify-between items-end relative">
-                            <div className="space-y-4">
-                                <div className="flex items-center gap-6">
-                                    <h2 className="text-4xl font-black text-slate-900 uppercase italic tracking-tighter">Tax Invoice</h2>
-                                    <span className="px-5 py-2 bg-emerald-500 text-white rounded-2xl text-[9px] font-black uppercase tracking-[0.2em] shadow-lg shadow-emerald-500/20">Official Document</span>
+                        <div className="border-b border-slate-100 pb-8 flex justify-between items-start relative">
+                            <div className="space-y-1">
+                                <div className="flex items-center gap-3">
+                                    <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Hóa đơn giá trị gia tăng</h2>
+                                    <span className="px-3 py-1 bg-blue-600 text-white rounded-lg text-[10px] font-bold uppercase tracking-wider">Hợp lệ</span>
                                 </div>
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">Legal Representation of Digital Signature</p>
+                                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Tài liệu pháp lý điện tử</p>
                             </div>
-                            <div className="text-right space-y-2">
-                                <p className="text-3xl font-black text-slate-900 italic tracking-tighter tabular-nums">#{viewingInvoice.invoiceNumber}</p>
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{new Date(viewingInvoice.createdAt).toLocaleDateString('vi-VN', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
+                            <div className="text-right space-y-1">
+                                <p className="text-xl font-bold text-slate-900 tabular-nums">#{viewingInvoice.invoiceNumber}</p>
+                                <p className="text-xs font-semibold text-slate-400">{new Date(viewingInvoice.createdAt).toLocaleDateString('vi-VN', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
                             </div>
                         </div>
 
                         {/* Participant Framework */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-                            <div className="p-10 bg-slate-50 rounded-[3rem] border border-slate-100 group hover:bg-white hover:shadow-2xl hover:shadow-slate-200/50 transition-all duration-700">
-                                <div className="flex items-center gap-4 mb-6">
-                                    <div className="w-12 h-12 bg-slate-900 text-white rounded-2xl flex items-center justify-center">
-                                        <Briefcase size={20} />
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            <div className="p-6 bg-slate-50 rounded-2xl border border-slate-100 group transition-all duration-300">
+                                <div className="flex items-center gap-3 mb-4">
+                                    <div className="w-10 h-10 bg-slate-900 text-white rounded-xl flex items-center justify-center">
+                                        <Briefcase size={18} />
                                     </div>
-                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Protocol Seller</p>
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Đơn vị bán hàng</p>
                                 </div>
-                                <h3 className="text-xl font-black text-slate-900 uppercase italic tracking-tighter mb-4">{viewingInvoice.sellerName}</h3>
-                                <div className="space-y-2 text-[10px] font-black text-slate-500 uppercase tracking-widest leading-loose">
-                                    <p className="flex justify-between border-b border-black/5 pb-2"><span>TAX CODE:</span> <span className="text-slate-900">0101234567</span></p>
-                                    <p className="flex justify-between"><span>LOCATION:</span> <span className="text-slate-900">KCN TechStack, Hanoi</span></p>
+                                <h3 className="text-lg font-bold text-slate-900 mb-2">{viewingInvoice.sellerName}</h3>
+                                <div className="space-y-1.5 text-xs font-semibold text-slate-500">
+                                    <p className="flex justify-between"><span>Mã số thuế:</span> <span className="text-slate-900">0101234567</span></p>
+                                    <p className="flex justify-between"><span>Địa chỉ:</span> <span className="text-slate-900">KCN TechStack, Hà Nội</span></p>
                                 </div>
                             </div>
-                            <div className="p-10 bg-slate-50 rounded-[3rem] border border-slate-100 group hover:bg-white hover:shadow-2xl hover:shadow-slate-200/50 transition-all duration-700">
-                                <div className="flex items-center gap-4 mb-6">
-                                    <div className="w-12 h-12 bg-emerald-600 text-white rounded-2xl flex items-center justify-center">
-                                        <Briefcase size={20} />
+                            <div className="p-6 bg-slate-50 rounded-2xl border border-slate-100 group transition-all duration-300">
+                                <div className="flex items-center gap-3 mb-4">
+                                    <div className="w-10 h-10 bg-blue-600 text-white rounded-xl flex items-center justify-center">
+                                        <Briefcase size={18} />
                                     </div>
-                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Protocol Buyer</p>
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Đơn vị mua hàng</p>
                                 </div>
-                                <h3 className="text-xl font-black text-slate-900 uppercase italic tracking-tighter mb-4">{viewingInvoice.buyerName}</h3>
-                                <div className="space-y-2 text-[10px] font-black text-slate-500 uppercase tracking-widest leading-loose">
-                                    <p className="flex justify-between border-b border-black/5 pb-2"><span>TAX CODE:</span> <span className="text-slate-900">{viewingInvoice.buyerTaxCode}</span></p>
-                                    <p className="flex justify-between"><span>LOCATION:</span> <span className="text-slate-900 truncate ml-4">{viewingInvoice.buyerAddress}</span></p>
+                                <h3 className="text-lg font-bold text-slate-900 mb-2">{viewingInvoice.buyerName}</h3>
+                                <div className="space-y-1.5 text-xs font-semibold text-slate-500">
+                                    <p className="flex justify-between"><span>Mã số thuế:</span> <span className="text-slate-900">{viewingInvoice.buyerTaxCode}</span></p>
+                                    <p className="flex justify-between"><span>Địa chỉ:</span> <span className="text-slate-900 truncate ml-4">{viewingInvoice.buyerAddress}</span></p>
                                 </div>
                             </div>
                         </div>
 
                         {/* Itemization Table */}
-                        <div className="overflow-hidden border border-slate-100 rounded-[3rem] bg-white shadow-xl shadow-slate-200/20">
+                        <div className="overflow-hidden border border-slate-100 rounded-2xl bg-white shadow-sm">
                             <table className="w-full">
                                 <thead>
                                     <tr className="bg-slate-50/80">
-                                        <th className="py-8 px-10 text-left text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 italic">Resource Description</th>
-                                        <th className="py-8 px-4 text-center w-24 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 italic">Qty</th>
-                                        <th className="py-8 px-6 text-right w-44 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 italic">Rate</th>
-                                        <th className="py-8 px-10 text-right w-48 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 italic">Total</th>
+                                        <th className="py-4 px-6 text-left text-[10px] font-bold uppercase tracking-wider text-slate-400">Nội dung sản phẩm</th>
+                                        <th className="py-4 px-4 text-center w-24 text-[10px] font-bold uppercase tracking-wider text-slate-400">SL</th>
+                                        <th className="py-4 px-6 text-right w-44 text-[10px] font-bold uppercase tracking-wider text-slate-400">Đơn giá</th>
+                                        <th className="py-4 px-6 text-right w-48 text-[10px] font-bold uppercase tracking-wider text-slate-400">Thành tiền</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-50">
                                     {viewingInvoice.items.map((item, index) => (
-                                        <tr key={item.id} className="group hover:bg-slate-50/50 transition-all">
-                                            <td className="py-8 px-10">
-                                                <span className="font-black text-sm text-slate-900 uppercase tracking-tight italic">{item.productName}</span>
+                                        <tr key={item.id} className="hover:bg-slate-50 transition-all">
+                                            <td className="py-5 px-6">
+                                                <span className="font-bold text-xs text-slate-900 uppercase tracking-tight">{item.productName}</span>
                                             </td>
-                                            <td className="py-8 px-4 text-center">
-                                                <span className="font-black text-slate-400 tabular-nums">{item.quantity.toLocaleString('vi-VN')}</span>
+                                            <td className="py-5 px-4 text-center">
+                                                <span className="font-semibold text-slate-500 tabular-nums">{item.quantity.toLocaleString('vi-VN')}</span>
                                             </td>
-                                            <td className="py-8 px-6 text-right">
-                                                <span className="font-black text-slate-400 tabular-nums">{item.unitPrice.toLocaleString('vi-VN')}</span>
+                                            <td className="py-5 px-6 text-right">
+                                                <span className="font-semibold text-slate-500 tabular-nums">{item.unitPrice.toLocaleString('vi-VN')}</span>
                                             </td>
-                                            <td className="py-8 px-10 text-right">
-                                                <span className="font-black text-slate-900 tabular-nums italic">{item.total.toLocaleString('vi-VN')}đ</span>
+                                            <td className="py-5 px-6 text-right">
+                                                <span className="font-bold text-slate-900 tabular-nums">{item.total.toLocaleString('vi-VN')}đ</span>
                                             </td>
                                         </tr>
                                     ))}
@@ -303,33 +300,33 @@ export default function ContractorInvoicesPage() {
                         </div>
 
                         {/* Financial Aggregate */}
-                        <div className="flex flex-col md:flex-row justify-between items-end gap-10">
+                        <div className="flex flex-col md:flex-row justify-between items-start gap-8">
                             <div className="flex-1 space-y-4">
-                                <div className="flex items-center gap-4 p-8 bg-emerald-50 rounded-[2.5rem] border border-emerald-100 italic font-black text-[10px] tracking-widest text-emerald-800 uppercase">
-                                    <ShieldCheck size={20} />
-                                    This document is verified by SmartBuild Blockchain Ledger System
+                                <div className="flex items-center gap-3 p-5 bg-blue-50 rounded-2xl border border-blue-100 font-bold text-[10px] tracking-wider text-blue-700 uppercase">
+                                    <ShieldCheck size={18} />
+                                    Tài liệu được xác thực bởi SmartBuild Ledger System
                                 </div>
                             </div>
-                            <div className="w-full md:w-[400px] bg-slate-950 p-12 rounded-[3.5rem] text-white shadow-2xl space-y-6">
-                                <div className="flex justify-between items-center opacity-40 text-[10px] font-black uppercase tracking-[0.2em]">
-                                    <span>Net Balance:</span>
+                            <div className="w-full md:w-[350px] bg-slate-900 p-8 rounded-2xl text-white shadow-xl space-y-4">
+                                <div className="flex justify-between items-center opacity-60 text-[11px] font-bold uppercase tracking-wider">
+                                    <span>Tiền hàng:</span>
                                     <span className="tabular-nums">{viewingInvoice.subtotal.toLocaleString('vi-VN', { maximumFractionDigits: 0 })}đ</span>
                                 </div>
-                                <div className="flex justify-between items-center opacity-40 text-[10px] font-black uppercase tracking-[0.2em] border-b border-white/5 pb-6">
-                                    <span>Tax Compliance (10%):</span>
+                                <div className="flex justify-between items-center opacity-60 text-[11px] font-bold uppercase tracking-wider border-b border-white/10 pb-4">
+                                    <span>Thuế VAT (10%):</span>
                                     <span className="tabular-nums">{viewingInvoice.vatAmount.toLocaleString('vi-VN', { maximumFractionDigits: 0 })}đ</span>
                                 </div>
                                 <div className="flex justify-between items-center pt-2">
-                                    <span className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-400 italic">Total Payable:</span>
-                                    <span className="text-3xl font-black italic tracking-tighter tabular-nums">{viewingInvoice.totalAmount.toLocaleString('vi-VN')}đ</span>
+                                    <span className="text-[11px] font-bold uppercase tracking-widest text-blue-400">Tổng cộng:</span>
+                                    <span className="text-2xl font-bold tracking-tight tabular-nums">{viewingInvoice.totalAmount.toLocaleString('vi-VN')}đ</span>
                                 </div>
                             </div>
                         </div>
 
-                        <div className="flex justify-end gap-6 pt-10 border-t border-slate-50">
-                            <button onClick={() => setViewingInvoice(null)} className="flex-1 py-6 bg-slate-100 text-slate-400 rounded-3xl font-black text-[10px] uppercase tracking-[0.3em] hover:bg-slate-200 transition-all">Abort Review</button>
-                            <button className="flex-[2] py-6 bg-emerald-600 text-white rounded-3xl font-black text-[10px] uppercase tracking-[0.3em] hover:bg-emerald-700 transition-all shadow-2xl shadow-emerald-500/20 flex items-center justify-center gap-4 group active:scale-95">
-                                <Download size={20} className="group-hover:translate-y-1 transition-transform" /> Sync to Local Vault
+                        <div className="flex justify-end gap-4 pt-8 border-t border-slate-100">
+                            <button onClick={() => setViewingInvoice(null)} className="px-8 py-3 bg-slate-100 text-slate-500 rounded-xl font-bold text-xs uppercase tracking-wider hover:bg-slate-200 transition-all">Đóng</button>
+                            <button className="px-10 py-3 bg-blue-600 text-white rounded-xl font-bold text-xs uppercase tracking-wider hover:bg-blue-700 transition-all shadow-lg flex items-center justify-center gap-2 group active:scale-95">
+                                <Download size={16} className="group-hover:translate-y-0.5 transition-transform" /> Tải xuống file PDF
                             </button>
                         </div>
                     </div>

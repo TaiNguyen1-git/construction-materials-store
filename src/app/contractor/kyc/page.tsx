@@ -145,7 +145,7 @@ export default function ContractorKYCPage() {
                         <ul className="space-y-2 text-sm text-blue-800">
                             <li className="flex items-center gap-2">
                                 <span className="text-blue-500">✓</span>
-                                Nhận huy hiệu <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-100 rounded text-blue-700 font-medium">✓ Verified</span>
+                                Nhận huy hiệu <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-100 rounded text-blue-700 font-medium">✓ Đã xác thực</span>
                             </li>
                             <li className="flex items-center gap-2">
                                 <span className="text-blue-500">✓</span>
@@ -289,7 +289,7 @@ export default function ContractorKYCPage() {
                         <div className="text-6xl mb-4">🎉</div>
                         <h3 className="text-xl font-bold text-green-700">Tài khoản đã được xác minh!</h3>
                         <p className="text-gray-600 mt-2">
-                            Hồ sơ của bạn đã được duyệt. Bạn đã có huy hiệu Verified và được hưởng các đặc quyền.
+                            Hồ sơ của bạn đã được duyệt. Bạn đã có huy hiệu Đã xác thực và được hưởng các đặc quyền.
                         </p>
                         <Link
                             href="/contractor"

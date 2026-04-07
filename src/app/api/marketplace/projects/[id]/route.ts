@@ -14,6 +14,14 @@ export async function GET(
     try {
         const { id } = await params
 
+        // Validate ObjectID format to prevent Prisma crash (P2023)
+        if (!/^[a-f\d]{24}$/i.test(id)) {
+            return NextResponse.json(
+                createErrorResponse('Invalid project ID format', 'NOT_FOUND'),
+                { status: 404 }
+            )
+        }
+
         let project = await prisma.constructionProject.findUnique({
             where: { id },
             include: {

@@ -23,8 +23,6 @@ import {
     AlertCircle
 } from 'lucide-react'
 import { useContractorCartStore } from '@/stores/contractorCartStore'
-import Sidebar from '../components/Sidebar'
-import ContractorHeader from '../components/ContractorHeader'
 import { useAuth } from '@/contexts/auth-context'
 import { fetchWithAuth } from '@/lib/api-client'
 import toast from 'react-hot-toast'
@@ -36,7 +34,6 @@ const formatCurrency = (amount: number) => {
 export default function ContractorCartPage() {
     const { user } = useAuth()
     const router = useRouter()
-    const [sidebarOpen, setSidebarOpen] = useState(true)
     const [isProcessing, setIsProcessing] = useState(false)
     const [loading, setLoading] = useState(true)
     const [contractorInfo, setContractorInfo] = useState({
@@ -184,14 +181,8 @@ export default function ContractorCartPage() {
     }
 
     return (
-        <div className="min-h-screen bg-gray-50 flex flex-col">
-            <ContractorHeader sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
-            <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-
-            {/* Main Content */}
-            <main className={`flex-1 pt-[60px] transition-all duration-300 ${sidebarOpen ? 'lg:ml-64' : 'ml-0'}`}>
-                <div className="p-4 lg:p-6 max-w-7xl mx-auto">
-                    {/* Header - Compact */}
+        <div className="p-4 lg:p-8 max-w-6xl mx-auto pb-20">
+            {/* Header - Compact */}
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
                         <div className="flex items-center gap-3">
                             <Link
@@ -211,22 +202,24 @@ export default function ContractorCartPage() {
                     </div>
 
                     {items.length === 0 ? (
-                        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center">
-                            <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                                <Package className="w-8 h-8 text-gray-300" />
+                        <div className="mt-12 flex flex-col items-center justify-center">
+                            <div className="bg-white w-full max-w-2xl rounded-2xl shadow-sm border border-slate-100 p-16 text-center">
+                                <div className="w-24 h-24 bg-slate-50 border border-slate-100 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
+                                    <Package className="w-10 h-10 text-slate-300" />
+                                </div>
+                                <h2 className="text-xl font-bold text-slate-900 mb-2">Giỏ hàng trống</h2>
+                                <p className="text-sm text-slate-500 mb-8">Thêm sản phẩm từ trang Đặt Hàng Nhanh để tiến hành lập phiếu xuất kho dự án</p>
+                                <Link
+                                    href="/contractor/quick-order"
+                                    className="inline-flex items-center gap-2 bg-blue-600 text-white px-8 py-3.5 rounded-xl hover:bg-blue-700 transition-all text-sm font-bold shadow-lg shadow-blue-200 active:scale-95"
+                                >
+                                    <Plus className="w-5 h-5" />
+                                    Bắt đầu mua sắm
+                                </Link>
                             </div>
-                            <h2 className="text-sm font-bold text-gray-900 uppercase mb-1">Giỏ hàng trống</h2>
-                            <p className="text-xs text-gray-400 mb-6">Thêm sản phẩm từ trang Đặt Hàng Nhanh để bắt đầu</p>
-                            <Link
-                                href="/contractor/quick-order"
-                                className="inline-flex items-center gap-2 bg-primary-600 text-white px-5 py-2.5 rounded-lg hover:bg-primary-700 transition-colors text-xs font-black uppercase tracking-wider shadow-lg shadow-primary-200"
-                            >
-                                <Plus className="w-4 h-4" />
-                                Đặt hàng nhanh
-                            </Link>
                         </div>
                     ) : (
-                        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+                        <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
                             {/* Cart Items Area */}
                             <div className="xl:col-span-2 space-y-4">
                                 {/* Project Info Card */}
@@ -463,8 +456,6 @@ export default function ContractorCartPage() {
                             </div>
                         </div>
                     )}
-                </div>
-            </main>
         </div>
     )
 }

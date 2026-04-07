@@ -5,6 +5,12 @@ import { verifyTokenFromRequest } from '@/lib/auth-middleware-api'
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {
         const { id } = await params
+        
+        // Validate ObjectID format to prevent Prisma crash (P2023)
+        if (!/^[a-f\d]{24}$/i.test(id)) {
+            return NextResponse.json({ message: 'Invalid project ID format' }, { status: 404 })
+        }
+
         const payload = verifyTokenFromRequest(req)
         if (!payload?.userId) {
             return NextResponse.json({ message: 'Unauthorized' }, { status: 401 })

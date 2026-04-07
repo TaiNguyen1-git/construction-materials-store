@@ -180,30 +180,33 @@ export default function ContractorQuotesPage() {
     return (
         <div className="space-y-10 animate-in fade-in duration-500 pb-20 max-w-[1600px] mx-auto">
             {/* High Impact Header */}
-            <div className="grid lg:grid-cols-4 gap-6 items-end">
-                <div className="lg:col-span-2 space-y-2">
-                    <h1 className="text-5xl font-black text-slate-900 tracking-tighter uppercase italic flex items-center gap-6">
-                        <Zap className="w-14 h-14 text-blue-600 fill-current" />
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 px-1">
+                <div className="space-y-1">
+                    <h1 className="text-3xl font-bold text-slate-900 tracking-tight flex items-center gap-3">
+                        <Zap className="w-8 h-8 text-blue-600" />
                         Bidding Hub
                     </h1>
-                    <p className="text-slate-500 font-bold uppercase text-[11px] tracking-[0.3em] ml-20">Commercial Strategy & Project Acquisition Center</p>
+                    <p className="text-slate-500 text-sm font-medium">Commercial Strategy & Project Acquisition Center</p>
                 </div>
-                <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm flex items-center justify-between">
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
                     <div>
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Queue Size</p>
-                        <p className="text-3xl font-black text-slate-900 italic tracking-tighter tabular-nums">{quotes.filter(q => q.status === 'PENDING').length}</p>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Queue Size</p>
+                        <p className="text-3xl font-bold text-slate-900 tabular-nums">{quotes.filter(q => q.status === 'PENDING').length}</p>
                     </div>
-                    <div className="w-14 h-14 rounded-2xl bg-amber-50 flex items-center justify-center text-amber-500">
-                        <Clock size={28} />
+                    <div className="w-12 h-12 rounded-xl bg-amber-50 flex items-center justify-center text-amber-500">
+                        <Clock size={24} />
                     </div>
                 </div>
-                <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm flex items-center justify-between">
+                <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
                     <div>
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Acquired Projects</p>
-                        <p className="text-3xl font-black text-slate-900 italic tracking-tighter tabular-nums">{quotes.filter(q => q.status === 'ACCEPTED').length}</p>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Acquired Projects</p>
+                        <p className="text-3xl font-bold text-slate-900 tabular-nums">{quotes.filter(q => q.status === 'ACCEPTED').length}</p>
                     </div>
-                    <div className="w-14 h-14 rounded-2xl bg-emerald-50 flex items-center justify-center text-emerald-500">
-                        <CheckCircle size={28} />
+                    <div className="w-12 h-12 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-500">
+                        <CheckCircle size={24} />
                     </div>
                 </div>
             </div>
@@ -234,32 +237,32 @@ export default function ContractorQuotesPage() {
                                         setItems([{ description: '', quantity: 1, unit: 'm2', unitPrice: 0, category: 'Vật tư', isNew: true }])
                                     }
                                 }}
-                                className={`p-8 rounded-[2.5rem] border-[3px] transition-all duration-500 cursor-pointer group relative overflow-hidden ${selectedQuote?.id === quote.id
-                                    ? 'bg-slate-900 border-blue-600 shadow-2xl shadow-blue-900/40 translate-x-2'
-                                    : 'bg-white border-transparent hover:border-slate-100 shadow-sm'
+                                className={`p-6 rounded-2xl border-2 transition-all duration-300 cursor-pointer group relative overflow-hidden ${selectedQuote?.id === quote.id
+                                    ? 'bg-blue-50 border-blue-600 shadow-sm'
+                                    : 'bg-white border-slate-100 hover:border-blue-200 shadow-sm'
                                     }`}
                             >
-                                <div className="flex justify-between items-start mb-6">
-                                    <span className={`text-[9px] font-black px-4 py-1.5 rounded-xl uppercase tracking-widest transition-colors ${selectedQuote?.id === quote.id ? 'bg-blue-600 text-white' : getStatusStyle(quote.status)}`}>
+                                <div className="flex justify-between items-start mb-4">
+                                    <span className={`text-[9px] font-bold px-3 py-1 rounded-lg uppercase tracking-widest transition-colors ${selectedQuote?.id === quote.id ? 'bg-blue-600 text-white' : getStatusStyle(quote.status)}`}>
                                         {getStatusText(quote.status)}
                                     </span>
-                                    <span className={`text-[9px] font-black uppercase tracking-widest ${selectedQuote?.id === quote.id ? 'text-slate-500' : 'text-slate-400'}`}>
+                                    <span className={`text-[9px] font-bold uppercase tracking-widest ${selectedQuote?.id === quote.id ? 'text-blue-600/60' : 'text-slate-400'}`}>
                                         {new Date(quote.createdAt).toLocaleDateString('vi-VN')}
                                     </span>
                                 </div>
-                                <h3 className={`font-black text-xl flex items-center gap-3 transition-colors uppercase italic tracking-tighter ${selectedQuote?.id === quote.id ? 'text-white' : 'text-slate-900'}`}>
+                                <h3 className={`font-bold text-lg flex items-center gap-2 transition-colors tracking-tight ${selectedQuote?.id === quote.id ? 'text-blue-900' : 'text-slate-900'}`}>
                                     #{quote.id.slice(-6).toUpperCase()}
                                 </h3>
-                                <p className={`text-xs font-black uppercase tracking-widest mt-1 ${selectedQuote?.id === quote.id ? 'text-blue-400/80' : 'text-slate-400'}`}>{quote.customer.user.name}</p>
-                                <p className={`text-[11px] mt-4 line-clamp-2 leading-relaxed italic font-medium ${selectedQuote?.id === quote.id ? 'text-slate-400' : 'text-slate-500'}`}>"{quote.details}"</p>
+                                <p className={`text-[10px] font-bold uppercase tracking-widest mt-1 ${selectedQuote?.id === quote.id ? 'text-blue-600/80' : 'text-slate-400'}`}>{quote.customer.user.name}</p>
+                                <p className={`text-[11px] mt-4 line-clamp-2 leading-relaxed font-medium ${selectedQuote?.id === quote.id ? 'text-slate-600' : 'text-slate-500'}`}>{quote.details}</p>
 
-                                <div className={`mt-6 pt-6 border-t flex items-center justify-between ${selectedQuote?.id === quote.id ? 'border-white/5' : 'border-slate-50'}`}>
-                                    <div className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-widest ${selectedQuote?.id === quote.id ? 'text-slate-500' : 'text-slate-300'}`}>
+                                <div className={`mt-5 pt-4 border-t flex items-center justify-between ${selectedQuote?.id === quote.id ? 'border-blue-100' : 'border-slate-50'}`}>
+                                    <div className={`flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest ${selectedQuote?.id === quote.id ? 'text-blue-500' : 'text-slate-400'}`}>
                                         <MapPin className="w-3 h-3" />
                                         {quote.location || 'GLOBAL'}
                                     </div>
-                                    <div className={`w-10 h-10 rounded-2xl flex items-center justify-center transition-all duration-500 ${selectedQuote?.id === quote.id ? 'bg-blue-600 text-white' : 'bg-slate-50 text-slate-300 group-hover:bg-slate-900 group-hover:text-white'}`}>
-                                        <ChevronRight className="w-5 h-5" />
+                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-300 ${selectedQuote?.id === quote.id ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20' : 'bg-slate-50 text-slate-300 group-hover:bg-blue-600 group-hover:text-white'}`}>
+                                        <ChevronRight className="w-4 h-4" />
                                     </div>
                                 </div>
                             </div>
@@ -270,48 +273,48 @@ export default function ContractorQuotesPage() {
                 {/* Detail Area - High Premium Commercial Interface */}
                 <div className="lg:col-span-8 h-full">
                     {selectedQuote ? (
-                        <div className="bg-white rounded-[3.5rem] shadow-2xl border border-slate-100 overflow-hidden min-h-[800px] flex flex-col animate-in slide-in-from-right-10 duration-700">
+                        <div className="bg-white rounded-3xl shadow-xl border border-slate-100 overflow-hidden min-h-[800px] flex flex-col animate-in slide-in-from-right-10 duration-700">
                             {/* Detailed Commercial Header */}
-                            <div className="p-12 border-b border-slate-50 bg-slate-900 text-white relative">
-                                <div className="absolute top-0 right-0 w-96 h-96 bg-blue-600/10 rounded-full blur-[100px] -mr-48 -mt-48"></div>
+                            <div className="p-8 md:p-10 border-b border-slate-100 bg-slate-50 relative">
+                                <div className="absolute top-0 right-0 w-64 h-64 bg-blue-600/5 rounded-full blur-[80px] -mr-32 -mt-32"></div>
                                 <div className="relative z-10">
-                                    <div className="flex justify-between items-start mb-10">
-                                        <div className="space-y-4">
-                                            <div className="flex items-center gap-6">
-                                                <h2 className="text-4xl font-black italic tracking-tighter uppercase">Negotiation Console</h2>
-                                                <span className={`px-5 py-2 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] shadow-lg shadow-blue-500/10 ${selectedQuote.status === 'ACCEPTED' ? 'bg-emerald-500 text-white' : 'bg-blue-600 text-white'}`}>
+                                    <div className="flex flex-col md:flex-row justify-between items-start gap-6 mb-8">
+                                        <div className="space-y-1">
+                                            <div className="flex items-center gap-4">
+                                                <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Chi tiết báo giá</h2>
+                                                <span className={`px-4 py-1.5 rounded-xl text-[9px] font-bold uppercase tracking-widest shadow-sm ${selectedQuote.status === 'ACCEPTED' ? 'bg-emerald-500 text-white' : 'bg-blue-600 text-white'}`}>
                                                     {getStatusText(selectedQuote.status)}
                                                 </span>
                                             </div>
-                                            <p className="text-[11px] font-bold text-slate-500 uppercase tracking-[0.3em]">Commercial Transaction Ref: <span className="text-white">#{selectedQuote.id.toUpperCase()}</span></p>
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Mã định danh: <span className="text-slate-900">#{selectedQuote.id.toUpperCase()}</span></p>
                                         </div>
-                                        <div className="flex gap-4">
+                                        <div className="flex gap-3">
                                             <Link
                                                 href={`/contractor/quotes/${selectedQuote.id}/negotiate`}
-                                                className="px-10 py-5 bg-white text-slate-900 rounded-[1.8rem] font-black text-[10px] uppercase tracking-[0.2em] hover:scale-105 active:scale-95 transition-all flex items-center gap-4 shadow-2xl shadow-white/5"
+                                                className="px-6 py-3 bg-blue-600 text-white rounded-xl font-bold text-[10px] uppercase tracking-widest hover:bg-blue-700 active:scale-95 transition-all flex items-center gap-3 shadow-lg shadow-blue-500/20"
                                             >
-                                                <Zap className="w-5 h-5 fill-current text-blue-600" />
+                                                <Zap className="w-4 h-4 fill-current" />
                                                 Live Strategy
                                             </Link>
-                                            <button className="w-16 h-16 bg-white/5 hover:bg-white/10 rounded-[1.8rem] flex items-center justify-center transition-all group">
-                                                <Download size={24} className="group-hover:translate-y-1 transition-transform" />
+                                            <button className="w-12 h-12 bg-white hover:bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-center transition-all group shadow-sm">
+                                                <Download size={20} className="text-slate-400 group-hover:text-slate-600 group-hover:translate-y-0.5 transition-all" />
                                             </button>
                                         </div>
                                     </div>
 
-                                    <div className="grid md:grid-cols-3 gap-6">
+                                    <div className="grid md:grid-cols-3 gap-4">
                                         {[
-                                            { label: 'Counterparty', value: selectedQuote.customer.user.name, icon: User, color: 'text-blue-400' },
-                                            { label: 'Project Mapping', value: selectedQuote.project?.name || 'Open Portfolio', icon: Building2, color: 'text-emerald-400' },
-                                            { label: 'Liquidity Reserve', value: `${selectedQuote.budget?.toLocaleString()}đ`, icon: Coins, color: 'text-orange-400' }
+                                            { label: 'Counterparty', value: selectedQuote.customer.user.name, icon: User, color: 'text-blue-600', bg: 'bg-blue-50' },
+                                            { label: 'Project Mapping', value: selectedQuote.project?.name || 'Open Portfolio', icon: Building2, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+                                            { label: 'Liquidity Reserve', value: `${selectedQuote.budget?.toLocaleString()}đ`, icon: Coins, color: 'text-amber-600', bg: 'bg-amber-50' }
                                         ].map((stat, i) => (
-                                            <div key={i} className="bg-white/5 backdrop-blur-xl p-6 rounded-[2rem] border border-white/5 flex items-center gap-6 group hover:bg-white/10 transition-all duration-500">
-                                                <div className={`w-14 h-14 rounded-2xl bg-white/5 flex items-center justify-center ${stat.color}`}>
-                                                    <stat.icon size={24} />
+                                            <div key={i} className="bg-white p-5 rounded-2xl border border-slate-100 flex items-center gap-5 group hover:shadow-md transition-all duration-300">
+                                                <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${stat.bg} ${stat.color}`}>
+                                                    <stat.icon size={20} />
                                                 </div>
                                                 <div className="min-w-0">
-                                                    <p className="text-[9px] text-slate-500 font-black uppercase tracking-widest mb-1">{stat.label}</p>
-                                                    <p className="font-black text-white text-sm truncate uppercase italic tracking-tighter">{stat.value}</p>
+                                                    <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mb-0.5">{stat.label}</p>
+                                                    <p className="font-bold text-slate-900 text-xs truncate uppercase tracking-tight">{stat.value}</p>
                                                 </div>
                                             </div>
                                         ))}
@@ -319,100 +322,100 @@ export default function ContractorQuotesPage() {
                                 </div>
                             </div>
 
-                            <div className="p-12 space-y-12 flex-1 overflow-y-auto custom-scrollbar">
+                            <div className="p-8 md:p-10 space-y-10 flex-1 overflow-y-auto custom-scrollbar">
                                 {/* Requirements Display */}
                                 <div className="space-y-4">
-                                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] ml-4 flex items-center gap-3">
-                                        <AlertCircle className="w-4 h-4 text-orange-500" />
+                                    <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-2">
+                                        <AlertCircle className="w-4 h-4 text-amber-500" />
                                         Primary Objectives & Constraints
                                     </h4>
-                                    <div className="p-10 bg-slate-50 rounded-[3rem] text-slate-800 leading-relaxed border border-slate-100 font-bold italic text-lg shadow-inner">
+                                    <div className="p-6 bg-slate-50 rounded-2xl text-slate-700 leading-relaxed border border-slate-100 font-medium italic text-sm">
                                         "{selectedQuote.details}"
                                     </div>
                                 </div>
 
                                 {/* BoQ Dynamic Editor */}
-                                <div className="space-y-6">
-                                    <div className="flex justify-between items-end px-4">
-                                        <div className="space-y-2">
-                                            <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">Bill of Quantities</h4>
-                                            <p className="text-3xl font-black text-slate-900 italic tracking-tighter uppercase">Commercial Itemization</p>
+                                <div className="space-y-5">
+                                    <div className="flex justify-between items-end px-1">
+                                        <div className="space-y-1">
+                                            <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Bill of Quantities</h4>
+                                            <p className="text-xl font-bold text-slate-900 tracking-tight uppercase">Bảng phân rã hạng mục</p>
                                         </div>
                                         {(selectedQuote.status === 'PENDING' || selectedQuote.status === 'REPLIED' || selectedQuote.status === 'ACCEPTED') && (
                                             <button
                                                 onClick={addItem}
-                                                className="px-8 py-4 bg-slate-900 text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-black transition-all flex items-center gap-3 shadow-xl shadow-slate-200"
+                                                className="px-5 py-2.5 bg-slate-900 text-white rounded-xl font-bold text-[10px] uppercase tracking-widest hover:bg-black transition-all flex items-center gap-2 shadow-md active:scale-95"
                                             >
-                                                <Plus size={16} /> Insert Asset
+                                                <Plus size={14} /> Thêm hạng mục
                                             </button>
                                         )}
                                     </div>
 
-                                    <div className="overflow-hidden border border-slate-100 rounded-[3rem] bg-white shadow-xl shadow-slate-200/20">
-                                        <table className="w-full">
+                                    <div className="overflow-hidden border border-slate-100 rounded-2xl bg-white shadow-sm">
+                                        <table className="w-full text-xs">
                                             <thead>
-                                                <tr className="bg-slate-50/80">
-                                                    <th className="py-8 px-10 text-left text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 italic">Detailed Description</th>
-                                                    <th className="py-8 px-4 text-center w-24 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 italic">Volume</th>
-                                                    <th className="py-8 px-4 text-center w-24 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 italic">Unit</th>
-                                                    <th className="py-8 px-6 text-right w-44 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 italic">Unit Rate</th>
-                                                    <th className="py-8 px-10 text-right w-48 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 italic">Financial Value</th>
-                                                    <th className="py-8 w-16"></th>
+                                                <tr className="bg-slate-50/80 border-b border-slate-100 text-slate-400">
+                                                    <th className="py-4 px-6 text-left font-bold uppercase tracking-widest">Mô tả hạng mục</th>
+                                                    <th className="py-4 px-2 text-center w-20 font-bold uppercase tracking-widest">SL</th>
+                                                    <th className="py-4 px-2 text-center w-20 font-bold uppercase tracking-widest">ĐVT</th>
+                                                    <th className="py-4 px-4 text-right w-36 font-bold uppercase tracking-widest">Đơn giá</th>
+                                                    <th className="py-4 px-6 text-right w-40 font-bold uppercase tracking-widest">Thành tiền</th>
+                                                    <th className="py-4 w-12"></th>
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-slate-50">
                                                 {items.map((item, idx) => (
-                                                    <tr key={idx} className="group hover:bg-slate-50/50 transition-all">
-                                                        <td className="py-8 px-10">
+                                                    <tr key={idx} className="group hover:bg-slate-50/30 transition-all">
+                                                        <td className="py-5 px-6">
                                                             <input
-                                                                className="w-full bg-transparent border-none focus:ring-0 font-black text-sm text-slate-900 p-0 placeholder:text-slate-200 uppercase tracking-tight italic"
-                                                                placeholder="ASSET DESCRIPTION..."
+                                                                className="w-full bg-transparent border-none focus:ring-0 font-bold text-slate-900 p-0 placeholder:text-slate-200"
+                                                                placeholder="NHẬP MÔ TẢ HẠNG MỤC..."
                                                                 value={item.description}
                                                                 onChange={e => updateItem(idx, 'description', e.target.value)}
                                                                 disabled={selectedQuote.status === 'ACCEPTED' && !item.isNew}
                                                             />
                                                         </td>
-                                                        <td className="py-8 px-4">
+                                                        <td className="py-5 px-2">
                                                             <input
                                                                 type="number"
-                                                                className="w-full bg-transparent border-none focus:ring-0 text-center font-black p-0 text-slate-400 tabular-nums"
+                                                                className="w-full bg-transparent border-none focus:ring-0 text-center font-bold p-0 text-slate-400 tabular-nums"
                                                                 value={item.quantity}
                                                                 onChange={e => updateItem(idx, 'quantity', parseFloat(e.target.value) || 0)}
                                                             />
                                                         </td>
-                                                        <td className="py-8 px-4">
+                                                        <td className="py-5 px-2">
                                                             <input
-                                                                className="w-full bg-transparent border-none focus:ring-0 text-center font-black p-0 text-slate-300 uppercase text-[10px] tracking-widest"
+                                                                className="w-full bg-transparent border-none focus:ring-0 text-center font-bold p-0 text-slate-300 uppercase text-[9px] tracking-widest"
                                                                 value={item.unit}
                                                                 onChange={e => updateItem(idx, 'unit', e.target.value)}
                                                             />
                                                         </td>
-                                                        <td className="py-8 px-6">
+                                                        <td className="py-5 px-4">
                                                             <input
                                                                 type="number"
-                                                                className="w-full bg-transparent border-none focus:ring-0 text-right font-black p-0 text-blue-600 tabular-nums italic"
+                                                                className="w-full bg-transparent border-none focus:ring-0 text-right font-bold p-0 text-blue-600 tabular-nums"
                                                                 value={item.unitPrice}
                                                                 onChange={e => updateItem(idx, 'unitPrice', e.target.value)}
                                                             />
                                                         </td>
-                                                        <td className="py-8 px-10 text-right font-black text-slate-900 tabular-nums italic text-sm">
+                                                        <td className="py-5 px-6 text-right font-bold text-slate-900 tabular-nums text-sm">
                                                             {(item.quantity * (parseFloat(item.unitPrice) || 0)).toLocaleString()}đ
                                                         </td>
-                                                        <td className="py-8 text-right pr-6">
+                                                        <td className="py-5 text-right pr-4">
                                                             <button 
                                                                 onClick={() => removeItem(idx)} 
-                                                                className="w-8 h-8 flex items-center justify-center bg-red-50 text-red-500 rounded-xl opacity-0 group-hover:opacity-100 transition-all hover:bg-red-500 hover:text-white"
+                                                                className="w-8 h-8 flex items-center justify-center bg-rose-50 text-rose-500 rounded-lg opacity-0 group-hover:opacity-100 transition-all hover:bg-rose-500 hover:text-white"
                                                             >
-                                                                <Trash2 size={14} />
+                                                                <Trash2 size={12} />
                                                             </button>
                                                         </td>
                                                     </tr>
                                                 ))}
                                             </tbody>
                                             <tfoot>
-                                                <tr className="bg-slate-950 text-white">
-                                                    <td colSpan={4} className="py-12 px-10 text-sm font-black italic tracking-[0.4em] text-slate-500 uppercase">Valuation Baseline Aggregate</td>
-                                                    <td className="py-12 px-10 text-4xl font-black text-right tracking-tighter text-blue-400 italic tabular-nums">
+                                                <tr className="bg-slate-900 text-white">
+                                                    <td colSpan={4} className="py-6 px-6 text-[10px] font-bold tracking-widest text-slate-400 uppercase">Tổng cộng báo giá dự toán</td>
+                                                    <td className="py-6 px-6 text-2xl font-bold text-right tracking-tight text-blue-400 tabular-nums">
                                                         {totalPrice.toLocaleString()}đ
                                                     </td>
                                                     <td></td>
@@ -425,11 +428,11 @@ export default function ContractorQuotesPage() {
                                 {/* Decision Support & Communications */}
                                 <div className="space-y-6">
                                     {selectedQuote.status === 'PENDING' || selectedQuote.status === 'REPLIED' ? (
-                                        <div className="space-y-6">
-                                            <div className="space-y-2">
-                                                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] ml-4">Strategic Narrative</h4>
+                                        <div className="space-y-5">
+                                            <div className="space-y-1.5">
+                                                <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Strategic Narrative</h4>
                                                 <textarea
-                                                    className="w-full p-10 bg-slate-50 border border-slate-100 rounded-[3rem] focus:bg-white focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500/20 outline-none min-h-[150px] font-bold text-sm shadow-inner transition-all placeholder:text-slate-300"
+                                                    className="w-full p-6 bg-slate-50 border border-slate-100 rounded-2xl focus:bg-white focus:ring-4 focus:ring-blue-600/5 focus:border-blue-600/20 outline-none min-h-[120px] font-bold text-xs shadow-inner transition-all placeholder:text-slate-300"
                                                     placeholder="Articulate your technical commitment, SLA, and operational delivery timeline..."
                                                     value={replyForm.message}
                                                     onChange={e => setReplyForm({ ...replyForm, message: e.target.value })}
@@ -438,54 +441,54 @@ export default function ContractorQuotesPage() {
                                             <button
                                                 onClick={() => handleReply()}
                                                 disabled={submitting}
-                                                className="w-full py-8 bg-blue-600 text-white rounded-[2.5rem] font-black text-xl uppercase tracking-[0.3em] italic hover:bg-blue-700 shadow-2xl shadow-blue-500/20 transition-all flex items-center justify-center gap-6 disabled:bg-slate-200 group active:scale-95"
+                                                className="w-full py-5 bg-blue-600 text-white rounded-2xl font-bold text-sm uppercase tracking-widest hover:bg-blue-700 shadow-lg shadow-blue-500/20 transition-all flex items-center justify-center gap-3 disabled:bg-slate-200 group active:scale-95"
                                             >
                                                 {submitting ? (
-                                                    <div className="animate-spin w-8 h-8 border-4 border-white/30 border-t-white rounded-full" />
+                                                    <div className="animate-spin w-5 h-5 border-2 border-white/30 border-t-white rounded-full" />
                                                 ) : (
                                                     <>
-                                                        <Send className="w-8 h-8 group-hover:translate-x-3 group-hover:-translate-y-3 transition-transform" />
+                                                        <Send className="w-5 h-5 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
                                                         Execute Transmission
                                                     </>
                                                 )}
                                             </button>
                                         </div>
                                     ) : selectedQuote.status === 'ACCEPTED' ? (
-                                        <div className="space-y-8 animate-in zoom-in duration-500">
-                                            <div className="bg-emerald-50/50 p-12 rounded-[4rem] border-[3px] border-emerald-500 border-dashed text-center flex flex-col items-center gap-6">
-                                                <div className="w-24 h-24 bg-emerald-500 rounded-[2.5rem] flex items-center justify-center text-white shadow-xl shadow-emerald-500/20">
-                                                    <CheckCircle size={40} />
+                                        <div className="space-y-6 animate-in zoom-in duration-500">
+                                            <div className="bg-emerald-50/50 p-10 rounded-3xl border-2 border-emerald-500 border-dashed text-center flex flex-col items-center gap-4">
+                                                <div className="w-16 h-16 bg-emerald-500 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-emerald-500/20">
+                                                    <CheckCircle size={32} />
                                                 </div>
-                                                <div className="space-y-2">
-                                                    <h3 className="text-3xl font-black text-emerald-900 uppercase italic tracking-tighter">Agreement Finalized</h3>
-                                                    <p className="text-emerald-700 font-bold text-[10px] uppercase tracking-[0.2em] max-w-sm mx-auto">Tất cả điều khoản đã được đối tác phê chuẩn. Bạn có thể khởi tạo Change Order cho các hạng mục phát sinh.</p>
+                                                <div className="space-y-1">
+                                                    <h3 className="text-xl font-bold text-emerald-900 uppercase tracking-tight">Agreement Finalized</h3>
+                                                    <p className="text-emerald-700 font-bold text-[9px] uppercase tracking-widest max-w-sm mx-auto">Tất cả điều khoản đã được đối tác phê chuẩn. Bạn có thể khởi tạo Change Order cho các hạng mục phát sinh.</p>
                                                 </div>
                                             </div>
                                             <button
                                                 onClick={() => handleReply('CREATE_CHANGE_ORDER')}
-                                                className="w-full py-8 bg-slate-900 text-white rounded-[2.5rem] font-black text-xl uppercase tracking-[0.3em] italic hover:bg-black shadow-2xl shadow-slate-900/10 transition-all flex items-center justify-center gap-6 active:scale-95"
+                                                className="w-full py-5 bg-slate-900 text-white rounded-2xl font-bold text-sm uppercase tracking-widest hover:bg-black shadow-lg shadow-slate-900/10 transition-all flex items-center justify-center gap-3 active:scale-95"
                                             >
-                                                <Plus size={32} />
+                                                <Plus size={20} />
                                                 Initiate Change Order
                                             </button>
                                         </div>
                                     ) : (
-                                        <div className="p-20 bg-slate-50 rounded-[4rem] text-center">
-                                            <span className="text-4xl font-black text-slate-200 uppercase tracking-[0.4em] italic">Deactivated Status</span>
+                                        <div className="p-16 bg-slate-50 rounded-3xl text-center">
+                                            <span className="text-2xl font-bold text-slate-200 uppercase tracking-widest">Deactivated Status</span>
                                         </div>
                                     )}
                                 </div>
                             </div>
                         </div>
                     ) : (
-                        <div className="h-full bg-white rounded-[4rem] border-[3px] border-dashed border-slate-100 flex flex-col items-center justify-center p-20 text-center space-y-10 group">
+                        <div className="h-full bg-white rounded-3xl border-2 border-dashed border-slate-100 flex flex-col items-center justify-center p-16 text-center space-y-8 group">
                             <div className="relative">
-                                <div className="absolute inset-0 bg-blue-600/5 blur-[50px] rounded-full group-hover:bg-blue-600/10 transition-all duration-700"></div>
-                                <FileText className="w-48 h-48 text-slate-50 relative z-10 group-hover:scale-110 transition-transform duration-700 hover:rotate-6" />
+                                <div className="absolute inset-0 bg-blue-600/5 blur-[40px] rounded-full group-hover:bg-blue-600/10 transition-all duration-700"></div>
+                                <FileText className="w-40 h-40 text-slate-50 relative z-10 group-hover:scale-105 transition-transform duration-700" />
                             </div>
-                            <div className="space-y-4">
-                                <h3 className="text-4xl font-black text-slate-900 uppercase italic tracking-tighter">Commercial Review Required</h3>
-                                <p className="text-slate-400 font-bold max-w-md mx-auto leading-relaxed text-[11px] uppercase tracking-[0.2em] opacity-60">Vui lòng chọn một bản ghi đấu thầu từ bảng điều khiển bên trái để bắt đầu phân tích kỹ thuật và định giá thương mại.</p>
+                            <div className="space-y-3">
+                                <h3 className="text-2xl font-bold text-slate-900 tracking-tight">Commercial Review Required</h3>
+                                <p className="text-slate-400 font-bold max-w-sm mx-auto leading-relaxed text-[10px] uppercase tracking-widest opacity-60">Vui lòng chọn một bản ghi đấu thầu từ bảng điều khiển bên trái để bắt đầu phân tích kỹ thuật và định giá thương mại.</p>
                             </div>
                         </div>
                     )}

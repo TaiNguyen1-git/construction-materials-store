@@ -197,35 +197,35 @@ export default function ContractorOrdersPage() {
     }
 
     return (
-        <div className="space-y-12 animate-in fade-in duration-1000 pb-24 max-w-7xl mx-auto">
+        <div className="space-y-8 pb-20 max-w-7xl mx-auto px-4 sm:px-0">
             <Toaster position="top-right" />
             
             {/* Page Header */}
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-10">
-                <div className="space-y-3">
-                    <h1 className="text-5xl font-black text-slate-900 tracking-tighter uppercase italic flex items-center gap-5">
-                        <Package className="w-12 h-12 text-blue-600" />
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+                <div className="space-y-2">
+                    <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-3">
+                        <Package className="w-7 h-7 text-blue-600" />
                         Lịch sử đơn hàng
                     </h1>
-                    <p className="text-slate-500 font-bold uppercase text-[10px] tracking-[0.3em] italic">Theo dõi và quản lý dữ liệu cung ứng vật tư B2B</p>
+                    <p className="text-slate-500 text-sm">Theo dõi và quản lý dữ liệu cung ứng vật tư B2B</p>
                 </div>
 
-                <div className="flex bg-slate-50 p-2 rounded-[2.5rem] gap-2 shadow-sm border border-slate-100">
+                <div className="flex bg-slate-100/50 p-1.5 rounded-xl gap-1">
                     <button
                         onClick={() => setStatusFilter('all')}
-                        className={`px-10 py-4 rounded-[2rem] text-[10px] font-black uppercase tracking-widest transition-all italic ${statusFilter === 'all' ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-100' : 'text-slate-400 hover:text-indigo-600'}`}
+                        className={`px-6 py-2 rounded-lg text-xs font-bold transition-all ${statusFilter === 'all' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'}`}
                     >
                         Tất cả đơn
                     </button>
                     <button
                         onClick={() => setStatusFilter('PENDING')}
-                        className={`px-10 py-4 rounded-[2rem] text-[10px] font-black uppercase tracking-widest transition-all italic ${statusFilter === 'PENDING' ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-100' : 'text-slate-400 hover:text-indigo-600'}`}
+                        className={`px-6 py-2 rounded-lg text-xs font-bold transition-all ${statusFilter === 'PENDING' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'}`}
                     >
                         Chờ duyệt
                     </button>
                     <button
                         onClick={() => setStatusFilter('DELIVERED')}
-                        className={`px-10 py-4 rounded-[2rem] text-[10px] font-black uppercase tracking-widest transition-all italic ${statusFilter === 'DELIVERED' ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-100' : 'text-slate-400 hover:text-indigo-600'}`}
+                        className={`px-6 py-2 rounded-lg text-xs font-bold transition-all ${statusFilter === 'DELIVERED' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'}`}
                     >
                         Đã hoàn tất
                     </button>
@@ -233,30 +233,30 @@ export default function ContractorOrdersPage() {
             </div>
 
             {/* Content Table Container */}
-            <div className="bg-white rounded-[4rem] border border-slate-50 shadow-2xl shadow-slate-200/40 overflow-hidden animate-in slide-in-from-bottom-10 duration-700">
-                <div className="p-10 border-b border-slate-50 flex flex-col lg:flex-row items-center justify-between gap-6">
-                    <div className="relative group flex-1 max-w-xl">
-                        <Search className="absolute left-8 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300 group-focus-within:text-blue-600 transition-colors" />
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+                <div className="p-6 border-b border-slate-50 flex flex-col md:flex-row items-center justify-between gap-4">
+                    <div className="relative group w-full md:max-w-md">
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-blue-600 transition-colors" />
                         <input
                             type="text"
                             placeholder="Tìm kiếm theo mã đơn hoặc tên dự án..."
-                            className="w-full pl-20 pr-8 py-6 bg-slate-50 border-transparent rounded-[2.5rem] text-sm focus:bg-white focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500/20 outline-none transition-all font-bold placeholder:text-slate-300"
+                            className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-transparent rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-blue-100 focus:border-blue-200 outline-none transition-all placeholder:text-slate-400"
                         />
                     </div>
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-3 w-full md:w-auto">
                         {selectedIds.length > 0 && (
                             <button
                                 onClick={handleBulkDelete}
-                                className="px-10 py-6 bg-rose-50 text-rose-600 rounded-[2rem] text-[10px] font-black uppercase tracking-widest hover:bg-rose-100 transition-all border border-rose-100 flex items-center gap-4 shadow-lg shadow-rose-100 active:scale-95 italic"
+                                className="px-5 py-2.5 bg-rose-50 text-rose-600 rounded-xl text-xs font-bold hover:bg-rose-100 transition-all border border-rose-100 flex items-center gap-2 active:scale-95"
                             >
-                                <Trash2 size={20} /> Xóa hàng loạt ({selectedIds.length})
+                                <Trash2 size={16} /> Xóa ({selectedIds.length})
                             </button>
                         )}
                         <button 
                             onClick={() => toast.success('Đang khởi tạo báo cáo CSV...')}
-                            className="px-10 py-6 bg-indigo-600 text-white rounded-[2rem] text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 transition-all flex items-center gap-4 shadow-2xl shadow-indigo-200 active:scale-95 italic"
+                            className="px-5 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl text-xs font-bold hover:bg-slate-50 hover:text-blue-600 transition-all flex items-center gap-2 shadow-sm active:scale-95"
                         >
-                            <Download size={20} /> Xuất báo cáo CSV
+                            <Download size={16} /> Xuất CSV
                         </button>
                     </div>
                 </div>
@@ -264,98 +264,97 @@ export default function ContractorOrdersPage() {
                 <div className="overflow-x-auto">
                     <table className="w-full border-collapse">
                         <thead>
-                            <tr className="bg-slate-50/50">
-                                <th className="px-10 py-8 text-center w-24">
+                            <tr className="bg-slate-50/80 border-b border-slate-100">
+                                <th className="px-6 py-4 text-center w-16">
                                     <input
                                         type="checkbox"
                                         checked={selectedIds.length === orders.length && orders.length > 0}
                                         onChange={toggleSelectAll}
-                                        className="w-6 h-6 rounded-lg border-slate-200 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                                        className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
                                     />
                                 </th>
-                                <th className="text-left px-8 py-8 text-[11px] font-black uppercase tracking-[0.2em] text-slate-400 italic">Mã đơn hàng</th>
-                                <th className="text-left px-8 py-8 text-[11px] font-black uppercase tracking-[0.2em] text-slate-400 italic">Dự án công trình</th>
-                                <th className="text-left px-8 py-8 text-[11px] font-black uppercase tracking-[0.2em] text-slate-400 italic">Ngày khởi tạo</th>
-                                <th className="text-right px-8 py-8 text-[11px] font-black uppercase tracking-[0.2em] text-slate-400 italic">Giá trị đơn</th>
-                                <th className="text-center px-8 py-8 text-[11px] font-black uppercase tracking-[0.2em] text-slate-400 italic">Trạng thái</th>
-                                <th className="text-center px-8 py-8 text-[11px] font-black uppercase tracking-[0.2em] text-slate-400 italic">Thao tác</th>
+                                <th className="text-left px-6 py-4 text-[11px] font-bold uppercase tracking-wider text-slate-500">Mã đơn hàng</th>
+                                <th className="text-left px-6 py-4 text-[11px] font-bold uppercase tracking-wider text-slate-500">Dự án công trình</th>
+                                <th className="text-left px-6 py-4 text-[11px] font-bold uppercase tracking-wider text-slate-500">Ngày khởi tạo</th>
+                                <th className="text-right px-6 py-4 text-[11px] font-bold uppercase tracking-wider text-slate-500">Giá trị đơn</th>
+                                <th className="text-center px-6 py-4 text-[11px] font-bold uppercase tracking-wider text-slate-500">Trạng thái</th>
+                                <th className="text-center px-6 py-4 text-[11px] font-bold uppercase tracking-wider text-slate-500">Thao tác</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50/50">
                             {loading ? (
                                 [1, 2, 3, 4, 5].map(i => (
                                     <tr key={i} className="animate-pulse">
-                                        <td colSpan={7} className="px-10 py-10"><div className="h-12 bg-slate-50 rounded-3xl w-full" /></td>
+                                        <td colSpan={7} className="px-6 py-8"><div className="h-10 bg-slate-50 rounded-xl w-full" /></td>
                                     </tr>
                                 ))
                             ) : orders.length === 0 ? (
                                 <tr>
-                                    <td colSpan={7} className="px-10 py-48 text-center">
-                                        <div className="flex flex-col items-center gap-8 opacity-20">
-                                            <Package size={96} className="text-slate-300" />
-                                            <p className="text-xs font-black uppercase tracking-[0.4em] italic">Không phát hiện bản ghi giao dịch nào</p>
+                                    <td colSpan={7} className="px-6 py-32 text-center">
+                                        <div className="flex flex-col items-center gap-4">
+                                            <div className="w-16 h-16 rounded-full bg-slate-50 flex items-center justify-center">
+                                                <Package size={32} className="text-slate-300" />
+                                            </div>
+                                            <p className="text-sm font-bold text-slate-400">Không tìm thấy đơn hàng nào</p>
                                         </div>
                                     </td>
                                 </tr>
                             ) : (
                                 orders.map((order) => (
-                                    <tr key={order.id} className={`group hover:bg-slate-50/50 transition-all duration-500 ${selectedIds.includes(order.id) ? 'bg-blue-50/30' : ''}`}>
-                                        <td className="px-10 py-10 text-center">
+                                    <tr key={order.id} className={`group hover:bg-slate-50 transition-colors border-b border-slate-50 last:border-0 ${selectedIds.includes(order.id) ? 'bg-blue-50/30' : ''}`}>
+                                        <td className="px-6 py-4 text-center">
                                             <input
                                                 type="checkbox"
                                                 checked={selectedIds.includes(order.id)}
                                                 onChange={() => toggleSelectOrder(order.id)}
-                                                className="w-6 h-6 rounded-lg border-slate-200 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                                                className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
                                             />
                                         </td>
-                                        <td className="px-8 py-10">
+                                        <td className="px-6 py-4">
                                             <span 
                                                 onClick={() => handleViewOrder(order)}
-                                                className="font-black text-xs text-blue-600 cursor-pointer hover:underline underline-offset-8 decoration-2 italic"
+                                                className="font-bold text-sm text-blue-600 cursor-pointer hover:underline underline-offset-4"
                                             >
                                                 #{order.orderNumber}
                                             </span>
                                         </td>
-                                        <td className="px-8 py-10">
-                                            <div className="flex items-center gap-5">
-                                                <div className="w-2 h-10 bg-slate-100 rounded-full group-hover:bg-blue-600 transition-all duration-500" />
-                                                <span className="text-xs font-black text-slate-900 uppercase tracking-tighter truncate max-w-[280px] italic">{order.project}</span>
-                                            </div>
+                                        <td className="px-6 py-4">
+                                            <span className="text-sm font-bold text-slate-700 truncate max-w-[200px] block">{order.project}</span>
                                         </td>
-                                        <td className="px-8 py-10 text-xs font-bold text-slate-400 tabular-nums italic">{order.date}</td>
-                                        <td className="px-8 py-10 text-right">
-                                            <span className="text-xs font-black text-slate-900 tabular-nums italic">{formatCurrency(order.total)}</span>
+                                        <td className="px-6 py-4 text-sm text-slate-500">{order.date}</td>
+                                        <td className="px-6 py-4 text-right">
+                                            <span className="text-sm font-bold text-slate-900">{formatCurrency(order.total)}</span>
                                         </td>
-                                        <td className="px-8 py-10 text-center">
-                                            <span className={`inline-block px-5 py-2 rounded-full text-[9px] font-black uppercase tracking-[0.2em] shadow-sm italic ${getStatusColor(order.status)}`}>
+                                        <td className="px-6 py-4 text-center">
+                                            <span className={`inline-block px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${getStatusColor(order.status)}`}>
                                                 {getStatusText(order.status)}
                                             </span>
                                         </td>
-                                        <td className="px-8 py-10 text-center">
-                                            <div className="flex items-center justify-center gap-4">
+                                        <td className="px-6 py-4 text-center">
+                                            <div className="flex items-center justify-center gap-2">
                                                 <button
                                                     onClick={() => handleViewOrder(order)}
-                                                    className="w-12 h-12 flex items-center justify-center bg-slate-50 text-slate-400 hover:bg-blue-600 hover:text-white rounded-2xl transition-all active:scale-90 shadow-sm"
+                                                    className="p-1.5 text-slate-400 hover:bg-white hover:text-blue-600 rounded-lg transition-colors border border-transparent hover:border-slate-200 shadow-sm"
                                                     title="Xem chi tiết"
                                                 >
-                                                    <Eye size={20} />
+                                                    <Eye size={16} />
                                                 </button>
                                                 {order.status === 'PENDING' && (
                                                     <button
                                                         onClick={() => handleEditOrder(order)}
-                                                        className="w-12 h-12 flex items-center justify-center bg-slate-50 text-slate-400 hover:bg-indigo-600 hover:text-white rounded-2xl transition-all active:scale-90 shadow-sm"
+                                                        className="p-1.5 text-slate-400 hover:bg-white hover:text-indigo-600 rounded-lg transition-colors border border-transparent hover:border-slate-200 shadow-sm"
                                                         title="Sửa đơn hàng"
                                                     >
-                                                        <Edit size={20} />
+                                                        <Edit size={16} />
                                                     </button>
                                                 )}
                                                 {(order.status === 'PENDING' || order.status === 'CANCELLED') && (
                                                     <button
                                                         onClick={() => handleDeleteOrder(order)}
-                                                        className="w-12 h-12 flex items-center justify-center bg-slate-50 text-slate-400 hover:bg-rose-600 hover:text-white rounded-2xl transition-all active:scale-90 shadow-sm"
+                                                        className="p-1.5 text-slate-400 hover:bg-white hover:text-rose-600 rounded-lg transition-colors border border-transparent hover:border-slate-200 shadow-sm"
                                                         title="Hủy đơn"
                                                     >
-                                                        <Trash2 size={20} />
+                                                        <Trash2 size={16} />
                                                     </button>
                                                 )}
                                             </div>
@@ -367,17 +366,17 @@ export default function ContractorOrdersPage() {
                     </table>
                 </div>
 
-                <div className="flex items-center justify-between px-10 py-10 bg-slate-50/50">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">
-                        Đang hiển thị bản ghi <span className="text-blue-600">1-{orders.length}</span> trên tổng {orders.length} đơn hàng
+                <div className="flex items-center justify-between px-6 py-4 bg-slate-50 border-t border-slate-100">
+                    <p className="text-xs text-slate-500">
+                        Đang hiển thị <span className="font-bold text-slate-900">1-{orders.length}</span> trên tổng {orders.length} đơn hàng
                     </p>
-                    <div className="flex items-center gap-3">
-                        <button className="w-12 h-12 flex items-center justify-center bg-white border border-slate-100 rounded-2xl text-slate-400 hover:text-blue-600 transition-all disabled:opacity-30 active:scale-95" disabled>
-                            <ChevronLeft size={20} />
+                    <div className="flex items-center gap-1">
+                        <button className="w-8 h-8 flex items-center justify-center bg-white border border-slate-200 rounded-lg text-slate-400 hover:border-blue-200 hover:text-blue-600 transition-all disabled:opacity-50" disabled>
+                            <ChevronLeft size={16} />
                         </button>
-                        <button className="w-12 h-12 bg-blue-600 text-white rounded-2xl text-[10px] font-black group shadow-xl shadow-blue-500/30 italic">1</button>
-                        <button className="w-12 h-12 flex items-center justify-center bg-white border border-slate-100 rounded-2xl text-slate-400 hover:text-blue-600 transition-all disabled:opacity-30 active:scale-95" disabled>
-                            <ChevronRight size={20} />
+                        <button className="w-8 h-8 bg-blue-600 text-white rounded-lg text-xs font-bold disabled:opacity-50" disabled>1</button>
+                        <button className="w-8 h-8 flex items-center justify-center bg-white border border-slate-200 rounded-lg text-slate-400 hover:border-blue-200 hover:text-blue-600 transition-all disabled:opacity-50" disabled>
+                            <ChevronRight size={16} />
                         </button>
                     </div>
                 </div>
@@ -385,69 +384,64 @@ export default function ContractorOrdersPage() {
 
             {/* Modals */}
             {showViewModal && selectedOrder && (
-                <div className="fixed inset-0 bg-indigo-950/40 backdrop-blur-xl z-[150] flex items-center justify-center p-6 animate-in fade-in duration-500">
-                    <div className="bg-white rounded-[4rem] w-full max-w-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-500 border border-white/20">
-                        <div className="p-16 bg-blue-600 text-white flex justify-between items-center relative overflow-hidden">
-                            <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32 blur-[60px]"></div>
-                            <div className="relative z-10">
-                                <h3 className="text-4xl font-black uppercase tracking-tighter italic mb-2">Chi tiết đơn hàng</h3>
-                                <p className="text-blue-100 font-bold uppercase text-[10px] tracking-[0.3em] italic">Mã đơn: {selectedOrder.orderNumber} • Log: {selectedOrder.date}</p>
+                <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[150] flex items-center justify-center p-4 xl:p-6 animate-in fade-in duration-200">
+                    <div className="bg-white rounded-2xl w-full max-w-2xl shadow-xl overflow-hidden animate-in zoom-in-95 duration-200">
+                        <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                            <div>
+                                <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                                    Chi tiết đơn hàng <span className="text-blue-600">#{selectedOrder.orderNumber}</span>
+                                </h3>
+                                <p className="text-xs text-slate-500 mt-1">Khởi tạo: {selectedOrder.date}</p>
                             </div>
                             <button 
                                 onClick={() => setShowViewModal(false)} 
-                                className="w-14 h-14 bg-white/10 hover:bg-white/20 rounded-2xl flex items-center justify-center transition-all group z-20"
+                                className="w-8 h-8 hover:bg-slate-200 rounded-lg flex items-center justify-center text-slate-500 transition-colors"
                             >
-                                <X size={28} className="group-hover:rotate-90 transition-transform" />
+                                <X size={20} />
                             </button>
                         </div>
                         
-                        <div className="p-16 space-y-12">
-                            <div className="grid grid-cols-2 gap-12">
-                                <div className="space-y-10">
-                                    <div className="space-y-3">
-                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-3 italic">Dự án công trình</p>
-                                        <div className="p-8 bg-slate-50 rounded-[2.5rem] border border-slate-100 italic font-black text-slate-900 uppercase tracking-tighter text-lg shadow-inner">
-                                            {selectedOrder.project}
-                                        </div>
+                        <div className="p-6 space-y-6">
+                            <div className="grid grid-cols-2 gap-6">
+                                <div className="space-y-4">
+                                    <div>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Dự án công trình</p>
+                                        <p className="font-bold text-slate-900">{selectedOrder.project}</p>
                                     </div>
-                                    <div className="space-y-3">
-                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-3 italic">Trạng thái vận hành</p>
-                                        <div className="flex">
-                                            <span className={`px-8 py-4 rounded-[1.8rem] text-[10px] font-black uppercase tracking-widest shadow-sm italic ${getStatusColor(selectedOrder.status)}`}>
-                                                {getStatusText(selectedOrder.status)}
-                                            </span>
-                                        </div>
+                                    <div>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Trạng thái vận hành</p>
+                                        <span className={`inline-block px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${getStatusColor(selectedOrder.status)}`}>
+                                            {getStatusText(selectedOrder.status)}
+                                        </span>
                                     </div>
                                 </div>
-                                <div className="space-y-10 text-right">
-                                    <div className="space-y-3">
-                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-3 text-right italic">Giá trị giao dịch</p>
-                                        <div className="p-10 bg-indigo-50 rounded-[3rem] border border-indigo-100 flex flex-col items-end shadow-inner">
-                                            <p className="text-4xl font-black text-indigo-600 italic tracking-tighter tabular-nums">{formatCurrency(selectedOrder.total)}</p>
-                                        </div>
+                                <div className="space-y-4">
+                                    <div>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Giá trị giao dịch</p>
+                                        <p className="text-2xl font-bold text-blue-600 tabular-nums">{formatCurrency(selectedOrder.total)}</p>
                                     </div>
-                                    <div className="space-y-3 text-right">
-                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-3 text-right italic">Số lượng vật tư</p>
-                                        <p className="text-2xl font-black text-slate-900 uppercase italic tracking-tighter">{selectedOrder.items} danh mục sản phẩm</p>
+                                    <div>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Số lượng vật tư</p>
+                                        <p className="font-bold text-slate-900">{selectedOrder.items} danh mục sản phẩm</p>
                                     </div>
                                 </div>
                             </div>
 
-                            <div className="pt-12 flex gap-6">
-                                <button onClick={() => setShowViewModal(false)} className="flex-1 py-7 bg-slate-50 text-slate-400 rounded-[2.2rem] font-black text-[10px] uppercase tracking-[0.3em] hover:bg-slate-100 transition-all italic border border-slate-100">Đóng cửa sổ</button>
+                            <div className="pt-6 border-t border-slate-100 flex justify-end gap-3">
+                                <button onClick={() => setShowViewModal(false)} className="px-6 py-2.5 bg-slate-100 text-slate-600 rounded-xl font-bold text-xs uppercase tracking-wider hover:bg-slate-200 transition-all">Đóng</button>
                                 {selectedOrder.status === 'SHIPPED' && selectedOrder.deliveryToken && (
                                     <Link
                                         href={`/track/${selectedOrder.deliveryToken}`}
-                                        className="flex-[2] py-7 bg-emerald-600 text-white rounded-[2.2rem] font-black text-[10px] uppercase tracking-[0.3em] hover:bg-emerald-700 transition-all shadow-2xl shadow-emerald-200 flex items-center justify-center gap-5 group italic"
+                                        className="px-6 py-2.5 bg-emerald-600 text-white rounded-xl font-bold text-xs uppercase tracking-wider hover:bg-emerald-700 transition-all flex items-center gap-2"
                                     >
-                                        Theo dõi hành trình <ArrowRight size={20} className="group-hover:translate-x-3 transition-transform" />
+                                        Theo dõi đơn hàng <ArrowRight size={16} />
                                     </Link>
                                 )}
                                 <button 
                                     onClick={() => toast.success('Đang thực hiện in tài liệu...')}
-                                    className="flex-1 py-7 bg-blue-600 text-white rounded-[2.2rem] font-black text-[10px] uppercase tracking-[0.3em] hover:bg-blue-700 transition-all shadow-2xl shadow-blue-200 italic"
+                                    className="px-6 py-2.5 bg-blue-600 text-white rounded-xl font-bold text-xs uppercase tracking-wider hover:bg-blue-700 transition-all"
                                 >
-                                    In hóa đơn VAT
+                                    In hóa đơn
                                 </button>
                             </div>
                         </div>
@@ -456,24 +450,43 @@ export default function ContractorOrdersPage() {
             )}
 
             {showDeleteModal && selectedOrder && (
-                <div className="fixed inset-0 bg-rose-950/30 backdrop-blur-2xl z-[200] flex items-center justify-center p-6">
-                    <div className="bg-white rounded-[4rem] w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-500">
-                        <div className="p-12 bg-rose-600 text-white relative">
-                            <h3 className="text-3xl font-black uppercase tracking-tighter italic">Thu hồi lệnh đặt</h3>
-                        </div>
-                        <div className="p-16 text-center space-y-12">
-                            <div className="w-28 h-28 bg-rose-50 rounded-[3rem] flex items-center justify-center mx-auto shadow-inner">
-                                <Trash2 size={48} className="text-rose-500" />
+                <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
+                    <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl overflow-hidden animate-in zoom-in-95 duration-200 border border-slate-100">
+                        <div className="p-6 text-center space-y-6">
+                            <div className="w-16 h-16 bg-rose-50 rounded-full flex items-center justify-center mx-auto">
+                                <Trash2 size={32} className="text-rose-500" />
                             </div>
-                            <div className="space-y-5">
-                                <h4 className="text-3xl font-black text-slate-900 tracking-tighter uppercase italic">Xác nhận hủy đơn?</h4>
-                                <p className="text-slate-500 font-bold uppercase text-[10px] tracking-[0.2em] leading-relaxed italic">
-                                    Đơn hàng <span className="text-rose-600 font-black">#{selectedOrder.orderNumber}</span> sẽ được gỡ bỏ vĩnh viễn khỏi toàn bộ hệ thống lưu trữ B2B.
+                            <div className="space-y-2">
+                                <h3 className="text-lg font-bold text-slate-900">Xác nhận hủy đơn?</h3>
+                                <p className="text-sm text-slate-500">
+                                    Đơn <span className="text-rose-600 font-bold">#{selectedOrder.orderNumber}</span> sẽ bị hủy và không thể khôi phục.
                                 </p>
                             </div>
-                            <div className="flex gap-4">
-                                <button onClick={() => setShowDeleteModal(false)} className="flex-1 py-7 bg-slate-50 text-slate-400 rounded-[2rem] font-black text-[10px] uppercase tracking-widest hover:bg-slate-100 transition-all shadow-sm italic">Quay lại</button>
-                                <button onClick={confirmDelete} className="flex-1 py-7 bg-rose-600 text-white rounded-[2rem] font-black text-[10px] uppercase tracking-widest hover:bg-rose-700 transition-all shadow-2xl shadow-rose-200 italic">Xác nhận xóa</button>
+                            <div className="grid grid-cols-2 gap-3">
+                                <button onClick={() => setShowDeleteModal(false)} className="py-2.5 bg-slate-100 text-slate-700 rounded-xl font-bold text-xs hover:bg-slate-200 transition-all">Hủy bỏ</button>
+                                <button onClick={confirmDelete} className="py-2.5 bg-rose-600 text-white rounded-xl font-bold text-xs hover:bg-rose-700 transition-all">Xác nhận hủy</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {showBulkDeleteModal && (
+                <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
+                    <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl overflow-hidden animate-in zoom-in-95 duration-200 border border-slate-100">
+                        <div className="p-6 text-center space-y-6">
+                            <div className="w-16 h-16 bg-rose-50 rounded-full flex items-center justify-center mx-auto border border-rose-100">
+                                <Trash2 size={32} className="text-rose-500" />
+                            </div>
+                            <div className="space-y-2">
+                                <h3 className="text-lg font-bold text-slate-900">Xóa hàng loạt?</h3>
+                                <p className="text-sm text-slate-500">
+                                    Thao tác này sẽ hủy vĩnh viễn <span className="text-rose-600 font-bold">{selectedIds.length}</span> đơn hàng đã chọn.
+                                </p>
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                                <button onClick={() => setShowBulkDeleteModal(false)} className="py-2.5 bg-slate-100 text-slate-700 rounded-xl font-bold text-xs hover:bg-slate-200 transition-all">Trở lại</button>
+                                <button onClick={confirmBulkDelete} className="py-2.5 bg-rose-600 text-white rounded-xl font-bold text-xs hover:bg-rose-700 transition-all">Đồng ý xóa</button>
                             </div>
                         </div>
                     </div>

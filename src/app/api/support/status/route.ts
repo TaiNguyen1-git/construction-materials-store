@@ -34,6 +34,7 @@ export async function GET() {
         // - Last activity timestamp
         // - Manual override setting from admin panel
 
+        // Return success response
         return NextResponse.json({
             status,
             businessHours: {
@@ -43,9 +44,13 @@ export async function GET() {
             },
             responseTime: status === 'online' ? '~5 phút' : (status === 'away' ? '~15 phút' : 'Trong giờ làm việc'),
             timestamp: now.toISOString()
-        })
+        }, { status: 200 })
+
     } catch (error) {
         console.error('Error getting support status:', error)
-        return NextResponse.json({ status: 'online' }) // Default to online
+        return NextResponse.json({ 
+            status: 'online',
+            error: 'Internal calculation failed' 
+        }, { status: 200 }) // Return 200 with fallback to prevent UI breakage
     }
 }

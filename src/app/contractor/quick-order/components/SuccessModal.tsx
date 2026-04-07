@@ -2,6 +2,7 @@
 
 import React from 'react'
 import { CheckCircle, X, Plus, FileText, Building2 } from 'lucide-react'
+import { toast } from 'react-hot-toast'
 import { SuccessOrderData } from '../types'
 
 interface SuccessModalProps {
@@ -141,11 +142,31 @@ export default function SuccessModal({ order, onClose, formatCurrency }: Success
                             <button
                                 onClick={() => {
                                     navigator.clipboard.writeText(order.orderNumber)
+                                    toast.success('Đã sao chép mã đơn hàng')
                                 }}
                                 className="w-full py-3.5 bg-slate-50 text-slate-700 rounded-2xl font-black text-sm border border-slate-200 hover:bg-slate-100 transition-all active:scale-[0.98] flex items-center justify-center gap-3"
                             >
                                 <FileText className="w-4 h-4" /> Copy Mã Đơn
                             </button>
+
+                            {order.paymentMethod === 'TRANSFER' && (
+                                <div className="bg-blue-50 border border-blue-100 rounded-3xl p-6 text-center animate-in zoom-in duration-500">
+                                    <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest mb-3">Quét mã để thanh toán</p>
+                                    <div className="bg-white p-4 rounded-2xl shadow-sm inline-block mb-3 border border-blue-50">
+                                        <img 
+                                            src={`https://img.vietqr.io/image/970423-06729594301-compact.png?amount=${order.total}&addInfo=DH%20${order.orderNumber}&accountName=NGUYEN%20THANH%20TAI`} 
+                                            alt="VietQR" 
+                                            className="w-40 h-40 object-contain"
+                                        />
+                                    </div>
+                                    <div className="text-left space-y-1 bg-white/50 p-3 rounded-xl border border-blue-50/50">
+                                        <p className="text-[10px] text-slate-500 font-medium">Ngân hàng: <span className="font-bold text-slate-700">VPBank</span></p>
+                                        <p className="text-[10px] text-slate-500 font-medium">STK: <span className="font-bold text-slate-700">06729594301</span></p>
+                                        <p className="text-[10px] text-slate-500 font-medium">Người nhận: <span className="font-bold text-slate-700">NGUYEN THANH TAI</span></p>
+                                        <p className="text-[10px] text-slate-500 font-medium">Nội dung: <span className="font-bold text-blue-600">DH {order.orderNumber}</span></p>
+                                    </div>
+                                </div>
+                            )}
 
                             <div className="flex-1" />
 
@@ -167,7 +188,9 @@ export default function SuccessModal({ order, onClose, formatCurrency }: Success
                                     </div>
                                     <div className="flex justify-between">
                                         <span className="text-slate-500">Thanh toán</span>
-                                        <span className="font-bold">Công nợ B2B</span>
+                                        <span className={`font-bold ${order.paymentMethod === 'TRANSFER' ? 'text-emerald-600' : 'text-blue-600'}`}>
+                                            {order.paymentMethod === 'TRANSFER' ? 'Chuyển khoản QR' : 'Công nợ B2B'}
+                                        </span>
                                     </div>
                                     <div className="flex justify-between">
                                         <span className="text-slate-500">Vận chuyển</span>

@@ -214,7 +214,7 @@ export default function ContractorProfilePage() {
     const getStatusBadge = (status: BusinessDocument['status']) => {
         switch (status) {
             case 'verified':
-                return <span className="px-5 py-2 bg-emerald-500 text-white rounded-2xl text-[9px] font-black uppercase tracking-widest shadow-lg shadow-emerald-500/20">Verified</span>
+                return <span className="px-5 py-2 bg-emerald-500 text-white rounded-xl text-[9px] font-bold uppercase tracking-widest shadow-lg shadow-emerald-500/20">Đã xác thực</span>
             case 'rejected':
                 return <span className="px-5 py-2 bg-rose-500 text-white rounded-2xl text-[9px] font-black uppercase tracking-widest shadow-lg shadow-rose-500/20">Rejected</span>
             default:
@@ -306,7 +306,7 @@ export default function ContractorProfilePage() {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                                 {[
                                     { label: 'Commercial Email', name: 'email', value: profile.email, icon: Mail },
-                                    { label: 'Verified Phone', name: 'phone', value: profile.phone, icon: Phone }
+                                    { label: 'SĐT đã xác thực', name: 'phone', value: profile.phone, icon: Phone }
                                 ].map((field, i) => (
                                     <div key={i} className="space-y-4">
                                         <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">{field.label}</label>
