@@ -9,7 +9,7 @@ interface Props {
 }
 
 async function getProject(id: string) {
-    const project = await prisma.constructionProject.findUnique({
+    const project = await prisma.project.findUnique({
         where: { id },
     })
     return project
@@ -31,15 +31,15 @@ export async function generateMetadata(
     const previousImages = (await parent).openGraph?.images || []
 
     return {
-        title: `${project.title} | Dự án Marketplace SmartBuild`,
+        title: `${project.name} | Dự án Marketplace SmartBuild`,
         description: (project.description || '').substring(0, 160),
         openGraph: {
-            title: project.title,
+            title: project.name,
             description: (project.description || '').substring(0, 160),
             images: previousImages,
             type: 'website',
         },
-        keywords: [project.title, 'dự án xây dựng', 'tìm thầu', 'SmartBuild', project.city],
+        keywords: [project.name, 'dự án xây dựng', 'tìm thầu', 'SmartBuild', project.location || ''],
     }
 }
 
@@ -56,11 +56,11 @@ export default async function Page({ params }: Props) {
     return (
         <>
             <ProjectJsonLd project={{
-                title: project.title,
+                title: project.name,
                 description: project.description || '',
-                location: project.city,
+                location: project.location || '',
                 datePosted: project.createdAt.toISOString(),
-                budget: project.estimatedBudget || undefined
+                budget: project.budget || undefined
             }} />
             <ProjectDetailClient projectId={id} />
         </>

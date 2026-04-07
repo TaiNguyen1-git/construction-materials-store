@@ -6,12 +6,9 @@ import { verifyTokenFromRequest } from '@/lib/auth-middleware-api'
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const user = verifyTokenFromRequest(request)
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
 
     const { id } = await params
-    const project = await (prisma as any).project.findUnique({
+    const project = await prisma.project.findUnique({
       where: { id },
       include: {
         customer: {
@@ -65,28 +62,35 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ error: 'Project not found' }, { status: 404 })
     }
 
-    // Check if user has permission to view this project
-    if (user.role === 'CUSTOMER') {
-      const customer = await prisma.customer.findFirst({
-        where: { userId: user.userId }
-      })
-
-      if (!customer || customer.id !== project.customerId) {
-        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    if (!user) {
+      if (!project.isPublic || project.moderationStatus !== 'APPROVED') {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
       }
-    }
+    } else {
+      // Check if user has permission to view this project
+      if (user.role === 'CUSTOMER') {
+        const customer = await prisma.customer.findFirst({
+          where: { userId: user.userId }
+        })
 
-    // CONTRACTOR can only view projects assigned to them, OR unassigned projects (open for bidding)
-    if (user.role === 'CONTRACTOR') {
-      const contractor = await prisma.customer.findFirst({
-        where: { userId: user.userId }
-      })
+        if (!customer || customer.id !== project.customerId) {
+          return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+        }
+      }
 
-      const isAssigned = contractor && contractor.id === project.contractorId
-      const isOpenBidding = project.contractorId === null
+      // CONTRACTOR can only view projects assigned to them, OR unassigned projects (open for bidding)
+      if (user.role === 'CONTRACTOR') {
+        const contractor = await prisma.customer.findFirst({
+          where: { userId: user.userId }
+        })
 
-      if (!isAssigned && !isOpenBidding) {
-        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+        const isAssigned = contractor && contractor.id === project.contractorId
+        const isOpenBidding = project.contractorId === null
+
+        // In marketplace context, contractors can view public approved projects
+        if (!isAssigned && !isOpenBidding && (!project.isPublic || project.moderationStatus !== 'APPROVED')) {
+          return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+        }
       }
     }
 
@@ -157,7 +161,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     // Update project
-    const updatedProject = await (prisma as any).project.update({
+    const updatedProject = await prisma.project.update({
       where: { id },
       data: {
         name: name !== undefined ? name : undefined,
@@ -205,7 +209,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     const { id } = await params
 
     // Check if project exists
-    const existingProject = await (prisma as any).project.findUnique({
+    const existingProject = await prisma.project.findUnique({
       where: { id }
     })
 
@@ -214,7 +218,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     }
 
     // Delete project (cascade will delete related tasks and materials)
-    await (prisma as any).project.delete({
+    await prisma.project.delete({
       where: { id }
     })
 

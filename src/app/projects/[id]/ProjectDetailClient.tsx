@@ -16,13 +16,11 @@ import Footer from '@/components/Footer'
 
 interface Project {
     id: string
-    title: string
+    name: string
     description: string
-    projectType: string
+    projectType?: string
     location: string
-    district: string | null
-    city: string
-    estimatedBudget: number | null
+    budget: number | null
     budgetType: string
     status: string
     requirements: string[]
@@ -54,15 +52,15 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
 
     const fetchProject = async () => {
         try {
-            const res = await fetch(`/api/marketplace/projects/${projectId}`)
+            const res = await fetch(`/api/projects/${projectId}`)
             if (res.ok) {
                 const data = await res.json()
-                if (data.success) {
-                    setProject(data.data)
+                if (data) {
+                    setProject(data)
                     const customerId = localStorage.getItem('customer_id')
                     const token = localStorage.getItem('access_token')
                     if (token && customerId) {
-                        if (data.data.customerId === customerId) setIsOwner(true)
+                        if (data.customerId === customerId) setIsOwner(true)
                     }
                 }
             }
@@ -76,8 +74,8 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
     const handleApplyStandards = async (materials: string) => {
         try {
             const token = localStorage.getItem('access_token')
-            const res = await fetch(`/api/marketplace/projects/${projectId}`, {
-                method: 'PATCH',
+            const res = await fetch(`/api/projects/${projectId}`, {
+                method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': token ? `Bearer ${token}` : ''
@@ -150,7 +148,7 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
                             <div className="lg:col-span-2">
                                 <AIMaterialStandards
                                     projectId={project.id}
-                                    projectTitle={project.title}
+                                    projectTitle={project.name}
                                     onApplyStandards={handleApplyStandards}
                                 />
                             </div>
@@ -159,10 +157,10 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
 
                     <div className="bg-white rounded-3xl shadow-sm overflow-hidden border border-gray-100">
                         <div className="p-8">
-                            <h1 className="text-3xl font-bold text-gray-900 mb-4">{project.title}</h1>
+                            <h1 className="text-3xl font-bold text-gray-900 mb-4">{project.name}</h1>
                             <div className="flex flex-wrap gap-4 mb-8 text-sm text-gray-500">
-                                <span className="flex items-center gap-1"><MapPin className="w-4 h-4" /> {project.city}</span>
-                                <span className="flex items-center gap-1 font-bold text-blue-600"><Coins className="w-4 h-4" /> {project.estimatedBudget?.toLocaleString()}đ</span>
+                                <span className="flex items-center gap-1"><MapPin className="w-4 h-4" /> {project.location || 'Chưa cập nhật'}</span>
+                                <span className="flex items-center gap-1 font-bold text-blue-600"><Coins className="w-4 h-4" /> {project.budget?.toLocaleString()}đ</span>
                                 <span className="flex items-center gap-1"><Calendar className="w-4 h-4" /> {new Date(project.createdAt).toLocaleDateString('vi-VN')}</span>
                             </div>
 
@@ -290,7 +288,7 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
                         <div className="bg-white rounded-3xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
                             <ApplicationForm
                                 projectId={project.id}
-                                projectTitle={project.title}
+                                projectTitle={project.name}
                                 isOpen={showApplyModal}
                                 onClose={() => setShowApplyModal(false)}
                                 onSuccess={() => {

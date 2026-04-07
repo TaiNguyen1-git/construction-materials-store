@@ -72,6 +72,8 @@ export default function AdminProjectsPage() {
   const [editingProject, setEditingProject] = useState<Project | null>(null)
   const [deletingProject, setDeletingProject] = useState<Project | null>(null)
   const [formLoading, setFormLoading] = useState(false)
+  const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([])
+  const [bulkLoading, setBulkLoading] = useState(false)
 
   const [form, setForm] = useState({
     name: '',
@@ -129,6 +131,32 @@ export default function AdminProjectsPage() {
       toast.error('Có lỗi xảy ra')
     } finally {
       setFormLoading(false)
+    }
+  }
+
+  const handleBulkModeration = async (status: 'APPROVED' | 'REJECTED') => {
+    try {
+      setBulkLoading(true)
+      const promises = selectedProjectIds.map(id => 
+        fetchWithAuth(`/api/projects/${id}`, {
+          method: 'PUT',
+          body: JSON.stringify({ moderationStatus: status })
+        })
+      )
+      
+      const results = await Promise.all(promises)
+      if (results.every(res => res.ok)) {
+        toast.success(`Đã ${status === 'APPROVED' ? 'duyệt' : 'từ chối'} ${selectedProjectIds.length} dự án`)
+        setSelectedProjectIds([])
+        fetchProjects()
+      } else {
+        toast.error('Một số dự án xử lý thất bại, vui lòng thử lại')
+        fetchProjects()
+      }
+    } catch (error) {
+      toast.error('Có lỗi xảy ra khi xử lý hàng loạt')
+    } finally {
+      setBulkLoading(false)
     }
   }
 
@@ -271,45 +299,45 @@ export default function AdminProjectsPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-black text-slate-900 tracking-tight">Trung tâm Dự án</h1>
-          <p className="text-sm font-medium text-slate-500 mt-1">
+          <h1 className="text-2xl font-black text-slate-900 tracking-tight">Trung tâm Dự án</h1>
+          <p className="text-[12px] font-medium text-slate-400 mt-0.5">
             Quản lý, phê duyệt và giám sát toàn bộ dự án từ Khách hàng & Nhà thầu.
           </p>
         </div>
         <button
           onClick={() => openModal()}
-          className="bg-blue-600 text-white px-6 py-3.5 rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-blue-700 hover:shadow-lg hover:shadow-blue-600/20 transition-all flex items-center gap-2 transform active:scale-95"
+          className="bg-blue-600 text-white px-5 py-2.5 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-blue-700 hover:shadow-lg transition-all flex items-center gap-2 transform active:scale-95"
         >
-          <Plus className="h-5 w-5" /> Thêm Dự Án
+          <Plus className="h-4 w-4" /> Thêm Dự Án
         </button>
       </div>
 
       {/* Modern Filter Panel */}
-      <div className="bg-white p-6 rounded-[24px] border border-slate-100 shadow-sm shadow-slate-200/50">
-        <div className="flex items-center gap-2 mb-6 text-slate-800">
-          <SlidersHorizontal className="w-5 h-5 text-blue-600" />
-          <h3 className="font-bold text-sm">Bộ Lọc Điệu Kiện</h3>
+      <div className="bg-white p-4 pb-5 rounded-[20px] border border-slate-100 shadow-sm">
+        <div className="flex items-center gap-2 mb-3 text-slate-800">
+          <SlidersHorizontal className="w-4 h-4 text-blue-600" />
+          <h3 className="font-bold text-xs">Cấu Hình Bộ Lọc</h3>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div>
-            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Tìm kiếm từ khóa</label>
+            <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Tìm kiếm từ khóa</label>
             <div className="relative">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300" />
               <input
                 type="text"
                 value={filters.search}
                 onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-                className="w-full pl-11 pr-4 py-3 border-2 border-slate-100 focus:border-blue-500 focus:bg-white bg-slate-50 rounded-xl outline-none text-sm font-bold text-slate-700 transition-all placeholder:font-medium placeholder:text-slate-300"
+                className="w-full pl-10 pr-3 py-2 border-2 border-slate-50 focus:border-blue-500 focus:bg-white bg-slate-50 rounded-lg outline-none text-xs font-bold text-slate-700 transition-all placeholder:font-medium placeholder:text-slate-300"
                 placeholder="Tên, Email, SĐT..."
               />
             </div>
           </div>
           <div>
-            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Tiến độ</label>
+            <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Tiến độ</label>
             <select
               value={filters.status}
               onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-              className="w-full px-4 py-3 border-2 border-slate-100 focus:border-blue-500 focus:bg-white bg-slate-50 rounded-xl outline-none text-sm font-bold text-slate-700 transition-all cursor-pointer appearance-none"
+              className="w-full px-3 py-2 border-2 border-slate-50 focus:border-blue-500 focus:bg-white bg-slate-50 rounded-lg outline-none text-xs font-bold text-slate-700 transition-all cursor-pointer appearance-none"
             >
               <option value="">Tất Cả</option>
               <option value="PLANNING">Lên Kế Hoạch</option>
@@ -320,11 +348,11 @@ export default function AdminProjectsPage() {
             </select>
           </div>
           <div>
-            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Trạng thái duyệt</label>
+            <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Trạng thái duyệt</label>
             <select
               value={filters.moderationStatus}
               onChange={(e) => setFilters({ ...filters, moderationStatus: e.target.value })}
-              className="w-full px-4 py-3 border-2 border-slate-100 focus:border-blue-500 focus:bg-white bg-slate-50 rounded-xl outline-none text-sm font-bold text-slate-700 transition-all cursor-pointer appearance-none"
+              className="w-full px-3 py-2 border-2 border-slate-50 focus:border-blue-500 focus:bg-white bg-slate-50 rounded-lg outline-none text-xs font-bold text-slate-700 transition-all cursor-pointer appearance-none"
             >
               <option value="">Tất Cả</option>
               <option value="PENDING">Chờ Duyệt (Pending)</option>
@@ -335,9 +363,9 @@ export default function AdminProjectsPage() {
           <div className="flex items-end">
             <button
               onClick={() => setFilters({ search: '', status: '', priority: '', moderationStatus: '' })}
-              className="w-full h-[50px] px-4 border-2 border-slate-200 rounded-xl text-xs font-black text-slate-500 uppercase tracking-widest hover:bg-slate-50 hover:text-slate-700 hover:border-slate-300 transition-all active:scale-95 flex items-center justify-center gap-2"
+              className="w-full h-[41px] px-4 border-2 border-slate-100 rounded-lg text-[10px] font-black text-slate-400 uppercase tracking-widest hover:bg-slate-50 hover:text-slate-700 transition-all active:scale-95 flex items-center justify-center gap-2"
             >
-              <Filter className="w-4 h-4" /> Đặt Lại
+              <Filter className="w-3.5 h-3.5" /> Đặt Lại
             </button>
           </div>
         </div>
@@ -358,39 +386,101 @@ export default function AdminProjectsPage() {
           <p className="text-slate-500 font-medium max-w-sm">Không tìm thấy dự án nào khớp với điều kiện lọc. Vui lòng thử lại với các thông số khác.</p>
         </div>
       ) : (
-        <div className="bg-white rounded-[32px] border border-slate-100 shadow-xl shadow-slate-200/40 overflow-hidden">
+        <div className="bg-white rounded-[32px] border border-slate-100 shadow-xl shadow-slate-200/40 overflow-hidden relative flex flex-col">
+          {selectedProjectIds.length > 0 && (
+            <div className="sticky top-0 left-0 right-0 z-[55] bg-slate-900 text-white px-6 py-3.5 flex items-center justify-between border-b border-white/10 animate-in slide-in-from-top-10 duration-500">
+               <div className="flex items-center gap-4">
+                  <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center font-black text-sm shadow-lg shadow-blue-600/30">
+                    {selectedProjectIds.length}
+                  </div>
+                  <div>
+                    <div className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-300 leading-none">Dự án được chọn</div>
+                    <div className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-1">Sẵn sàng xử lý hàng loạt</div>
+                  </div>
+               </div>
+               
+               <div className="flex items-center gap-3">
+                 <button
+                    onClick={() => handleBulkModeration('APPROVED')} 
+                    disabled={bulkLoading} 
+                    className="flex items-center gap-2 px-5 py-2 bg-emerald-500 text-white rounded-xl font-black text-[10px] uppercase tracking-[0.1em] transition-all hover:bg-emerald-600 active:scale-95 disabled:opacity-50 shadow-lg shadow-emerald-500/20"
+                  >
+                    {bulkLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+                    Duyệt Tất Cả
+                 </button>
+                 <button
+                    onClick={() => handleBulkModeration('REJECTED')} 
+                    disabled={bulkLoading} 
+                    className="flex items-center gap-2 px-5 py-2 bg-rose-500/10 text-rose-400 border border-rose-500/20 rounded-xl font-black text-[10px] uppercase tracking-[0.1em] transition-all hover:bg-rose-500/20 active:scale-95 disabled:opacity-50"
+                  >
+                    {bulkLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <X className="w-3 h-3" />}
+                    Từ Chối
+                 </button>
+                 <div className="w-px h-8 bg-white/10 mx-2"></div>
+                 <button onClick={() => setSelectedProjectIds([])} className="w-10 h-10 flex items-center justify-center hover:bg-white/10 rounded-full transition-colors text-slate-400 hover:text-white">
+                   <X className="w-5 h-5" />
+                 </button>
+               </div>
+            </div>
+          )}
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+            <table className="w-full text-left border-collapse relative">
               <thead>
-                <tr className="bg-slate-50 border-b-2 border-slate-100">
-                  <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] whitespace-nowrap">Thông Tin Dự Án</th>
-                  <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] whitespace-nowrap">Khách Hàng</th>
-                  <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] whitespace-nowrap">Trạng Thái</th>
-                  <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] whitespace-nowrap">Tài Chính & Tiến Độ</th>
-                  <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] whitespace-nowrap text-right">Tác Vụ</th>
+                <tr className="bg-slate-50 border-b-2 border-slate-100 uppercase text-[10px] font-black text-slate-400 tracking-widest">
+                  <th className="px-4 py-4 w-10 text-center">
+                    <div className="flex items-center justify-center">
+                      <input 
+                        type="checkbox" 
+                        className="w-4 h-4 rounded border-slate-300 transform scale-110 text-blue-600 focus:ring-blue-500 cursor-pointer transition-all"
+                        onChange={(e) => {
+                          if (e.target.checked) setSelectedProjectIds(filteredProjects.map(p => p.id))
+                          else setSelectedProjectIds([])
+                        }}
+                        checked={filteredProjects.length > 0 && selectedProjectIds.length === filteredProjects.length}
+                      />
+                    </div>
+                  </th>
+                  <th className="px-4 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Thông Tin Dự Án</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Khách Hàng / BC</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Trạng Thái</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Tài Chính & Tiến Độ</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap text-right">Tác Vụ</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-100 relative">
                 {filteredProjects.map((project) => {
                   const s = getStatusIconAndColor(project.status)
                   const m = getModerationIconAndColor(project.moderationStatus || 'PENDING')
                   return (
-                    <tr key={project.id} className="hover:bg-slate-50/80 transition-colors group">
-                      <td className="px-8 py-6 min-w-[320px] align-top">
-                        <div className="flex items-start gap-4">
-                          <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 border border-blue-100 font-black text-lg">
+                    <tr key={project.id} className={`transition-all group border-b border-slate-100 ${selectedProjectIds.includes(project.id) ? 'bg-blue-50/20' : 'hover:bg-slate-50/60'}`}>
+                      <td className="px-4 py-4 align-middle text-center border-r border-slate-50/50">
+                        <div className="flex items-center justify-center">
+                          <input 
+                            type="checkbox" 
+                            className="w-4 h-4 rounded border-slate-300 transform scale-110 text-blue-600 focus:ring-blue-500 cursor-pointer transition-all hover:border-blue-400"
+                            checked={selectedProjectIds.includes(project.id)}
+                            onChange={(e) => {
+                               if (e.target.checked) setSelectedProjectIds([...selectedProjectIds, project.id])
+                               else setSelectedProjectIds(selectedProjectIds.filter(id => id !== project.id))
+                            }}
+                          />
+                        </div>
+                      </td>
+                      <td className="px-4 py-6 min-w-[300px] align-middle">
+                        <div className="flex items-center gap-4">
+                          <div className="w-11 h-11 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 border border-blue-100 font-bold text-lg shadow-sm">
                             {project.name.charAt(0).toUpperCase()}
                           </div>
-                          <div>
+                          <div className="flex-1 min-w-0">
                             <div className="text-sm font-black text-slate-900 group-hover:text-blue-600 transition-colors line-clamp-1">{project.name}</div>
-                            <div className="text-xs text-slate-500 font-medium line-clamp-2 mt-1 leading-relaxed">
+                            <div className="text-xs text-slate-400 font-medium line-clamp-1 mt-0.5 italic">
                               {stripMarkdown(project.description || '')}
                             </div>
-                            <div className="flex items-center gap-2 mt-3">
-                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200 uppercase">
-                                <Hash className="w-3 h-3" /> {project.id.slice(-6).toUpperCase()}
+                            <div className="flex items-center gap-2 mt-2.5">
+                              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg text-[10px] font-bold bg-slate-100 text-slate-500 border border-slate-200 uppercase">
+                                <Hash className="w-3 h-3 text-slate-400" /> {project.id.slice(-6).toUpperCase()}
                               </span>
-                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200">
+                              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg text-[10px] font-bold bg-slate-100 text-slate-500 border border-slate-200">
                                 <Calendar className="w-3 h-3 text-slate-400" />
                                 {new Date(project.startDate).toLocaleDateString('vi-VN')}
                               </span>
@@ -399,117 +489,113 @@ export default function AdminProjectsPage() {
                         </div>
                       </td>
 
-                      <td className="px-8 py-6 align-top whitespace-nowrap">
+                      <td className="px-6 py-4 align-middle whitespace-nowrap border-l border-slate-50/50">
                         {project.customer ? (
-                          <div>
+                          <div className="space-y-0.5">
                             <div className="text-sm font-black text-slate-800 flex items-center gap-2">
                               {project.customer.user.name}
                             </div>
-                            <div className="text-xs text-slate-500 flex items-center gap-2 mt-1">
-                              <Mail className="w-3 h-3" /> {project.customer.user.email}
+                            <div className="text-xs text-slate-500 flex items-center gap-2">
+                              <Phone className="w-3 h-3 text-slate-400" /> 0918180989
                             </div>
-                            <div className="mt-3 inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-[9px] font-black bg-indigo-50 text-indigo-600 border border-indigo-100 uppercase tracking-wider">
+                            <div className="mt-1 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[9px] font-black bg-indigo-50 text-indigo-600 border border-indigo-100 uppercase tracking-widest leading-none">
                               <User className="w-3 h-3" /> Đã Xác Thực
                             </div>
                           </div>
                         ) : (
-                          <div>
+                          <div className="space-y-0.5">
                             <div className="text-sm font-black text-slate-800 flex items-center gap-2">
                               {project.guestName || 'Khách Vãng Lai'}
                             </div>
-                            <div className="text-xs text-slate-500 flex items-center gap-2 mt-1">
-                              <Phone className="w-3 h-3" /> {project.guestPhone || project.guestEmail || 'N/A'}
+                            <div className="text-xs text-slate-500 flex items-center gap-2">
+                              <Phone className="w-3 h-3 text-slate-400" /> {project.guestPhone || project.guestEmail || 'N/A'}
                             </div>
-                            <div className="mt-3 inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-[9px] font-black bg-amber-50 text-amber-600 border border-amber-100 uppercase tracking-wider">
-                              <AlertCircle className="w-3 h-3" /> Nhận Từ Khách Ngoài
+                            <div className="mt-1 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[9px] font-black bg-amber-50 text-amber-600 border border-amber-100 uppercase tracking-widest leading-none">
+                              <AlertCircle className="w-3 h-3" /> Khách Ngoài
                             </div>
                           </div>
                         )}
                       </td>
 
-                      <td className="px-8 py-6 align-top">
-                        <div className="flex flex-col gap-2 w-max">
+                      <td className="px-6 py-4 align-middle border-l border-slate-50/50">
+                        <div className="flex flex-col gap-1.5">
                           {/* Moderation Status */}
-                          <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider border ${m.bg} ${m.text} ${m.border}`}>
-                            <m.icon className="w-3.5 h-3.5" />
+                          <div className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider border ${m.bg} ${m.text} ${m.border} w-fit`}>
+                            <m.icon className="w-3 h-3" />
                             {m.label}
                           </div>
                           {/* Core Status */}
-                          <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider border ${s.bg} ${s.text} ${s.border}`}>
-                            <s.icon className="w-3.5 h-3.5" />
+                          <div className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider border ${s.bg} ${s.text} ${s.border} w-fit`}>
+                            <s.icon className="w-3 h-3" />
                             {s.label}
                           </div>
                         </div>
                       </td>
 
-                      <td className="px-8 py-6 align-top min-w-[200px]">
-                        <div className="mb-4">
+                      <td className="px-6 py-4 align-middle min-w-[200px] border-l border-slate-50/50">
+                        <div className="mb-2">
                           <div className="text-sm font-black text-slate-900 flex items-center gap-1.5">
                             <Coins className="w-4 h-4 text-emerald-500" />
                             {formatCurrency(project.budget)}
                           </div>
-                          <div className="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-wider">
-                            Đã Chi: {formatCurrency(project.actualCost || 0)}
+                          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                            Chi: {formatCurrency(project.actualCost || 0)}
                           </div>
                         </div>
 
                         <div>
-                          <div className="flex justify-between text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">
-                            <span>Tiến Độ CV</span>
-                            <span className="text-blue-600">{project.taskCompletion}%</span>
+                          <div className="flex justify-between text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1 leading-none">
+                            <span>TN: {project.taskCompletion}%</span>
+                            <span>{project.completedTasks}/{project.totalTasks}</span>
                           </div>
-                          <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
+                          <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
                             <div
-                              className={`h-full rounded-full transition-all duration-1000 ease-out ${getProgressColor(project.taskCompletion)}`}
+                              className={`h-full rounded-full transition-all duration-1000 ease-out shadow-sm ${getProgressColor(project.taskCompletion)}`}
                               style={{ width: `${project.taskCompletion || 0}%` }}
                             ></div>
-                          </div>
-                          <div className="text-[10px] font-bold text-slate-400 mt-2 text-right">
-                            {project.completedTasks || 0} / {project.totalTasks || 0} Tasks
                           </div>
                         </div>
                       </td>
 
-                      <td className="px-8 py-6 align-top text-right">
+                      <td className="px-6 py-5 align-middle text-right">
                         <div className="flex items-center justify-end gap-2">
                           {/* Primary Quick Action */}
                           {project.moderationStatus === 'PENDING' ? (
                             <button
                               onClick={() => handleModeration(project.id, 'APPROVED')}
-                              className="px-3 py-2 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center gap-1.5 hover:bg-emerald-500 hover:text-white hover:shadow-lg hover:shadow-emerald-500/20 transition-all font-bold text-[10px] uppercase tracking-widest"
+                              className="px-3 py-2 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center gap-1.5 hover:bg-emerald-500 hover:text-white hover:shadow-lg transition-all font-bold text-[10px] uppercase tracking-widest whitespace-nowrap"
                             >
-                              <Check className="w-3.5 h-3.5" />
-                              <span className="hidden sm:inline">Duyệt Nhanh</span>
+                              <Check className="w-4 h-4" /> Duyệt
                             </button>
                           ) : (
                             <Link
                               href={`/admin/projects/${project.id}`}
-                              className="w-9 h-9 rounded-xl bg-slate-50 text-slate-600 border border-slate-200 flex items-center justify-center hover:bg-blue-500 hover:text-white hover:border-blue-500 hover:shadow-lg hover:shadow-blue-500/20 transition-all"
+                              className="w-10 h-10 rounded-xl bg-slate-50 text-slate-600 border border-slate-200 flex items-center justify-center hover:bg-blue-500 hover:text-white hover:border-blue-500 hover:shadow-lg transition-all"
                               title="Xem Chi Tiết"
                             >
-                              <Eye className="w-4 h-4 align-middle" />
+                              <Eye className="w-5 h-5" />
                             </Link>
                           )}
 
                           {/* Secondary Actions Dropdown */}
                           <div className="relative group">
-                            <button className="w-9 h-9 rounded-xl flex items-center justify-center bg-slate-50 border border-slate-100 hover:bg-slate-200 text-slate-500 transition-all focus:outline-none focus:ring-2 focus:ring-blue-100">
-                              <MoreVertical className="w-4 h-4" />
+                            <button className="w-10 h-10 rounded-xl flex items-center justify-center bg-white border border-slate-200 hover:bg-slate-50 text-slate-400 transition-all focus:outline-none">
+                              <MoreVertical className="w-5 h-5" />
                             </button>
-                            <div className="absolute right-0 top-full mt-2 w-44 bg-white border border-slate-100 rounded-2xl shadow-xl shadow-slate-200/50 z-50 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all flex flex-col p-1.5 group-focus-within:opacity-100 group-focus-within:visible">
+                            <div className="absolute right-0 top-full mt-2 w-48 bg-white border border-slate-100 rounded-2xl shadow-xl shadow-slate-200/50 z-50 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all flex flex-col p-1.5">
                               {project.moderationStatus === 'PENDING' && (
                                 <>
                                   <Link
                                     href={`/admin/projects/${project.id}`}
                                     className="flex items-center gap-2 px-3 py-2 rounded-xl text-left text-xs font-bold text-slate-600 hover:bg-slate-50 hover:text-blue-600 transition-colors"
                                   >
-                                    <Eye className="w-3.5 h-3.5" /> Xem Chi Tiết
+                                    <Eye className="w-4 h-4" /> Chi Tiết
                                   </Link>
                                   <button
                                     onClick={() => handleModeration(project.id, 'REJECTED')}
                                     className="flex items-center gap-2 px-3 py-2 rounded-xl text-left text-xs font-bold text-slate-600 hover:bg-rose-50 hover:text-rose-600 transition-colors"
                                   >
-                                    <X className="w-3.5 h-3.5" /> Từ Chối Dự Án
+                                    <X className="w-4 h-4" /> Từ Chối
                                   </button>
                                 </>
                               )}
@@ -517,14 +603,14 @@ export default function AdminProjectsPage() {
                                 onClick={() => openModal(project)}
                                 className="flex items-center gap-2 px-3 py-2 rounded-xl text-left text-xs font-bold text-slate-600 hover:bg-amber-50 hover:text-amber-600 transition-colors"
                               >
-                                <Edit className="w-3.5 h-3.5" /> Sửa Thông Tin
+                                <Edit className="w-4 h-4" /> Chỉnh Sửa
                               </button>
                               <div className="h-px bg-slate-100 mx-1 my-1"></div>
                               <button
                                 onClick={() => setDeletingProject(project)}
                                 className="flex items-center gap-2 px-3 py-2 rounded-xl text-left text-xs font-bold text-rose-600 hover:bg-rose-50 transition-colors"
                               >
-                                <Trash2 className="w-3.5 h-3.5" /> Xóa Dự Án
+                                <Trash2 className="w-4 h-4" /> Xóa Dự Án
                               </button>
                             </div>
                           </div>
@@ -670,6 +756,8 @@ export default function AdminProjectsPage() {
         type="danger"
         loading={formLoading}
       />
+
+
     </div>
   )
 }

@@ -53,7 +53,10 @@ interface Project {
       name: string
       email: string
     }
-  }
+  } | null
+  guestName: string | null
+  guestPhone: string | null
+  guestEmail: string | null
   contractorId: string | null
   contractor: {
     user: {
@@ -114,6 +117,8 @@ export default function AdminProjectDetailPage() {
   const [employees, setEmployees] = useState<any[]>([])
   const [products, setProducts] = useState<any[]>([])
   const [contractors, setContractors] = useState<any[]>([])
+  const [applications, setApplications] = useState<any[]>([])
+  const [appsLoading, setAppsLoading] = useState(false)
 
   // Task Form State
   const [showTaskModal, setShowTaskModal] = useState(false)
@@ -150,12 +155,56 @@ export default function AdminProjectDetailPage() {
   const [selectedContractorId, setSelectedContractorId] = useState('')
   const [assignLoading, setAssignLoading] = useState(false)
 
+  const handleAssignContractor = async () => {
+    if (!selectedContractorId) return
+    try {
+      setAssignLoading(true)
+      const res = await fetchWithAuth(`/api/projects/${projectId}/assign-contractor`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ contractorId: selectedContractorId })
+      })
+      if (res.ok) {
+        toast.success('Gán nhà thầu thành công')
+        setShowContractorModal(false)
+        fetchProject()
+      } else {
+        toast.error('Có lỗi xảy ra khi gán nhà thầu')
+      }
+    } catch (err) {
+      console.error('Error assigning contractor:', err)
+      toast.error('Lỗi kết nối')
+    } finally {
+      setAssignLoading(false)
+    }
+  }
+
   useEffect(() => {
     fetchProject()
     fetchEmployees()
     fetchProducts()
     fetchContractors()
+    fetchApplications()
   }, [projectId])
+
+  const fetchApplications = async () => {
+    try {
+      setAppsLoading(true)
+      const res = await fetchWithAuth(`/api/marketplace/projects/${projectId}/apply`)
+      if (res.ok) {
+        const data = await res.json()
+        if (data.success) {
+          setApplications(data.data.applications || [])
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching applications:', err)
+    } finally {
+      setAppsLoading(false)
+    }
+  }
 
   const fetchContractors = async () => {
     try {
@@ -249,6 +298,27 @@ export default function AdminProjectDetailPage() {
     } catch (error) {
       console.error('Error deleting project:', error)
       toast.error('Không thể xóa dự án')
+    }
+  }
+
+  const handleApplicationAction = async (applicationId: string, action: string) => {
+    try {
+      const res = await fetchWithAuth(`/api/marketplace/projects/${projectId}/apply`, {
+        method: 'PATCH',
+        body: JSON.stringify({ applicationId, action })
+      })
+      if (res.ok) {
+        toast.success('Đã cập nhật hồ sơ')
+        fetchApplications()
+        if (action === 'SELECT') {
+          fetchProject() // Refresh to see contractor assigned
+        }
+      } else {
+        toast.error('Cập nhật thất bại')
+      }
+    } catch (err) {
+      console.error(err)
+      toast.error('Lỗi')
     }
   }
 
@@ -468,29 +538,7 @@ export default function AdminProjectDetailPage() {
     }
   }
 
-  const handleAssignContractor = async () => {
-    if (!selectedContractorId) return
-    setAssignLoading(true)
-    try {
-      const response = await fetchWithAuth(`/api/projects/${projectId}`, {
-        method: 'PUT',
-        body: JSON.stringify({ contractorId: selectedContractorId })
-      })
 
-      if (response.ok) {
-        toast.success('Phân công nhà thầu thành công')
-        setShowContractorModal(false)
-        fetchProject()
-      } else {
-        toast.error('Có lỗi xảy ra khi phân công')
-      }
-    } catch (error) {
-      console.error('Error assigning contractor:', error)
-      toast.error('Lỗi kết nối server')
-    } finally {
-      setAssignLoading(false)
-    }
-  }
 
   const handleDeleteMaterial = async () => {
     if (!deletingMaterial) return
@@ -573,62 +621,66 @@ export default function AdminProjectDetailPage() {
         </div>
       </div>
 
-      {/* Project Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white p-4 rounded-lg border">
-          <div className="flex items-center">
-            <div className="p-2 bg-blue-100 rounded-lg">
-              <CheckCircle className="h-6 w-6 text-blue-600" />
+      {/* Stats Dashboard */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
+        <div className="bg-white p-5 rounded-[24px] border border-slate-100 shadow-sm transition-all hover:shadow-md group">
+          <div className="flex items-center gap-4">
+            <div className="p-3.5 bg-blue-50 rounded-2xl group-hover:scale-110 transition-transform">
+              <Clock className="h-6 w-6 text-blue-600" />
             </div>
-            <div className="ml-3">
-              <p className="text-sm font-medium text-gray-500">Tiến Độ</p>
-              <p className="text-2xl font-bold text-gray-900">{project.taskCompletion}%</p>
+            <div>
+              <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1.5">Tiến Độ</p>
+              <p className="text-2xl font-black text-slate-900 leading-none">
+                {project.taskCompletion}<span className="text-sm ml-1 text-slate-400">%</span>
+              </p>
             </div>
           </div>
-          <div className="mt-2 w-full bg-gray-200 rounded-full h-2">
-            <div
-              className={`h-2 rounded-full ${getProgressColor(project.taskCompletion)}`}
+          <div className="mt-4 w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+            <div 
+              className={`h-full rounded-full transition-all duration-1000 ease-out shadow-sm ${getProgressColor(project.taskCompletion)}`} 
               style={{ width: `${project.taskCompletion}%` }}
             ></div>
           </div>
         </div>
 
-        <div className="bg-white p-4 rounded-lg border">
-          <div className="flex items-center">
-            <div className="p-2 bg-green-100 rounded-lg">
-              <Coins className="h-6 w-6 text-green-600" />
+        <div className="bg-white p-5 rounded-[24px] border border-slate-100 shadow-sm transition-all hover:shadow-md group">
+          <div className="flex items-center gap-4">
+            <div className="p-3.5 bg-emerald-50 rounded-2xl group-hover:scale-110 transition-transform">
+              <Coins className="h-6 w-6 text-emerald-600" />
             </div>
-            <div className="ml-3">
-              <p className="text-sm font-medium text-gray-500">Ngân Sách</p>
-              <p className="text-2xl font-bold text-gray-900">
+            <div>
+              <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1.5">Ngân Sách</p>
+              <p className="text-xl font-black text-slate-900 leading-none">
                 {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(project.budget)}
               </p>
             </div>
           </div>
         </div>
 
-        <div className="bg-white p-4 rounded-lg border">
-          <div className="flex items-center">
-            <div className="p-2 bg-purple-100 rounded-lg">
-              <Clock className="h-6 w-6 text-purple-600" />
+        <div className="bg-white p-5 rounded-[24px] border border-slate-100 shadow-sm transition-all hover:shadow-md group">
+          <div className="flex items-center gap-4">
+            <div className="p-3.5 bg-indigo-50 rounded-2xl group-hover:scale-110 transition-transform">
+              <CheckCircle className="h-6 w-6 text-indigo-600" />
             </div>
-            <div className="ml-3">
-              <p className="text-sm font-medium text-gray-500">Đã Chi</p>
-              <p className="text-2xl font-bold text-gray-900">
+            <div>
+              <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1.5">Đã Chi</p>
+              <p className="text-xl font-black text-slate-900 leading-none">
                 {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(project.actualCost)}
               </p>
             </div>
           </div>
         </div>
 
-        <div className="bg-white p-4 rounded-lg border">
-          <div className="flex items-center">
-            <div className="p-2 bg-yellow-100 rounded-lg">
-              <User className="h-6 w-6 text-yellow-600" />
+        <div className="bg-white p-5 rounded-[24px] border border-slate-100 shadow-sm transition-all hover:shadow-md group">
+          <div className="flex items-center gap-4">
+            <div className="p-3.5 bg-amber-50 rounded-2xl group-hover:scale-110 transition-transform">
+              <User className="h-6 w-6 text-amber-600" />
             </div>
-            <div className="ml-3">
-              <p className="text-sm font-medium text-gray-500">Khách Hàng</p>
-              <p className="text-sm font-medium text-gray-900">{project.customer.user.name}</p>
+            <div className="min-w-0">
+              <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1.5">Khách Hàng</p>
+              <p className="text-sm font-black text-slate-900 truncate">
+                {project.customer ? project.customer.user.name : (project.guestName || 'Khách Vãng Lai')}
+              </p>
             </div>
           </div>
         </div>
@@ -664,6 +716,15 @@ export default function AdminProjectDetailPage() {
           >
             Vật Liệu ({project.projectMaterials.length})
           </button>
+          <button
+            onClick={() => setActiveTab('applications')}
+            className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'applications'
+              ? 'border-blue-500 text-blue-600'
+              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+          >
+            Hồ Sơ Ứng Tuyển ({applications.length})
+          </button>
         </nav>
       </div>
 
@@ -671,92 +732,122 @@ export default function AdminProjectDetailPage() {
       {activeTab === 'overview' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Project Details */}
-          <div className="bg-white rounded-lg border p-6 lg:col-span-2">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Chi Tiết Dự Án</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <p className="text-sm text-gray-500">Ngày Bắt Đầu</p>
-                <p className="text-sm font-medium text-gray-900">
-                  <Calendar className="h-4 w-4 inline mr-1" />
-                  {new Date(project.startDate).toLocaleDateString()}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Ngày Kết Thúc</p>
-                <p className="text-sm font-medium text-gray-900">
-                  {project.endDate ? (
-                    <>
-                      <Calendar className="h-4 w-4 inline mr-1" />
-                      {new Date(project.endDate).toLocaleDateString()}
-                    </>
-                  ) : (
-                    'Not set'
-                  )}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Khách Hàng</p>
-                <p className="text-sm font-medium text-gray-900 flex items-center">
-                  <User className="h-4 w-4 mr-1" />
-                  {project.customer.user.name}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Email Khách Hàng</p>
-                <p className="text-sm font-medium text-gray-900">{project.customer.user.email}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Nhà Thầu Phụ Trách</p>
-                <div className="flex items-center gap-2">
-                  <p className="text-sm font-medium text-gray-900 flex items-center">
-                    <Building2 className="h-4 w-4 mr-1 text-blue-600" />
-                    {project.contractor?.user.name || 'Chưa phân công'}
-                  </p>
+          <div className="bg-white rounded-[32px] border border-slate-100 p-8 lg:col-span-2 shadow-sm">
+            <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest mb-6 flex items-center gap-2">
+              <FileText className="w-5 h-5 text-blue-500" />
+              Chi Tiết Dự Án
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="bg-slate-50/50 p-4 rounded-2xl border border-slate-100">
+                <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-2 leading-none">Ngày Bắt Đầu</p>
+                <div className="text-sm font-bold text-slate-700 flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-blue-500" />
+                  {new Date(project.startDate).toLocaleDateString('vi-VN')}
                 </div>
               </div>
-              <div>
-                <p className="text-sm text-gray-500">Email Nhà Thầu</p>
-                <p className="text-sm font-medium text-gray-900">{project.contractor?.user.email || '-'}</p>
+              <div className="bg-slate-50/50 p-4 rounded-2xl border border-slate-100">
+                <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-2 leading-none">Ngày Kết Thúc</p>
+                <div className="text-sm font-bold text-slate-700 flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-rose-400" />
+                  {project.endDate ? (
+                    new Date(project.endDate).toLocaleDateString('vi-VN')
+                  ) : (
+                    <span className="text-slate-400 font-medium italic">Chưa thiết lập</span>
+                  )}
+                </div>
+              </div>
+              <div className="bg-slate-50/50 p-4 rounded-2xl border border-slate-100">
+                <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-2 leading-none">Khách Hàng</p>
+                <div className="text-sm font-bold text-slate-700 flex items-center gap-2">
+                  <User className="h-4 w-4 text-indigo-400" />
+                  {project.customer ? project.customer.user.name : (project.guestName || 'Khách Vãng Lai')}
+                </div>
+              </div>
+              <div className="bg-slate-50/50 p-4 rounded-2xl border border-slate-100">
+                <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-2 leading-none">Địa Chỉ / Liên Hệ</p>
+                <div className="text-sm font-bold text-slate-700">
+                  {project.customer ? project.customer.user.email : (project.guestPhone || project.guestEmail || '-')}
+                </div>
+              </div>
+              <div className="bg-slate-50/50 p-4 rounded-2xl border border-slate-100 flex flex-col group relative">
+                <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-2 leading-none">Nhà Thầu Phụ Trách</p>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Building2 className="h-4 w-4 text-blue-500 shrink-0" />
+                    <p className="text-sm font-bold text-slate-700 truncate">
+                      {project.contractor?.user.name || (
+                        <span className="text-slate-400 italic font-medium">Chưa phân công</span>
+                      )}
+                    </p>
+                  </div>
+                  <button 
+                    onClick={() => setShowContractorModal(true)}
+                    className="p-2 bg-white border border-slate-200 rounded-lg text-blue-600 hover:bg-blue-50 transition-all shadow-sm"
+                    title="Gán Nhà Thầu"
+                  >
+                    <Edit className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+              <div className="bg-slate-50/50 p-4 rounded-2xl border border-slate-100">
+                <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-2 leading-none">Email Nhà Thầu</p>
+                <p className="text-sm font-bold text-slate-700">{project.contractor?.user.email || '-'}</p>
               </div>
             </div>
 
             {project.notes && (
-              <div className="mt-4">
-                <p className="text-sm text-gray-500">Notes</p>
-                <p className="text-sm text-gray-900 mt-1">{project.notes}</p>
+              <div className="mt-8 pt-6 border-t border-slate-100">
+                <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3 leading-none">Ghi chú</p>
+                <div className="text-sm text-slate-600 bg-amber-50/30 p-4 rounded-2xl border border-amber-100/50 italic leading-relaxed">
+                  {project.notes}
+                </div>
               </div>
             )}
           </div>
 
-          {/* Task Progress */}
-          <div className="bg-white rounded-lg border p-6">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Task Progress</h3>
-            <div className="space-y-4">
+          {/* Task Progress Dashboard */}
+          <div className="bg-white rounded-[32px] border border-slate-100 p-8 shadow-sm h-fit">
+            <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest mb-8 flex items-center gap-2">
+              <Clock className="w-5 h-5 text-blue-500" />
+              Thống Kê Công Việc
+            </h3>
+            <div className="space-y-8">
               <div>
-                <div className="flex justify-between text-sm text-gray-500 mb-1">
-                  <span>Completed Tasks</span>
-                  <span>{project.completedTasks} of {project.totalTasks}</span>
+                <div className="flex justify-between text-[11px] font-black uppercase tracking-widest mb-3">
+                  <span className="text-slate-500">Tiến Độ Hoàn Thành</span>
+                  <span className="text-blue-600">{project.completedTasks} / {project.totalTasks}</span>
                 </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
+                <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden shadow-inner">
                   <div
-                    className={`h-2 rounded-full ${getProgressColor((project.completedTasks / project.totalTasks) * 100)}`}
-                    style={{ width: `${(project.completedTasks / project.totalTasks) * 100}%` }}
+                    className={`h-full rounded-full transition-all duration-1000 ease-out shadow-sm ${getProgressColor((project.completedTasks / (project.totalTasks || 1)) * 100)}`}
+                    style={{ width: `${(project.completedTasks / (project.totalTasks || 1)) * 100}%` }}
                   ></div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-2 text-center">
-                <div className="bg-gray-50 p-2 rounded">
-                  <p className="text-sm font-medium text-gray-900">{project.projectTasks.filter(t => t.status === 'PENDING').length}</p>
-                  <p className="text-xs text-gray-500">Pending</p>
+              <div className="grid grid-cols-1 gap-3">
+                <div className="bg-slate-50 hover:bg-slate-100 transition-colors p-4 rounded-2xl border border-slate-200/50 flex items-center justify-between group">
+                  <div className="flex items-center gap-3">
+                    <div className="w-2.5 h-2.5 rounded-full bg-slate-400 animate-pulse"></div>
+                    <span className="text-xs font-black text-slate-500 uppercase tracking-widest">Chờ Xử Lý</span>
+                  </div>
+                  <span className="text-lg font-black text-slate-900">{project.projectTasks.filter(t => t.status === 'PENDING').length}</span>
                 </div>
-                <div className="bg-blue-50 p-2 rounded">
-                  <p className="text-sm font-medium text-gray-900">{project.projectTasks.filter(t => t.status === 'IN_PROGRESS').length}</p>
-                  <p className="text-xs text-gray-500">In Progress</p>
+                
+                <div className="bg-blue-50 hover:bg-blue-100 transition-colors p-4 rounded-2xl border border-blue-100 flex items-center justify-between group">
+                  <div className="flex items-center gap-3">
+                    <div className="w-2.5 h-2.5 rounded-full bg-blue-500"></div>
+                    <span className="text-xs font-black text-blue-600 uppercase tracking-widest">Đang Thực Hiện</span>
+                  </div>
+                  <span className="text-lg font-black text-slate-900">{project.projectTasks.filter(t => t.status === 'IN_PROGRESS').length}</span>
                 </div>
-                <div className="bg-green-50 p-2 rounded">
-                  <p className="text-sm font-medium text-gray-900">{project.projectTasks.filter(t => t.status === 'COMPLETED').length}</p>
-                  <p className="text-xs text-gray-500">Completed</p>
+                
+                <div className="bg-emerald-50 hover:bg-emerald-100 transition-colors p-4 rounded-2xl border border-emerald-100 flex items-center justify-between group">
+                  <div className="flex items-center gap-3">
+                    <div className="w-2.5 h-2.5 rounded-full bg-emerald-500"></div>
+                    <span className="text-xs font-black text-emerald-600 uppercase tracking-widest">Đã Xong</span>
+                  </div>
+                  <span className="text-lg font-black text-slate-900">{project.projectTasks.filter(t => t.status === 'COMPLETED').length}</span>
                 </div>
               </div>
             </div>
@@ -942,6 +1033,139 @@ export default function AdminProjectDetailPage() {
           </div>
         </div>
       )}
+
+      {activeTab === 'applications' && (
+        <div className="bg-white rounded-lg border">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <h3 className="text-lg font-bold text-gray-900">Danh Sách Ứng Tuyển</h3>
+            <p className="text-xs text-gray-500 italic">Nhà thầu đăng ký tham gia thi công dự án này</p>
+          </div>
+          <div className="overflow-x-auto p-4">
+            {appsLoading ? (
+              <p className="text-sm text-center py-4 text-gray-500">Đang tải hồ sơ...</p>
+            ) : applications.length === 0 ? (
+              <p className="text-sm text-center py-8 text-gray-400">Chưa có nhà thầu nào ứng tuyển</p>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {applications.map(app => (
+                  <div key={app.id} className="border border-gray-200 rounded-xl p-5 hover:border-blue-200 transition-colors bg-gray-50/50">
+                    <div className="flex justify-between items-start mb-3">
+                      <div>
+                        <h4 className="font-bold text-gray-900">{app.isGuest ? app.guestName : app.contractor?.displayName}</h4>
+                        <div className="flex gap-2 items-center mt-1">
+                          <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-full ${app.isGuest ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                            {app.isGuest ? 'Hồ sơ Tự do' : 'Đối tác Xác minh'}
+                          </span>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${app.status === 'SELECTED' ? 'bg-blue-600 text-white' : app.status === 'PENDING' ? 'bg-slate-200 text-slate-700' : app.status === 'REJECTED' ? 'bg-red-100 text-red-600' : 'bg-purple-100 text-purple-700'}`}>
+                            {app.status}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xs font-bold text-gray-500">Báo giá đề xuất</p>
+                        <p className="font-black text-blue-600">{app.proposedBudget ? app.proposedBudget.toLocaleString() + 'đ' : 'Chưa báo giá'}</p>
+                      </div>
+                    </div>
+                    
+                    <p className="text-sm text-gray-600 mt-3 p-3 bg-white rounded-lg border border-gray-100">"{app.message}"</p>
+                    
+                    <div className="flex flex-wrap gap-4 mt-4 text-xs font-medium text-gray-500">
+                      <span><Clock className="w-3.5 h-3.5 inline mr-1" />{app.proposedDays ? `${app.proposedDays} ngày` : 'Chưa nhập'}</span>
+                      <span><User className="w-3.5 h-3.5 inline mr-1" />{app.isContactUnlocked ? (app.isGuest ? app.guestPhone : app.contractor?.phone) : 'SĐT bị ẩn'}</span>
+                    </div>
+
+                    <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-gray-200">
+                      {app.status === 'PENDING' && (
+                        <>
+                          <button onClick={() => handleApplicationAction(app.id, 'REJECT')} className="px-3 py-1.5 text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 rounded-lg">Từ chối</button>
+                          <button onClick={() => handleApplicationAction(app.id, 'UNLOCK_CONTACT')} className="px-3 py-1.5 text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg">Mở Khóa SĐT</button>
+                          <button onClick={() => {
+                            if(confirm('Chấp thuận nhà thầu này làm đối tác chính thức cho dự án? Các nhà thầu khác sẽ bị đánh rớt.')) {
+                              handleApplicationAction(app.id, 'SELECT')
+                            }
+                          }} className="px-3 py-1.5 text-xs font-bold text-emerald-600 bg-emerald-50 hover:bg-emerald-100 rounded-lg"><Check className="w-3.5 h-3.5 inline mr-1"/>Trúng thầu</button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Contractor Assignment Modal */}
+      <FormModal
+        isOpen={showContractorModal}
+        onClose={() => setShowContractorModal(false)}
+        title="Gán Nhà Thầu Phụ Trách"
+        size="md"
+      >
+        <div className="p-6 space-y-6">
+          <div className="bg-blue-50/50 p-4 rounded-2xl border border-blue-100/50">
+            <p className="text-xs text-blue-600 font-medium leading-relaxed italic">
+              Tại đây Admin có thể trực tiếp chỉ định nhà thầu cho dự án. Nếu dự án có các ứng viên đã nộp đơn, bạn cũng có thể xem tại tab "Hồ Sơ Ứng Tuyển".
+            </p>
+          </div>
+
+          <div className="space-y-3">
+            <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">Chọn Nhà Thầu Từ Danh Sách</label>
+            <div className="max-h-[400px] overflow-y-auto space-y-2 pr-2 custom-scrollbar">
+              {contractors.length === 0 ? (
+                <div className="py-8 text-center text-slate-400 italic text-sm">Đang tải danh sách nhà thầu...</div>
+              ) : (
+                contractors.map((contractor) => (
+                  <label 
+                    key={contractor.id} 
+                    className={`flex items-center gap-4 p-4 rounded-2xl border cursor-pointer transition-all ${
+                      selectedContractorId === contractor.id 
+                      ? 'bg-blue-50 border-blue-500 shadow-sm' 
+                      : 'bg-white border-slate-100 hover:border-blue-200'
+                    }`}
+                  >
+                    <input 
+                      type="radio" 
+                      name="contractor"
+                      className="w-4 h-4 text-blue-600 border-slate-300 focus:ring-blue-500"
+                      checked={selectedContractorId === contractor.id}
+                      onChange={() => setSelectedContractorId(contractor.id)}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-black text-slate-900 truncate">{contractor.user?.name || contractor.id}</p>
+                      <p className="text-xs text-slate-500 truncate">{contractor.user?.email || contractor.phone}</p>
+                    </div>
+                    {contractor.isVerified && (
+                      <CheckCircle className="w-4 h-4 text-blue-500 shrink-0" />
+                    )}
+                  </label>
+                ))
+              )}
+            </div>
+          </div>
+
+          <div className="flex gap-3 pt-4 border-t border-slate-100">
+            <button
+              onClick={() => setShowContractorModal(false)}
+              className="flex-1 px-6 py-3 rounded-2xl border border-slate-200 text-slate-600 font-bold text-sm hover:bg-slate-50 transition-all uppercase tracking-widest"
+            >
+              Hủy
+            </button>
+            <button
+              disabled={!selectedContractorId || assignLoading}
+              onClick={handleAssignContractor}
+              className={`flex-1 px-6 py-3 rounded-2xl font-bold text-sm text-white shadow-lg transition-all uppercase tracking-widest flex items-center justify-center gap-2 ${
+                !selectedContractorId || assignLoading 
+                ? 'bg-slate-300 cursor-not-allowed shadow-none' 
+                : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:shadow-blue-200'
+              }`}
+            >
+              {assignLoading && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>}
+              Xác Nhận Gán
+            </button>
+          </div>
+        </div>
+      </FormModal>
 
       {/* Task Modal */}
       <FormModal

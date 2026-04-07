@@ -57,7 +57,7 @@ export async function POST(
         }
 
         // Check if project exists and is open
-        const project = await prisma.constructionProject.findUnique({
+        const project = await prisma.project.findUnique({
             where: { id: projectId }
         })
 
@@ -68,7 +68,7 @@ export async function POST(
             )
         }
 
-        if (project.status !== 'OPEN') {
+        if (project.contractorId !== null || project.status === 'COMPLETED' || project.status === 'CANCELLED') {
             return NextResponse.json(
                 createErrorResponse('Dự án đã đóng tuyển', 'VALIDATION_ERROR'),
                 { status: 400 }
@@ -117,7 +117,7 @@ export async function POST(
             data: {
                 type: 'ORDER_NEW',
                 title: 'Có nhà thầu ứng tuyển mới',
-                message: `Dự án "${project.title}" có ${isGuest ? 'hồ sơ tự khai báo' : 'nhà thầu xác minh'} ứng tuyển: ${applicantName}`,
+                message: `Dự án "${project.name}" có ${isGuest ? 'hồ sơ tự khai báo' : 'nhà thầu xác minh'} ứng tuyển: ${applicantName}`,
                 priority: isGuest ? 'LOW' : 'MEDIUM',
                 read: false,
                 userId: null,
@@ -303,12 +303,12 @@ export async function PATCH(
                     data: { status: 'CLOSED' }
                 })
 
-                // Update project status
-                await prisma.constructionProject.update({
+                // Update project status to indicate a contractor has been assigned/progressing
+                await prisma.project.update({
                     where: { id: projectId },
-                    data: { status: 'IN_PROGRESS' }
+                    data: { status: 'IN_PROGRESS', contractorId: application.contractorId } // If selecting a registered contractor, assign ID
                 })
-                break
+                break;
 
             case 'REJECT':
                 updateData = { status: 'REJECTED' }
