@@ -36,6 +36,7 @@ export async function POST(request: NextRequest) {
             where: { id: projectId },
             data: {
                 isVerified: true,
+                moderationStatus: 'APPROVED',
                 otpCode: null, // Clear OTP after use
                 otpExpiresAt: null
             }

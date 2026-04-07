@@ -47,14 +47,26 @@ export default function PublicProjectsPage() {
     const fetchProjects = async () => {
         try {
             setLoading(true)
-            // Using our new public marketplace projects API
-            const res = await fetch(`/api/marketplace/projects`)
+            // Using our internal dynamic marketplace projects API
+            const res = await fetch(`/api/projects?isPublic=true`)
             if (res.ok) {
                 const data = await res.json()
                 console.log('Fetched marketplace projects:', data)
-                if (data.success) {
-                    setProjects(data.data.projects || [])
-                }
+                const mappedProjects = (data.projects || []).map((p: any) => ({
+                    id: p.id,
+                    title: p.name,
+                    description: p.description,
+                    status: p.status,
+                    createdAt: p.createdAt,
+                    estimatedBudget: p.budget,
+                    location: p.location,
+                    projectType: p.category || 'general',
+                    contactName: p.guestName || p.customer?.user?.name || 'Khách hàng',
+                    applicationCount: p.projectTasks?.length || 0,
+                    viewCount: 0,
+                    isUrgent: p.priority === 'HIGH' || p.priority === 'URGENT'
+                }))
+                setProjects(mappedProjects)
             }
         } catch (error) {
             console.error('Failed to fetch projects:', error)

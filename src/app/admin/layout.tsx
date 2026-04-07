@@ -121,7 +121,8 @@ export default function AdminLayout({
       name: 'Kinh Doanh',
       icon: ShoppingCart,
       items: [
-        { name: 'Đơn Hàng & Dự Án', href: '/admin/orders', icon: ShoppingCart },
+        { name: 'Đơn Hàng', href: '/admin/orders', icon: ShoppingCart },
+        { name: 'Quản Lý Dự Án', href: '/admin/projects', icon: Briefcase },
         { name: 'Giám sát Vận tải', href: '/admin/delivery/tracking', icon: Truck },
         { name: 'Khách Hàng', href: '/admin/customers', icon: Users },
         { name: 'Quản Lý Tổ Chức (B2B)', href: '/admin/organizations', icon: Building2 },
