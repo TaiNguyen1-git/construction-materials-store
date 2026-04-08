@@ -1,5 +1,7 @@
 import { prisma } from './prisma'
-import { WalletTransactionType } from '@prisma/client'
+import { WalletTransactionType, Prisma } from '@prisma/client'
+import { logger } from './logger'
+import { redis } from './redis'
 
 export class WalletService {
     /**
@@ -24,8 +26,75 @@ export class WalletService {
     }
 
     /**
+     * Kiểm tra tính trùng lặp cho các giao dịch ví
+     */
+    static async checkIdempotency(key: string, action: string): Promise<boolean> {
+        if (!key) return true
+        const redisKey = `idempotency:wallet:${action}:${key}`
+        try {
+            const result = await redis.set(redisKey, 'processing', { nx: true, ex: 300 })
+            return result === 'OK'
+        } catch (error) {
+            logger.error('Wallet Idempotency Error', { error, key })
+            return true
+        }
+    }
+
+    /**
+     * Rút tiền từ ví (Có bảo vệ Double Spending & Idempotency)
+     */
+    static async withdraw(
+        customerId: string, 
+        amount: number, 
+        idempotencyKey: string, 
+        description: string = 'Rút tiền từ ví'
+    ) {
+        if (amount <= 0) throw new Error('Số tiền rút phải lớn hơn 0')
+
+        if (idempotencyKey) {
+            const isNew = await this.checkIdempotency(idempotencyKey, 'withdraw')
+            if (!isNew) throw new Error('Yêu cầu đang được xử lý hoặc đã hoàn tất')
+        }
+
+        try {
+            return await prisma.$transaction(async (tx) => {
+                const updateResult = await tx.wallet.updateMany({
+                    where: { 
+                        customerId,
+                        balance: { gte: amount }
+                    },
+                    data: {
+                        balance: { decrement: amount }
+                    }
+                })
+
+                if (updateResult.count === 0) {
+                    throw new Error('Số dư ví không đủ')
+                }
+
+                const wallet = await tx.wallet.findUnique({ where: { customerId } })
+                if (!wallet) throw new Error('Không tìm thấy ví')
+
+                await tx.walletTransaction.create({
+                    data: {
+                        walletId: wallet.id,
+                        amount: -amount,
+                        type: 'WITHDRAWAL' as WalletTransactionType,
+                        description,
+                        status: 'COMPLETED'
+                    } as any
+                })
+
+                return wallet
+            })
+        } catch (error) {
+            if (idempotencyKey) await redis.del(`idempotency:wallet:withdraw:${idempotencyKey}`)
+            throw error
+        }
+    }
+
+    /**
      * Cộng hoa hồng cho người giới thiệu
-     * @param orderId ID đơn hàng vừa hoàn tất
      */
     static async awardCommission(orderId: string) {
         const order = await prisma.order.findUnique({
@@ -33,21 +102,17 @@ export class WalletService {
             include: { customer: true }
         })
 
-        // Chỉ tính hoa hồng nếu có người giới thiệu
         if (!order || !order.customer || !order.customer.referredBy) {
             return
         }
 
         const referrerId = order.customer.referredBy
-
-        // Tính hoa hồng (VD: 2% giá trị đơn hàng)
         const commissionRate = 0.02
         const commissionAmount = order.totalAmount * commissionRate
 
         if (commissionAmount <= 0) return
 
         return await prisma.$transaction(async (tx) => {
-            // Đảm bảo người giới thiệu có ví
             let wallet = await tx.wallet.findUnique({
                 where: { customerId: referrerId }
             })
@@ -58,7 +123,6 @@ export class WalletService {
                 })
             }
 
-            // Cập nhật số dư ví
             const updatedWallet = await tx.wallet.update({
                 where: { id: wallet.id },
                 data: {
@@ -67,13 +131,12 @@ export class WalletService {
                 }
             })
 
-            // Lưu lịch sử giao dịch
             await tx.walletTransaction.create({
                 data: {
                     walletId: wallet.id,
                     amount: commissionAmount,
                     type: 'COMMISSION' as WalletTransactionType,
-                    description: `Hoa hồng giới thiệu từ đơn hàng #${order.orderNumber} của ${(order.customer as { companyName?: string; userId?: string })?.companyName || order.customer?.userId || 'Khách hàng'}`,
+                    description: `Hoa hồng từ đơn hàng #${order.orderNumber}`,
                     relatedOrderId: orderId
                 }
             })
@@ -119,9 +182,6 @@ export class WalletService {
         })
     }
 
-    /**
-     * Lấy thông tin ví và lịch sử giao dịch
-     */
     static async getWalletData(customerId: string) {
         return await prisma.wallet.findUnique({
             where: { customerId },

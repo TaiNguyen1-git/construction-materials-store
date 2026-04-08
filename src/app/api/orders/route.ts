@@ -37,7 +37,8 @@ const createOrderSchema = z.object({
   totalAmount: z.number(),
   shippingAmount: z.number(),
   netAmount: z.number(),
-  selectedContractorId: z.string().optional().nullable()
+  selectedContractorId: z.string().optional().nullable(),
+  idempotencyKey: z.string().optional().nullable()
 })
 
 // GET /api/orders - List orders
@@ -251,6 +252,17 @@ export async function POST(request: NextRequest) {
 
     const data = validation.data
 
+    // ── STEP 0: IDEMPOTENCY CHECK (Anti-Duplicate) ──
+    const { PurchaseService } = await import('@/lib/purchase-service')
+    const isUniqueRequest = await PurchaseService.checkIdempotency(data.idempotencyKey || '')
+    if (!isUniqueRequest) {
+      logger.warn('Duplicate order request detected', { idempotencyKey: data.idempotencyKey })
+      return NextResponse.json(
+        createErrorResponse('Yêu cầu đang được xử lý hoặc đã hoàn thành. Vui lòng không nhấn nhiều lần.', 'DUPLICATE_REQUEST'),
+        { status: 409 }
+      )
+    }
+
     // Generate order number
     const orderCount = await prisma.order.count()
     const orderNumber = `ORD-${Date.now()}-${(orderCount + 1).toString().padStart(4, '0')}`
@@ -319,32 +331,31 @@ export async function POST(request: NextRequest) {
     const order = await prisma.$transaction(async (tx) => {
       let calculatedTotalAmount = 0
       
-      // ── Step 1: Validate stock INSIDE transaction (atomic check) ──
+      // ── Step 1: Validate stock & Update inventory (Centralized logic via PurchaseService) ──
+      const { PurchaseService } = await import('@/lib/purchase-service')
+      await PurchaseService.reserveStock(
+        tx,
+        data.items,
+        userId || 'GUEST',
+        orderNumber
+      )
+
+      // --- SECURITY: PRICE RE-CALCULATION & TOTALS ---
+      // Lấy lại giá chuẩn từ DB cho tất cả sản phẩm
       for (const item of data.items) {
-        const inventoryItem = await tx.inventoryItem.findUnique({
-          where: { productId: item.productId },
-          include: { product: true }
+        const product = await tx.product.findUnique({
+          where: { id: item.productId },
+          select: { price: true, wholesalePrice: true, minWholesaleQty: true }
         })
-
-        if (!inventoryItem) {
-          throw new Error(`STOCK_ERROR:Sản phẩm không tồn tại trong kho`)
-        }
-
-        if (inventoryItem.availableQuantity < item.quantity) {
-          throw new Error(
-            `STOCK_ERROR:${inventoryItem.product.name} chỉ còn ${inventoryItem.availableQuantity} (yêu cầu ${item.quantity})`
-          )
-        }
-
-        // --- SECURITY 2026: PRICE RE-CALCULATION ---
-        // Không bao giờ tin tưởng giá từ Frontend gửi lên, phải lấy từ CSDL
-        const p = inventoryItem.product
-        const isWholesale = p.wholesalePrice && item.quantity >= p.minWholesaleQty
-        const actualUnitPrice = isWholesale ? p.wholesalePrice! : p.price
         
-        item.unitPrice = actualUnitPrice
-        item.totalPrice = actualUnitPrice * item.quantity
-        calculatedTotalAmount += item.totalPrice
+        if (product) {
+          const isWholesale = product.wholesalePrice && item.quantity >= product.minWholesaleQty
+          const actualUnitPrice = isWholesale ? product.wholesalePrice! : product.price
+          
+          item.unitPrice = actualUnitPrice
+          item.totalPrice = actualUnitPrice * item.quantity
+          calculatedTotalAmount += item.totalPrice
+        }
       }
 
       // ── RE-CALCULATE TOTALS ──
@@ -355,7 +366,6 @@ export async function POST(request: NextRequest) {
       let calculatedRemainingAmount = data.remainingAmount
 
       if (data.paymentType === 'DEPOSIT') {
-         // Ép cọc 50% cứng tránh Frontend bị hack số tiền cọc
          calculatedDepositAmount = Math.round(calculatedNetAmount * 0.5)
          calculatedRemainingAmount = calculatedNetAmount - calculatedDepositAmount
       } else if (data.paymentType === 'FULL') {
@@ -427,38 +437,15 @@ export async function POST(request: NextRequest) {
         }
       })
 
-      // ── Step 3: Update inventory (atomic with stock check) ──
-      for (const item of data.items) {
-        const inventoryItem = await tx.inventoryItem.findUnique({
-          where: { productId: item.productId }
-        })
+      // Update movement reference now that we have the order ID
+      await tx.inventoryMovement.updateMany({
+        where: { reason: `Đặt hàng ${orderNumber}`, referenceType: 'ORDER', referenceId: '' },
+        data: { referenceId: newOrder.id }
+      })
 
-        if (inventoryItem) {
-          const previousStock = inventoryItem.availableQuantity
-
-          await tx.inventoryItem.update({
-            where: { productId: item.productId },
-            data: {
-              availableQuantity: { decrement: item.quantity },
-              reservedQuantity: { increment: item.quantity }
-            }
-          })
-
-          await tx.inventoryMovement.create({
-            data: {
-              productId: item.productId,
-              inventoryId: inventoryItem.id,
-              movementType: 'OUT',
-              quantity: item.quantity,
-              previousStock: previousStock,
-              newStock: previousStock - item.quantity,
-              reason: `Order ${orderNumber}`,
-              referenceType: 'ORDER',
-              referenceId: newOrder.id,
-              performedBy: userId || 'GUEST'
-            }
-          })
-        }
+      // ── STEP 3: MARK IDEMPOTENCY SUCCESS ──
+      if (data.idempotencyKey) {
+        await PurchaseService.markIdempotencySuccess(data.idempotencyKey, newOrder.id)
       }
 
       return newOrder

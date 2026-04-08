@@ -31,6 +31,8 @@ export async function PUT(
 ) {
   try {
     const { id: orderId } = await params
+    const userId = request.headers.get('x-user-id')
+    const userRole = request.headers.get('x-user-role')
 
     // Parse request body
     const body = await request.json()
@@ -100,44 +102,15 @@ export async function PUT(
     }
 
     const updatedOrder = await prisma.$transaction(async (tx) => {
-      // If cancelling, restore inventory
+      // ITEM 4: Use PurchaseService for consistent cancellation logic
       if (status === 'CANCELLED' && existingOrder.status !== 'CANCELLED') {
-        const orderItems = await tx.orderItem.findMany({
-          where: { orderId }
-        })
-
-        for (const item of orderItems) {
-          // Restore inventory: move from reserved back to available
-          await tx.inventoryItem.update({
-            where: { productId: item.productId },
-            data: {
-              availableQuantity: { increment: item.quantity },
-              reservedQuantity: { decrement: item.quantity }
-            }
-          })
-
-          // Create inventory movement record
-          const inventoryItem = await tx.inventoryItem.findUnique({
-            where: { productId: item.productId }
-          })
-
-          if (inventoryItem) {
-            await tx.inventoryMovement.create({
-              data: {
-                productId: item.productId,
-                inventoryId: inventoryItem.id,
-                movementType: 'IN',
-                quantity: item.quantity,
-                previousStock: inventoryItem.availableQuantity - item.quantity,
-                newStock: inventoryItem.availableQuantity,
-                reason: `Order ${existingOrder.orderNumber} cancelled`,
-                referenceType: 'ORDER',
-                referenceId: orderId,
-                performedBy: 'ADMIN'
-              }
-            })
-          }
-        }
+        const { PurchaseService } = await import('@/lib/purchase-service')
+        await PurchaseService.cancelOrderAndReleaseStock(
+          tx, 
+          orderId, 
+          note || 'Hủy bởi Admin (Status Update)', 
+          userId || 'ADMIN'
+        )
       }
 
       // Update order

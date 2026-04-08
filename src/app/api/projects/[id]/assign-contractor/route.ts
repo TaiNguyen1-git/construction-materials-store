@@ -38,13 +38,25 @@ export async function POST(
       return NextResponse.json({ error: 'Invalid contractor' }, { status: 400 })
     }
 
-    // 3. Update project
-    const updatedProject = await prisma.project.update({
-      where: { id: projectId },
-      data: {
-        contractorId: contractorId,
-        status: 'IN_PROGRESS' // Auto-start the project when assigned
+    // 3. Update project atomically inside a transaction
+    const updatedProject = await prisma.$transaction(async (tx) => {
+      // Re-fetch within transaction to check current state
+      const currentProject = await tx.project.findUnique({
+        where: { id: projectId },
+        select: { contractorId: true }
+      })
+
+      if (currentProject?.contractorId) {
+        throw new Error('Project already has an assigned contractor')
       }
+
+      return await tx.project.update({
+        where: { id: projectId },
+        data: {
+          contractorId: contractorId,
+          status: 'IN_PROGRESS'
+        }
+      })
     })
 
     // 4. (Optional) Reject other applications or mark chosen one as SELECTED
