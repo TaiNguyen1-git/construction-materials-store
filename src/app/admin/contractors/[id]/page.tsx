@@ -376,6 +376,43 @@ export default function AdminContractorDetail({ params }: { params: Promise<{ id
                             </div>
                         </div>
 
+                        {/* Profile Documents */}
+                        <div className="bg-white rounded-[40px] border border-slate-200 p-10 shadow-sm">
+                            <h4 className="text-xl font-black text-slate-900 mb-6 flex items-center gap-3">
+                                <FileText className="w-6 h-6 text-blue-600" />
+                                Hồ sơ & Giấy tờ pháp lý
+                            </h4>
+                            {profile.documents && profile.documents.length > 0 ? (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {profile.documents.map((doc: string, idx: number) => (
+                                        <a 
+                                            key={idx} 
+                                            href={doc} 
+                                            target="_blank" 
+                                            rel="noopener noreferrer"
+                                            className="flex items-center justify-between p-5 bg-slate-50 rounded-2xl border border-slate-100 hover:bg-white hover:shadow-lg hover:border-blue-200 transition-all group"
+                                        >
+                                            <div className="flex items-center gap-4">
+                                                <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm text-blue-600">
+                                                    <FileText className="w-5 h-5" />
+                                                </div>
+                                                <div>
+                                                    <p className="font-bold text-slate-900">Tài liệu năng lực #{idx + 1}</p>
+                                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Xem bản gốc</p>
+                                                </div>
+                                            </div>
+                                            <ExternalLink className="w-5 h-5 text-slate-300 group-hover:text-blue-600 transition-colors" />
+                                        </a>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="bg-slate-50 rounded-3xl p-10 text-center border-2 border-dashed border-slate-200">
+                                    <FileText className="w-12 h-12 text-slate-200 mx-auto mb-4" />
+                                    <p className="text-slate-400 font-bold italic">Chưa có tài liệu đính kèm trong hồ sơ này.</p>
+                                </div>
+                            )}
+                        </div>
+
                         {/* Profile Bio / About */}
                         <div className="bg-white rounded-[40px] border border-slate-200 p-10 shadow-sm">
                             <h4 className="text-xl font-black text-slate-900 mb-6">Giới thiệu về đối tác</h4>

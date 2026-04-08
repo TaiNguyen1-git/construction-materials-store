@@ -53,6 +53,13 @@ export default async function Page({ params }: Props) {
         notFound()
     }
 
+    const safeContractor = JSON.parse(JSON.stringify({
+        ...contractor,
+        phone: null,
+        email: null,
+        address: null,
+    }))
+
     return (
         <>
             <ContractorJsonLd contractor={{
@@ -62,7 +69,7 @@ export default async function Page({ params }: Props) {
                 address: contractor.city || undefined,
                 // rating and reviewCount can be fetched if needed
             }} />
-            <ContractorDetailView params={Promise.resolve({ id })} />
+            <ContractorDetailView params={Promise.resolve({ id })} initialContractor={safeContractor} />
         </>
     )
 }

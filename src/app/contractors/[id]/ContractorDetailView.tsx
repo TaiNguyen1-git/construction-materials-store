@@ -21,10 +21,10 @@ import toast, { Toaster } from 'react-hot-toast'
 import Header from '@/components/Header'
 import LoginIncentiveModal from '@/components/LoginIncentiveModal'
 
-export default function ContractorDetailView({ params }: { params: Promise<{ id: string }> }) {
+export default function ContractorDetailView({ params, initialContractor }: { params: Promise<{ id: string }>, initialContractor?: any }) {
     const { id } = use(params)
-    const [loading, setLoading] = useState(true)
-    const [contractor, setContractor] = useState<any>(null)
+    const [loading, setLoading] = useState(!initialContractor)
+    const [contractor, setContractor] = useState<any>(initialContractor || null)
     const [showLoginModal, setShowLoginModal] = useState(false)
     const [showQuoteModal, setShowQuoteModal] = useState(false)
     const [showChatModal, setShowChatModal] = useState(false)
@@ -90,7 +90,7 @@ export default function ContractorDetailView({ params }: { params: Promise<{ id:
     }, [id])
 
     const fetchContractor = async () => {
-        setLoading(true)
+        if (!initialContractor) setLoading(true)
         try {
             const res = await fetch(`/api/contractors/public/${id}`)
             if (res.ok) {
@@ -98,7 +98,7 @@ export default function ContractorDetailView({ params }: { params: Promise<{ id:
                 setContractor(data.data)
             }
         } catch (err) {
-            toast.error('Lỗi khi tải hồ sơ đối tác')
+            if (!initialContractor) toast.error('Lỗi khi tải hồ sơ đối tác')
         } finally {
             setLoading(false)
         }
@@ -246,14 +246,72 @@ export default function ContractorDetailView({ params }: { params: Promise<{ id:
                             )}
 
                             {activeTab === 'projects' && (
-                                <div className="bg-white rounded-[32px] shadow-sm border border-gray-100 p-10 flex flex-col items-center justify-center text-center py-20">
-                                    <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mb-6">
-                                        <HardHat className="w-10 h-10 text-gray-300" />
+                                <div className="space-y-8">
+                                    {/* Portfolio Gallery */}
+                                    <div className="bg-white rounded-[32px] shadow-sm border border-gray-100 p-10">
+                                        <h3 className="text-xl font-black text-gray-900 mb-8 flex items-center gap-3">
+                                            <Camera className="w-6 h-6 text-blue-600" />
+                                            Hình ảnh thực tế từ hồ sơ
+                                        </h3>
+                                        
+                                        {contractor.portfolioImages && contractor.portfolioImages.length > 0 ? (
+                                            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                                                {contractor.portfolioImages.map((img: string, idx: number) => (
+                                                    <div key={idx} className="aspect-[4/3] rounded-2xl overflow-hidden border border-gray-100 group relative">
+                                                        <img src={img} alt={`Portfolio ${idx}`} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
+                                                        <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                            <ImageIcon className="text-white w-8 h-8" />
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <div className="bg-slate-50 rounded-3xl p-10 text-center">
+                                                <ImageIcon className="w-12 h-12 text-slate-200 mx-auto mb-4" />
+                                                <p className="text-slate-400 font-bold">Chưa có hình ảnh trong hồ sơ</p>
+                                            </div>
+                                        )}
                                     </div>
-                                    <h3 className="text-xl font-black text-gray-900 mb-2">Các dự án thực tế đang được cập nhật</h3>
-                                    <p className="text-gray-400 font-medium max-w-xs leading-relaxed">
-                                        Hình ảnh và thông tin chi tiết các công trình {contractor.displayName} đã thực hiện sẽ sớm được hiển thị tại đây.
-                                    </p>
+
+                                    {/* Project Showcase */}
+                                    <div className="bg-white rounded-[32px] shadow-sm border border-gray-100 p-10">
+                                        <h3 className="text-xl font-black text-gray-900 mb-8 flex items-center gap-3">
+                                            <Briefcase className="w-6 h-6 text-blue-600" />
+                                            Công trình tiêu biểu
+                                        </h3>
+                                        
+                                        {(contractor.featuredProjects as any)?.length > 0 ? (
+                                            <div className="space-y-6">
+                                                {(contractor.featuredProjects as any[]).map((proj: any, idx: number) => (
+                                                    <div key={idx} className="flex flex-col md:flex-row gap-6 p-6 bg-slate-50/50 rounded-3xl border border-slate-100 group hover:bg-white hover:shadow-xl transition-all">
+                                                        <div className="w-full md:w-48 h-32 rounded-2xl overflow-hidden flex-shrink-0">
+                                                            <img src={proj.image} alt={proj.title} className="w-full h-full object-cover" />
+                                                        </div>
+                                                        <div className="flex-1">
+                                                            <div className="flex items-center justify-between mb-2">
+                                                                <h4 className="font-black text-lg text-gray-900">{proj.title}</h4>
+                                                                <span className="px-3 py-1 bg-white text-blue-600 rounded-lg text-[10px] font-black border border-blue-50">{proj.year}</span>
+                                                            </div>
+                                                            <p className="text-gray-500 font-medium text-sm leading-relaxed mb-4">{proj.desc}</p>
+                                                            <div className="flex items-center gap-2 text-blue-600 text-xs font-black uppercase tracking-wider group-hover:gap-3 transition-all">
+                                                                Xem chi tiết <ArrowUpRight className="w-3.5 h-3.5" />
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <div className="text-center py-10">
+                                                <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                                                    <HardHat className="w-10 h-10 text-gray-300" />
+                                                </div>
+                                                <h3 className="text-xl font-black text-gray-900 mb-2">Dự án thực tế đang được cập nhật</h3>
+                                                <p className="text-gray-400 font-medium max-w-xs mx-auto leading-relaxed">
+                                                    Thông tin chi tiết các công trình {contractor.displayName} đã thực hiện sẽ sớm được hiển thị tại đây.
+                                                </p>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             )}
 
