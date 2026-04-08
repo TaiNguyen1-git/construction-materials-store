@@ -12,7 +12,8 @@ import {
     Coins, MapPin, Phone, Mail, Clock,
     CheckCircle2, AlertCircle, ExternalLink,
     Users, Building, LucideIcon, Loader2,
-    Calendar, FileText, TrendingUp, Wallet
+    Calendar, FileText, TrendingUp, Wallet,
+    Camera, Image as ImageIcon
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import jsPDF from 'jspdf'
@@ -245,9 +246,15 @@ export default function AdminContractorDetail({ params }: { params: Promise<{ id
                     <div className="lg:col-span-4 space-y-8">
                         <div className="bg-white rounded-[40px] border border-slate-200 shadow-xl shadow-slate-200/50 overflow-hidden">
                             <div className="bg-gradient-to-br from-blue-600 to-indigo-700 p-10 text-white text-center">
-                                <div className="w-24 h-24 bg-white/20 backdrop-blur-md border border-white/30 rounded-[32px] flex items-center justify-center text-4xl font-black mx-auto mb-6">
-                                    {profile.displayName.charAt(0)}
-                                </div>
+                                {profile.avatarUrl ? (
+                                    <div className="w-24 h-24 rounded-[32px] overflow-hidden mx-auto mb-6 shadow-2xl border-2 border-white/50">
+                                        <img src={profile.avatarUrl} alt={profile.displayName} className="w-full h-full object-cover" />
+                                    </div>
+                                ) : (
+                                    <div className="w-24 h-24 bg-white/20 backdrop-blur-md border border-white/30 rounded-[32px] flex items-center justify-center text-4xl font-black mx-auto mb-6">
+                                        {profile.displayName.charAt(0)}
+                                    </div>
+                                )}
                                 <h2 className="text-2xl font-black mb-1">{profile.displayName}</h2>
                                 <p className="text-blue-100 font-medium opacity-80">{profile.companyName || 'Đối tác cá nhân'}</p>
 
@@ -324,6 +331,35 @@ export default function AdminContractorDetail({ params }: { params: Promise<{ id
                                 color="blue"
                             />
                         </div>
+                        
+                        {/* Portfolio & Activity Images - NEW SECTION */}
+                        <div className="bg-white rounded-[40px] border border-slate-200 shadow-sm overflow-hidden">
+                            <div className="px-10 py-8 border-b border-slate-100 flex items-center justify-between">
+                                <h3 className="text-xl font-black text-slate-900 flex items-center gap-3">
+                                    <Camera className="w-6 h-6 text-blue-600" />
+                                    Ảnh Portfolio & Hoạt động
+                                </h3>
+                            </div>
+                            <div className="p-10">
+                                {profile.portfolioImages && profile.portfolioImages.length > 0 ? (
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                        {profile.portfolioImages.map((img: string, idx: number) => (
+                                            <div key={idx} className="aspect-square rounded-2xl overflow-hidden border border-slate-100 group relative">
+                                                <img src={img} alt={`Work ${idx}`} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                                                <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                    <ExternalLink className="text-white w-6 h-6" />
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="bg-slate-50 rounded-3xl p-10 text-center border-2 border-dashed border-slate-200">
+                                        <ImageIcon className="w-12 h-12 text-slate-200 mx-auto mb-4" />
+                                        <p className="text-slate-400 font-bold italic">Nhà thầu chưa cập nhật hình ảnh hoạt động.</p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
 
                         {/* Project History */}
                         <div className="bg-white rounded-[40px] border border-slate-200 shadow-sm overflow-hidden">
@@ -372,6 +408,39 @@ export default function AdminContractorDetail({ params }: { params: Promise<{ id
                                             </div>
                                         </div>
                                     ))
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Featured Projects - NEW SECTION */}
+                        <div className="bg-white rounded-[40px] border border-slate-200 shadow-sm overflow-hidden">
+                            <div className="px-10 py-8 border-b border-slate-100 flex items-center justify-between">
+                                <h3 className="text-xl font-black text-slate-900 flex items-center gap-3">
+                                    <Star className="w-6 h-6 text-blue-600" />
+                                    Dự án tiêu biểu (Khách hàng cung cấp)
+                                </h3>
+                            </div>
+                            <div className="p-10">
+                                {profile.featuredProjects && profile.featuredProjects.length > 0 ? (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        {profile.featuredProjects.map((proj: any, idx: number) => (
+                                            <div key={idx} className="bg-slate-50 rounded-[32px] overflow-hidden border border-slate-100 flex flex-col">
+                                                <div className="aspect-video relative">
+                                                    <img src={proj.image} alt={proj.title} className="w-full h-full object-cover" />
+                                                    <div className="absolute top-4 right-4 px-3 py-1 bg-white/90 backdrop-blur rounded-full text-[10px] font-black">{proj.year}</div>
+                                                </div>
+                                                <div className="p-6">
+                                                    <h5 className="font-black text-slate-900 text-lg mb-2">{proj.title}</h5>
+                                                    <p className="text-slate-500 text-sm font-medium line-clamp-2">{proj.desc}</p>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="bg-slate-50 rounded-3xl p-10 text-center border-2 border-dashed border-slate-200">
+                                        <Star className="w-12 h-12 text-slate-200 mx-auto mb-4" />
+                                        <p className="text-slate-400 font-bold italic">Chưa có dự án tiêu biểu nào được cập nhật.</p>
+                                    </div>
                                 )}
                             </div>
                         </div>
