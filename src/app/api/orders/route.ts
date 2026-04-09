@@ -8,6 +8,8 @@ import { verifyTokenFromRequest } from '@/lib/auth-middleware-api'
 import { LoyaltyService } from '@/lib/loyalty-service'
 import { logger, logAPI } from '@/lib/logger'
 import { EmailService } from '@/lib/email/email-service'
+import { pricingEngine } from '@/lib/pricing-engine'
+import { getUserIdFromRequest } from '@/lib/auth-middleware-api'
 
 const createOrderSchema = z.object({
   customerType: z.enum(['REGISTERED', 'GUEST']).default('GUEST'),
@@ -234,9 +236,10 @@ export async function POST(request: NextRequest) {
   const startTime = Date.now()
 
   try {
-    // Optional authentication - supports guest checkout
-    const userId = request.headers.get('x-user-id')
-    const userRole = request.headers.get('x-user-role')
+    // 🛡️ SECURITY FIX: Use secure helper to get userId only from verified JWT
+    const userId = await getUserIdFromRequest(request)
+    const tokenPayload = verifyTokenFromRequest(request)
+    const userRole = tokenPayload?.role || null
 
     const body = await request.json()
 
@@ -340,22 +343,18 @@ export async function POST(request: NextRequest) {
         orderNumber
       )
 
-      // --- SECURITY: PRICE RE-CALCULATION & TOTALS ---
-      // Lấy lại giá chuẩn từ DB cho tất cả sản phẩm
+      // --- SECURITY & PRICING: PRICE CALCULATION VIA PRICING ENGINE ---
+      // This ensures VIP/Member discounts are applied correctly based on tier
       for (const item of data.items) {
-        const product = await tx.product.findUnique({
-          where: { id: item.productId },
-          select: { price: true, wholesalePrice: true, minWholesaleQty: true }
-        })
+        const effectivePrice = await pricingEngine.getEffectivePrice(
+          item.productId,
+          customerId || undefined, // Convert null to undefined for Guests
+          item.quantity
+        )
         
-        if (product) {
-          const isWholesale = product.wholesalePrice && item.quantity >= product.minWholesaleQty
-          const actualUnitPrice = isWholesale ? product.wholesalePrice! : product.price
-          
-          item.unitPrice = actualUnitPrice
-          item.totalPrice = actualUnitPrice * item.quantity
-          calculatedTotalAmount += item.totalPrice
-        }
+        item.unitPrice = effectivePrice.effectivePrice
+        item.totalPrice = effectivePrice.effectivePrice * item.quantity
+        calculatedTotalAmount += item.totalPrice
       }
 
       // ── RE-CALCULATE TOTALS ──

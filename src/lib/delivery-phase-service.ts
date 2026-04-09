@@ -277,8 +277,7 @@ export class DeliveryPhaseService {
      */
     static async confirmAndRelease(
         phaseId: string,
-        confirmedBy: string,
-        recipientWalletId: string
+        confirmedBy: string
     ): Promise<{ success: boolean; error?: string }> {
         try {
             const phase = await prisma.deliveryPhase.findUnique({
@@ -290,6 +289,10 @@ export class DeliveryPhaseService {
                 return { success: false, error: 'Phase not found' }
             }
 
+            if (!phase.order.selectedContractorId) {
+                return { success: false, error: 'No contractor assigned to this order' }
+            }
+
             if (phase.status !== 'DELIVERED') {
                 return { success: false, error: 'Phase must be delivered first' }
             }
@@ -299,6 +302,26 @@ export class DeliveryPhaseService {
             }
 
             await prisma.$transaction(async (tx) => {
+                // 🛡️ SECURITY FIX: Automatically resolve the recipient wallet from the database.
+                // Never trust a wallet ID provided by the client/caller.
+                const contractorProfile = await tx.contractorProfile.findUnique({
+                    where: { id: phase.order.selectedContractorId! }
+                })
+
+                if (!contractorProfile) {
+                    throw new Error('Contractor profile not found')
+                }
+
+                const recipientWallet = await tx.wallet.findUnique({
+                    where: { customerId: contractorProfile.customerId }
+                })
+
+                if (!recipientWallet) {
+                    throw new Error('Contractor wallet not found')
+                }
+
+                const finalRecipientWalletId = recipientWallet.id
+
                 // Release from customer's hold
                 const customerWallet = await tx.wallet.findUnique({
                     where: { customerId: phase.order.customerId! }
@@ -315,7 +338,7 @@ export class DeliveryPhaseService {
 
                 // Add to recipient wallet (supplier or contractor)
                 await tx.wallet.update({
-                    where: { id: recipientWalletId },
+                    where: { id: finalRecipientWalletId },
                     data: {
                         balance: { increment: phase.phaseValue },
                         totalEarned: { increment: phase.phaseValue }
@@ -325,7 +348,7 @@ export class DeliveryPhaseService {
                 // Create earning transaction
                 await tx.walletTransaction.create({
                     data: {
-                        walletId: recipientWalletId,
+                        walletId: finalRecipientWalletId,
                         amount: phase.phaseValue,
                         type: 'ESCROW_RELEASE',
                         status: 'COMPLETED',
