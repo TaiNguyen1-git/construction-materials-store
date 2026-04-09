@@ -52,6 +52,7 @@ import NotificationBell from '@/components/NotificationBell'
 import AdminPushManager from '@/components/admin/AdminPushManager'
 import { useAuth } from '@/contexts/auth-context'
 import GlobalSearch from '@/components/admin/GlobalSearch'
+import { PageSkeleton } from '@/components/admin/skeletons/AdminSkeletons'
 
 interface NavItem {
   name: string;
@@ -77,7 +78,7 @@ export default function AdminLayout({
   const [isCollapsed, setIsCollapsed] = useState(false)
   const pathname = usePathname()
   const router = useRouter()
-  const { user, logout } = useAuth()
+  const { user, isLoading: authLoading, logout } = useAuth()
 
   // Define full navigation items
   const allGroups: NavGroup[] = [
@@ -85,36 +86,10 @@ export default function AdminLayout({
       name: 'Điều Hành',
       items: [
         { name: 'Tổng Quan', href: '/admin', icon: BarChart3 },
-        { name: 'Công Việc Của Tôi', href: '/admin/my-tasks', icon: ClipboardList, roles: ['EMPLOYEE'] },
         { name: 'Tin Nhắn', href: '/admin/messages', icon: MessageCircle },
-      ]
-    },
-    {
-      name: 'Cửa Hàng',
-      icon: Store,
-      items: [
-        { name: 'Vận Hành Tổng Thể', href: '/admin/store-operations', icon: GanttChart },
+        { name: 'Vận Hành Cửa Hàng', href: '/admin/store-operations', icon: GanttChart },
         { name: 'Quầy Thu Ngân', href: '/admin/pos', icon: Wallet },
-      ]
-    },
-    {
-      name: 'Chăm Sóc KH',
-      icon: HeartHandshake,
-      items: [
-        { name: 'Tổng Hợp Hỗ Trợ', href: '/admin/customer-care', icon: HeartHandshake },
-        { name: 'Tickets', href: '/admin/tickets', icon: Ticket },
-        { name: 'Yêu Cầu Hỗ Trợ', href: '/admin/support', icon: Headset },
-        { name: 'Tranh Chấp', href: '/admin/disputes', icon: ShieldAlert },
-        { name: 'Quản lý FAQ/Guide', href: '/admin/help-center', icon: BookOpen },
-      ]
-    },
-    {
-      name: 'Kho Hàng',
-      icon: Box,
-      items: [
-        { name: 'Tồn Kho & Sản Phẩm', href: '/admin/inventory', icon: Package },
-        { name: 'Hàng Hóa & Đại Lý', href: '/admin/products', icon: Package },
-        { name: 'Quản Lý Hoàn Trả', href: '/admin/returns', icon: RotateCcw },
+        { name: 'Công Việc Của Tôi', href: '/admin/my-tasks', icon: ClipboardList, roles: ['EMPLOYEE'] },
       ]
     },
     {
@@ -122,40 +97,39 @@ export default function AdminLayout({
       icon: ShoppingCart,
       items: [
         { name: 'Đơn Hàng', href: '/admin/orders', icon: ShoppingCart },
-        { name: 'Quản Lý Dự Án', href: '/admin/projects', icon: Briefcase },
-        { name: 'Giám sát Vận tải', href: '/admin/delivery/tracking', icon: Truck },
+        { name: 'Dự Án', href: '/admin/projects', icon: Briefcase },
+        { name: 'Vận Tải', href: '/admin/delivery/tracking', icon: Truck },
         { name: 'Khách Hàng', href: '/admin/customers', icon: Users },
-        { name: 'Quản Lý Tổ Chức (B2B)', href: '/admin/organizations', icon: Building2 },
-        { name: 'Loyalty & Thân Thiết', href: '/admin/loyalty', icon: Trophy },
-        { name: 'Phân Tích Bán Hàng', href: '/admin/sales-management', icon: LineChart },
+        { name: 'Tổ Chức B2B', href: '/admin/organizations', icon: Building2 },
+        { name: 'Loyalty', href: '/admin/loyalty', icon: Trophy },
       ]
     },
     {
-      name: 'Tài Chính & Hợp Đồng',
-      icon: CreditCard,
+      name: 'Kho Hàng',
+      icon: Box,
       items: [
-        { name: 'Quản Lý Công Nợ', href: '/admin/credit-management', icon: CreditCard },
-        { name: 'Thu Mua', href: '/admin/procurement-management', icon: Truck },
-        { name: 'Hợp Đồng & Pháp Lý', href: '/admin/contract-management', icon: FileText },
+        { name: 'Tồn Kho & Sản Phẩm', href: '/admin/inventory', icon: Box },
+        { name: 'Hoàn Trả', href: '/admin/returns', icon: RotateCcw },
       ]
     },
     {
-      name: 'Nhân Sự',
-      icon: Briefcase,
-      roles: ['MANAGER'],
-      items: [
-        { name: 'Danh Sách Nhân Viên', href: '/admin/hr-management', icon: Users },
-        { name: 'Bảng Lương & Phúc Lợi', href: '/admin/payroll', icon: CreditCard },
-      ]
-    },
-    {
-      name: 'Đối Tác',
+      name: 'Đối Tác & Hỗ Trợ',
       icon: ShieldCheck,
       items: [
-        { name: 'Quản Lý Nhà Thầu', href: '/admin/contractors', icon: Users },
-        { name: 'Quản Lý Nhà Cung Cấp', href: '/admin/suppliers', icon: Truck },
-        { name: 'Rủi ro & Tuân thủ', href: '/admin/integrity', icon: ShieldAlert },
-        { name: 'Xác Thực Đối Tác', href: '/admin/contractors/verify', icon: ShieldCheck },
+        { name: 'Quản Lý Đối Tác', href: '/admin/contractors', icon: Users },
+        { name: 'Rủi Ro & Tuân Thủ', href: '/admin/integrity', icon: ShieldAlert },
+        { name: 'Trung Tâm Hỗ Trợ', href: '/admin/customer-care', icon: HeartHandshake },
+        { name: 'FAQ & Hướng Dẫn', href: '/admin/help-center', icon: BookOpen },
+      ]
+    },
+    {
+      name: 'Tài Chính',
+      icon: CreditCard,
+      items: [
+        { name: 'Công Nợ', href: '/admin/credit-management', icon: CreditCard },
+        { name: 'Thu Mua', href: '/admin/procurement-management', icon: Truck },
+        { name: 'Hợp Đồng', href: '/admin/contract-management', icon: FileText },
+        { name: 'Doanh Thu & Báo Cáo', href: '/admin/financial-reports', icon: PieChart },
       ]
     },
     {
@@ -163,10 +137,11 @@ export default function AdminLayout({
       icon: Settings,
       roles: ['MANAGER'],
       items: [
-        { name: 'Quản Lý Vai Trò', href: '/admin/settings/roles', icon: ShieldCheck },
-        { name: 'Thông Báo Hệ Thống', href: '/admin/announcements', icon: Bell },
-        { name: 'Quản Lý Banner', href: '/admin/banners', icon: Star },
-        { name: 'Báo Cáo Lợi Nhuận', href: '/admin/financial-reports', icon: PieChart },
+        { name: 'Nhân Viên', href: '/admin/hr-management', icon: Users },
+        { name: 'Bảng Lương', href: '/admin/payroll', icon: CreditCard },
+        { name: 'Vai Trò & Phân Quyền', href: '/admin/settings/roles', icon: ShieldCheck },
+        { name: 'Thông Báo', href: '/admin/announcements', icon: Bell },
+        { name: 'Banner', href: '/admin/banners', icon: Star },
       ]
     },
   ]
@@ -210,13 +185,27 @@ export default function AdminLayout({
     }
   }
 
-  // Show nothing while checking auth or redirecting non-admin
-  if (!user || !['MANAGER', 'EMPLOYEE'].includes(user.role)) {
+  // Still loading auth state — show skeleton matching the actual page layout
+  if (authLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="min-h-screen bg-[#F0F2F5] flex">
+        {/* Sidebar placeholder */}
+        <div className="hidden md:block w-72 shrink-0">
+          <div className="h-screen bg-white/80 m-4 rounded-[32px] animate-pulse" />
+        </div>
+        {/* Content area skeleton */}
+        <div className="flex-1 p-8 md:p-10 pt-6">
+          <div className="max-w-[1600px] mx-auto">
+            <PageSkeleton />
+          </div>
+        </div>
       </div>
     )
+  }
+
+  // Auth resolved but user is not admin/employee — redirect
+  if (!user || !['MANAGER', 'EMPLOYEE'].includes(user.role)) {
+    return null
   }
 
   // Bypass layout for Customer Facing Display

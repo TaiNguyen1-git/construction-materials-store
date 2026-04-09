@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { fetchWithAuth } from '@/lib/api-client'
 import { Coins, TrendingUp, TrendingDown, FileText, Download, Calendar } from 'lucide-react'
 import { toast } from 'react-hot-toast'
+import { StatsSkeleton, TableSkeleton } from '@/components/admin/skeletons/AdminSkeletons'
 
 interface FinancialSummary {
   totalRevenue: number
@@ -115,8 +116,26 @@ export default function FinancialReportsPage() {
 
   if (loading || !summary) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="space-y-6">
+        {/* Header skeleton */}
+        <div className="flex justify-between items-center">
+          <div className="h-8 w-48 bg-slate-200 animate-pulse rounded-lg" />
+          <div className="flex gap-2">
+            <div className="h-10 w-28 bg-slate-200 animate-pulse rounded-lg" />
+            <div className="h-10 w-24 bg-slate-200 animate-pulse rounded-lg" />
+          </div>
+        </div>
+        {/* Date filter skeleton */}
+        <div className="bg-white p-4 rounded-lg shadow h-16 animate-pulse" />
+        {/* Stats skeleton */}
+        <StatsSkeleton />
+        {/* Charts skeleton */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="bg-white p-6 rounded-lg shadow h-64 animate-pulse" />
+          <div className="bg-white p-6 rounded-lg shadow h-64 animate-pulse" />
+        </div>
+        {/* Table skeleton */}
+        <TableSkeleton rows={5} />
       </div>
     )
   }
