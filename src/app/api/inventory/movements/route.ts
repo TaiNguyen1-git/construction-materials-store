@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { createSuccessResponse, createErrorResponse } from '@/lib/api-types'
 import { requireAuth, requireEmployee } from '@/lib/auth-middleware-api'
+import { CacheService } from '@/lib/cache'
 
 // GET /api/inventory/movements - Get inventory movements history
 export async function GET(request: NextRequest) {
@@ -175,6 +176,9 @@ export async function POST(request: NextRequest) {
       } else {
       }
     }
+
+    // Standard Cache Invalidation: Clear product-related caches when stock levels change
+    await CacheService.delByPrefix('products:')
 
     return NextResponse.json(
       createSuccessResponse({ data: movement }, 'Inventory movement recorded successfully'),

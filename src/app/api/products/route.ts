@@ -21,6 +21,8 @@ const querySchema = z.object({
   featured: z.string().optional().transform(val => val === 'true' ? true : val === 'false' ? false : undefined),
   tags: z.string().optional(),
   lowStock: z.string().optional().transform(val => val === 'true'),
+  supplierId: z.string().optional(),
+  status: z.string().optional(),
 })
 
 const createProductSchema = z.object({
@@ -59,14 +61,14 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const { page, limit, q, search, category, minPrice, maxPrice, sort, sortBy, sortOrder, isActive, featured, lowStock } = validation.data
+    const { page, limit, q, search, category, minPrice, maxPrice, sort, sortBy, sortOrder, isActive, featured, lowStock, supplierId, status } = validation.data
     const skip = (page - 1) * limit
 
     // Use q or search for search query
     const searchQuery = q || search
 
     // Create cache key based on query parameters
-    const cacheKey = `products:${page}:${limit}:${searchQuery || 'all'}:${category || 'all'}:${minPrice || 'min'}:${maxPrice || 'max'}:${sort || sortBy}:${sortOrder}:${isActive !== undefined ? isActive : 'all'}:${featured !== undefined ? featured : 'all'}`
+    const cacheKey = `products:${page}:${limit}:${searchQuery || 'all'}:${category || 'all'}:${minPrice || 'min'}:${maxPrice || 'max'}:${sort || sortBy}:${sortOrder}:${isActive !== undefined ? isActive : 'all'}:${featured !== undefined ? featured : 'all'}:${lowStock ? 'lowStock' : 'all'}:${supplierId || 'all'}:${status || 'all'}`
 
     // Try to get from cache first
     const cachedResult = await CacheService.get(cacheKey)
@@ -105,6 +107,14 @@ export async function GET(request: NextRequest) {
 
     if (category) {
       where.categoryId = category
+    }
+
+    if (supplierId) {
+      where.supplierId = supplierId
+    }
+
+    if (status) {
+      where.isActive = status === 'ACTIVE'
     }
 
     if (validation.data.tags) {

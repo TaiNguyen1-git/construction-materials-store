@@ -10,6 +10,7 @@ import { logger, logAPI } from '@/lib/logger'
 import { EmailService } from '@/lib/email/email-service'
 import { pricingEngine } from '@/lib/pricing-engine'
 import { getUserIdFromRequest } from '@/lib/auth-middleware-api'
+import { CacheService } from '@/lib/cache'
 
 const createOrderSchema = z.object({
   customerType: z.enum(['REGISTERED', 'GUEST']).default('GUEST'),
@@ -539,6 +540,9 @@ export async function POST(request: NextRequest) {
       duration
     })
     logAPI.response('POST', '/api/orders', 201, duration)
+    
+    // Standard Cache Invalidation: Orders change available stock levels
+    await CacheService.delByPrefix('products:')
 
     const res = NextResponse.json(
       createSuccessResponse(order, 'Order created successfully'),
