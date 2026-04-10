@@ -175,8 +175,8 @@ function InventoryContent() {
         const productsArray = Array.isArray(data.data?.data || data.data || data) ? data.data?.data || data.data || data : []
         const transformed = productsArray.map((p: any) => ({
           ...p,
-          stock: p.inventoryItem?.quantity || p.inventoryItem?.availableQuantity || 0,
-          minStock: p.inventoryItem?.minStockLevel || 0,
+          stock: p.inventoryItem?.availableQuantity ?? p.inventoryItem?.quantity ?? 0,
+          minStock: p.inventoryItem?.minStockLevel ?? 0,
         }))
         setProducts(transformed)
         setTotalStock(data.data?.pagination?.total || data.pagination?.total || 0)
@@ -197,8 +197,8 @@ function InventoryContent() {
         const arr = Array.isArray(data.data?.data || data.data || data) ? data.data?.data || data.data || data : []
         setModalProducts(arr.map((p: any) => ({
           ...p,
-          stock: p.inventoryItem?.quantity || p.inventoryItem?.availableQuantity || 0,
-          minStock: p.inventoryItem?.minStockLevel || 0,
+          stock: p.inventoryItem?.availableQuantity ?? p.inventoryItem?.quantity ?? 0,
+          minStock: p.inventoryItem?.minStockLevel ?? 0,
         })))
       }
     } catch (e) { }

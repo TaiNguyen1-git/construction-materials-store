@@ -20,6 +20,7 @@ const querySchema = z.object({
   isActive: z.string().optional().transform(val => val === 'true' ? true : val === 'false' ? false : undefined),
   featured: z.string().optional().transform(val => val === 'true' ? true : val === 'false' ? false : undefined),
   tags: z.string().optional(),
+  lowStock: z.string().optional().transform(val => val === 'true'),
 })
 
 const createProductSchema = z.object({
@@ -58,7 +59,7 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const { page, limit, q, search, category, minPrice, maxPrice, sort, sortBy, sortOrder, isActive, featured } = validation.data
+    const { page, limit, q, search, category, minPrice, maxPrice, sort, sortBy, sortOrder, isActive, featured, lowStock } = validation.data
     const skip = (page - 1) * limit
 
     // Use q or search for search query
@@ -146,6 +147,7 @@ export async function GET(request: NextRequest) {
       where.isFeatured = featured
     }
 
+
     // Handle simplified sort parameter
     let orderBy: Prisma.ProductOrderByWithRelationInput = { [sortBy]: sortOrder }
     if (sort) {
@@ -171,7 +173,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get products with pagination
-    const [products, total] = await Promise.all([
+    let [products, total] = await Promise.all([
       prisma.product.findMany({
         where,
         include: {
@@ -183,11 +185,23 @@ export async function GET(request: NextRequest) {
           }
         },
         orderBy,
-        skip,
-        take: limit,
+        skip: lowStock ? undefined : skip, // If filtering in-memory, we take more and paginate later
+        take: lowStock ? undefined : limit,
       }),
       prisma.product.count({ where })
     ])
+
+    // Handle lowStock filtering in-memory if Prisma doesn't support the comparison
+    if (lowStock) {
+      products = products.filter(p => {
+        const qty = p.inventoryItem?.availableQuantity ?? p.inventoryItem?.quantity ?? 0
+        const min = p.inventoryItem?.minStockLevel ?? 0
+        return qty <= min
+      })
+      total = products.length
+      // Apply pagination to the filtered results
+      products = products.slice(skip, skip + limit)
+    }
 
     const response = createPaginatedResponse(products, total, page, limit)
 
