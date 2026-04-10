@@ -157,30 +157,30 @@ function ProductsPageContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+    <div className="min-h-screen bg-neutral-50">
       <Toaster position="top-right" />
       <Header />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 pb-32">
-        {/* Breadcrumb */}
-        <div className="flex items-center mb-10 overflow-x-auto whitespace-nowrap pb-2 scrollbar-none">
-          <Link href="/" className="text-slate-400 hover:text-indigo-600 flex items-center font-black text-[10px] uppercase tracking-widest bg-white px-4 py-2 rounded-xl shadow-sm border border-slate-50 transition-all">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Trang chủ
-          </Link>
-          <span className="mx-4 text-slate-300">/</span>
-          <span className="text-slate-900 font-black text-[10px] uppercase tracking-widest">Tất cả sản phẩm</span>
-        </div>
-
-        {/* Page Header with Search */}
-        <div className="mb-12">
-          <h1 className="text-5xl font-black text-slate-900 mb-4 tracking-tighter uppercase italic leading-none">
-            🏗️ Vật liệu <span className="text-indigo-600 font-black">xây dựng</span>
-          </h1>
-          <div className="max-w-3xl">
+      {/* Page Header Banner */}
+      <div className="bg-primary-600 relative overflow-hidden">
+        <div className="absolute inset-0 opacity-5" style={{backgroundImage: 'radial-gradient(circle, #fff 1px, transparent 1px)', backgroundSize: '24px 24px'}} />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 relative z-10">
+          <div className="flex items-center gap-2 mb-4">
+            <Link href="/" className="text-primary-200 hover:text-white text-xs font-semibold flex items-center gap-1 transition-colors">
+              <ArrowLeft className="h-3 w-3" /> Trang chủ
+            </Link>
+            <span className="text-primary-400 text-xs">/</span>
+            <span className="text-white text-xs font-semibold">Sản phẩm</span>
+          </div>
+          <h1 className="text-3xl font-bold text-white mb-2 tracking-tight">Vật liệu xây dựng</h1>
+          <p className="text-primary-200 text-sm font-medium mb-6">Khám phá hàng ngàn sản phẩm chất lượng cho công trình của bạn</p>
+          <div className="max-w-2xl">
             <SearchBar />
           </div>
         </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-32">
 
         <div className="flex flex-col lg:flex-row gap-8">
           {/* Filters Sidebar */}
@@ -191,59 +191,56 @@ function ProductsPageContent() {
           {/* Products Content */}
           <div className="flex-1">
             {/* View Controls & Active Tags */}
-            <div className="bg-white rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.03)] border border-slate-50 p-6 mb-8 relative overflow-hidden group">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-50/30 rounded-full blur-3xl -mr-10 -mt-10 group-hover:scale-110 transition-transform"></div>
-              <div className="flex flex-col gap-4 relative z-10">
+            <div className="bg-white rounded-2xl border border-neutral-200 p-5 mb-6 shadow-sm">
+              <div className="flex flex-col gap-3">
                 <div className="flex items-center justify-between">
-                  <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none flex items-center gap-2">
+                  <div className="text-xs font-semibold text-neutral-400 uppercase tracking-widest">
                     {loading ? (
                       'Đang tải...'
                     ) : (
                       <>
                         {localQuery && (
-                          <span className="text-indigo-600">Kết quả cho "{localQuery}":</span>
+                          <span className="text-primary-600">Kết quả cho "{localQuery}" · </span>
                         )}
-                        Hiển thị {totalProducts} sản phẩm
+                        <span className="text-neutral-600 font-bold">{totalProducts}</span> sản phẩm
                       </>
                     )}
                   </div>
-                  <div className="flex items-center space-x-2">
+                  <div className="flex items-center gap-1.5">
                     <button
                       onClick={() => setViewMode('grid')}
                       className={`p-2.5 rounded-xl transition-all ${viewMode === 'grid'
-                        ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-100'
-                        : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'}`}
+                        ? 'bg-primary-600 text-white shadow-sm shadow-primary-200'
+                        : 'text-neutral-400 hover:text-neutral-600 hover:bg-neutral-50'}`}
                     >
-                      <Grid className="h-5 w-5" />
+                      <Grid className="h-4 w-4" />
                     </button>
                     <button
                       onClick={() => setViewMode('list')}
                       className={`p-2.5 rounded-xl transition-all ${viewMode === 'list'
-                        ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-100'
-                        : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'}`}
+                        ? 'bg-primary-600 text-white shadow-sm shadow-primary-200'
+                        : 'text-neutral-400 hover:text-neutral-600 hover:bg-neutral-50'}`}
                     >
-                      <List className="h-5 w-5" />
+                      <List className="h-4 w-4" />
                     </button>
                   </div>
                 </div>
 
                 {searchParams.get('q') && (
-                  <div className="flex items-center gap-4 pt-3 border-t border-gray-50">
-                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Từ khóa tìm kiếm:</span>
-                    <div className="flex items-center gap-2">
-                      <div className="bg-indigo-50 text-indigo-600 px-3 py-1 rounded-full text-xs font-bold border border-indigo-100 flex items-center gap-2">
-                        {searchParams.get('q')}
-                        <button
-                          onClick={() => {
-                            const params = new URLSearchParams(searchParams.toString())
-                            params.delete('q')
-                            router.push(`/products?${params.toString()}`)
-                          }}
-                          className="hover:text-red-500 transition-colors"
-                        >
-                          ×
-                        </button>
-                      </div>
+                  <div className="flex items-center gap-3 pt-3 border-t border-neutral-100">
+                    <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Tìm kiếm:</span>
+                    <div className="bg-primary-50 text-primary-600 px-3 py-1 rounded-full text-xs font-bold border border-primary-100 flex items-center gap-2">
+                      {searchParams.get('q')}
+                      <button
+                        onClick={() => {
+                          const params = new URLSearchParams(searchParams.toString())
+                          params.delete('q')
+                          router.push(`/products?${params.toString()}`)
+                        }}
+                        className="hover:text-red-500 transition-colors"
+                      >
+                        ×
+                      </button>
                     </div>
                   </div>
                 )}
@@ -254,46 +251,45 @@ function ProductsPageContent() {
 
             {/* Products Grid/List */}
             {loading ? (
-              <div className={`grid gap-6 ${viewMode === 'grid'
-                ? 'grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5'
+              <div className={`grid gap-5 ${viewMode === 'grid'
+                ? 'grid-cols-2 md:grid-cols-3 xl:grid-cols-4'
                 : 'grid-cols-1'}`}>
                 {[...Array(12)].map((_, i) => (
-                  <div key={i} className="bg-white rounded-[2rem] shadow-sm h-[400px] animate-pulse border border-slate-100"></div>
+                  <div key={i} className="bg-white rounded-2xl h-[340px] animate-pulse border border-neutral-100"></div>
                 ))}
               </div>
             ) : filteredProducts.length > 0 ? (
-              <div className={`grid gap-8 transition-all duration-500 ${viewMode === 'grid'
-                ? 'grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'
+              <div className={`grid gap-5 transition-all duration-500 ${viewMode === 'grid'
+                ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'
                 : 'grid-cols-1'}`}>
-                {filteredProducts
-                  .map((product) => (
-                    <ProductCard key={product.id} product={product as any} viewMode={viewMode} />
-                  ))}
+                {filteredProducts.map((product) => (
+                  <ProductCard key={product.id} product={product as any} viewMode={viewMode} />
+                ))}
               </div>
             ) : (
-              <div className="bg-white rounded-[2.5rem] shadow-xl p-20 text-center border border-slate-50">
-                <div className="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-8 text-slate-200">
-                  <Package className="h-12 w-12" />
+              <div className="bg-white rounded-2xl p-20 text-center border border-neutral-200 shadow-sm">
+                <div className="w-20 h-20 bg-neutral-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <Package className="h-10 w-10 text-neutral-200" />
                 </div>
-                <h3 className="text-2xl font-black text-slate-900 mb-2 uppercase tracking-tight italic">Không tìm thấy sản phẩm</h3>
-                <p className="text-slate-500 mb-10 font-medium">Thử điều chỉnh tìm kiếm hoặc tiêu chí lọc của bạn</p>
+                <h3 className="text-xl font-bold text-neutral-900 mb-2">Không tìm thấy sản phẩm</h3>
+                <p className="text-neutral-500 text-sm mb-8">Thử điều chỉnh tìm kiếm hoặc bộ lọc của bạn</p>
                 <Link
                   href="/products"
-                  className="inline-block bg-indigo-600 text-white px-10 py-5 rounded-2xl hover:bg-indigo-700 font-black text-xs uppercase tracking-[0.2em] transition-all shadow-2xl shadow-indigo-100 active:scale-95"
+                  className="inline-flex items-center gap-2 bg-primary-600 text-white px-8 py-3.5 rounded-xl hover:bg-primary-700 font-bold text-sm transition-all shadow-sm shadow-primary-100 active:scale-[0.98]"
                 >
-                  Xem Tất Cả Sản Phẩm
+                  Xem tất cả sản phẩm
                 </Link>
               </div>
             )}
 
             {/* Pagination */}
             {!loading && totalProducts > itemsPerPage && (
-              <div className="mt-16 flex justify-center">
-                <div className="bg-white rounded-2xl shadow-xl p-2.5 flex items-center space-x-1 border border-slate-50">
+              <div className="mt-12 flex justify-center">
+                <div className="bg-white rounded-2xl shadow-sm p-2 flex items-center gap-1 border border-neutral-200">
                   <button
                     onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                     disabled={currentPage === 1}
-                    className="px-5 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-indigo-600 rounded-xl hover:bg-indigo-50/50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                    className="px-4 py-2.5 text-xs font-bold text-neutral-500 hover:text-primary-600 rounded-xl hover:bg-primary-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
                   >
                     ← Trước
                   </button>
@@ -302,10 +298,11 @@ function ProductsPageContent() {
                     <button
                       key={i + 1}
                       onClick={() => setCurrentPage(i + 1)}
-                      className={`w-12 h-12 text-[11px] font-black rounded-xl transition-all ${currentPage === i + 1
-                        ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-100'
-                        : 'text-slate-600 hover:bg-slate-50 font-bold'
-                        }`}
+                      className={`w-10 h-10 text-xs font-bold rounded-xl transition-all ${
+                        currentPage === i + 1
+                        ? 'bg-primary-600 text-white shadow-sm shadow-primary-200'
+                        : 'text-neutral-600 hover:bg-neutral-50'
+                      }`}
                     >
                       {i + 1}
                     </button>
@@ -314,7 +311,7 @@ function ProductsPageContent() {
                   <button
                     onClick={() => setCurrentPage(prev => Math.min(prev + 1, Math.ceil(totalProducts / itemsPerPage)))}
                     disabled={currentPage === Math.ceil(totalProducts / itemsPerPage)}
-                    className="px-5 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-indigo-600 rounded-xl hover:bg-indigo-50/50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                    className="px-4 py-2.5 text-xs font-bold text-neutral-500 hover:text-primary-600 rounded-xl hover:bg-primary-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
                   >
                     Sau →
                   </button>
@@ -343,11 +340,12 @@ function ProductsPageContent() {
 export default function ProductsPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+      <div className="min-h-screen bg-neutral-50">
         <Header />
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-primary-600 mx-auto"></div>
-          <p className="text-gray-600 mt-4">Đang tải sản phẩm...</p>
+        <div className="bg-primary-600 h-44" />
+        <div className="max-w-7xl mx-auto px-4 py-20 text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
+          <p className="text-neutral-500 text-sm mt-4 font-medium">Đang tải sản phẩm...</p>
         </div>
       </div>
     }>

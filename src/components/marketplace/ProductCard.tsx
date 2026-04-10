@@ -28,20 +28,6 @@ interface ProductCardProps {
     viewMode?: 'grid' | 'list'
 }
 
-// Premium gradient placeholder based on category name
-function getPlaceholderGradient(name: string): string {
-    const gradients = [
-        'from-indigo-500 via-purple-500 to-pink-500',
-        'from-blue-600 via-cyan-500 to-teal-400',
-        'from-orange-500 via-amber-500 to-yellow-400',
-        'from-slate-600 via-slate-500 to-slate-400',
-        'from-emerald-600 via-green-500 to-teal-400',
-        'from-rose-500 via-red-500 to-orange-400',
-    ]
-    const idx = name.charCodeAt(0) % gradients.length
-    return gradients[idx]
-}
-
 export default function ProductCard({ product, viewMode = 'grid' }: ProductCardProps) {
     const { addItem, openCart } = useCartStore()
     const isOutOfStock = product.inventoryItem?.availableQuantity === 0
@@ -49,7 +35,6 @@ export default function ProductCard({ product, viewMode = 'grid' }: ProductCardP
         product.inventoryItem.availableQuantity > 0 &&
         product.inventoryItem.availableQuantity <= 10
     const hasWholesale = !!product.wholesalePrice
-    const gradientClass = getPlaceholderGradient(product.name)
 
     const handleAddToCart = (e: React.MouseEvent) => {
         e.preventDefault()
@@ -84,25 +69,21 @@ export default function ProductCard({ product, viewMode = 'grid' }: ProductCardP
     // ───── LIST MODE ─────
     if (viewMode === 'list') {
         return (
-            <div className="group relative bg-white rounded-3xl border border-slate-100 hover:border-indigo-200 hover:shadow-[0_20px_60px_-10px_rgba(79,70,229,0.12)] transition-all duration-500 overflow-hidden">
-                {/* Accent line */}
-                <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-indigo-600 via-violet-500 to-purple-600 scale-x-0 group-hover:scale-x-100 transition-transform duration-500" />
-
+            <div className="group relative bg-white rounded-2xl border border-neutral-100 hover:border-primary-200 hover:shadow-md transition-all duration-300 overflow-hidden">
                 <div className="flex flex-col sm:flex-row gap-0 p-0 overflow-hidden">
                     {/* Image */}
-                    <Link href={`/products/${product.id}`} className="relative w-full sm:w-52 h-48 sm:h-auto bg-gradient-to-br from-slate-50 to-slate-100 flex-shrink-0 overflow-hidden">
+                    <Link href={`/products/${product.id}`} className="relative w-full sm:w-48 h-44 sm:h-auto bg-neutral-50 flex-shrink-0 overflow-hidden">
                         {product.images?.[0] ? (
                             <Image src={product.images[0]} alt={product.name} fill
-                                className="object-contain p-6 group-hover:scale-110 transition-transform duration-700" />
+                                className="object-contain p-6 group-hover:scale-105 transition-transform duration-500" />
                         ) : (
-                            <div className={`w-full h-full flex flex-col items-center justify-center bg-gradient-to-br ${gradientClass} gap-2`}>
-                                <Package className="h-10 w-10 text-white/60" />
-                                <span className="text-white/80 text-[10px] font-black uppercase tracking-widest px-4 text-center line-clamp-2">{product.name}</span>
+                            <div className="w-full h-full flex flex-col items-center justify-center gap-2 text-neutral-200">
+                                <Package className="h-10 w-10" />
                             </div>
                         )}
                         {/* Category pill */}
                         <div className="absolute top-3 left-3">
-                            <span className="backdrop-blur-md bg-white/80 text-[9px] font-black text-slate-700 uppercase tracking-widest px-2.5 py-1 rounded-full border border-white/60 shadow-sm">
+                            <span className="bg-white text-[10px] font-bold text-neutral-600 uppercase tracking-wider px-2 py-0.5 rounded border border-neutral-100 shadow-sm">
                                 {product.category?.name || 'Vật liệu'}
                             </span>
                         </div>
@@ -113,66 +94,62 @@ export default function ProductCard({ product, viewMode = 'grid' }: ProductCardP
                         <div>
                             <div className="flex items-start justify-between gap-3 mb-2">
                                 <Link href={`/products/${product.id}`} className="flex-1">
-                                    <h3 className="text-base font-bold text-slate-900 group-hover:text-indigo-600 transition-colors leading-tight line-clamp-2">
+                                    <h3 className="text-base font-bold text-neutral-900 group-hover:text-primary-600 transition-colors leading-tight line-clamp-2">
                                         {product.name}
                                     </h3>
                                 </Link>
                                 <div className="flex items-center gap-1.5 shrink-0">
-                                    <div className="bg-slate-50 rounded-full p-0.5 border border-slate-100">
-                                        <ComparisonButton product={product as any} size="sm" />
-                                    </div>
-                                    <div className="bg-slate-50 rounded-full p-0.5 border border-slate-100">
-                                        <WishlistButton product={product as any} size="sm" />
-                                    </div>
+                                    <ComparisonButton product={product as any} size="sm" />
+                                    <WishlistButton product={product as any} size="sm" />
                                 </div>
                             </div>
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">SKU: {product.sku || '---'}</p>
+                            <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-4">SKU: {product.sku || '---'}</p>
 
                             <div className="flex flex-wrap gap-2 mb-4">
                                 {isLowStock && (
-                                    <span className="bg-orange-50 text-orange-600 text-[9px] font-black uppercase tracking-wide px-2.5 py-1 rounded-full border border-orange-100">
-                                        ⚡ Sắp hết hàng
+                                    <span className="bg-amber-50 text-amber-600 text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded border border-amber-100">
+                                        Sắp hết hàng
                                     </span>
                                 )}
                                 {isOutOfStock && (
-                                    <span className="bg-rose-50 text-rose-600 text-[9px] font-black uppercase tracking-wide px-2.5 py-1 rounded-full border border-rose-100">
-                                        🚫 Hết hàng
+                                    <span className="bg-red-50 text-red-600 text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded border border-red-100">
+                                        Hết hàng
                                     </span>
                                 )}
                                 {hasWholesale && (
-                                    <span className="bg-emerald-50 text-emerald-700 text-[9px] font-black uppercase tracking-wide px-2.5 py-1 rounded-full border border-emerald-100">
-                                        💰 Có giá sỉ
+                                    <span className="bg-green-50 text-green-700 text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded border border-green-100">
+                                        Có giá sỉ
                                     </span>
                                 )}
                                 {product.isFeatured && (
-                                    <span className="bg-amber-50 text-amber-600 text-[9px] font-black uppercase tracking-wide px-2.5 py-1 rounded-full border border-amber-100">
-                                        ⭐ Nổi bật
+                                    <span className="bg-primary-50 text-primary-600 text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded border border-primary-100">
+                                        Nổi bật
                                     </span>
                                 )}
                             </div>
                         </div>
 
-                        <div className="flex items-center justify-between gap-4 pt-4 border-t border-slate-50">
+                        <div className="flex items-center justify-between gap-4 pt-4 border-t border-neutral-50">
                             <div>
                                 {hasWholesale && (
-                                    <p className="text-[9px] font-black text-emerald-600 uppercase tracking-widest mb-0.5 flex items-center gap-1">
-                                        <TrendingDown size={10} /> Từ {formatNumber(product.wholesalePrice!)} VND/sỉ
+                                    <p className="text-[10px] font-bold text-green-600 uppercase tracking-wide flex items-center gap-1 mb-0.5">
+                                        <TrendingDown size={10} /> Sỉ từ {formatNumber(product.wholesalePrice!)}đ
                                     </p>
                                 )}
                                 <div className="flex items-baseline gap-1.5">
-                                    <span className="text-2xl font-black text-slate-900 tracking-tighter">{formatNumber(product.price)}</span>
-                                    <span className="text-[10px] font-black uppercase text-slate-400">VND</span>
+                                    <span className="text-2xl font-bold text-neutral-900">{formatNumber(product.price)}</span>
+                                    <span className="text-[10px] font-bold uppercase text-neutral-400">VND</span>
                                 </div>
                             </div>
                             <button
                                 onClick={handleAddToCart}
                                 disabled={isOutOfStock}
-                                className={`flex items-center gap-2 px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-wider transition-all duration-300 shadow-lg group/btn ${isOutOfStock
-                                    ? 'bg-slate-100 text-slate-400 cursor-not-allowed shadow-none'
-                                    : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-200 hover:shadow-xl hover:scale-105 active:scale-95'
+                                className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider transition-all duration-200 ${isOutOfStock
+                                    ? 'bg-neutral-100 text-neutral-400 cursor-not-allowed'
+                                    : 'bg-primary-600 hover:bg-primary-700 text-white shadow-sm active:scale-95'
                                     }`}
                             >
-                                <ShoppingCart size={15} className="group-hover/btn:scale-110 transition-transform" />
+                                <ShoppingCart size={14} />
                                 {isOutOfStock ? 'Hết hàng' : 'Thêm vào giỏ'}
                             </button>
                         </div>
@@ -184,58 +161,57 @@ export default function ProductCard({ product, viewMode = 'grid' }: ProductCardP
 
     // ───── GRID MODE ─────
     return (
-        <div className="group relative bg-white rounded-3xl border border-slate-100 hover:border-indigo-200 hover:shadow-[0_30px_70px_-15px_rgba(79,70,229,0.15)] transition-all duration-500 overflow-hidden flex flex-col h-full hover:-translate-y-1">
-            {/* Top accent */}
-            <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-indigo-600 via-violet-500 to-purple-600 scale-x-0 group-hover:scale-x-100 transition-transform duration-500 z-10" />
+        <div className="group relative bg-white rounded-2xl border border-neutral-100 hover:border-primary-200 hover:shadow-md transition-all duration-300 overflow-hidden flex flex-col h-full hover:-translate-y-0.5">
+            {/* Top accent line on hover */}
+            <div className="absolute inset-x-0 top-0 h-0.5 bg-primary-600 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 z-10" />
 
             {/* Image area */}
-            <div className="relative aspect-square overflow-hidden bg-gradient-to-br from-slate-50 to-slate-100">
+            <div className="relative aspect-square overflow-hidden bg-neutral-50">
                 <Link href={`/products/${product.id}`} className="block w-full h-full">
                     {product.images?.[0] ? (
                         <Image
                             src={product.images[0]}
                             alt={product.name}
                             fill
-                            className="object-contain p-8 group-hover:scale-110 transition-transform duration-700 ease-out"
+                            className="object-contain p-8 group-hover:scale-105 transition-transform duration-500 ease-out"
                         />
                     ) : (
-                        <div className={`w-full h-full flex flex-col items-center justify-center bg-gradient-to-br ${gradientClass} gap-3`}>
-                            <Package className="h-12 w-12 text-white/60" />
-                            <span className="text-white/80 text-[10px] font-black uppercase tracking-widest px-6 text-center line-clamp-3 leading-relaxed">{product.name}</span>
+                        <div className="w-full h-full flex items-center justify-center">
+                            <Package className="h-12 w-12 text-neutral-200" />
                         </div>
                     )}
                 </Link>
 
-                {/* Actions (Wishlist & Comparison) - Top Right */}
-                <div className="absolute top-3 right-3 z-20 flex flex-col gap-2 opacity-0 group-hover:opacity-100 translate-x-4 group-hover:translate-x-0 transition-all duration-300">
-                    <div className="backdrop-blur-xl bg-white/90 rounded-full p-1 shadow-sm border border-slate-100 text-slate-400 hover:text-rose-500 transition-colors">
+                {/* Action Buttons (Wishlist & Comparison) */}
+                <div className="absolute top-3 right-3 z-20 flex flex-col gap-1.5 opacity-0 group-hover:opacity-100 translate-y-1 group-hover:translate-y-0 transition-all duration-200">
+                    <div className="bg-white rounded-full p-0.5 shadow-sm border border-neutral-100">
                         <WishlistButton product={product as any} size="sm" />
                     </div>
-                    <div className="backdrop-blur-xl bg-white/90 rounded-full p-1 shadow-sm border border-slate-100 text-slate-400 hover:text-indigo-600 transition-colors">
+                    <div className="bg-white rounded-full p-0.5 shadow-sm border border-neutral-100">
                         <ComparisonButton product={product as any} size="sm" />
                     </div>
                 </div>
 
-                {/* Dynamic Badges - Top Left to avoid overlap */}
-                <div className="absolute top-3 left-3 z-20 flex flex-col items-start gap-1.5 pointer-events-none">
+                {/* Badges */}
+                <div className="absolute top-3 left-3 z-20 flex flex-col items-start gap-1 pointer-events-none">
                     {isLowStock && (
-                        <span className="bg-orange-500 text-white text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-md shadow-sm shadow-orange-200 animate-pulse flex items-center gap-1">
-                            <Zap size={10} /> SẮP HẾT
+                        <span className="bg-amber-500 text-white text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded flex items-center gap-1">
+                            <Zap size={8} /> Sắp hết
                         </span>
                     )}
                     {isOutOfStock && (
-                        <span className="bg-rose-500 text-white text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-md shadow-sm shadow-rose-200 flex items-center gap-1">
-                            🚫 HẾT HÀNG
+                        <span className="bg-neutral-500 text-white text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded">
+                            Hết hàng
                         </span>
                     )}
-                    {hasWholesale && (
-                        <span className="bg-emerald-500 text-white text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-md shadow-sm shadow-emerald-200 flex items-center gap-1">
-                            💰 GIÁ SỈ
+                    {hasWholesale && !isOutOfStock && (
+                        <span className="bg-green-600 text-white text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded">
+                            Có giá sỉ
                         </span>
                     )}
                     {product.isFeatured && (
-                        <span className="bg-gradient-to-r from-amber-500 to-orange-500 text-white text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-md shadow-sm shadow-amber-200 flex items-center gap-1">
-                            <Star size={10} fill="currentColor" /> NỔI BẬT
+                        <span className="bg-primary-600 text-white text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded flex items-center gap-1">
+                            <Star size={8} fill="currentColor" /> Nổi bật
                         </span>
                     )}
                 </div>
@@ -244,32 +220,32 @@ export default function ProductCard({ product, viewMode = 'grid' }: ProductCardP
             {/* Content */}
             <div className="p-5 flex-1 flex flex-col">
                 {/* Category chip */}
-                <span className="inline-block text-[9px] font-black text-indigo-500 uppercase tracking-widest bg-indigo-50 px-2.5 py-1.5 rounded-md mb-3 self-start border border-indigo-100">
+                <span className="inline-block text-[10px] font-bold text-primary-600 uppercase tracking-wider bg-primary-50 px-2 py-0.5 rounded mb-3 self-start border border-primary-100">
                     {product.category?.name || 'Vật liệu'}
                 </span>
 
                 <Link href={`/products/${product.id}`} className="flex-1">
-                    <h3 className="text-sm font-bold text-slate-900 leading-snug line-clamp-2 min-h-[2.6rem] group-hover:text-indigo-600 transition-colors mb-1">
+                    <h3 className="text-sm font-bold text-neutral-900 leading-snug line-clamp-2 min-h-[2.6rem] group-hover:text-primary-600 transition-colors mb-1">
                         {product.name}
                     </h3>
                 </Link>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4 opacity-70">
+                <p className="text-[10px] font-medium text-neutral-300 uppercase tracking-wider mb-4">
                     SKU: {product.sku || '---'}
                 </p>
 
                 {/* Price & Cart button */}
-                <div className="mt-auto flex items-end justify-between gap-2 pt-4 border-t border-slate-50">
+                <div className="mt-auto flex items-end justify-between gap-2 pt-4 border-t border-neutral-50">
                     <div>
                         {hasWholesale && (
-                            <p className="text-[10px] font-black text-emerald-600 flex items-center gap-1 mb-1 bg-emerald-50 px-2 py-0.5 rounded-md w-fit">
-                                <TrendingDown size={11} /> Sỉ từ {formatNumber(product.wholesalePrice!)}đ
+                            <p className="text-[10px] font-bold text-green-600 flex items-center gap-1 mb-0.5">
+                                <TrendingDown size={10} /> Sỉ từ {formatNumber(product.wholesalePrice!)}đ
                             </p>
                         )}
                         <div className="flex items-baseline gap-1">
-                            <span className="text-xl font-black text-slate-900 tracking-tighter leading-none">
+                            <span className="text-lg font-bold text-neutral-900 leading-none">
                                 {formatNumber(product.price)}
                             </span>
-                            <span className="text-[10px] font-black uppercase text-slate-400 leading-none">VND</span>
+                            <span className="text-[10px] font-bold uppercase text-neutral-400 leading-none">VND</span>
                         </div>
                     </div>
 
@@ -277,15 +253,12 @@ export default function ProductCard({ product, viewMode = 'grid' }: ProductCardP
                         onClick={handleAddToCart}
                         disabled={isOutOfStock}
                         title={isOutOfStock ? 'Hết hàng' : 'Thêm vào giỏ'}
-                        className={`relative w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-300 border group/btn shrink-0 ${isOutOfStock
-                            ? 'bg-slate-50 border-slate-100 text-slate-300 cursor-not-allowed'
-                            : 'bg-white border-slate-200 text-slate-700 hover:bg-indigo-600 hover:border-indigo-600 hover:text-white hover:shadow-lg hover:shadow-indigo-200 active:scale-90'
+                        className={`relative w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-200 border shrink-0 ${isOutOfStock
+                            ? 'bg-neutral-50 border-neutral-100 text-neutral-300 cursor-not-allowed'
+                            : 'bg-white border-neutral-200 text-neutral-600 hover:bg-primary-600 hover:border-primary-600 hover:text-white active:scale-90'
                             }`}
                     >
-                        <ShoppingCart size={18} className="group-hover/btn:scale-110 transition-transform" />
-                        {!isOutOfStock && (
-                            <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-indigo-500 rounded-full scale-0 group-hover/btn:scale-100 transition-transform border-2 border-white" />
-                        )}
+                        <ShoppingCart size={16} />
                     </button>
                 </div>
             </div>

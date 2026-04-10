@@ -95,6 +95,12 @@ export async function POST(request: NextRequest) {
             data: { lastActivityAt: new Date() }
         })
 
+        // Fetch customer loyalty details if applicable
+        const customer = await prisma.customer.findUnique({
+            where: { userId: user.id },
+            select: { loyaltyTier: true, contractorVerified: true }
+        })
+
         // Session is valid
         return NextResponse.json({
             valid: true,
@@ -103,6 +109,8 @@ export async function POST(request: NextRequest) {
                 email: user.email,
                 name: user.name,
                 role: user.role,
+                loyaltyTier: customer?.loyaltyTier || 'BRONZE',
+                contractorVerified: customer?.contractorVerified || false
             },
             needs2FASetupPrompt: !user.hasSetTwoFactor,
         })

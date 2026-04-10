@@ -104,8 +104,7 @@ export async function PATCH(
                 }
                 result = await DeliveryPhaseService.confirmAndRelease(
                     id,
-                    userId,
-                    data.recipientWalletId
+                    userId
                 )
                 break
 
