@@ -26,6 +26,7 @@ interface Product {
   price: number
   stock: number
   minStock: number
+  unit: string
   status: 'ACTIVE' | 'INACTIVE' | 'DISCONTINUED'
 }
 
@@ -177,6 +178,7 @@ function InventoryContent() {
           ...p,
           stock: p.inventoryItem?.availableQuantity ?? p.inventoryItem?.quantity ?? 0,
           minStock: p.inventoryItem?.minStockLevel ?? 0,
+          unit: p.unit || 'đv',
         }))
         setProducts(transformed)
         setTotalStock(data.data?.pagination?.total || data.pagination?.total || 0)
@@ -199,6 +201,7 @@ function InventoryContent() {
           ...p,
           stock: p.inventoryItem?.availableQuantity ?? p.inventoryItem?.quantity ?? 0,
           minStock: p.inventoryItem?.minStockLevel ?? 0,
+          unit: p.unit || 'đv',
         })))
       }
     } catch (e) { }
@@ -421,11 +424,11 @@ function InventoryContent() {
                               <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-2 py-1 bg-slate-100 rounded-lg">{typeof product.category === 'string' ? product.category : (product.category as any)?.name || 'N/A'}</span>
                             </td>
                             <td className="px-4 py-4 text-right whitespace-nowrap">
-                              <div className={`text-sm font-black ${product.stock <= product.minStock ? 'text-red-600' : 'text-slate-900'}`}>{product.stock} đv</div>
+                              <div className={`text-sm font-black ${product.stock <= product.minStock ? 'text-red-600' : 'text-slate-900'}`}>{product.stock.toLocaleString('vi-VN')} {product.unit}</div>
                               <div className="text-[9px] text-slate-300 font-bold uppercase tracking-widest italic">{product.stock > product.minStock ? 'Ổn Định' : 'Cần Nhập Hàng'}</div>
                             </td>
                             <td className="px-4 py-4 text-center whitespace-nowrap">
-                              <div className="text-xs font-bold text-slate-400 bg-slate-50 inline-block px-3 py-1 rounded-full">{product.minStock} (Tối thiểu)</div>
+                              <div className="text-xs font-bold text-slate-400 bg-slate-50 inline-block px-3 py-1 rounded-full">{product.minStock.toLocaleString('vi-VN')} (Tối thiểu)</div>
                             </td>
                             <td className="px-4 py-4 text-center whitespace-nowrap">
                               {stockStatus}
