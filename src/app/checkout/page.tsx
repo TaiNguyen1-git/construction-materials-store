@@ -13,7 +13,9 @@ import {
   ArrowLeft,
   Loader2,
   ShieldCheck,
-  ShoppingBag
+  ShoppingBag,
+  Ticket,
+  X
 } from 'lucide-react'
 import Link from 'next/link'
 import toast, { Toaster } from 'react-hot-toast'
@@ -60,9 +62,42 @@ export default function CheckoutPage() {
     }
   }, [isAuthenticated, user])
 
+  const [promoCode, setPromoCode] = useState('')
+  const [isApplyingPromo, setIsApplyingPromo] = useState(false)
+  const [appliedPromotion, setAppliedPromotion] = useState<{ id: string, code: string, discountAmount: number } | null>(null)
+
+  const handleApplyPromo = async () => {
+    if (!promoCode.trim()) return
+    setIsApplyingPromo(true)
+    try {
+      const res = await fetch('/api/promotions/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: promoCode, orderAmount: totalPrice })
+      })
+      const data = await res.json()
+      if (data.success) {
+        setAppliedPromotion(data.data)
+        toast.success(`Áp dụng mã ${data.data.code} thành công!`)
+      } else {
+        toast.error(data.message)
+      }
+    } catch (err) {
+      toast.error('Lỗi khi áp dụng mã')
+    } finally {
+      setIsApplyingPromo(false)
+    }
+  }
+
+  const removePromo = () => {
+    setAppliedPromotion(null)
+    setPromoCode('')
+  }
+
   const totalPrice = getTotalPrice()
   const shippingFee = (items.length > 0 && totalPrice < 5000000) ? 50000 : 0
-  const finalTotal = totalPrice + shippingFee
+  const discountAmount = appliedPromotion ? appliedPromotion.discountAmount : 0
+  const finalTotal = totalPrice + shippingFee - discountAmount
 
   const checkCredit = async () => {
     if (!user) return
@@ -182,6 +217,8 @@ export default function CheckoutPage() {
         remainingAmount: paymentType === 'DEPOSIT' ? remainingAmount : null,
         totalAmount: totalPrice,
         shippingAmount: shippingFee,
+        discountAmount: discountAmount,
+        promotionId: appliedPromotion?.id || null,
         netAmount: finalTotal,
         selectedContractorId: selectedContractorId
       }
@@ -435,6 +472,49 @@ export default function CheckoutPage() {
                   })}
                 </div>
 
+                {/* Voucher Section */}
+                <div className="py-6 border-t border-neutral-100">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Ticket size={16} className="text-primary-600" />
+                    <span className="text-xs font-bold text-neutral-900 uppercase tracking-wider">Mã giảm giá</span>
+                  </div>
+                  {!appliedPromotion ? (
+                    <div className="flex gap-2">
+                       <input 
+                         type="text" 
+                         value={promoCode}
+                         onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
+                         placeholder="Nhập mã ưu đãi..."
+                         className="flex-1 bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-2.5 text-xs outline-none focus:border-primary-500 font-bold"
+                       />
+                       <button 
+                         type="button"
+                         onClick={handleApplyPromo}
+                         disabled={isApplyingPromo || !promoCode}
+                         className="bg-neutral-900 text-white px-4 py-2.5 rounded-xl text-xs font-bold hover:bg-black transition-all disabled:opacity-50"
+                       >
+                         {isApplyingPromo ? <Loader2 size={16} className="animate-spin" /> : 'Áp dụng'}
+                       </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between bg-primary-50 border border-primary-200 rounded-xl p-3">
+                      <div className="flex items-center gap-2">
+                        <div className="bg-white p-1.5 rounded-lg shadow-sm">
+                          <Ticket size={14} className="text-primary-600" />
+                        </div>
+                        <span className="text-sm font-black text-primary-700">{appliedPromotion.code}</span>
+                      </div>
+                      <button 
+                        type="button"
+                        onClick={removePromo}
+                        className="text-primary-400 hover:text-red-500 transition-colors"
+                      >
+                        <X size={18} />
+                      </button>
+                    </div>
+                  )}
+                </div>
+
                 <div className="space-y-3 pt-6 border-t border-neutral-100 mb-10">
                   <div className="flex justify-between text-xs font-medium text-neutral-500">
                     <span>Tạm tính</span>
@@ -444,6 +524,12 @@ export default function CheckoutPage() {
                     <span>Phí vận chuyển</span>
                     <span className="text-neutral-900">{shippingFee.toLocaleString()}đ</span>
                   </div>
+                  {appliedPromotion && (
+                    <div className="flex justify-between text-xs font-bold text-green-600">
+                      <span>Giảm giá ({appliedPromotion.code})</span>
+                      <span>-{appliedPromotion.discountAmount.toLocaleString()}đ</span>
+                    </div>
+                  )}
                   <div className="pt-4 mt-2 border-t border-dashed border-neutral-200 flex justify-between items-baseline">
                     <span className="text-sm font-bold text-neutral-900">Tổng cộng</span>
                     <span className="text-2xl font-bold text-primary-600">{finalTotal.toLocaleString()}đ</span>

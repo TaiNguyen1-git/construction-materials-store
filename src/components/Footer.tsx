@@ -57,10 +57,10 @@ export default function Footer() {
                     <div>
                         <h3 className="text-[10px] font-black text-primary-400 mb-4 uppercase tracking-[0.2em]">Hỗ Trợ</h3>
                         <ul className="space-y-2 text-[11px] font-medium text-gray-400">
+                            <li><Link href="/blog" className="hover:text-primary-400 transition-colors font-bold text-white/90">Tin tức & Blog</Link></li>
                             <li><Link href="/about" className="hover:text-primary-400 transition-colors">Về SmartBuild</Link></li>
                             <li><Link href="/contact" className="hover:text-primary-400 transition-colors">Liên hệ chuyên gia</Link></li>
                             <li><Link href="/help" className="hover:text-primary-400 transition-colors">Trung tâm trợ giúp</Link></li>
-                            <li><Link href="/help" className="hover:text-primary-400 transition-colors">Hướng dẫn thanh toán</Link></li>
                         </ul>
                     </div>
                     <div>

@@ -231,6 +231,47 @@ export default function OrderReturnPage({ params }: { params: Promise<{ id: stri
                                 className="w-full bg-slate-50 border-none rounded-2xl px-6 py-5 text-sm font-bold text-slate-900 focus:ring-4 focus:ring-blue-500/10 transition-all outline-none min-h-[120px]"
                             />
                         </div>
+
+                        {/* Evidence Upload */}
+                        <div className="mt-10 pt-10 border-t border-slate-50">
+                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Hình ảnh minh chứng (lỗi/hư hỏng)</label>
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                                {evidenceUrls.map((url, idx) => (
+                                    <div key={idx} className="relative aspect-square rounded-2xl overflow-hidden border border-slate-100 group">
+                                        <Image src={url} alt="Evidence" fill className="object-cover" />
+                                        <button 
+                                            type="button"
+                                            onClick={() => setEvidenceUrls(evidenceUrls.filter((_, i) => i !== idx))}
+                                            className="absolute top-2 right-2 p-1.5 bg-black/50 text-white rounded-full opacity-0 group-hover:opacity-100 transition-all hover:bg-rose-500"
+                                        >
+                                            <Trash2 size={12} />
+                                        </button>
+                                    </div>
+                                ))}
+                                {evidenceUrls.length < 4 && (
+                                    <label className="aspect-square rounded-2xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center cursor-pointer hover:bg-slate-50 hover:border-blue-300 transition-all group">
+                                        <input 
+                                            type="file" 
+                                            accept="image/*" 
+                                            multiple 
+                                            className="hidden" 
+                                            onChange={async (e) => {
+                                                const files = Array.from(e.target.files || [])
+                                                for (const file of files) {
+                                                    const formData = new FormData()
+                                                    formData.append('file', file)
+                                                    const res = await fetch('/api/upload', { method: 'POST', body: formData })
+                                                    const data = await res.json()
+                                                    if (data.url) setEvidenceUrls(prev => [...prev, data.url])
+                                                }
+                                            }}
+                                        />
+                                        <Camera className="text-slate-300 group-hover:text-blue-500 transition-colors" size={24} />
+                                        <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest mt-2">Thêm ảnh</span>
+                                    </label>
+                                )}
+                            </div>
+                        </div>
                     </div>
 
                     {/* Action Buttons */}

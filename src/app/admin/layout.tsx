@@ -99,6 +99,7 @@ export default function AdminLayout({
         { name: 'Đơn Hàng', href: '/admin/orders', icon: ShoppingCart },
         { name: 'Dự Án', href: '/admin/projects', icon: Briefcase },
         { name: 'Vận Tải', href: '/admin/delivery/tracking', icon: Truck },
+        { name: 'Khuyến Mãi', href: '/admin/promotions', icon: Ticket },
         { name: 'Khách Hàng', href: '/admin/customers', icon: Users },
         { name: 'Tổ Chức B2B', href: '/admin/organizations', icon: Building2 },
         { name: 'Loyalty', href: '/admin/loyalty', icon: Trophy },
@@ -142,6 +143,7 @@ export default function AdminLayout({
         { name: 'Vai Trò & Phân Quyền', href: '/admin/settings/roles', icon: ShieldCheck },
         { name: 'Thông Báo', href: '/admin/announcements', icon: Bell },
         { name: 'Banner', href: '/admin/banners', icon: Star },
+        { name: 'Tin Tức / Blog', href: '/admin/blog', icon: BookOpen },
       ]
     },
   ]

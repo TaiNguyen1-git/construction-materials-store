@@ -2,6 +2,12 @@
 export const getAuthHeaders = (): HeadersInit => {
   if (typeof window === 'undefined') return {}
 
+  // 🛡️ SECURITY: Only send headers if auth is explicitly active
+  // This prevents "Zombie Sessions" where old tokens in localStorage are sent after logout
+  if (localStorage.getItem('auth_active') !== 'true') {
+    return {}
+  }
+
   // Check both sessionStorage and localStorage for token
   let token = sessionStorage.getItem('access_token')
   if (!token) {

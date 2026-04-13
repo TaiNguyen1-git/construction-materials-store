@@ -14,25 +14,20 @@ export default function SupplierLoginPage() {
 
     // Handle "Go Back" button - clear stale auth and use replace() to avoid history loop
     const handleGoBack = () => {
-        // Check if we came from a protected route (has callbackUrl in URL)
-        const urlParams = new URLSearchParams(window.location.search)
-        const callbackUrl = urlParams.get('callbackUrl')
+        // ALWAYS clear potentially stale auth data when leaving the login portal
+        // this prevents "Zombie Sessions" where old tokens persist
+        localStorage.removeItem('supplier_token')
+        localStorage.removeItem('supplier_id')
+        localStorage.removeItem('supplier_name')
+        localStorage.removeItem('access_token')
+        localStorage.removeItem('user')
+        localStorage.removeItem('auth_active')
+        sessionStorage.removeItem('access_token')
+        sessionStorage.removeItem('user')
 
-        if (callbackUrl) {
-            // Clear potentially stale auth data to break the redirect loop
-            localStorage.removeItem('supplier_token')
-            localStorage.removeItem('supplier_id')
-            localStorage.removeItem('supplier_name')
-            localStorage.removeItem('access_token')
-            localStorage.removeItem('user')
-            sessionStorage.removeItem('access_token')
-            sessionStorage.removeItem('user')
-
-            // Also clear the supplier-specific cookie
-            document.cookie = 'supplier_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT'
-            document.cookie = 'auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT'
-
-        }
+        // Clear tokens from cookies
+        document.cookie = 'supplier_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT'
+        document.cookie = 'auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT'
 
         // Use replace() instead of href to prevent back button from returning to login loop
         window.location.replace('/')
@@ -105,6 +100,13 @@ export default function SupplierLoginPage() {
         localStorage.setItem('supplier_token', data.token)
         localStorage.setItem('supplier_id', data.supplier.id)
         localStorage.setItem('supplier_name', data.supplier.name)
+        localStorage.setItem('auth_active', 'true')
+        localStorage.setItem('user_hint', JSON.stringify({
+            id: data.supplier.id,
+            name: data.supplier.name,
+            email: data.supplier.email || '',
+            role: 'SUPPLIER'
+        }))
 
         // Set cookie for middleware (supplier-specific)
         document.cookie = `supplier_token=${data.token}; path=/; max-age=604800; SameSite=Lax`

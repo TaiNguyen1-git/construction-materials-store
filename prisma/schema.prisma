@@ -23,33 +23,33 @@ model Banner {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  @@map("banners")
   @@index([isActive])
   @@index([order])
+  @@map("banners")
 }
 
 // System Announcements (Maintenance, Features, Alerts)
 model SystemAnnouncement {
-  id          String   @id @default(auto()) @map("_id") @db.ObjectId
-  title       String
-  content     String
-  type        AnnouncementType @default(INFO) // MAINTENANCE, FEATURE, POLICY, INFO
-  targetRole  UserRole? // NULL = All, or specific role
-  targetPath  String?   // NULL = Global, or specific path like '/market', '/admin/orders'
-  displayMode DisplayMode @default(MODAL)
-  imageUrl    String?
-  actionLabel String?
-  actionUrl   String?
-  isActive    Boolean  @default(true)
-  startTime   DateTime @default(now())
-  endTime     DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id                  String                   @id @default(auto()) @map("_id") @db.ObjectId
+  title               String
+  content             String
+  type                AnnouncementType         @default(INFO) // MAINTENANCE, FEATURE, POLICY, INFO
+  targetRole          UserRole? // NULL = All, or specific role
+  targetPath          String? // NULL = Global, or specific path like '/market', '/admin/orders'
+  displayMode         DisplayMode              @default(MODAL)
+  imageUrl            String?
+  actionLabel         String?
+  actionUrl           String?
+  isActive            Boolean                  @default(true)
+  startTime           DateTime                 @default(now())
+  endTime             DateTime?
+  createdAt           DateTime                 @default(now())
+  updatedAt           DateTime                 @updatedAt
+  announcementActions UserAnnouncementAction[]
 
-  @@map("system_announcements")
   @@index([isActive])
   @@index([startTime, endTime])
-  announcementActions UserAnnouncementAction[]
+  @@map("system_announcements")
 }
 
 enum DisplayMode {
@@ -58,14 +58,14 @@ enum DisplayMode {
 }
 
 model UserAnnouncementAction {
-  id              String   @id @default(auto()) @map("_id") @db.ObjectId
-  userId          String   @db.ObjectId
-  announcementId  String   @db.ObjectId
-  action          String   // SEEN, ACCEPTED, DISMISSED
-  createdAt       DateTime @default(now())
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId         String   @db.ObjectId
+  announcementId String   @db.ObjectId
+  action         String // SEEN, ACCEPTED, DISMISSED
+  createdAt      DateTime @default(now())
 
-  user            User     @relation(fields: [userId], references: [id])
-  announcement    SystemAnnouncement @relation(fields: [announcementId], references: [id])
+  user         User               @relation(fields: [userId], references: [id])
+  announcement SystemAnnouncement @relation(fields: [announcementId], references: [id])
 
   @@unique([userId, announcementId])
   @@map("user_announcement_actions")
@@ -91,71 +91,169 @@ model User {
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
+
   // Password reset & OTP
-  resetToken       String?
-  resetTokenExpiry DateTime?
-  mustChangePassword Boolean @default(false)
-  
+  resetToken         String?
+  resetTokenExpiry   DateTime?
+  mustChangePassword Boolean   @default(false)
+
   // Verification & 2FA
-  emailVerified    Boolean   @default(false)
-  otpCode          String?
-  otpExpiresAt     DateTime?
-  is2FAEnabled     Boolean   @default(false)
-  hasSetTwoFactor  Boolean   @default(false)
-  twoFactorSecret  String?   // TOTP secret for 2FA
+  emailVerified   Boolean   @default(false)
+  otpCode         String?
+  otpExpiresAt    DateTime?
+  is2FAEnabled    Boolean   @default(false)
+  hasSetTwoFactor Boolean   @default(false)
+  twoFactorSecret String? // TOTP secret for 2FA
 
   // Relationships
-  employee Employee?
-  customer Customer?
-  announcementActions UserAnnouncementAction[]
-  notifications       Notification[]
-  disputeComments     DisputeComment[]
-  pushSubscriptions   UserPushSubscription[]
-
-  @@map("users")
-  @@index([role])
-  supplier      Supplier?
-  sessions UserSession[]
+  employee                Employee?
+  customer                Customer?
+  announcementActions     UserAnnouncementAction[]
+  notifications           Notification[]
+  disputeComments         DisputeComment[]
+  pushSubscriptions       UserPushSubscription[]
+  blogPosts               BlogPost[]
+  supplier                Supplier?
+  sessions                UserSession[]
   organizationMemberships OrganizationMember[]
   sentInvitations         OrganizationInvitation[]
+
+  @@index([role])
+  @@map("users")
 }
 
 // User Session Management (for multi-device/tab support)
 model UserSession {
-  id           String   @id @default(auto()) @map("_id") @db.ObjectId
-  userId       String   @db.ObjectId
-  tokenHash    String   // Hash of the JWT token (for revocation)
-  deviceInfo   String?  // Browser/device info
-  ipAddress    String?  // IP address
-  userAgent    String?  // User agent string
-  tabId        String?  // Tab identifier for multi-tab support
-  isActive     Boolean  @default(true)
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId         String   @db.ObjectId
+  tokenHash      String // Hash of the JWT token (for revocation)
+  deviceInfo     String? // Browser/device info
+  ipAddress      String? // IP address
+  userAgent      String? // User agent string
+  tabId          String? // Tab identifier for multi-tab support
+  isActive       Boolean  @default(true)
   lastActivityAt DateTime @default(now())
-  expiresAt    DateTime
-  createdAt    DateTime @default(now())
+  expiresAt      DateTime
+  createdAt      DateTime @default(now())
 
   // Relationships
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@map("user_sessions")
   @@index([userId])
   @@index([tokenHash])
   @@index([isActive])
   @@index([expiresAt])
+  @@map("user_sessions")
+}
+
+model ProjectBid {
+  id              String    @id @default(auto()) @map("_id") @db.ObjectId
+  projectId       String?   @db.ObjectId
+  marketProjectId String?   @db.ObjectId
+  contractorId    String    @db.ObjectId
+  amount          Float
+  completionDays  Int
+  message         String?
+  boq             Json? // [{item, unit, qty, price}]
+  milestones      Json? // [{name, percentage}]
+  status          BidStatus @default(PENDING)
+  validUntil      DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  project       Project?       @relation(fields: [projectId], references: [id])
+  marketProject MarketProject? @relation(fields: [marketProjectId], references: [id])
+  contractor    Customer       @relation(fields: [contractorId], references: [id])
+
+  @@index([projectId])
+  @@index([marketProjectId])
+  @@index([contractorId])
+  @@index([status])
+  @@map("project_bids")
+}
+
+enum BidStatus {
+  PENDING
+  SHORTLISTED
+  ACCEPTED
+  REJECTED
+  WITHDRAWN
+}
+
+model BlogPost {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  title         String
+  slug          String    @unique
+  summary       String?
+  content       String
+  featuredImage String?
+  authorId      String    @db.ObjectId
+  categoryId    String?   @db.ObjectId
+  tags          String[]
+  isPublished   Boolean   @default(false)
+  viewCount     Int       @default(0)
+  publishedAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  author   User          @relation(fields: [authorId], references: [id])
+  category BlogCategory? @relation(fields: [categoryId], references: [id])
+
+  @@index([authorId])
+  @@index([categoryId])
+  @@index([isPublished, publishedAt])
+  @@map("blog_posts")
+}
+
+model BlogCategory {
+  id          String     @id @default(auto()) @map("_id") @db.ObjectId
+  name        String
+  slug        String     @unique
+  description String?
+  posts       BlogPost[]
+
+  @@map("blog_categories")
+}
+
+model Promotion {
+  id                String                @id @default(auto()) @map("_id") @db.ObjectId
+  code              String                @unique
+  description       String?
+  discountType      PromotionDiscountType @default(PERCENTAGE)
+  discountValue     Float
+  minOrderAmount    Float                 @default(0)
+  maxDiscountAmount Float?
+  startDate         DateTime
+  endDate           DateTime
+  usageLimit        Int?
+  usedCount         Int                   @default(0)
+  isActive          Boolean               @default(true)
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+
+  orders Order[]
+
+  @@index([isActive, startDate, endDate])
+  @@map("promotions")
+}
+
+enum PromotionDiscountType {
+  PERCENTAGE
+  FIXED
 }
 
 model UserPushSubscription {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
   userId    String   @db.ObjectId
   endpoint  String   @unique
-  keys      Json     // Contains p256dh and auth keys
+  keys      Json // Contains p256dh and auth keys
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  @@map("user_push_subscriptions")
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@index([userId])
+  @@map("user_push_subscriptions")
 }
 
 model Employee {
@@ -171,98 +269,99 @@ model Employee {
   updatedAt    DateTime @updatedAt
 
   // Relationships
-  user           User             @relation(fields: [userId], references: [id])
-  workShifts     WorkShift[]
-  salaryAdvances SalaryAdvance[]
-  payrollRecords PayrollRecord[]
-  tasks          EmployeeTask[]
-  assignedProjectTasks ProjectTask[] @relation("ProjectTaskAssignee")
-  assignedOrders Order[] @relation("OrderDriver")
-  assignedPhases DeliveryPhase[] @relation("PhaseDriver")
+  user                 User            @relation(fields: [userId], references: [id])
+  workShifts           WorkShift[]
+  salaryAdvances       SalaryAdvance[]
+  payrollRecords       PayrollRecord[]
+  tasks                EmployeeTask[]
+  assignedProjectTasks ProjectTask[]   @relation("ProjectTaskAssignee")
+  assignedOrders       Order[]         @relation("OrderDriver")
+  assignedPhases       DeliveryPhase[] @relation("PhaseDriver")
 
-  @@map("employees")
   @@index([department])
   @@index([isActive])
+  @@map("employees")
 }
 
 model Customer {
-  id              String       @id @default(auto()) @map("_id") @db.ObjectId
-  userId          String       @unique
-  customerType    CustomerType @default(REGULAR)
-  totalPurchases  Float        @default(0)
-  loyaltyPoints   Int          @default(0)
-  creditLimit     Float        @default(0)
-  currentBalance  Float        @default(0)
+  id               String       @id @default(auto()) @map("_id") @db.ObjectId
+  userId           String       @unique
+  customerType     CustomerType @default(REGULAR)
+  totalPurchases   Float        @default(0)
+  loyaltyPoints    Int          @default(0)
+  creditLimit      Float        @default(0)
+  currentBalance   Float        @default(0)
   preferredPayment String?
-  
+
   // Credit Management Fields (SME Feature 1)
-  creditHold      Boolean      @default(false)  // Khóa tín dụng
-  isDeleted       Boolean      @default(false)  // Soft delete flag
-  lastCreditCheck DateTime?                     // Lần kiểm tra gần nhất
-  overdueAmount   Float        @default(0)      // Tổng nợ quá hạn
-  maxOverdueDays  Int          @default(0)      // Số ngày quá hạn lâu nhất
-  
+  creditHold      Boolean   @default(false) // Khóa tín dụng
+  isDeleted       Boolean   @default(false) // Soft delete flag
+  lastCreditCheck DateTime? // Lần kiểm tra gần nhất
+  overdueAmount   Float     @default(0) // Tổng nợ quá hạn
+  maxOverdueDays  Int       @default(0) // Số ngày quá hạn lâu nhất
+
   // Contractor Fields (SME Feature 3)
-  contractorVerified Boolean   @default(false)  // Đã xác minh nhà thầu
-  taxId           String?                       // Mã số thuế
-  companyName     String?                       // Tên công ty
-  companyAddress  String?                       // Địa chỉ công ty
-  
+  contractorVerified Boolean @default(false) // Đã xác minh nhà thầu
+  taxId              String? // Mã số thuế
+  companyName        String? // Tên công ty
+  companyAddress     String? // Địa chỉ công ty
+
   // Loyalty Program Fields
-  loyaltyTier     LoyaltyTier  @default(BRONZE)
-  loyaltyPointsToNextTier Int  @default(1000) // Points needed to reach next tier
-  totalPointsEarned Int       @default(0)     // Lifetime points earned
-  totalPointsRedeemed Int     @default(0)     // Lifetime points redeemed
-  lastPurchaseDate DateTime?                 // For activity tracking
-  purchaseFrequency Float      @default(0)     // Average purchases per month
-  preferredCategories String[]               // Categories customer buys most
-  birthday        DateTime?                  // For special promotions
-  anniversaryDate DateTime?                  // Customer since date
-  referralCode    String?     @unique        // For referral program
-  referredBy      String?                    // Who referred this customer
-  totalReferrals  Int         @default(0)    // Number of people they've referred
-  
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
+  loyaltyTier             LoyaltyTier @default(BRONZE)
+  loyaltyPointsToNextTier Int         @default(1000) // Points needed to reach next tier
+  totalPointsEarned       Int         @default(0) // Lifetime points earned
+  totalPointsRedeemed     Int         @default(0) // Lifetime points redeemed
+  lastPurchaseDate        DateTime? // For activity tracking
+  purchaseFrequency       Float       @default(0) // Average purchases per month
+  preferredCategories     String[] // Categories customer buys most
+  birthday                DateTime? // For special promotions
+  anniversaryDate         DateTime? // Customer since date
+  referralCode            String?     @unique // For referral program
+  referredBy              String? // Who referred this customer
+  totalReferrals          Int         @default(0) // Number of people they've referred
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relationships
-  user    User    @relation(fields: [userId], references: [id])
-  orders  Order[]
-  invoices Invoice[]
-  projects        Project[]  @relation("ProjectOwner")
-  contractedProjects Project[] @relation("ProjectContractor")
-  referrals Customer[] @relation("CustomerReferral")
-  referredByCustomer Customer? @relation("CustomerReferral", fields: [referredBy], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  user                 User                  @relation(fields: [userId], references: [id])
+  orders               Order[]
+  invoices             Invoice[]
+  projects             Project[]             @relation("ProjectOwner")
+  contractedProjects   Project[]             @relation("ProjectContractor")
+  referrals            Customer[]            @relation("CustomerReferral")
+  referredByCustomer   Customer?             @relation("CustomerReferral", fields: [referredBy], references: [id], onDelete: NoAction, onUpdate: NoAction)
   materialCalculations MaterialCalculation[]
-  creditApprovals CreditApproval[]
-  contracts Contract[]
-  disputes Dispute[]
-  
+  creditApprovals      CreditApproval[]
+  contracts            Contract[]
+  disputes             Dispute[]
+
   // Brokerage
-  quoteRequests   QuoteRequest[] @relation("CustomerOutboundQuotes")
-  receivedQuotes  QuoteRequest[] @relation("ContractorInboundQuotes")
-  cart            Cart?
-  reportTokensCreated ProjectReportToken[]
+  quoteRequests        QuoteRequest[]        @relation("CustomerOutboundQuotes")
+  receivedQuotes       QuoteRequest[]        @relation("ContractorInboundQuotes")
+  cart                 Cart?
+  reportTokensCreated  ProjectReportToken[]
   workerReportsManaged WorkerReport[]
   siteMaterialRequests SiteMaterialRequest[]
-  contractorProfile     ContractorProfile?
-  wallet                Wallet?
-  loyaltyVouchers       LoyaltyVoucher[]
-  loyaltyTransactions   LoyaltyTransaction[]
-  
+  contractorProfile    ContractorProfile?
+  wallet               Wallet?
+  loyaltyVouchers      LoyaltyVoucher[]
+  loyaltyTransactions  LoyaltyTransaction[]
+  projectBids          ProjectBid[]
+
   // B2B Organization
-  organizationId        String?      @db.ObjectId
-  organization          Organization? @relation(fields: [organizationId], references: [id])
-  
-  customerReturns       CustomerReturn[]
-  
-  @@map("customers")
+  organizationId String?       @db.ObjectId
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+
+  customerReturns CustomerReturn[]
+
   @@index([customerType])
   @@index([loyaltyTier])
   @@index([totalPointsEarned])
   @@index([lastPurchaseDate])
   @@index([creditHold])
   @@index([contractorVerified])
+  @@map("customers")
 }
 
 enum LoyaltyTier {
@@ -274,21 +373,21 @@ enum LoyaltyTier {
 }
 
 model LoyaltyVoucher {
-  id            String   @id @default(auto()) @map("_id") @db.ObjectId
-  customerId    String   @db.ObjectId
-  code          String   @unique
-  value         Float
-  pointsUsed    Int
-  status        VoucherStatus @default(UNUSED)
-  redeemedAt    DateTime @default(now())
-  usedAt        DateTime?
-  expiryDate    DateTime?
+  id         String        @id @default(auto()) @map("_id") @db.ObjectId
+  customerId String        @db.ObjectId
+  code       String        @unique
+  value      Float
+  pointsUsed Int
+  status     VoucherStatus @default(UNUSED)
+  redeemedAt DateTime      @default(now())
+  usedAt     DateTime?
+  expiryDate DateTime?
 
-  customer      Customer @relation(fields: [customerId], references: [id])
+  customer Customer @relation(fields: [customerId], references: [id])
 
-  @@map("loyalty_vouchers")
   @@index([customerId])
   @@index([status])
+  @@map("loyalty_vouchers")
 }
 
 enum VoucherStatus {
@@ -299,25 +398,25 @@ enum VoucherStatus {
 
 // Loyalty Transaction History (Audit Trail)
 model LoyaltyTransaction {
-  id              String   @id @default(auto()) @map("_id") @db.ObjectId
-  customerId      String   @db.ObjectId
-  type            LoyaltyTransactionType
-  points          Int                     // Positive = add, Negative = subtract
-  balanceAfter    Int                     // Balance after this transaction
-  description     String
-  referenceType   String?                 // ORDER, VOUCHER, ADMIN, PAYMENT, CAMPAIGN
-  referenceId     String?
-  performedBy     String?  @db.ObjectId   // Admin who performed (if applicable)
-  metadata        Json?
-  createdAt       DateTime @default(now())
+  id            String                 @id @default(auto()) @map("_id") @db.ObjectId
+  customerId    String                 @db.ObjectId
+  type          LoyaltyTransactionType
+  points        Int // Positive = add, Negative = subtract
+  balanceAfter  Int // Balance after this transaction
+  description   String
+  referenceType String? // ORDER, VOUCHER, ADMIN, PAYMENT, CAMPAIGN
+  referenceId   String?
+  performedBy   String?                @db.ObjectId // Admin who performed (if applicable)
+  metadata      Json?
+  createdAt     DateTime               @default(now())
 
-  customer        Customer @relation(fields: [customerId], references: [id])
+  customer Customer @relation(fields: [customerId], references: [id])
 
-  @@map("loyalty_transactions")
   @@index([customerId])
   @@index([type])
   @@index([createdAt])
   @@index([referenceType, referenceId])
+  @@map("loyalty_transactions")
 }
 
 enum LoyaltyTransactionType {
@@ -332,71 +431,71 @@ enum LoyaltyTransactionType {
 
 // Loyalty Rule Configuration
 model LoyaltyRule {
-  id                  String   @id @default(auto()) @map("_id") @db.ObjectId
-  name                String
-  description         String?
-  pointsPerAmount     Float    @default(1)   // Points per 1000 VND
-  roundingMode        String   @default("FLOOR") // FLOOR, CEIL, ROUND
-  expirationMonths    Int?                    // null = no expiration
-  isActive            Boolean  @default(true)
+  id               String  @id @default(auto()) @map("_id") @db.ObjectId
+  name             String
+  description      String?
+  pointsPerAmount  Float   @default(1) // Points per 1000 VND
+  roundingMode     String  @default("FLOOR") // FLOOR, CEIL, ROUND
+  expirationMonths Int? // null = no expiration
+  isActive         Boolean @default(true)
 
   // Tier thresholds
-  bronzeThreshold     Int      @default(0)
-  silverThreshold     Int      @default(1000)
-  goldThreshold       Int      @default(2500)
-  platinumThreshold   Int      @default(5000)
-  diamondThreshold    Int      @default(10000)
+  bronzeThreshold   Int @default(0)
+  silverThreshold   Int @default(1000)
+  goldThreshold     Int @default(2500)
+  platinumThreshold Int @default(5000)
+  diamondThreshold  Int @default(10000)
 
   // Tier multipliers
-  bronzeMultiplier    Float    @default(1.0)
-  silverMultiplier    Float    @default(1.2)
-  goldMultiplier      Float    @default(1.5)
-  platinumMultiplier  Float    @default(2.0)
-  diamondMultiplier   Float    @default(2.5)
+  bronzeMultiplier   Float @default(1.0)
+  silverMultiplier   Float @default(1.2)
+  goldMultiplier     Float @default(1.5)
+  platinumMultiplier Float @default(2.0)
+  diamondMultiplier  Float @default(2.5)
 
   // Tier discounts (%)
-  bronzeDiscount      Float    @default(2)
-  silverDiscount      Float    @default(5)
-  goldDiscount        Float    @default(10)
-  platinumDiscount    Float    @default(15)
-  diamondDiscount     Float    @default(20)
+  bronzeDiscount   Float @default(2)
+  silverDiscount   Float @default(5)
+  goldDiscount     Float @default(10)
+  platinumDiscount Float @default(15)
+  diamondDiscount  Float @default(20)
 
   // Referral & early payment
-  referralPoints      Int      @default(100)
-  earlyPaymentBonus   Float    @default(1.5)
+  referralPoints    Int   @default(100)
+  earlyPaymentBonus Float @default(1.5)
 
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@map("loyalty_rules")
 }
 
 // Loyalty Campaign
 model LoyaltyCampaign {
-  id                String   @id @default(auto()) @map("_id") @db.ObjectId
-  name              String
-  description       String?
-  type              CampaignType
-  status            CampaignStatus @default(DRAFT)
+  id          String         @id @default(auto()) @map("_id") @db.ObjectId
+  name        String
+  description String?
+  type        CampaignType
+  status      CampaignStatus @default(DRAFT)
 
-  multiplier        Float?                  // For MULTIPLIER type
-  bonusPoints       Int?                    // For BONUS, BIRTHDAY, BULK_GRANT
-  targetTier        LoyaltyTier?            // null = all tiers
-  targetCustomerIds String[]  @db.ObjectId
+  multiplier        Float? // For MULTIPLIER type
+  bonusPoints       Int? // For BONUS, BIRTHDAY, BULK_GRANT
+  targetTier        LoyaltyTier? // null = all tiers
+  targetCustomerIds String[]     @db.ObjectId
   minOrderAmount    Float?
 
-  startDate         DateTime
-  endDate           DateTime
-  totalPointsGranted Int     @default(0)
-  totalCustomersAffected Int @default(0)
-  createdBy         String?  @db.ObjectId
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  startDate              DateTime
+  endDate                DateTime
+  totalPointsGranted     Int      @default(0)
+  totalCustomersAffected Int      @default(0)
+  createdBy              String?  @db.ObjectId
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
 
-  @@map("loyalty_campaigns")
   @@index([status])
   @@index([startDate, endDate])
   @@index([type])
+  @@map("loyalty_campaigns")
 }
 
 enum CampaignType {
@@ -433,162 +532,161 @@ model WorkShift {
   // Relationships
   employee Employee @relation(fields: [employeeId], references: [id])
 
-  @@map("work_shifts")
   @@index([employeeId])
   @@index([date])
   @@index([status])
   @@index([shiftType])
+  @@map("work_shifts")
 }
 
 model EmployeeTask {
-  id          String     @id @default(auto()) @map("_id") @db.ObjectId
-  employeeId  String
-  title       String
-  description String?
-  taskType    TaskType   @default(GENERAL)
-  status      TaskStatus @default(PENDING)
-  priority    Priority   @default(MEDIUM)
-  dueDate     DateTime?
-  completedAt DateTime?
+  id             String     @id @default(auto()) @map("_id") @db.ObjectId
+  employeeId     String
+  title          String
+  description    String?
+  taskType       TaskType   @default(GENERAL)
+  status         TaskStatus @default(PENDING)
+  priority       Priority   @default(MEDIUM)
+  dueDate        DateTime?
+  completedAt    DateTime?
   estimatedHours Float?
   actualHours    Float?
   proofUrl       String?
   proofNotes     String?
   submittedAt    DateTime?
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
 
   // Relationships
   employee Employee @relation(fields: [employeeId], references: [id])
 
-  @@map("employee_tasks")
   @@index([employeeId])
   @@index([status])
   @@index([priority])
   @@index([dueDate])
   @@index([taskType])
+  @@map("employee_tasks")
 }
 
 // Payroll Management
 model SalaryAdvance {
-  id          String        @id @default(auto()) @map("_id") @db.ObjectId
-  employeeId  String
-  amount      Float
-  reason      String
-  requestDate DateTime      @default(now())
-  approvedBy  String?
-  approvedAt  DateTime?
-  status      AdvanceStatus @default(PENDING)
-  repaymentPeriod Int       @default(1) // months
-  isRepaid    Boolean       @default(false)
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  id              String        @id @default(auto()) @map("_id") @db.ObjectId
+  employeeId      String
+  amount          Float
+  reason          String
+  requestDate     DateTime      @default(now())
+  approvedBy      String?
+  approvedAt      DateTime?
+  status          AdvanceStatus @default(PENDING)
+  repaymentPeriod Int           @default(1) // months
+  isRepaid        Boolean       @default(false)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
 
   // Relationships
   employee Employee @relation(fields: [employeeId], references: [id])
 
-  @@map("salary_advances")
   @@index([employeeId])
   @@index([status])
   @@index([requestDate])
+  @@map("salary_advances")
 }
 
 model PayrollRecord {
-  id            String   @id @default(auto()) @map("_id") @db.ObjectId
-  employeeId    String
-  period        String   // YYYY-MM format
-  baseSalary    Float
-  bonuses       Float    @default(0)
-  penalties     Float    @default(0)
-  overtime      Float    @default(0)
-  totalAdvances Float    @default(0)
-  grossPay      Float
-  taxDeductions Float    @default(0)
-  otherDeductions Float  @default(0)
-  netPay        Float
-  hoursWorked   Float    @default(0)
-  overtimeHours Float    @default(0)
-  isPaid        Boolean  @default(false)
-  paidAt        DateTime?
-  generatedAt   DateTime @default(now())
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id              String    @id @default(auto()) @map("_id") @db.ObjectId
+  employeeId      String
+  period          String // YYYY-MM format
+  baseSalary      Float
+  bonuses         Float     @default(0)
+  penalties       Float     @default(0)
+  overtime        Float     @default(0)
+  totalAdvances   Float     @default(0)
+  grossPay        Float
+  taxDeductions   Float     @default(0)
+  otherDeductions Float     @default(0)
+  netPay          Float
+  hoursWorked     Float     @default(0)
+  overtimeHours   Float     @default(0)
+  isPaid          Boolean   @default(false)
+  paidAt          DateTime?
+  generatedAt     DateTime  @default(now())
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   // Relationships
   employee Employee @relation(fields: [employeeId], references: [id])
 
   @@unique([employeeId, period])
-  @@map("payroll_records")
   @@index([employeeId])
   @@index([period])
   @@index([isPaid])
   @@index([generatedAt])
+  @@map("payroll_records")
 }
 
 // Product and Inventory Management
 
 model Category {
-  id          String    @id @default(auto()) @map("_id") @db.ObjectId
-  name        String    @unique
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  name        String   @unique
   description String?
   image       String?
   parentId    String?
-  isActive    Boolean   @default(true)
-  sortOrder   Int       @default(0)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-
-  // Relationships
-  parent   Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  children Category[] @relation("CategoryHierarchy")
-  products Product[]
-  priceTiers PriceTier[]
-
-  @@map("categories")
-  @@index([parentId])
-  @@index([isActive])
-  @@index([sortOrder])
-}
-
-model Product {
-  id          String  @id @default(auto()) @map("_id") @db.ObjectId
-  name        String
-  description String?
-  categoryId  String @db.ObjectId
-  supplierId  String? @db.ObjectId  // Default supplier for this product
-  sku         String  @unique
-  price       Float
-  costPrice   Float?
-  unit        String  @default("pcs")
-  weight      Float?
-  dimensions  String?
-  images      String[]
-  tags        String[]
-  isActive    Boolean @default(true)
-  isFeatured  Boolean @default(false)
-  wholesalePrice    Float?   // Giá sỉ
-  minWholesaleQty   Float    @default(10) // Số lượng tối thiểu để được giá sỉ
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   // Relationships
-  category         Category           @relation(fields: [categoryId], references: [id])
-  supplier         Supplier?          @relation(fields: [supplierId], references: [id])
-  inventoryItem    InventoryItem?
-  orderItems       OrderItem[]
-  invoiceItems     InvoiceItem[]
-  purchaseItems    PurchaseItem[]
-  inventoryMovements InventoryMovement[]
-  productReviews   ProductReview[]
-  projectMaterials ProjectMaterial[]
+  parent     Category?   @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  children   Category[]  @relation("CategoryHierarchy")
+  products   Product[]
+  priceTiers PriceTier[]
+
+  @@index([parentId])
+  @@index([isActive])
+  @@index([sortOrder])
+  @@map("categories")
+}
+
+model Product {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  name            String
+  description     String?
+  categoryId      String   @db.ObjectId
+  supplierId      String?  @db.ObjectId // Default supplier for this product
+  sku             String   @unique
+  price           Float
+  costPrice       Float?
+  unit            String   @default("pcs")
+  weight          Float?
+  dimensions      String?
+  images          String[]
+  tags            String[]
+  isActive        Boolean  @default(true)
+  isFeatured      Boolean  @default(false)
+  wholesalePrice  Float? // Giá sỉ
+  minWholesaleQty Float    @default(10) // Số lượng tối thiểu để được giá sỉ
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relationships
+  category             Category              @relation(fields: [categoryId], references: [id])
+  supplier             Supplier?             @relation(fields: [supplierId], references: [id])
+  inventoryItem        InventoryItem?
+  orderItems           OrderItem[]
+  invoiceItems         InvoiceItem[]
+  purchaseItems        PurchaseItem[]
+  inventoryMovements   InventoryMovement[]
+  productReviews       ProductReview[]
+  projectMaterials     ProjectMaterial[]
   projectTaskMaterials ProjectTaskMaterial[]
   inventoryPredictions InventoryPrediction[]
-  inventoryHistory InventoryHistory[]
-  cartItems        CartItem[]
-  purchaseReturnItems PurchaseReturnItem[]
-  customerReturnItems CustomerReturnItem[]
+  inventoryHistory     InventoryHistory[]
+  cartItems            CartItem[]
+  purchaseReturnItems  PurchaseReturnItem[]
+  customerReturnItems  CustomerReturnItem[]
 
-  @@map("products")
   @@index([categoryId])
   @@index([name])
   @@index([isActive])
@@ -597,33 +695,34 @@ model Product {
   @@index([createdAt])
   @@index([categoryId, isActive])
   @@index([isFeatured, isActive])
+  @@map("products")
 }
 
 model InventoryItem {
-  id               String    @id @default(auto()) @map("_id") @db.ObjectId
-  productId        String    @unique @db.ObjectId
-  quantity         Float     @default(0)
-  reservedQuantity Float     @default(0)
-  availableQuantity Float    @default(0)
-  minStockLevel    Float     @default(0)
-  maxStockLevel    Float?
-  reorderPoint     Float     @default(0)
-  lastStockDate    DateTime?
-  lastCountDate    DateTime?
-  location         String?
-  notes            String?
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  id                String    @id @default(auto()) @map("_id") @db.ObjectId
+  productId         String    @unique @db.ObjectId
+  quantity          Float     @default(0)
+  reservedQuantity  Float     @default(0)
+  availableQuantity Float     @default(0)
+  minStockLevel     Float     @default(0)
+  maxStockLevel     Float?
+  reorderPoint      Float     @default(0)
+  lastStockDate     DateTime?
+  lastCountDate     DateTime?
+  location          String?
+  notes             String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   // Relationships
   product   Product             @relation(fields: [productId], references: [id])
   movements InventoryMovement[]
   binLinks  InventoryBinLink[]
 
-  @@map("inventory_items")
   @@index([availableQuantity])
   @@index([minStockLevel])
   @@index([reorderPoint])
+  @@map("inventory_items")
 }
 
 model InventoryMovement {
@@ -635,7 +734,7 @@ model InventoryMovement {
   previousStock Float
   newStock      Float
   reason        String
-  referenceType String?      // ORDER, PURCHASE, ADJUSTMENT, etc.
+  referenceType String? // ORDER, PURCHASE, ADJUSTMENT, etc.
   referenceId   String?
   performedBy   String
   notes         String?
@@ -645,84 +744,86 @@ model InventoryMovement {
   product       Product       @relation(fields: [productId], references: [id])
   inventoryItem InventoryItem @relation(fields: [inventoryId], references: [id])
 
-  @@map("inventory_movements")
   @@index([productId])
   @@index([inventoryId])
   @@index([movementType])
   @@index([createdAt])
   @@index([referenceType, referenceId])
+  @@map("inventory_movements")
 }
 
 // Order Management
 model Order {
-  id              String      @id @default(auto()) @map("_id") @db.ObjectId
-  orderNumber     String      @unique
-  trackingNumber  String?     // Added for shipping tracking
-  customerId      String?     @db.ObjectId
-  customerType    OrderCustomerType @default(REGISTERED)
-  guestEmail      String?
-  guestPhone      String?
-  guestName       String?
-  status          OrderStatus @default(PENDING_CONFIRMATION)
-  totalAmount     Float
-  taxAmount       Float       @default(0)
-  shippingAmount  Float       @default(0)
-  discountAmount  Float       @default(0)
-  netAmount       Float
-  paymentMethod   String?
-  paymentStatus   PaymentStatus @default(PENDING)
-  
+  id             String            @id @default(auto()) @map("_id") @db.ObjectId
+  orderNumber    String            @unique
+  trackingNumber String? // Added for shipping tracking
+  customerId     String?           @db.ObjectId
+  customerType   OrderCustomerType @default(REGISTERED)
+  guestEmail     String?
+  guestPhone     String?
+  guestName      String?
+  status         OrderStatus       @default(PENDING_CONFIRMATION)
+  totalAmount    Float
+  taxAmount      Float             @default(0)
+  shippingAmount Float             @default(0)
+  discountAmount Float             @default(0)
+  netAmount      Float
+  paymentMethod  String?
+  paymentStatus  PaymentStatus     @default(PENDING)
+
   // Deposit Payment Fields
-  paymentType     OrderPaymentType @default(FULL)
-  depositPercentage Int?         // 30, 40, 50
-  depositAmount   Float?
-  remainingAmount Float?
-  depositPaidAt   DateTime?
-  depositProof    String?       // URL to payment proof image
-  qrExpiresAt     DateTime?     // QR code expiration time
-  
-  shippingAddress Json?
-  billingAddress  Json?
-  notes           String?
+  paymentType       OrderPaymentType @default(FULL)
+  depositPercentage Int? // 30, 40, 50
+  depositAmount     Float?
+  remainingAmount   Float?
+  depositPaidAt     DateTime?
+  depositProof      String? // URL to payment proof image
+  qrExpiresAt       DateTime? // QR code expiration time
+
+  shippingAddress  Json?
+  billingAddress   Json?
+  notes            String?
   expectedDelivery DateTime?
   actualDelivery   DateTime?
-  cancelledAt     DateTime?
-  cancelReason    String?
-  confirmedBy     String?       // Admin who confirmed the order
-  confirmedAt     DateTime?
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
-  
+  cancelledAt      DateTime?
+  cancelReason     String?
+  confirmedBy      String? // Admin who confirmed the order
+  confirmedAt      DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
   // Contractor Selection (Value-Added Service)
-  selectedContractorId String?    @db.ObjectId
-  contractorChangeCount Int        @default(0)
+  selectedContractorId  String? @db.ObjectId
+  contractorChangeCount Int     @default(0)
 
   // Relationships
-  customer     Customer?   @relation(fields: [customerId], references: [id])
-  contractor   ContractorProfile? @relation(fields: [selectedContractorId], references: [id])
-  projectId    String?     @db.ObjectId
-  project      Project?    @relation(fields: [projectId], references: [id])
-  orderItems   OrderItem[]
-  invoices     Invoice[]
-  orderTracking OrderTracking[]
-  delivery      OrderDelivery?
-  deliveryPhases DeliveryPhase[]
-  disputes      Dispute[]
+  customer        Customer?          @relation(fields: [customerId], references: [id])
+  contractor      ContractorProfile? @relation(fields: [selectedContractorId], references: [id])
+  projectId       String?            @db.ObjectId
+  project         Project?           @relation(fields: [projectId], references: [id])
+  orderItems      OrderItem[]
+  invoices        Invoice[]
+  orderTracking   OrderTracking[]
+  delivery        OrderDelivery?
+  deliveryPhases  DeliveryPhase[]
+  disputes        Dispute[]
   customerReturns CustomerReturn[]
-  
+
   // B2B Organization support
-  organizationId  String?      @db.ObjectId
-  organization    Organization? @relation(fields: [organizationId], references: [id])
+  organizationId    String?           @db.ObjectId
+  organization      Organization?     @relation(fields: [organizationId], references: [id])
   b2bApprovalStatus B2BApprovalStatus @default(NOT_REQUIRED)
 
   // Dispatch & Cash Collection
-  driverId     String?     @db.ObjectId
-  driver       Employee?   @relation("OrderDriver", fields: [driverId], references: [id])
-  isCashCollected Boolean? @default(false)
-  cashCollectedAt DateTime?
+  driverId         String?   @db.ObjectId
+  driver           Employee? @relation("OrderDriver", fields: [driverId], references: [id])
+  isCashCollected  Boolean?  @default(false)
+  cashCollectedAt  DateTime?
   cashHandedOverAt DateTime?
 
-  @@map("orders")
+  promotionId String?    @db.ObjectId
+  promotion   Promotion? @relation(fields: [promotionId], references: [id])
+
   @@index([customerId])
   @@index([status])
   @@index([createdAt])
@@ -730,85 +831,86 @@ model Order {
   @@index([paymentStatus])
   @@index([paymentType])
   @@index([qrExpiresAt])
+  @@map("orders")
 }
 
 model OrderItem {
-  id          String  @id @default(auto()) @map("_id") @db.ObjectId
-  orderId     String  @db.ObjectId
-  productId   String  @db.ObjectId
-  quantity    Float
-  unitPrice   Float
-  totalPrice  Float
-  discount    Float   @default(0)
-  notes       String?
-  selectedUnit String?
-  conversionFactor Float? @default(1)
-  createdAt   DateTime @default(now())
+  id               String   @id @default(auto()) @map("_id") @db.ObjectId
+  orderId          String   @db.ObjectId
+  productId        String   @db.ObjectId
+  quantity         Float
+  unitPrice        Float
+  totalPrice       Float
+  discount         Float    @default(0)
+  notes            String?
+  selectedUnit     String?
+  conversionFactor Float?   @default(1)
+  createdAt        DateTime @default(now())
 
   // Relationships
   order   Order   @relation(fields: [orderId], references: [id])
   product Product @relation(fields: [productId], references: [id])
 
-  @@map("order_items")
   @@index([orderId])
   @@index([productId])
   @@index([createdAt])
+  @@map("order_items")
 }
 
 model OrderTracking {
-  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  id          String      @id @default(auto()) @map("_id") @db.ObjectId
   orderId     String
   status      OrderStatus
   description String
   location    String?
-  timestamp   DateTime @default(now())
+  timestamp   DateTime    @default(now())
   createdBy   String?
 
   // Relationships
   order Order @relation(fields: [orderId], references: [id])
 
-  @@map("order_tracking")
   @@index([orderId])
   @@index([status])
   @@index([timestamp])
+  @@map("order_tracking")
 }
 
 // Invoice Management
 model Invoice {
-  id            String        @id @default(auto()) @map("_id") @db.ObjectId
-  invoiceNumber String        @unique
-  invoiceType   InvoiceType
-  orderId       String?       @db.ObjectId
-  customerId    String?       @db.ObjectId
-  supplierId    String?       @db.ObjectId
-  issueDate     DateTime      @default(now())
-  dueDate       DateTime?
-  status        InvoiceStatus @default(DRAFT)
-  subtotal      Float
-  taxAmount     Float         @default(0)
-  discountAmount Float        @default(0)
-  totalAmount   Float
-  paidAmount    Float         @default(0)
-  balanceAmount Float         @default(0)
-  paymentTerms  String?
-  notes         String?
-  vatInvoiceUrl String?
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  id             String        @id @default(auto()) @map("_id") @db.ObjectId
+  invoiceNumber  String        @unique
+  invoiceType    InvoiceType
+  orderId        String?       @db.ObjectId
+  customerId     String?       @db.ObjectId
+  supplierId     String?       @db.ObjectId
+  issueDate      DateTime      @default(now())
+  dueDate        DateTime?
+  status         InvoiceStatus @default(DRAFT)
+  subtotal       Float
+  taxAmount      Float         @default(0)
+  discountAmount Float         @default(0)
+  totalAmount    Float
+  paidAmount     Float         @default(0)
+  balanceAmount  Float         @default(0)
+  paymentTerms   String?
+  notes          String?
+  vatInvoiceUrl  String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 
   // Relationships
-  order        Order?          @relation(fields: [orderId], references: [id])
-  customer     Customer?       @relation(fields: [customerId], references: [id])
-  supplier     Supplier?       @relation(fields: [supplierId], references: [id])
+  order        Order?        @relation(fields: [orderId], references: [id])
+  customer     Customer?     @relation(fields: [customerId], references: [id])
+  supplier     Supplier?     @relation(fields: [supplierId], references: [id])
   invoiceItems InvoiceItem[]
   payments     Payment[]
 
-  @@map("invoices")
   @@index([customerId])
   @@index([supplierId])
   @@index([status])
   @@index([issueDate])
   @@index([invoiceType])
+  @@map("invoices")
 }
 
 model InvoiceItem {
@@ -827,48 +929,48 @@ model InvoiceItem {
   invoice Invoice @relation(fields: [invoiceId], references: [id])
   product Product @relation(fields: [productId], references: [id])
 
-  @@map("invoice_items")
   @@index([invoiceId])
   @@index([productId])
+  @@map("invoice_items")
 }
 
 // Supplier Management
 model Supplier {
-  id            String   @id @default(auto()) @map("_id") @db.ObjectId
-  name          String
-  contactPerson String?
-  email         String?
-  phone         String?
-  address       String?
-  city          String?
-  country       String?
-  taxId         String?
-  paymentTerms  String?
-  creditLimit   Float    @default(0)
+  id             String  @id @default(auto()) @map("_id") @db.ObjectId
+  name           String
+  contactPerson  String?
+  email          String?
+  phone          String?
+  address        String?
+  city           String?
+  country        String?
+  taxId          String?
+  paymentTerms   String?
+  creditLimit    Float   @default(0)
   currentBalance Float   @default(0)
-  rating        Int?     @default(0)
-  isActive      Boolean  @default(true)
-  notes         String?
-  password      String?    // Added for portal login
-  
+  rating         Int?    @default(0)
+  isActive       Boolean @default(true)
+  notes          String?
+  password       String? // Added for portal login
+
   // Bank Details
   bankName          String?
   bankAccountNumber String?
   bankAccountName   String?
 
-  userId        String?  @unique @db.ObjectId // Optional: link to User table
-  
+  userId String? @unique @db.ObjectId // Optional: link to User table
+
   // 2FA & Profile Status
-  is2FAEnabled      Boolean  @default(false)
-  hasSetTwoFactor   Boolean  @default(false)
-  twoFactorSecret   String?
-  profileComplete   Boolean  @default(false)
-  
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  is2FAEnabled    Boolean @default(false)
+  hasSetTwoFactor Boolean @default(false)
+  twoFactorSecret String?
+  profileComplete Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relationships
-  user             User?              @relation(fields: [userId], references: [id])
+  user User? @relation(fields: [userId], references: [id])
 
   // Relationships
   products         Product[]
@@ -882,230 +984,228 @@ model Supplier {
   disputes         Dispute[]
   supplierBids     SupplierBid[]
 
-  @@map("suppliers")
   @@index([name])
   @@index([isActive])
+  @@map("suppliers")
 }
-
-
 
 // Track quality ratings for each supplier delivery
 model SupplierDeliveryRating {
-  id              String   @id @default(auto()) @map("_id") @db.ObjectId
-  supplierId      String   @db.ObjectId
-  purchaseOrderId String?  @db.ObjectId
-  
+  id              String  @id @default(auto()) @map("_id") @db.ObjectId
+  supplierId      String  @db.ObjectId
+  purchaseOrderId String? @db.ObjectId
+
   // Rating fields (1-5 scale)
-  qualityRating   Int      @default(3) // Quality of delivered goods
-  packagingRating Int      @default(3) // Packaging condition
-  accuracyRating  Int      @default(3) // Order accuracy (correct items/quantities)
-  
+  qualityRating   Int @default(3) // Quality of delivered goods
+  packagingRating Int @default(3) // Packaging condition
+  accuracyRating  Int @default(3) // Order accuracy (correct items/quantities)
+
   // Time tracking
-  responseHours   Float?   // Hours from order to acknowledgment
-  deliveryHours   Float?   // Hours from order to delivery
-  
+  responseHours Float? // Hours from order to acknowledgment
+  deliveryHours Float? // Hours from order to delivery
+
   // Overall score (auto-calculated or manual)
-  overallScore    Int      @default(3) // 1-5 overall rating
-  
+  overallScore Int @default(3) // 1-5 overall rating
+
   // Metadata
-  notes           String?
-  ratedBy         String?  @db.ObjectId // Employee who rated
-  ratedAt         DateTime @default(now())
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  notes     String?
+  ratedBy   String?  @db.ObjectId // Employee who rated
+  ratedAt   DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relationships
   supplier Supplier @relation(fields: [supplierId], references: [id])
 
-  @@map("supplier_delivery_ratings")
   @@index([supplierId])
   @@index([ratedAt])
+  @@map("supplier_delivery_ratings")
 }
 
 model PurchaseOrder {
-  id              String              @id @default(auto()) @map("_id") @db.ObjectId
-  orderNumber     String              @unique
-  supplierId      String
-  status          PurchaseOrderStatus @default(DRAFT)
-  orderDate       DateTime            @default(now())
-  expectedDate    DateTime?
-  receivedDate    DateTime?
-  totalAmount     Float
-  taxAmount       Float               @default(0)
-  shippingAmount  Float               @default(0)
-  discountAmount  Float               @default(0)
-  netAmount       Float
-  notes           String?
-  createdBy       String
-  approvedBy      String?
-  approvedAt      DateTime?
-  createdAt       DateTime            @default(now())
-  updatedAt       DateTime            @updatedAt
+  id             String              @id @default(auto()) @map("_id") @db.ObjectId
+  orderNumber    String              @unique
+  supplierId     String
+  status         PurchaseOrderStatus @default(DRAFT)
+  orderDate      DateTime            @default(now())
+  expectedDate   DateTime?
+  receivedDate   DateTime?
+  totalAmount    Float
+  taxAmount      Float               @default(0)
+  shippingAmount Float               @default(0)
+  discountAmount Float               @default(0)
+  netAmount      Float
+  notes          String?
+  createdBy      String
+  approvedBy     String?
+  approvedAt     DateTime?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
 
   // Relationships
-  supplier      Supplier        @relation(fields: [supplierId], references: [id])
+  supplier      Supplier         @relation(fields: [supplierId], references: [id])
   purchaseItems PurchaseItem[]
   returns       PurchaseReturn[]
 
-  @@map("purchase_orders")
   @@index([supplierId])
   @@index([status])
   @@index([orderDate])
+  @@map("purchase_orders")
 }
 
 model PurchaseItem {
-  id              String  @id @default(auto()) @map("_id") @db.ObjectId
-  purchaseOrderId String
-  productId       String
-  quantity        Float
-  unitPrice       Float
-  totalPrice      Float
-  receivedQuantity Float  @default(0)
-  discount        Float   @default(0)
-  notes           String?
+  id               String  @id @default(auto()) @map("_id") @db.ObjectId
+  purchaseOrderId  String
+  productId        String
+  quantity         Float
+  unitPrice        Float
+  totalPrice       Float
+  receivedQuantity Float   @default(0)
+  discount         Float   @default(0)
+  notes            String?
 
   // Relationships
   purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id])
   product       Product       @relation(fields: [productId], references: [id])
 
-  @@map("purchase_items")
   @@index([purchaseOrderId])
   @@index([productId])
+  @@map("purchase_items")
 }
 
 // Payment Management
 model Payment {
-  id            String        @id @default(auto()) @map("_id") @db.ObjectId
-  paymentNumber String        @unique
-  invoiceId     String?
-  orderId       String?
-  paymentType   PaymentType
-  paymentMethod PaymentMethod
-  amount        Float
-  currency      String        @default("USD")
-  exchangeRate  Float         @default(1.0)
-  status        PaymentStatus @default(PENDING)
-  transactionId String?
-  reference     String?
-  beneficiaryInfo Json?       // Snapshot of bank details at time of payment
-  paymentDate   DateTime      @default(now())
-  notes         String?
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  id              String        @id @default(auto()) @map("_id") @db.ObjectId
+  paymentNumber   String        @unique
+  invoiceId       String?
+  orderId         String?
+  paymentType     PaymentType
+  paymentMethod   PaymentMethod
+  amount          Float
+  currency        String        @default("USD")
+  exchangeRate    Float         @default(1.0)
+  status          PaymentStatus @default(PENDING)
+  transactionId   String?
+  reference       String?
+  beneficiaryInfo Json? // Snapshot of bank details at time of payment
+  paymentDate     DateTime      @default(now())
+  notes           String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
 
   // Relationships
   invoice Invoice? @relation(fields: [invoiceId], references: [id])
 
-  @@map("payments")
   @@index([invoiceId])
   @@index([orderId])
   @@index([status])
   @@index([paymentDate])
+  @@map("payments")
 }
 
 // Product Reviews and Ratings
 model ProductReview {
-  id         String   @id @default(auto()) @map("_id") @db.ObjectId
-  productId  String   @db.ObjectId
-  customerId String   @db.ObjectId
-  orderId    String?  @db.ObjectId
-  rating     Int      // 1-5 stars
-  title      String?
-  review     String?
-  isVerified Boolean  @default(false)
-  isPublished Boolean @default(true)
-  helpfulCount Int    @default(0)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  productId    String   @db.ObjectId
+  customerId   String   @db.ObjectId
+  orderId      String?  @db.ObjectId
+  rating       Int // 1-5 stars
+  title        String?
+  review       String?
+  isVerified   Boolean  @default(false)
+  isPublished  Boolean  @default(true)
+  helpfulCount Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   // Relationships
   product Product @relation(fields: [productId], references: [id])
 
   @@unique([productId, customerId, orderId])
-  @@map("product_reviews")
   @@index([productId])
   @@index([customerId])
   @@index([rating])
   @@index([isPublished])
   @@index([createdAt])
+  @@map("product_reviews")
 }
 
 // AI and Automation
 model OCRProcessing {
-  id           String    @id @default(auto()) @map("_id") @db.ObjectId
-  fileName     String
-  filePath     String
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  fileName      String
+  filePath      String
   extractedText String?
   processedData Json?
-  status       OCRStatus @default(PENDING)
-  confidence   Float?
-  errorMessage String?
-  processedBy  String?
-  reviewedBy   String?
-  reviewedAt   DateTime?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  status        OCRStatus @default(PENDING)
+  confidence    Float?
+  errorMessage  String?
+  processedBy   String?
+  reviewedBy    String?
+  reviewedAt    DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
-  @@map("ocr_processing")
   @@index([status])
   @@index([createdAt])
   @@index([processedBy])
+  @@map("ocr_processing")
 }
 
 model CustomerInteraction {
-  id             String            @id @default(auto()) @map("_id") @db.ObjectId
-  customerId     String?
-  sessionId      String
+  id              String          @id @default(auto()) @map("_id") @db.ObjectId
+  customerId      String?
+  sessionId       String
   interactionType InteractionType
-  productId      String?
-  query          String?
-  response       String?
-  sentiment      String?
-  rating         Int?
-  metadata       Json?
-  ipAddress      String?
-  userAgent      String?
-  createdAt      DateTime          @default(now())
+  productId       String?
+  query           String?
+  response        String?
+  sentiment       String?
+  rating          Int?
+  metadata        Json?
+  ipAddress       String?
+  userAgent       String?
+  createdAt       DateTime        @default(now())
 
-  @@map("customer_interactions")
   @@index([customerId])
   @@index([sessionId])
   @@index([interactionType])
   @@index([productId])
   @@index([createdAt])
+  @@map("customer_interactions")
 }
 
 model InventoryPrediction {
-  id              String   @id @default(auto()) @map("_id") @db.ObjectId
-  productId       String   @db.ObjectId
-  predictionDate  DateTime @default(now())
-  targetDate      DateTime @default(now()) // Date we're predicting for
-  timeframe       String   // WEEK, MONTH, QUARTER
-  predictedDemand Float
-  confidence      Float    // 0-1
-  method          String   @default("LINEAR_REGRESSION") // LINEAR_REGRESSION, ML_MODEL, etc.
-  factors         Json?    // trend, seasonality, etc.
+  id               String   @id @default(auto()) @map("_id") @db.ObjectId
+  productId        String   @db.ObjectId
+  predictionDate   DateTime @default(now())
+  targetDate       DateTime @default(now()) // Date we're predicting for
+  timeframe        String // WEEK, MONTH, QUARTER
+  predictedDemand  Float
+  confidence       Float // 0-1
+  method           String   @default("LINEAR_REGRESSION") // LINEAR_REGRESSION, ML_MODEL, etc.
+  factors          Json? // trend, seasonality, etc.
   recommendedOrder Float?
-  
-  // Actual data (filled later for validation)
-  actualDemand    Float?
-  accuracy        Float?   // 0-100
-  error           Float?   // Absolute error
-  validatedAt     DateTime?
-  
-  isActive        Boolean  @default(true)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @default(now()) @updatedAt
-  
-  product         Product  @relation(fields: [productId], references: [id])
 
-  @@map("inventory_predictions")
+  // Actual data (filled later for validation)
+  actualDemand Float?
+  accuracy     Float? // 0-100
+  error        Float? // Absolute error
+  validatedAt  DateTime?
+
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  product Product @relation(fields: [productId], references: [id])
+
   @@index([productId])
   @@index([predictionDate])
   @@index([targetDate])
   @@index([timeframe])
   @@index([confidence])
   @@index([isActive])
+  @@map("inventory_predictions")
 }
 
 // Enums
@@ -1180,17 +1280,17 @@ enum MovementType {
 }
 
 enum OrderStatus {
-  PENDING_CONFIRMATION      // Chờ admin xác nhận đơn
+  PENDING_CONFIRMATION // Chờ admin xác nhận đơn
   CONFIRMED_AWAITING_DEPOSIT // Admin đã xác nhận, chờ khách cọc
-  DEPOSIT_PAID             // Đã cọc, đang xử lý
-  PENDING                  // Chờ xử lý (cho đơn thanh toán đầy đủ)
-  CONFIRMED                // Đã xác nhận
-  PROCESSING               // Đang chuẩn bị hàng
-  SHIPPED                  // Đang giao hàng
-  DELIVERED                // Đã giao hàng
-  CANCELLED                // Đã hủy
-  RETURNED                 // Đã trả hàng
-  COMPLETED                // Đã hoàn thành (sau khi thanh toán & nhận hàng)
+  DEPOSIT_PAID // Đã cọc, đang xử lý
+  PENDING // Chờ xử lý (cho đơn thanh toán đầy đủ)
+  CONFIRMED // Đã xác nhận
+  PROCESSING // Đang chuẩn bị hàng
+  SHIPPED // Đang giao hàng
+  DELIVERED // Đã giao hàng
+  CANCELLED // Đã hủy
+  RETURNED // Đã trả hàng
+  COMPLETED // Đã hoàn thành (sau khi thanh toán & nhận hàng)
 }
 
 enum OrderCustomerType {
@@ -1200,9 +1300,9 @@ enum OrderCustomerType {
 }
 
 enum OrderPaymentType {
-  FULL      // Thanh toán đầy đủ
-  DEPOSIT   // Đặt cọc trước
-  CREDIT    // Mua trước trả sau (công nợ)
+  FULL // Thanh toán đầy đủ
+  DEPOSIT // Đặt cọc trước
+  CREDIT // Mua trước trả sau (công nợ)
 }
 
 enum PaymentStatus {
@@ -1271,30 +1371,30 @@ enum InteractionType {
 
 // Notifications Model
 model Notification {
-  id          String     @id @default(auto()) @map("_id") @db.ObjectId
-  userId      String?     @db.ObjectId
-  supplierId  String?     @db.ObjectId
-  title       String
-  message     String
-  type        NotificationType @default(INFO)
-  priority    Priority   @default(MEDIUM)
-  read        Boolean    @default(false)
-  referenceId String?
+  id            String           @id @default(auto()) @map("_id") @db.ObjectId
+  userId        String?          @db.ObjectId
+  supplierId    String?          @db.ObjectId
+  title         String
+  message       String
+  type          NotificationType @default(INFO)
+  priority      Priority         @default(MEDIUM)
+  read          Boolean          @default(false)
+  referenceId   String?
   referenceType String?
-  metadata    Json?
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  metadata      Json?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
 
   // Relationships
-  user        User?      @relation(fields: [userId], references: [id])
+  user User? @relation(fields: [userId], references: [id])
 
-  @@map("notifications")
   @@index([userId])
   @@index([supplierId])
   @@index([type])
   @@index([priority])
   @@index([read])
   @@index([createdAt])
+  @@map("notifications")
 }
 
 enum NotificationType {
@@ -1311,62 +1411,63 @@ enum NotificationType {
 
 // Project Management
 model Project {
-  id              String     @id @default(auto()) @map("_id") @db.ObjectId
-  name            String
-  description     String?
-  category        String?    @default("general")
-  customerId      String?    @db.ObjectId
-  status          ProjectStatus @default(PLANNING)
-  startDate       DateTime
-  endDate         DateTime?
-  budget          Float
-  actualCost      Float      @default(0)
-  progress        Int        @default(0) // 0-100%
-  priority        Priority   @default(MEDIUM)
-  notes           String?
-  location        String?
-  
+  id          String        @id @default(auto()) @map("_id") @db.ObjectId
+  name        String
+  description String?
+  category    String?       @default("general")
+  customerId  String?       @db.ObjectId
+  status      ProjectStatus @default(PLANNING)
+  startDate   DateTime
+  endDate     DateTime?
+  budget      Float
+  actualCost  Float         @default(0)
+  progress    Int           @default(0) // 0-100%
+  priority    Priority      @default(MEDIUM)
+  notes       String?
+  location    String?
+
   // Guest fields
-  guestName       String?
-  guestPhone      String?
-  guestEmail      String?
-  
+  guestName  String?
+  guestPhone String?
+  guestEmail String?
+
   // Moderation & Public Visibility
   moderationStatus ModerationStatus @default(PENDING)
-  isPublic        Boolean    @default(false)
-  approvedAt      DateTime?
-  approvedBy      String?    @db.ObjectId // Employee/Admin ID
-  
+  isPublic         Boolean          @default(false)
+  approvedAt       DateTime?
+  approvedBy       String?          @db.ObjectId // Employee/Admin ID
+
   // Verification for Guests
-  isVerified      Boolean    @default(false)
-  otpCode         String?
-  otpExpiresAt    DateTime?
-  verificationId  String?    // To handle step-by-step verification
-  
-  createdAt       DateTime   @default(now())
-  updatedAt       DateTime   @updatedAt
+  isVerified     Boolean   @default(false)
+  otpCode        String?
+  otpExpiresAt   DateTime?
+  verificationId String? // To handle step-by-step verification
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relationships
-  customer        Customer?  @relation("ProjectOwner", fields: [customerId], references: [id])
-  contractorId    String?    @db.ObjectId
-  contractor      Customer?  @relation("ProjectContractor", fields: [contractorId], references: [id])
-  projectTasks    ProjectTask[]
+  customer         Customer?         @relation("ProjectOwner", fields: [customerId], references: [id])
+  contractorId     String?           @db.ObjectId
+  contractor       Customer?         @relation("ProjectContractor", fields: [contractorId], references: [id])
+  projectTasks     ProjectTask[]
   projectMaterials ProjectMaterial[]
-  quoteRequests   QuoteRequest[]
+  quoteRequests    QuoteRequest[]
 
-  orders          Order[]
+  orders Order[]
+  bids   ProjectBid[]
 
   // B2B Organization support
-  organizationId  String?      @db.ObjectId
-  organization    Organization? @relation(fields: [organizationId], references: [id])
+  organizationId String?       @db.ObjectId
+  organization   Organization? @relation(fields: [organizationId], references: [id])
 
-  @@map("projects")
   @@index([customerId])
   @@index([status])
   @@index([priority])
   @@index([startDate])
   @@index([moderationStatus])
   @@index([isPublic])
+  @@map("projects")
 }
 
 enum ModerationStatus {
@@ -1376,77 +1477,77 @@ enum ModerationStatus {
 }
 
 model ProjectTask {
-  id          String     @id @default(auto()) @map("_id") @db.ObjectId
-  projectId   String
-  name        String
-  description String?
-  status      TaskStatus @default(PENDING)
-  priority    Priority   @default(MEDIUM)
-  assigneeId  String?    // Employee ID
-  startDate   DateTime?
-  dueDate     DateTime?
-  completedAt DateTime?
+  id             String     @id @default(auto()) @map("_id") @db.ObjectId
+  projectId      String
+  name           String
+  description    String?
+  status         TaskStatus @default(PENDING)
+  priority       Priority   @default(MEDIUM)
+  assigneeId     String? // Employee ID
+  startDate      DateTime?
+  dueDate        DateTime?
+  completedAt    DateTime?
   estimatedHours Float?
   actualHours    Float?
-  progress    Int        @default(0) // 0-100%
-  notes       String?
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  progress       Int        @default(0) // 0-100%
+  notes          String?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
 
   // Relationships
-  project     Project    @relation(fields: [projectId], references: [id])
-  assignee    Employee?  @relation("ProjectTaskAssignee", fields: [assigneeId], references: [id])
+  project       Project               @relation(fields: [projectId], references: [id])
+  assignee      Employee?             @relation("ProjectTaskAssignee", fields: [assigneeId], references: [id])
   taskMaterials ProjectTaskMaterial[]
 
-  @@map("project_tasks")
   @@index([projectId])
   @@index([status])
   @@index([priority])
   @@index([assigneeId])
+  @@map("project_tasks")
 }
 
 model ProjectMaterial {
-  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  id          String         @id @default(auto()) @map("_id") @db.ObjectId
   projectId   String
   productId   String
   quantity    Float
   unitPrice   Float
   totalPrice  Float
   status      MaterialStatus @default(REQUESTED)
-  requestedAt DateTime @default(now())
+  requestedAt DateTime       @default(now())
   deliveredAt DateTime?
   notes       String?
 
   // Relationships
-  project     Project  @relation(fields: [projectId], references: [id])
-  product     Product  @relation(fields: [productId], references: [id])
+  project Project @relation(fields: [projectId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
 
-  @@map("project_materials")
   @@index([projectId])
   @@index([productId])
   @@index([status])
+  @@map("project_materials")
 }
 
 model ProjectTaskMaterial {
-  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  id          String         @id @default(auto()) @map("_id") @db.ObjectId
   taskId      String
   productId   String
   quantity    Float
   unitPrice   Float
   totalPrice  Float
   status      MaterialStatus @default(REQUESTED)
-  requestedAt DateTime @default(now())
+  requestedAt DateTime       @default(now())
   deliveredAt DateTime?
   notes       String?
 
   // Relationships
-  task        ProjectTask @relation(fields: [taskId], references: [id])
-  product     Product     @relation(fields: [productId], references: [id])
+  task    ProjectTask @relation(fields: [taskId], references: [id])
+  product Product     @relation(fields: [productId], references: [id])
 
-  @@map("project_task_materials")
   @@index([taskId])
   @@index([productId])
   @@index([status])
+  @@map("project_task_materials")
 }
 
 enum ProjectStatus {
@@ -1466,44 +1567,44 @@ enum MaterialStatus {
 
 // Material Calculator
 model MaterialCalculation {
-  id              String   @id @default(auto()) @map("_id") @db.ObjectId
-  customerId      String?
-  projectType     String
-  projectData     Json     // Store all project inputs
-  calculationResult Json   // Store complete calculation results
-  totalEstimate   Float
-  status          String   @default("DRAFT") // DRAFT, CONFIRMED, ORDERED
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id                String   @id @default(auto()) @map("_id") @db.ObjectId
+  customerId        String?
+  projectType       String
+  projectData       Json // Store all project inputs
+  calculationResult Json // Store complete calculation results
+  totalEstimate     Float
+  status            String   @default("DRAFT") // DRAFT, CONFIRMED, ORDERED
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   // Relationships
   customer Customer? @relation(fields: [customerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-  @@map("material_calculations")
   @@index([customerId])
   @@index([status])
   @@index([createdAt])
+  @@map("material_calculations")
 }
 
 // Inventory History (for tracking all changes)
 model InventoryHistory {
-  id              String   @id @default(auto()) @map("_id") @db.ObjectId
-  productId       String
-  changeType      String   // SALE, PURCHASE, ADJUSTMENT, RETURN
-  quantityChange  Float    // Can be negative
-  quantityBefore  Float?
-  quantityAfter   Float
-  reason          String?
-  referenceId     String?  // Order ID, Purchase Order ID, etc.
-  performedBy     String?  // User who made the change
-  createdAt       DateTime @default(now())
-  
-  product         Product  @relation(fields: [productId], references: [id])
-  
-  @@map("inventory_history")
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  productId      String
+  changeType     String // SALE, PURCHASE, ADJUSTMENT, RETURN
+  quantityChange Float // Can be negative
+  quantityBefore Float?
+  quantityAfter  Float
+  reason         String?
+  referenceId    String? // Order ID, Purchase Order ID, etc.
+  performedBy    String? // User who made the change
+  createdAt      DateTime @default(now())
+
+  product Product @relation(fields: [productId], references: [id])
+
   @@index([productId])
   @@index([changeType])
   @@index([createdAt])
+  @@map("inventory_history")
 }
 
 // ============================================
@@ -1512,44 +1613,44 @@ model InventoryHistory {
 
 // Cấu hình luật công nợ
 model DebtConfiguration {
-  id                  String   @id @default(auto()) @map("_id") @db.ObjectId
-  name                String   @unique // Tên luật (VD: "Default", "VIP", "Contractor")
-  maxOverdueDays      Int      @default(30)  // Số ngày quá hạn tối đa cho phép
-  creditLimitPercent  Float    @default(100) // % hạn mức được sử dụng (100 = 100%)
-  autoHoldOnOverdue   Boolean  @default(true) // Tự động khóa khi quá hạn
-  warningDays         Int      @default(7)   // Cảnh báo trước khi đến hạn
-  isActive            Boolean  @default(true)
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  id                 String   @id @default(auto()) @map("_id") @db.ObjectId
+  name               String   @unique // Tên luật (VD: "Default", "VIP", "Contractor")
+  maxOverdueDays     Int      @default(30) // Số ngày quá hạn tối đa cho phép
+  creditLimitPercent Float    @default(100) // % hạn mức được sử dụng (100 = 100%)
+  autoHoldOnOverdue  Boolean  @default(true) // Tự động khóa khi quá hạn
+  warningDays        Int      @default(7) // Cảnh báo trước khi đến hạn
+  isActive           Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
   @@map("debt_configurations")
 }
 
 // Lịch sử duyệt ngoại lệ công nợ
 model CreditApproval {
-  id              String              @id @default(auto()) @map("_id") @db.ObjectId
+  id              String               @id @default(auto()) @map("_id") @db.ObjectId
   customerId      String
-  orderId         String?             // Order đang chờ duyệt (nếu có)
-  requestedAmount Float               // Số tiền yêu cầu
-  currentDebt     Float               // Nợ hiện tại tại thời điểm request
-  creditLimit     Float               // Hạn mức tại thời điểm request
-  reason          String              // Lý do xin duyệt
+  orderId         String? // Order đang chờ duyệt (nếu có)
+  requestedAmount Float // Số tiền yêu cầu
+  currentDebt     Float // Nợ hiện tại tại thời điểm request
+  creditLimit     Float // Hạn mức tại thời điểm request
+  reason          String // Lý do xin duyệt
   status          CreditApprovalStatus @default(PENDING)
-  approvedBy      String?             // User ID người duyệt
+  approvedBy      String? // User ID người duyệt
   approvedAt      DateTime?
   rejectedReason  String?
-  expiresAt       DateTime?           // Thời hạn hiệu lực của approval
+  expiresAt       DateTime? // Thời hạn hiệu lực của approval
   notes           String?
-  createdAt       DateTime            @default(now())
-  updatedAt       DateTime            @updatedAt
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
 
   // Relationships
-  customer        Customer            @relation(fields: [customerId], references: [id])
+  customer Customer @relation(fields: [customerId], references: [id])
 
-  @@map("credit_approvals")
   @@index([customerId])
   @@index([status])
   @@index([createdAt])
+  @@map("credit_approvals")
 }
 
 enum CreditApprovalStatus {
@@ -1565,56 +1666,56 @@ enum CreditApprovalStatus {
 
 // Liên kết Nhà cung cấp - Sản phẩm (với giá và thời gian giao)
 model SupplierProduct {
-  id              String   @id @default(auto()) @map("_id") @db.ObjectId
-  supplierId      String
-  productId       String
-  unitPrice       Float               // Giá nhập từ NCC này
-  minOrderQty     Float    @default(1) // Số lượng tối thiểu
-  leadTimeDays    Int      @default(3) // Thời gian giao hàng (ngày)
-  isPreferred     Boolean  @default(false) // NCC ưu tiên cho SP này
+  id               String    @id @default(auto()) @map("_id") @db.ObjectId
+  supplierId       String
+  productId        String
+  unitPrice        Float // Giá nhập từ NCC này
+  minOrderQty      Float     @default(1) // Số lượng tối thiểu
+  leadTimeDays     Int       @default(3) // Thời gian giao hàng (ngày)
+  isPreferred      Boolean   @default(false) // NCC ưu tiên cho SP này
   lastPurchaseDate DateTime?
-  averageRating   Float    @default(5) // Đánh giá NCC (1-5)
-  notes           String?
-  isActive        Boolean  @default(true)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  averageRating    Float     @default(5) // Đánh giá NCC (1-5)
+  notes            String?
+  isActive         Boolean   @default(true)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
   // Relationships
-  supplier        Supplier @relation(fields: [supplierId], references: [id])
+  supplier Supplier @relation(fields: [supplierId], references: [id])
 
   @@unique([supplierId, productId])
-  @@map("supplier_products")
   @@index([productId])
   @@index([supplierId])
   @@index([isPreferred])
+  @@map("supplier_products")
 }
 
 // Yêu cầu nhập hàng (tự động hoặc thủ công)
 model PurchaseRequest {
-  id              String              @id @default(auto()) @map("_id") @db.ObjectId
-  requestNumber   String              @unique
+  id              String                @id @default(auto()) @map("_id") @db.ObjectId
+  requestNumber   String                @unique
   productId       String
-  supplierId      String?             // NCC được đề xuất
-  requestedQty    Float               // Số lượng đề xuất nhập
-  currentStock    Float               // Tồn kho hiện tại lúc tạo
-  reorderPoint    Float               // Điểm đặt hàng lúc tạo
-  estimatedCost   Float?              // Chi phí ước tính
+  supplierId      String? // NCC được đề xuất
+  requestedQty    Float // Số lượng đề xuất nhập
+  currentStock    Float // Tồn kho hiện tại lúc tạo
+  reorderPoint    Float // Điểm đặt hàng lúc tạo
+  estimatedCost   Float? // Chi phí ước tính
   source          PurchaseRequestSource @default(SYSTEM) // Tự động hay thủ công
   status          PurchaseRequestStatus @default(PENDING)
-  priority        Priority            @default(MEDIUM)
+  priority        Priority              @default(MEDIUM)
   approvedBy      String?
   approvedAt      DateTime?
-  purchaseOrderId String?             // Liên kết với PO sau khi duyệt
+  purchaseOrderId String? // Liên kết với PO sau khi duyệt
   notes           String?
-  createdAt       DateTime            @default(now())
-  updatedAt       DateTime            @updatedAt
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
   bids            SupplierBid[]
 
-  @@map("purchase_requests")
   @@index([productId])
   @@index([status])
   @@index([priority])
   @@index([createdAt])
+  @@map("purchase_requests")
 }
 
 model SupplierBid {
@@ -1628,25 +1729,25 @@ model SupplierBid {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
-  purchaseRequest   PurchaseRequest @relation(fields: [purchaseRequestId], references: [id])
-  supplier          Supplier        @relation(fields: [supplierId], references: [id])
+  purchaseRequest PurchaseRequest @relation(fields: [purchaseRequestId], references: [id])
+  supplier        Supplier        @relation(fields: [supplierId], references: [id])
 
-  @@map("supplier_bids")
   @@index([purchaseRequestId])
   @@index([supplierId])
+  @@map("supplier_bids")
 }
 
 enum PurchaseRequestSource {
-  SYSTEM      // Hệ thống tự động tạo
-  MANUAL      // Thủ công
+  SYSTEM // Hệ thống tự động tạo
+  MANUAL // Thủ công
 }
 
 enum PurchaseRequestStatus {
-  PENDING     // Chờ duyệt
-  APPROVED    // Đã duyệt
-  REJECTED    // Từ chối
-  CONVERTED   // Đã chuyển thành PO
-  CANCELLED   // Đã hủy
+  PENDING // Chờ duyệt
+  APPROVED // Đã duyệt
+  REJECTED // Từ chối
+  CONVERTED // Đã chuyển thành PO
+  CANCELLED // Đã hủy
 }
 
 // ============================================
@@ -1655,44 +1756,39 @@ enum PurchaseRequestStatus {
 
 // Bảng giá đa cấp
 model PriceList {
-  id              String   @id @default(auto()) @map("_id") @db.ObjectId
-  name            String   @unique // "Giá lẻ", "Giá đại lý cấp 1", "Giá nhà thầu"
-  code            String   @unique // "RETAIL", "DEALER_1", "CONTRACTOR"
+  id              String         @id @default(auto()) @map("_id") @db.ObjectId
+  name            String         @unique // "Giá lẻ", "Giá đại lý cấp 1", "Giá nhà thầu"
+  code            String         @unique // "RETAIL", "DEALER_1", "CONTRACTOR"
   description     String?
-  discountPercent Float    @default(0) // % giảm so với giá gốc
+  discountPercent Float          @default(0) // % giảm so với giá gốc
   customerTypes   CustomerType[] // Áp dụng cho loại khách hàng nào
-  priority        Int      @default(0) // Ưu tiên (số cao = ưu tiên hơn)
-  isActive        Boolean  @default(true)
+  priority        Int            @default(0) // Ưu tiên (số cao = ưu tiên hơn)
+  isActive        Boolean        @default(true)
   validFrom       DateTime?
   validTo         DateTime?
-  createdAt       DateTime @default(now())
-  updatedAt           DateTime @updatedAt
-  
-  tiers               PriceTier[] // Bậc giá theo số lượng
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
 
-  @@map("price_lists")
+  tiers PriceTier[] // Bậc giá theo số lượng
+
   @@index([isActive])
   @@index([priority])
+  @@map("price_lists")
 }
 
 // Bậc giá theo số lượng cho PriceList
 model PriceTier {
-  id           String    @id @default(auto()) @map("_id") @db.ObjectId
-  priceListId  String    @db.ObjectId
-  categoryId   String?   @db.ObjectId // Ngành hàng áp dụng (Nếu null thì áp dụng toàn bộ)
-  minQuantity  Float     // Số lượng từ (>=)
-  discountPercent Float  // % giảm giá
-  
-  priceList    PriceList @relation(fields: [priceListId], references: [id], onDelete: Cascade)
-  category     Category? @relation(fields: [categoryId], references: [id])
+  id              String  @id @default(auto()) @map("_id") @db.ObjectId
+  priceListId     String  @db.ObjectId
+  categoryId      String? @db.ObjectId // Ngành hàng áp dụng (Nếu null thì áp dụng toàn bộ)
+  minQuantity     Float // Số lượng từ (>=)
+  discountPercent Float // % giảm giá
+
+  priceList PriceList @relation(fields: [priceListId], references: [id], onDelete: Cascade)
+  category  Category? @relation(fields: [categoryId], references: [id])
 
   @@map("price_tiers")
 }
-
-
-
-
-
 
 model QuoteRequest {
   id           String      @id @default(auto()) @map("_id") @db.ObjectId
@@ -1704,121 +1800,121 @@ model QuoteRequest {
   budget       Float?
   location     String?
   startDate    DateTime?
-  
+
   // Response from contractor
-  response     String?
-  priceQuote   Float?      // Total from QuoteItems
-  respondedAt  DateTime?
-  
+  response    String?
+  priceQuote  Float? // Total from QuoteItems
+  respondedAt DateTime?
+
   // Flow 4: Versioning & Negotiation
-  version      Int         @default(1)
-  parentQuoteId String?    @db.ObjectId // Link to the original or previous version
-  isLatest     Boolean     @default(true)
-  
+  version       Int     @default(1)
+  parentQuoteId String? @db.ObjectId // Link to the original or previous version
+  isLatest      Boolean @default(true)
+
   // Flow 2: Digital Verification
   otpCode      String?
   otpExpiresAt DateTime?
-  isVerified   Boolean     @default(false)
+  isVerified   Boolean   @default(false)
   verifiedAt   DateTime?
 
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relationships
-  customer     Customer    @relation("CustomerOutboundQuotes", fields: [customerId], references: [id])
-  contractor   Customer    @relation("ContractorInboundQuotes", fields: [contractorId], references: [id])
-  project      Project?    @relation(fields: [projectId], references: [id])
+  customer   Customer @relation("CustomerOutboundQuotes", fields: [customerId], references: [id])
+  contractor Customer @relation("ContractorInboundQuotes", fields: [contractorId], references: [id])
+  project    Project? @relation(fields: [projectId], references: [id])
 
-  attachments  String[]    // List of file URLs (drawings, specs)
-  conversationId String?   @db.ObjectId // Reference to chat conversation
-  
+  attachments    String[] // List of file URLs (drawings, specs)
+  conversationId String?  @db.ObjectId // Reference to chat conversation
+
   // Flow 1: Detailed BoQ
-  items        QuoteItem[]
-  
+  items QuoteItem[]
+
   // Flow 3: Staged Payments
-  milestones   PaymentMilestone[]
-  
+  milestones PaymentMilestone[]
+
   // Staged Payments & Escrow
-  totalAmount  Float?      // Tổng giá trị (đã bao gồm phí)
-  platformFee  Float       @default(0) // Phí môi giới sàn thu
-  escrowBalance Float      @default(0) // Số tiền hiện đang treo ký quỹ
-  
-  metadata     Json?       // Extra metadata
-  
-  history      QuoteStatusHistory[]
+  totalAmount   Float? // Tổng giá trị (đã bao gồm phí)
+  platformFee   Float  @default(0) // Phí môi giới sàn thu
+  escrowBalance Float  @default(0) // Số tiền hiện đang treo ký quỹ
+
+  metadata Json? // Extra metadata
+
+  history          QuoteStatusHistory[]
   milestoneReports WorkerReport[]
 
-  @@map("quote_requests")
   @@index([customerId])
   @@index([contractorId])
   @@index([status])
   @@index([parentQuoteId])
+  @@map("quote_requests")
 }
 
 // Flow 1: Bill of Quantities (BoQ)
 model QuoteItem {
-  id           String      @id @default(auto()) @map("_id") @db.ObjectId
-  quoteId      String      @db.ObjectId
-  description  String      // Name of material or task
-  quantity     Float
-  unit         String      // kg, m2, box, day...
-  unitPrice    Float
-  totalPrice   Float
-  category     String?     // Material, Labor, Other
-  
-  quote        QuoteRequest @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  id          String  @id @default(auto()) @map("_id") @db.ObjectId
+  quoteId     String  @db.ObjectId
+  description String // Name of material or task
+  quantity    Float
+  unit        String // kg, m2, box, day...
+  unitPrice   Float
+  totalPrice  Float
+  category    String? // Material, Labor, Other
+
+  quote QuoteRequest @relation(fields: [quoteId], references: [id], onDelete: Cascade)
 
   @@map("quote_items")
 }
 
 // Flow 3: Payment Milestones
 model PaymentMilestone {
-  id             String        @id @default(auto()) @map("_id") @db.ObjectId
-  quoteId        String        @db.ObjectId
-  quote          QuoteRequest  @relation(fields: [quoteId], references: [id])
-  name           String        // VD: Tạm ứng, Xong phần thô...
-  percentage     Float
-  amount         Float
-  order          Int           @default(1)
-  status         String        @default("PENDING") // PENDING, ESCROW_PAID, COMPLETED, RELEASED
-  dueDate        DateTime?     // Added for milestone tracking
-  paidAt         DateTime?
-  
+  id         String       @id @default(auto()) @map("_id") @db.ObjectId
+  quoteId    String       @db.ObjectId
+  quote      QuoteRequest @relation(fields: [quoteId], references: [id])
+  name       String // VD: Tạm ứng, Xong phần thô...
+  percentage Float
+  amount     Float
+  order      Int          @default(1)
+  status     String       @default("PENDING") // PENDING, ESCROW_PAID, COMPLETED, RELEASED
+  dueDate    DateTime? // Added for milestone tracking
+  paidAt     DateTime?
+
   // Evidence of completion
   evidenceUrl   String?
   evidenceNotes String?
-  
-  createdAt      DateTime      @default(now())
-  workerReports  WorkerReport[]
-  
+
+  createdAt     DateTime       @default(now())
+  workerReports WorkerReport[]
+
   // Escrow tracking
-  escrowStatus   MilestoneEscrowStatus @default(PENDING) // PENDING -> DEPOSITED -> RELEASED
-  proofImageUrl  String?       // Ảnh nghiệm thu thực tế
-  confirmedAt    DateTime?     // Thời điểm khách nhấn duyệt nghiệm thu
+  escrowStatus  MilestoneEscrowStatus @default(PENDING) // PENDING -> DEPOSITED -> RELEASED
+  proofImageUrl String? // Ảnh nghiệm thu thực tế
+  confirmedAt   DateTime? // Thời điểm khách nhấn duyệt nghiệm thu
 
   @@map("payment_milestones")
 }
 
 enum MilestoneEscrowStatus {
-  PENDING         // Chưa thanh toán
-  DEPOSITED       // Khách đã nạp tiền vào quỹ treo
-  RELEASED        // Sàn đã chuyển tiền cho nhà thầu
-  DISPUTED        // Đang tranh chấp
+  PENDING // Chưa thanh toán
+  DEPOSITED // Khách đã nạp tiền vào quỹ treo
+  RELEASED // Sàn đã chuyển tiền cho nhà thầu
+  DISPUTED // Đang tranh chấp
 }
 
 model QuoteStatusHistory {
-  id           String      @id @default(auto()) @map("_id") @db.ObjectId
-  quoteId      String      @db.ObjectId
-  userId       String      @db.ObjectId // User who made the change
-  oldStatus    QuoteStatus?
-  newStatus    QuoteStatus
-  notes        String?
-  createdAt    DateTime    @default(now())
+  id        String       @id @default(auto()) @map("_id") @db.ObjectId
+  quoteId   String       @db.ObjectId
+  userId    String       @db.ObjectId // User who made the change
+  oldStatus QuoteStatus?
+  newStatus QuoteStatus
+  notes     String?
+  createdAt DateTime     @default(now())
 
-  quote        QuoteRequest @relation(fields: [quoteId], references: [id])
+  quote QuoteRequest @relation(fields: [quoteId], references: [id])
 
-  @@map("quote_status_history")
   @@index([quoteId])
+  @@map("quote_status_history")
 }
 
 enum QuoteStatus {
@@ -1831,36 +1927,36 @@ enum QuoteStatus {
 
 // Hợp đồng giá với khách hàng
 model Contract {
-  id              String         @id @default(auto()) @map("_id") @db.ObjectId
-  contractNumber  String         @unique
-  customerId      String         @db.ObjectId
-  quoteId         String?        @db.ObjectId
-  name            String         // Tên hợp đồng
-  description     String?
-  contractType    ContractType   @default(FIXED_PRICE)
-  status          ContractStatus @default(DRAFT)
-  validFrom       DateTime
-  validTo         DateTime
-  totalValue      Float?         // Tổng giá trị hợp đồng (nếu có)
-  usedValue       Float          @default(0) // Đã sử dụng
-  creditTermDays  Int            @default(30) // Số ngày công nợ cho HĐ này
-  specialCreditLimit Float?      // Hạn mức đặc biệt cho HĐ này
-  terms           String?        // Điều khoản
-  approvedBy      String?
-  approvedAt      DateTime?
-  notes           String?
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
+  id                 String         @id @default(auto()) @map("_id") @db.ObjectId
+  contractNumber     String         @unique
+  customerId         String         @db.ObjectId
+  quoteId            String?        @db.ObjectId
+  name               String // Tên hợp đồng
+  description        String?
+  contractType       ContractType   @default(FIXED_PRICE)
+  status             ContractStatus @default(DRAFT)
+  validFrom          DateTime
+  validTo            DateTime
+  totalValue         Float? // Tổng giá trị hợp đồng (nếu có)
+  usedValue          Float          @default(0) // Đã sử dụng
+  creditTermDays     Int            @default(30) // Số ngày công nợ cho HĐ này
+  specialCreditLimit Float? // Hạn mức đặc biệt cho HĐ này
+  terms              String? // Điều khoản
+  approvedBy         String?
+  approvedAt         DateTime?
+  notes              String?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
 
   // Relationships
-  customer        Customer       @relation(fields: [customerId], references: [id])
-  contractPrices  ContractPrice[]
+  customer       Customer        @relation(fields: [customerId], references: [id])
+  contractPrices ContractPrice[]
 
-  @@map("contracts")
   @@index([customerId])
   @@index([status])
   @@index([validFrom])
   @@index([validTo])
+  @@map("contracts")
 }
 
 // Giá sản phẩm trong hợp đồng
@@ -1868,189 +1964,188 @@ model ContractPrice {
   id              String   @id @default(auto()) @map("_id") @db.ObjectId
   contractId      String
   productId       String
-  fixedPrice      Float?          // Giá cố định (nếu có)
-  discountPercent Float?          // % giảm giá (nếu không dùng giá cố định)
+  fixedPrice      Float? // Giá cố định (nếu có)
+  discountPercent Float? // % giảm giá (nếu không dùng giá cố định)
   minQuantity     Float    @default(0) // Số lượng tối thiểu để áp dụng giá này
-  maxQuantity     Float?          // Số lượng tối đa (null = không giới hạn)
+  maxQuantity     Float? // Số lượng tối đa (null = không giới hạn)
   notes           String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
   // Relationships
-  contract        Contract @relation(fields: [contractId], references: [id])
+  contract Contract @relation(fields: [contractId], references: [id])
 
   @@unique([contractId, productId])
-  @@map("contract_prices")
   @@index([contractId])
   @@index([productId])
+  @@map("contract_prices")
 }
 
 enum ContractType {
-  FIXED_PRICE     // Giá cố định
-  DISCOUNT        // Chiết khấu %
-  VOLUME          // Theo sản lượng
-  MIXED           // Kết hợp
+  FIXED_PRICE // Giá cố định
+  DISCOUNT // Chiết khấu %
+  VOLUME // Theo sản lượng
+  MIXED // Kết hợp
 }
 
 enum ContractStatus {
-  DRAFT           // Nháp
-  PENDING         // Chờ duyệt
-  ACTIVE          // Đang hiệu lực
-  EXPIRED         // Hết hạn
-  CANCELLED       // Đã hủy
-  SUSPENDED       // Tạm dừng
+  DRAFT // Nháp
+  PENDING // Chờ duyệt
+  ACTIVE // Đang hiệu lực
+  EXPIRED // Hết hạn
+  CANCELLED // Đã hủy
+  SUSPENDED // Tạm dừng
 }
 
 // ============================================
 // MARKETPLACE: CONTRACTOR PROFILES
 // ============================================
 
-
 model ContractorProfile {
-  id              String   @id @default(auto()) @map("_id") @db.ObjectId
-  customerId      String   @unique
-  displayName     String
-  bio             String?
-  phone           String?
-  email           String?
-  website         String?
-  companyName     String?
-  customer        Customer @relation(fields: [customerId], references: [id])
-  experienceYears Int?
-  skills          String[]  // List of skills/specialties
-  isVerified      Boolean  @default(false)
+  id               String   @id @default(auto()) @map("_id") @db.ObjectId
+  customerId       String   @unique
+  displayName      String
+  bio              String?
+  phone            String?
+  email            String?
+  website          String?
+  companyName      String?
+  customer         Customer @relation(fields: [customerId], references: [id])
+  experienceYears  Int?
+  skills           String[] // List of skills/specialties
+  isVerified       Boolean  @default(false)
   onboardingStatus String   @default("INCOMPLETE") // INCOMPLETE, PENDING_REVIEW, VERIFIED, REJECTED
-  isAvailable     Boolean  @default(true)
-  
+  isAvailable      Boolean  @default(true)
+
   // Market filters
-  city            String?
-  district        String?
-  address         String?
-  avgRating       Float    @default(0)
-  reviewCount     Int      @default(0)
-  
+  city        String?
+  district    String?
+  address     String?
+  avgRating   Float   @default(0)
+  reviewCount Int     @default(0)
+
   // Flow 5: Trust Score
-  trustScore      Float    @default(100) // Điểm tín nhiệm (0-100)
-  totalProjectsCompleted Int @default(0) // Tổng số dự án đã hoàn thành
-  
+  trustScore             Float @default(100) // Điểm tín nhiệm (0-100)
+  totalProjectsCompleted Int   @default(0) // Tổng số dự án đã hoàn thành
+
   // Additional profile details
   teamSize        Int      @default(1)
   portfolioImages String[]
   portfolioDesc   String[]
   documents       String[]
-  
+
   // Showcase / Spotlight (Flow 4)
-  highlightBio    String?   // Short slogan or highlight
-  awards          String[]  // Notable awards or certifications
-  featuredProjects Json?    // Structured featured work: [{title, year, image, desc}]
-  
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  disputes        Dispute[]
+  highlightBio     String? // Short slogan or highlight
+  awards           String[] // Notable awards or certifications
+  featuredProjects Json? // Structured featured work: [{title, year, image, desc}]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  disputes  Dispute[]
 
   // Relationships
-  reviews         ContractorReview[]
-  orders          Order[]
-  savedProjects   SavedProject[]
+  reviews       ContractorReview[]
+  orders        Order[]
+  savedProjects SavedProject[]
 
-  @@map("contractor_profiles")
   @@index([isVerified])
   @@index([city])
   @@index([avgRating])
   @@index([trustScore])
+  @@map("contractor_profiles")
 }
 
 model SavedProject {
-  id           String              @id @default(auto()) @map("_id") @db.ObjectId
-  contractorId String              @db.ObjectId
-  projectId    String              @db.ObjectId
-  savedAt      DateTime            @default(now())
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  contractorId String   @db.ObjectId
+  projectId    String   @db.ObjectId
+  savedAt      DateTime @default(now())
 
-  contractor   ContractorProfile   @relation(fields: [contractorId], references: [id])
-  project      ConstructionProject @relation(fields: [projectId], references: [id])
+  contractor ContractorProfile   @relation(fields: [contractorId], references: [id])
+  project    ConstructionProject @relation(fields: [projectId], references: [id])
 
-  @@map("saved_projects")
   @@unique([contractorId, projectId])
   @@index([contractorId])
+  @@map("saved_projects")
 }
 
 model Cart {
-  id          String     @id @default(auto()) @map("_id") @db.ObjectId
-  customerId  String     @unique @db.ObjectId
-  items       CartItem[]
-  totalItems  Float      @default(0)
-  subtotal    Float      @default(0)
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  id         String     @id @default(auto()) @map("_id") @db.ObjectId
+  customerId String     @unique @db.ObjectId
+  items      CartItem[]
+  totalItems Float      @default(0)
+  subtotal   Float      @default(0)
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
 
-  customer    Customer   @relation(fields: [customerId], references: [id])
+  customer Customer @relation(fields: [customerId], references: [id])
 
   @@map("carts")
 }
 
 model CartItem {
-  id          String   @id @default(auto()) @map("_id") @db.ObjectId
-  cartId      String   @db.ObjectId
-  productId   String   @db.ObjectId
-  productName String
-  quantity    Float
-  unit        String
-  selectedUnit String?
-  conversionFactor Float? @default(1)
-  unitPrice   Float
-  originalPrice Float?
-  discountPercent Float? @default(0)
-  subtotal    Float
-  source      String?  // BOQ, DIRECT
-  sourceApplicationId String? @db.ObjectId
-  sourceProjectTitle String?
-  createdAt   DateTime @default(now())
+  id                  String   @id @default(auto()) @map("_id") @db.ObjectId
+  cartId              String   @db.ObjectId
+  productId           String   @db.ObjectId
+  productName         String
+  quantity            Float
+  unit                String
+  selectedUnit        String?
+  conversionFactor    Float?   @default(1)
+  unitPrice           Float
+  originalPrice       Float?
+  discountPercent     Float?   @default(0)
+  subtotal            Float
+  source              String? // BOQ, DIRECT
+  sourceApplicationId String?  @db.ObjectId
+  sourceProjectTitle  String?
+  createdAt           DateTime @default(now())
 
-  cart        Cart     @relation(fields: [cartId], references: [id])
-  product     Product  @relation(fields: [productId], references: [id])
+  cart    Cart    @relation(fields: [cartId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
 
   @@map("cart_items")
 }
 
 model ContractorReview {
-  id            String   @id @default(auto()) @map("_id") @db.ObjectId
-  contractorId  String   @db.ObjectId
-  reviewerId    String   // Customer or User ID
-  projectId     String?  // Optional project reference
-  rating        Int      // 1-5 sao tổng thể
-  
+  id           String  @id @default(auto()) @map("_id") @db.ObjectId
+  contractorId String  @db.ObjectId
+  reviewerId   String // Customer or User ID
+  projectId    String? // Optional project reference
+  rating       Int // 1-5 sao tổng thể
+
   // Flow 5: Trust Metrics
-  priceAccuracy   Int      @default(5) // 1-5 sao về tính đúng giá
-  materialQuality Int      @default(5) // 1-5 sao về chất lượng vật tư
-  
-  title         String?
-  comment       String
-  isApproved    Boolean  @default(true)
-  isHidden      Boolean  @default(false)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  metadata      Json?
+  priceAccuracy   Int @default(5) // 1-5 sao về tính đúng giá
+  materialQuality Int @default(5) // 1-5 sao về chất lượng vật tư
+
+  title      String?
+  comment    String
+  isApproved Boolean  @default(true)
+  isHidden   Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  metadata   Json?
 
   // Relationships
-  contractor    ContractorProfile @relation(fields: [contractorId], references: [id])
+  contractor ContractorProfile @relation(fields: [contractorId], references: [id])
 
-  @@map("contractor_reviews")
   @@index([contractorId])
   @@index([reviewerId])
   @@index([rating])
   @@index([isApproved])
+  @@map("contractor_reviews")
 }
 
 model ProjectReportToken {
-  id           String   @id @default(auto()) @map("_id") @db.ObjectId
-  token        String   @unique
-  projectId    String   @db.ObjectId
-  contractorId String   @db.ObjectId // The contractor who generated it
-  milestoneId  String?  @db.ObjectId // Optional: specific milestone this report is for
-  
-  expiresAt    DateTime?
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
+  id           String  @id @default(auto()) @map("_id") @db.ObjectId
+  token        String  @unique
+  projectId    String  @db.ObjectId
+  contractorId String  @db.ObjectId // The contractor who generated it
+  milestoneId  String? @db.ObjectId // Optional: specific milestone this report is for
+
+  expiresAt DateTime?
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
 
   // Relationships
   project    ConstructionProject @relation(fields: [projectId], references: [id])
@@ -2060,35 +2155,35 @@ model ProjectReportToken {
 }
 
 model WorkerReport {
-  id           String   @id @default(auto()) @map("_id") @db.ObjectId
-  projectId    String   @db.ObjectId
-  contractorId String   @db.ObjectId
-  milestoneId  String?  @db.ObjectId // Associated milestone
-  quoteId      String?  @db.ObjectId // Associated quote for milestones
-  workerName   String
-  photoUrl     String
-  imageHash    String?  // Strict content hash
-  pHash        String?  // NEW: Perceptual hash for visual similarity
-  lat          Float?   // NEW: GPS Latitude of photo
-  lng          Float?   // NEW: GPS Longitude of photo
-  takenAt      DateTime? // NEW: Original timestamp from EXIF
-  notes        String?
-  status       String   @default("PENDING") // PENDING, APPROVED, REJECTED
-  customerStatus String @default("PENDING") // NEW: PENDING, APPROVED, DISPUTED
+  id              String    @id @default(auto()) @map("_id") @db.ObjectId
+  projectId       String    @db.ObjectId
+  contractorId    String    @db.ObjectId
+  milestoneId     String?   @db.ObjectId // Associated milestone
+  quoteId         String?   @db.ObjectId // Associated quote for milestones
+  workerName      String
+  photoUrl        String
+  imageHash       String? // Strict content hash
+  pHash           String? // NEW: Perceptual hash for visual similarity
+  lat             Float? // NEW: GPS Latitude of photo
+  lng             Float? // NEW: GPS Longitude of photo
+  takenAt         DateTime? // NEW: Original timestamp from EXIF
+  notes           String?
+  status          String    @default("PENDING") // PENDING, APPROVED, REJECTED
+  customerStatus  String    @default("PENDING") // NEW: PENDING, APPROVED, DISPUTED
   rejectionReason String? // NEW: Reason if customer rejects
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   project    ConstructionProject @relation(fields: [projectId], references: [id])
   contractor Customer            @relation(fields: [contractorId], references: [id])
   milestone  PaymentMilestone?   @relation(fields: [milestoneId], references: [id])
   quote      QuoteRequest?       @relation(fields: [quoteId], references: [id])
 
-  @@map("worker_reports")
   @@index([projectId])
   @@index([status])
   @@index([milestoneId])
   @@index([imageHash])
+  @@map("worker_reports")
 }
 
 // ============================================
@@ -2096,64 +2191,65 @@ model WorkerReport {
 // ============================================
 
 enum ProjectType {
-  NEW_BUILD      // Xây mới
-  RENOVATION     // Sửa chữa/Cải tạo
-  INTERIOR       // Nội thất
-  ELECTRICAL     // Điện
-  PLUMBING       // Nước
-  ROOFING        // Mái
-  OTHER          // Khác
+  NEW_BUILD // Xây mới
+  RENOVATION // Sửa chữa/Cải tạo
+  INTERIOR // Nội thất
+  ELECTRICAL // Điện
+  PLUMBING // Nước
+  ROOFING // Mái
+  OTHER // Khác
 }
 
 model MarketProject {
-  id              String        @id @default(auto()) @map("_id") @db.ObjectId
-  customerId      String        @db.ObjectId // Owner of the project
-  title           String
-  description     String
-  projectType     ProjectType   @default(NEW_BUILD)
-  status          ProjectStatus @default(PLANNING)
-  address         String?
-  district        String?
-  city            String        @default("Biên Hòa")
-  budgetMin       Float?        // Minimum budget
-  budgetMax       Float?        // Maximum budget
-  startDate       DateTime?     // Expected start date
-  endDate         DateTime?     // Expected end date
-  requirements    String[]      // Required skills
-  images          String[]      // Project images
-  isUrgent        Boolean       @default(false)
-  viewCount       Int           @default(0)
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  id           String        @id @default(auto()) @map("_id") @db.ObjectId
+  customerId   String        @db.ObjectId // Owner of the project
+  title        String
+  description  String
+  projectType  ProjectType   @default(NEW_BUILD)
+  status       ProjectStatus @default(PLANNING)
+  address      String?
+  district     String?
+  city         String        @default("Biên Hòa")
+  budgetMin    Float? // Minimum budget
+  budgetMax    Float? // Maximum budget
+  startDate    DateTime? // Expected start date
+  endDate      DateTime? // Expected end date
+  requirements String[] // Required skills
+  images       String[] // Project images
+  isUrgent     Boolean       @default(false)
+  viewCount    Int           @default(0)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
 
   // Relationships
-  applications    MarketProjectApplication[]
+  applications MarketProjectApplication[]
+  bids         ProjectBid[]
 
-  @@map("market_projects")
   @@index([status])
   @@index([projectType])
   @@index([city])
   @@index([isUrgent])
+  @@map("market_projects")
 }
 
 model MarketProjectApplication {
-  id              String   @id @default(auto()) @map("_id") @db.ObjectId
-  projectId       String   @db.ObjectId
-  contractorId    String   @db.ObjectId
-  message         String   // Application message
-  proposedBudget  Float?   // Proposed budget
-  proposedDays    Int?     // Proposed number of days to complete
-  status          String   @default("PENDING") // PENDING, ACCEPTED, REJECTED, WITHDRAWN
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  projectId      String   @db.ObjectId
+  contractorId   String   @db.ObjectId
+  message        String // Application message
+  proposedBudget Float? // Proposed budget
+  proposedDays   Int? // Proposed number of days to complete
+  status         String   @default("PENDING") // PENDING, ACCEPTED, REJECTED, WITHDRAWN
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   // Relationships
-  project         MarketProject @relation(fields: [projectId], references: [id])
+  project MarketProject @relation(fields: [projectId], references: [id])
 
-  @@map("market_project_applications")
   @@index([projectId])
   @@index([contractorId])
   @@index([status])
+  @@map("market_project_applications")
 }
 
 model ConstructionProject {
@@ -2162,8 +2258,8 @@ model ConstructionProject {
   description     String
   projectType     String
   location        String
-  lat             Float?   // NEW: Project GPS Latitude
-  lng             Float?   // NEW: Project GPS Longitude
+  lat             Float? // NEW: Project GPS Latitude
+  lng             Float? // NEW: Project GPS Longitude
   district        String?
   city            String   @default("Biên Hòa")
   estimatedBudget Float?
@@ -2183,75 +2279,74 @@ model ConstructionProject {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  applications    ProjectApplication[]
-  reportTokens    ProjectReportToken[]
-  workerReports   WorkerReport[]
+  applications         ProjectApplication[]
+  reportTokens         ProjectReportToken[]
+  workerReports        WorkerReport[]
   siteMaterialRequests SiteMaterialRequest[]
   expenses             ProjectExpense[]
   savedBy              SavedProject[]
-  
+
   // B2B Organization support
-  organizationId  String?      @db.ObjectId
-  organization    Organization? @relation(fields: [organizationId], references: [id])
-  
-  @@map("construction_projects")
+  organizationId String?       @db.ObjectId
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+
   @@index([status])
   @@index([projectType])
   @@index([city])
   @@index([customerId])
+  @@map("construction_projects")
 }
 
 model ProjectExpense {
   id           String   @id @default(auto()) @map("_id") @db.ObjectId
   projectId    String?  @db.ObjectId
   contractorId String?  @db.ObjectId
-  category     String   // MATERIALS, LABOR, TRANSPORT, OTHER
+  category     String // MATERIALS, LABOR, TRANSPORT, OTHER
   amount       Float
   notes        String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  project      ConstructionProject? @relation(fields: [projectId], references: [id])
-  
+  project ConstructionProject? @relation(fields: [projectId], references: [id])
+
   @@map("project_expenses")
 }
 
 model ProjectApplication {
-  id              String   @id @default(auto()) @map("_id") @db.ObjectId
-  projectId       String   @db.ObjectId
-  contractorId    String?  // Null if guest
-  
+  id           String  @id @default(auto()) @map("_id") @db.ObjectId
+  projectId    String  @db.ObjectId
+  contractorId String? // Null if guest
+
   // Guest Support (Provisional Profile)
-  isGuest         Boolean  @default(false)
-  guestName       String?
-  guestPhone      String?
-  guestEmail      String?
-  
-  message         String
-  proposedBudget  Float?
-  proposedDays    Int?
-  status          String   @default("PENDING") // PENDING, NEGOTIATING, SHORTLISTED, SELECTED, REJECTED, CLOSED
-  
+  isGuest    Boolean @default(false)
+  guestName  String?
+  guestPhone String?
+  guestEmail String?
+
+  message        String
+  proposedBudget Float?
+  proposedDays   Int?
+  status         String @default("PENDING") // PENDING, NEGOTIATING, SHORTLISTED, SELECTED, REJECTED, CLOSED
+
   // Flow 3: BoQ (Materials)
-  materials       Json?    // [{id, name, quantity, unit, price}]
-  
+  materials Json? // [{id, name, quantity, unit, price}]
+
   // Flow 1: Attachments
-  attachments     String[] // URLs to PDF/Images
-  
+  attachments String[] // URLs to PDF/Images
+
   // Flow 2: Privacy
   isContactUnlocked Boolean @default(false)
-  
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
 
-  project         ConstructionProject @relation(fields: [projectId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  @@map("project_applications")
+  project ConstructionProject @relation(fields: [projectId], references: [id])
+
   @@index([projectId])
   @@index([contractorId])
   @@index([status])
+  @@map("project_applications")
 }
-
 
 // ============================================
 // SAVED ESTIMATES (AI Estimator)
@@ -2259,24 +2354,24 @@ model ProjectApplication {
 
 model SavedEstimate {
   id          String   @id @default(auto()) @map("_id") @db.ObjectId
-  customerId  String?  // For logged-in users
-  sessionId   String?  // For guest users
-  projectType String   // Type of project (wall, floor, etc.)
-  projectName String?  // User-given name
-  area        Float    // Area in m²
-  materials   Json     // Array of calculated materials with quantities and prices
-  totalCost   Float    // Total estimated cost
-  notes       String?  // User notes
+  customerId  String? // For logged-in users
+  sessionId   String? // For guest users
+  projectType String // Type of project (wall, floor, etc.)
+  projectName String? // User-given name
+  area        Float // Area in m²
+  materials   Json // Array of calculated materials with quantities and prices
+  totalCost   Float // Total estimated cost
+  notes       String? // User notes
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   // Relationships
-  phases      ProjectPhase[]
-  reminders   ProjectReminder[]
+  phases    ProjectPhase[]
+  reminders ProjectReminder[]
 
-  @@map("saved_estimates")
   @@index([customerId])
   @@index([sessionId])
+  @@map("saved_estimates")
 }
 
 // ============================================
@@ -2291,70 +2386,70 @@ enum PhaseStatus {
 }
 
 model ProjectPhase {
-  id              String      @id @default(auto()) @map("_id") @db.ObjectId
-  estimateId      String      @db.ObjectId
-  name            String      // Phase name: "Móng", "Xây thô", "Lát nền"...
-  description     String?     // AI-generated description
-  order           Int         // Sequence order
-  status          PhaseStatus @default(PENDING)
-  
+  id          String      @id @default(auto()) @map("_id") @db.ObjectId
+  estimateId  String      @db.ObjectId
+  name        String // Phase name: "Móng", "Xây thô", "Lát nền"...
+  description String? // AI-generated description
+  order       Int // Sequence order
+  status      PhaseStatus @default(PENDING)
+
   // Timeline
   estimatedStartDate DateTime?
   estimatedEndDate   DateTime?
   actualStartDate    DateTime?
   actualEndDate      DateTime?
-  
+
   // Materials for this phase
-  recommendedMaterials Json?   // Array of { productId, name, quantity, priority }
+  recommendedMaterials Json? // Array of { productId, name, quantity, priority }
   purchaseDeadline     DateTime? // When materials should be ordered
-  
+
   // Progress
-  completionPercent Int @default(0)
-  notes            String?
-  
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  completionPercent Int     @default(0)
+  notes             String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relationships
-  estimate         SavedEstimate @relation(fields: [estimateId], references: [id])
+  estimate SavedEstimate @relation(fields: [estimateId], references: [id])
 
-  @@map("project_phases")
   @@index([estimateId])
   @@index([status])
   @@index([order])
+  @@map("project_phases")
 }
 
 model ProjectReminder {
-  id           String   @id @default(auto()) @map("_id") @db.ObjectId
-  estimateId   String   @db.ObjectId
-  customerId   String?
-  
+  id         String  @id @default(auto()) @map("_id") @db.ObjectId
+  estimateId String  @db.ObjectId
+  customerId String?
+
   // Reminder details
-  title        String
-  message      String
-  type         String   // MATERIAL_PURCHASE, PHASE_START, DEADLINE, CUSTOM
-  priority     String   @default("MEDIUM") // LOW, MEDIUM, HIGH, URGENT
-  
+  title    String
+  message  String
+  type     String // MATERIAL_PURCHASE, PHASE_START, DEADLINE, CUSTOM
+  priority String @default("MEDIUM") // LOW, MEDIUM, HIGH, URGENT
+
   // Scheduling
   scheduledFor DateTime
   sentAt       DateTime?
-  isRead       Boolean  @default(false)
-  isDismissed  Boolean  @default(false)
-  
+  isRead       Boolean   @default(false)
+  isDismissed  Boolean   @default(false)
+
   // Reference
-  phaseId      String?  @db.ObjectId
-  productIds   String[] // Products to remind about
-  
-  createdAt    DateTime @default(now())
+  phaseId    String?  @db.ObjectId
+  productIds String[] // Products to remind about
+
+  createdAt DateTime @default(now())
 
   // Relationships
-  estimate     SavedEstimate @relation(fields: [estimateId], references: [id])
+  estimate SavedEstimate @relation(fields: [estimateId], references: [id])
 
-  @@map("project_reminders")
   @@index([estimateId])
   @@index([customerId])
   @@index([scheduledFor])
   @@index([isRead])
+  @@map("project_reminders")
 }
 
 // ============================================
@@ -2362,38 +2457,38 @@ model ProjectReminder {
 // ============================================
 
 model ChatSummary {
-  id              String   @id @default(auto()) @map("_id") @db.ObjectId
-  conversationId  String   @db.ObjectId
-  
+  id             String @id @default(auto()) @map("_id") @db.ObjectId
+  conversationId String @db.ObjectId
+
   // Summary content
-  title           String   // Auto-generated title
-  summary         String   // Full AI summary
-  
+  title   String // Auto-generated title
+  summary String // Full AI summary
+
   // Extracted key points
-  agreedPrice     Float?   // Extracted agreed price
-  priceUnit       String?  // "m2", "total", "day"...
-  agreedDate      DateTime? // Agreed delivery/start date
-  keyTerms        Json?    // Array of { term, value, confidence }
-  
+  agreedPrice Float? // Extracted agreed price
+  priceUnit   String? // "m2", "total", "day"...
+  agreedDate  DateTime? // Agreed delivery/start date
+  keyTerms    Json? // Array of { term, value, confidence }
+
   // Participants info at time of summary
   participant1Name String
   participant2Name String
-  
-  // Messages covered
-  messageCount    Int
-  fromMessageId   String?  @db.ObjectId
-  toMessageId     String?  @db.ObjectId
-  
-  // Status
-  isConfirmed     Boolean  @default(false) // Both parties confirmed
-  confirmedBy     String[] // IDs of users who confirmed
-  
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
 
-  @@map("chat_summaries")
+  // Messages covered
+  messageCount  Int
+  fromMessageId String? @db.ObjectId
+  toMessageId   String? @db.ObjectId
+
+  // Status
+  isConfirmed Boolean  @default(false) // Both parties confirmed
+  confirmedBy String[] // IDs of users who confirmed
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@index([conversationId])
   @@index([createdAt])
+  @@map("chat_summaries")
 }
 
 // ============================================
@@ -2415,38 +2510,38 @@ model Conversation {
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
-  messages         Message[]
+  messages Message[]
 
-  @@map("conversations")
   @@index([participant1Id])
   @@index([participant2Id])
+  @@map("conversations")
 }
 
 model Message {
-  id             String       @id @default(auto()) @map("_id") @db.ObjectId
-  conversationId String       @db.ObjectId
+  id             String  @id @default(auto()) @map("_id") @db.ObjectId
+  conversationId String  @db.ObjectId
   senderId       String
   senderName     String
   senderRole     String?
   realSenderId   String?
   content        String?
   metadata       Json?
-  
+
   // File attachments
-  fileUrl        String?
-  fileName       String?
-  fileType       String?      // image, document, video, etc.
-  fileSize       Int?
-  
-  isRead         Boolean      @default(false)
-  readAt         DateTime?
-  createdAt      DateTime     @default(now())
+  fileUrl  String?
+  fileName String?
+  fileType String? // image, document, video, etc.
+  fileSize Int?
 
-  conversation   Conversation @relation(fields: [conversationId], references: [id])
+  isRead    Boolean   @default(false)
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
 
-  @@map("messages")
+  conversation Conversation @relation(fields: [conversationId], references: [id])
+
   @@index([conversationId])
   @@index([senderId])
+  @@map("messages")
 }
 
 // ============================================
@@ -2461,38 +2556,38 @@ enum SupportStatus {
 }
 
 model SupportRequest {
-  id              String        @id @default(auto()) @map("_id") @db.ObjectId
-  name            String
-  phone           String
-  email           String?
-  message         String
-  status          SupportStatus @default(PENDING)
-  priority        Priority      @default(MEDIUM)
-  
-  // System Info
-  ipAddress       String?
-  userAgent       String?
-  browserName     String?
-  browserVersion  String?
-  osName          String?
-  osVersion       String?
-  deviceType      String?       // mobile, desktop, tablet
-  screenRes       String?       // e.g. 1920x1080
-  
-  // Context
-  pageUrl         String?
-  userId          String?       // If logged in
-  
-  // Attachments
-  attachments     Json?         // Array of { fileUrl, fileName, fileType, fileSize }
-  
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  id       String        @id @default(auto()) @map("_id") @db.ObjectId
+  name     String
+  phone    String
+  email    String?
+  message  String
+  status   SupportStatus @default(PENDING)
+  priority Priority      @default(MEDIUM)
 
-  @@map("support_requests")
+  // System Info
+  ipAddress      String?
+  userAgent      String?
+  browserName    String?
+  browserVersion String?
+  osName         String?
+  osVersion      String?
+  deviceType     String? // mobile, desktop, tablet
+  screenRes      String? // e.g. 1920x1080
+
+  // Context
+  pageUrl String?
+  userId  String? // If logged in
+
+  // Attachments
+  attachments Json? // Array of { fileUrl, fileName, fileType, fileSize }
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@index([status])
   @@index([createdAt])
   @@index([phone])
+  @@map("support_requests")
 }
 
 // ============================================
@@ -2504,7 +2599,7 @@ model SiteMaterialRequest {
   projectId    String   @db.ObjectId
   contractorId String   @db.ObjectId
   workerName   String
-  items        Json     // [{name, quantity, unit, notes}]
+  items        Json // [{name, quantity, unit, notes}]
   status       String   @default("PENDING") // PENDING, APPROVED, REJECTED, ORDERED
   priority     Priority @default(MEDIUM)
   notes        String?
@@ -2518,26 +2613,26 @@ model SiteMaterialRequest {
 }
 
 model OrderDelivery {
-  id              String   @id @default(auto()) @map("_id") @db.ObjectId
-  orderId         String   @unique @db.ObjectId
-  driverId        String?  @db.ObjectId // If assigned to a specific employee
-  deliveryToken   String   @unique // For the driver's public link
-  status          String   @default("ASSIGNED") // ASSIGNED, SHIPPED, DELIVERED, FAILED
-  shippedAt       DateTime?
-  deliveredAt     DateTime?
-  proofImageUrl   String?
-  evidenceNotes   String?
-  
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  orderId       String    @unique @db.ObjectId
+  driverId      String?   @db.ObjectId // If assigned to a specific employee
+  deliveryToken String    @unique // For the driver's public link
+  status        String    @default("ASSIGNED") // ASSIGNED, SHIPPED, DELIVERED, FAILED
+  shippedAt     DateTime?
+  deliveredAt   DateTime?
+  proofImageUrl String?
+  evidenceNotes String?
+
   // Real-time Tracking (Flow 3)
-  currentLat      Float?   // NEW: Current GPS Latitude
-  currentLng      Float?   // NEW: Current GPS Longitude
+  currentLat         Float? // NEW: Current GPS Latitude
+  currentLng         Float? // NEW: Current GPS Longitude
   lastLocationUpdate DateTime? // NEW
 
-  deliveryLat     Float?
-  deliveryLng     Float?
-  recipientName   String?
-  
-  order           Order    @relation(fields: [orderId], references: [id])
+  deliveryLat   Float?
+  deliveryLng   Float?
+  recipientName String?
+
+  order Order @relation(fields: [orderId], references: [id])
 
   @@map("order_deliveries")
 }
@@ -2547,55 +2642,55 @@ model OrderDelivery {
 // ============================================
 
 model Dispute {
-  id              String   @id @default(auto()) @map("_id") @db.ObjectId
-  orderId         String?  @db.ObjectId
-  projectId       String?  @db.ObjectId
-  
+  id        String  @id @default(auto()) @map("_id") @db.ObjectId
+  orderId   String? @db.ObjectId
+  projectId String? @db.ObjectId
+
   // Actor identification
-  type            DisputeType @default(CUSTOMER_TO_STORE)
-  
-  customerId      String?  @db.ObjectId // Involved customer
-  contractorId    String?  @db.ObjectId // Involved contractor
-  supplierId      String?  @db.ObjectId // Involved supplier
-  
-  reason          String
-  description     String
-  status          DisputeStatus @default(OPEN)
-  resolution      String?      // Admin resolution
-  resolvedAt      DateTime?
-  resolvedBy      String?      @db.ObjectId // Admin ID
-  
-  evidence        DisputeEvidence[]
-  comments        DisputeComment[]
-  
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  
-  order           Order?   @relation(fields: [orderId], references: [id])
-  customer        Customer? @relation(fields: [customerId], references: [id])
-  contractor      ContractorProfile? @relation(fields: [contractorId], references: [id])
-  supplier        Supplier? @relation(fields: [supplierId], references: [id])
-  
-  @@map("disputes")
+  type DisputeType @default(CUSTOMER_TO_STORE)
+
+  customerId   String? @db.ObjectId // Involved customer
+  contractorId String? @db.ObjectId // Involved contractor
+  supplierId   String? @db.ObjectId // Involved supplier
+
+  reason      String
+  description String
+  status      DisputeStatus @default(OPEN)
+  resolution  String? // Admin resolution
+  resolvedAt  DateTime?
+  resolvedBy  String?       @db.ObjectId // Admin ID
+
+  evidence DisputeEvidence[]
+  comments DisputeComment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  order      Order?             @relation(fields: [orderId], references: [id])
+  customer   Customer?          @relation(fields: [customerId], references: [id])
+  contractor ContractorProfile? @relation(fields: [contractorId], references: [id])
+  supplier   Supplier?          @relation(fields: [supplierId], references: [id])
+
   @@index([status])
   @@index([type])
   @@index([orderId])
+  @@map("disputes")
 }
 
 model DisputeComment {
-  id              String   @id @default(auto()) @map("_id") @db.ObjectId
-  disputeId       String   @db.ObjectId
-  authorId        String   @db.ObjectId // User ID
-  content         String
-  attachments     String[] // Array of image URLs
-  
-  createdAt       DateTime @default(now())
-  
-  dispute         Dispute  @relation(fields: [disputeId], references: [id])
-  author          User     @relation(fields: [authorId], references: [id])
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  disputeId   String   @db.ObjectId
+  authorId    String   @db.ObjectId // User ID
+  content     String
+  attachments String[] // Array of image URLs
 
-  @@map("dispute_comments")
+  createdAt DateTime @default(now())
+
+  dispute Dispute @relation(fields: [disputeId], references: [id])
+  author  User    @relation(fields: [authorId], references: [id])
+
   @@index([disputeId])
+  @@map("dispute_comments")
 }
 
 enum DisputeType {
@@ -2607,13 +2702,13 @@ enum DisputeType {
 }
 
 model DisputeEvidence {
-  id              String   @id @default(auto()) @map("_id") @db.ObjectId
-  disputeId       String   @db.ObjectId
-  imageUrl        String
-  description     String?
-  
-  dispute         Dispute  @relation(fields: [disputeId], references: [id])
-  
+  id          String  @id @default(auto()) @map("_id") @db.ObjectId
+  disputeId   String  @db.ObjectId
+  imageUrl    String
+  description String?
+
+  dispute Dispute @relation(fields: [disputeId], references: [id])
+
   @@map("dispute_evidences")
 }
 
@@ -2623,54 +2718,55 @@ enum DisputeStatus {
   RESOLVED
   REJECTED
 }
+
 model Wallet {
-  id              String   @id @default(auto()) @map("_id") @db.ObjectId
-  customerId      String   @unique @db.ObjectId
-  balance         Float    @default(0) // Số dư khả dụng (VND)
-  holdBalance     Float    @default(0) // Tiền đang chờ duyệt (Escrow hoặc sỉ chưa giao)
-  totalEarned     Float    @default(0) // Tổng tiền đã kiếm được
-  totalSpent      Float    @default(0) // Tổng tiền đã dùng mua hàng
-  updatedAt       DateTime @updatedAt
-  
-  customer        Customer @relation(fields: [customerId], references: [id])
-  transactions    WalletTransaction[]
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  customerId  String   @unique @db.ObjectId
+  balance     Float    @default(0) // Số dư khả dụng (VND)
+  holdBalance Float    @default(0) // Tiền đang chờ duyệt (Escrow hoặc sỉ chưa giao)
+  totalEarned Float    @default(0) // Tổng tiền đã kiếm được
+  totalSpent  Float    @default(0) // Tổng tiền đã dùng mua hàng
+  updatedAt   DateTime @updatedAt
+
+  customer     Customer            @relation(fields: [customerId], references: [id])
+  transactions WalletTransaction[]
 
   @@map("wallets")
 }
 
 model WalletTransaction {
-  id              String   @id @default(auto()) @map("_id") @db.ObjectId
-  walletId        String   @db.ObjectId
-  amount          Float    // Số tiền (dương = cộng, âm = trừ)
-  type            WalletTransactionType
-  status          WalletTransactionStatus @default(COMPLETED)
-  description     String?
-  relatedOrderId  String?  @db.ObjectId
-  metadata        Json?    // Extra data (bank info for withdrawal, etc.)
-  createdAt       DateTime @default(now())
-  
-  wallet          Wallet   @relation(fields: [walletId], references: [id])
+  id             String                  @id @default(auto()) @map("_id") @db.ObjectId
+  walletId       String                  @db.ObjectId
+  amount         Float // Số tiền (dương = cộng, âm = trừ)
+  type           WalletTransactionType
+  status         WalletTransactionStatus @default(COMPLETED)
+  description    String?
+  relatedOrderId String?                 @db.ObjectId
+  metadata       Json? // Extra data (bank info for withdrawal, etc.)
+  createdAt      DateTime                @default(now())
 
-  @@map("wallet_transactions")
+  wallet Wallet @relation(fields: [walletId], references: [id])
+
   @@index([walletId])
   @@index([type])
   @@index([status])
+  @@map("wallet_transactions")
 }
 
 enum WalletTransactionStatus {
-  PENDING     // Đang chờ xử lý (withdrawal)
-  COMPLETED   // Đã hoàn thành
-  REJECTED    // Đã từ chối
-  CANCELLED   // Đã hủy
+  PENDING // Đang chờ xử lý (withdrawal)
+  COMPLETED // Đã hoàn thành
+  REJECTED // Đã từ chối
+  CANCELLED // Đã hủy
 }
 
 enum WalletTransactionType {
-  COMMISSION      // Hoa hồng từ giới thiệu (Affiliate)
-  ORDER_PAYMENT   // Dùng ví thanh toán đơn hàng
-  WITHDRAWAL      // Rút tiền khỏi hệ thống
-  REFUND          // Hoàn tiền đơn hàng vào ví
-  ESCROW_RELEASE  // Giải ngân từ hợp đồng thầu
-  ADJUSTMENT      // Điều chỉnh từ Admin
+  COMMISSION // Hoa hồng từ giới thiệu (Affiliate)
+  ORDER_PAYMENT // Dùng ví thanh toán đơn hàng
+  WITHDRAWAL // Rút tiền khỏi hệ thống
+  REFUND // Hoàn tiền đơn hàng vào ví
+  ESCROW_RELEASE // Giải ngân từ hợp đồng thầu
+  ADJUSTMENT // Điều chỉnh từ Admin
 }
 
 // ============================================
@@ -2679,40 +2775,40 @@ enum WalletTransactionType {
 
 // Layer 1: Audit Log - Truy vết mọi hành động nhạy cảm
 model AuditLog {
-  id            String   @id @default(auto()) @map("_id") @db.ObjectId
-  
-  // Who did it
-  actorId       String?  @db.ObjectId    // User ID who performed action
-  actorEmail    String?                   // Email for reference (in case user deleted)
-  actorRole     String?                   // Role at time of action
-  actorIp       String?                   // IP address
-  actorDevice   String?                   // Device/browser info
-  
-  // What happened
-  action        AuditAction               // Type of action
-  entityType    String                    // Target entity type (Customer, Order, Wallet, etc.)
-  entityId      String?  @db.ObjectId     // Target entity ID
-  
-  // Change details
-  oldValue      Json?                     // Previous value (for updates)
-  newValue      Json?                     // New value
-  changes       Json?                     // Structured diff of changes
-  
-  // Context
-  reason        String?                   // Reason provided (if any)
-  metadata      Json?                     // Additional context data
-  
-  // Severity
-  severity      AuditSeverity @default(INFO)
-  
-  createdAt     DateTime @default(now())
+  id String @id @default(auto()) @map("_id") @db.ObjectId
 
-  @@map("audit_logs")
+  // Who did it
+  actorId     String? @db.ObjectId // User ID who performed action
+  actorEmail  String? // Email for reference (in case user deleted)
+  actorRole   String? // Role at time of action
+  actorIp     String? // IP address
+  actorDevice String? // Device/browser info
+
+  // What happened
+  action     AuditAction // Type of action
+  entityType String // Target entity type (Customer, Order, Wallet, etc.)
+  entityId   String?     @db.ObjectId // Target entity ID
+
+  // Change details
+  oldValue Json? // Previous value (for updates)
+  newValue Json? // New value
+  changes  Json? // Structured diff of changes
+
+  // Context
+  reason   String? // Reason provided (if any)
+  metadata Json? // Additional context data
+
+  // Severity
+  severity AuditSeverity @default(INFO)
+
+  createdAt DateTime @default(now())
+
   @@index([actorId])
   @@index([action])
   @@index([entityType, entityId])
   @@index([severity])
   @@index([createdAt])
+  @@map("audit_logs")
 }
 
 enum AuditAction {
@@ -2722,7 +2818,7 @@ enum AuditAction {
   LOGIN_FAILED
   PASSWORD_CHANGE
   PASSWORD_RESET
-  
+
   // User Management
   USER_CREATE
   USER_UPDATE
@@ -2730,13 +2826,13 @@ enum AuditAction {
   USER_BAN
   USER_UNBAN
   ROLE_CHANGE
-  
+
   // KYC & Verification
   KYC_SUBMIT
   KYC_APPROVE
   KYC_REJECT
   VERIFICATION_CHANGE
-  
+
   // Financial
   CREDIT_LIMIT_CHANGE
   CREDIT_APPROVAL
@@ -2746,14 +2842,14 @@ enum AuditAction {
   WALLET_ADJUSTMENT
   ESCROW_DEPOSIT
   ESCROW_RELEASE
-  
+
   // Contractor
   CONTRACTOR_VERIFY
   CONTRACTOR_SUSPEND
   BANK_ACCOUNT_CHANGE
   QUOTE_SUBMIT
   QUOTE_ACCEPT
-  
+
   // Order & Project
   ORDER_CREATE
   ORDER_CANCEL
@@ -2768,102 +2864,101 @@ enum AuditAction {
 }
 
 enum AuditSeverity {
-  INFO        // Normal operations
-  NOTICE      // Notable but expected
-  WARNING     // Potentially concerning
-  CRITICAL    // Requires immediate attention
+  INFO // Normal operations
+  NOTICE // Notable but expected
+  WARNING // Potentially concerning
+  CRITICAL // Requires immediate attention
 }
 
 // Layer 2: KYC Documents - Xác minh danh tính
 model KYCDocument {
-  id              String        @id @default(auto()) @map("_id") @db.ObjectId
-  customerId      String        @db.ObjectId
-  
+  id         String @id @default(auto()) @map("_id") @db.ObjectId
+  customerId String @db.ObjectId
+
   // Document Info
-  documentType    KYCDocumentType
-  documentNumber  String?                   // ID number, tax code, etc.
-  frontImageUrl   String                    // Front of ID/license
-  backImageUrl    String?                   // Back (if applicable)
-  selfieUrl       String?                   // Selfie with ID
-  
+  documentType   KYCDocumentType
+  documentNumber String? // ID number, tax code, etc.
+  frontImageUrl  String // Front of ID/license
+  backImageUrl   String? // Back (if applicable)
+  selfieUrl      String? // Selfie with ID
+
   // Business docs (for contractors)
-  businessLicenseUrl  String?             // Giấy phép kinh doanh
-  taxCertificateUrl   String?             // Giấy chứng nhận MST
-  
+  businessLicenseUrl String? // Giấy phép kinh doanh
+  taxCertificateUrl  String? // Giấy chứng nhận MST
+
   // Verification
-  status          KYCStatus     @default(PENDING)
-  verifiedBy      String?       @db.ObjectId  // Admin who verified
+  status          KYCStatus @default(PENDING)
+  verifiedBy      String?   @db.ObjectId // Admin who verified
   verifiedAt      DateTime?
   rejectionReason String?
-  
-  // Metadata
-  expiryDate      DateTime?                 // Document expiry
-  extractedData   Json?                     // OCR/AI extracted data
-  
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
 
-  @@map("kyc_documents")
+  // Metadata
+  expiryDate    DateTime? // Document expiry
+  extractedData Json? // OCR/AI extracted data
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@index([customerId])
   @@index([status])
   @@index([documentType])
+  @@map("kyc_documents")
 }
 
 enum KYCDocumentType {
-  CCCD            // Căn cước công dân
-  CMND            // Chứng minh nhân dân (old)
+  CCCD // Căn cước công dân
+  CMND // Chứng minh nhân dân (old)
   PASSPORT
-  BUSINESS_LICENSE   // Giấy phép kinh doanh
-  TAX_CERTIFICATE    // Đăng ký thuế
+  BUSINESS_LICENSE // Giấy phép kinh doanh
+  TAX_CERTIFICATE // Đăng ký thuế
   CONTRACTOR_LICENSE // Chứng chỉ hành nghề
 }
 
 enum KYCStatus {
-  PENDING         // Chờ xử lý
-  REVIEWING       // Đang xem xét
-  APPROVED        // Đã duyệt
-  REJECTED        // Từ chối
-  EXPIRED         // Hết hạn
+  PENDING // Chờ xử lý
+  REVIEWING // Đang xem xét
+  APPROVED // Đã duyệt
+  REJECTED // Từ chối
+  EXPIRED // Hết hạn
 }
 
 // Layer 3: Suspicious Activity Detection - Phát hiện bất thường
 model SuspiciousActivity {
-  id              String        @id @default(auto()) @map("_id") @db.ObjectId
-  
-  // Who
-  userId          String?       @db.ObjectId
-  customerId      String?       @db.ObjectId
-  sessionId       String?                     // For guest tracking
-  ipAddress       String?
-  deviceFingerprint String?
-  
-  // What
-  activityType    SuspiciousActivityType
-  description     String
-  evidence        Json?                       // Supporting data
-  
-  // Related entities
-  relatedEntityType String?                   // Order, Quote, Project, etc.
-  relatedEntityId   String?       @db.ObjectId
-  
-  // Linked accounts (for multi-account detection)
-  linkedUserIds   String[]      @db.ObjectId
-  linkedIps       String[]
-  
-  // Risk assessment
-  riskScore       Float         @default(0)   // 0-100
-  severity        AlertSeverity @default(LOW)
-  
-  // Resolution
-  status          AlertStatus   @default(OPEN)
-  resolvedBy      String?       @db.ObjectId
-  resolvedAt      DateTime?
-  resolution      String?                     // Action taken
-  
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  id String @id @default(auto()) @map("_id") @db.ObjectId
 
-  @@map("suspicious_activities")
+  // Who
+  userId            String? @db.ObjectId
+  customerId        String? @db.ObjectId
+  sessionId         String? // For guest tracking
+  ipAddress         String?
+  deviceFingerprint String?
+
+  // What
+  activityType SuspiciousActivityType
+  description  String
+  evidence     Json? // Supporting data
+
+  // Related entities
+  relatedEntityType String? // Order, Quote, Project, etc.
+  relatedEntityId   String? @db.ObjectId
+
+  // Linked accounts (for multi-account detection)
+  linkedUserIds String[] @db.ObjectId
+  linkedIps     String[]
+
+  // Risk assessment
+  riskScore Float         @default(0) // 0-100
+  severity  AlertSeverity @default(LOW)
+
+  // Resolution
+  status     AlertStatus @default(OPEN)
+  resolvedBy String?     @db.ObjectId
+  resolvedAt DateTime?
+  resolution String? // Action taken
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@index([userId])
   @@index([customerId])
   @@index([ipAddress])
@@ -2871,18 +2966,19 @@ model SuspiciousActivity {
   @@index([status])
   @@index([severity])
   @@index([createdAt])
+  @@map("suspicious_activities")
 }
 
 enum SuspiciousActivityType {
-  MULTI_ACCOUNT           // Nhiều tài khoản từ cùng IP/thiết bị
-  COLLUSION_BIDDING       // Thông đồng đấu thầu
-  FAKE_REVIEWS            // Đánh giá ảo
-  RAPID_WITHDRAWALS       // Rút tiền liên tục bất thường
-  UNUSUAL_TRANSACTION     // Giao dịch bất thường
-  LOGIN_ANOMALY           // Đăng nhập từ vị trí lạ
-  PRICE_MANIPULATION      // Thao túng giá
-  IDENTITY_MISMATCH       // Thông tin không khớp
-  PAYMENT_FRAUD           // Thanh toán gian lận
+  MULTI_ACCOUNT // Nhiều tài khoản từ cùng IP/thiết bị
+  COLLUSION_BIDDING // Thông đồng đấu thầu
+  FAKE_REVIEWS // Đánh giá ảo
+  RAPID_WITHDRAWALS // Rút tiền liên tục bất thường
+  UNUSUAL_TRANSACTION // Giao dịch bất thường
+  LOGIN_ANOMALY // Đăng nhập từ vị trí lạ
+  PRICE_MANIPULATION // Thao túng giá
+  IDENTITY_MISMATCH // Thông tin không khớp
+  PAYMENT_FRAUD // Thanh toán gian lận
   OTHER
 }
 
@@ -2903,53 +2999,53 @@ enum AlertStatus {
 
 // Layer 4: User Restrictions - Cấm vận đa cấp độ
 model UserRestriction {
-  id              String        @id @default(auto()) @map("_id") @db.ObjectId
-  customerId      String        @db.ObjectId
-  
+  id         String @id @default(auto()) @map("_id") @db.ObjectId
+  customerId String @db.ObjectId
+
   // Restriction Type
-  type            RestrictionType
-  reason          String
-  evidence        Json?                       // Supporting evidence
-  
+  type     RestrictionType
+  reason   String
+  evidence Json? // Supporting evidence
+
   // Duration
-  isActive        Boolean       @default(true)
-  startDate       DateTime      @default(now())
-  endDate         DateTime?                   // null = permanent
-  
+  isActive  Boolean   @default(true)
+  startDate DateTime  @default(now())
+  endDate   DateTime? // null = permanent
+
   // Who imposed
-  imposedBy       String        @db.ObjectId  // Admin/System ID
-  imposedByName   String?
-  
+  imposedBy     String  @db.ObjectId // Admin/System ID
+  imposedByName String?
+
   // Appeal
-  appealStatus    AppealStatus  @default(NONE)
-  appealReason    String?
+  appealStatus     AppealStatus @default(NONE)
+  appealReason     String?
   appealReviewedBy String?      @db.ObjectId
   appealReviewedAt DateTime?
-  
-  // Audit
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
-  liftedAt        DateTime?
-  liftedBy        String?       @db.ObjectId
-  liftReason      String?
 
-  @@map("user_restrictions")
+  // Audit
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  liftedAt   DateTime?
+  liftedBy   String?   @db.ObjectId
+  liftReason String?
+
   @@index([customerId])
   @@index([type])
   @@index([isActive])
   @@index([startDate])
   @@index([endDate])
+  @@map("user_restrictions")
 }
 
 enum RestrictionType {
-  FULL_BAN            // Cấm hoàn toàn
-  MARKETPLACE_BAN     // Cấm nhận dự án/báo giá
-  WALLET_HOLD         // Tạm dừng rút tiền (điều tra)
-  CREDIT_FREEZE       // Khóa tín dụng
-  REVIEW_BAN          // Cấm đánh giá
-  BIDDING_BAN         // Cấm đấu thầu
-  COMMUNICATION_BAN   // Cấm chat
-  PROBATION           // Thời gian thử thách (theo dõi)
+  FULL_BAN // Cấm hoàn toàn
+  MARKETPLACE_BAN // Cấm nhận dự án/báo giá
+  WALLET_HOLD // Tạm dừng rút tiền (điều tra)
+  CREDIT_FREEZE // Khóa tín dụng
+  REVIEW_BAN // Cấm đánh giá
+  BIDDING_BAN // Cấm đấu thầu
+  COMMUNICATION_BAN // Cấm chat
+  PROBATION // Thời gian thử thách (theo dõi)
 }
 
 enum AppealStatus {
@@ -2962,37 +3058,37 @@ enum AppealStatus {
 
 // Device/Session tracking for anomaly detection
 model DeviceSession {
-  id              String        @id @default(auto()) @map("_id") @db.ObjectId
-  userId          String?       @db.ObjectId
-  customerId      String?       @db.ObjectId
-  
-  // Device info
-  fingerprint     String                      // Device fingerprint hash
-  userAgent       String
-  platform        String?                     // Windows, Mac, iOS, Android
-  browser         String?
-  
-  // Location
-  ipAddress       String
-  city            String?
-  country         String?
-  
-  // Session
-  sessionToken    String?
-  lastActiveAt    DateTime      @default(now())
-  
-  // Trust
-  isTrusted       Boolean       @default(false)  // User marked as trusted
-  trustScore      Float         @default(50)     // 0-100
-  
-  createdAt       DateTime      @default(now())
+  id         String  @id @default(auto()) @map("_id") @db.ObjectId
+  userId     String? @db.ObjectId
+  customerId String? @db.ObjectId
 
-  @@map("device_sessions")
+  // Device info
+  fingerprint String // Device fingerprint hash
+  userAgent   String
+  platform    String? // Windows, Mac, iOS, Android
+  browser     String?
+
+  // Location
+  ipAddress String
+  city      String?
+  country   String?
+
+  // Session
+  sessionToken String?
+  lastActiveAt DateTime @default(now())
+
+  // Trust
+  isTrusted  Boolean @default(false) // User marked as trusted
+  trustScore Float   @default(50) // 0-100
+
+  createdAt DateTime @default(now())
+
   @@index([userId])
   @@index([customerId])
   @@index([fingerprint])
   @@index([ipAddress])
   @@index([lastActiveAt])
+  @@map("device_sessions")
 }
 
 // ============================================
@@ -3001,417 +3097,415 @@ model DeviceSession {
 
 // Feature 1: E-Invoice (Hóa đơn điện tử VAT)
 model EInvoice {
-  id              String        @id @default(auto()) @map("_id") @db.ObjectId
-  
-  // Reference
-  invoiceId       String?       @db.ObjectId    // Link to internal Invoice
-  orderId         String?       @db.ObjectId
-  quoteId         String?       @db.ObjectId
-  
-  // Invoice Info
-  invoiceNumber   String        @unique         // Số hóa đơn từ nhà cung cấp
-  invoiceSeries   String?                       // Ký hiệu (e.g., 1C24TDK)
-  templateCode    String?                       // Mẫu hóa đơn
-  
-  // Seller Info
-  sellerTaxCode   String                        // MST người bán (cửa hàng)
-  sellerName      String
-  sellerAddress   String?
-  
-  // Buyer Info
-  buyerTaxCode    String?                       // MST người mua (nếu có)
-  buyerName       String
-  buyerAddress    String?
-  buyerEmail      String?
-  
-  // Amounts
-  subtotal        Float
-  vatRate         Float         @default(10)    // 0, 5, 8, 10%
-  vatAmount       Float
-  totalAmount     Float
-  currency        String        @default("VND")
-  
-  // E-Invoice Provider
-  provider        EInvoiceProvider @default(INTERNAL)
-  providerInvoiceId String?                     // ID từ nhà cung cấp (Misa, Viettel...)
-  providerResponse Json?                        // Response data từ provider
-  
-  // Status
-  status          EInvoiceStatus @default(DRAFT)
-  signedAt        DateTime?
-  sentAt          DateTime?
-  cancelledAt     DateTime?
-  cancelReason    String?
-  
-  // Files
-  pdfUrl          String?                       // URL file PDF hóa đơn
-  xmlUrl          String?                       // URL file XML
-  
-  // Audit
-  createdBy       String?       @db.ObjectId
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  id String @id @default(auto()) @map("_id") @db.ObjectId
 
-  @@map("e_invoices")
+  // Reference
+  invoiceId String? @db.ObjectId // Link to internal Invoice
+  orderId   String? @db.ObjectId
+  quoteId   String? @db.ObjectId
+
+  // Invoice Info
+  invoiceNumber String  @unique // Số hóa đơn từ nhà cung cấp
+  invoiceSeries String? // Ký hiệu (e.g., 1C24TDK)
+  templateCode  String? // Mẫu hóa đơn
+
+  // Seller Info
+  sellerTaxCode String // MST người bán (cửa hàng)
+  sellerName    String
+  sellerAddress String?
+
+  // Buyer Info
+  buyerTaxCode String? // MST người mua (nếu có)
+  buyerName    String
+  buyerAddress String?
+  buyerEmail   String?
+
+  // Amounts
+  subtotal    Float
+  vatRate     Float  @default(10) // 0, 5, 8, 10%
+  vatAmount   Float
+  totalAmount Float
+  currency    String @default("VND")
+
+  // E-Invoice Provider
+  provider          EInvoiceProvider @default(INTERNAL)
+  providerInvoiceId String? // ID từ nhà cung cấp (Misa, Viettel...)
+  providerResponse  Json? // Response data từ provider
+
+  // Status
+  status       EInvoiceStatus @default(DRAFT)
+  signedAt     DateTime?
+  sentAt       DateTime?
+  cancelledAt  DateTime?
+  cancelReason String?
+
+  // Files
+  pdfUrl String? // URL file PDF hóa đơn
+  xmlUrl String? // URL file XML
+
+  // Audit
+  createdBy String?  @db.ObjectId
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@index([orderId])
   @@index([buyerTaxCode])
   @@index([status])
   @@index([createdAt])
+  @@map("e_invoices")
 }
 
 enum EInvoiceProvider {
-  INTERNAL        // Nội bộ (không gửi đi)
-  MISA            // Misa meInvoice
-  VIETTEL         // Viettel S-Invoice
-  VNPT            // VNPT E-Invoice
-  FPT             // FPT.eInvoice
-  BKAV            // BKAV eHoadon
+  INTERNAL // Nội bộ (không gửi đi)
+  MISA // Misa meInvoice
+  VIETTEL // Viettel S-Invoice
+  VNPT // VNPT E-Invoice
+  FPT // FPT.eInvoice
+  BKAV // BKAV eHoadon
 }
 
 enum EInvoiceStatus {
-  DRAFT           // Nháp
-  PENDING_SIGN    // Chờ ký số
-  SIGNED          // Đã ký
-  SENT            // Đã gửi cho khách
-  CANCELLED       // Đã hủy
-  REPLACED        // Đã thay thế (xuất hóa đơn mới)
+  DRAFT // Nháp
+  PENDING_SIGN // Chờ ký số
+  SIGNED // Đã ký
+  SENT // Đã gửi cho khách
+  CANCELLED // Đã hủy
+  REPLACED // Đã thay thế (xuất hóa đơn mới)
 }
 
 // Feature 2: E-Contract (Hợp đồng điện tử có pháp lý)
 model EContract {
-  id              String        @id @default(auto()) @map("_id") @db.ObjectId
-  
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+
   // Reference
-  quoteId         String?       @db.ObjectId
-  projectId       String?       @db.ObjectId
-  orderId         String?       @db.ObjectId
-  
+  quoteId   String? @db.ObjectId
+  projectId String? @db.ObjectId
+  orderId   String? @db.ObjectId
+
   // Contract Info
-  contractNumber  String        @unique
-  title           String
-  description     String?
-  contractType    EContractType
-  
+  contractNumber String        @unique
+  title          String
+  description    String?
+  contractType   EContractType
+
   // Parties
-  partyA          Json                          // {name, taxCode, address, representative, role}
-  partyB          Json                          // {name, taxCode, address, representative, role}
-  
+  partyA Json // {name, taxCode, address, representative, role}
+  partyB Json // {name, taxCode, address, representative, role}
+
   // Value & Terms
-  totalValue      Float
-  currency        String        @default("VND")
-  startDate       DateTime
-  endDate         DateTime?
-  paymentTerms    String?
-  
+  totalValue   Float
+  currency     String    @default("VND")
+  startDate    DateTime
+  endDate      DateTime?
+  paymentTerms String?
+
   // Content
-  templateId      String?                       // Template được sử dụng
-  contentHtml     String?                       // Nội dung HTML
-  clauses         Json?                         // Các điều khoản {id, title, content}[]
-  
+  templateId  String? // Template được sử dụng
+  contentHtml String? // Nội dung HTML
+  clauses     Json? // Các điều khoản {id, title, content}[]
+
   // Signatures
   signatureStatus EContractSignStatus @default(PENDING)
   partyASignedAt  DateTime?
-  partyASignature Json?                         // {method, signatureData, ipAddress, timestamp}
+  partyASignature Json? // {method, signatureData, ipAddress, timestamp}
   partyBSignedAt  DateTime?
   partyBSignature Json?
-  
-  // Digital Signature (CA)
-  usesDigitalCert Boolean       @default(false)
-  certSerialNumber String?                      // Serial chứng thư số
-  certProvider    String?                       // Nhà cung cấp CA (VNPT-CA, Viettel-CA, etc.)
-  
-  // Files
-  pdfUrl          String?                       // URL hợp đồng PDF
-  signedPdfUrl    String?                       // URL hợp đồng đã ký
-  
-  // Status
-  status          EContractStatus @default(DRAFT)
-  effectiveDate   DateTime?                     // Ngày có hiệu lực
-  terminatedAt    DateTime?
-  terminationReason String?
-  
-  // Audit
-  createdBy       String        @db.ObjectId
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
 
-  @@map("e_contracts")
+  // Digital Signature (CA)
+  usesDigitalCert  Boolean @default(false)
+  certSerialNumber String? // Serial chứng thư số
+  certProvider     String? // Nhà cung cấp CA (VNPT-CA, Viettel-CA, etc.)
+
+  // Files
+  pdfUrl       String? // URL hợp đồng PDF
+  signedPdfUrl String? // URL hợp đồng đã ký
+
+  // Status
+  status            EContractStatus @default(DRAFT)
+  effectiveDate     DateTime? // Ngày có hiệu lực
+  terminatedAt      DateTime?
+  terminationReason String?
+
+  // Audit
+  createdBy String   @db.ObjectId
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@index([quoteId])
   @@index([projectId])
   @@index([status])
   @@index([signatureStatus])
+  @@map("e_contracts")
 }
 
 enum EContractType {
-  SERVICE         // Hợp đồng dịch vụ thi công
-  SUPPLY          // Hợp đồng cung cấp vật tư
-  CONSTRUCTION    // Hợp đồng xây dựng
-  MAINTENANCE     // Hợp đồng bảo trì
-  FRAMEWORK       // Hợp đồng khung (nhiều đơn hàng)
+  SERVICE // Hợp đồng dịch vụ thi công
+  SUPPLY // Hợp đồng cung cấp vật tư
+  CONSTRUCTION // Hợp đồng xây dựng
+  MAINTENANCE // Hợp đồng bảo trì
+  FRAMEWORK // Hợp đồng khung (nhiều đơn hàng)
 }
 
 enum EContractSignStatus {
-  PENDING         // Chờ ký
-  PARTY_A_SIGNED  // Bên A đã ký
-  PARTY_B_SIGNED  // Bên B đã ký
-  FULLY_SIGNED    // Đã ký đủ
-  REJECTED        // Từ chối ký
+  PENDING // Chờ ký
+  PARTY_A_SIGNED // Bên A đã ký
+  PARTY_B_SIGNED // Bên B đã ký
+  FULLY_SIGNED // Đã ký đủ
+  REJECTED // Từ chối ký
 }
 
 enum EContractStatus {
-  DRAFT           // Nháp
-  PENDING_REVIEW  // Chờ xem xét
-  PENDING_SIGN    // Chờ ký
-  ACTIVE          // Đang có hiệu lực
-  COMPLETED       // Đã hoàn thành
-  TERMINATED      // Đã chấm dứt
-  EXPIRED         // Hết hạn
+  DRAFT // Nháp
+  PENDING_REVIEW // Chờ xem xét
+  PENDING_SIGN // Chờ ký
+  ACTIVE // Đang có hiệu lực
+  COMPLETED // Đã hoàn thành
+  TERMINATED // Đã chấm dứt
+  EXPIRED // Hết hạn
 }
 
 // Feature 3: Project Insurance (Bảo hiểm công trình)
 model ProjectInsurance {
-  id              String        @id @default(auto()) @map("_id") @db.ObjectId
-  
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+
   // Reference
-  projectId       String?       @db.ObjectId
-  quoteId         String?       @db.ObjectId
-  contractId      String?       @db.ObjectId    // Link to EContract
-  
+  projectId  String? @db.ObjectId
+  quoteId    String? @db.ObjectId
+  contractId String? @db.ObjectId // Link to EContract
+
   // Policy Info
-  policyNumber    String        @unique
-  insurerName     String                        // Tên công ty bảo hiểm
-  insurerCode     String?                       // Mã đại lý/công ty
-  
+  policyNumber String  @unique
+  insurerName  String // Tên công ty bảo hiểm
+  insurerCode  String? // Mã đại lý/công ty
+
   // Coverage
-  insuranceType   InsuranceType
-  coverageAmount  Float                         // Số tiền bảo hiểm tối đa
-  deductible      Float         @default(0)     // Mức khấu trừ
-  premium         Float                         // Phí bảo hiểm
-  
+  insuranceType  InsuranceType
+  coverageAmount Float // Số tiền bảo hiểm tối đa
+  deductible     Float         @default(0) // Mức khấu trừ
+  premium        Float // Phí bảo hiểm
+
   // Period
-  effectiveDate   DateTime
-  expiryDate      DateTime
-  
+  effectiveDate DateTime
+  expiryDate    DateTime
+
   // Insured Party
-  insuredName     String
-  insuredTaxCode  String?
-  insuredAddress  String?
-  
+  insuredName    String
+  insuredTaxCode String?
+  insuredAddress String?
+
   // Beneficiary (người thụ hưởng)
   beneficiaryName String?
   beneficiaryInfo Json?
-  
-  // Status
-  status          InsuranceStatus @default(PENDING)
-  approvedAt      DateTime?
-  claimCount      Int           @default(0)
-  totalClaimAmount Float        @default(0)
-  
-  // Documents
-  policyDocUrl    String?                       // URL file hợp đồng bảo hiểm
-  certificateUrl  String?                       // URL giấy chứng nhận
-  
-  // Claims
-  claims          InsuranceClaim[]
-  
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
 
-  @@map("project_insurances")
+  // Status
+  status           InsuranceStatus @default(PENDING)
+  approvedAt       DateTime?
+  claimCount       Int             @default(0)
+  totalClaimAmount Float           @default(0)
+
+  // Documents
+  policyDocUrl   String? // URL file hợp đồng bảo hiểm
+  certificateUrl String? // URL giấy chứng nhận
+
+  // Claims
+  claims InsuranceClaim[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@index([projectId])
   @@index([status])
   @@index([expiryDate])
+  @@map("project_insurances")
 }
 
 model InsuranceClaim {
-  id              String        @id @default(auto()) @map("_id") @db.ObjectId
-  insuranceId     String        @db.ObjectId
-  
-  // Claim Info
-  claimNumber     String        @unique
-  incidentDate    DateTime
-  reportDate      DateTime      @default(now())
-  description     String
-  
-  // Damage
-  damageType      String                        // Thiệt hại vật chất, tai nạn lao động, etc.
-  estimatedLoss   Float
-  claimAmount     Float                         // Số tiền yêu cầu bồi thường
-  approvedAmount  Float?                        // Số tiền được duyệt
-  
-  // Evidence
-  photos          String[]                      // URLs ảnh chứng cứ
-  documents       String[]                      // URLs tài liệu
-  witnessInfo     Json?                         // Thông tin nhân chứng
-  
-  // Status
-  status          ClaimStatus   @default(SUBMITTED)
-  reviewedBy      String?
-  reviewedAt      DateTime?
-  reviewNotes     String?
-  paidAt          DateTime?
-  
-  // Relationship
-  insurance       ProjectInsurance @relation(fields: [insuranceId], references: [id])
-  
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  id          String @id @default(auto()) @map("_id") @db.ObjectId
+  insuranceId String @db.ObjectId
 
-  @@map("insurance_claims")
+  // Claim Info
+  claimNumber  String   @unique
+  incidentDate DateTime
+  reportDate   DateTime @default(now())
+  description  String
+
+  // Damage
+  damageType     String // Thiệt hại vật chất, tai nạn lao động, etc.
+  estimatedLoss  Float
+  claimAmount    Float // Số tiền yêu cầu bồi thường
+  approvedAmount Float? // Số tiền được duyệt
+
+  // Evidence
+  photos      String[] // URLs ảnh chứng cứ
+  documents   String[] // URLs tài liệu
+  witnessInfo Json? // Thông tin nhân chứng
+
+  // Status
+  status      ClaimStatus @default(SUBMITTED)
+  reviewedBy  String?
+  reviewedAt  DateTime?
+  reviewNotes String?
+  paidAt      DateTime?
+
+  // Relationship
+  insurance ProjectInsurance @relation(fields: [insuranceId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@index([insuranceId])
   @@index([status])
+  @@map("insurance_claims")
 }
 
 enum InsuranceType {
-  CONSTRUCTION_ALL_RISK   // Bảo hiểm mọi rủi ro xây dựng (CAR)
-  LIABILITY               // Bảo hiểm trách nhiệm dân sự
-  WORKERS_COMPENSATION    // Bảo hiểm tai nạn lao động
-  EQUIPMENT               // Bảo hiểm thiết bị máy móc
-  MATERIAL_TRANSIT        // Bảo hiểm vận chuyển vật liệu
-  PROFESSIONAL_INDEMNITY  // Bảo hiểm trách nhiệm nghề nghiệp
+  CONSTRUCTION_ALL_RISK // Bảo hiểm mọi rủi ro xây dựng (CAR)
+  LIABILITY // Bảo hiểm trách nhiệm dân sự
+  WORKERS_COMPENSATION // Bảo hiểm tai nạn lao động
+  EQUIPMENT // Bảo hiểm thiết bị máy móc
+  MATERIAL_TRANSIT // Bảo hiểm vận chuyển vật liệu
+  PROFESSIONAL_INDEMNITY // Bảo hiểm trách nhiệm nghề nghiệp
 }
 
 enum InsuranceStatus {
-  PENDING         // Đang chờ duyệt
-  ACTIVE          // Đang có hiệu lực
-  EXPIRED         // Hết hạn
-  CANCELLED       // Đã hủy
-  CLAIMED         // Đã có claim
+  PENDING // Đang chờ duyệt
+  ACTIVE // Đang có hiệu lực
+  EXPIRED // Hết hạn
+  CANCELLED // Đã hủy
+  CLAIMED // Đã có claim
 }
 
 enum ClaimStatus {
-  SUBMITTED       // Đã gửi
-  UNDER_REVIEW    // Đang xem xét
-  APPROVED        // Đã duyệt
-  REJECTED        // Từ chối
-  PAID            // Đã thanh toán
-  CLOSED          // Đã đóng
+  SUBMITTED // Đã gửi
+  UNDER_REVIEW // Đang xem xét
+  APPROVED // Đã duyệt
+  REJECTED // Từ chối
+  PAID // Đã thanh toán
+  CLOSED // Đã đóng
 }
 
 // Feature 4: Delivery Phases (Giao hàng theo giai đoạn)
 model DeliveryPhase {
-  id              String        @id @default(auto()) @map("_id") @db.ObjectId
-  orderId         String        @db.ObjectId
-  
-  // Phase Info
-  phaseNumber     Int                           // Đợt 1, 2, 3...
-  phaseName       String                        // "Giai đoạn móng", "Giai đoạn hoàn thiện"
-  description     String?
-  
-  // Items in this phase
-  items           Json                          // [{productId, quantity, unitPrice}]
-  itemCount       Int           @default(0)
-  
-  // Value
-  phaseValue      Float                         // Giá trị đợt giao
-  depositRequired Float         @default(0)     // Tiền cọc yêu cầu cho đợt này
-  
-  // Schedule
-  scheduledDate   DateTime                      // Ngày dự kiến giao
-  actualDate      DateTime?                     // Ngày giao thực tế
-  
-  // Status
-  status          DeliveryPhaseStatus @default(PENDING)
-  
-  // Payment (linked to Escrow)
-  paymentStatus   PhasePaymentStatus @default(UNPAID)
-  depositPaidAt   DateTime?
-  releasedAt      DateTime?                     // Tiền được giải ngân lúc nào
-  
-  // Delivery tracking
-  trackingNumber  String?
-  carrierName     String?
-  deliveryProof   String?                       // URL ảnh xác nhận giao hàng
-  receiverName    String?
-  receiverSignature String?                     // URL chữ ký người nhận
-  
-  // Confirmation
-  confirmedBy     String?       @db.ObjectId    // Khách hàng xác nhận
-  confirmedAt     DateTime?
-  
-  // Relationship
-  order           Order         @relation(fields: [orderId], references: [id])
-  
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  id      String @id @default(auto()) @map("_id") @db.ObjectId
+  orderId String @db.ObjectId
 
+  // Phase Info
+  phaseNumber Int // Đợt 1, 2, 3...
+  phaseName   String // "Giai đoạn móng", "Giai đoạn hoàn thiện"
+  description String?
+
+  // Items in this phase
+  items     Json // [{productId, quantity, unitPrice}]
+  itemCount Int  @default(0)
+
+  // Value
+  phaseValue      Float // Giá trị đợt giao
+  depositRequired Float @default(0) // Tiền cọc yêu cầu cho đợt này
+
+  // Schedule
+  scheduledDate DateTime // Ngày dự kiến giao
+  actualDate    DateTime? // Ngày giao thực tế
+
+  // Status
+  status DeliveryPhaseStatus @default(PENDING)
+
+  // Payment (linked to Escrow)
+  paymentStatus PhasePaymentStatus @default(UNPAID)
+  depositPaidAt DateTime?
+  releasedAt    DateTime? // Tiền được giải ngân lúc nào
+
+  // Delivery tracking
+  trackingNumber    String?
+  carrierName       String?
+  deliveryProof     String? // URL ảnh xác nhận giao hàng
+  receiverName      String?
+  receiverSignature String? // URL chữ ký người nhận
+
+  // Confirmation
+  confirmedBy String?   @db.ObjectId // Khách hàng xác nhận
+  confirmedAt DateTime?
+
+  // Relationship
+  order Order @relation(fields: [orderId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Dispatch & Cash Collection
-  driverId     String?     @db.ObjectId
-  driver       Employee?   @relation("PhaseDriver", fields: [driverId], references: [id])
-  isCashCollected Boolean? @default(false)
-  cashCollectedAt DateTime?
+  driverId         String?   @db.ObjectId
+  driver           Employee? @relation("PhaseDriver", fields: [driverId], references: [id])
+  isCashCollected  Boolean?  @default(false)
+  cashCollectedAt  DateTime?
   cashHandedOverAt DateTime?
 
-  @@map("delivery_phases")
   @@index([orderId])
   @@index([status])
   @@index([scheduledDate])
   @@index([paymentStatus])
+  @@map("delivery_phases")
 }
 
 enum DeliveryPhaseStatus {
-  PENDING         // Chờ xử lý
-  PREPARING       // Đang chuẩn bị hàng
-  READY           // Sẵn sàng giao
-  IN_TRANSIT      // Đang vận chuyển
-  DELIVERED       // Đã giao
-  CONFIRMED       // Khách đã xác nhận
-  CANCELLED       // Đã hủy
+  PENDING // Chờ xử lý
+  PREPARING // Đang chuẩn bị hàng
+  READY // Sẵn sàng giao
+  IN_TRANSIT // Đang vận chuyển
+  DELIVERED // Đã giao
+  CONFIRMED // Khách đã xác nhận
+  CANCELLED // Đã hủy
 }
 
 enum PhasePaymentStatus {
-  UNPAID          // Chưa thanh toán
-  DEPOSIT_PAID    // Đã đặt cọc
-  ESCROWED        // Tiền đã vào Escrow
-  RELEASED        // Đã giải ngân cho nhà cung cấp/thầu
-  REFUNDED        // Đã hoàn tiền
+  UNPAID // Chưa thanh toán
+  DEPOSIT_PAID // Đã đặt cọc
+  ESCROWED // Tiền đã vào Escrow
+  RELEASED // Đã giải ngân cho nhà cung cấp/thầu
+  REFUNDED // Đã hoàn tiền
 }
 
 // Feature 5: Sensitive Data Encryption Tracking (PDPA Compliance)
 model SensitiveDataLog {
-  id              String        @id @default(auto()) @map("_id") @db.ObjectId
-  
-  // What data
-  dataType        SensitiveDataType
-  entityType      String                        // Customer, KYCDocument, etc.
-  entityId        String        @db.ObjectId
-  fieldName       String                        // cccdNumber, bankAccountNumber, etc.
-  
-  // Encryption
-  encryptionKey   String?                       // Key ID (không lưu key thật)
-  encryptedAt     DateTime      @default(now())
-  algorithm       String        @default("AES-256-GCM")
-  
-  // Access log
-  lastAccessedBy  String?       @db.ObjectId
-  lastAccessedAt  DateTime?
-  accessCount     Int           @default(0)
-  
-  // Compliance
-  retentionDays   Int           @default(365)   // Thời gian lưu trữ
-  expiresAt       DateTime?                     // Ngày phải xóa
-  deletedAt       DateTime?
-  deletionReason  String?
+  id String @id @default(auto()) @map("_id") @db.ObjectId
 
-  @@map("sensitive_data_logs")
+  // What data
+  dataType   SensitiveDataType
+  entityType String // Customer, KYCDocument, etc.
+  entityId   String            @db.ObjectId
+  fieldName  String // cccdNumber, bankAccountNumber, etc.
+
+  // Encryption
+  encryptionKey String? // Key ID (không lưu key thật)
+  encryptedAt   DateTime @default(now())
+  algorithm     String   @default("AES-256-GCM")
+
+  // Access log
+  lastAccessedBy String?   @db.ObjectId
+  lastAccessedAt DateTime?
+  accessCount    Int       @default(0)
+
+  // Compliance
+  retentionDays  Int       @default(365) // Thời gian lưu trữ
+  expiresAt      DateTime? // Ngày phải xóa
+  deletedAt      DateTime?
+  deletionReason String?
+
   @@index([entityType, entityId])
   @@index([dataType])
   @@index([expiresAt])
+  @@map("sensitive_data_logs")
 }
 
 enum SensitiveDataType {
-  CCCD_NUMBER           // Số CCCD
-  CMND_NUMBER           // Số CMND
-  PASSPORT_NUMBER       // Số hộ chiếu
-  TAX_CODE              // Mã số thuế
-  BANK_ACCOUNT          // Số tài khoản ngân hàng
-  PHONE_NUMBER          // Số điện thoại
-  ADDRESS               // Địa chỉ
-  KYC_IMAGE             // Ảnh KYC (CCCD, selfie)
-  SIGNATURE             // Chữ ký
+  CCCD_NUMBER // Số CCCD
+  CMND_NUMBER // Số CMND
+  PASSPORT_NUMBER // Số hộ chiếu
+  TAX_CODE // Mã số thuế
+  BANK_ACCOUNT // Số tài khoản ngân hàng
+  PHONE_NUMBER // Số điện thoại
+  ADDRESS // Địa chỉ
+  KYC_IMAGE // Ảnh KYC (CCCD, selfie)
+  SIGNATURE // Chữ ký
 }
-
 
 // ============================================
 // SUPPLIER PORTAL EXTENSIONS
@@ -3419,25 +3513,25 @@ enum SensitiveDataType {
 
 // Quản lý khuyến mãi từ NCC
 model SupplierPromotion {
-  id              String   @id @default(auto()) @map("_id") @db.ObjectId
-  supplierId      String   @db.ObjectId
+  id              String          @id @default(auto()) @map("_id") @db.ObjectId
+  supplierId      String          @db.ObjectId
   name            String
   description     String?
-  discountPercent Float?   // Giảm theo %
-  discountAmount  Float?   // Giảm theo số tiền
-  minOrderAmount  Float    @default(0)
+  discountPercent Float? // Giảm theo %
+  discountAmount  Float? // Giảm theo số tiền
+  minOrderAmount  Float           @default(0)
   startDate       DateTime
   endDate         DateTime
   status          PromotionStatus @default(PENDING) // PENDING, APPROVED, REJECTED, ACTIVE, EXPIRED
-  appliedProducts String[] @db.ObjectId // List of product IDs applied
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  appliedProducts String[]        @db.ObjectId // List of product IDs applied
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
 
-  supplier        Supplier @relation(fields: [supplierId], references: [id])
+  supplier Supplier @relation(fields: [supplierId], references: [id])
 
-  @@map("supplier_promotions")
   @@index([supplierId])
   @@index([status])
+  @@map("supplier_promotions")
 }
 
 enum PromotionStatus {
@@ -3450,37 +3544,37 @@ enum PromotionStatus {
 
 // Quản lý hàng trả về từ PO
 model PurchaseReturn {
-  id              String   @id @default(auto()) @map("_id") @db.ObjectId
-  purchaseOrderId String   @db.ObjectId
-  supplierId      String   @db.ObjectId
-  reason          String
-  status          ReturnStatus @default(PENDING) // PENDING, RECEIVED, REFUNDED, CANCELLED
-  totalRefundAmount Float  @default(0)
-  evidenceUrls    String[]
-  processingMethod String? // REFUND, DEBT_DEDUCTION, REPLACEMENT
-  items           PurchaseReturnItem[]
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id                String               @id @default(auto()) @map("_id") @db.ObjectId
+  purchaseOrderId   String               @db.ObjectId
+  supplierId        String               @db.ObjectId
+  reason            String
+  status            ReturnStatus         @default(PENDING) // PENDING, RECEIVED, REFUNDED, CANCELLED
+  totalRefundAmount Float                @default(0)
+  evidenceUrls      String[]
+  processingMethod  String? // REFUND, DEBT_DEDUCTION, REPLACEMENT
+  items             PurchaseReturnItem[]
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
 
-  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id])
-  supplier        Supplier      @relation(fields: [supplierId], references: [id])
+  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id])
+  supplier      Supplier      @relation(fields: [supplierId], references: [id])
 
-  @@map("purchase_returns")
   @@index([purchaseOrderId])
   @@index([supplierId])
+  @@map("purchase_returns")
 }
 
 model PurchaseReturnItem {
-  id              String   @id @default(auto()) @map("_id") @db.ObjectId
-  returnId        String   @db.ObjectId
-  productId       String   @db.ObjectId
-  quantity        Float
-  unitPrice       Float
-  reason          String?
-  condition       String? // Mới, Lỗi, Đã khui, ...
+  id        String  @id @default(auto()) @map("_id") @db.ObjectId
+  returnId  String  @db.ObjectId
+  productId String  @db.ObjectId
+  quantity  Float
+  unitPrice Float
+  reason    String?
+  condition String? // Mới, Lỗi, Đã khui, ...
 
-  purchaseReturn  PurchaseReturn @relation(fields: [returnId], references: [id], onDelete: Cascade)
-  product         Product        @relation(fields: [productId], references: [id])
+  purchaseReturn PurchaseReturn @relation(fields: [returnId], references: [id], onDelete: Cascade)
+  product        Product        @relation(fields: [productId], references: [id])
 
   @@map("purchase_return_items")
 }
@@ -3494,22 +3588,22 @@ enum ReturnStatus {
 
 // Quản lý chứng từ NCC
 model SupplierDocument {
-  id              String   @id @default(auto()) @map("_id") @db.ObjectId
-  supplierId      String   @db.ObjectId
-  name            String   // GPKD, CO/CQ, Hợp đồng, v.v.
-  type            String   // PDF, IMAGE
-  fileUrl         String
-  status          DocumentStatus @default(PENDING) // PENDING, VERIFIED, REJECTED, EXPIRED
-  expiryDate      DateTime?
-  notes           String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id         String         @id @default(auto()) @map("_id") @db.ObjectId
+  supplierId String         @db.ObjectId
+  name       String // GPKD, CO/CQ, Hợp đồng, v.v.
+  type       String // PDF, IMAGE
+  fileUrl    String
+  status     DocumentStatus @default(PENDING) // PENDING, VERIFIED, REJECTED, EXPIRED
+  expiryDate DateTime?
+  notes      String?
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
 
-  supplier        Supplier @relation(fields: [supplierId], references: [id])
+  supplier Supplier @relation(fields: [supplierId], references: [id])
 
-  @@map("supplier_documents")
   @@index([supplierId])
   @@index([status])
+  @@map("supplier_documents")
 }
 
 enum DocumentStatus {
@@ -3524,34 +3618,34 @@ enum DocumentStatus {
 // ============================================
 
 model Organization {
-  id          String   @id @default(auto()) @map("_id") @db.ObjectId
-  name        String
-  taxCode     String?
-  address     String?
-  logo        String?
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  name      String
+  taxCode   String?
+  address   String?
+  logo      String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  members     OrganizationMember[]
-  customers   Customer[]
-  orders      Order[]
-  projects    ConstructionProject[]
+  members         OrganizationMember[]
+  customers       Customer[]
+  orders          Order[]
+  projects        ConstructionProject[]
   managedProjects Project[]
-  invitations OrganizationInvitation[]
-  
+  invitations     OrganizationInvitation[]
+
   @@map("organizations")
 }
 
 model OrganizationMember {
-  id             String   @id @default(auto()) @map("_id") @db.ObjectId
-  organizationId String   @db.ObjectId
-  userId         String   @db.ObjectId
+  id             String           @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String           @db.ObjectId
+  userId         String           @db.ObjectId
   role           OrganizationRole @default(BUYER)
-  joinedAt       DateTime @default(now())
+  joinedAt       DateTime         @default(now())
 
-  organization   Organization @relation(fields: [organizationId], references: [id])
-  user           User         @relation(fields: [userId], references: [id])
+  organization Organization @relation(fields: [organizationId], references: [id])
+  user         User         @relation(fields: [userId], references: [id])
 
   @@unique([organizationId, userId])
   @@map("organization_members")
@@ -3571,20 +3665,20 @@ enum InvitationStatus {
 }
 
 model OrganizationInvitation {
-  id              String           @id @default(auto()) @map("_id") @db.ObjectId
-  organizationId  String           @db.ObjectId
-  email           String
-  role            OrganizationRole @default(BUYER)
-  intendedUserRole UserRole        @default(CUSTOMER)
-  invitedById     String           @db.ObjectId
-  status          InvitationStatus @default(PENDING)
-  token           String           @unique
-  expiresAt       DateTime
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
+  id               String           @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId   String           @db.ObjectId
+  email            String
+  role             OrganizationRole @default(BUYER)
+  intendedUserRole UserRole         @default(CUSTOMER)
+  invitedById      String           @db.ObjectId
+  status           InvitationStatus @default(PENDING)
+  token            String           @unique
+  expiresAt        DateTime
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
 
-  organization    Organization     @relation(fields: [organizationId], references: [id])
-  invitedBy       User             @relation(fields: [invitedById], references: [id])
+  organization Organization @relation(fields: [organizationId], references: [id])
+  invitedBy    User         @relation(fields: [invitedById], references: [id])
 
   @@unique([organizationId, email])
   @@map("organization_invitations")
@@ -3617,10 +3711,10 @@ enum WarehouseBinType {
 // ============================================
 
 model WarehouseRack {
-  id          String   @id @default(auto()) @map("_id") @db.ObjectId
-  name        String   // Rack A1, Shelf B2
+  id          String            @id @default(auto()) @map("_id") @db.ObjectId
+  name        String // Rack A1, Shelf B2
   description String?
-  warehouse   String   @default("Main Warehouse")
+  warehouse   String            @default("Main Warehouse")
   type        WarehouseRackType @default(RACK)
   bins        WarehouseBin[]
 
@@ -3628,28 +3722,28 @@ model WarehouseRack {
 }
 
 model WarehouseBin {
-  id          String   @id @default(auto()) @map("_id") @db.ObjectId
-  rackId      String   @db.ObjectId
-  code        String   // A1-01, B2-05
-  capacity    Float?
-  type        WarehouseBinType @default(SHELF_BIN)
-  isActive    Boolean  @default(true)
+  id       String           @id @default(auto()) @map("_id") @db.ObjectId
+  rackId   String           @db.ObjectId
+  code     String // A1-01, B2-05
+  capacity Float?
+  type     WarehouseBinType @default(SHELF_BIN)
+  isActive Boolean          @default(true)
 
-  rack        WarehouseRack @relation(fields: [rackId], references: [id])
-  stockItems  InventoryBinLink[]
+  rack       WarehouseRack      @relation(fields: [rackId], references: [id])
+  stockItems InventoryBinLink[]
 
   @@unique([rackId, code])
   @@map("warehouse_bins")
 }
 
 model InventoryBinLink {
-  id              String   @id @default(auto()) @map("_id") @db.ObjectId
-  inventoryItemId String   @db.ObjectId
-  binId           String   @db.ObjectId
-  quantity        Float    @default(0)
+  id              String @id @default(auto()) @map("_id") @db.ObjectId
+  inventoryItemId String @db.ObjectId
+  binId           String @db.ObjectId
+  quantity        Float  @default(0)
 
-  inventoryItem   InventoryItem @relation(fields: [inventoryItemId], references: [id])
-  bin             WarehouseBin  @relation(fields: [binId], references: [id])
+  inventoryItem InventoryItem @relation(fields: [inventoryItemId], references: [id])
+  bin           WarehouseBin  @relation(fields: [binId], references: [id])
 
   @@unique([inventoryItemId, binId])
   @@map("inventory_bin_links")
@@ -3660,58 +3754,57 @@ model InventoryBinLink {
 // ============================================
 
 model CustomerReturn {
-  id              String   @id @default(auto()) @map("_id") @db.ObjectId
-  orderId         String   @db.ObjectId
-  customerId      String   @db.ObjectId
-  reason          String
-  description     String?
-  status          CustomerReturnStatus @default(PENDING)
-  refundAmount    Float    @default(0)
-  evidenceUrls    String[]
-  adminNotes      String?
-  resolvedAt      DateTime?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id           String               @id @default(auto()) @map("_id") @db.ObjectId
+  orderId      String               @db.ObjectId
+  customerId   String               @db.ObjectId
+  reason       String
+  description  String?
+  status       CustomerReturnStatus @default(PENDING)
+  refundAmount Float                @default(0)
+  evidenceUrls String[]
+  adminNotes   String?
+  resolvedAt   DateTime?
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
 
-  order           Order    @relation(fields: [orderId], references: [id])
-  customer        Customer @relation(fields: [customerId], references: [id])
-  items           CustomerReturnItem[]
+  order    Order                @relation(fields: [orderId], references: [id])
+  customer Customer             @relation(fields: [customerId], references: [id])
+  items    CustomerReturnItem[]
 
   @@map("customer_returns")
 }
 
 model CustomerReturnItem {
-  id              String   @id @default(auto()) @map("_id") @db.ObjectId
-  returnId        String   @db.ObjectId
-  productId       String   @db.ObjectId
-  quantity        Float
-  unitPrice       Float
+  id        String @id @default(auto()) @map("_id") @db.ObjectId
+  returnId  String @db.ObjectId
+  productId String @db.ObjectId
+  quantity  Float
+  unitPrice Float
 
-  customerReturn  CustomerReturn @relation(fields: [returnId], references: [id])
-  product         Product        @relation(fields: [productId], references: [id])
+  customerReturn CustomerReturn @relation(fields: [returnId], references: [id])
+  product        Product        @relation(fields: [productId], references: [id])
 
   @@map("customer_return_items")
 }
 
 model Lead {
-  id              String   @id @default(auto()) @map("_id") @db.ObjectId
-  name            String?
-  phone           String?
-  email           String?
-  projectType     String?
-  estimateData    Json?    // Store the raw AI result if available
-  source          String   @default("AI_ESTIMATOR")
-  status          String   @default("NEW") // NEW, CONTACTED, CONVERTED, CLOSED
-  notes           String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  name         String?
+  phone        String?
+  email        String?
+  projectType  String?
+  estimateData Json? // Store the raw AI result if available
+  source       String   @default("AI_ESTIMATOR")
+  status       String   @default("NEW") // NEW, CONTACTED, CONVERTED, CLOSED
+  notes        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  @@map("leads")
   @@index([phone])
   @@index([status])
   @@index([createdAt])
+  @@map("leads")
 }
-
 
 enum CustomerReturnStatus {
   PENDING
@@ -3724,108 +3817,108 @@ enum CustomerReturnStatus {
 
 // Support Ticket System for Customer Service
 model SupportTicket {
-  id              String              @id @default(auto()) @map("_id") @db.ObjectId
-  ticketNumber    String              @unique // Format: TK-YYMMDD-XXXX
-  
+  id           String @id @default(auto()) @map("_id") @db.ObjectId
+  ticketNumber String @unique // Format: TK-YYMMDD-XXXX
+
   // Customer info (for both registered and guests)
-  customerId      String?             @db.ObjectId
-  guestName       String?
-  guestEmail      String?
-  guestPhone      String?
-  
+  customerId String? @db.ObjectId
+  guestName  String?
+  guestEmail String?
+  guestPhone String?
+
   // Ticket details
-  subject         String
-  description     String
-  category        SupportTicketCategory @default(GENERAL)
-  priority        SupportTicketPriority @default(MEDIUM)
-  status          SupportTicketStatus   @default(OPEN)
-  
+  subject     String
+  description String
+  category    SupportTicketCategory @default(GENERAL)
+  priority    SupportTicketPriority @default(MEDIUM)
+  status      SupportTicketStatus   @default(OPEN)
+
   // References
-  orderId         String?             @db.ObjectId  // Related order if applicable
-  productId       String?             @db.ObjectId  // Related product if applicable
-  chatSessionId   String?             // Reference to chat conversation
-  
+  orderId       String? @db.ObjectId // Related order if applicable
+  productId     String? @db.ObjectId // Related product if applicable
+  chatSessionId String? // Reference to chat conversation
+
   // Assignment
-  assignedTo      String?             @db.ObjectId  // Admin/Staff assigned
-  assignedAt      DateTime?
-  
+  assignedTo String?   @db.ObjectId // Admin/Staff assigned
+  assignedAt DateTime?
+
   // Resolution
-  resolution      String?
-  resolvedAt      DateTime?
-  resolvedBy      String?             @db.ObjectId
-  
+  resolution String?
+  resolvedAt DateTime?
+  resolvedBy String?   @db.ObjectId
+
   // SLA tracking
-  slaDeadline     DateTime?           // Expected resolution time
-  firstResponseAt DateTime?           // First response time for SLA
-  
+  slaDeadline     DateTime? // Expected resolution time
+  firstResponseAt DateTime? // First response time for SLA
+
   // Satisfaction
-  customerRating  Int?                // 1-5 star rating
+  customerRating   Int? // 1-5 star rating
   customerFeedback String?
-  
+
   // Tags and metadata
-  tags            String[]
-  attachments     String[]            // URLs to attached files
-  internalNotes   String?             // Notes visible only to staff
-  
-  createdAt       DateTime            @default(now())
-  updatedAt       DateTime            @updatedAt
+  tags          String[]
+  attachments   String[] // URLs to attached files
+  internalNotes String? // Notes visible only to staff
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relationships
-  messages        SupportTicketMessage[]
+  messages SupportTicketMessage[]
 
-  @@map("support_tickets")
   @@index([customerId])
   @@index([status])
   @@index([priority])
   @@index([category])
   @@index([createdAt])
   @@index([assignedTo])
+  @@map("support_tickets")
 }
 
 model SupportTicketMessage {
-  id              String   @id @default(auto()) @map("_id") @db.ObjectId
-  ticketId        String   @db.ObjectId
-  
+  id       String @id @default(auto()) @map("_id") @db.ObjectId
+  ticketId String @db.ObjectId
+
   // Sender info
-  senderId        String?  @db.ObjectId // User ID if registered, null if system/guest
-  senderType      SenderType @default(CUSTOMER)
-  senderName      String?
-  
+  senderId   String?    @db.ObjectId // User ID if registered, null if system/guest
+  senderType SenderType @default(CUSTOMER)
+  senderName String?
+
   // Message content
-  content         String
-  attachments     String[]
-  isInternal      Boolean  @default(false) // Internal notes between staff
-  
-  createdAt       DateTime @default(now())
+  content     String
+  attachments String[]
+  isInternal  Boolean  @default(false) // Internal notes between staff
+
+  createdAt DateTime @default(now())
 
   // Relationships
-  ticket          SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  ticket SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
 
-  @@map("support_ticket_messages")
   @@index([ticketId])
   @@index([createdAt])
+  @@map("support_ticket_messages")
 }
 
 enum SupportTicketStatus {
-  OPEN              // Newly created
-  IN_PROGRESS       // Being worked on
-  WAITING_CUSTOMER  // Waiting for customer response
-  WAITING_INTERNAL  // Waiting for internal action (e.g., warehouse check)
-  RESOLVED          // Issue resolved
-  CLOSED            // Ticket closed
-  REOPENED          // Reopened by customer
+  OPEN // Newly created
+  IN_PROGRESS // Being worked on
+  WAITING_CUSTOMER // Waiting for customer response
+  WAITING_INTERNAL // Waiting for internal action (e.g., warehouse check)
+  RESOLVED // Issue resolved
+  CLOSED // Ticket closed
+  REOPENED // Reopened by customer
 }
 
 enum SupportTicketCategory {
-  GENERAL           // General inquiry
-  ORDER             // Order related
-  SHIPPING          // Shipping/delivery issues
-  RETURN_REFUND     // Return & refund requests
-  PRODUCT           // Product questions
-  PAYMENT           // Payment issues
-  TECHNICAL         // Technical support
-  COMPLAINT         // Complaints
-  WARRANTY          // Warranty claims
+  GENERAL // General inquiry
+  ORDER // Order related
+  SHIPPING // Shipping/delivery issues
+  RETURN_REFUND // Return & refund requests
+  PRODUCT // Product questions
+  PAYMENT // Payment issues
+  TECHNICAL // Technical support
+  COMPLAINT // Complaints
+  WARRANTY // Warranty claims
 }
 
 enum SupportTicketPriority {
@@ -3842,25 +3935,25 @@ enum SenderType {
 }
 
 model HelpArticle {
-  id          String   @id @default(auto()) @map("_id") @db.ObjectId
-  title       String
-  slug        String   @unique
-  content     String   // Markdown content
-  excerpt     String?
-  category    String
-  tags        String[]
-  viewCount   Int      @default(0)
-  helpfulYes  Int      @default(0)
-  helpfulNo   Int      @default(0)
-  isPublished Boolean  @default(true)
-  sortOrder   Int      @default(0)
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  title          String
+  slug           String   @unique
+  content        String // Markdown content
+  excerpt        String?
+  category       String
+  tags           String[]
+  viewCount      Int      @default(0)
+  helpfulYes     Int      @default(0)
+  helpfulNo      Int      @default(0)
+  isPublished    Boolean  @default(true)
+  sortOrder      Int      @default(0)
   targetAudience String[] // ["CUSTOMER", "CONTRACTOR", "SUPPLIER"]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  @@map("help_articles")
   @@index([category])
   @@index([isPublished])
+  @@map("help_articles")
 }
 
 // ============================================
@@ -3868,49 +3961,49 @@ model HelpArticle {
 // ============================================
 
 model StoreExpense {
-  id          String   @id @default(auto()) @map("_id") @db.ObjectId
-  date        DateTime @default(now())
-  category    StoreExpenseCategory @default(OTHERS)
-  amount      Float
-  description String?
-  paymentMethod PaymentMethod @default(CASH)
-  employeeId  String?  @db.ObjectId
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id            String               @id @default(auto()) @map("_id") @db.ObjectId
+  date          DateTime             @default(now())
+  category      StoreExpenseCategory @default(OTHERS)
+  amount        Float
+  description   String?
+  paymentMethod PaymentMethod        @default(CASH)
+  employeeId    String?              @db.ObjectId
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
 
-  @@map("store_expenses")
   @@index([date])
   @@index([category])
+  @@map("store_expenses")
 }
 
 enum StoreExpenseCategory {
-  FUEL            // Xăng dầu
-  MAINTENANCE     // Bảo trì xe
-  MEALS           // Ăn uống
-  UTILITIES       // Điện nước
-  SUPPLIES        // Vật dụng cửa hàng
-  OTHERS          // Khác
+  FUEL // Xăng dầu
+  MAINTENANCE // Bảo trì xe
+  MEALS // Ăn uống
+  UTILITIES // Điện nước
+  SUPPLIES // Vật dụng cửa hàng
+  OTHERS // Khác
 }
 
 model QuickQuote {
-  id          String   @id @default(auto()) @map("_id") @db.ObjectId
-  customerName String
+  id            String           @id @default(auto()) @map("_id") @db.ObjectId
+  customerName  String
   customerPhone String?
-  projectName  String?
-  items       Json     // [{name, quantity, price, unit}]
-  totalAmount Float
-  notes       String?
-  validUntil  DateTime?
-  status      QuickQuoteStatus @default(PENDING)
-  orderId     String?  @db.ObjectId
-  staffId     String?  @db.ObjectId
-  staffName   String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  projectName   String?
+  items         Json // [{name, quantity, price, unit}]
+  totalAmount   Float
+  notes         String?
+  validUntil    DateTime?
+  status        QuickQuoteStatus @default(PENDING)
+  orderId       String?          @db.ObjectId
+  staffId       String?          @db.ObjectId
+  staffName     String?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
 
-  @@map("quick_quotes")
   @@index([customerName])
   @@index([status])
+  @@map("quick_quotes")
 }
 
 enum QuickQuoteStatus {
@@ -3919,4 +4012,3 @@ enum QuickQuoteStatus {
   REJECTED
   EXPIRED
 }
-

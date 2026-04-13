@@ -17,9 +17,18 @@ export interface CartItem {
   conversionFactor?: number
 }
 
+interface AppliedVoucher {
+  id: string
+  code: string
+  discountType: 'PERCENTAGE' | 'FIXED'
+  discountValue: number
+  discountAmount: number
+}
+
 interface CartStore {
   items: CartItem[]
   isOpen: boolean
+  voucher: AppliedVoucher | null
 
   // Actions
   addItem: (item: Omit<CartItem, 'quantity'> & { quantity?: number }) => void
@@ -29,6 +38,7 @@ interface CartStore {
   toggleCart: () => void
   openCart: () => void
   closeCart: () => void
+  setVoucher: (voucher: AppliedVoucher | null) => void
 
   // Getters
   getTotalItems: () => number
@@ -41,6 +51,7 @@ export const useCartStore = create<CartStore>()(
     (set, get) => ({
       items: [],
       isOpen: false,
+      voucher: null,
 
       addItem: (item) => {
         const items = get().items
@@ -118,6 +129,10 @@ export const useCartStore = create<CartStore>()(
 
       closeCart: () => {
         set({ isOpen: false })
+      },
+
+      setVoucher: (voucher) => {
+        set({ voucher })
       },
 
       getTotalItems: () => {

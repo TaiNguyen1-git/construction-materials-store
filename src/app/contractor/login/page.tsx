@@ -18,8 +18,14 @@ import {
     Eye,
     EyeOff
 } from 'lucide-react'
+import { User } from '@prisma/client'
+
+interface ExtendedUser extends User {
+    contractorId?: string;
+}
 import { toast, Toaster } from 'react-hot-toast'
 import { getPostLoginRedirectUrl } from '@/lib/auth-redirect'
+import authService from '@/lib/auth-service'
 
 export default function ContractorLoginPage() {
     const router = useRouter()
@@ -37,18 +43,18 @@ export default function ContractorLoginPage() {
     }
 
     const handleGoBack = () => {
-        const urlParams = new URLSearchParams(window.location.search)
-        const callbackUrl = urlParams.get('callbackUrl')
-        if (callbackUrl) {
-            localStorage.removeItem('access_token')
-            localStorage.removeItem('user')
-            localStorage.removeItem('refresh_token')
-            sessionStorage.removeItem('access_token')
-            sessionStorage.removeItem('user')
-            // Clear contractor-specific cookie
-            document.cookie = 'contractor_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT'
-            document.cookie = 'auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT'
-        }
+        // Always clean up any half-started auth state when leaving the login form
+        localStorage.removeItem('access_token')
+        localStorage.removeItem('user')
+        localStorage.removeItem('refresh_token')
+        localStorage.removeItem('auth_active')
+        sessionStorage.removeItem('access_token')
+        sessionStorage.removeItem('user')
+
+        // Clear provider tokens
+        document.cookie = 'contractor_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT'
+        document.cookie = 'auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT'
+
         window.location.replace('/contractor')
     }
 
@@ -58,76 +64,51 @@ export default function ContractorLoginPage() {
         setError('')
 
         try {
-            const res = await fetch('/api/auth/login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(formData)
-            })
+            // 🛡️ Enhanced Login using centralized service
+            const data = await authService.login(formData)
 
-            let data;
-            try {
-                data = await res.json()
-            } catch (jsonError) {
-                console.error('JSON Parse Error:', jsonError);
-                throw new Error('Lỗi kết nối máy chủ (Invalid JSON)')
-            }
-
-            if (!res.ok) {
-                if (res.status === 429) {
-                    const retryAfterTimestamp = data.retryAfter || (Date.now() / 1000 + 900);
-                    const currentTimestamp = Math.floor(Date.now() / 1000);
-                    const minutesRemaining = Math.max(1, Math.ceil((retryAfterTimestamp - currentTimestamp) / 60));
-
-                    throw new Error(`Bạn đã thử đăng nhập quá nhiều lần. Vui lòng thử lại sau ${minutesRemaining} phút.`);
+            if (!data.user) {
+                if (data.twoFactorRequired || data.verificationRequired) {
+                    // Handle 2FA or verification if implemented
+                    toast.error('Tài khoản yêu cầu xác thực thêm. Vui lòng liên hệ hỗ trợ.')
+                    setLoading(false)
+                    return
                 }
-                // Handle specific error cases if needed
-                throw new Error(data.error || 'Đăng nhập thất bại')
+                throw new Error(data.error || 'Đăng nhập không thành công')
             }
+
+            // At this point, TypeScript knows data.user is defined
+            const loggedInUser = data.user;
 
             // Check if user is a contractor
-            if (data.user && data.user.role !== 'CONTRACTOR') {
-                // Not a contractor - redirect to appropriate page with message
-                if (data.user.role === 'MANAGER' || data.user.role === 'EMPLOYEE') {
-                    // Store tokens first
-                    if (data.token) localStorage.setItem('access_token', data.token)
-                    if (data.user) localStorage.setItem('user', JSON.stringify(data.user))
+            if (loggedInUser.role !== 'CONTRACTOR') {
+                if (loggedInUser.role === 'MANAGER' || loggedInUser.role === 'EMPLOYEE') {
                     window.location.href = '/admin'
                     return
                 } else {
+                    // Rollback if role doesn't match this portal
+                    await authService.logout()
                     throw new Error('Tài khoản này không phải là nhà thầu. Vui lòng sử dụng trang đăng nhập khách hàng.')
                 }
             }
 
-            // Save tokens
-            if (data.accessToken) {
-                localStorage.setItem('access_token', data.accessToken)
-                if (data.refreshToken) localStorage.setItem('refresh_token', data.refreshToken)
-            } else if (data.token) {
-                localStorage.setItem('access_token', data.token)
-            }
-
-            if (data.user) localStorage.setItem('user', JSON.stringify(data.user))
-
-            // Set cookie for middleware (contractor-specific)
-            const token = data.accessToken || data.token
-            if (token) {
-                document.cookie = `contractor_token=${token}; path=/; max-age=604800; SameSite=Lax`
+            // Handle Contractor specific storage for legacy support if needed
+            if ((loggedInUser as ExtendedUser).contractorId) {
+                localStorage.setItem('contractor_id', (loggedInUser as ExtendedUser).contractorId!)
             }
 
             // Redirect
-            const redirectUrl = getPostLoginRedirectUrl(data.user) || '/contractor'
+            const redirectUrl = getPostLoginRedirectUrl(loggedInUser) || '/contractor'
             toast.success('Đăng nhập thành công!')
             window.location.href = redirectUrl
 
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error('Login Error:', err)
-            const message = err.message || 'Đã có lỗi xảy ra'
+            const message = err instanceof Error ? err.message : 'Đã có lỗi xảy ra'
             setError(message)
             toast.error(message)
-            setLoading(false) // Ensure loading is disabled on error
+            setLoading(false)
         }
-        // Note: We don't put setLoading(false) in finally because on success we want to keep loading state 
-        // until the redirect happens (prevents UI flicker)
     }
 
     return (

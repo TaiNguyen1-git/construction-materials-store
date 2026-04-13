@@ -14,6 +14,7 @@ import SystemInterceptor from '@/components/SystemInterceptor'
 import GlobalAuthModals from '@/components/auth/GlobalAuthModals'
 import OrganizationJsonLd from '@/components/seo/OrganizationJsonLd'
 import ReactQueryProvider from '@/components/ReactQueryProvider'
+import PageTransition from '@/components/PageTransition'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -88,7 +89,9 @@ export default function RootLayout({
               <GlobalAuthModals />
               <div id="root" className="min-h-screen flex flex-col">
                 <main className="flex-grow">
-                  {children}
+                  <PageTransition>
+                    {children}
+                  </PageTransition>
                 </main>
                 <Footer />
               </div>

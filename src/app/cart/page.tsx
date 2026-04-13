@@ -54,9 +54,43 @@ export default function CartPage() {
   const [loadingRecommendations, setLoadingRecommendations] = useState(false)
   const [showShippingRates, setShowShippingRates] = useState(false)
 
+  const [voucherCode, setVoucherCode] = useState('')
+  const [isApplyingVoucher, setIsApplyingVoucher] = useState(false)
+  const { voucher, setVoucher } = useCartStore()
+
   const totalPrice = getTotalPrice()
   const shippingFee = (items.length > 0 && totalPrice < 5000000) ? 50000 : 0
-  const finalTotal = totalPrice + shippingFee
+  const discountAmount = voucher ? voucher.discountAmount : 0
+  const finalTotal = Math.max(0, totalPrice + shippingFee - discountAmount)
+
+  const handleApplyVoucher = async () => {
+    if (!voucherCode) return
+    setIsApplyingVoucher(true)
+    try {
+      const res = await fetch('/api/promotions/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: voucherCode, orderAmount: totalPrice })
+      })
+      const data = await res.json()
+      if (data.success) {
+        setVoucher(data.data)
+        toast.success(`Đã áp dụng mã ${data.data.code}`)
+        setVoucherCode('')
+      } else {
+        toast.error(data.error?.message || 'Mã không hợp lệ')
+      }
+    } catch (err) {
+      toast.error('Lỗi khi kiểm tra mã')
+    } finally {
+      setIsApplyingVoucher(false)
+    }
+  }
+
+  const handleRemoveVoucher = () => {
+    setVoucher(null)
+    toast.success('Đã gỡ mã giảm giá')
+  }
 
   useEffect(() => {
     if (items.length > 0) {
@@ -288,6 +322,45 @@ export default function CartPage() {
               <div className="bg-white rounded-2xl shadow-sm border border-neutral-200 p-8 sticky top-24">
                 <h2 className="text-lg font-bold text-neutral-900 mb-8 pb-4 border-b border-neutral-100">Chi tiết thanh toán</h2>
                 
+                {/* VOUCHER SECTION */}
+                <div className="mb-8">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Gift className="w-5 h-5 text-primary-600" />
+                    <span className="text-sm font-bold text-neutral-800">Mã giảm giá</span>
+                  </div>
+                  {!voucher ? (
+                    <div className="flex gap-2">
+                      <input 
+                        type="text"
+                        placeholder="Nhập mã (Vd: SMART10)..."
+                        value={voucherCode}
+                        onChange={(e) => setVoucherCode(e.target.value)}
+                        className="flex-1 px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl text-sm font-medium focus:bg-white focus:border-primary-500 outline-none transition-all uppercase"
+                      />
+                      <button 
+                        onClick={handleApplyVoucher}
+                        disabled={isApplyingVoucher || !voucherCode}
+                        className="px-6 py-3 bg-neutral-900 text-white rounded-xl text-xs font-bold hover:bg-neutral-800 disabled:opacity-50 transition-all active:scale-95"
+                      >
+                        {isApplyingVoucher ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Áp dụng'}
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between p-4 bg-primary-50 border border-primary-200 rounded-xl animate-in zoom-in-95 duration-200">
+                      <div className="flex items-center gap-3">
+                        <CheckCircle className="w-5 h-5 text-primary-600" />
+                        <div>
+                          <p className="text-xs font-black text-primary-900 uppercase tracking-widest">Đã áp dụng: {voucher.code}</p>
+                          <p className="text-[10px] font-bold text-primary-600">Giảm -{voucher.discountAmount.toLocaleString()}đ</p>
+                        </div>
+                      </div>
+                      <button onClick={handleRemoveVoucher} className="p-2 text-primary-300 hover:text-red-500 transition-colors">
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  )}
+                </div>
+
                 <div className="space-y-4 mb-8">
                   <div className="flex justify-between text-sm font-medium text-neutral-500">
                     <span>Tổng vật tư</span>
@@ -297,6 +370,12 @@ export default function CartPage() {
                     <span>Phí vận chuyển</span>
                     <span className="text-neutral-900">{shippingFee.toLocaleString()}đ</span>
                   </div>
+                  {voucher && (
+                    <div className="flex justify-between text-sm font-bold text-primary-600 animate-in slide-in-from-right-4">
+                      <span>Giảm giá (Voucher)</span>
+                      <span>-{voucher.discountAmount.toLocaleString()}đ</span>
+                    </div>
+                  )}
                   <div className="pt-6 border-t border-neutral-100 flex justify-between items-baseline">
                     <span className="text-sm font-bold text-neutral-900 uppercase">Thành tiền</span>
                     <span className="text-2xl font-bold text-primary-600">{finalTotal.toLocaleString()}đ</span>

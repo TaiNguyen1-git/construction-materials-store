@@ -371,11 +371,28 @@ class EnhancedAuthService {
 
   private logoutLocally() {
     this.user = null
+    if (typeof window === 'undefined') return
+
+    // Core Auth Removal
     localStorage.removeItem('auth_active')
     localStorage.removeItem('user_hint')
     localStorage.removeItem('user')
     localStorage.removeItem('access_token')
+    localStorage.removeItem('refresh_token')
+    sessionStorage.removeItem('access_token')
+    sessionStorage.removeItem('user')
     sessionStorage.removeItem('tab_guest_mode')
+
+    // Portal-specific identifiers removal (Prevent Zombie Portals)
+    localStorage.removeItem('contractor_token')
+    localStorage.removeItem('contractor_id')
+    localStorage.removeItem('supplier_token')
+    localStorage.removeItem('supplier_id')
+    localStorage.removeItem('supplier_name')
+    localStorage.removeItem('admin_token')
+    localStorage.removeItem('admin_id')
+    localStorage.removeItem('customer_id')
+
     // Don't clear global_guest_mode as user might want to continue as guest
   }
 
