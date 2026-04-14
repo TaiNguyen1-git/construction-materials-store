@@ -12,6 +12,7 @@ import { format } from 'date-fns'
 import { vi } from 'date-fns/locale'
 import toast, { Toaster } from 'react-hot-toast'
 import ConfirmDialog from '@/components/ConfirmDialog'
+import RichTextEditor from '@/components/common/RichTextEditor'
 
 interface BlogPost {
   id: string
@@ -198,24 +199,6 @@ export default function BlogManagementPage() {
     finally { setUploadingImage(false) }
   }
 
-  const insertText = (before: string, after: string = '') => {
-      const textarea = document.getElementById('blog-editor-textarea') as HTMLTextAreaElement
-      if (!textarea) return
-
-      const start = textarea.selectionStart
-      const end = textarea.selectionEnd
-      const text = textarea.value
-      const selected = text.substring(start, end)
-      
-      const newText = text.substring(0, start) + before + selected + after + text.substring(end)
-      setFormData({ ...formData, content: newText })
-      
-      // Reset focus and selection
-      setTimeout(() => {
-          textarea.focus()
-          textarea.setSelectionRange(start + before.length, end + before.length)
-      }, 0)
-  }
 
   const filteredPosts = posts.filter(p => {
     const matchesSearch = p.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -542,43 +525,26 @@ export default function BlogManagementPage() {
                         {/* Main Editor Section */}
                         <div className="space-y-4 pt-4">
                             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 px-1">
-                                <label className="text-[10px] font-black text-neutral-400 uppercase tracking-[0.2em]">Nội dung chi tiết (SEO Content)</label>
-                                <div className="flex flex-wrap items-center gap-2">
-                                    <div className="flex border-r border-neutral-100 pr-2 mr-2">
-                                        <button type="button" onClick={() => setIsPreviewMode(!isPreviewMode)} className={`p-2 rounded-lg transition-all flex items-center gap-2 text-[10px] font-black uppercase tracking-wider ${isPreviewMode ? 'bg-primary-600 text-white' : 'hover:bg-neutral-100 text-neutral-600'}`}>
-                                            {isPreviewMode ? <><EyeOff className="w-3.5 h-3.5" /> Soạn thảo</> : <><Eye className="w-3.5 h-3.5" /> Xem trước</>}
-                                        </button>
-                                    </div>
-                                    <button type="button" onClick={() => insertText('<b>', '</b>')} className="p-2 hover:bg-neutral-100 rounded-lg text-neutral-600" title="Bôi đậm"><Bold className="w-4 h-4" /></button>
-                                    <button type="button" onClick={() => insertText('<i>', '</i>')} className="p-2 hover:bg-neutral-100 rounded-lg text-neutral-600" title="In nghiêng"><Italic className="w-4 h-4" /></button>
-                                    <button type="button" onClick={() => insertText('<h1>', '</h1>')} className="p-2 hover:bg-neutral-100 rounded-lg text-neutral-600" title="Tiêu đề 1"><Type className="w-4 h-4" /></button>
-                                    <button type="button" onClick={() => insertText('<h2>', '</h2>')} className="p-2 hover:bg-neutral-100 rounded-lg text-neutral-600" title="Tiêu đề 2"><Type className="w-3.5 h-3.5 font-bold" /></button>
-                                    <button type="button" onClick={() => insertText('<img src="', '" alt="mô tả ảnh" />')} className="p-2 hover:bg-neutral-100 rounded-lg text-neutral-600" title="Chèn ảnh"><ImageIcon className="w-4 h-4" /></button>
-                                    <button type="button" onClick={() => insertText('<a href="', '">liên kết</a>')} className="p-2 hover:bg-neutral-100 rounded-lg text-neutral-600" title="Chèn link"><LinkIcon className="w-4 h-4" /></button>
-                                    <button type="button" onClick={() => insertText('<ul>\n<li>', '</li>\n</ul>')} className="p-2 hover:bg-neutral-100 rounded-lg text-neutral-600" title="Danh sách"><List className="w-4 h-4" /></button>
+                                <label className="text-[10px] font-black text-neutral-400 uppercase tracking-[0.2em]">Nội dung chi tiết (Visual Editor)</label>
+                                <div className="flex items-center gap-4">
+                                    <span className="text-[9px] font-bold text-neutral-300 uppercase tracking-widest flex items-center gap-1.5"><Sparkles className="w-3 h-3 text-primary-400" /> TỰ ĐỘNG LƯU TRẠNG THÁI</span>
                                 </div>
                             </div>
                             
-                            <div className="bg-white rounded-[40px] shadow-sm border border-neutral-100 overflow-hidden focus-within:ring-4 focus-within:ring-primary-500/10 focus-within:border-primary-300 transition-all min-h-[500px] flex flex-col">
-                                {isPreviewMode ? (
-                                    <div className="flex-1 p-12 overflow-y-auto prose prose-neutral prose-lg max-w-none prose-p:leading-relaxed prose-headings:font-black">
-                                        <div dangerouslySetInnerHTML={{ __html: formData.content || '<p class="text-neutral-300 italic">Nội dung xem trước sẽ hiển thị ở đây...</p>' }} />
-                                    </div>
-                                ) : (
-                                    <textarea 
-                                        id="blog-editor-textarea"
-                                        rows={20}
-                                        className="w-full p-12 bg-transparent border-none outline-none font-medium text-lg leading-[1.8] text-neutral-700 resize-none flex-1"
-                                        placeholder="Bắt đầu câu chuyện chuẩn SEO của bạn ở đây..."
-                                        value={formData.content}
-                                        onChange={e => setFormData({...formData, content: e.target.value})}
-                                    />
-                                )}
-                                <div className="bg-neutral-50 px-8 py-3 border-t border-neutral-100 flex items-center justify-between">
-                                    <span className="text-[9px] font-black text-neutral-400 uppercase tracking-widest flex items-center gap-1.5"><Sparkles className="w-3 h-3 text-primary-400" /> TỰ ĐỘNG LƯU BẢN NHÁP</span>
-                                    <span className="text-[10px] font-black text-neutral-500 uppercase tracking-widest">
-                                        Khoảng {Math.ceil(formData.content.length / 5)} Từ | {formData.content.length} Ký tự
+                            <div className="min-h-[600px] flex flex-col">
+                                <RichTextEditor 
+                                    content={formData.content}
+                                    onChange={(content) => setFormData({...formData, content})}
+                                />
+                                <div className="px-8 py-4 flex items-center justify-between text-neutral-400">
+                                    <span className="text-[10px] font-black uppercase tracking-widest">
+                                        Khoảng {Math.ceil(formData.content.replace(/<[^>]*>/g, '').length / 5)} Từ | {formData.content.replace(/<[^>]*>/g, '').length} Ký tự thực tế
                                     </span>
+                                    <div className="flex items-center gap-4">
+                                        <span className="text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5">
+                                            <Layout className="w-3 h-3" /> WYSIWYG ACTIVE
+                                        </span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
