@@ -23,7 +23,13 @@ const genAI = process.env.GEMINI_API_KEY
     ? new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
     : null
 
-const MODEL_FALLBACKS = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-3-flash']
+const MODEL_FALLBACKS = [
+    'gemini-2.5-flash', 
+    'gemini-2.5-flash-lite', 
+    'gemini-2.5-pro',
+    'gemini-2-flash',
+    'gemini-2-flash-lite'
+]
 
 /** Call Gemini with a fallback chain and retry logic */
 async function callGemini(prompt: string, imageParts?: Part[]): Promise<string> {
@@ -59,9 +65,7 @@ function parseGeminiEstimatorJSON(responseText: string) {
  */
 export async function analyzeFloorPlanImage(
     base64Images: string | string[],
-    projectType: 'general' | 'flooring' | 'painting' | 'tiling' = 'general',
-    birthYear?: string,
-    houseDirection?: string
+    projectType: 'general' | 'flooring' | 'painting' | 'tiling' = 'general'
 ): Promise<EstimatorResult> {
     if (!genAI) return errorResult(projectType, 'AI service not configured.')
 
@@ -74,14 +78,7 @@ export async function analyzeFloorPlanImage(
             }
         }))
 
-        const fengShuiPrompt = (birthYear || houseDirection)
-            ? `\n6. FENG SHUI ANALYSIS:
-   - User Info: Birth Year: ${birthYear || 'N/A'}, House Direction: ${houseDirection || 'N/A'}
-   - Determine the user's "Mệnh" based on birth year.
-   - Analyze compatibility with the house direction (if provided).
-   - Suggest 3 Colors and Material types that are "Tương sinh" or "Tương hợp".
-   - Provide a short encouraging advice paragraph in Vietnamese.`
-            : ''
+        const fengShuiPrompt = ''
 
         const aiPrompt = `
 1. ROOM ANALYSIS: Identify all visible rooms. For EACH room, provide estimated "length" and "width" in meters.
@@ -102,8 +99,7 @@ Return ONLY JSON:
   "totalArea": float,
   "wallPerimeter": float,
   "confidence": float,
-  "notes": "string",
-  "fengShuiAdvice": "string (markdown, brief)"
+  "notes": "string"
 }`
 
         const responseText = await callGemini(aiPrompt, imageParts)
@@ -147,7 +143,6 @@ Return ONLY JSON:
             validationStatus: validation.status,
             validationMessage: validation.message,
             rawAnalysis: `${data.notes || ''} | Roof: ${data.roofType || 'Unknown'}`,
-            fengShuiAdvice: data.fengShuiAdvice,
             wallPerimeter: data.wallPerimeter,
             roofType: data.roofType,
         }
@@ -164,24 +159,15 @@ Return ONLY JSON:
  */
 export async function estimateFromText(
     description: string,
-    projectType: 'general' | 'flooring' | 'painting' | 'tiling' = 'general',
-    birthYear?: string,
-    houseDirection?: string
+    projectType: 'general' | 'flooring' | 'painting' | 'tiling' = 'general'
 ): Promise<EstimatorResult> {
     if (!genAI) return errorResult(projectType, 'AI service not configured.')
 
     try {
-        const fengShuiPrompt = (birthYear || houseDirection)
-            ? `\n5. FENG SHUI ANALYSIS:
-    - User Info: Birth Year: ${birthYear || 'N/A'}, House Direction: ${houseDirection || 'N/A'}
-    - Determine the user's "Mệnh" based on birth year.
-    - Analyze compatibility with the house direction (if provided).
-    - Suggest 3 Colors and Material types that are "Tương sinh" or "Tương hợp".
-    - Return advice as a SHORT string in "fengShuiAdvice" field (Vietnamese).`
-            : ''
+        const fengShuiPrompt = ''
 
         const aiPrompt = `
-Bạn là một kỹ sư xây dựng chuyên nghiệp Việt Nam và Chuyên gia Phong thuỷ. Phân tích mô tả dự án sau và trích xuất thông tin:
+Bạn là một kỹ sư xây dựng chuyên nghiệp Việt Nam. Phân tích mô tả dự án sau và trích xuất thông tin:
 
 Mô tả: "${description}"
 
@@ -203,8 +189,7 @@ VÍ DỤ đầu ra:
   "totalArea": 68,
   "wallPerimeter": 40,
   "confidence": 0.85,
-  "notes": "Dự án lát nền sân và phòng khách",
-  "fengShuiAdvice": "Mệnh Thổ hợp màu nâu, vàng."
+  "notes": "Dự án lát nền sân và phòng khách"
 }
 
 CHỈ trả về JSON, không có text giải thích.`
@@ -249,8 +234,7 @@ CHỈ trả về JSON, không có text giải thích.`
                     totalArea,
                     wallPerimeter: Math.sqrt(totalArea) * 4,
                     confidence: 0.6,
-                    notes: 'Phân tích từ regex (AI không trả về JSON hợp lệ)',
-                    fengShuiAdvice: birthYear ? 'Vui lòng thử lại để nhận tư vấn phong thủy chi tiết.' : undefined,
+                    notes: 'Phân tích từ regex (AI không trả về JSON hợp lệ)'
                 }
             } else {
                 throw new Error('Không thể xác định kích thước từ mô tả. Vui lòng nhập rõ hơn, ví dụ: "phòng 5x4m"')
@@ -289,8 +273,7 @@ CHỈ trả về JSON, không có text giải thích.`
             confidence: data.confidence || 0.75,
             validationStatus: validation.status,
             validationMessage: validation.message,
-            rawAnalysis: data.notes || `Phân tích từ mô tả: "${description.substring(0, 100)}..."`,
-            fengShuiAdvice: data.fengShuiAdvice,
+            rawAnalysis: data.notes || `Phân tích từ mô tả: "${description.substring(0, 100)}..."`
         }
     } catch (error) {
         const msg = error instanceof Error ? error.message : 'Lỗi khi phân tích mô tả.'
@@ -310,7 +293,6 @@ export async function recalculateEstimate(
     buildingStyle: 'nhà_cấp_4' | 'nhà_phố' | 'biệt_thự',
     wallPerimeter: number,
     roofType: string,
-    fengShuiAdvice?: string,
     confidence: number = 1.0,
     notes: string = ''
 ): Promise<EstimatorResult> {
@@ -332,7 +314,6 @@ export async function recalculateEstimate(
         confidence,
         validationStatus: validation.status,
         validationMessage: validation.message,
-        rawAnalysis: `${notes} | Roof: ${roofType}`,
-        fengShuiAdvice,
+        rawAnalysis: `${notes} | Roof: ${roofType}`
     }
 }

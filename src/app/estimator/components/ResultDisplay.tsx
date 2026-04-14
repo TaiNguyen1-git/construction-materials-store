@@ -152,22 +152,6 @@ export default function ResultDisplay({
                             ))}
                         </div>
                     )}
-
-                    {/* Feng Shui Advice Display */}
-                    {result.fengShuiAdvice && (
-                        <div className="mt-4 pt-4 border-t border-gray-100">
-                            <div className="flex items-start gap-3 bg-gradient-to-br from-amber-50 to-orange-50 p-4 rounded-xl border border-amber-100">
-                                <div className="w-8 h-8 bg-amber-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                                    <Sparkles className="w-5 h-5 text-amber-600" />
-                                </div>
-                                <div className="prose prose-sm prose-amber max-w-none">
-                                    <p className="text-xs text-amber-900 leading-relaxed italic">
-                                        {result.fengShuiAdvice}
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                    )}
                 </div>
             </div>
         </div>

@@ -48,9 +48,6 @@ export default function EstimatorPage() {
     const [imagesPreview, setImagesPreview] = useState<string[]>([])
     const [imagesBase64, setImagesBase64] = useState<string[]>([])
 
-    const [birthYear, setBirthYear] = useState('')
-    const [houseDirection, setHouseDirection] = useState('')
-
     const [loading, setLoading] = useState(false)
     const [loadingPhase, setLoadingPhase] = useState(0)
     const [loadingTip, setLoadingTip] = useState(0)
@@ -170,9 +167,9 @@ export default function EstimatorPage() {
         try {
             let res: EstimatorResult
             if (inputMode === 'image') {
-                res = await analyzeFloorPlanImage(imagesBase64, projectType, birthYear, houseDirection)
+                res = await analyzeFloorPlanImage(imagesBase64, projectType)
             } else {
-                res = await estimateFromText(description, projectType, birthYear, houseDirection)
+                res = await estimateFromText(description, projectType)
             }
 
             if (res.success) {
@@ -204,8 +201,7 @@ export default function EstimatorPage() {
                 reviewRooms,
                 reviewStyle,
                 reviewArea * 1.5, // Default wall perimeter approximation
-                reviewRoofType,
-                result.fengShuiAdvice
+                reviewRoofType
             )
             if (res.success) {
                 setResult(res)
@@ -407,10 +403,6 @@ export default function EstimatorPage() {
                                     setImagesPreview(prev => prev.filter((_, i) => i !== idx))
                                     setImagesBase64(prev => prev.filter((_, i) => i !== idx))
                                 }}
-                                birthYear={birthYear}
-                                setBirthYear={setBirthYear}
-                                houseDirection={houseDirection}
-                                setHouseDirection={setHouseDirection}
                                 onEstimate={handleEstimate}
                                 loading={loading}
                                 fileInputRef={fileInputRef}

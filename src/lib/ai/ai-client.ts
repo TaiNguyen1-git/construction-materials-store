@@ -21,7 +21,9 @@ export const getWorkingModelConfig = async () => {
     const modelNames = [
         'gemini-2.5-flash',       // Priority 1
         'gemini-2.5-flash-lite',  // Priority 2
-        'gemini-3-flash',         // Priority 3
+        'gemini-2.5-pro',         // Priority 3
+        'gemini-2-flash',         // Priority 4
+        'gemini-2-flash-lite',    // Priority 5
     ]
 
     // First try the model specified in the configuration
@@ -87,7 +89,32 @@ export interface GeminiContent {
 }
 
 export interface GeminiResponse {
-    text?: string
+    candidates?: Array<{
+        content?: {
+            parts?: Array<{ text?: string }>;
+        };
+    }>;
+    text?: string; // Fallback for stability
+}
+
+/** Helper to extract text from @google/genai SDK response */
+export function extractTextFromSDKResult(result: any): string {
+    if (!result) return '';
+    try {
+        // SDK @google/genai structure
+        if (result.candidates?.[0]?.content?.parts) {
+            return result.candidates[0].content.parts
+                .filter((p: any) => p.text)
+                .map((p: any) => p.text)
+                .join('') || '';
+        }
+        // Fallback for legacy SDK @google/generative-ai
+        if (typeof result.text === 'function') return result.text();
+        return result.text || '';
+    } catch (err) {
+        console.error('[AIClient] extractTextFromSDKResult error:', err);
+        return '';
+    }
 }
 
 // Shared AI response types

@@ -66,7 +66,6 @@ export interface EstimatorResult {
     validationMessage?: string
     rawAnalysis?: string
     error?: string
-    fengShuiAdvice?: string
     wallPerimeter?: number
     roofType?: string
 }

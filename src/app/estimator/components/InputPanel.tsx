@@ -14,10 +14,6 @@ interface InputPanelProps {
     imagesPreview: string[]
     onImageUpload: (e: React.ChangeEvent<HTMLInputElement>) => void
     onRemoveImage: (idx: number) => void
-    birthYear: string
-    setBirthYear: (val: string) => void
-    houseDirection: string
-    setHouseDirection: (val: string) => void
     onEstimate: () => void
     loading: boolean
     fileInputRef: React.RefObject<HTMLInputElement | null>
@@ -28,8 +24,6 @@ export default function InputPanel({
     inputMode, setInputMode,
     description, setDescription,
     imagesPreview, onImageUpload, onRemoveImage,
-    birthYear, setBirthYear,
-    houseDirection, setHouseDirection,
     onEstimate, loading,
     fileInputRef
 }: InputPanelProps) {
@@ -150,47 +144,7 @@ export default function InputPanel({
                     </div>
                 )}
 
-                {/* Feng Shui Input Section (Optional) */}
-                <div className="mt-4 pt-4 border-t border-gray-50">
-                    <details className="group">
-                        <summary className="list-none cursor-pointer flex items-center gap-2 text-[11px] font-bold text-gray-500 hover:text-indigo-600 transition-colors">
-                            <Sparkles className="w-3.5 h-3.5" />
-                            <span>TƯ VẤN PHONG THỦY (TÙY CHỌN)</span>
-                            <Plus className="w-3 h-3 group-open:rotate-45 transition-transform ml-auto" />
-                        </summary>
 
-                        <div className="grid grid-cols-2 gap-3 mt-3 animate-in fade-in slide-in-from-top-1">
-                            <div>
-                                <label className="text-[10px] font-medium text-gray-400 mb-1 block">Năm sinh khách hàng</label>
-                                <input
-                                    type="number"
-                                    value={birthYear}
-                                    onChange={(e) => setBirthYear(e.target.value)}
-                                    placeholder="VD: 1988"
-                                    className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:ring-1 focus:ring-indigo-500 focus:border-transparent outline-none"
-                                />
-                            </div>
-                            <div>
-                                <label className="text-[10px] font-medium text-gray-400 mb-1 block">Hướng công trình</label>
-                                <select
-                                    value={houseDirection}
-                                    onChange={(e) => setHouseDirection(e.target.value)}
-                                    className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:ring-1 focus:ring-indigo-500 focus:border-transparent outline-none bg-white font-medium"
-                                >
-                                    <option value="">-- Chọn hướng --</option>
-                                    <option value="Đông">Đông</option>
-                                    <option value="Tây">Tây</option>
-                                    <option value="Nam">Nam</option>
-                                    <option value="Bắc">Bắc</option>
-                                    <option value="Đông Nam">Đông Nam</option>
-                                    <option value="Đông Bắc">Đông Bắc</option>
-                                    <option value="Tây Nam">Tây Nam</option>
-                                    <option value="Tây Bắc">Tây Bắc</option>
-                                </select>
-                            </div>
-                        </div>
-                    </details>
-                </div>
 
                 <button
                     onClick={onEstimate}

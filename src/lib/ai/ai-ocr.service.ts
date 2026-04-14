@@ -1,6 +1,6 @@
 // AI OCR Service — handles invoice extraction and image analysis
 
-import { getWorkingModelConfig, GeminiResponse, OCRResponse, parseGeminiJSON } from './ai-client'
+import { getWorkingModelConfig, GeminiResponse, OCRResponse, parseGeminiJSON, extractTextFromSDKResult } from './ai-client'
 import { OCR_SYSTEM_PROMPT } from '../ai-config'
 import { InvoiceData, InvoiceDataSchema } from '../validation'
 
@@ -25,7 +25,7 @@ export async function processOCRText(extractedText: string): Promise<OCRResponse
             contents: [{ role: 'user', parts: [{ text: prompt }] }]
         })
 
-        const processedText = (result as GeminiResponse).text || '{}'
+        const processedText = extractTextFromSDKResult(result) || '{}'
         const processedData = parseGeminiJSON<Record<string, unknown>>(processedText, {})
 
         return { extractedText, processedData, confidence: 0.95 }
@@ -52,7 +52,7 @@ export async function analyzeImage(imageData: string, promptText: string): Promi
             contents: [{ role: 'user', parts: [{ text: promptText }, imagePart] }]
         })
 
-        const text = (result as GeminiResponse).text || ''
+        const text = extractTextFromSDKResult(result)
         if (!text) {
             console.warn('⚠️ Gemini Vision returned empty text. Result:', JSON.stringify(result))
         }
@@ -117,7 +117,7 @@ export async function extractInvoiceData(imageData: string): Promise<InvoiceData
             }]
         })
 
-        const text = (result as GeminiResponse).text || '{}'
+        const text = extractTextFromSDKResult(result) || '{}'
         const invoiceData = parseGeminiJSON<Record<string, unknown>>(text, {})
 
         const validated = InvoiceDataSchema.safeParse({ ...invoiceData, rawText: text })

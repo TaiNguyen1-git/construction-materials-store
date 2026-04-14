@@ -1,6 +1,6 @@
 // AI Chatbot Service — handles all customer/admin chatbot interactions
 
-import { getWorkingModelConfig, GeminiResponse, ChatbotResponse, parseGeminiJSON } from './ai-client'
+import { getWorkingModelConfig, GeminiResponse, ChatbotResponse, parseGeminiJSON, extractTextFromSDKResult } from './ai-client'
 import { CHATBOT_SYSTEM_PROMPT } from '../ai-config'
 import { ADMIN_SYSTEM_PROMPT } from '../ai-prompts-admin'
 
@@ -119,7 +119,7 @@ export async function generateChatbotResponse(
             contents: [{ role: 'user', parts: [{ text: fullPrompt }] }]
         })
 
-        const responseText = (result as GeminiResponse).text || ''
+        const responseText = extractTextFromSDKResult(result)
         const parsed = parseGeminiJSON<Partial<ChatbotResponse>>(responseText, {})
 
         return {
@@ -170,7 +170,7 @@ export async function extractChatbotStructure(response: string): Promise<Chatbot
             contents: [{ role: 'user', parts: [{ text: prompt }] }]
         })
 
-        const structuredText = (result as GeminiResponse).text || '{}'
+        const structuredText = extractTextFromSDKResult(result) || '{}'
         const structured = parseGeminiJSON<Partial<ChatbotResponse>>(structuredText, {})
 
         return {
