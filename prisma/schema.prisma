@@ -113,6 +113,7 @@ model User {
   disputeComments         DisputeComment[]
   pushSubscriptions       UserPushSubscription[]
   blogPosts               BlogPost[]
+  blogComments            BlogComment[]
   supplier                Supplier?
   sessions                UserSession[]
   organizationMemberships OrganizationMember[]
@@ -192,12 +193,14 @@ model BlogPost {
   tags          String[]
   isPublished   Boolean   @default(false)
   viewCount     Int       @default(0)
+  likesCount    Int       @default(0)
   publishedAt   DateTime?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
   author   User          @relation(fields: [authorId], references: [id])
   category BlogCategory? @relation(fields: [categoryId], references: [id])
+  comments BlogComment[]
 
   @@index([authorId])
   @@index([categoryId])
@@ -213,6 +216,35 @@ model BlogCategory {
   posts       BlogPost[]
 
   @@map("blog_categories")
+}
+
+model BlogComment {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  postId     String   @db.ObjectId
+  userId     String?  @db.ObjectId
+  name       String
+  email      String?
+  content    String
+  isApproved Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  post BlogPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user User?    @relation(fields: [userId], references: [id])
+
+  @@index([postId])
+  @@index([userId])
+  @@map("blog_comments")
+}
+
+model NewsletterSubscriber {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  email     String   @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("newsletter_subscribers")
 }
 
 model Promotion {

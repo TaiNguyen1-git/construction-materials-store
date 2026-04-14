@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import Header from '@/components/Header'
 import Link from 'next/link'
-import { Calendar, User, Eye, ArrowRight, BookOpen, Search, Filter, Sparkles, Loader2, ChevronRight } from 'lucide-react'
+import { Calendar, User, Eye, ArrowRight, BookOpen, Search, Filter, Sparkles, Loader2, ChevronRight, ChevronDown } from 'lucide-react'
 import { format } from 'date-fns'
 import { vi } from 'date-fns/locale'
 
@@ -34,11 +34,8 @@ export default function BlogListPage() {
     const [searchTerm, setSearchTerm] = useState('')
     const [page, setPage] = useState(1)
     const [sortBy, setSortBy] = useState('publishedAt')
+    const [isSortOpen, setIsSortOpen] = useState(false)
     const [pagination, setPagination] = useState({ total: 0, lastPage: 1 })
-
-    useEffect(() => {
-        fetchCategories()
-    }, [])
 
     useEffect(() => {
         fetchCategories()
@@ -124,8 +121,8 @@ export default function BlogListPage() {
 
             {/* Sticky Category Bar - Redesigned */}
             <div className="max-w-7xl mx-auto px-6 -mt-12 relative z-20">
-                <div className="bg-white/90 backdrop-blur-xl border border-neutral-100 p-2.5 rounded-full shadow-2xl flex flex-col md:flex-row items-center gap-4 ring-1 ring-black/5">
-                    <div className="flex items-center gap-2 overflow-x-auto no-scrollbar w-full md:flex-1 p-1">
+                <div className="bg-white/90 backdrop-blur-xl border border-neutral-100 p-2.5 rounded-[2rem] shadow-2xl flex flex-col md:flex-row items-center gap-4 ring-1 ring-black/5">
+                    <div className="flex items-center gap-2 overflow-x-auto w-full md:flex-1 p-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                         <button 
                             onClick={() => {
                                 setSelectedCategory(null)
@@ -148,18 +145,36 @@ export default function BlogListPage() {
                             </button>
                         ))}
                     </div>
-                    <div className="flex gap-2 w-full md:w-auto">
-                        <select 
-                            className="px-6 py-3.5 bg-neutral-50/50 border border-neutral-100 rounded-full text-xs font-black uppercase tracking-widest outline-none focus:bg-white focus:ring-2 focus:ring-primary-500/10 transition-all cursor-pointer"
-                            value={sortBy}
-                            onChange={(e) => {
-                                setSortBy(e.target.value)
-                                setPage(1)
-                            }}
-                        >
-                            <option value="publishedAt">Mới nhất</option>
-                            <option value="viewCount">Xem nhiều</option>
-                        </select>
+                    <div className="flex gap-2 w-full md:w-auto mt-2 md:mt-0">
+                        <div className="relative z-50">
+                            <button 
+                                onClick={() => setIsSortOpen(!isSortOpen)}
+                                className="px-6 py-3.5 bg-white border border-blue-100 rounded-full text-[11px] font-black uppercase tracking-widest text-blue-600 flex items-center justify-between gap-3 w-40 hover:bg-blue-50 transition-all shadow-sm"
+                            >
+                                {sortBy === 'publishedAt' ? 'Mới nhất' : 'Xem nhiều'}
+                                <ChevronDown className={`w-3.5 h-3.5 transition-transform ${isSortOpen ? 'rotate-180' : ''}`} />
+                            </button>
+                            
+                            {isSortOpen && (
+                                <>
+                                    <div className="fixed inset-0 z-40" onClick={() => setIsSortOpen(false)}></div>
+                                    <div className="absolute top-full mt-2 w-full bg-white rounded-2xl shadow-xl border border-blue-100 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                                        <button 
+                                            onClick={() => { setSortBy('publishedAt'); setPage(1); setIsSortOpen(false); }}
+                                            className={`w-full text-left px-5 py-3 text-[11px] font-black uppercase tracking-widest transition-colors ${sortBy === 'publishedAt' ? 'bg-blue-600 text-white' : 'text-neutral-500 hover:bg-neutral-50 hover:text-blue-600'}`}
+                                        >
+                                            Mới nhất
+                                        </button>
+                                        <button 
+                                            onClick={() => { setSortBy('viewCount'); setPage(1); setIsSortOpen(false); }}
+                                            className={`w-full text-left px-5 py-3 text-[11px] font-black uppercase tracking-widest transition-colors ${sortBy === 'viewCount' ? 'bg-blue-600 text-white' : 'text-neutral-500 hover:bg-neutral-50 hover:text-blue-600'}`}
+                                        >
+                                            Xem nhiều
+                                        </button>
+                                    </div>
+                                </>
+                            )}
+                        </div>
                         <div className="relative flex-1 md:w-72">
                             <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-300 group-focus-within:text-primary-600 transition-colors" />
                             <input 

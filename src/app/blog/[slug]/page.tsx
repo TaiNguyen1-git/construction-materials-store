@@ -3,6 +3,7 @@
 import { useState, useEffect, use } from 'react'
 import Header from '@/components/Header'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { 
     Calendar, User, Eye, ArrowLeft, Share2, Facebook, 
     Twitter, Link as LinkIcon, BookOpen, Clock, 
@@ -14,6 +15,7 @@ import { format } from 'date-fns'
 import { vi } from 'date-fns/locale'
 import toast, { Toaster } from 'react-hot-toast'
 import SmartInventoryNudge from '@/components/blog/SmartInventoryNudge'
+import { useAuth } from '@/contexts/auth-context'
 
 interface Post {
     id: string
@@ -26,6 +28,7 @@ interface Post {
     category?: { id: string, name: string }
     publishedAt: string
     viewCount: number
+    likesCount: number
 }
 
 export default function BlogDetailPage({ params }: { params: Promise<{ slug: string }> }) {
@@ -37,6 +40,28 @@ export default function BlogDetailPage({ params }: { params: Promise<{ slug: str
     const [toc, setToc] = useState<{ id: string, text: string, level: number }[]>([])
     const [loading, setLoading] = useState(true)
     const [readingProgress, setReadingProgress] = useState(0)
+
+    const router = useRouter()
+    const { user, isAuthenticated } = useAuth()
+
+    // Interaction states
+    const [likes, setLikes] = useState(0)
+    const [hasLiked, setHasLiked] = useState(false)
+    const [emailSub, setEmailSub] = useState('')
+    const [subLoading, setSubLoading] = useState(false)
+    
+    // Comments
+    const [comments, setComments] = useState<any[]>([])
+    const [commentData, setCommentData] = useState({ name: '', email: '', content: '' })
+    const [commentLoading, setCommentLoading] = useState(false)
+    const [showComments, setShowComments] = useState(false)
+
+    useEffect(() => {
+        if (isAuthenticated && user) {
+            setEmailSub(user.email || '')
+            setCommentData(prev => ({ ...prev, name: user.name || '', email: user.email || '' }))
+        }
+    }, [isAuthenticated, user])
 
     useEffect(() => {
         const handleScroll = () => {
@@ -55,6 +80,7 @@ export default function BlogDetailPage({ params }: { params: Promise<{ slug: str
                 const data = await res.json()
                 if (data.success) {
                     setPost(data.data)
+                    setLikes(data.data.likesCount || 0)
                     generateToC(data.data.content)
                     // Fetch related posts
                     if (data.data.category?.id) {
@@ -62,6 +88,7 @@ export default function BlogDetailPage({ params }: { params: Promise<{ slug: str
                         fetchRelatedProducts(data.data.category.id)
                     }
                     fetchTrending()
+                    fetchComments()
                 }
             } catch (err) {
                 console.error(err)
@@ -74,11 +101,11 @@ export default function BlogDetailPage({ params }: { params: Promise<{ slug: str
 
     const fetchTrending = async () => {
         try {
-            const res = await fetch('/api/blog/public?limit=5')
+            const res = await fetch('/api/blog/public?limit=5&sortBy=viewCount')
             const data = await res.json()
             if (data.success) {
-                // Sorting by viewCount if not pre-sorted by API
-                setTrendingPosts(data.data.sort((a: any, b: any) => b.viewCount - a.viewCount))
+                const postsList = Array.isArray(data.data) ? data.data : (data.data.posts || [])
+                setTrendingPosts(postsList)
             }
         } catch (err) { console.error(err) }
     }
@@ -106,6 +133,73 @@ export default function BlogDetailPage({ params }: { params: Promise<{ slug: str
     const copyToClipboard = () => {
         navigator.clipboard.writeText(window.location.href)
         toast.success('Đã sao chép liên kết bài viết!')
+    }
+
+    const handleLike = async () => {
+        if (!isAuthenticated) {
+            toast('Vui lòng đăng nhập để thả tim bài viết!', { icon: '🔒' })
+            router.push(`/login?callbackUrl=/blog/${slug}`)
+            return
+        }
+        if (hasLiked) {
+            toast.success('Bạn đã thả tim bài viết này rồi!')
+            return
+        }
+        try {
+            setLikes(prev => prev + 1)
+            setHasLiked(true)
+            await fetch(`/api/blog/${slug}/like`, { method: 'POST' })
+            toast.success('Cảm ơn bạn đã yêu thích bài viết!')
+        } catch (error) { console.error(error) }
+    }
+
+    const handleSubscribe = async (e: React.FormEvent) => {
+        e.preventDefault()
+        if (!emailSub) return
+        setSubLoading(true)
+        try {
+            const res = await fetch('/api/newsletter/subscribe', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: emailSub })
+            })
+            if (res.ok) {
+                toast.success('Đăng ký nhận cẩm nang thành công!')
+                setEmailSub('')
+            }
+        } catch (error) { toast.error('Lỗi khi đăng ký') }
+        finally { setSubLoading(false) }
+    }
+
+    const fetchComments = async () => {
+        try {
+            const res = await fetch(`/api/blog/${slug}/comments`)
+            const data = await res.json()
+            if (data.success) setComments(data.data)
+        } catch (error) { console.error(error) }
+    }
+
+    const submitComment = async (e: React.FormEvent) => {
+        e.preventDefault()
+        if (!commentData.name || !commentData.content) {
+            toast.error('Vui lòng điền tên và nội dung bình luận')
+            return
+        }
+        setCommentLoading(true)
+        try {
+            const res = await fetch(`/api/blog/${slug}/comments`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(commentData)
+            })
+            const data = await res.json()
+            if (data.success) {
+                toast.success('Gửi bình luận thành công!')
+                setComments([data.data, ...comments])
+                setCommentData({ name: '', email: '', content: '' })
+            }
+        } catch (error) { toast.error('Có lỗi xảy ra') }
+        finally { setCommentLoading(false) }
     }
 
     const generateToC = (content: string) => {
@@ -234,31 +328,53 @@ export default function BlogDetailPage({ params }: { params: Promise<{ slug: str
                     {/* Left Sticky Sidebar (ToC) */}
                     <aside className="hidden xl:block w-64 shrink-0">
                         <div className="sticky top-32 space-y-10">
-                            <div className="space-y-6">
-                                <h3 className="text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em] flex items-center gap-3">
-                                    <List className="w-3.5 h-3.5" /> MỤC LỤC
-                                </h3>
-                                <div className="space-y-4">
-                                    {toc.map((item) => (
-                                        <a 
-                                            key={item.id}
-                                            href={`#${item.id}`}
-                                            className={`block text-xs font-bold leading-relaxed transition-all hover:text-primary-600 ${item.level === 3 ? 'pl-4 text-neutral-400' : 'text-neutral-600'}`}
-                                        >
-                                            {item.text}
-                                        </a>
-                                    ))}
+                            {toc.length > 0 && (
+                                <div className="space-y-6">
+                                    <h3 className="text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em] flex items-center gap-3">
+                                        <List className="w-3.5 h-3.5" /> MỤC LỤC
+                                    </h3>
+                                    <div className="space-y-4">
+                                        {toc.map((item) => (
+                                            <a 
+                                                key={item.id}
+                                                href={`#${item.id}`}
+                                                className={`block text-xs font-bold leading-relaxed transition-all hover:text-primary-600 ${item.level === 3 ? 'pl-4 text-neutral-400' : 'text-neutral-600'}`}
+                                            >
+                                                {item.text}
+                                            </a>
+                                        ))}
+                                    </div>
                                 </div>
-                            </div>
+                            )}
 
                             {/* Newsletter Mini Widget */}
-                            <div className="p-8 bg-neutral-900 rounded-[32px] text-white">
-                                <Mail className="w-6 h-6 text-primary-400 mb-6" />
+                            <form onSubmit={handleSubscribe} className="p-8 bg-blue-50 border border-blue-100 rounded-[32px] text-blue-900 shadow-sm">
+                                <Mail className="w-6 h-6 text-blue-600 mb-6" />
                                 <h4 className="text-sm font-black mb-4 leading-tight">Nhận cẩm nang xây dựng</h4>
-                                <p className="text-[10px] text-neutral-400 leading-relaxed mb-6">Mẹo tối ưu chi phí và kỹ thuật mới mỗi tuần.</p>
-                                <input type="email" placeholder="Email của bạn..." className="w-full bg-white/10 border-none rounded-xl px-4 py-2.5 text-[10px] outline-none focus:ring-1 focus:ring-primary-500 mb-3" />
-                                <button className="w-full py-3 bg-primary-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-primary-500 transition-all">Đăng ký</button>
-                            </div>
+                                <p className="text-[10px] text-blue-600/70 font-medium leading-relaxed mb-6">Mẹo tối ưu chi phí và kỹ thuật mới mỗi tuần.</p>
+                                
+                                {isAuthenticated && user ? (
+                                    <div className="mb-4">
+                                        <div className="w-full bg-white border border-blue-100 rounded-xl px-4 py-3 text-[11px] font-bold text-blue-900 flex items-center justify-between">
+                                            <span className="truncate">{user.email}</span>
+                                            <Sparkles className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <input 
+                                        type="email" 
+                                        required
+                                        value={emailSub}
+                                        onChange={(e) => setEmailSub(e.target.value)}
+                                        placeholder="Email của bạn..." 
+                                        className="w-full bg-white border border-blue-200 rounded-xl px-4 py-3 text-[11px] outline-none focus:ring-2 focus:ring-blue-500 mb-4 transition-all" 
+                                    />
+                                )}
+                                
+                                <button type="submit" disabled={subLoading} className="w-full py-3 bg-blue-600 rounded-xl text-[10px] font-black uppercase text-white tracking-widest hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/30 disabled:opacity-50">
+                                    {subLoading ? 'Đang gửi...' : 'Đăng ký nhận'}
+                                </button>
+                            </form>
                         </div>
                     </aside>
 
@@ -278,11 +394,19 @@ export default function BlogDetailPage({ params }: { params: Promise<{ slug: str
                         {/* Interaction Buttons (Post Content) */}
                         <div className="mt-24 pt-12 border-t border-neutral-100 flex flex-wrap items-center justify-between gap-8">
                             <div className="flex items-center gap-3">
-                                <button className="flex items-center gap-2 px-8 py-3.5 bg-neutral-50 hover:bg-rose-50 hover:text-rose-500 rounded-full text-xs font-black uppercase tracking-widest transition-all group border border-neutral-100 hover:border-rose-100">
-                                    <Heart className="w-4 h-4 group-hover:fill-rose-500 transition-all" /> Thả tim
+                                <button 
+                                    onClick={handleLike} 
+                                    className={`flex items-center gap-2 px-8 py-3.5 rounded-full text-xs font-black uppercase tracking-widest transition-all group border ${hasLiked ? 'bg-rose-50 border-rose-200 text-rose-500' : 'bg-neutral-50 border-neutral-100 hover:bg-rose-50 hover:border-rose-100 hover:text-rose-500'}`}
+                                >
+                                    <Heart className={`w-4 h-4 transition-all ${hasLiked ? 'fill-rose-500' : 'group-hover:fill-rose-500'}`} /> 
+                                    {likes > 0 ? `${likes} Lượt thích` : 'Thả tim'}
                                 </button>
-                                <button className="flex items-center gap-2 px-8 py-3.5 bg-neutral-50 hover:bg-primary-50 hover:text-primary-600 rounded-full text-xs font-black uppercase tracking-widest transition-all group border border-neutral-100 hover:border-primary-100">
-                                    <MessageSquare className="w-4 h-4" /> 24 Bình luận
+                                <button 
+                                    onClick={() => setShowComments(!showComments)}
+                                    className={`flex items-center gap-2 px-8 py-3.5 rounded-full text-xs font-black uppercase tracking-widest transition-all border ${showComments ? 'bg-blue-50 border-blue-200 text-blue-600' : 'bg-neutral-50 border-neutral-100 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-100'}`}
+                                >
+                                    <MessageSquare className="w-4 h-4" /> 
+                                    {comments.length > 0 ? `${comments.length} Bình luận` : 'Bình luận'}
                                 </button>
                             </div>
 
@@ -295,6 +419,76 @@ export default function BlogDetailPage({ params }: { params: Promise<{ slug: str
                                 </div>
                             </div>
                         </div>
+
+                        {/* Comments Section */}
+                        {showComments && (
+                            <div className="mt-12 animate-in fade-in slide-in-from-top-4 duration-500 bg-neutral-50/50 p-8 rounded-[40px] border border-neutral-100">
+                                <h3 className="text-xl font-black text-slate-900 mb-8 border-b border-neutral-200 pb-4 flex items-center gap-3">
+                                    <MessageSquare className="w-5 h-5 text-blue-600" /> Thảo luận ({comments.length})
+                                </h3>
+                                
+                                <form onSubmit={submitComment} className="mb-12 bg-white p-6 rounded-[24px] shadow-sm border border-neutral-100">
+                                    {isAuthenticated && user ? (
+                                        <div className="flex items-center gap-3 mb-6 px-2">
+                                            <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center font-black text-xs">
+                                                {user.name?.charAt(0).toUpperCase()}
+                                            </div>
+                                            <div>
+                                                <div className="text-[11px] font-black text-neutral-400 uppercase tracking-widest">Đang bình luận với tên</div>
+                                                <div className="text-sm font-bold text-neutral-900">{user.name}</div>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                            <input 
+                                                type="text" placeholder="Tên hiển thị *" required
+                                                value={commentData.name} onChange={e => setCommentData({...commentData, name: e.target.value})}
+                                                className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl text-sm outline-none focus:ring-2 focus:border-blue-500 transition-all"
+                                            />
+                                            <input 
+                                                type="email" placeholder="Email (Không hiển thị công khai)"
+                                                value={commentData.email} onChange={e => setCommentData({...commentData, email: e.target.value})}
+                                                className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl text-sm outline-none focus:ring-2 focus:border-blue-500 transition-all"
+                                            />
+                                        </div>
+                                    )}
+                                    <textarea 
+                                        placeholder="Ý kiến của bạn về bài viết..." required rows={3}
+                                        value={commentData.content} onChange={e => setCommentData({...commentData, content: e.target.value})}
+                                        className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl text-sm outline-none focus:ring-2 focus:border-blue-500 transition-all resize-none mb-4"
+                                    ></textarea>
+                                    <div className="flex justify-end">
+                                        <button type="submit" disabled={commentLoading} className="px-8 py-3 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-md disabled:opacity-50">
+                                            {commentLoading ? 'Đang gửi...' : 'Gửi bình luận'}
+                                        </button>
+                                    </div>
+                                </form>
+
+                                <div className="space-y-6">
+                                    {comments.map((comment: any) => (
+                                        <div key={comment.id} className="flex gap-4">
+                                            <div className="w-10 h-10 shrink-0 bg-neutral-200 rounded-full flex items-center justify-center text-sm font-black text-neutral-500">
+                                                {comment.name.charAt(0).toUpperCase()}
+                                            </div>
+                                            <div className="flex-1 bg-white p-5 rounded-[24px] border border-neutral-100 shadow-sm">
+                                                <div className="flex items-center gap-3 mb-2">
+                                                    <span className="font-bold text-sm text-neutral-900">{comment.name}</span>
+                                                    <span className="text-[10px] text-neutral-400 font-medium">
+                                                        {format(new Date(comment.createdAt), 'dd/MM/yyyy HH:mm')}
+                                                    </span>
+                                                </div>
+                                                <p className="text-sm text-neutral-600 leading-relaxed font-medium">
+                                                    {comment.content}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    ))}
+                                    {comments.length === 0 && (
+                                        <p className="text-center text-sm text-neutral-400 font-medium py-8 italic">Chưa có bình luận nào. Hãy là người đầu tiên chia sẻ ý kiến!</p>
+                                    )}
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     {/* Sidebar Content */}
