@@ -36,23 +36,27 @@ export default function BlogListPage() {
     const [sortBy, setSortBy] = useState('publishedAt')
     const [isSortOpen, setIsSortOpen] = useState(false)
     const [pagination, setPagination] = useState({ total: 0, lastPage: 1 })
+    const [appliedSearch, setAppliedSearch] = useState('')
 
     useEffect(() => {
         fetchCategories()
     }, [])
 
-    useEffect(() => {
-        fetchPosts()
-    }, [selectedCategory, page, sortBy])
-
-    // Debounce search
+    // Debounce search typing
     useEffect(() => {
         const timer = setTimeout(() => {
-            if (page !== 1) setPage(1)
-            else fetchPosts()
+            if (searchTerm !== appliedSearch) {
+                setAppliedSearch(searchTerm)
+                setPage(1)
+            }
         }, 500)
         return () => clearTimeout(timer)
-    }, [searchTerm])
+    }, [searchTerm, appliedSearch])
+
+    // Single generic trigger for fetching API safely
+    useEffect(() => {
+        fetchPosts()
+    }, [selectedCategory, page, sortBy, appliedSearch])
 
     const fetchCategories = async () => {
         try {
@@ -69,7 +73,7 @@ export default function BlogListPage() {
             params.append('page', page.toString())
             params.append('limit', '10')
             params.append('sortBy', sortBy)
-            params.append('search', searchTerm)
+            params.append('search', appliedSearch)
             if (selectedCategory) params.append('categoryId', selectedCategory)
 
             const res = await fetch(`/api/blog/public?${params.toString()}`)

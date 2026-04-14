@@ -63,9 +63,7 @@ export default function BlogManagementPage() {
   const [isPreviewMode, setIsPreviewMode] = useState(false)
   const [uploadingImage, setUploadingImage] = useState(false)
 
-  useEffect(() => {
-    fetchPosts()
-  }, [page, sortBy, selectedCategory])
+  const [appliedSearch, setAppliedSearch] = useState('')
 
   useEffect(() => {
     fetchCategories()
@@ -74,11 +72,17 @@ export default function BlogManagementPage() {
   // Bounce search to avoid too many requests
   useEffect(() => {
     const timer = setTimeout(() => {
-      if (page !== 1) setPage(1)
-      else fetchPosts()
+      if (searchTerm !== appliedSearch) {
+        setAppliedSearch(searchTerm)
+        setPage(1)
+      }
     }, 500)
     return () => clearTimeout(timer)
-  }, [searchTerm])
+  }, [searchTerm, appliedSearch])
+
+  useEffect(() => {
+    fetchPosts()
+  }, [page, sortBy, selectedCategory, appliedSearch])
 
   const fetchPosts = async () => {
     try {
@@ -87,7 +91,7 @@ export default function BlogManagementPage() {
       params.append('page', page.toString())
       params.append('limit', '9')
       params.append('sortBy', sortBy)
-      params.append('search', searchTerm)
+      params.append('search', appliedSearch)
       if (selectedCategory !== 'all') {
           const cat = categories.find(c => c.name === selectedCategory)
           if (cat) params.append('categoryId', cat.id)

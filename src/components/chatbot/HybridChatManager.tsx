@@ -133,7 +133,7 @@ export default function useHybridChatManager({
         };
     }, [conversationId, identity?.id])
 
-    const connectToAgent = async () => {
+    const connectToAgent = async (initialMessage?: string) => {
         if (!identity) return false;
 
         try {
@@ -144,7 +144,7 @@ export default function useHybridChatManager({
                     recipientId: 'admin_support',
                     senderId: identity.id,
                     senderName: identity.name,
-                    initialMessage: 'Xin chào, tôi cần gặp nhân viên hỗ trợ.'
+                    initialMessage: initialMessage // Optional, backend handles if undefined
                 })
             })
 

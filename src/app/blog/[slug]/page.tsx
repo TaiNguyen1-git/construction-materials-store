@@ -50,11 +50,23 @@ export default function BlogDetailPage({ params }: { params: Promise<{ slug: str
     const [emailSub, setEmailSub] = useState('')
     const [subLoading, setSubLoading] = useState(false)
     
+    // Guest Interaction states
+    const [guestAuth, setGuestAuth] = useState({ name: '', email: '' })
+    const [showGuestModal, setShowGuestModal] = useState(false)
+    const [pendingAction, setPendingAction] = useState<'LIKE' | 'COMMENT' | null>(null)
+
     // Comments
     const [comments, setComments] = useState<any[]>([])
-    const [commentData, setCommentData] = useState({ name: '', email: '', content: '' })
+    const [commentData, setCommentData] = useState({ content: '' })
     const [commentLoading, setCommentLoading] = useState(false)
     const [showComments, setShowComments] = useState(false)
+
+    useEffect(() => {
+        if (!isAuthenticated) {
+            const saved = localStorage.getItem('sb_guest_auth')
+            if (saved) setGuestAuth(JSON.parse(saved))
+        }
+    }, [isAuthenticated])
 
     useEffect(() => {
         if (isAuthenticated && user) {
@@ -138,11 +150,15 @@ export default function BlogDetailPage({ params }: { params: Promise<{ slug: str
     }
 
     const handleLike = async () => {
-        if (!isAuthenticated) {
-            toast('Vui lòng đăng nhập để thả tim bài viết!', { icon: '🔒' })
-            router.push(`/login?callbackUrl=/blog/${slug}`)
+        if (!isAuthenticated && !guestAuth.name) {
+            setPendingAction('LIKE')
+            setShowGuestModal(true)
             return
         }
+        executeLike()
+    }
+
+    const executeLike = async () => {
         if (hasLiked) {
             toast.success('Bạn đã thả tim bài viết này rồi!')
             return
@@ -181,27 +197,48 @@ export default function BlogDetailPage({ params }: { params: Promise<{ slug: str
         } catch (error) { console.error(error) }
     }
 
-    const submitComment = async (e: React.FormEvent) => {
-        e.preventDefault()
-        if (!commentData.name || !commentData.content) {
-            toast.error('Vui lòng điền tên và nội dung bình luận')
+    const submitComment = async (e?: React.FormEvent) => {
+        if (e) e.preventDefault()
+        if (!commentData.content) {
+            toast.error('Vui lòng điền nội dung bình luận')
             return
         }
+        if (!isAuthenticated && !guestAuth.name) {
+            setPendingAction('COMMENT')
+            setShowGuestModal(true)
+            return
+        }
+        executeComment()
+    }
+
+    const executeComment = async () => {
         setCommentLoading(true)
+        const nameToUse = isAuthenticated ? user?.name : guestAuth.name
+        const emailToUse = isAuthenticated ? user?.email : guestAuth.email
+        
         try {
             const res = await fetch(`/api/blog/public/${slug}/comments`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(commentData)
+                body: JSON.stringify({ name: nameToUse, email: emailToUse, content: commentData.content })
             })
             const data = await res.json()
             if (data.success) {
                 toast.success('Gửi bình luận thành công!')
                 setComments([data.data, ...comments])
-                setCommentData({ name: '', email: '', content: '' })
+                setCommentData({ content: '' })
             }
         } catch (error) { toast.error('Có lỗi xảy ra') }
         finally { setCommentLoading(false) }
+    }
+
+    const handleGuestSubmit = () => {
+        if (!guestAuth.name) return
+        localStorage.setItem('sb_guest_auth', JSON.stringify(guestAuth))
+        setShowGuestModal(false)
+        if (pendingAction === 'LIKE') executeLike()
+        if (pendingAction === 'COMMENT') executeComment()
+        setPendingAction(null)
     }
 
     const generateToC = (content: string) => {
@@ -430,30 +467,17 @@ export default function BlogDetailPage({ params }: { params: Promise<{ slug: str
                                 </h3>
                                 
                                 <form onSubmit={submitComment} className="mb-12 bg-white p-6 rounded-[24px] shadow-sm border border-neutral-100">
-                                    {isAuthenticated && user ? (
+                                    {(isAuthenticated && user) || guestAuth.name ? (
                                         <div className="flex items-center gap-3 mb-6 px-2">
                                             <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center font-black text-xs">
-                                                {user.name?.charAt(0).toUpperCase()}
+                                                {(user?.name || guestAuth.name || 'G').charAt(0).toUpperCase()}
                                             </div>
                                             <div>
                                                 <div className="text-[11px] font-black text-neutral-400 uppercase tracking-widest">Đang bình luận với tên</div>
-                                                <div className="text-sm font-bold text-neutral-900">{user.name}</div>
+                                                <div className="text-sm font-bold text-neutral-900">{user?.name || guestAuth.name}</div>
                                             </div>
                                         </div>
-                                    ) : (
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                                            <input 
-                                                type="text" placeholder="Tên hiển thị *" required
-                                                value={commentData.name} onChange={e => setCommentData({...commentData, name: e.target.value})}
-                                                className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl text-sm outline-none focus:ring-2 focus:border-blue-500 transition-all"
-                                            />
-                                            <input 
-                                                type="email" placeholder="Email (Không hiển thị công khai)"
-                                                value={commentData.email} onChange={e => setCommentData({...commentData, email: e.target.value})}
-                                                className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl text-sm outline-none focus:ring-2 focus:border-blue-500 transition-all"
-                                            />
-                                        </div>
-                                    )}
+                                    ) : null}
                                     <textarea 
                                         placeholder="Ý kiến của bạn về bài viết..." required rows={3}
                                         value={commentData.content} onChange={e => setCommentData({...commentData, content: e.target.value})}

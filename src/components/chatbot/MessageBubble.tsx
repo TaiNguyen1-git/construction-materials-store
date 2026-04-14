@@ -130,34 +130,29 @@ export default function MessageBubble({
                 <div className="flex justify-end pr-2">
                     <div
                         className={`
-                            max-w-[85%] p-4 rounded-3xl rounded-tr-sm shadow-xl animate-float-ultra
+                            max-w-[85%] px-5 py-3.5 rounded-2xl rounded-tr-sm shadow-sm
                             ${isAdmin
-                                ? 'bg-gradient-to-br from-indigo-600 via-indigo-700 to-purple-700 text-white'
-                                : 'bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-700 text-white'
+                                ? 'bg-indigo-600 text-white'
+                                : 'bg-blue-600 text-white'
                             }
-                            relative overflow-hidden
+                            relative
                         `}
                     >
-                        {/* 2026 Backlight effect */}
-                        <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 blur-3xl -mr-16 -mt-16 rounded-full pointer-events-none" />
 
                         {message.userImage && (
                             <div
-                                className={`relative cursor-pointer group mb-3 rounded-2xl overflow-hidden border-2 border-white/20 shadow-inner ${isLoading && !message.botMessage ? 'animate-ambient-glow' : ''}`}
+                                className={`relative cursor-pointer group mb-3 rounded-xl overflow-hidden border border-white/20`}
                                 onClick={() => onImageClick?.(message.userImage!)}
                             >
                                 <img
                                     src={message.userImage}
                                     alt="Uploaded"
-                                    className="max-w-full hover:scale-105 transition-transform duration-700"
+                                    className="max-w-full hover:opacity-90 transition-opacity duration-300"
                                 />
 
-                                {/* 2026 Neural Mapping Dots (only while loading this message) */}
                                 {isLoading && !message.botMessage && (
-                                    <div className="absolute inset-0 pointer-events-none">
-                                        <div className="absolute top-1/4 left-1/3 w-1.5 h-1.5 bg-blue-400 rounded-full animate-neural shadow-[0_0_8px_white]" />
-                                        <div className="absolute top-1/2 left-2/3 w-1.5 h-1.5 bg-white rounded-full animate-neural shadow-[0_0_8px_white]" style={{ animationDelay: '0.4s' }} />
-                                        <div className="absolute bottom-1/3 left-1/4 w-1.5 h-1.5 bg-blue-300 rounded-full animate-neural shadow-[0_0_8px_white]" style={{ animationDelay: '0.8s' }} />
+                                    <div className="absolute inset-0 bg-black/10 flex items-center justify-center">
+                                         <div className="w-5 h-5 border-2 border-white/30 border-t-white animate-spin rounded-full" />
                                     </div>
                                 )}
                             </div>
@@ -165,7 +160,7 @@ export default function MessageBubble({
                         {message.userMessage && (
                             <div className="text-[15.5px] font-medium leading-relaxed relative z-10">{message.userMessage}</div>
                         )}
-                        <div className="text-[10px] opacity-70 mt-2 text-right font-bold tracking-tighter uppercase relative z-10">
+                        <div className="text-[10px] opacity-60 mt-1.5 text-right font-medium relative z-10">
                             {formatTime(message.timestamp)}
                         </div>
                     </div>
@@ -176,19 +171,16 @@ export default function MessageBubble({
             {message.botMessage && (
                 <div className="flex justify-start gap-3 pl-1">
                     {/* Avatar */}
-                    <div className="flex-shrink-0 w-10 h-10 rounded-full overflow-hidden border-2 border-white shadow-xl bg-white mt-1 group">
+                    <div className="flex-shrink-0 w-8 h-8 rounded-full overflow-hidden border border-slate-200 bg-white mt-1">
                         <img
                             src="/images/smartbuild_bot.png"
                             alt="AI"
-                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                            className="w-full h-full object-cover mix-blend-multiply"
                         />
                     </div>
 
                     <div className="max-w-[88%] space-y-3">
-                        {/* Message bubble */}
-                        <div className="glass-2026 p-5 rounded-3xl rounded-tl-sm shadow-premium relative group animate-float-ultra">
-                            {/* Layered reflection */}
-                            <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent pointer-events-none rounded-3xl" />
+                        <div className="bg-white border border-slate-100 p-4 rounded-2xl rounded-tl-sm shadow-[0_2px_10px_rgba(0,0,0,0.02)] relative">
 
                             <div className="text-gray-900 relative z-10">
                                 {isLast ? (
@@ -197,9 +189,9 @@ export default function MessageBubble({
                                     <RenderContent text={message.botMessage} />
                                 )}
                             </div>
-                            <div className="text-[10px] text-gray-400 mt-3 font-bold uppercase tracking-widest flex justify-between items-center opacity-60">
+                            <div className="text-[10px] text-slate-400 mt-3 font-medium flex justify-between items-center opacity-80">
                                 <span className="flex items-center gap-1.5">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                                     SmartBuild AI
                                 </span>
                                 <span>{formatTime(message.timestamp)}</span>
@@ -250,13 +242,11 @@ export default function MessageBubble({
                                         onClick={() => onSuggestionClick(suggestion, message)}
                                         disabled={isLoading}
                                         className={`
-                                        text-[13px] px-5 py-2.5 rounded-2xl font-bold transition-all
+                                        text-xs px-4 py-2 rounded-xl font-semibold transition-all
                                         disabled:opacity-50 disabled:cursor-not-allowed
-                                        bg-white border border-blue-100 text-blue-700 
-                                        hover:bg-blue-600 hover:text-white hover:border-blue-600 shadow-md
-                                        active:scale-95 animate-bento
+                                        bg-blue-50 border border-blue-100 text-blue-700 
+                                        hover:bg-blue-600 hover:text-white hover:border-blue-600 shadow-sm
                                     `}
-                                        style={{ animationDelay: `${index * 100}ms` }}
                                     >
                                         {suggestion}
                                     </button>

@@ -175,7 +175,7 @@ export default function ChatbotPremium({ customerId, onClose }: ChatbotProps) {
         setMessages(prev => [...prev, loadingMsg])
         setIsLoading(true)
 
-        const connected = await hybridManager.connectToAgent()
+        const connected = await hybridManager.connectToAgent('Xin chào, tôi cần gặp nhân viên hỗ trợ.')
 
         setIsLoading(false)
         if (connected) {
