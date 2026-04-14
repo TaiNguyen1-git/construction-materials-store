@@ -75,19 +75,9 @@ export async function POST(request: NextRequest) {
         const bytes = await file.arrayBuffer()
         const buffer = Buffer.from(bytes)
 
-        const uploadDir = path.join(process.cwd(), 'public', 'uploads')
-
-        // Ensure directory exists
-        await mkdir(uploadDir, { recursive: true })
-
-        // 4. Use UUID + sanitized name + validated extension for safe filename
-        const sanitizedName = sanitizeFileName(path.parse(file.name).name)
-        const uniqueName = `${uuidv4()}-${sanitizedName}${fileExt}`
-        const filePath = path.join(uploadDir, uniqueName)
-
-        await writeFile(filePath, buffer)
-
-        const fileUrl = `/uploads/${uniqueName}`
+        // Bypass read-only file systems (like Vercel production) by directly converting to Base64
+        const fileBase64 = buffer.toString('base64')
+        const fileUrl = `data:${file.type || 'application/octet-stream'};base64,${fileBase64}`
 
         return NextResponse.json({
             success: true,
@@ -98,6 +88,6 @@ export async function POST(request: NextRequest) {
 
     } catch (error: any) {
         console.error('Upload API error:', error)
-        return NextResponse.json({ success: false, error: 'Lỗi khi tải file lên' }, { status: 500 })
+        return NextResponse.json({ success: false, error: String(error) }, { status: 500 })
     }
 }

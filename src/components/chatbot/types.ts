@@ -57,6 +57,7 @@ export interface ChatMessage {
     userMessage: string;
     userImage?: string;
     botMessage: string;
+    botImage?: string;
     suggestions: string[];
     productRecommendations?: ProductRecommendation[];
     confidence: number;

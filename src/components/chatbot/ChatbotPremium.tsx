@@ -100,8 +100,9 @@ export default function ChatbotPremium({ customerId, onClose }: ChatbotProps) {
         const mappedMessages: ChatMessage[] = history.map(msg => ({
             id: msg.id,
             userMessage: msg.senderId === currentUserId ? msg.content : '',
-            userImage: (msg.senderId === currentUserId && msg.fileType?.startsWith('image')) ? msg.fileUrl : undefined,
+            userImage: msg.senderId === currentUserId ? msg.fileUrl : undefined,
             botMessage: msg.senderId !== currentUserId ? msg.content : '',
+            botImage: msg.senderId !== currentUserId ? msg.fileUrl : undefined,
             suggestions: [],
             confidence: 1,
             timestamp: msg.createdAt,
@@ -136,7 +137,9 @@ export default function ChatbotPremium({ customerId, onClose }: ChatbotProps) {
             const newMessage: ChatMessage = {
                 id: msg.id,
                 userMessage: msg.senderId === currentUserId ? msg.content : '',
+                userImage: msg.senderId === currentUserId ? msg.fileUrl : undefined,
                 botMessage: msg.senderId !== currentUserId ? msg.content : '',
+                botImage: msg.senderId !== currentUserId ? msg.fileUrl : undefined,
                 suggestions: [],
                 confidence: 1,
                 timestamp: msg.createdAt,
@@ -340,7 +343,10 @@ export default function ChatbotPremium({ customerId, onClose }: ChatbotProps) {
             }
             setMessages(prev => [...prev, tempMsg]) // Add user message immediately
 
-            const success = await hybridManager.sendMessage(messageToSend, imageToSend ? { fileUrl: imageToSend, fileType: 'image/jpeg' } : undefined)
+            const fileType = imageToSend?.startsWith('data:') ? imageToSend.split(';')[0].substring(5) : 'image/jpeg';
+            const fileName = fileType.includes('pdf') || fileType.includes('document') ? 'document.pdf' : 'image.jpeg';
+
+            const success = await hybridManager.sendMessage(messageToSend, imageToSend ? { fileUrl: imageToSend, fileType, fileName } : undefined)
 
             if (!success) {
                 toast.error('Gửi tin nhắn thất bại')

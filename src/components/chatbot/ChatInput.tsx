@@ -47,37 +47,43 @@ export default function ChatInput({
 
         const reader = new FileReader()
         reader.onload = (event) => {
-            const img = new Image()
-            img.onload = () => {
-                // 2026 Client-side Pre-processing: Compress image to max 1200px
-                const canvas = document.createElement('canvas')
-                const MAX_WIDTH = 1200
-                const MAX_HEIGHT = 1200
-                let width = img.width
-                let height = img.height
+            const result = event.target?.result as string;
 
-                if (width > height) {
-                    if (width > MAX_WIDTH) {
-                        height *= MAX_WIDTH / width
-                        width = MAX_WIDTH
+            // If it's an image, compress it with Canvas
+            if (file.type.startsWith('image/')) {
+                const img = new Image()
+                img.onload = () => {
+                    const canvas = document.createElement('canvas')
+                    const MAX_WIDTH = 1200
+                    const MAX_HEIGHT = 1200
+                    let width = img.width
+                    let height = img.height
+
+                    if (width > height) {
+                        if (width > MAX_WIDTH) {
+                            height *= MAX_WIDTH / width
+                            width = MAX_WIDTH
+                        }
+                    } else {
+                        if (height > MAX_HEIGHT) {
+                            width *= MAX_HEIGHT / height
+                            height = MAX_HEIGHT
+                        }
                     }
-                } else {
-                    if (height > MAX_HEIGHT) {
-                        width *= MAX_HEIGHT / height
-                        height = MAX_HEIGHT
-                    }
+
+                    canvas.width = width
+                    canvas.height = height
+                    const ctx = canvas.getContext('2d')
+                    ctx?.drawImage(img, 0, 0, width, height)
+
+                    const base64 = canvas.toDataURL(file.type, 0.7)
+                    setSelectedImage(base64) // We misuse selectedImage for general file Base64
                 }
-
-                canvas.width = width
-                canvas.height = height
-                const ctx = canvas.getContext('2d')
-                ctx?.drawImage(img, 0, 0, width, height)
-
-                // Low quality for AI recognition speed (0.7 is perfect balance)
-                const base64 = canvas.toDataURL('image/jpeg', 0.7)
-                setSelectedImage(base64)
+                img.src = result
+            } else {
+                // For PDFs and other documents, just use raw Base64
+                setSelectedImage(result)
             }
-            img.src = event.target?.result as string
         }
         reader.readAsDataURL(file)
     }
@@ -87,11 +93,18 @@ export default function ChatInput({
             {/* Image Preview */}
             {selectedImage && (
                 <div className="mb-3 relative inline-block animate-fadeIn">
-                    <img
-                        src={selectedImage}
-                        alt="Preview"
-                        className="h-20 w-20 object-cover rounded-xl border border-neutral-200 shadow-sm"
-                    />
+                    {selectedImage.startsWith('data:image/') ? (
+                        <img
+                            src={selectedImage}
+                            alt="Preview"
+                            className="h-20 w-20 object-cover rounded-xl border border-neutral-200 shadow-sm"
+                        />
+                    ) : (
+                        <div className="h-20 w-20 flex flex-col items-center justify-center bg-blue-50 rounded-xl border border-blue-200 shadow-sm">
+                            <span className="text-xl">📄</span>
+                            <span className="text-[10px] font-bold text-blue-700 mt-1">Tài liệu</span>
+                        </div>
+                    )}
                     <button
                         onClick={() => setSelectedImage(null)}
                         className="absolute -top-3 -right-3 bg-red-600 text-white rounded-full p-1.5 hover:bg-red-700 shadow-md transition-all transform hover:scale-110"
@@ -105,7 +118,7 @@ export default function ChatInput({
                 <input
                     ref={fileInputRef}
                     type="file"
-                    accept="image/*"
+                    accept="image/*, application/pdf, application/msword, application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                     className="hidden"
                     onChange={handleFileUpload}
                 />

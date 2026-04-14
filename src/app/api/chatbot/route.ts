@@ -39,8 +39,8 @@ import {
 const chatMessageSchema = z.object({
   message: z.string().max(3000, 'Tin nhắn quá dài (tối đa 3000 ký tự)').optional(),
   image: z.string()
-    .max(7 * 1024 * 1024, 'Kích thước ảnh quá lớn (tối đa 5MB thực tế)')
-    .regex(/^data:image\/(png|jpeg|webp|jpg);base64,/, 'Định dạng ảnh không hợp lệ')
+    .max(7 * 1024 * 1024, 'Kích thước ảnh/tệp quá lớn (tối đa 5MB thực tế)')
+    .regex(/^data:(image\/(png|jpeg|webp|jpg)|application\/(pdf|msword|vnd\.openxmlformats-officedocument\.wordprocessingml\.document));base64,/, 'Định dạng tệp không hợp lệ (Chỉ hỗ trợ Ảnh và PDF/Word)')
     .optional(),
   customerId: z.string().optional(),
   sessionId: z.string().min(1, 'Session ID is required'),

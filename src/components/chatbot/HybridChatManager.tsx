@@ -186,8 +186,10 @@ export default function useHybridChatManager({
 
         const db = getFirebaseDatabase();
         const messagesRef = ref(db, `conversations/${conversationId}/messages`);
+        const newMsgRef = push(messagesRef);
 
         const newMsg: Partial<LiveChatMessage> = {
+            id: newMsgRef.key!,
             senderId: sender === 'USER' ? identity.id : (sender === 'AI' ? 'smartbuild_bot' : 'system'),
             senderName: sender === 'USER' ? identity.name : (sender === 'AI' ? 'SmartBuild AI' : 'System'),
             content,
@@ -197,7 +199,7 @@ export default function useHybridChatManager({
         };
 
         try {
-            await push(messagesRef, newMsg);
+            await set(newMsgRef, newMsg);
             return true;
         } catch (err) {
             console.error('[Firebase] Save failed:', err);

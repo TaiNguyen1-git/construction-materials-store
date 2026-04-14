@@ -82,6 +82,25 @@ function MessagesContent() {
     const [isSearching, setIsSearching] = useState(false)
     const [highlightId, setHighlightId] = useState<string | null>(null)
 
+    const [hideSmartReplies, setHideSmartReplies] = useState(false)
+
+    // Wait until mounted to avoid hydration errors
+    const [mounted, setMounted] = useState(false)
+    useEffect(() => {
+        setMounted(true)
+    }, [])
+
+    // Check if smart replies should be hidden for current conversation
+    useEffect(() => {
+        if (!selectedId) return;
+        const cookieStr = typeof document !== 'undefined' ? document.cookie : '';
+        if (cookieStr.includes(`hide_smart_replies_${selectedId}=true`)) {
+            setHideSmartReplies(true)
+        } else {
+            setHideSmartReplies(false)
+        }
+    }, [selectedId])
+
     // Initial Auth & Conversations
     useEffect(() => {
         if (user) {
@@ -111,6 +130,8 @@ function MessagesContent() {
         onChildAdded(messagesRef, (snapshot) => {
             const newMsg = snapshot.val()
             if (newMsg) {
+                // Ensure every message has a strictly unique ID based on its Firebase key
+                newMsg.id = newMsg.id || snapshot.key
                 setMessages(prev => {
                     // Prevent duplicates
                     if (prev.some(m => m.id === newMsg.id || (m.tempId && m.tempId === newMsg.tempId))) {
@@ -154,7 +175,7 @@ function MessagesContent() {
                 lastMsg.senderId !== 'smartbuild_bot' &&
                 !lastMsg.content?.startsWith('[CALL_LOG]:')
 
-            if (isFromCustomer && lastMsg.content) {
+            if (isFromCustomer && lastMsg.content && !hideSmartReplies) {
                 fetchSmartReplies(lastMsg.content, selectedId)
             } else {
                 setSmartReplies([])
@@ -474,6 +495,7 @@ function MessagesContent() {
                     href={msg.fileUrl}
                     target="_blank"
                     rel="noopener noreferrer"
+                    download={msg.fileName || 'document'}
                     className="flex items-center gap-3 p-3 bg-white/10 rounded-lg hover:bg-white/20 transition-colors"
                 >
                     <div className="bg-white/20 p-2 rounded">
@@ -703,7 +725,7 @@ function MessagesContent() {
                                 const showAvatar = !isMe && (idx === 0 || messages[idx - 1].senderId !== msg.senderId)
 
                                 return (
-                                    <div key={msg.id} id={`msg-${msg.id}`} className={`flex ${isMe ? 'justify-end' : 'justify-start'} items-end gap-2`}>
+                                    <div key={msg.id || `msg-idx-${idx}`} id={`msg-${msg.id || idx}`} className={`flex ${isMe ? 'justify-end' : 'justify-start'} items-end gap-2`}>
                                         {!isMe && (
                                             <div className="w-8 h-8 flex-shrink-0">
                                                 {showAvatar ? (
@@ -845,6 +867,9 @@ function MessagesContent() {
                                                     onClick={() => {
                                                         setNewMessage(reply)
                                                         setSmartReplies([])
+                                                        setHideSmartReplies(true)
+                                                        // Set cookie to expire in 1 year, specific to this conversation
+                                                        document.cookie = `hide_smart_replies_${selectedId}=true; path=/; max-age=31536000`
                                                     }}
                                                     className="text-left px-3 py-2 rounded-xl text-xs text-gray-700 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-100 hover:from-amber-100 hover:to-orange-100 hover:border-amber-200 transition-all hover:shadow-sm active:scale-[0.99] group"
                                                 >
