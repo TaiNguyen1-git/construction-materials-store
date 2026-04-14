@@ -4,11 +4,14 @@ import { useState, useEffect } from 'react'
 import { 
   Plus, Search, Edit, Trash2, BookOpen, 
   Calendar, Eye, Globe, Lock, ChevronRight,
-  Filter, Tag, User as UserIcon, Image as ImageIcon, Sparkles
+  Filter, Tag, User as UserIcon, Image as ImageIcon, Sparkles,
+  Bold, Italic, Type, Link as LinkIcon, List, Layout, EyeOff
 } from 'lucide-react'
 import { fetchWithAuth } from '@/lib/api-client'
 import { format } from 'date-fns'
 import { vi } from 'date-fns/locale'
+import toast, { Toaster } from 'react-hot-toast'
+import ConfirmDialog from '@/components/ConfirmDialog'
 
 interface BlogPost {
   id: string
@@ -30,7 +33,17 @@ export default function BlogManagementPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingPost, setEditingPost] = useState<BlogPost | null>(null)
-  const [categories, setCategories] = useState<{id: string, name: string}[]>([])
+  const [categories, setCategories] = useState<{id: string, name: string, _count?: {posts: number}}[]>([])
+  const [selectedCategory, setSelectedCategory] = useState<string>('all')
+
+  // UI State
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [postToDelete, setPostToDelete] = useState<string | null>(null)
+  
+  // Category Form State
+  const [newCategory, setNewCategory] = useState({ name: '', description: '' })
+  const [isAddingCategory, setIsAddingCategory] = useState(false)
 
   // Form State
   const [formData, setFormData] = useState({
@@ -42,6 +55,9 @@ export default function BlogManagementPage() {
     tags: [] as string[],
     isPublished: false
   })
+
+  const [isPreviewMode, setIsPreviewMode] = useState(false)
+  const [uploadingImage, setUploadingImage] = useState(false)
 
   useEffect(() => {
     fetchPosts()
@@ -116,17 +132,97 @@ export default function BlogManagementPage() {
       const data = await res.json()
       if (!data.success) throw new Error(data.message)
 
+      toast.success(editingPost ? 'Đã cập nhật bài viết' : 'Đã đăng bài viết mới')
       fetchPosts()
       setIsModalOpen(false)
     } catch (error: any) {
-      alert(error.message)
+      toast.error(error.message)
     }
   }
 
-  const filteredPosts = posts.filter(p =>
-    p.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.author.name.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  const handleDeletePost = async () => {
+    if (!postToDelete) return
+    setIsDeleting(true)
+    try {
+      const res = await fetchWithAuth(`/api/blog/${postToDelete}`, { method: 'DELETE' })
+      const data = await res.json()
+      if (!data.success) throw new Error(data.message)
+      toast.success('Đã xóa bài viết thành công')
+      fetchPosts()
+      setPostToDelete(null)
+    } catch (error: any) {
+      toast.error(error.message)
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
+  const handleAddCategory = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!newCategory.name) return
+    setIsAddingCategory(true)
+    try {
+      const res = await fetchWithAuth('/api/blog/categories', {
+        method: 'POST',
+        body: JSON.stringify(newCategory)
+      })
+      const data = await res.json()
+      if (!data.success) throw new Error(data.message)
+      toast.success('Đã thêm danh mục mới')
+      setNewCategory({ name: '', description: '' })
+      fetchCategories()
+    } catch (error: any) {
+      toast.error(error.message)
+    } finally {
+      setIsAddingCategory(false)
+    }
+  }
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploadingImage(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      const res = await fetchWithAuth('/api/upload', {
+        method: 'POST',
+        body: formData,
+      })
+      const data = await res.json()
+      if (data.fileUrl) {
+          setFormData(f => ({ ...f, featuredImage: data.fileUrl }))
+          toast.success('Đã tải ảnh lên thành công!')
+      }
+    } catch { toast.error('Lỗi khi tải ảnh lên') }
+    finally { setUploadingImage(false) }
+  }
+
+  const insertText = (before: string, after: string = '') => {
+      const textarea = document.getElementById('blog-editor-textarea') as HTMLTextAreaElement
+      if (!textarea) return
+
+      const start = textarea.selectionStart
+      const end = textarea.selectionEnd
+      const text = textarea.value
+      const selected = text.substring(start, end)
+      
+      const newText = text.substring(0, start) + before + selected + after + text.substring(end)
+      setFormData({ ...formData, content: newText })
+      
+      // Reset focus and selection
+      setTimeout(() => {
+          textarea.focus()
+          textarea.setSelectionRange(start + before.length, end + before.length)
+      }, 0)
+  }
+
+  const filteredPosts = posts.filter(p => {
+    const matchesSearch = p.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                        p.author.name.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesCategory = selectedCategory === 'all' || p.category?.name === selectedCategory
+    return matchesSearch && matchesCategory
+  })
 
   return (
     <div className="space-y-6">
@@ -199,11 +295,20 @@ export default function BlogManagementPage() {
             />
          </div>
          <div className="flex gap-2">
-            <button className="px-4 py-2.5 bg-neutral-50 text-neutral-600 rounded-xl font-bold flex items-center gap-2 hover:bg-neutral-100 transition-colors text-sm border border-neutral-200/50">
-                <Filter className="w-4 h-4" />
-                Lọc
-            </button>
-            <button className="px-4 py-2.5 bg-neutral-50 text-neutral-600 rounded-xl font-bold flex items-center gap-2 hover:bg-neutral-100 transition-colors text-sm border border-neutral-200/50">
+            <select 
+                className="px-4 py-2.5 bg-neutral-50 text-neutral-600 rounded-xl font-bold text-sm border border-neutral-200/50 outline-none focus:ring-2 focus:ring-primary-500/10 cursor-pointer"
+                value={selectedCategory}
+                onChange={(e) => setSelectedCategory(e.target.value)}
+            >
+                <option value="all">Tất cả danh mục</option>
+                {categories.map(cat => (
+                    <option key={cat.id} value={cat.name}>{cat.name}</option>
+                ))}
+            </select>
+            <button 
+                onClick={() => setIsCategoryModalOpen(true)}
+                className="px-4 py-2.5 bg-neutral-50 text-neutral-600 rounded-xl font-bold flex items-center gap-2 hover:bg-neutral-100 transition-colors text-sm border border-neutral-200/50"
+            >
                 <Tag className="w-4 h-4" />
                 Quản lý danh mục
             </button>
@@ -235,7 +340,10 @@ export default function BlogManagementPage() {
                     >
                         <Edit className="w-4 h-4" />
                     </button>
-                    <button className="p-2.5 bg-white/90 backdrop-blur-md text-rose-500 rounded-xl shadow-lg hover:bg-rose-500 hover:text-white transition-all scale-90 group-hover:scale-100">
+                    <button 
+                        onClick={() => setPostToDelete(post.id)}
+                        className="p-2.5 bg-white/90 backdrop-blur-md text-rose-500 rounded-xl shadow-lg hover:bg-rose-500 hover:text-white transition-all scale-90 group-hover:scale-100"
+                    >
                         <Trash2 className="w-4 h-4" />
                     </button>
                 </div>
@@ -327,10 +435,16 @@ export default function BlogManagementPage() {
                         {/* Title Section */}
                         <div className="space-y-6">
                              <div className="relative group">
+                                <div className="flex items-center justify-between mb-2">
+                                    <label className="text-[10px] font-black text-neutral-400 uppercase tracking-[0.2em] pl-1">Tiêu đề SEO</label>
+                                    <span className={`text-[10px] font-black uppercase tracking-widest ${formData.title.length > 60 ? 'text-rose-500' : 'text-emerald-500'}`}>
+                                        {formData.title.length}/60 Ký tự
+                                    </span>
+                                </div>
                                 <input 
                                     type="text"
                                     className="w-full bg-transparent border-none text-5xl font-black text-neutral-900 placeholder:text-neutral-200 focus:ring-0 outline-none p-0 tracking-tight"
-                                    placeholder="Tiêu đề bài viết tuyệt vời..."
+                                    placeholder="Tiêu đề tập trung từ khóa..."
                                     value={formData.title}
                                     onChange={e => setFormData({...formData, title: e.target.value})}
                                 />
@@ -380,13 +494,19 @@ export default function BlogManagementPage() {
                                         <img src={formData.featuredImage} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
                                     ) : (
                                         <div className="w-full h-full flex flex-col items-center justify-center text-neutral-300">
-                                            <div className="w-12 h-12 bg-neutral-50 rounded-2xl flex items-center justify-center mb-3">
-                                                <ImageIcon className="w-6 h-6" />
-                                            </div>
-                                            <span className="text-[10px] font-black uppercase tracking-widest">Dán link ảnh</span>
+                                            {uploadingImage ? (
+                                                <div className="w-10 h-10 border-4 border-primary-200 border-t-primary-600 rounded-full animate-spin"></div>
+                                            ) : (
+                                                <>
+                                                    <div className="w-12 h-12 bg-neutral-50 rounded-2xl flex items-center justify-center mb-3">
+                                                        <ImageIcon className="w-6 h-6" />
+                                                    </div>
+                                                    <span className="text-[10px] font-black uppercase tracking-widest">Tải ảnh hoặc dán link</span>
+                                                </>
+                                            )}
                                         </div>
                                     )}
-                                    <div className="absolute inset-x-4 bottom-4 translate-y-2 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all">
+                                    <div className="absolute inset-x-4 bottom-4 translate-y-2 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all flex flex-col gap-2">
                                         <input 
                                             type="text" 
                                             placeholder="https://images.unsplash.com/..."
@@ -394,15 +514,25 @@ export default function BlogManagementPage() {
                                             value={formData.featuredImage}
                                             onChange={e => setFormData({...formData, featuredImage: e.target.value})}
                                         />
+                                        <label className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-primary-600 text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-2xl cursor-pointer hover:bg-primary-700 transition-colors">
+                                            <Plus className="w-3.5 h-3.5" />
+                                            Tải ảnh từ máy tính
+                                            <input type="file" className="hidden" accept="image/*" onChange={handleImageUpload} />
+                                        </label>
                                     </div>
                                 </div>
                             </div>
                             <div className="md:col-span-8 space-y-4">
-                                <label className="text-[10px] font-black text-neutral-400 uppercase tracking-[0.2em] pl-1">Mô tả tóm tắt (Lead Paragraph)</label>
+                                <div className="flex items-center justify-between px-1">
+                                    <label className="text-[10px] font-black text-neutral-400 uppercase tracking-[0.2em]">Mô tả tóm tắt (Meta Description)</label>
+                                    <span className={`text-[10px] font-black uppercase tracking-widest ${formData.summary.length > 160 ? 'text-rose-500' : 'text-emerald-500'}`}>
+                                        {formData.summary.length}/160 Ký tự
+                                    </span>
+                                </div>
                                 <textarea 
                                     rows={7}
                                     className="w-full p-8 bg-white rounded-[32px] border border-neutral-100 shadow-sm focus:ring-4 focus:ring-primary-500/10 focus:border-primary-300 outline-none font-medium text-neutral-600 resize-none transition-all"
-                                    placeholder="Viết một đoạn tóm tắt ngắn gọn để thu hút người đọc..."
+                                    placeholder="Đoạn mô tả ngắn này sẽ hiển thị trên Google, hãy viết thật thu hút khách hàng..."
                                     value={formData.summary}
                                     onChange={e => setFormData({...formData, summary: e.target.value})}
                                 />
@@ -411,20 +541,45 @@ export default function BlogManagementPage() {
 
                         {/* Main Editor Section */}
                         <div className="space-y-4 pt-4">
-                            <div className="flex items-center justify-between px-1">
-                                <label className="text-[10px] font-black text-neutral-400 uppercase tracking-[0.2em]">Nội dung chi tiết</label>
-                                <div className="flex gap-4">
-                                    <span className="text-[9px] font-bold text-neutral-300 uppercase tracking-widest flex items-center gap-1.5"><Sparkles className="w-3 h-3 text-primary-400" /> Hỗ trợ HTML & Markdown</span>
+                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 px-1">
+                                <label className="text-[10px] font-black text-neutral-400 uppercase tracking-[0.2em]">Nội dung chi tiết (SEO Content)</label>
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <div className="flex border-r border-neutral-100 pr-2 mr-2">
+                                        <button type="button" onClick={() => setIsPreviewMode(!isPreviewMode)} className={`p-2 rounded-lg transition-all flex items-center gap-2 text-[10px] font-black uppercase tracking-wider ${isPreviewMode ? 'bg-primary-600 text-white' : 'hover:bg-neutral-100 text-neutral-600'}`}>
+                                            {isPreviewMode ? <><EyeOff className="w-3.5 h-3.5" /> Soạn thảo</> : <><Eye className="w-3.5 h-3.5" /> Xem trước</>}
+                                        </button>
+                                    </div>
+                                    <button type="button" onClick={() => insertText('<b>', '</b>')} className="p-2 hover:bg-neutral-100 rounded-lg text-neutral-600" title="Bôi đậm"><Bold className="w-4 h-4" /></button>
+                                    <button type="button" onClick={() => insertText('<i>', '</i>')} className="p-2 hover:bg-neutral-100 rounded-lg text-neutral-600" title="In nghiêng"><Italic className="w-4 h-4" /></button>
+                                    <button type="button" onClick={() => insertText('<h1>', '</h1>')} className="p-2 hover:bg-neutral-100 rounded-lg text-neutral-600" title="Tiêu đề 1"><Type className="w-4 h-4" /></button>
+                                    <button type="button" onClick={() => insertText('<h2>', '</h2>')} className="p-2 hover:bg-neutral-100 rounded-lg text-neutral-600" title="Tiêu đề 2"><Type className="w-3.5 h-3.5 font-bold" /></button>
+                                    <button type="button" onClick={() => insertText('<img src="', '" alt="mô tả ảnh" />')} className="p-2 hover:bg-neutral-100 rounded-lg text-neutral-600" title="Chèn ảnh"><ImageIcon className="w-4 h-4" /></button>
+                                    <button type="button" onClick={() => insertText('<a href="', '">liên kết</a>')} className="p-2 hover:bg-neutral-100 rounded-lg text-neutral-600" title="Chèn link"><LinkIcon className="w-4 h-4" /></button>
+                                    <button type="button" onClick={() => insertText('<ul>\n<li>', '</li>\n</ul>')} className="p-2 hover:bg-neutral-100 rounded-lg text-neutral-600" title="Danh sách"><List className="w-4 h-4" /></button>
                                 </div>
                             </div>
-                            <div className="bg-white rounded-[40px] shadow-sm border border-neutral-100 overflow-hidden focus-within:ring-4 focus-within:ring-primary-500/10 focus-within:border-primary-300 transition-all">
-                                <textarea 
-                                    rows={15}
-                                    className="w-full p-12 bg-transparent border-none outline-none font-medium text-lg leading-[1.8] text-neutral-700 resize-none min-h-[500px]"
-                                    placeholder="Bắt đầu câu chuyện của bạn ở đây..."
-                                    value={formData.content}
-                                    onChange={e => setFormData({...formData, content: e.target.value})}
-                                />
+                            
+                            <div className="bg-white rounded-[40px] shadow-sm border border-neutral-100 overflow-hidden focus-within:ring-4 focus-within:ring-primary-500/10 focus-within:border-primary-300 transition-all min-h-[500px] flex flex-col">
+                                {isPreviewMode ? (
+                                    <div className="flex-1 p-12 overflow-y-auto prose prose-neutral prose-lg max-w-none prose-p:leading-relaxed prose-headings:font-black">
+                                        <div dangerouslySetInnerHTML={{ __html: formData.content || '<p class="text-neutral-300 italic">Nội dung xem trước sẽ hiển thị ở đây...</p>' }} />
+                                    </div>
+                                ) : (
+                                    <textarea 
+                                        id="blog-editor-textarea"
+                                        rows={20}
+                                        className="w-full p-12 bg-transparent border-none outline-none font-medium text-lg leading-[1.8] text-neutral-700 resize-none flex-1"
+                                        placeholder="Bắt đầu câu chuyện chuẩn SEO của bạn ở đây..."
+                                        value={formData.content}
+                                        onChange={e => setFormData({...formData, content: e.target.value})}
+                                    />
+                                )}
+                                <div className="bg-neutral-50 px-8 py-3 border-t border-neutral-100 flex items-center justify-between">
+                                    <span className="text-[9px] font-black text-neutral-400 uppercase tracking-widest flex items-center gap-1.5"><Sparkles className="w-3 h-3 text-primary-400" /> TỰ ĐỘNG LƯU BẢN NHÁP</span>
+                                    <span className="text-[10px] font-black text-neutral-500 uppercase tracking-widest">
+                                        Khoảng {Math.ceil(formData.content.length / 5)} Từ | {formData.content.length} Ký tự
+                                    </span>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -432,6 +587,67 @@ export default function BlogManagementPage() {
             </div>
         </div>
       )}
+
+      {/* Category Management Modal */}
+      {isCategoryModalOpen && (
+          <div className="fixed inset-0 z-[105] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
+              <div className="bg-white w-full max-w-xl rounded-[40px] shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-300">
+                  <div className="px-8 py-6 border-b border-slate-50 flex items-center justify-between">
+                      <h2 className="text-xl font-black text-slate-900 tracking-tight">QUẢN LÝ DANH MỤC</h2>
+                      <button onClick={() => setIsCategoryModalOpen(false)} className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-50 text-slate-400 hover:text-slate-600 font-black">✕</button>
+                  </div>
+                  <div className="p-8 space-y-8">
+                      {/* Add Category Form */}
+                      <form onSubmit={handleAddCategory} className="space-y-4">
+                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Thêm Danh Mục Mới</label>
+                          <div className="flex gap-2">
+                              <input 
+                                  className="flex-1 px-5 py-3 bg-slate-50 rounded-2xl border-none outline-none font-bold text-sm focus:ring-2 focus:ring-primary-500/20 transition-all"
+                                  placeholder="Tên danh mục..."
+                                  value={newCategory.name}
+                                  onChange={e => setNewCategory({...newCategory, name: e.target.value})}
+                              />
+                              <button 
+                                  disabled={isAddingCategory}
+                                  className="px-6 py-3 bg-primary-600 text-white rounded-2xl font-black text-[11px] uppercase tracking-widest shadow-lg shadow-primary-100 hover:shadow-primary-200 transition-all disabled:opacity-50"
+                              >
+                                  {isAddingCategory ? '...' : 'Thêm'}
+                              </button>
+                          </div>
+                      </form>
+
+                      {/* Category List */}
+                      <div className="space-y-3">
+                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Danh mục hiện có</label>
+                          <div className="max-h-[300px] overflow-y-auto space-y-2 pr-2">
+                              {categories.map(cat => (
+                                  <div key={cat.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl group hover:bg-white hover:shadow-md transition-all border border-transparent hover:border-slate-100">
+                                      <div>
+                                          <div className="font-extrabold text-sm text-slate-900">{cat.name}</div>
+                                          <div className="text-[10px] font-bold text-slate-400 uppercase">{cat._count?.posts || 0} bài viết</div>
+                                      </div>
+                                      {/* No delete category implemented in API yet, skipping UI button for now */}
+                                  </div>
+                              ))}
+                          </div>
+                      </div>
+                  </div>
+              </div>
+          </div>
+      )}
+
+      {/* Confirmation Dialogs */}
+      <ConfirmDialog 
+        isOpen={!!postToDelete}
+        onClose={() => setPostToDelete(null)}
+        onConfirm={handleDeletePost}
+        title="XÓA BÀI VIẾT"
+        message="Bạn có chắc chắn muốn xóa bài viết này không? Hành động này không thể hoàn tác."
+        confirmText="Xác nhận xóa"
+        loading={isDeleting}
+      />
+
+      <Toaster position="bottom-right" />
     </div>
   )
 }
