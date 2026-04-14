@@ -32,6 +32,9 @@ export default function BlogManagementPage() {
   const [posts, setPosts] = useState<BlogPost[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
+  const [page, setPage] = useState(1)
+  const [sortBy, setBy] = useState('createdAt')
+  const [pagination, setPagination] = useState({ total: 0, lastPage: 1 })
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingPost, setEditingPost] = useState<BlogPost | null>(null)
   const [categories, setCategories] = useState<{id: string, name: string, _count?: {posts: number}}[]>([])
@@ -62,18 +65,43 @@ export default function BlogManagementPage() {
 
   useEffect(() => {
     fetchPosts()
+  }, [page, sortBy, selectedCategory])
+
+  useEffect(() => {
     fetchCategories()
   }, [])
 
+  // Bounce search to avoid too many requests
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (page !== 1) setPage(1)
+      else fetchPosts()
+    }, 500)
+    return () => clearTimeout(timer)
+  }, [searchTerm])
+
   const fetchPosts = async () => {
     try {
-      const response = await fetchWithAuth('/api/blog')
+      setLoading(true)
+      const params = new URLSearchParams()
+      params.append('page', page.toString())
+      params.append('limit', '9')
+      params.append('sortBy', sortBy)
+      params.append('search', searchTerm)
+      if (selectedCategory !== 'all') {
+          const cat = categories.find(c => c.name === selectedCategory)
+          if (cat) params.append('categoryId', cat.id)
+      }
+
+      const response = await fetchWithAuth(`/api/blog?${params.toString()}`)
       const data = await response.json()
       if (data.success) {
-        setPosts(data.data)
+        setPosts(data.data.posts)
+        setPagination(data.data.pagination)
       }
     } catch (error) {
       console.error('Failed to fetch posts', error)
+      toast.error('Lỗi khi tải danh sách bài viết')
     } finally {
       setLoading(false)
     }
@@ -200,12 +228,7 @@ export default function BlogManagementPage() {
   }
 
 
-  const filteredPosts = posts.filter(p => {
-    const matchesSearch = p.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                        p.author.name.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesCategory = selectedCategory === 'all' || p.category?.name === selectedCategory
-    return matchesSearch && matchesCategory
-  })
+  const filteredPosts = posts // Now handled by server
 
   return (
     <div className="space-y-6">
@@ -280,8 +303,20 @@ export default function BlogManagementPage() {
          <div className="flex gap-2">
             <select 
                 className="px-4 py-2.5 bg-neutral-50 text-neutral-600 rounded-xl font-bold text-sm border border-neutral-200/50 outline-none focus:ring-2 focus:ring-primary-500/10 cursor-pointer"
+                value={sortBy}
+                onChange={(e) => setBy(e.target.value)}
+            >
+                <option value="createdAt">Mới nhất</option>
+                <option value="viewCount">Xem nhiều nhất</option>
+                <option value="updatedAt">Vừa cập nhật</option>
+            </select>
+            <select 
+                className="px-4 py-2.5 bg-neutral-50 text-neutral-600 rounded-xl font-bold text-sm border border-neutral-200/50 outline-none focus:ring-2 focus:ring-primary-500/10 cursor-pointer"
                 value={selectedCategory}
-                onChange={(e) => setSelectedCategory(e.target.value)}
+                onChange={(e) => {
+                    setSelectedCategory(e.target.value)
+                    setPage(1)
+                }}
             >
                 <option value="all">Tất cả danh mục</option>
                 {categories.map(cat => (
@@ -295,7 +330,7 @@ export default function BlogManagementPage() {
                 <Tag className="w-4 h-4" />
                 Quản lý danh mục
             </button>
-         </div>
+      </div>
       </div>
 
       {/* Blog Grid */}
@@ -382,6 +417,39 @@ export default function BlogManagementPage() {
             </div>
         )}
       </div>
+
+      {/* Pagination View */}
+      {pagination.lastPage > 1 && (
+        <div className="flex items-center justify-center gap-2 mt-12 pb-10">
+            <button 
+                disabled={page === 1}
+                onClick={() => setPage(page - 1)}
+                className="w-12 h-12 flex items-center justify-center rounded-2xl bg-white border border-neutral-100 text-neutral-600 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-neutral-50 transition-all font-black"
+            >
+                ←
+            </button>
+            {[...Array(pagination.lastPage)].map((_, i) => (
+                <button
+                    key={i + 1}
+                    onClick={() => setPage(i + 1)}
+                    className={`w-12 h-12 flex items-center justify-center rounded-2xl font-black text-sm transition-all ${
+                        page === i + 1 
+                        ? 'bg-primary-600 text-white shadow-lg shadow-primary-200' 
+                        : 'bg-white border border-neutral-100 text-neutral-600 hover:bg-neutral-50'
+                    }`}
+                >
+                    {i + 1}
+                </button>
+            ))}
+            <button 
+                disabled={page === pagination.lastPage}
+                onClick={() => setPage(page + 1)}
+                className="w-12 h-12 flex items-center justify-center rounded-2xl bg-white border border-neutral-100 text-neutral-600 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-neutral-50 transition-all font-black"
+            >
+                →
+            </button>
+        </div>
+      )}
 
       {/* Editor Modal (Full Screen feel) */}
       {isModalOpen && (

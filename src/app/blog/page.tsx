@@ -32,6 +32,13 @@ export default function BlogListPage() {
     const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
     const [loading, setLoading] = useState(true)
     const [searchTerm, setSearchTerm] = useState('')
+    const [page, setPage] = useState(1)
+    const [sortBy, setSortBy] = useState('publishedAt')
+    const [pagination, setPagination] = useState({ total: 0, lastPage: 1 })
+
+    useEffect(() => {
+        fetchCategories()
+    }, [])
 
     useEffect(() => {
         fetchCategories()
@@ -39,7 +46,16 @@ export default function BlogListPage() {
 
     useEffect(() => {
         fetchPosts()
-    }, [selectedCategory])
+    }, [selectedCategory, page, sortBy])
+
+    // Debounce search
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            if (page !== 1) setPage(1)
+            else fetchPosts()
+        }, 500)
+        return () => clearTimeout(timer)
+    }, [searchTerm])
 
     const fetchCategories = async () => {
         try {
@@ -52,12 +68,23 @@ export default function BlogListPage() {
     const fetchPosts = async () => {
         setLoading(true)
         try {
-            const url = selectedCategory 
-                ? `/api/blog/public?categoryId=${selectedCategory}` 
-                : '/api/blog/public'
-            const res = await fetch(url)
+            const params = new URLSearchParams()
+            params.append('page', page.toString())
+            params.append('limit', '10')
+            params.append('sortBy', sortBy)
+            params.append('search', searchTerm)
+            if (selectedCategory) params.append('categoryId', selectedCategory)
+
+            const res = await fetch(`/api/blog/public?${params.toString()}`)
             const data = await res.json()
-            if (data.success) setPosts(data.data)
+            if (data.success) {
+                if (typeof data.data === 'object' && !Array.isArray(data.data)) {
+                    setPosts(data.data.posts)
+                    setPagination(data.data.pagination)
+                } else {
+                    setPosts(data.data) // Fallback for old API structure
+                }
+            }
         } catch (err) {
             console.error(err)
         } finally {
@@ -66,13 +93,10 @@ export default function BlogListPage() {
     }
 
     const featuredPost = posts[0]
-    const remainingPosts = posts.slice(1)
+    const listPosts = posts.slice(1)
     
-    // Filter by search term
-    const filteredPosts = remainingPosts.filter(p => 
-        p.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
-        p.summary.toLowerCase().includes(searchTerm.toLowerCase())
-    )
+    // Server-side filtering now
+    const filteredPosts = listPosts
 
     return (
         <div className="min-h-screen bg-white">
@@ -101,9 +125,12 @@ export default function BlogListPage() {
             {/* Sticky Category Bar - Redesigned */}
             <div className="max-w-7xl mx-auto px-6 -mt-12 relative z-20">
                 <div className="bg-white/90 backdrop-blur-xl border border-neutral-100 p-2.5 rounded-full shadow-2xl flex flex-col md:flex-row items-center gap-4 ring-1 ring-black/5">
-                    <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar w-full md:flex-1 p-1">
+                    <div className="flex items-center gap-2 overflow-x-auto no-scrollbar w-full md:flex-1 p-1">
                         <button 
-                            onClick={() => setSelectedCategory(null)}
+                            onClick={() => {
+                                setSelectedCategory(null)
+                                setPage(1)
+                            }}
                             className={`px-8 py-3 rounded-full text-[11px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${!selectedCategory ? 'bg-primary-600 text-white shadow-lg shadow-primary-200' : 'text-neutral-400 hover:text-neutral-900 hover:bg-neutral-50'}`}
                         >
                             Tất cả
@@ -111,22 +138,38 @@ export default function BlogListPage() {
                         {categories.map(cat => (
                             <button 
                                 key={cat.id}
-                                onClick={() => setSelectedCategory(cat.id)}
+                                onClick={() => {
+                                    setSelectedCategory(cat.id)
+                                    setPage(1)
+                                }}
                                 className={`px-8 py-3 rounded-full text-[11px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${selectedCategory === cat.id ? 'bg-primary-600 text-white shadow-lg shadow-primary-200' : 'text-neutral-400 hover:text-neutral-900 hover:bg-neutral-50'}`}
                             >
                                 {cat.name}
                             </button>
                         ))}
                     </div>
-                    <div className="relative w-full md:w-72 shrink-0">
-                        <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-300 group-focus-within:text-primary-600 transition-colors" />
-                        <input 
-                            type="text"
-                            placeholder="Tìm kiếm bài viết..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full pl-14 pr-6 py-3.5 bg-neutral-50/50 border border-neutral-100 rounded-full text-sm outline-none focus:bg-white focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all font-medium"
-                        />
+                    <div className="flex gap-2 w-full md:w-auto">
+                        <select 
+                            className="px-6 py-3.5 bg-neutral-50/50 border border-neutral-100 rounded-full text-xs font-black uppercase tracking-widest outline-none focus:bg-white focus:ring-2 focus:ring-primary-500/10 transition-all cursor-pointer"
+                            value={sortBy}
+                            onChange={(e) => {
+                                setSortBy(e.target.value)
+                                setPage(1)
+                            }}
+                        >
+                            <option value="publishedAt">Mới nhất</option>
+                            <option value="viewCount">Xem nhiều</option>
+                        </select>
+                        <div className="relative flex-1 md:w-72">
+                            <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-300 group-focus-within:text-primary-600 transition-colors" />
+                            <input 
+                                type="text"
+                                placeholder="Tìm bài viết..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="w-full pl-14 pr-6 py-3.5 bg-neutral-50/50 border border-neutral-100 rounded-full text-sm outline-none focus:bg-white focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all font-medium"
+                            />
+                        </div>
                     </div>
                 </div>
             </div>
@@ -190,7 +233,7 @@ export default function BlogListPage() {
 
                         {/* Recent Posts Grid */}
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12">
-                            {(selectedCategory || searchTerm ? posts : remainingPosts).map((post, idx) => (
+                            {filteredPosts.map((post, idx) => (
                                 <Link 
                                     href={`/blog/${post.slug}`}
                                     key={post.id}
@@ -239,6 +282,39 @@ export default function BlogListPage() {
                                 </Link>
                             ))}
                         </div>
+
+                        {/* Pagination View */}
+                        {pagination.lastPage > 1 && (
+                            <div className="flex items-center justify-center gap-3 mt-32">
+                                <button 
+                                    disabled={page === 1}
+                                    onClick={() => setPage(page - 1)}
+                                    className="w-14 h-14 flex items-center justify-center rounded-3xl bg-neutral-50 text-slate-400 border border-slate-100 disabled:opacity-20 hover:bg-primary-600 hover:text-white transition-all shadow-xl shadow-slate-200/50"
+                                >
+                                    ←
+                                </button>
+                                {[...Array(pagination.lastPage)].map((_, i) => (
+                                    <button
+                                        key={i + 1}
+                                        onClick={() => setPage(i + 1)}
+                                        className={`w-14 h-14 flex items-center justify-center rounded-3xl font-black text-sm transition-all shadow-xl ${
+                                            page === i + 1 
+                                            ? 'bg-primary-600 text-white shadow-primary-200/50' 
+                                            : 'bg-white border border-slate-100 text-slate-400 hover:bg-slate-50 shadow-slate-100'
+                                        }`}
+                                    >
+                                        {i + 1}
+                                    </button>
+                                ))}
+                                <button 
+                                    disabled={page === pagination.lastPage}
+                                    onClick={() => setPage(page + 1)}
+                                    className="w-14 h-14 flex items-center justify-center rounded-3xl bg-neutral-50 text-slate-400 border border-slate-100 disabled:opacity-20 hover:bg-primary-600 hover:text-white transition-all shadow-xl shadow-slate-200/50"
+                                >
+                                    →
+                                </button>
+                            </div>
+                        )}
                     </div>
                 )}
             </main>

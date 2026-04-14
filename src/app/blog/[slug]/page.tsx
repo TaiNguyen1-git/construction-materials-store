@@ -6,11 +6,14 @@ import Link from 'next/link'
 import { 
     Calendar, User, Eye, ArrowLeft, Share2, Facebook, 
     Twitter, Link as LinkIcon, BookOpen, Clock, 
-    ChevronRight, Sparkles, MessageSquare, Heart
+    ChevronRight, Sparkles, MessageSquare, Heart,
+    TrendingUp, ShoppingCart, ArrowUpRight, List, Mail
 } from 'lucide-react'
+import ProductCard from '@/components/marketplace/ProductCard'
 import { format } from 'date-fns'
 import { vi } from 'date-fns/locale'
 import toast, { Toaster } from 'react-hot-toast'
+import SmartInventoryNudge from '@/components/blog/SmartInventoryNudge'
 
 interface Post {
     id: string
@@ -29,6 +32,9 @@ export default function BlogDetailPage({ params }: { params: Promise<{ slug: str
     const { slug } = use(params)
     const [post, setPost] = useState<Post | null>(null)
     const [relatedPosts, setRelatedPosts] = useState<Post[]>([])
+    const [relatedProducts, setRelatedProducts] = useState<any[]>([])
+    const [trendingPosts, setTrendingPosts] = useState<Post[]>([])
+    const [toc, setToc] = useState<{ id: string, text: string, level: number }[]>([])
     const [loading, setLoading] = useState(true)
     const [readingProgress, setReadingProgress] = useState(0)
 
@@ -49,10 +55,13 @@ export default function BlogDetailPage({ params }: { params: Promise<{ slug: str
                 const data = await res.json()
                 if (data.success) {
                     setPost(data.data)
+                    generateToC(data.data.content)
                     // Fetch related posts
                     if (data.data.category?.id) {
                         fetchRelated(data.data.category.id, data.data.id)
+                        fetchRelatedProducts(data.data.category.id)
                     }
+                    fetchTrending()
                 }
             } catch (err) {
                 console.error(err)
@@ -62,6 +71,27 @@ export default function BlogDetailPage({ params }: { params: Promise<{ slug: str
         }
         fetchPost()
     }, [slug])
+
+    const fetchTrending = async () => {
+        try {
+            const res = await fetch('/api/blog/public?limit=5')
+            const data = await res.json()
+            if (data.success) {
+                // Sorting by viewCount if not pre-sorted by API
+                setTrendingPosts(data.data.sort((a: any, b: any) => b.viewCount - a.viewCount))
+            }
+        } catch (err) { console.error(err) }
+    }
+
+    const fetchRelatedProducts = async (categoryId: string) => {
+        try {
+            const res = await fetch(`/api/products/related?categoryId=${categoryId}&limit=4`)
+            const data = await res.json()
+            if (data.success) {
+                setRelatedProducts(data.data)
+            }
+        } catch (err) { console.error(err) }
+    }
 
     const fetchRelated = async (categoryId: string, excludeId: string) => {
         try {
@@ -76,6 +106,23 @@ export default function BlogDetailPage({ params }: { params: Promise<{ slug: str
     const copyToClipboard = () => {
         navigator.clipboard.writeText(window.location.href)
         toast.success('Đã sao chép liên kết bài viết!')
+    }
+
+    const generateToC = (content: string) => {
+        const doc = new DOMParser().parseFromString(content, 'text/html')
+        const headings = Array.from(doc.querySelectorAll('h1, h2, h3'))
+        const tocData = headings.map((h, i) => {
+            const id = `heading-${i}`
+            return { id, text: h.textContent || '', level: parseInt(h.tagName[1]) }
+        })
+        setToc(tocData)
+    }
+
+    const calculateReadingTime = (content: string) => {
+        const wordsPerMinute = 200
+        const text = content.replace(/<[^>]*>/g, '')
+        const words = text.split(/\s+/).length
+        return Math.ceil(words / wordsPerMinute)
     }
 
     if (loading) return (
@@ -98,30 +145,36 @@ export default function BlogDetailPage({ params }: { params: Promise<{ slug: str
     if (!post) return <div className="p-32 text-center text-slate-400 font-black uppercase tracking-widest italic">404 - Post Not Found</div>
 
     return (
-        <div className="min-h-screen bg-white selection:bg-blue-100 selection:text-blue-900">
-            <Toaster position="bottom-center" />
+        <div className="min-h-screen bg-white font-sans selection:bg-primary-100 selection:text-primary-900">
             <Header />
+            <Toaster position="bottom-right" />
 
             {/* Reading Progress Indicator */}
-            <div className="fixed top-0 left-0 w-full h-[6px] z-[100] bg-slate-100/20 backdrop-blur-sm">
-                <div 
-                    className="h-full bg-gradient-to-r from-blue-600 to-indigo-600 shadow-[0_0_15px_rgba(37,99,235,0.5)] transition-all duration-100 ease-out rounded-r-full" 
-                    style={{ width: `${readingProgress}%` }}
-                ></div>
-            </div>
+            <div 
+                className="fixed top-0 left-0 h-1.5 bg-primary-600 z-[100] transition-all duration-300 shadow-[0_0_10px_rgba(37,99,235,0.3)]"
+                style={{ width: `${readingProgress}%` }}
+            />
 
-            {/* Back Button sticky */}
-            <div className="sticky top-24 left-0 w-full z-40 h-0 px-6 max-w-7xl mx-auto hidden xl:block">
-                <Link 
-                    href="/blog"
-                    className="group bg-white border border-slate-100 p-4 rounded-3xl shadow-xl hover:shadow-2xl hover:-translate-x-2 transition-all inline-flex items-center gap-2 text-slate-400 hover:text-blue-600"
-                >
-                    <ArrowLeft className="w-5 h-5" />
-                    <span className="text-[10px] font-black uppercase tracking-widest mr-2">Trở về</span>
-                </Link>
-            </div>
+            <article className="max-w-7xl mx-auto px-6 pt-32 pb-40">
+                {/* Modern SEO Breadcrumbs */}
+                <nav className="mb-12 flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.2em] text-neutral-400">
+                    <Link href="/" className="hover:text-primary-600 transition-colors">Trang chủ</Link>
+                    <ChevronRight className="w-3 h-3" />
+                    <Link href="/blog" className="hover:text-primary-600 transition-colors text-neutral-900">Kiến thức</Link>
+                    <ChevronRight className="w-3 h-3" />
+                    <span className="text-primary-600 truncate max-w-[200px]">{post.category?.name}</span>
+                </nav>
 
-            <article className="max-w-5xl mx-auto px-6 pt-24 pb-48">
+                {/* Back Button sticky */}
+                <div className="sticky top-24 left-0 w-full z-40 h-0 px-6 hidden xl:block">
+                    <Link 
+                        href="/blog"
+                        className="group bg-white border border-slate-100 p-4 rounded-3xl shadow-xl hover:shadow-2xl hover:-translate-x-2 transition-all inline-flex items-center gap-2 text-slate-400 hover:text-blue-600"
+                    >
+                        <ArrowLeft className="w-5 h-5" />
+                        <span className="text-[10px] font-black uppercase tracking-widest mr-2">Trở về</span>
+                    </Link>
+                </div>
                 {/* Modern Article Header */}
                 <header className="mb-16 animate-in fade-in slide-in-from-bottom-8 duration-700">
                     <div className="flex flex-col items-center text-center">
@@ -176,40 +229,106 @@ export default function BlogDetailPage({ params }: { params: Promise<{ slug: str
                     </div>
                 )}
 
-                {/* Reader-Friendly Article Body */}
-                <div className="max-w-3xl mx-auto">
-                    <div 
-                        className="prose prose-neutral prose-xl md:prose-2xl max-w-none 
-                        prose-headings:text-neutral-900 prose-headings:font-black prose-headings:tracking-tight 
-                        prose-p:text-neutral-600 prose-p:leading-[1.8] prose-p:font-medium
-                        prose-strong:text-neutral-900 prose-strong:font-black
-                        prose-blockquote:border-l-4 prose-blockquote:border-primary-600 prose-blockquote:bg-primary-50/30 prose-blockquote:py-6 prose-blockquote:px-8 prose-blockquote:rounded-r-3xl prose-blockquote:not-italic prose-blockquote:font-bold prose-blockquote:text-neutral-800
-                        prose-img:rounded-3xl prose-img:shadow-xl prose-img:my-12
-                        prose-a:text-primary-600 prose-a:no-underline hover:prose-a:underline
-                        transition-all"
-                        dangerouslySetInnerHTML={{ __html: post.content }} 
-                    />
+                {/* Reader-Friendly Article Body with Sidebar */}
+                <div className="flex flex-col lg:flex-row gap-20">
+                    {/* Left Sticky Sidebar (ToC) */}
+                    <aside className="hidden xl:block w-64 shrink-0">
+                        <div className="sticky top-32 space-y-10">
+                            <div className="space-y-6">
+                                <h3 className="text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em] flex items-center gap-3">
+                                    <List className="w-3.5 h-3.5" /> MỤC LỤC
+                                </h3>
+                                <div className="space-y-4">
+                                    {toc.map((item) => (
+                                        <a 
+                                            key={item.id}
+                                            href={`#${item.id}`}
+                                            className={`block text-xs font-bold leading-relaxed transition-all hover:text-primary-600 ${item.level === 3 ? 'pl-4 text-neutral-400' : 'text-neutral-600'}`}
+                                        >
+                                            {item.text}
+                                        </a>
+                                    ))}
+                                </div>
+                            </div>
 
-                    {/* Interaction Buttons (Post Content) */}
-                    <div className="mt-24 pt-12 border-t border-neutral-100 flex flex-wrap items-center justify-between gap-8">
-                        <div className="flex items-center gap-3">
-                            <button className="flex items-center gap-2 px-8 py-3.5 bg-neutral-50 hover:bg-rose-50 hover:text-rose-500 rounded-full text-xs font-black uppercase tracking-widest transition-all group border border-neutral-100 hover:border-rose-100">
-                                <Heart className="w-4 h-4 group-hover:fill-rose-500 transition-all" /> Thả tim
-                            </button>
-                            <button className="flex items-center gap-2 px-8 py-3.5 bg-neutral-50 hover:bg-primary-50 hover:text-primary-600 rounded-full text-xs font-black uppercase tracking-widest transition-all group border border-neutral-100 hover:border-primary-100">
-                                <MessageSquare className="w-4 h-4" /> 24 Bình luận
-                            </button>
+                            {/* Newsletter Mini Widget */}
+                            <div className="p-8 bg-neutral-900 rounded-[32px] text-white">
+                                <Mail className="w-6 h-6 text-primary-400 mb-6" />
+                                <h4 className="text-sm font-black mb-4 leading-tight">Nhận cẩm nang xây dựng</h4>
+                                <p className="text-[10px] text-neutral-400 leading-relaxed mb-6">Mẹo tối ưu chi phí và kỹ thuật mới mỗi tuần.</p>
+                                <input type="email" placeholder="Email của bạn..." className="w-full bg-white/10 border-none rounded-xl px-4 py-2.5 text-[10px] outline-none focus:ring-1 focus:ring-primary-500 mb-3" />
+                                <button className="w-full py-3 bg-primary-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-primary-500 transition-all">Đăng ký</button>
+                            </div>
                         </div>
+                    </aside>
 
-                        <div className="flex items-center gap-6">
-                            <span className="text-[10px] font-black text-neutral-400 uppercase tracking-[0.2em]">Chia sẻ:</span>
-                            <div className="flex gap-2.5">
-                                <button className="w-11 h-11 flex items-center justify-center bg-neutral-50 hover:bg-[#1877F2] hover:text-white rounded-full transition-all border border-neutral-100"><Facebook className="w-4 h-4" /></button>
-                                <button className="w-11 h-11 flex items-center justify-center bg-neutral-50 hover:bg-[#1DA1F2] hover:text-white rounded-full transition-all border border-neutral-100"><Twitter className="w-4 h-4" /></button>
-                                <button onClick={copyToClipboard} className="w-11 h-11 flex items-center justify-center bg-neutral-50 hover:bg-emerald-500 hover:text-white rounded-full transition-all border border-neutral-100"><LinkIcon className="w-4 h-4" /></button>
+                    <div className="flex-1 max-w-4xl">
+                        <div 
+                            className="prose prose-neutral prose-xl md:prose-2xl max-w-none 
+                            prose-headings:text-neutral-900 prose-headings:font-black prose-headings:tracking-tight 
+                            prose-p:text-neutral-600 prose-p:leading-[1.8] prose-p:font-medium
+                            prose-strong:text-neutral-900 prose-strong:font-black
+                            prose-blockquote:border-l-4 prose-blockquote:border-primary-600 prose-blockquote:bg-primary-50/30 prose-blockquote:py-6 prose-blockquote:px-8 prose-blockquote:rounded-r-3xl prose-blockquote:not-italic prose-blockquote:font-bold prose-blockquote:text-neutral-800
+                            prose-img:rounded-3xl prose-img:shadow-xl prose-img:my-12
+                            prose-a:text-primary-600 prose-a:no-underline hover:prose-a:underline
+                            transition-all"
+                            dangerouslySetInnerHTML={{ __html: post.content }} 
+                        />
+
+                        {/* Interaction Buttons (Post Content) */}
+                        <div className="mt-24 pt-12 border-t border-neutral-100 flex flex-wrap items-center justify-between gap-8">
+                            <div className="flex items-center gap-3">
+                                <button className="flex items-center gap-2 px-8 py-3.5 bg-neutral-50 hover:bg-rose-50 hover:text-rose-500 rounded-full text-xs font-black uppercase tracking-widest transition-all group border border-neutral-100 hover:border-rose-100">
+                                    <Heart className="w-4 h-4 group-hover:fill-rose-500 transition-all" /> Thả tim
+                                </button>
+                                <button className="flex items-center gap-2 px-8 py-3.5 bg-neutral-50 hover:bg-primary-50 hover:text-primary-600 rounded-full text-xs font-black uppercase tracking-widest transition-all group border border-neutral-100 hover:border-primary-100">
+                                    <MessageSquare className="w-4 h-4" /> 24 Bình luận
+                                </button>
+                            </div>
+
+                            <div className="flex items-center gap-6">
+                                <span className="text-[10px] font-black text-neutral-400 uppercase tracking-[0.2em]">Chia sẻ:</span>
+                                <div className="flex gap-2.5">
+                                    <button className="w-11 h-11 flex items-center justify-center bg-neutral-50 hover:bg-[#1877F2] hover:text-white rounded-full transition-all border border-neutral-100"><Facebook className="w-4 h-4" /></button>
+                                    <button className="w-11 h-11 flex items-center justify-center bg-neutral-50 hover:bg-[#1DA1F2] hover:text-white rounded-full transition-all border border-neutral-100"><Twitter className="w-4 h-4" /></button>
+                                    <button onClick={copyToClipboard} className="w-11 h-11 flex items-center justify-center bg-neutral-50 hover:bg-emerald-500 hover:text-white rounded-full transition-all border border-neutral-100"><LinkIcon className="w-4 h-4" /></button>
+                                </div>
                             </div>
                         </div>
                     </div>
+
+                    {/* Sidebar Content */}
+                    <aside className="w-full lg:w-96 space-y-12">
+                        {/* Trending Section */}
+                        <div className="sticky top-24 p-8 bg-neutral-50 rounded-[40px] border border-neutral-100/80 shadow-sm">
+                            <h3 className="text-sm font-black text-slate-900 tracking-widest uppercase mb-8 flex items-center gap-3">
+                                <TrendingUp className="w-4 h-4 text-rose-500" /> Xu hướng
+                            </h3>
+                            <div className="space-y-8">
+                                {trendingPosts.map((tp, idx) => (
+                                    <Link 
+                                        href={`/blog/${tp.slug}`} 
+                                        key={tp.id} 
+                                        className="group flex gap-4 items-start"
+                                    >
+                                        <span className="text-3xl font-black text-slate-100 group-hover:text-primary-600 transition-colors leading-none">
+                                            0{idx + 1}
+                                        </span>
+                                        <div className="space-y-2">
+                                            <h4 className="text-sm font-bold text-slate-800 leading-tight group-hover:text-primary-600 transition-colors line-clamp-2">
+                                                {tp.title}
+                                            </h4>
+                                            <div className="flex items-center gap-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                                                <span>{format(new Date(tp.publishedAt), 'dd MMM')}</span>
+                                                <span className="w-1 h-1 rounded-full bg-slate-200"></span>
+                                                <span>{tp.viewCount} Views</span>
+                                            </div>
+                                        </div>
+                                    </Link>
+                                ))}
+                            </div>
+                        </div>
+                    </aside>
                 </div>
 
                 {/* Author Bio Section - Redesigned for Light Theme */}
@@ -227,40 +346,68 @@ export default function BlogDetailPage({ params }: { params: Promise<{ slug: str
                     </div>
                 </div>
 
+                {/* Recommended Products for Conversion */}
+                {relatedProducts.length > 0 && (
+                    <div className="mt-48 pt-24 border-t border-slate-100">
+                        <div className="mb-16">
+                            <h3 className="text-3xl font-black text-slate-900 tracking-tight flex items-center gap-4">
+                                <ShoppingCart className="text-emerald-500 w-8 h-8" /> 
+                                VẬT TƯ ĐƯỢC KHUYÊN DÙNG
+                            </h3>
+                            <p className="text-slate-500 font-medium mt-3 max-w-2xl">
+                                Dựa trên nội dung bài viết, chúng tôi gợi ý các loại vật liệu xây dựng chính hãng đang có sẵn tại kho với mức giá ưu đãi nhất.
+                            </p>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+                            {relatedProducts.map(product => (
+                                <ProductCard 
+                                    key={product.id} 
+                                    product={product} 
+                                />
+                            ))}
+                        </div>
+                    </div>
+                )}
+
                 {/* Related Posts Section */}
                 {relatedPosts.length > 0 && (
-                    <div className="mt-48 space-y-12">
+                    <div className="mt-48 pt-24 border-t border-slate-100 space-y-16">
                          <div className="flex items-center justify-between">
                             <h3 className="text-3xl font-black text-slate-900 tracking-tight flex items-center gap-4">
                                 <BookOpen className="text-blue-600 w-8 h-8" /> 
-                                BÀI VIẾT LIÊN QUAN
+                                KIẾN THỨC LIÊN QUAN
                             </h3>
-                            <Link href="/blog" className="text-[10px] font-black text-blue-600 uppercase tracking-widest hover:translate-x-2 transition-transform flex items-center gap-2">
-                                Xem tất cả <ChevronRight className="w-4 h-4" />
+                            <Link href="/blog" className="px-6 py-2.5 bg-neutral-50 text-[10px] font-black text-slate-600 uppercase tracking-widest rounded-full hover:bg-primary-600 hover:text-white transition-all flex items-center gap-2">
+                                Xem tất cả <ArrowUpRight className="w-4 h-4" />
                             </Link>
                          </div>
-                         <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
+                         <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
                             {relatedPosts.map(rp => (
                                 <Link 
                                     href={`/blog/${rp.slug}`} 
                                     key={rp.id}
                                     className="group flex flex-col"
                                 >
-                                    <div className="aspect-square rounded-[40px] overflow-hidden mb-6 border border-slate-100 shadow-sm transition-all group-hover:-translate-y-2 group-hover:shadow-xl">
-                                        <img src={rp.featuredImage} alt={rp.title} className="w-full h-full object-cover" />
+                                    <div className="aspect-[16/10] rounded-[40px] overflow-hidden mb-8 border border-slate-100 shadow-sm transition-all group-hover:-translate-y-2 group-hover:shadow-2xl">
+                                        <img src={rp.featuredImage} alt={rp.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000" />
                                     </div>
-                                    <h4 className="text-xl font-black text-slate-900 leading-tight line-clamp-2 group-hover:text-blue-600 transition-colors">
+                                    <h4 className="text-xl font-black text-slate-900 leading-tight line-clamp-2 group-hover:text-primary-600 transition-colors">
                                         {rp.title}
                                     </h4>
-                                    <p className="text-xs font-bold text-slate-400 mt-3 uppercase tracking-widest">
-                                        {format(new Date(rp.publishedAt), 'dd MMM, yyyy', { locale: vi })}
-                                    </p>
+                                    <div className="flex items-center gap-3 mt-4">
+                                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                            {format(new Date(rp.publishedAt), 'dd MMM, yyyy', { locale: vi })}
+                                        </span>
+                                    </div>
                                 </Link>
                             ))}
                          </div>
                     </div>
                 )}
             </article>
+
+            {/* AI-Driven Inventory Nudge */}
+            <SmartInventoryNudge categoryId={post.category?.id} />
         </div>
     )
 }
