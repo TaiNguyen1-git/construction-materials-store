@@ -10,7 +10,6 @@ import {
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { vi } from 'date-fns/locale'
-import Footer from '@/components/Footer'
 import toast, { Toaster } from 'react-hot-toast'
 
 interface Post {
@@ -122,90 +121,107 @@ export default function BlogDetailPage({ params }: { params: Promise<{ slug: str
                 </Link>
             </div>
 
-            <article className="max-w-4xl mx-auto px-6 pt-32 pb-48">
-                {/* Header Section */}
-                <header className="mb-20 text-center animate-in fade-in slide-in-from-bottom-8 duration-700">
-                    {post.category && (
-                        <div className="inline-flex items-center gap-2 px-6 py-2 bg-blue-50 text-blue-600 rounded-full text-[10px] font-black uppercase tracking-[0.2em] mb-10 shadow-sm border border-blue-100">
-                            <Sparkles className="w-3 h-3" /> {post.category.name}
-                        </div>
-                    )}
-                    <h1 className="text-4xl md:text-7xl font-black text-slate-900 leading-[1.05] tracking-tight mb-12">
-                        {post.title}
-                    </h1>
+            <article className="max-w-5xl mx-auto px-6 pt-24 pb-48">
+                {/* Modern Article Header */}
+                <header className="mb-16 animate-in fade-in slide-in-from-bottom-8 duration-700">
+                    <div className="flex flex-col items-center text-center">
+                        {post.category && (
+                            <Link 
+                                href={`/blog?categoryId=${post.category.id}`}
+                                className="inline-flex items-center gap-2 px-4 py-1.5 bg-blue-50 text-blue-600 rounded-full text-[10px] font-black uppercase tracking-[0.2em] mb-8 hover:bg-blue-100 transition-colors border border-blue-100/50"
+                            >
+                                <Sparkles className="w-3 h-3" /> {post.category.name}
+                            </Link>
+                        )}
+                        <h1 className="text-4xl md:text-6xl lg:text-7xl font-black text-neutral-900 leading-[1.1] tracking-tight mb-10 max-w-4xl">
+                            {post.title}
+                        </h1>
 
-                    <div className="flex flex-wrap items-center justify-center gap-10 text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                        <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-2xl bg-slate-900 text-white flex items-center justify-center shadow-lg">
-                                {post.author.name.charAt(0)}
+                        <div className="flex flex-wrap items-center justify-center gap-6 md:gap-8 text-[11px] font-bold text-neutral-400 uppercase tracking-widest bg-neutral-50/50 px-8 py-4 rounded-full border border-neutral-100">
+                            <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-full bg-primary-600 text-white flex items-center justify-center text-[12px] font-black shadow-lg shadow-primary-200">
+                                    {post.author.name.charAt(0)}
+                                </div>
+                                <span className="text-neutral-900">{post.author.name}</span>
                             </div>
-                            <span className="text-slate-900">{post.author.name}</span>
-                        </div>
-                        <div className="flex items-center gap-2 border-l border-slate-100 pl-10">
-                            <Calendar className="w-4 h-4 text-blue-500" /> 
-                            {format(new Date(post.publishedAt), 'dd MMMM, yyyy', { locale: vi })}
-                        </div>
-                        <div className="flex items-center gap-2 border-l border-slate-100 pl-10">
-                            <Clock className="w-4 h-4 text-emerald-500" /> 
-                            {Math.ceil(post.content.length / 1000)} phút đọc
-                        </div>
-                        <div className="flex items-center gap-2 border-l border-slate-100 pl-10">
-                            <Eye className="w-4 h-4 text-purple-500" /> {post.viewCount} Xem
+                            <span className="w-1 h-1 rounded-full bg-neutral-200 hidden md:block"></span>
+                            <div className="flex items-center gap-2">
+                                <Calendar className="w-3.5 h-3.5" /> 
+                                {format(new Date(post.publishedAt), 'dd MMMM, yyyy', { locale: vi })}
+                            </div>
+                            <span className="w-1 h-1 rounded-full bg-neutral-200 hidden md:block"></span>
+                            <div className="flex items-center gap-2">
+                                <Clock className="w-3.5 h-3.5 text-emerald-500" /> 
+                                {Math.ceil(post.content.length / 1000)} phút đọc
+                            </div>
+                            <span className="w-1 h-1 rounded-full bg-neutral-200 hidden md:block"></span>
+                            <div className="flex items-center gap-2">
+                                <Eye className="w-3.5 h-3.5 text-purple-500" /> {post.viewCount} lượt xem
+                            </div>
                         </div>
                     </div>
                 </header>
 
-                {/* Hero Image */}
+                {/* Refined Hero Image */}
                 {post.featuredImage && (
-                    <div className="aspect-[21/9] rounded-[64px] overflow-hidden shadow-2xl mb-24 border-8 border-slate-50 relative group animate-in zoom-in duration-1000">
-                        <img 
-                            src={post.featuredImage} 
-                            alt={post.title} 
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-[3s]" 
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
+                    <div className="relative group mb-20 animate-in zoom-in-95 duration-1000">
+                        <div className="aspect-[21/10] rounded-[48px] overflow-hidden shadow-[0_32px_64px_-16px_rgba(0,0,0,0.1)] border-b border-neutral-100">
+                            <img 
+                                src={post.featuredImage} 
+                                alt={post.title} 
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-[4s]" 
+                            />
+                        </div>
+                        <div className="absolute inset-0 rounded-[48px] ring-1 ring-inset ring-black/5 pointer-events-none"></div>
                     </div>
                 )}
 
-                {/* Article Body */}
+                {/* Reader-Friendly Article Body */}
                 <div className="max-w-3xl mx-auto">
                     <div 
-                        className="prose prose-blue prose-2xl max-w-none prose-headings:font-black prose-headings:tracking-tight prose-headings:text-slate-900 prose-p:font-medium prose-p:text-slate-600 prose-p:leading-[1.8] prose-img:rounded-[40px] prose-img:shadow-2xl prose-blockquote:border-blue-600 prose-blockquote:bg-blue-50 prose-blockquote:p-10 prose-blockquote:rounded-[40px] prose-blockquote:not-italic prose-blockquote:font-bold prose-strong:text-slate-900 transition-all"
+                        className="prose prose-neutral prose-xl md:prose-2xl max-w-none 
+                        prose-headings:text-neutral-900 prose-headings:font-black prose-headings:tracking-tight 
+                        prose-p:text-neutral-600 prose-p:leading-[1.8] prose-p:font-medium
+                        prose-strong:text-neutral-900 prose-strong:font-black
+                        prose-blockquote:border-l-4 prose-blockquote:border-primary-600 prose-blockquote:bg-primary-50/30 prose-blockquote:py-6 prose-blockquote:px-8 prose-blockquote:rounded-r-3xl prose-blockquote:not-italic prose-blockquote:font-bold prose-blockquote:text-neutral-800
+                        prose-img:rounded-3xl prose-img:shadow-xl prose-img:my-12
+                        prose-a:text-primary-600 prose-a:no-underline hover:prose-a:underline
+                        transition-all"
                         dangerouslySetInnerHTML={{ __html: post.content }} 
                     />
 
                     {/* Interaction Buttons (Post Content) */}
-                    <div className="mt-24 pt-10 border-t border-slate-100 flex flex-wrap items-center justify-between gap-8">
-                        <div className="flex items-center gap-4">
-                            <button className="flex items-center gap-2 px-8 py-4 bg-slate-50 hover:bg-red-50 hover:text-red-500 rounded-3xl text-sm font-black uppercase tracking-widest transition-all group">
-                                <Heart className="w-5 h-5 group-hover:fill-red-500 transition-all" /> Thả tim
+                    <div className="mt-24 pt-12 border-t border-neutral-100 flex flex-wrap items-center justify-between gap-8">
+                        <div className="flex items-center gap-3">
+                            <button className="flex items-center gap-2 px-8 py-3.5 bg-neutral-50 hover:bg-rose-50 hover:text-rose-500 rounded-full text-xs font-black uppercase tracking-widest transition-all group border border-neutral-100 hover:border-rose-100">
+                                <Heart className="w-4 h-4 group-hover:fill-rose-500 transition-all" /> Thả tim
                             </button>
-                            <button className="flex items-center gap-2 px-8 py-4 bg-slate-50 hover:bg-blue-50 hover:text-blue-600 rounded-3xl text-sm font-black uppercase tracking-widest transition-all group">
-                                <MessageSquare className="w-5 h-5" /> Bình luận
+                            <button className="flex items-center gap-2 px-8 py-3.5 bg-neutral-50 hover:bg-primary-50 hover:text-primary-600 rounded-full text-xs font-black uppercase tracking-widest transition-all group border border-neutral-100 hover:border-primary-100">
+                                <MessageSquare className="w-4 h-4" /> 24 Bình luận
                             </button>
                         </div>
 
-                        <div className="flex items-center gap-4">
-                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Lan tỏa bài viết:</span>
-                            <div className="flex gap-2">
-                                <button className="p-4 bg-slate-50 hover:bg-[#1877F2] hover:text-white rounded-2xl transition-all shadow-sm"><Facebook className="w-5 h-5" /></button>
-                                <button className="p-4 bg-slate-50 hover:bg-[#1DA1F2] hover:text-white rounded-2xl transition-all shadow-sm"><Twitter className="w-5 h-5" /></button>
-                                <button onClick={copyToClipboard} className="p-4 bg-slate-50 hover:bg-emerald-500 hover:text-white rounded-2xl transition-all shadow-sm"><LinkIcon className="w-5 h-5" /></button>
+                        <div className="flex items-center gap-6">
+                            <span className="text-[10px] font-black text-neutral-400 uppercase tracking-[0.2em]">Chia sẻ:</span>
+                            <div className="flex gap-2.5">
+                                <button className="w-11 h-11 flex items-center justify-center bg-neutral-50 hover:bg-[#1877F2] hover:text-white rounded-full transition-all border border-neutral-100"><Facebook className="w-4 h-4" /></button>
+                                <button className="w-11 h-11 flex items-center justify-center bg-neutral-50 hover:bg-[#1DA1F2] hover:text-white rounded-full transition-all border border-neutral-100"><Twitter className="w-4 h-4" /></button>
+                                <button onClick={copyToClipboard} className="w-11 h-11 flex items-center justify-center bg-neutral-50 hover:bg-emerald-500 hover:text-white rounded-full transition-all border border-neutral-100"><LinkIcon className="w-4 h-4" /></button>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                {/* Author Bio Section */}
-                <div className="mt-32 p-12 bg-[#0c0f17] rounded-[56px] text-white flex flex-col md:flex-row items-center gap-10 relative overflow-hidden group">
-                    <div className="absolute top-0 right-0 w-64 h-64 bg-blue-600/10 rounded-full blur-[100px]"></div>
-                    <div className="w-32 h-32 rounded-[40px] bg-blue-600 flex items-center justify-center text-5xl font-black shrink-0 shadow-2xl rotate-3 group-hover:rotate-0 transition-transform">
+                {/* Author Bio Section - Redesigned for Light Theme */}
+                <div className="mt-32 p-10 md:p-14 bg-neutral-50 rounded-[56px] border border-neutral-100 flex flex-col md:flex-row items-center gap-10 relative overflow-hidden group">
+                    <div className="absolute -top-24 -right-24 w-64 h-64 bg-blue-100/50 rounded-full blur-[80px]"></div>
+                    <div className="w-32 h-32 rounded-[40px] bg-white shadow-2xl shadow-blue-500/10 flex items-center justify-center text-5xl font-black shrink-0 relative z-10 text-primary-600 rotate-3 group-hover:rotate-0 transition-transform border border-blue-50">
                         {post.author.name.charAt(0)}
                     </div>
-                    <div className="text-center md:text-left">
-                        <p className="text-[10px] font-black text-blue-400 uppercase tracking-[0.3em] mb-2">Thông tin tác giả</p>
-                        <h4 className="text-3xl font-black tracking-tight mb-4">{post.author.name}</h4>
-                        <p className="text-slate-400 text-lg font-medium leading-relaxed max-w-xl">
+                    <div className="text-center md:text-left relative z-10">
+                        <p className="text-[11px] font-black text-primary-600 uppercase tracking-[0.3em] mb-3">Thông tin tác giả</p>
+                        <h4 className="text-3xl font-black text-neutral-900 tracking-tight mb-4">{post.author.name}</h4>
+                        <p className="text-neutral-500 text-lg font-medium leading-relaxed max-w-xl">
                             Chuyên gia tư vấn kỹ thuật tại SmartBuild, đam mê chia sẻ kiến thức về vật liệu xây dựng thông minh và kiến trúc bền vững.
                         </p>
                     </div>
@@ -245,7 +261,6 @@ export default function BlogDetailPage({ params }: { params: Promise<{ slug: str
                     </div>
                 )}
             </article>
-            <Footer />
         </div>
     )
 }

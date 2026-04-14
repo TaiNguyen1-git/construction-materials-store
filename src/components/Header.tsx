@@ -15,6 +15,7 @@ export default function Header() {
   const { user, isAuthenticated, logout } = useAuth()
   const [showUserMenu, setShowUserMenu] = useState(false)
   const [showServicesMenu, setShowServicesMenu] = useState(false)
+  const [showSupportMenu, setShowSupportMenu] = useState(false)
   const [showLoginModal, setShowLoginModal] = useState(false)
   const router = useRouter()
 
@@ -27,25 +28,25 @@ export default function Header() {
             <div className="bg-gradient-to-r from-primary-600 to-secondary-600 p-2 rounded-xl">
               <Package className="h-6 w-6 text-white" />
             </div>
-            <span className="ml-3 text-xl lg:text-2xl font-black text-gradient-primary whitespace-nowrap">
+            <span className="ml-2 text-xl xl:text-2xl font-black text-gradient-primary whitespace-nowrap">
               SmartBuild
             </span>
           </div>
 
           {/* Navigation */}
-          <nav className="hidden lg:flex items-center space-x-3 xl:space-x-5 flex-shrink-0">
+          <nav className="hidden lg:flex items-center space-x-2 xl:space-x-4 flex-shrink-0">
             <Link href="/" className="flex items-center gap-2 text-gray-900 hover:text-primary-600 font-semibold relative group whitespace-nowrap text-sm">
-              <Home className="w-4 h-4" />
+              <Home className="w-4 h-4 hidden xl:block" />
               Trang chủ
               <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-primary-600 to-secondary-600 group-hover:w-full transition-all duration-300"></span>
             </Link>
             <Link href="/products" className="flex items-center gap-2 text-gray-600 hover:text-primary-600 font-semibold relative group whitespace-nowrap text-sm">
-              <Package className="w-4 h-4" />
+              <Package className="w-4 h-4 hidden xl:block" />
               Sản phẩm
               <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-primary-600 to-secondary-600 group-hover:w-full transition-all duration-300"></span>
             </Link>
             <Link href="/categories" className="flex items-center gap-2 text-gray-600 hover:text-primary-600 font-semibold relative group whitespace-nowrap text-sm">
-              <Tag className="w-4 h-4" />
+              <Tag className="w-4 h-4 hidden xl:block" />
               Danh mục
               <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-primary-600 to-secondary-600 group-hover:w-full transition-all duration-300"></span>
             </Link>
@@ -62,7 +63,7 @@ export default function Header() {
                 aria-haspopup="true"
                 aria-expanded={showServicesMenu}
               >
-                <Sparkles className="w-4 h-4" />
+                <Sparkles className="w-4 h-4 hidden xl:block" />
                 Dịch vụ
                 <ChevronDown className={`w-3 h-3 transition-transform ${showServicesMenu ? 'rotate-180' : ''}`} />
               </button>
@@ -130,25 +131,57 @@ export default function Header() {
             </div>
 
             <Link href="/blog" className="flex items-center gap-2 text-gray-600 hover:text-primary-600 font-semibold relative group whitespace-nowrap text-sm">
-              <BookOpen className="w-4 h-4" />
+              <BookOpen className="w-4 h-4 hidden xl:block" />
               Blog
               <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-primary-600 to-secondary-600 group-hover:w-full transition-all duration-300"></span>
             </Link>
-            <Link href="/about" className="flex items-center gap-2 text-gray-600 hover:text-primary-600 font-semibold relative group whitespace-nowrap text-sm">
-              <Info className="w-4 h-4" />
-              Giới thiệu
-              <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-primary-600 to-secondary-600 group-hover:w-full transition-all duration-300"></span>
-            </Link>
-            <Link href="/contact" className="flex items-center gap-2 text-gray-600 hover:text-primary-600 font-semibold relative group whitespace-nowrap text-sm">
-              <Phone className="w-4 h-4" />
-              Liên hệ
-              <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-primary-600 to-secondary-600 group-hover:w-full transition-all duration-300"></span>
-            </Link>
-            <Link href="/help" className="flex items-center gap-2 text-gray-600 hover:text-primary-600 font-semibold relative group whitespace-nowrap text-sm">
-              <Headset className="w-4 h-4" />
-              Trợ giúp
-              <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-primary-600 to-secondary-600 group-hover:w-full transition-all duration-300"></span>
-            </Link>
+
+            {/* Support Dropdown */}
+            <div
+              className="relative"
+              onMouseEnter={() => setShowSupportMenu(true)}
+              onMouseLeave={() => setShowSupportMenu(false)}
+            >
+              <button
+                className="flex items-center gap-2 text-gray-600 hover:text-primary-600 font-semibold whitespace-nowrap text-sm py-2"
+                aria-label="Mở menu hỗ trợ"
+                aria-haspopup="true"
+                aria-expanded={showSupportMenu}
+              >
+                <Headset className="w-4 h-4 hidden xl:block" />
+                Hỗ trợ
+                <ChevronDown className={`w-3 h-3 transition-transform ${showSupportMenu ? 'rotate-180' : ''}`} />
+              </button>
+
+              {showSupportMenu && (
+                <div className="absolute right-0 mt-0 w-48 bg-white rounded-xl shadow-2xl border border-gray-100 py-2 z-50">
+                  <Link
+                    href="/about"
+                    className="flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gradient-to-r hover:from-primary-50 hover:to-secondary-50 transition-colors"
+                    onClick={() => setShowSupportMenu(false)}
+                  >
+                    <Info className="h-5 w-5 mr-3 text-blue-500" />
+                    <span className="font-medium">Giới thiệu</span>
+                  </Link>
+                  <Link
+                    href="/contact"
+                    className="flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gradient-to-r hover:from-primary-50 hover:to-secondary-50 transition-colors"
+                    onClick={() => setShowSupportMenu(false)}
+                  >
+                    <Phone className="h-5 w-5 mr-3 text-green-500" />
+                    <span className="font-medium">Liên hệ</span>
+                  </Link>
+                  <Link
+                    href="/help"
+                    className="flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gradient-to-r hover:from-primary-50 hover:to-secondary-50 transition-colors"
+                    onClick={() => setShowSupportMenu(false)}
+                  >
+                    <Headset className="h-5 w-5 mr-3 text-orange-500" />
+                    <span className="font-medium">Trợ giúp</span>
+                  </Link>
+                </div>
+              )}
+            </div>
           </nav>
 
           {/* Actions */}
@@ -229,10 +262,10 @@ export default function Header() {
               </div>
             ) : (
               <>
-                <Link href="/login" className="hidden md:flex items-center gap-1 text-gray-600 hover:text-primary-600 font-semibold transition-all duration-300 whitespace-nowrap text-sm lg:text-base">
+                <Link href="/login" className="hidden md:flex items-center gap-1 text-gray-600 hover:text-primary-600 font-semibold transition-all duration-300 whitespace-nowrap text-sm">
                   <LogIn className="h-4 w-4" /> Đăng nhập
                 </Link>
-                <Link href="/register" className="gradient-primary text-white px-4 lg:px-6 py-2 rounded-full hover:from-primary-700 hover:to-secondary-700 font-semibold transition-all duration-300 hover:scale-105 shadow-lg whitespace-nowrap text-sm lg:text-base flex items-center gap-1">
+                <Link href="/register" className="gradient-primary text-white px-4 py-2 rounded-full hover:from-primary-700 hover:to-secondary-700 font-semibold transition-all duration-300 hover:scale-105 shadow-lg whitespace-nowrap text-sm flex items-center gap-1">
                   <UserPlus className="h-4 w-4" /> Đăng ký
                 </Link>
               </>

@@ -5,7 +5,6 @@ import Header from '@/components/Header'
 import { Gift, Copy, Clock, CheckCircle, Sparkles, Tag, ArrowRight, ShoppingBag, Percent, Zap } from 'lucide-react'
 import toast, { Toaster } from 'react-hot-toast'
 import Link from 'next/link'
-import Footer from '@/components/Footer'
 
 interface Promotion {
     id: string
@@ -181,7 +180,6 @@ export default function PromotionsPage() {
                     </div>
                 </div>
             </main>
-            <Footer />
         </div>
     )
 }

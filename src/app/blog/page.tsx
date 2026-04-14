@@ -6,7 +6,6 @@ import Link from 'next/link'
 import { Calendar, User, Eye, ArrowRight, BookOpen, Search, Filter, Sparkles, Loader2, ChevronRight } from 'lucide-react'
 import { format } from 'date-fns'
 import { vi } from 'date-fns/locale'
-import Footer from '@/components/Footer'
 
 interface Post {
     id: string
@@ -79,33 +78,33 @@ export default function BlogListPage() {
         <div className="min-h-screen bg-white">
             <Header />
             
-            {/* Elegant Hero */}
-            <div className="bg-[#0c0f17] pt-32 pb-48 relative overflow-hidden">
+            {/* Elegant Light Hero */}
+            <div className="bg-gradient-to-b from-blue-50/50 to-white pt-24 pb-40 relative overflow-hidden">
                 <div className="absolute inset-0">
-                    <div className="absolute top-1/2 left-1/4 w-[600px] h-[600px] bg-blue-600/10 rounded-full blur-[120px] -translate-y-1/2"></div>
-                    <div className="absolute top-1/2 right-0 w-[400px] h-[400px] bg-emerald-600/5 rounded-full blur-[100px] -translate-y-1/2"></div>
+                    <div className="absolute top-1/2 left-1/4 w-[600px] h-[600px] bg-blue-400/5 rounded-full blur-[120px] -translate-y-1/2"></div>
+                    <div className="absolute top-1/2 right-0 w-[400px] h-[400px] bg-emerald-400/5 rounded-full blur-[100px] -translate-y-1/2"></div>
                 </div>
                 
                 <div className="max-w-7xl mx-auto px-6 relative z-10 text-center">
-                    <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-500/10 border border-blue-500/20 rounded-full text-blue-400 text-[10px] font-black uppercase tracking-[0.3em] mb-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-                        <Sparkles className="w-3 h-3" /> Blog & Kiến Thức Xây Dựng
+                    <div className="inline-flex items-center gap-2 px-5 py-2.5 bg-white border border-blue-100 rounded-full shadow-sm text-blue-600 text-[10px] font-black uppercase tracking-[0.3em] mb-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                        <Sparkles className="w-3.5 h-3.5" /> Blog & Kiến Thức Xây Dựng
                     </div>
-                    <h1 className="text-6xl md:text-8xl font-black text-white tracking-tighter mb-8 leading-none">
-                        SMART<span className="text-blue-500 italic">MAGAZINE</span>
+                    <h1 className="text-6xl md:text-[100px] font-black text-neutral-900 tracking-tighter mb-8 leading-none">
+                        SMART<span className="text-primary-600 italic">MAGAZINE</span>
                     </h1>
-                    <p className="text-slate-400 text-lg md:text-xl max-w-2xl mx-auto font-medium leading-relaxed">
+                    <p className="text-neutral-500 text-lg md:text-xl max-w-2xl mx-auto font-medium leading-relaxed">
                         Nơi chia sẻ những kỹ thuật xây dựng đột phá, xu hướng vật liệu bền vững và bí quyết tối ưu không gian sống.
                     </p>
                 </div>
             </div>
 
-            {/* Sticky Category Bar */}
-            <div className="max-w-7xl mx-auto px-6 -mt-16 relative z-20">
-                <div className="bg-white/80 backdrop-blur-2xl border border-slate-100 p-4 rounded-[32px] shadow-2xl flex flex-col md:flex-row items-center justify-between gap-6 ring-1 ring-slate-900/5">
-                    <div className="flex items-center gap-2 overflow-x-auto no-scrollbar w-full md:w-auto pb-2 md:pb-0">
+            {/* Sticky Category Bar - Redesigned */}
+            <div className="max-w-7xl mx-auto px-6 -mt-12 relative z-20">
+                <div className="bg-white/90 backdrop-blur-xl border border-neutral-100 p-2.5 rounded-full shadow-2xl flex flex-col md:flex-row items-center gap-4 ring-1 ring-black/5">
+                    <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar w-full md:flex-1 p-1">
                         <button 
                             onClick={() => setSelectedCategory(null)}
-                            className={`px-8 py-3 rounded-2xl text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap ${!selectedCategory ? 'bg-slate-900 text-white shadow-xl scale-105' : 'bg-slate-50 text-slate-400 hover:bg-slate-100 hover:text-slate-600'}`}
+                            className={`px-8 py-3 rounded-full text-[11px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${!selectedCategory ? 'bg-primary-600 text-white shadow-lg shadow-primary-200' : 'text-neutral-400 hover:text-neutral-900 hover:bg-neutral-50'}`}
                         >
                             Tất cả
                         </button>
@@ -113,20 +112,20 @@ export default function BlogListPage() {
                             <button 
                                 key={cat.id}
                                 onClick={() => setSelectedCategory(cat.id)}
-                                className={`px-8 py-3 rounded-2xl text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap ${selectedCategory === cat.id ? 'bg-blue-600 text-white shadow-xl scale-105 shadow-blue-500/30' : 'bg-slate-50 text-slate-400 hover:bg-slate-100 hover:text-slate-600'}`}
+                                className={`px-8 py-3 rounded-full text-[11px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${selectedCategory === cat.id ? 'bg-primary-600 text-white shadow-lg shadow-primary-200' : 'text-neutral-400 hover:text-neutral-900 hover:bg-neutral-50'}`}
                             >
-                                {cat.name} ({cat._count.posts})
+                                {cat.name}
                             </button>
                         ))}
                     </div>
-                    <div className="relative w-full md:w-80 group">
-                        <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 group-focus-within:text-blue-500 transition-colors" />
+                    <div className="relative w-full md:w-72 shrink-0">
+                        <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-300 group-focus-within:text-primary-600 transition-colors" />
                         <input 
                             type="text"
                             placeholder="Tìm kiếm bài viết..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full pl-14 pr-6 py-4 bg-slate-50 border border-transparent rounded-[20px] text-sm focus:bg-white focus:border-blue-100 outline-none transition-all font-medium"
+                            className="w-full pl-14 pr-6 py-3.5 bg-neutral-50/50 border border-neutral-100 rounded-full text-sm outline-none focus:bg-white focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all font-medium"
                         />
                     </div>
                 </div>
@@ -243,7 +242,6 @@ export default function BlogListPage() {
                     </div>
                 )}
             </main>
-            <Footer />
         </div>
     )
 }

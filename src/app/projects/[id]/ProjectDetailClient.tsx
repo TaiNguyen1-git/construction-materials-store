@@ -13,7 +13,6 @@ import toast, { Toaster } from 'react-hot-toast'
 import Header from '@/components/Header'
 import BiddingForm from '@/components/marketplace/BiddingForm'
 import AIMaterialStandards from '@/components/marketplace/AIMaterialStandards'
-import Footer from '@/components/Footer'
 
 interface Project {
     id: string
@@ -486,7 +485,6 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
                     />
                 )}
             </div>
-            <Footer />
         </div>
     )
 }
