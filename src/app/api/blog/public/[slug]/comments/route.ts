@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
-import prisma from '@/lib/prisma'
+import { prisma } from '@/lib/prisma'
 
-export async function GET(req: NextRequest, { params }: { params: { slug: string } }) {
+export async function GET(
+  request: NextRequest, 
+  { params }: { params: Promise<{ slug: string }> }
+) {
     try {
-        const { slug } = params
+        const resolvedParams = await params
         const post = await prisma.blogPost.findUnique({
-            where: { slug },
+            where: { slug: resolvedParams.slug },
             select: { id: true }
         })
         
@@ -23,17 +26,20 @@ export async function GET(req: NextRequest, { params }: { params: { slug: string
     }
 }
 
-export async function POST(req: NextRequest, { params }: { params: { slug: string } }) {
+export async function POST(
+  request: NextRequest, 
+  { params }: { params: Promise<{ slug: string }> }
+) {
     try {
-        const { slug } = params
-        const { name, email, content } = await req.json()
+        const resolvedParams = await params
+        const { name, email, content } = await request.json()
 
         if (!name || !content) {
             return NextResponse.json({ success: false, message: 'Tên và nội dung không được để trống' }, { status: 400 })
         }
 
         const post = await prisma.blogPost.findUnique({
-            where: { slug },
+            where: { slug: resolvedParams.slug },
             select: { id: true }
         })
 

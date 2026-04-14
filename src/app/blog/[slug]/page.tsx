@@ -74,6 +74,10 @@ export default function BlogDetailPage({ params }: { params: Promise<{ slug: str
     }, [])
 
     useEffect(() => {
+        // Fire independent fetches concurrently to avoid waterfall latency
+        fetchTrending()
+        fetchComments()
+
         const fetchPost = async () => {
             try {
                 const res = await fetch(`/api/blog/public/${slug}`)
@@ -82,13 +86,11 @@ export default function BlogDetailPage({ params }: { params: Promise<{ slug: str
                     setPost(data.data)
                     setLikes(data.data.likesCount || 0)
                     generateToC(data.data.content)
-                    // Fetch related posts
+                    // Fetch related posts ONLY AFTER we have the category
                     if (data.data.category?.id) {
                         fetchRelated(data.data.category.id, data.data.id)
                         fetchRelatedProducts(data.data.category.id)
                     }
-                    fetchTrending()
-                    fetchComments()
                 }
             } catch (err) {
                 console.error(err)
@@ -97,7 +99,7 @@ export default function BlogDetailPage({ params }: { params: Promise<{ slug: str
             }
         }
         fetchPost()
-    }, [slug])
+    }, [slug]) // Include slug in dependencies as both fetchPost and fetchComments rely on it
 
     const fetchTrending = async () => {
         try {
@@ -148,7 +150,7 @@ export default function BlogDetailPage({ params }: { params: Promise<{ slug: str
         try {
             setLikes(prev => prev + 1)
             setHasLiked(true)
-            await fetch(`/api/blog/${slug}/like`, { method: 'POST' })
+            await fetch(`/api/blog/public/${slug}/like`, { method: 'POST' })
             toast.success('Cảm ơn bạn đã yêu thích bài viết!')
         } catch (error) { console.error(error) }
     }
@@ -173,7 +175,7 @@ export default function BlogDetailPage({ params }: { params: Promise<{ slug: str
 
     const fetchComments = async () => {
         try {
-            const res = await fetch(`/api/blog/${slug}/comments`)
+            const res = await fetch(`/api/blog/public/${slug}/comments`)
             const data = await res.json()
             if (data.success) setComments(data.data)
         } catch (error) { console.error(error) }
@@ -187,7 +189,7 @@ export default function BlogDetailPage({ params }: { params: Promise<{ slug: str
         }
         setCommentLoading(true)
         try {
-            const res = await fetch(`/api/blog/${slug}/comments`, {
+            const res = await fetch(`/api/blog/public/${slug}/comments`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(commentData)
@@ -259,16 +261,6 @@ export default function BlogDetailPage({ params }: { params: Promise<{ slug: str
                     <span className="text-primary-600 truncate max-w-[200px]">{post.category?.name}</span>
                 </nav>
 
-                {/* Back Button sticky */}
-                <div className="sticky top-24 left-0 w-full z-40 h-0 px-6 hidden xl:block">
-                    <Link 
-                        href="/blog"
-                        className="group bg-white border border-slate-100 p-4 rounded-3xl shadow-xl hover:shadow-2xl hover:-translate-x-2 transition-all inline-flex items-center gap-2 text-slate-400 hover:text-blue-600"
-                    >
-                        <ArrowLeft className="w-5 h-5" />
-                        <span className="text-[10px] font-black uppercase tracking-widest mr-2">Trở về</span>
-                    </Link>
-                </div>
                 {/* Modern Article Header */}
                 <header className="mb-16 animate-in fade-in slide-in-from-bottom-8 duration-700">
                     <div className="flex flex-col items-center text-center">
@@ -328,6 +320,16 @@ export default function BlogDetailPage({ params }: { params: Promise<{ slug: str
                     {/* Left Sticky Sidebar (ToC) */}
                     <aside className="hidden xl:block w-64 shrink-0">
                         <div className="sticky top-32 space-y-10">
+
+                            {/* Back Button Integrated into Sidebar */}
+                            <Link 
+                                href="/blog"
+                                className="group inline-flex items-center gap-3 bg-white border border-neutral-100 px-6 py-4 rounded-full shadow-sm hover:shadow-md hover:-translate-x-2 transition-all text-neutral-400 hover:text-blue-600"
+                            >
+                                <ArrowLeft className="w-4 h-4" />
+                                <span className="text-[10px] font-black uppercase tracking-widest">Trở về bài viết</span>
+                            </Link>
+
                             {toc.length > 0 && (
                                 <div className="space-y-6">
                                     <h3 className="text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em] flex items-center gap-3">
@@ -505,7 +507,7 @@ export default function BlogDetailPage({ params }: { params: Promise<{ slug: str
                                         key={tp.id} 
                                         className="group flex gap-4 items-start"
                                     >
-                                        <span className="text-3xl font-black text-slate-100 group-hover:text-primary-600 transition-colors leading-none">
+                                        <span className="text-4xl font-black text-slate-300 group-hover:text-primary-600 transition-colors leading-none">
                                             0{idx + 1}
                                         </span>
                                         <div className="space-y-2">

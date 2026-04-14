@@ -4,11 +4,12 @@ import { createSuccessResponse, createErrorResponse } from '@/lib/api-types'
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { slug: string } }
+  { params }: { params: Promise<{ slug: string }> }
 ) {
   try {
+    const resolvedParams = await params
     const post = await prisma.blogPost.findUnique({
-      where: { slug: params.slug },
+      where: { slug: resolvedParams.slug },
       include: {
         category: true,
         author: {
@@ -21,11 +22,11 @@ export async function GET(
       return NextResponse.json(createErrorResponse('Post not found', 'NOT_FOUND'), { status: 404 })
     }
 
-    // Increment view count (async-ish)
-    await prisma.blogPost.update({
+    // Increment view count in background (non-blocking)
+    prisma.blogPost.update({
       where: { id: post.id },
       data: { viewCount: { increment: 1 } }
-    })
+    }).catch(console.error)
 
     return NextResponse.json(createSuccessResponse(post))
   } catch (error: any) {
