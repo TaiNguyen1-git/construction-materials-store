@@ -143,8 +143,7 @@ export default function useHybridChatManager({
                 body: JSON.stringify({
                     recipientId: 'admin_support',
                     senderId: identity.id,
-                    senderName: identity.name,
-                    initialMessage: initialMessage // Optional, backend handles if undefined
+                    senderName: identity.name
                 })
             })
 
@@ -154,6 +153,21 @@ export default function useHybridChatManager({
                 setConversationId(newId)
                 sessionStorage.setItem('active_support_chat', newId)
                 localStorage.setItem(ACTIVE_CONV_KEY, newId)
+
+                // Explicitly send the initial message to ensure it reaches admin
+                if (initialMessage) {
+                    await fetch('/api/chat/messages', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            conversationId: newId,
+                            content: initialMessage,
+                            senderId: identity.id,
+                            senderName: identity.name
+                        })
+                    })
+                }
+
                 return true
             }
             return false
