@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef } from 'react'
+import { useRef, useEffect } from 'react'
 import { Send, Image as ImageIcon, X, Headphones } from 'lucide-react'
 import toast from 'react-hot-toast'
 
@@ -28,6 +28,14 @@ export default function ChatInput({
     isHumanMode = false
 }: ChatInputProps) {
     const fileInputRef = useRef<HTMLInputElement>(null)
+    const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+    // Reset height when message is cleared
+    useEffect(() => {
+        if (currentMessage === '' && textareaRef.current) {
+            textareaRef.current.style.height = 'auto'
+        }
+    }, [currentMessage])
 
     const handleKeyPress = (e: React.KeyboardEvent) => {
         if (e.key === 'Enter' && !e.shiftKey) {
@@ -148,6 +156,7 @@ export default function ChatInput({
 
                 <div className="flex-1 min-w-0">
                     <textarea
+                        ref={textareaRef}
                         rows={1}
                         value={currentMessage}
                         onChange={(e) => {
