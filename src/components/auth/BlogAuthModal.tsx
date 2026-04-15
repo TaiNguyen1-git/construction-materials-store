@@ -30,8 +30,6 @@ export default function BlogAuthModal({ isOpen, onClose, initialMode = 'LOGIN', 
 
     useFacebookSDK()
 
-    if (!isOpen) return null
-
     const handleSuccess = async (user: any) => {
         await refreshUser()
         onClose()
@@ -127,6 +125,8 @@ export default function BlogAuthModal({ isOpen, onClose, initialMode = 'LOGIN', 
             setIsLoading(false)
         }
     }
+
+    if (!isOpen) return null
 
     return (
         <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
