@@ -46,26 +46,25 @@ interface Recommendation {
     badge: string
 }
 
-export default function ProductDetailClient({ params }: { params: Promise<{ id: string }> }) {
-    const resolvedParams = use(params);
-    const { addItem } = useCartStore();
-    const productId = resolvedParams.id;
+interface ProductDetailClientProps {
+    initialProduct: Product
+    initialSimilarProducts: Recommendation[]
+}
 
-    const [product, setProduct] = useState<Product | null>(null)
-    const [loading, setLoading] = useState(true)
+export default function ProductDetailClient({ initialProduct, initialSimilarProducts }: ProductDetailClientProps) {
+    const { addItem } = useCartStore();
+    const productId = initialProduct.id;
+
+    const [product] = useState<Product>(initialProduct)
+    const [loading] = useState(false)
     const [selectedImageIndex, setSelectedImageIndex] = useState(0)
     const [quantity, setQuantity] = useState(1)
     const [availableUnits, setAvailableUnits] = useState<UnitConversion[]>([])
     const [selectedUnit, setSelectedUnit] = useState<UnitConversion | null>(null)
-    const [similarProducts, setSimilarProducts] = useState<Recommendation[]>([])
-    const [loadingSimilar, setLoadingSimilar] = useState(false)
+    const [similarProducts] = useState<Recommendation[]>(initialSimilarProducts)
+    const [loadingSimilar] = useState(false)
 
-    useEffect(() => {
-        if (productId) {
-            fetchProduct()
-        }
-    }, [productId])
-
+    // No need to fetch on client anymore as we get data from props
     useEffect(() => {
         if (product) {
             const units = getAvailableUnits(product.unit)
@@ -73,49 +72,6 @@ export default function ProductDetailClient({ params }: { params: Promise<{ id: 
             setSelectedUnit(units[0])
         }
     }, [product])
-
-    const fetchProduct = async () => {
-        try {
-            setLoading(true)
-            const response = await fetch(`/api/products/${productId}`)
-            if (response.ok) {
-                const result = await response.json()
-                if (result.success && result.data) {
-                    setProduct(result.data)
-                    fetchSimilarProducts(productId)
-                } else {
-                    toast.error('Không thể tải sản phẩm')
-                }
-            } else {
-                toast.error('Sản phẩm không tồn tại')
-            }
-        } catch (error) {
-            console.error('Failed to fetch product:', error)
-            toast.error('Không thể tải sản phẩm')
-        } finally {
-            setLoading(false)
-        }
-    }
-
-    const fetchSimilarProducts = async (productId: string) => {
-        try {
-            setLoadingSimilar(true)
-            const response = await fetch('/api/recommendations/similar', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ productId, limit: 6 })
-            })
-
-            if (response.ok) {
-                const data = await response.json()
-                setSimilarProducts(data.data.recommendations || [])
-            }
-        } catch (error) {
-            console.error('Failed to fetch similar products:', error)
-        } finally {
-            setLoadingSimilar(false)
-        }
-    }
 
     const handleQuantityChange = (change: number) => {
         const newQuantity = quantity + change
