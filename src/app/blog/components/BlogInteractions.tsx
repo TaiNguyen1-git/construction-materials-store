@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { format } from 'date-fns'
 import toast from 'react-hot-toast'
 import { useAuth } from '@/contexts/auth-context'
+import BlogAuthModal from '@/components/auth/BlogAuthModal'
 
 interface BlogInteractionsProps {
     slug: string
@@ -35,15 +36,20 @@ export default function BlogInteractions({ slug, title, initialLikes }: BlogInte
     const [showCommentModal, setShowCommentModal] = useState(false)
     const [showGuestModal, setShowGuestModal] = useState(false)
     const [showSaveModal, setShowSaveModal] = useState(false)
+    const [showAuthModal, setShowAuthModal] = useState(false)
     
     // Auth States
     const [guestAuth, setGuestAuth] = useState({ name: '', email: '' })
-    const [pendingAction, setPendingAction] = useState<'LIKE' | 'COMMENT' | null>(null)
+    const [pendingAction, setPendingAction] = useState<'LIKE' | 'COMMENT' | 'SAVE' | null>(null)
 
     useEffect(() => {
         fetchComments()
         const saved = localStorage.getItem('sb_guest_auth')
         if (saved) setGuestAuth(JSON.parse(saved))
+        
+        // Persist likes in localStorage for better UX
+        const likedPosts = JSON.parse(localStorage.getItem('sb_liked_posts') || '[]')
+        if (likedPosts.includes(slug)) setHasLiked(true)
     }, [slug])
 
     const fetchComments = async () => {
@@ -61,25 +67,50 @@ export default function BlogInteractions({ slug, title, initialLikes }: BlogInte
     }
 
     const handleLike = async () => {
-        if (!isAuthenticated && !guestAuth.name) {
+        if (!isAuthenticated) {
             setPendingAction('LIKE')
-            setShowGuestModal(true)
+            setShowAuthModal(true)
             return
         }
         executeLike()
     }
 
     const executeLike = async () => {
-        if (hasLiked) {
-            toast.success('Bạn đã thả tim bài viết này rồi!')
-            return
-        }
+        const action = hasLiked ? 'unlike' : 'like'
         try {
-            setLikes(prev => prev + 1)
-            setHasLiked(true)
-            await fetch(`/api/blog/public/${slug}/like`, { method: 'POST' })
-            toast.success('Cảm ơn bạn đã yêu thích bài viết!')
-        } catch (error) { console.error(error) }
+            // Optimistic update
+            setLikes(prev => hasLiked ? Math.max(0, prev - 1) : prev + 1)
+            setHasLiked(!hasLiked)
+            
+            // Persist to localStorage
+            const likedPosts = JSON.parse(localStorage.getItem('sb_liked_posts') || '[]')
+            if (hasLiked) {
+                const newLiked = likedPosts.filter((s: string) => s !== slug)
+                localStorage.setItem('sb_liked_posts', JSON.stringify(newLiked))
+            } else {
+                if (!likedPosts.includes(slug)) {
+                    likedPosts.push(slug)
+                    localStorage.setItem('sb_liked_posts', JSON.stringify(likedPosts))
+                }
+            }
+
+            await fetch(`/api/blog/public/${slug}/like`, { 
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action })
+            })
+            
+            if (action === 'like') {
+                toast.success('Cảm ơn bạn đã yêu thích bài viết!')
+            } else {
+                toast.success('Đã bỏ yêu thích bài viết')
+            }
+        } catch (error) { 
+            console.error(error)
+            // Revert on error
+            setLikes(prev => hasLiked ? prev + 1 : Math.max(0, prev - 1))
+            setHasLiked(hasLiked)
+        }
     }
 
     const handleSave = async () => {
@@ -175,8 +206,14 @@ export default function BlogInteractions({ slug, title, initialLikes }: BlogInte
         }
         localStorage.setItem('sb_guest_auth', JSON.stringify(guestAuth))
         setShowGuestModal(false)
+        if (pendingAction === 'COMMENT') setShowCommentModal(true)
+        setPendingAction(null)
+    }
+
+    const handleAuthSuccess = () => {
         if (pendingAction === 'LIKE') executeLike()
         if (pendingAction === 'COMMENT') setShowCommentModal(true)
+        if (pendingAction === 'SAVE') executeSave()
         setPendingAction(null)
     }
 
@@ -510,6 +547,13 @@ export default function BlogInteractions({ slug, title, initialLikes }: BlogInte
                     </div>
                 </div>
             )}
+
+            <BlogAuthModal 
+                isOpen={showAuthModal} 
+                onClose={() => setShowAuthModal(false)}
+                onSuccess={handleAuthSuccess}
+                title="Đăng nhập để thả tim"
+            />
         </div>
     )
 }
