@@ -26,7 +26,8 @@ import {
   Clock,
   LogOut,
   Building,
-  History as HistoryIcon
+  History as HistoryIcon,
+  Bookmark
 } from 'lucide-react'
 import { useAuth } from '@/contexts/auth-context'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -60,6 +61,7 @@ export default function AccountPage() {
     loyaltyPoints: 0,
     totalPoints: 0,
     wishlistCount: 0,
+    savedPostsCount: 0,
     projectCount: 0,
     recentOrders: [] as any[]
   })
@@ -106,6 +108,7 @@ export default function AccountPage() {
           loyaltyPoints: loyaltyData?.data?.currentPoints || 0,
           totalPoints: loyaltyData?.data?.totalPointsEarned || 0,
           wishlistCount: wishlistItems.length,
+          savedPostsCount: 0, // Will fetch below
           projectCount: projectsData?.pagination?.total || 0,
           recentOrders: ordersData?.data?.orders?.slice(0, 2).map((o: any) => ({
             number: o.orderNumber,
@@ -113,6 +116,13 @@ export default function AccountPage() {
             date: new Date(o.createdAt).toLocaleDateString('vi-VN')
           })) || []
         })
+
+        // Fetch saved posts count separately
+        const savedRes = await fetchWithAuth('/api/blog/public/saved-count')
+        if (savedRes.ok) {
+            const savedData = await savedRes.json()
+            setStats(prev => ({ ...prev, savedPostsCount: savedData.count }))
+        }
       } catch (error) {
         console.error('Error fetching account stats:', error)
       } finally {
@@ -404,6 +414,22 @@ export default function AccountPage() {
               </p>
               <div className="mt-auto text-rose-500 p-2 bg-rose-50 rounded-xl w-fit group-hover:bg-rose-600 group-hover:text-white transition-all">
                 <QrCode size={18} />
+              </div>
+            </div>
+          </Link>
+
+          {/* BÀI VIẾT ĐÃ LƯU - NEW Bento Card */}
+          <Link href="/account/saved-posts" className="md:col-span-1 lg:col-span-3 bg-white rounded-[40px] p-8 border border-slate-200 group hover:border-emerald-400 transition-all shadow-sm">
+            <div className="flex flex-col h-full">
+              <div className="w-12 h-12 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-600 mb-6 group-hover:scale-110 transition-transform">
+                <Bookmark size={20} />
+              </div>
+              <h3 className="text-xl font-black text-slate-900 tracking-tight uppercase mb-1">Bài viết</h3>
+              <p className="text-xs text-slate-400 font-bold uppercase tracking-widest leading-none mb-6">
+                {dataLoading ? '--' : stats.savedPostsCount} Đã lưu
+              </p>
+              <div className="mt-auto text-emerald-500 p-2 bg-emerald-50 rounded-xl w-fit group-hover:bg-emerald-600 group-hover:text-white transition-all">
+                <FileText size={18} />
               </div>
             </div>
           </Link>

@@ -118,6 +118,7 @@ model User {
   sessions                UserSession[]
   organizationMemberships OrganizationMember[]
   sentInvitations         OrganizationInvitation[]
+  savedPosts              SavedPost[]
 
   @@index([role])
   @@map("users")
@@ -201,6 +202,7 @@ model BlogPost {
   author   User          @relation(fields: [authorId], references: [id])
   category BlogCategory? @relation(fields: [categoryId], references: [id])
   comments BlogComment[]
+  savedBy  SavedPost[]
 
   @@index([authorId])
   @@index([categoryId])
@@ -216,6 +218,19 @@ model BlogCategory {
   posts       BlogPost[]
 
   @@map("blog_categories")
+}
+
+model SavedPost {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   @db.ObjectId
+  postId    String   @db.ObjectId
+  createdAt DateTime @default(now())
+
+  user User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post BlogPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, postId])
+  @@map("saved_posts")
 }
 
 model BlogComment {

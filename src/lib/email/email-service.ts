@@ -197,6 +197,61 @@ export class EmailService {
         return this.sendEmail(template)
     }
 
+    // Saved Post Link Email
+    static async sendSavedPostLink(data: {
+        email: string
+        name: string
+        postTitle: string
+        postUrl: string
+    }) {
+        const html = `
+      <!DOCTYPE html>
+      <html>
+      <head><meta charset="utf-8"></head>
+      <body style="margin: 0; padding: 20px; background-color: #f4f7fa; font-family: Arial, sans-serif;">
+        <table style="max-width: 600px; margin: 0 auto; background: #fff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.08);">
+          <tr>
+            <td style="background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%); padding: 40px 20px; text-align: center;">
+              <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 800; letter-spacing: -0.025em;">SmartBuild</h1>
+              <p style="color: rgba(255,255,255,0.8); margin: 10px 0 0 0; font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em;">Kiến thức xây dựng thông minh</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 40px;">
+              <h2 style="margin: 0 0 20px 0; color: #1e293b; font-size: 20px; font-weight: 800;">Chào ${data.name}!</h2>
+              <p style="color: #64748b; font-size: 16px; line-height: 1.7; margin: 0 0 24px 0;">
+                Bạn đã lưu bài viết <strong>"${data.postTitle}"</strong> để xem lại sau. Chúng mình gửi lại link bài viết này vào hòm thư để bạn dễ dàng tìm kiếm nhé!
+              </p>
+              
+              <div style="text-align: center; margin: 32px 0;">
+                <a href="${data.postUrl}" style="display: inline-block; background: #2563eb; color: #ffffff; padding: 16px 32px; border-radius: 12px; text-decoration: none; font-weight: 700; font-size: 15px; box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.2);">
+                  Đọc ngay bài viết
+                </a>
+              </div>
+              
+              <p style="color: #94a3b8; font-size: 14px; line-height: 1.6; margin: 0; border-top: 1px solid #f1f5f9; pt: 24px;">
+                Cảm ơn bạn đã đồng hành cùng SmartBuild. Chúc bạn có những trải nghiệm tuyệt vời và kiến thức bổ ích!
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="background: #f8fafc; padding: 24px; text-align: center; color: #64748b; font-size: 12px; font-weight: 600;">
+              © ${new Date().getFullYear()} SmartBuild - Giải pháp vật liệu xây dựng toàn diện
+            </td>
+          </tr>
+        </table>
+      </body>
+      </html>
+    `
+        const template: EmailTemplate = {
+            to: data.email,
+            subject: `📌 Đã lưu: ${data.postTitle} - SmartBuild`,
+            html,
+            text: `Chào ${data.name}, bạn đã lưu bài viết "${data.postTitle}". Xem tại đây: ${data.postUrl}`
+        }
+        return this.sendEmail(template)
+    }
+
     // Generic Notification Email (for multi-channel notifications)
     static async sendGenericNotificationEmail(data: {
         email: string

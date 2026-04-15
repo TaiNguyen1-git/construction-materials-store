@@ -168,7 +168,11 @@ export default async function BlogDetailPage({ params }: { params: Promise<{ slu
                         />
 
                         {/* Likes and Comments (Client) */}
-                        <BlogInteractions slug={post.slug} initialLikes={post.likesCount || 0} />
+                        <BlogInteractions 
+                            slug={post.slug} 
+                            title={post.title}
+                            initialLikes={post.likesCount || 0} 
+                        />
                     </div>
 
                     <aside className="w-full lg:w-96 space-y-12">
