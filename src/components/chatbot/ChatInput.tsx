@@ -33,7 +33,7 @@ export default function ChatInput({
     // Reset height when message is cleared
     useEffect(() => {
         if (currentMessage === '' && textareaRef.current) {
-            textareaRef.current.style.height = 'auto'
+            textareaRef.current.style.height = ''
         }
     }, [currentMessage])
 
