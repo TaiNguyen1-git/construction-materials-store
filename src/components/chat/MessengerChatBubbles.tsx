@@ -111,7 +111,7 @@ export default function MessengerChatBubbles({
     }
 
     return (
-        <div className="flex flex-col gap-1 py-4 px-4">
+        <div className="flex flex-col gap-1 py-4 px-4 w-full">
             {groups.map((group) => (
                 <div key={group.date}>
                     {/* Date separator */}
@@ -134,7 +134,7 @@ export default function MessengerChatBubbles({
                         // System message
                         if (isSystem) {
                             return (
-                                <div key={msg.id} className="flex justify-center my-2">
+                                <div key={msg.id} className="flex justify-center my-2 w-full">
                                     <span className="text-[11px] text-slate-400 bg-slate-100 px-3 py-1 rounded-full font-medium">
                                         {msg.content}
                                     </span>
@@ -145,7 +145,7 @@ export default function MessengerChatBubbles({
                         // Internal note
                         if (isInternal) {
                             return (
-                                <div key={msg.id} className="flex justify-center my-1">
+                                <div key={msg.id} className="flex justify-end w-full my-1">
                                     <div className="max-w-[80%] bg-amber-50 border border-dashed border-amber-300 rounded-2xl px-4 py-2.5">
                                         <div className="text-[10px] font-black uppercase tracking-wider text-amber-600 mb-1 flex items-center gap-1">
                                             🔒 {msg.internalLabel || 'Ghi chú nội bộ'}
@@ -165,7 +165,7 @@ export default function MessengerChatBubbles({
                         return (
                             <div
                                 key={msg.id}
-                                className={`flex items-end gap-2 mb-0.5 ${isMe ? 'justify-end' : 'justify-start'} ${msg.isFirst ? 'mt-3' : 'mt-0.5'}`}
+                                className={`flex items-end gap-2 mb-0.5 w-full ${isMe ? 'justify-end' : 'justify-start'} ${msg.isFirst ? 'mt-3' : 'mt-0.5'}`}
                             >
                                 {/* Other user avatar */}
                                 {!isMe && (
