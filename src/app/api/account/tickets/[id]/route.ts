@@ -56,10 +56,10 @@ export async function POST(
 
         const { id } = await params
         const body = await req.json()
-        const { content } = body
+        const { content, attachments = [] } = body
 
-        if (!content?.trim()) {
-            return NextResponse.json({ error: 'Content is required' }, { status: 400 })
+        if (!content?.trim() && attachments.length === 0) {
+            return NextResponse.json({ error: 'Content or attachment is required' }, { status: 400 })
         }
 
         const customer = await prisma.customer.findFirst({
@@ -82,9 +82,9 @@ export async function POST(
                 senderId: user.userId,
                 senderType: 'CUSTOMER',
                 senderName: user.email || 'Khách hàng',
-                content: content.trim(),
+                content: content?.trim() || '[Đính kèm tệp]',
                 isInternal: false,
-                attachments: []
+                attachments: attachments
             }
         })
 

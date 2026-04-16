@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import {
     Ticket,
@@ -23,7 +23,9 @@ import {
     Wrench,
     ChevronRight,
     Loader2,
-    Filter
+    Filter,
+    Paperclip,
+    X
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { fetchWithAuth } from '@/lib/api-client'
@@ -100,6 +102,9 @@ export default function AccountTicketsPage() {
     const [statusFilter, setStatusFilter] = useState('')
     const [showCreateModal, setShowCreateModal] = useState(false)
     const [creating, setCreating] = useState(false)
+    const [attachments, setAttachments] = useState<{ fileName: string; fileUrl: string; fileType: string }[]>([])
+    const [uploading, setUploading] = useState(false)
+    const fileInputRef = useRef<HTMLInputElement>(null)
 
     // Rating state
     const [showRating, setShowRating] = useState(false)
@@ -147,6 +152,48 @@ export default function AccountTicketsPage() {
         }
     }
 
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0]
+        if (!file) return
+
+        if (file.size > 10 * 1024 * 1024) {
+            toast.error('File quá lớn. Tối đa 10MB.')
+            return
+        }
+
+        setUploading(true)
+        const formData = new FormData()
+        formData.append('file', file)
+
+        try {
+            const res = await fetch('/api/upload', {
+                method: 'POST',
+                body: formData
+            })
+            const data = await res.json()
+            if (data.success) {
+                setAttachments(prev => [...prev, {
+                    fileName: data.fileName,
+                    fileUrl: data.fileUrl,
+                    fileType: data.fileType
+                }])
+                toast.success('Đã tải lên tệp đính kèm')
+            } else {
+                toast.error(data.error || 'Lỗi tải lên tệp')
+            }
+        } catch (error) {
+            console.error('Upload error:', error)
+            toast.error('Lỗi tải lên tệp')
+        } finally {
+            setUploading(false)
+            if (fileInputRef.current) fileInputRef.current.value = ''
+        }
+    }
+
+    const removeAttachment = (index: number) => {
+        setAttachments(prev => prev.filter((_, i) => i !== index))
+    }
+
     const handleCreateTicket = async (e: React.FormEvent) => {
         e.preventDefault()
         if (!createForm.subject.trim() || !createForm.description.trim()) return
@@ -182,13 +229,14 @@ export default function AccountTicketsPage() {
             const res = await fetchWithAuth(`/api/account/tickets/${selectedTicket.id}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ content: newMessage })
+                body: JSON.stringify({ content: newMessage, attachments })
             })
 
             if (res.ok) {
                 const data = await res.json()
                 setMessages(prev => [...prev, data.message])
                 setNewMessage('')
+                setAttachments([])
                 toast.success('Đã gửi tin nhắn')
                 fetchTickets()
             }
@@ -388,6 +436,22 @@ export default function AccountTicketsPage() {
                                     <p className={`text-sm whitespace-pre-wrap ${msg.senderType === 'CUSTOMER' ? 'text-white' : 'text-slate-700'}`}>
                                         {msg.content}
                                     </p>
+                                    {msg.attachments && msg.attachments.length > 0 && (
+                                        <div className="mt-2 flex flex-wrap gap-2">
+                                            {msg.attachments.map((att: any, i: number) => (
+                                                <a 
+                                                    key={i} 
+                                                    href={typeof att === 'string' ? att : att.fileUrl || att.url} 
+                                                    target="_blank" 
+                                                    rel="noopener noreferrer"
+                                                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${msg.senderType === 'CUSTOMER' ? 'bg-indigo-700 hover:bg-indigo-800 text-indigo-50' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'}`}
+                                                >
+                                                    <Paperclip className="w-3 h-3" />
+                                                    <span className="truncate max-w-[150px]">{typeof att === 'string' ? 'Đính kèm' : att.fileName || 'Tệp'}</span>
+                                                </a>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         ))}
@@ -402,8 +466,35 @@ export default function AccountTicketsPage() {
 
                     {/* Reply input */}
                     {selectedTicket.status !== 'CLOSED' && (
-                        <div className="p-4 border-t border-slate-100 bg-white">
+                        <div className="p-4 border-t border-slate-100 bg-white flex flex-col gap-3">
+                            {attachments.length > 0 && (
+                                <div className="flex flex-wrap gap-2 bg-slate-50 p-2 rounded-xl border border-slate-100">
+                                    {attachments.map((att, i) => (
+                                        <div key={i} className="flex items-center gap-2 bg-white px-3 py-1.5 rounded border border-slate-200 text-xs shadow-sm">
+                                            <span className="truncate max-w-[200px] font-medium text-slate-700">{att.fileName}</span>
+                                            <button type="button" onClick={() => removeAttachment(i)} className="text-slate-400 hover:text-red-500 transition-colors">
+                                                <X className="w-3 h-3" />
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
                             <div className="flex gap-3">
+                                <input 
+                                    type="file" 
+                                    ref={fileInputRef}
+                                    onChange={handleFileUpload}
+                                    className="hidden" 
+                                    accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.zip,.rar"
+                                />
+                                <button 
+                                    type="button"
+                                    onClick={() => fileInputRef.current?.click()}
+                                    disabled={uploading}
+                                    className={`p-3 bg-slate-100 text-slate-500 rounded-xl hover:bg-slate-200 transition-colors ${uploading ? 'opacity-50 animate-pulse' : ''}`}
+                                >
+                                    <Paperclip className="w-5 h-5" />
+                                </button>
                                 <input
                                     type="text"
                                     placeholder="Nhập tin nhắn phản hồi..."
@@ -414,7 +505,7 @@ export default function AccountTicketsPage() {
                                 />
                                 <button
                                     onClick={sendMessage}
-                                    disabled={sending || !newMessage.trim()}
+                                    disabled={sending || (!newMessage.trim() && attachments.length === 0) || uploading}
                                     className="px-5 py-3 bg-indigo-600 text-white rounded-xl font-bold text-sm flex items-center gap-2 hover:bg-indigo-700 disabled:opacity-50 transition-colors"
                                 >
                                     <Send className="w-4 h-4" />
