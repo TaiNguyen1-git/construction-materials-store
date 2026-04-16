@@ -17,7 +17,6 @@ interface MessageInputProps {
     newMessage: string
     setNewMessage: (val: string) => void
     sendMessage: () => void
-    sending: boolean
 }
 
 export default function MessageInput({
@@ -33,8 +32,7 @@ export default function MessageInput({
     uploading,
     newMessage,
     setNewMessage,
-    sendMessage,
-    sending
+    sendMessage
 }: MessageInputProps) {
     if (!selectedTicket) return null
 
@@ -106,14 +104,14 @@ export default function MessageInput({
                 />
                 <button
                     onClick={sendMessage}
-                    disabled={sending || (!newMessage.trim() && attachments.length === 0) || uploading}
+                    disabled={(!newMessage.trim() && attachments.length === 0) || uploading}
                     className={`px-4 py-2.5 rounded-xl font-bold text-sm flex items-center gap-2 transition-colors disabled:opacity-50 ${((!selectedTicket.customerId) || isInternal)
                         ? 'bg-amber-500 text-white hover:bg-amber-600'
                         : 'bg-indigo-600 text-white hover:bg-indigo-700'
                         }`}
                 >
                     <Send className="w-4 h-4" />
-                    {sending ? 'Đang gửi...' : (((!selectedTicket.customerId) || isInternal) ? 'Thêm ghi chú' : 'Gửi')}
+                    {(((!selectedTicket.customerId) || isInternal) ? 'Thêm ghi chú' : 'Gửi')}
                 </button>
             </div>
         </div>

@@ -65,7 +65,6 @@ function TicketsContent() {
     const [messages, setMessages] = useState<TicketMessage[]>([])
     const [newMessage, setNewMessage] = useState('')
     const [isInternal, setIsInternal] = useState(false)
-    const [sending, setSending] = useState(false)
     const [attachments, setAttachments] = useState<{ fileName: string; fileUrl: string; fileType: string }[]>([])
     const [uploading, setUploading] = useState(false)
     
@@ -161,15 +160,31 @@ function TicketsContent() {
     }
 
     const sendMessage = async () => {
-        if (!selectedTicket || !newMessage.trim()) return
+        if (!selectedTicket || (!newMessage.trim() && attachments.length === 0)) return
 
         const contentToSend = newMessage.trim()
         const internalToSend = (!selectedTicket.customerId) ? true : isInternal
         const attachmentsToSend = [...attachments]
 
+        // 1. Clear input immediately
         setNewMessage('')
         setAttachments([])
-        setSending(true)
+        
+        // 2. Create optimistic message
+        const tempId = 'temp-' + Date.now()
+        const optimisticMsg: TicketMessage = {
+            id: tempId,
+            ticketId: selectedTicket.id,
+            senderType: 'STAFF',
+            senderName: 'Đang gửi...', // Visual hint
+            content: contentToSend,
+            attachments: attachmentsToSend.map(a => a.fileUrl),
+            isInternal: internalToSend,
+            createdAt: new Date().toISOString()
+        }
+        
+        // 3. Add to UI immediately
+        setMessages(prev => [...prev, optimisticMsg])
 
         try {
             const res = await fetchWithAuth(`/api/support/tickets/${selectedTicket.id}/messages`, {
@@ -183,14 +198,29 @@ function TicketsContent() {
             })
 
             if (res.ok) {
+                const data = await res.json()
+                // 4. Replace with real message from API
+                setMessages(prev => {
+                    const filtered = prev.filter(m => m.id !== tempId)
+                    // If the message is already in state (from Firebase), don't add it again
+                    if (filtered.some(m => m.id === data.message.id)) return filtered
+                    return [...filtered, data.message]
+                })
                 fetchTickets() 
                 if (internalToSend) toast.success('Đã thêm ghi chú nội bộ')
+            } else {
+                // 5. Revert on error
+                setMessages(prev => prev.filter(m => m.id !== tempId))
+                setNewMessage(contentToSend)
+                setAttachments(attachmentsToSend)
+                toast.error('Không thể gửi tin nhắn')
             }
         } catch (error) {
             console.error('Error sending message:', error)
-            toast.error('Không thể gửi tin nhắn')
-        } finally {
-            setSending(false)
+            setMessages(prev => prev.filter(m => m.id !== tempId))
+            setNewMessage(contentToSend)
+            setAttachments(attachmentsToSend)
+            toast.error('Lỗi kết nối')
         }
     }
 
@@ -333,7 +363,6 @@ function TicketsContent() {
                         newMessage={newMessage}
                         setNewMessage={setNewMessage}
                         sendMessage={sendMessage}
-                        sending={sending}
                     />
                 </div>
             </div>
