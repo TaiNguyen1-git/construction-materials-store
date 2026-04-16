@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import {
     Ticket,
     Search,
@@ -93,6 +93,8 @@ const CATEGORY_CONFIG: Record<string, { label: string; icon: React.ElementType }
 
 export default function AccountTicketsPage() {
     const router = useRouter()
+    const searchParams = useSearchParams()
+    const ticketIdParam = searchParams.get('id')
     const [tickets, setTickets] = useState<SupportTicket[]>([])
     const [loading, setLoading] = useState(true)
     const [selectedTicket, setSelectedTicket] = useState<SupportTicket | null>(null)
@@ -272,6 +274,12 @@ export default function AccountTicketsPage() {
     useEffect(() => {
         fetchTickets()
     }, [fetchTickets])
+
+    useEffect(() => {
+        if (ticketIdParam) {
+            fetchTicketDetails(ticketIdParam)
+        }
+    }, [ticketIdParam])
 
     const formatDate = (dateStr: string) => {
         return new Date(dateStr).toLocaleDateString('vi-VN', {

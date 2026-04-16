@@ -259,3 +259,66 @@ export function subscribeToOrderStatus(
     }
 }
 
+
+/**
+ * Push a new ticket message to Firebase for real-time chat
+ */
+export async function pushTicketMessageToFirebase(ticketId: string, message: any): Promise<boolean> {
+    try {
+        if (!process.env.NEXT_PUBLIC_FIREBASE_API_KEY || !process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL) {
+            return false
+        }
+
+        const db = getFirebaseDatabase()
+        const ticketMessagesRef = ref(db, `tickets/${ticketId}/messages`)
+        const newMessageRef = push(ticketMessagesRef)
+
+        await set(newMessageRef, {
+            ...message,
+            createdAt: message.createdAt || new Date().toISOString()
+        })
+
+        return true
+    } catch (error) {
+        console.error('Error pushing ticket message to Firebase:', error)
+        return false
+    }
+}
+
+/**
+ * Subscribe to ticket messages
+ * Returns unsubscribe function
+ */
+export function subscribeToTicketMessages(
+    ticketId: string,
+    onNewMessage: (message: any) => void
+): () => void {
+    try {
+        const db = getFirebaseDatabase()
+        const ticketMessagesRef = query(
+            ref(db, `tickets/${ticketId}/messages`),
+            orderByChild('createdAt'),
+            limitToLast(1) // Only listen for the latest new message
+        )
+
+        let initialLoad = true
+        const callback = (snapshot: DataSnapshot) => {
+            if (initialLoad) {
+                initialLoad = false
+                return
+            }
+
+            if (snapshot.exists()) {
+                snapshot.forEach((child) => {
+                    onNewMessage({ ...child.val(), id: child.key! })
+                })
+            }
+        }
+
+        onValue(ticketMessagesRef, callback)
+        return () => off(ticketMessagesRef, 'value', callback)
+    } catch (error) {
+        console.error('Error subscribing to ticket messages:', error)
+        return () => { }
+    }
+}

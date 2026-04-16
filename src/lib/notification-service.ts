@@ -22,6 +22,8 @@ export interface Notification {
   orderId?: string
   orderNumber?: string
   milestoneId?: string
+  ticketId?: string
+  ticketNumber?: string
   data?: Record<string, unknown>
 }
 
@@ -379,8 +381,8 @@ export async function saveNotificationForAllManagers(notification: Notification)
       message: notification.message,
       priority: notification.priority as Priority,
       read: false,
-      referenceId: notification.orderId || notification.productId,
-      referenceType: notification.orderId ? 'ORDER' : notification.productId ? 'PRODUCT' : null,
+      referenceId: notification.orderId || notification.productId || notification.ticketId,
+      referenceType: notification.orderId ? 'ORDER' : notification.productId ? 'PRODUCT' : notification.ticketId ? 'TICKET' : null,
       metadata: (notification.data || {}) as any
     }))
   })
@@ -396,8 +398,8 @@ export async function saveNotificationForAllManagers(notification: Notification)
     read: false,
     createdAt: new Date().toISOString(),
     data: notification.data,
-    referenceId: notification.orderId || notification.productId,
-    referenceType: notification.orderId ? 'ORDER' : notification.productId ? 'PRODUCT' : undefined
+    referenceId: notification.orderId || notification.productId || notification.ticketId,
+    referenceType: notification.orderId ? 'ORDER' : notification.productId ? 'PRODUCT' : notification.ticketId ? 'TICKET' : undefined
   }
 
   for (const managerId of managerIds) {

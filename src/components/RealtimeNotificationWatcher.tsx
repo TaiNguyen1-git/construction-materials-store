@@ -8,6 +8,8 @@
 import { useEffect, useRef, useState } from 'react'
 import toast from 'react-hot-toast'
 import { Bell, ShieldCheck, CheckCircle2, AlertTriangle, Info, Camera, Coins } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { useAuth } from '@/contexts/auth-context'
 
 
 interface Notification {
@@ -16,6 +18,9 @@ interface Notification {
     message: string;
     type: string;
     createdAt?: string;
+    referenceId?: string;
+    referenceType?: string;
+    metadata?: any;
 }
 
 interface NotificationTheme {
@@ -36,6 +41,8 @@ const NOTIFICATION_THEMES: Record<string, NotificationTheme> = {
 
 
 export default function RealtimeNotificationWatcher() {
+    const router = useRouter()
+    const { user } = useAuth()
     const lastSeenRef = useRef<Set<string>>(new Set())
     const [isClient, setIsClient] = useState(false)
 
@@ -98,10 +105,24 @@ export default function RealtimeNotificationWatcher() {
         const theme = NOTIFICATION_THEMES[notif.type] || NOTIFICATION_THEMES['DEFAULT']
 
         toast.custom((t) => (
-
             <div
+                onClick={() => {
+                    const isAdmin = user?.role === 'MANAGER' || user?.role === 'EMPLOYEE'
+                    
+                    if (notif.referenceType === 'TICKET' && (notif.referenceId || notif.metadata?.ticketId)) {
+                        const tId = notif.referenceId || notif.metadata?.ticketId
+                        router.push(isAdmin ? `/admin/tickets?id=${tId}` : `/account/tickets?id=${tId}`)
+                    } else if (notif.referenceType === 'ORDER' && notif.referenceId) {
+                        router.push(isAdmin ? `/admin/orders/${notif.referenceId}` : `/account/orders/${notif.referenceId}`)
+                    } else if (notif.metadata?.orderId) {
+                        router.push(isAdmin ? `/admin/orders/${notif.metadata.orderId}` : `/account/orders/${notif.metadata.orderId}`)
+                    } else if (notif.type === 'PROJECT_MATCH' && notif.metadata?.projectId) {
+                        router.push(`/projects/${notif.metadata.projectId}`)
+                    }
+                    toast.dismiss(t.id)
+                }}
                 className={`${t.visible ? 'animate-enter' : 'animate-leave'
-                    } max-w-sm w-full bg-white shadow-2xl rounded-2xl pointer-events-auto flex ring-1 ring-black ring-opacity-5 overflow-hidden border border-gray-100`}
+                    } max-w-sm w-full bg-white shadow-2xl rounded-2xl pointer-events-auto flex ring-1 ring-black ring-opacity-5 overflow-hidden border border-gray-100 cursor-pointer hover:bg-slate-50 transition-colors group`}
             >
                 <div className="flex-1 w-0 p-4">
                     <div className="flex items-start">

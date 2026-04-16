@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { verifyTokenFromRequest } from '@/lib/auth-middleware-api'
 import { saveNotificationForAllManagers } from '@/lib/notification-service'
+import { pushTicketMessageToFirebase } from '@/lib/firebase-notifications'
 
 // GET: Fetch tickets (admin sees all, user sees own)
 export async function GET(request: NextRequest) {
@@ -178,7 +179,7 @@ export async function POST(request: NextRequest) {
         })
 
         // Create initial message from the description
-        await prisma.supportTicketMessage.create({
+        const initialMessage = await prisma.supportTicketMessage.create({
             data: {
                 ticketId: ticket.id,
                 senderId: auth?.userId || null,
@@ -188,6 +189,9 @@ export async function POST(request: NextRequest) {
                 attachments
             }
         })
+
+        // Push to Firebase for real-time chat
+        await pushTicketMessageToFirebase(ticket.id, initialMessage)
 
         // Notify managers about new ticket
         try {

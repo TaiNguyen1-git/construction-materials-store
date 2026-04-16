@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { verifyTokenFromRequest } from '@/lib/auth-middleware-api'
+import { saveNotificationForUser, saveNotificationForAllManagers } from '@/lib/notification-service'
+import { pushTicketMessageToFirebase } from '@/lib/firebase-notifications'
 
 interface RouteParams {
     params: Promise<{ id: string }>
@@ -139,6 +141,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             }
         })
 
+        // Push to Firebase for real-time chat
+        await pushTicketMessageToFirebase(id, message)
+
         // Update ticket status and first response time
         const ticketUpdate: Record<string, unknown> = {
             updatedAt: new Date()
@@ -160,6 +165,43 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             where: { id },
             data: ticketUpdate
         })
+
+        // Notify other party
+        try {
+            if (isAdmin) {
+                // Staff replied -> Notify Customer (if mapped to a user)
+                if (ticket.customerId) {
+                    const customer = await prisma.customer.findUnique({
+                        where: { id: ticket.customerId },
+                        select: { userId: true }
+                    })
+                    if (customer?.userId) {
+                        await saveNotificationForUser({
+                            type: 'INFO' as any,
+                            priority: ticket.priority as any,
+                            title: `💬 Phản hồi hỗ trợ: ${ticket.ticketNumber}`,
+                            message: `Nhân viên vừa phản hồi yêu cầu "${ticket.subject}" của bạn.`,
+                            ticketId: ticket.id,
+                            ticketNumber: ticket.ticketNumber,
+                            data: { ticketId: ticket.id, ticketNumber: ticket.ticketNumber }
+                        }, customer.userId, 'CUSTOMER')
+                    }
+                }
+            } else {
+                // Customer/Guest replied -> Notify Managers
+                await saveNotificationForAllManagers({
+                    type: 'INFO' as any,
+                    priority: ticket.priority as any,
+                    title: `💬 Tin nhắn ticket mới: ${ticket.ticketNumber}`,
+                    message: `${senderName} vừa phản hồi trong ticket "${ticket.subject}"`,
+                    ticketId: ticket.id,
+                    ticketNumber: ticket.ticketNumber,
+                    data: { ticketId: ticket.id, ticketNumber: ticket.ticketNumber }
+                })
+            }
+        } catch (pushErr) {
+            console.error('Failed to notify about new ticket message:', pushErr)
+        }
 
         return NextResponse.json({
             success: true,
