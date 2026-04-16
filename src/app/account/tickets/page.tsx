@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import {
     Ticket,
@@ -91,7 +91,7 @@ const CATEGORY_CONFIG: Record<string, { label: string; icon: React.ElementType }
     WARRANTY: { label: 'Bảo hành', icon: ShieldAlert }
 }
 
-export default function AccountTicketsPage() {
+function AccountTicketsContent() {
     const router = useRouter()
     const searchParams = useSearchParams()
     const ticketIdParam = searchParams.get('id')
@@ -768,5 +768,13 @@ export default function AccountTicketsPage() {
                 </div>
             )}
         </div>
+    )
+}
+
+export default function AccountTicketsPage() {
+    return (
+        <Suspense fallback={<div className="flex items-center justify-center py-20"><Loader2 className="w-8 h-8 animate-spin text-indigo-500" /></div>}>
+            <AccountTicketsContent />
+        </Suspense>
     )
 }
