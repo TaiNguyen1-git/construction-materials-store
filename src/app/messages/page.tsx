@@ -14,6 +14,7 @@ import { getFirebaseDatabase } from '@/lib/firebase'
 import { ref, onChildAdded, off } from 'firebase/database'
 import ChatCallManager from '@/components/ChatCallManager'
 import toast, { Toaster } from 'react-hot-toast'
+import MessengerChatBubbles, { ChatMessage } from '@/components/chat/MessengerChatBubbles'
 
 interface Conversation {
     id: string
@@ -479,92 +480,26 @@ function MessagesClient() {
                                     <div
                                         ref={messagesContainerRef}
                                         onScroll={handleScroll}
-                                        className="flex-1 overflow-y-auto px-6 py-6 bg-gray-50/30 custom-scrollbar relative"
+                                        className="flex-1 overflow-y-auto bg-gray-50/30 custom-scrollbar relative"
                                     >
-                                        {messages.map((msg, index) => (
-                                            <div
-                                                key={msg.id || `msg-${index}-${Date.now()}`}
-                                                className={`flex w-full ${msg.senderId === userId ? 'justify-end' : 'justify-start'} mb-2`}
-                                            >
-                                                <div className={`max-w-[75%] rounded-[24px] px-5 py-3 shadow-sm ${msg.senderId === userId
-                                                    ? 'bg-blue-600 text-white rounded-br-none'
-                                                    : 'bg-white text-gray-800 rounded-bl-none border border-gray-100'
-                                                    }`}>
-
-                                                    {msg.fileUrl && msg.fileType === 'image' && (
-                                                        <div className="mb-2 -mx-1 -mt-1 overflow-hidden rounded-xl border border-black/5 shadow-sm">
-                                                            <Link href={msg.fileUrl} target="_blank">
-                                                                <img
-                                                                    src={msg.fileUrl}
-                                                                    alt={msg.fileName || 'Image'}
-                                                                    className="max-w-[240px] max-h-[320px] w-auto h-auto rounded-xl hover:scale-[1.02] transition-transform duration-200 cursor-pointer object-cover"
-                                                                />
-                                                            </Link>
-                                                        </div>
-                                                    )}
-
-                                                    {msg.fileUrl && msg.fileType !== 'image' && (
-                                                        <a
-                                                            href={msg.fileUrl}
-                                                            target="_blank"
-                                                            download={msg.fileName || undefined}
-                                                            className={`flex items-center gap-3 p-3 rounded-lg mb-2 transition-colors ${msg.senderId === userId ? 'bg-blue-700 hover:bg-blue-800' : 'bg-gray-50 hover:bg-gray-100'
-                                                                }`}
-                                                        >
-                                                            <div className={`p-2 rounded-full ${msg.senderId === userId ? 'bg-blue-500' : 'bg-blue-100'}`}>
-                                                                <FileText className={`w-5 h-5 ${msg.senderId === userId ? 'text-white' : 'text-blue-600'}`} />
-                                                            </div>
-                                                            <div className="flex-1 min-w-0">
-                                                                <p className="text-sm font-medium truncate">{msg.fileName}</p>
-                                                                <p className={`text-[10px] ${msg.senderId === userId ? 'text-blue-200' : 'text-gray-400'}`}>
-                                                                    {formatFileSize(msg.fileSize || 0)}
-                                                                </p>
-                                                            </div>
-                                                            <Download className="w-4 h-4 opacity-50 flex-shrink-0" />
-                                                        </a>
-                                                    )}
-
-                                                    {msg.content?.startsWith('[CALL_LOG]:') ? (() => {
-                                                        try {
-                                                            const log = JSON.parse(msg.content.replace('[CALL_LOG]:', ''))
-                                                            const mins = Math.floor(log.duration / 60)
-                                                            const secs = log.duration % 60
-                                                            const durationStr = mins > 0 ? `${mins}ph ${secs}s` : `${secs}s`
-                                                            const isVideo = log.type === 'video'
-                                                            const isMe = msg.senderId === userId
-                                                            return (
-                                                                <div className="flex flex-col gap-3 min-w-[200px]">
-                                                                    <div className="flex items-center gap-3">
-                                                                        <div className={`p-3 rounded-full ${isMe ? 'bg-white/20' : 'bg-blue-50'}`}>
-                                                                            {isVideo ? <Video className="w-5 h-5" /> : <Phone className="w-5 h-5" />}
-                                                                        </div>
-                                                                        <div>
-                                                                            <h4 className="font-bold text-sm">{isVideo ? 'Cuộc gọi video' : 'Cuộc gọi thoại'}</h4>
-                                                                            <p className="text-[11px] opacity-70 font-medium">{durationStr}</p>
-                                                                        </div>
-                                                                    </div>
-                                                                    <button
-                                                                        onClick={() => handleCall(isVideo ? 'video' : 'audio')}
-                                                                        className={`w-full py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${isMe ? 'bg-white text-blue-600 hover:bg-gray-100' : 'bg-blue-600 text-white hover:bg-blue-700'
-                                                                            }`}
-                                                                    >
-                                                                        Gọi lại
-                                                                    </button>
-                                                                </div>
-                                                            )
-                                                        } catch (e) {
-                                                            return <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
-                                                        }
-                                                    })() : msg.content && <p className="text-sm whitespace-pre-wrap">{msg.content}</p>}
-
-                                                    <div className={`flex items-center justify-end gap-1 mt-1 ${msg.senderId === userId ? 'text-blue-100' : 'text-gray-400'}`}>
-                                                        <span className="text-[10px]">
-                                                            {formatTime(msg.createdAt)}
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        ))}
+                                        <MessengerChatBubbles
+                                            messages={messages.map(msg => ({
+                                                id: msg.id || ('msg-' + Math.random()),
+                                                content: msg.content || '',
+                                                senderType: msg.senderId === userId ? 'me' : 'other',
+                                                senderName: msg.senderName || 'Đối tác',
+                                                createdAt: msg.createdAt,
+                                                status: (msg as any).isSending ? 'sending' : 'sent',
+                                                imageUrl: msg.fileUrl && msg.fileType === 'image' ? msg.fileUrl : undefined,
+                                                attachments: msg.fileUrl && msg.fileType !== 'image' ? [{
+                                                    fileName: msg.fileName || 'Tệp đính kèm',
+                                                    fileUrl: msg.fileUrl,
+                                                    fileType: msg.fileType || ''
+                                                }] : []
+                                            } as ChatMessage))}
+                                            themeColor="blue"
+                                            showSenderNames={false}
+                                        />
                                         <div ref={messagesEndRef} className="h-2" />
                                     </div>
 
@@ -638,10 +573,10 @@ function MessagesClient() {
                                             />
                                             <button
                                                 onClick={sendMessage}
-                                                disabled={sending || uploading || (!newMessage.trim() && !selectedFile)}
+                                                disabled={uploading || (!newMessage.trim() && !selectedFile)}
                                                 className="p-3 bg-blue-600 text-white rounded-full hover:bg-blue-700 disabled:opacity-50 transition-all shadow-xl shadow-blue-200 active:scale-90"
                                             >
-                                                {sending || uploading ? (
+                                                {uploading ? (
                                                     <div className="w-5 h-5 border-2 border-white border-t-transparent animate-spin rounded-full" />
                                                 ) : (
                                                     <Send className="w-5 h-5" />

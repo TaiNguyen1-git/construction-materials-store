@@ -29,6 +29,7 @@ import {
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { fetchWithAuth } from '@/lib/api-client'
+import MessengerChatBubbles, { ChatMessage } from '@/components/chat/MessengerChatBubbles'
 
 interface SupportTicket {
     id: string
@@ -224,28 +225,53 @@ function AccountTicketsContent() {
     }
 
     const sendMessage = async () => {
-        if (!selectedTicket || !newMessage.trim()) return
+        if (!selectedTicket || (!newMessage.trim() && attachments.length === 0)) return
 
-        setSending(true)
+        const contentToSend = newMessage.trim()
+        const attachmentsToSend = [...attachments]
+
+        // 1. Clear input immediately
+        setNewMessage('')
+        setAttachments([])
+
+        // 2. Optimistic message
+        const tempId = 'temp-' + Date.now()
+        const optimistic: TicketMessage = {
+            id: tempId,
+            ticketId: selectedTicket.id,
+            senderType: 'CUSTOMER',
+            senderName: 'Bạn',
+            content: contentToSend,
+            attachments: attachmentsToSend.map(a => a.fileUrl),
+            isInternal: false,
+            createdAt: new Date().toISOString()
+        }
+        setMessages(prev => [...prev, optimistic])
+
         try {
             const res = await fetchWithAuth(`/api/account/tickets/${selectedTicket.id}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ content: newMessage, attachments })
+                body: JSON.stringify({ content: contentToSend, attachments: attachmentsToSend })
             })
 
             if (res.ok) {
                 const data = await res.json()
-                setMessages(prev => [...prev, data.message])
-                setNewMessage('')
-                setAttachments([])
-                toast.success('Đã gửi tin nhắn')
+                // Replace temp with real message
+                setMessages(prev => prev.map(m => m.id === tempId ? data.message : m))
                 fetchTickets()
+            } else {
+                // Revert
+                setMessages(prev => prev.filter(m => m.id !== tempId))
+                setNewMessage(contentToSend)
+                setAttachments(attachmentsToSend)
+                toast.error('Không thể gửi tin nhắn')
             }
         } catch (error) {
-            toast.error('Không thể gửi tin nhắn')
-        } finally {
-            setSending(false)
+            setMessages(prev => prev.filter(m => m.id !== tempId))
+            setNewMessage(contentToSend)
+            setAttachments(attachmentsToSend)
+            toast.error('Lỗi kết nối')
         }
     }
 
@@ -421,55 +447,24 @@ function AccountTicketsContent() {
                         </h3>
                     </div>
 
-                    <div className="max-h-[500px] overflow-y-auto p-4 md:p-6 space-y-4 bg-slate-50/50">
-                        {messages.map((msg) => (
-                            <div
-                                key={msg.id}
-                                className={`flex ${msg.senderType === 'CUSTOMER' ? 'justify-end' : 'justify-start'}`}
-                            >
-                                <div className={`max-w-[80%] md:max-w-[70%] ${msg.senderType === 'CUSTOMER'
-                                        ? 'bg-indigo-600 text-white rounded-2xl rounded-br-md'
-                                        : msg.senderType === 'SYSTEM'
-                                            ? 'bg-slate-100 text-slate-600 rounded-2xl border border-slate-200'
-                                            : 'bg-white border border-slate-200 rounded-2xl rounded-bl-md shadow-sm'
-                                    } p-4`}>
-                                    <div className="flex items-center gap-2 mb-1">
-                                        <span className={`text-xs font-bold ${msg.senderType === 'CUSTOMER' ? 'text-indigo-200' : 'text-slate-400'}`}>
-                                            {msg.senderName || (msg.senderType === 'CUSTOMER' ? 'Bạn' : msg.senderType === 'SYSTEM' ? 'Hệ thống' : 'Nhân viên hỗ trợ')}
-                                        </span>
-                                        <span className={`text-[10px] ${msg.senderType === 'CUSTOMER' ? 'text-indigo-300' : 'text-slate-400'}`}>
-                                            {formatRelative(msg.createdAt)}
-                                        </span>
-                                    </div>
-                                    <p className={`text-sm whitespace-pre-wrap ${msg.senderType === 'CUSTOMER' ? 'text-white' : 'text-slate-700'}`}>
-                                        {msg.content}
-                                    </p>
-                                    {msg.attachments && msg.attachments.length > 0 && (
-                                        <div className="mt-2 flex flex-wrap gap-2">
-                                            {msg.attachments.map((att: any, i: number) => (
-                                                <a 
-                                                    key={i} 
-                                                    href={typeof att === 'string' ? att : att.fileUrl || att.url} 
-                                                    target="_blank" 
-                                                    rel="noopener noreferrer"
-                                                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${msg.senderType === 'CUSTOMER' ? 'bg-indigo-700 hover:bg-indigo-800 text-indigo-50' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'}`}
-                                                >
-                                                    <Paperclip className="w-3 h-3" />
-                                                    <span className="truncate max-w-[150px]">{typeof att === 'string' ? 'Đính kèm' : att.fileName || 'Tệp'}</span>
-                                                </a>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        ))}
-
-                        {messages.length === 0 && (
-                            <div className="text-center py-8 text-slate-400">
-                                <MessageCircle className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                                <p className="text-sm">Chưa có tin nhắn</p>
-                            </div>
-                        )}
+                    <div className="min-h-[300px] max-h-[500px] overflow-y-auto bg-slate-50/50">
+                        <MessengerChatBubbles
+                            messages={messages.map(msg => ({
+                                id: msg.id,
+                                content: msg.content,
+                                senderType: msg.senderType === 'CUSTOMER' ? 'me' : msg.senderType === 'SYSTEM' ? 'system' : 'other',
+                                senderName: msg.senderName || (msg.senderType === 'CUSTOMER' ? 'Bạn' : 'Nhân viên hỗ trợ'),
+                                createdAt: msg.createdAt,
+                                status: msg.id.startsWith('temp-') ? 'sending' : 'sent',
+                                attachments: (msg.attachments || []).map((att: any) =>
+                                    typeof att === 'string'
+                                        ? { fileName: 'Đính kèm', fileUrl: att, fileType: '' }
+                                        : { fileName: att.fileName || 'Đính kèm', fileUrl: att.fileUrl || att.url || '', fileType: att.fileType || '' }
+                                )
+                            } as ChatMessage))}
+                            themeColor="indigo"
+                            showSenderNames={true}
+                        />
                     </div>
 
                     {/* Reply input */}

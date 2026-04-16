@@ -15,6 +15,7 @@ import { ref, onChildAdded, off, serverTimestamp } from 'firebase/database'
 import toast from 'react-hot-toast'
 import ChatCallManager from '@/components/ChatCallManager'
 import { useAuth } from '@/contexts/auth-context'
+import MessengerChatBubbles, { ChatMessage } from '@/components/chat/MessengerChatBubbles'
 
 function MessagesContent() {
     const searchParams = useSearchParams()
@@ -457,45 +458,26 @@ function MessagesContent() {
                         <div
                             ref={scrollContainerRef}
                             onScroll={handleScroll}
-                            className="flex-1 overflow-y-auto px-8 py-8 space-y-6 bg-slate-50/30 relative custom-scrollbar scroll-smooth"
+                            className="flex-1 overflow-y-auto bg-slate-50/30 relative custom-scrollbar scroll-smooth"
                         >
-                            {messages.map((msg, idx) => {
-                                const isMe = msg.senderId === user?.id
-                                const firstInGroup = idx === 0 || messages[idx - 1].senderId !== msg.senderId
-
-                                return (
-                                    <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'} items-end gap-3 animate-in fade-in slide-in-from-bottom-2 duration-300`}>
-                                        {!isMe && (
-                                            <div className="w-8 h-8 flex-shrink-0">
-                                                {firstInGroup ? (
-                                                    <div className="w-8 h-8 rounded-lg bg-slate-200 flex items-center justify-center text-[10px] font-bold text-slate-600 border border-slate-300">
-                                                        {msg.senderName.charAt(0).toUpperCase()}
-                                                    </div>
-                                                ) : <div className="w-8" />}
-                                            </div>
-                                        )}
-
-                                        <div className={`max-w-[75%] relative group`}>
-                                            <div className={`px-5 py-3.5 rounded-2xl shadow-sm relative transition-all ${isMe
-                                                ? 'bg-blue-600 text-white rounded-br-sm'
-                                                : 'bg-white text-slate-900 rounded-bl-sm border border-slate-100'
-                                                }`}>
-                                                {renderMessageContent(msg)}
-                                            </div>
-                                            <div className={`flex items-center gap-2 mt-1.5 ${isMe ? 'justify-end pr-0.5' : 'justify-start pl-0.5'}`}>
-                                                <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider opacity-0 group-hover:opacity-100 transition-opacity">
-                                                    {formatTime(msg.createdAt)}
-                                                </span>
-                                                {isMe && (
-                                                    <div className={`transition-colors ${msg.isRead ? 'text-blue-500' : 'text-slate-300'}`}>
-                                                        {msg.isRead ? <CheckCheck size={12} /> : <Check size={12} />}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </div>
-                                )
-                            })}
+                            <MessengerChatBubbles
+                                messages={messages.map((msg: any) => ({
+                                    id: msg.id || ('m-' + Math.random()),
+                                    content: msg.content?.startsWith('[CALL_LOG]:') ? '' : (msg.content || ''),
+                                    senderType: msg.senderId === user?.id ? 'me' : 'other',
+                                    senderName: msg.senderName || displayName,
+                                    createdAt: msg.createdAt,
+                                    status: msg.isSending ? 'sending' : (msg.isRead ? 'seen' : 'sent'),
+                                    imageUrl: msg.fileUrl && msg.fileType?.startsWith('image/') ? msg.fileUrl : undefined,
+                                    attachments: msg.fileUrl && !msg.fileType?.startsWith('image/') ? [{
+                                        fileName: msg.fileName || 'Tệp đính kèm',
+                                        fileUrl: msg.fileUrl,
+                                        fileType: msg.fileType || ''
+                                    }] : []
+                                } as ChatMessage))}
+                                themeColor="blue"
+                                showSenderNames={false}
+                            />
                             <div ref={messagesEndRef} className="h-4" />
                         </div>
 
@@ -535,10 +517,10 @@ function MessagesContent() {
 
                                 <button
                                     onClick={() => handleSendMessage()}
-                                    disabled={sending || (!newMessage.trim() && !uploading)}
+                                    disabled={!newMessage.trim() && !uploading}
                                     className="w-10 h-10 flex items-center justify-center bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-50 shadow-md transition-all hover:scale-105 active:scale-95 shrink-0"
                                 >
-                                    {sending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send size={18} />}
+                                    {uploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send size={18} />}
                                 </button>
                             </div>
                         </div>

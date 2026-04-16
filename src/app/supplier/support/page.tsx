@@ -15,7 +15,6 @@ export default function SupplierSupportUpgraded() {
     const [showNewModal, setShowNewModal] = useState(false)
     const [selectedTicket, setSelectedTicket] = useState<SupplierTicket | null>(null)
     const [newComment, setNewComment] = useState('')
-    const [sending, setSending] = useState(false)
     const [statusFilter, setStatusFilter] = useState('')
     const [search, setSearch] = useState('')
 
@@ -81,24 +80,51 @@ export default function SupplierSupportUpgraded() {
 
     const sendComment = async () => {
         if (!selectedTicket || !newComment.trim()) return
-        setSending(true)
+
+        const contentToSend = newComment.trim()
+        setNewComment('')
+
+        // Optimistic message
+        const tempId = 'temp-' + Date.now()
+        const optimistic = {
+            id: tempId,
+            content: contentToSend,
+            senderType: 'SUPPLIER',
+            senderName: 'Bạn',
+            createdAt: new Date().toISOString()
+        }
+        setSelectedTicket(prev => prev ? {
+            ...prev,
+            comments: [...(prev.comments || []), optimistic]
+        } : prev)
+
         try {
             const supplierId = localStorage.getItem('supplier_id')
             const res = await fetch(`/api/supplier/support/${selectedTicket.id}/comment`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ content: newComment, supplierId })
+                body: JSON.stringify({ content: contentToSend, supplierId })
             })
             const data = await res.json()
             if (data.success) {
-                toast.success('Đã gửi phản hồi')
-                setNewComment('')
+                // Replace temp with real from server
                 fetchTicketDetails(selectedTicket.id)
+            } else {
+                // Revert
+                setSelectedTicket(prev => prev ? {
+                    ...prev,
+                    comments: (prev.comments || []).filter((c: any) => c.id !== tempId)
+                } : prev)
+                setNewComment(contentToSend)
+                toast.error('Không thể gửi phản hồi')
             }
         } catch (error) {
-            toast.error('Không thể gửi phản hồi')
-        } finally {
-            setSending(false)
+            setSelectedTicket(prev => prev ? {
+                ...prev,
+                comments: (prev.comments || []).filter((c: any) => c.id !== tempId)
+            } : prev)
+            setNewComment(contentToSend)
+            toast.error('Lỗi kết nối')
         }
     }
 
@@ -132,7 +158,7 @@ export default function SupplierSupportUpgraded() {
                 newComment={newComment}
                 setNewComment={setNewComment}
                 sendComment={sendComment}
-                sending={sending}
+                sending={false}
             />
         )
     }

@@ -1,5 +1,6 @@
 import { ArrowLeft, Clock, Package, MessageCircle, Send } from 'lucide-react'
 import { SupplierTicket, STATUS_CONFIG, CATEGORIES, PRIORITY_CONFIG } from '../types'
+import MessengerChatBubbles, { ChatMessage } from '@/components/chat/MessengerChatBubbles'
 
 interface TicketDetailViewProps {
     selectedTicket: SupplierTicket
@@ -17,6 +18,15 @@ export default function TicketDetailView({
     const statusCfg = STATUS_CONFIG[selectedTicket.status] || STATUS_CONFIG.OPEN
     const categoryCfg = CATEGORIES[selectedTicket.category || 'GENERAL'] || CATEGORIES.GENERAL
     const CategoryIcon = categoryCfg.icon
+
+    const chatMessages: ChatMessage[] = (selectedTicket.comments || []).map((comment: any) => ({
+        id: comment.id,
+        content: comment.content,
+        senderType: comment.senderType === 'SUPPLIER' ? 'me' : 'other',
+        senderName: comment.senderName || (comment.senderType === 'SUPPLIER' ? 'Bạn' : 'Admin'),
+        createdAt: comment.createdAt,
+        status: comment.id?.startsWith('temp-') ? 'sending' : 'sent',
+    }))
 
     return (
         <div className="space-y-6 pb-20">
@@ -76,37 +86,12 @@ export default function TicketDetailView({
                     </h3>
                 </div>
 
-                <div className="max-h-[400px] overflow-y-auto p-4 space-y-3 bg-slate-50/50">
-                    {selectedTicket.comments?.map((comment) => (
-                        <div
-                            key={comment.id}
-                            className={`flex ${comment.senderType === 'SUPPLIER' ? 'justify-end' : 'justify-start'}`}
-                        >
-                            <div className={`max-w-[75%] rounded-2xl p-4 ${comment.senderType === 'SUPPLIER'
-                                ? 'bg-blue-600 text-white rounded-br-md'
-                                : 'bg-white border border-slate-200 rounded-bl-md shadow-sm'
-                                }`}>
-                                <div className="flex items-center gap-2 mb-1">
-                                    <span className={`text-xs font-bold ${comment.senderType === 'SUPPLIER' ? 'text-blue-200' : 'text-slate-400'}`}>
-                                        {comment.senderName || (comment.senderType === 'SUPPLIER' ? 'Bạn' : 'Admin')}
-                                    </span>
-                                    <span className={`text-[10px] ${comment.senderType === 'SUPPLIER' ? 'text-blue-300' : 'text-slate-300'}`}>
-                                        {formatRelative(comment.createdAt)}
-                                    </span>
-                                </div>
-                                <p className={`text-sm whitespace-pre-wrap ${comment.senderType === 'SUPPLIER' ? 'text-white' : 'text-slate-700'}`}>
-                                    {comment.content}
-                                </p>
-                            </div>
-                        </div>
-                    ))}
-
-                    {(!selectedTicket.comments || selectedTicket.comments.length === 0) && (
-                        <div className="text-center py-8 text-slate-400">
-                            <MessageCircle className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                            <p className="text-sm">Chưa có trao đổi</p>
-                        </div>
-                    )}
+                <div className="min-h-[200px] max-h-[420px] overflow-y-auto bg-slate-50/50">
+                    <MessengerChatBubbles
+                        messages={chatMessages}
+                        themeColor="blue"
+                        showSenderNames={true}
+                    />
                 </div>
 
                 {/* Reply */}
@@ -118,16 +103,16 @@ export default function TicketDetailView({
                                 placeholder="Nhập phản hồi cho Admin..."
                                 value={newComment}
                                 onChange={(e) => setNewComment(e.target.value)}
-                                onKeyDown={(e) => e.key === 'Enter' && sendComment()}
+                                onKeyDown={(e) => e.key === 'Enter' && !sending && sendComment()}
                                 className="flex-1 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                             />
                             <button
                                 onClick={sendComment}
-                                disabled={sending || !newComment.trim()}
+                                disabled={!newComment.trim()}
                                 className="px-5 py-3 bg-blue-600 text-white rounded-xl font-bold text-sm flex items-center gap-2 hover:bg-blue-700 disabled:opacity-50 transition-colors"
                             >
                                 <Send className="w-4 h-4" />
-                                {sending ? '...' : 'Gửi'}
+                                Gửi
                             </button>
                         </div>
                     </div>

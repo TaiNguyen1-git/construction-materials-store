@@ -104,6 +104,24 @@ function TicketsContent() {
         }
     }, [page, statusFilter, priorityFilter, search])
 
+    // Silent fetch – updates sidebar without triggering loading state
+    const fetchTicketsSilent = useCallback(async () => {
+        try {
+            const params = new URLSearchParams()
+            params.set('page', String(page))
+            params.set('limit', '20')
+            if (statusFilter) params.set('status', statusFilter)
+            if (priorityFilter) params.set('priority', priorityFilter)
+            if (search) params.set('search', search)
+            const res = await fetchWithAuth(`/api/support/tickets?${params}`)
+            if (res.ok) {
+                const data = await res.json()
+                setTickets(data.tickets || [])
+                setTotalPages(data.totalPages || 1)
+            }
+        } catch { /* silent */ }
+    }, [page, statusFilter, priorityFilter, search])
+
     const fetchTicketDetails = async (ticketId: string) => {
         try {
             const res = await fetchWithAuth(`/api/support/tickets/${ticketId}`)
@@ -198,18 +216,12 @@ function TicketsContent() {
             })
 
             if (res.ok) {
-                const data = await res.json()
-                // 4. Replace with real message from API
-                setMessages(prev => {
-                    const filtered = prev.filter(m => m.id !== tempId)
-                    // If the message is already in state (from Firebase), don't add it again
-                    if (filtered.some(m => m.id === data.message.id)) return filtered
-                    return [...filtered, data.message]
-                })
-                fetchTickets() 
+                // Remove temp message only – Firebase subscription will deliver the real message
+                setMessages(prev => prev.filter(m => m.id !== tempId))
+                fetchTicketsSilent() // silent: no loading flash
                 if (internalToSend) toast.success('Đã thêm ghi chú nội bộ')
             } else {
-                // 5. Revert on error
+                // Revert on error
                 setMessages(prev => prev.filter(m => m.id !== tempId))
                 setNewMessage(contentToSend)
                 setAttachments(attachmentsToSend)
@@ -255,11 +267,26 @@ function TicketsContent() {
         }
     }, [ticketIdParam])
 
+    // Real-time Firebase subscription with smart dedup
     useEffect(() => {
         if (!selectedTicket) return
         const unsubscribe = subscribeToTicketMessages(selectedTicket.id, (newMsg) => {
             setMessages(prev => {
+                // Skip if real message already in state
                 if (prev.some(m => m.id === newMsg.id)) return prev
+
+                // Replace any matching optimistic (temp) message in-place
+                const tempIdx = prev.findIndex(m =>
+                    m.id.startsWith('temp-') &&
+                    m.content === newMsg.content &&
+                    m.senderType === newMsg.senderType
+                )
+                if (tempIdx !== -1) {
+                    const next = [...prev]
+                    next[tempIdx] = newMsg
+                    return next
+                }
+
                 return [...prev, newMsg]
             })
         })

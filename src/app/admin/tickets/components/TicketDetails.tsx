@@ -1,16 +1,16 @@
 'use client'
 
-import { 
-    MessageCircle, 
-    ArrowUpRight, 
-    User, 
-    Phone, 
-    Ticket, 
-    Clock, 
-    Paperclip 
+import {
+    ArrowUpRight,
+    User,
+    Phone,
+    Ticket,
+    Clock,
+    MessageCircle
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { SupportTicket, TicketMessage, StatusConfig } from '../types'
+import MessengerChatBubbles, { ChatMessage } from '@/components/chat/MessengerChatBubbles'
 
 interface TicketDetailsProps {
     selectedTicket: SupportTicket | null
@@ -21,6 +21,31 @@ interface TicketDetailsProps {
     isSlaBreached: (ticket: SupportTicket) => boolean
     updateTicketStatus: (ticketId: string, status: string) => void
     messagesEndRef: React.RefObject<HTMLDivElement | null>
+}
+
+function mapToChat(messages: TicketMessage[]): ChatMessage[] {
+    return messages.map((msg, i) => {
+        const isMe = msg.senderType === 'STAFF'
+        const isSystem = msg.senderType === 'SYSTEM'
+        const isSending = msg.id.startsWith('temp-')
+
+        const attachments = (msg.attachments || []).map((att: any) => {
+            if (typeof att === 'string') return { fileName: 'Đính kèm', fileUrl: att, fileType: '' }
+            return { fileName: att.fileName || 'Đính kèm', fileUrl: att.fileUrl || att.url || '', fileType: att.fileType || '' }
+        })
+
+        return {
+            id: msg.id,
+            content: msg.content,
+            senderType: isSystem ? 'system' : isMe ? 'me' : 'other',
+            senderName: msg.senderName || (isMe ? 'Nhân viên' : 'Khách hàng'),
+            createdAt: msg.createdAt,
+            status: isSending ? 'sending' : 'sent',
+            attachments,
+            isInternal: msg.isInternal,
+            internalLabel: 'Ghi chú nội bộ',
+        }
+    })
 }
 
 export default function TicketDetails({
@@ -46,10 +71,12 @@ export default function TicketDetails({
         )
     }
 
+    const chatMessages = mapToChat(messages)
+
     return (
         <div className="flex-1 bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden flex flex-col">
             {/* Detail Header */}
-            <div className="p-4 border-b border-slate-100">
+            <div className="p-4 border-b border-slate-100 bg-white sticky top-0 z-10">
                 <div className="flex items-start justify-between mb-3">
                     <div>
                         <div className="flex items-center gap-2 mb-1">
@@ -110,55 +137,14 @@ export default function TicketDetails({
                 </div>
             </div>
 
-            {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-6 bg-slate-50/30">
-                {messages.map((msg) => (
-                    <div
-                        key={msg.id}
-                        className={`flex ${msg.senderType === 'STAFF' ? 'justify-end' : 'justify-start'}`}
-                    >
-                        <div className={`max-w-[70%] ${msg.isInternal
-                            ? 'bg-amber-50 border-2 border-dashed border-amber-200'
-                            : msg.senderType === 'STAFF'
-                                ? 'bg-indigo-600 text-white'
-                                : 'bg-white border border-slate-200'
-                            } rounded-2xl p-4`}>
-                            {msg.isInternal && (
-                                <div className="text-[10px] uppercase tracking-wider font-bold text-amber-600 mb-1">
-                                    🔒 Ghi chú nội bộ
-                                </div>
-                            )}
-                            <div className="flex items-center gap-2 mb-1">
-                                <span className={`text-xs font-bold ${msg.senderType === 'STAFF' && !msg.isInternal ? 'text-indigo-100' : 'text-slate-500'}`}>
-                                    {msg.senderName || (msg.senderType === 'STAFF' ? 'Nhân viên' : 'Khách')}
-                                </span>
-                                <span className={`text-[10px] ${msg.senderType === 'STAFF' && !msg.isInternal ? 'text-indigo-200' : 'text-slate-400'}`}>
-                                    {formatDate(msg.createdAt)}
-                                </span>
-                            </div>
-                            <p className={`text-sm whitespace-pre-wrap ${msg.senderType === 'STAFF' && !msg.isInternal ? 'text-white' : 'text-slate-700'}`}>
-                                {msg.content}
-                            </p>
-                            {msg.attachments && msg.attachments.length > 0 && (
-                                <div className="mt-2 flex flex-wrap gap-2">
-                                    {msg.attachments.map((att: any, i: number) => (
-                                        <a 
-                                            key={i} 
-                                            href={typeof att === 'string' ? att : att.fileUrl || att.url} 
-                                            target="_blank" 
-                                            rel="noopener noreferrer"
-                                            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${msg.senderType === 'STAFF' && !msg.isInternal ? 'bg-indigo-700 hover:bg-indigo-800 text-indigo-50' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'}`}
-                                        >
-                                            <Paperclip className="w-3.5 h-3.5" />
-                                            <span className="truncate max-w-[150px]">{typeof att === 'string' ? 'Đính kèm' : att.fileName || 'Tệp'}</span>
-                                        </a>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                ))}
-                <div ref={messagesEndRef} />
+            {/* Messages — Messenger-quality */}
+            <div className="flex-1 overflow-y-auto bg-slate-50/30">
+                <MessengerChatBubbles
+                    messages={chatMessages}
+                    themeColor="indigo"
+                    showSenderNames={true}
+                    autoScroll={true}
+                />
             </div>
         </div>
     )

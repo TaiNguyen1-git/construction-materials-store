@@ -208,7 +208,6 @@ function MessagesContent() {
             if (res.ok) {
                 const json = await res.json()
                 setConversations(json.data)
-                // If no conversation is selected but we have some, and no ID in URL
                 const urlId = searchParams.get('id')
                 if (!selectedId && !urlId && json.data.length > 0) {
                     setSelectedId(json.data[0].id)
@@ -219,6 +218,17 @@ function MessagesContent() {
         } finally {
             setLoading(false)
         }
+    }
+
+    // Silent refresh – no loading state, used after sending a message
+    const fetchConversationsSilent = async () => {
+        try {
+            const res = await fetch('/api/chat/conversations', { headers: getAuthHeaders() })
+            if (res.ok) {
+                const json = await res.json()
+                setConversations(json.data)
+            }
+        } catch { /* silent */ }
     }
 
     const handleSearch = async (val: string) => {
@@ -363,7 +373,7 @@ function MessagesContent() {
                 setMessages(prev => prev.filter(m => m.id !== tempId))
                 setNewMessage(content)
             } else {
-                fetchConversations()
+                fetchConversationsSilent() // silent: no loading flash
             }
         } catch (err) {
             console.error('Send message error:', err)
