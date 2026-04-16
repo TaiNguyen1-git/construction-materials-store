@@ -12,7 +12,7 @@ export default function EcosystemSection() {
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
                 <div className="text-center max-w-3xl mx-auto mb-20">
                     <h2 className="text-[11px] font-black text-indigo-600 uppercase tracking-[0.4em] mb-4">Hệ sinh thái SmartBuild</h2>
-                    <h3 className="text-4xl md:text-5xl font-black text-slate-900 leading-tight tracking-tighter">
+                    <h3 className="text-4xl md:text-5xl font-black text-slate-900 leading-tight tracking-tight">
                         Kết nối <span className="text-indigo-600">Đối tác</span> chiến lược hiện đại
                     </h3>
                     <p className="mt-6 text-slate-500 font-medium text-lg leading-relaxed">
@@ -29,7 +29,7 @@ export default function EcosystemSection() {
                             <div className="w-20 h-20 bg-white rounded-3xl flex items-center justify-center shadow-xl border border-slate-50 mb-10 group-hover:scale-110 group-hover:-rotate-3 transition-all duration-500">
                                 <Building2 className="w-10 h-10 text-indigo-600" />
                             </div>
-                            <h4 className="text-3xl font-black text-slate-900 mb-6 tracking-tighter uppercase">Dành Cho Nhà Cung Cấp</h4>
+                            <h4 className="text-3xl font-black text-slate-900 mb-6 tracking-tight uppercase">Dành Cho Nhà Cung Cấp</h4>
                             <p className="text-slate-500 font-medium mb-10 text-lg leading-relaxed">
                                 Mở rộng thị trường, quản lý đơn hàng thông minh và tối ưu hóa quy trình phân phối sản phẩm đến trực tiếp các nhà thầu.
                             </p>
@@ -67,7 +67,7 @@ export default function EcosystemSection() {
                             <div className="w-20 h-20 bg-white rounded-3xl flex items-center justify-center shadow-xl border border-amber-50 mb-10 group-hover:scale-110 group-hover:rotate-3 transition-all duration-500">
                                 <HardHat className="w-10 h-10 text-amber-600" />
                             </div>
-                            <h4 className="text-3xl font-black text-slate-900 mb-6 tracking-tighter uppercase">Dành Cho Nhà Thầu</h4>
+                            <h4 className="text-3xl font-black text-slate-900 mb-6 tracking-tight uppercase">Dành Cho Nhà Thầu</h4>
                             <p className="text-slate-500 font-medium mb-10 text-lg leading-relaxed">
                                 Xây dựng hồ sơ uy tín, nhận dự án mới mỗi ngày và quản lý vật tư công trình chuyên nghiệp với công cụ AI thông minh.
                             </p>

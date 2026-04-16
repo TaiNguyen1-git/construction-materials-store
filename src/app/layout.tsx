@@ -16,7 +16,7 @@ import OrganizationJsonLd from '@/components/seo/OrganizationJsonLd'
 import ReactQueryProvider from '@/components/ReactQueryProvider'
 import PageTransition from '@/components/PageTransition'
 
-const inter = Inter({ subsets: ['latin'] })
+const inter = Inter({ subsets: ['latin', 'vietnamese'] })
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'),

@@ -50,7 +50,7 @@ export default function BannerCarousel({ banners }: BannerCarouselProps) {
                             <span className="inline-block bg-indigo-600 text-[10px] font-black px-4 py-1.5 rounded-full mb-6 tracking-[0.2em] shadow-lg shadow-indigo-600/20 uppercase">
                                 {banner.tag}
                             </span>
-                            <h3 className="text-4xl md:text-5xl font-black mb-4 uppercase italic tracking-tighter leading-tight text-transparent bg-clip-text bg-gradient-to-r from-white via-white to-blue-200 pr-8">
+                            <h3 className="text-4xl md:text-5xl font-black mb-4 uppercase tracking-tight leading-[1.15] text-white pr-8">
                                 {banner.title}
                             </h3>
                             <p className="text-white/80 text-lg font-medium leading-relaxed max-w-sm">

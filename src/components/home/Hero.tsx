@@ -88,7 +88,7 @@ export default function Hero({
                         Kỷ Nguyên Vật Tư Số 4.0
                     </div>
 
-                    <h1 className="text-5xl md:text-7xl font-black mb-8 leading-[1.05] tracking-tighter text-white animate-fade-in-up">
+                    <h1 className="text-5xl md:text-7xl font-black mb-8 leading-[1.1] tracking-tight text-white animate-fade-in-up">
                         Nền Tảng Cung Cấp <br className="hidden lg:block" />
                         <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-indigo-300 to-sky-300 animate-gradient-text">
                             Vật Liệu Xây Dựng
