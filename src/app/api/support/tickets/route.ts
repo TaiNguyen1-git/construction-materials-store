@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { verifyTokenFromRequest } from '@/lib/auth-middleware-api'
+import { saveNotificationForAllManagers } from '@/lib/notification-service'
 
 // GET: Fetch tickets (admin sees all, user sees own)
 export async function GET(request: NextRequest) {
@@ -187,6 +188,19 @@ export async function POST(request: NextRequest) {
                 attachments
             }
         })
+
+        // Notify managers about new ticket
+        try {
+            await saveNotificationForAllManagers({
+                type: 'INFO' as any,
+                priority: priority === 'URGENT' || priority === 'HIGH' ? 'HIGH' : 'MEDIUM',
+                title: `🎫 Yêu cầu hỗ trợ mới: ${ticketNumber}`,
+                message: `Khách hàng ${guestName || 'Thành viên'} vừa gửi yêu cầu hỗ trợ: ${subject}`,
+                data: { ticketId: ticket.id, ticketNumber }
+            })
+        } catch (pushErr) {
+            console.error('Failed to send push notification for ticket:', pushErr)
+        }
 
         return NextResponse.json({
             success: true,

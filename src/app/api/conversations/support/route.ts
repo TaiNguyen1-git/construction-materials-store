@@ -81,32 +81,65 @@ export async function POST(request: NextRequest) {
                 }
             })
 
-            // IMPORTANT: Create a SupportRequest record so it shows up in Admin Dashboard
-            await prisma.supportRequest.create({
+            // IMPORTANT: Create a SupportTicket record so it shows up in Admin Dashboard
+            const count = await prisma.supportTicket.count()
+            const ticketNumber = `TK-CHAT-${String(count + 1).padStart(4, '0')}`
+            const customer = await prisma.customer.findFirst({ where: { userId: currentUser.id } })
+            
+            await prisma.supportTicket.create({
                 data: {
-                    name: currentUser.name || 'Nhà thầu',
-                    phone: 'Liên hệ qua chat',
-                    message: `[CHAT TRỰC TIẾP] Nhà thầu ${currentUser.name} đã bắt đầu cuộc hội thoại hỗ trợ. ID: ${conversation.id}`,
-                    userId: currentUser.id,
-                    status: 'IN_PROGRESS',
+                    ticketNumber,
+                    customerId: customer?.id || null,
+                    guestName: currentUser.name || 'Nhà thầu',
+                    subject: 'Hỗ trợ qua chat trực tiếp',
+                    description: `[CHAT TRỰC TIẾP] Nhà thầu ${currentUser.name} đã bắt đầu cuộc hội thoại hỗ trợ. ID: ${conversation.id}`,
+                    category: 'GENERAL',
                     priority: 'HIGH',
+                    status: 'IN_PROGRESS',
+                    chatSessionId: conversation.id,
+                    messages: {
+                        create: {
+                            senderType: 'CUSTOMER',
+                            senderId: currentUser.id,
+                            senderName: currentUser.name || 'Nhà thầu',
+                            content: `[CHAT TRỰC TIẾP] Nhà thầu ${currentUser.name} đã bắt đầu cuộc hội thoại hỗ trợ. ID: ${conversation.id}`,
+                            isInternal: false,
+                            attachments: []
+                        }
+                    }
                 }
             })
         } else {
-            // Ensure there is an active support request if they are chatting
-            const existingRequest = await prisma.supportRequest.findFirst({
-                where: { userId: currentUser.id, status: { in: ['PENDING', 'IN_PROGRESS'] } }
-            })
+            // Ensure there is an active support ticket if they are chatting
+            const customer = await prisma.customer.findFirst({ where: { userId: currentUser.id } })
+            const existingTicket = customer ? await prisma.supportTicket.findFirst({
+                where: { customerId: customer.id, status: { in: ['OPEN', 'IN_PROGRESS'] } }
+            }) : null
 
-            if (!existingRequest) {
-                await prisma.supportRequest.create({
+            if (!existingTicket) {
+                const count = await prisma.supportTicket.count()
+                const ticketNumber = `TK-CHAT-${String(count + 1).padStart(4, '0')}`
+                await prisma.supportTicket.create({
                     data: {
-                        name: currentUser.name || 'Nhà thầu',
-                        phone: 'Liên hệ qua chat',
-                        message: `[CHAT TRỰC TIẾP] Nhà thầu ${currentUser.name} quay lại hỗ trợ. ID: ${conversation.id}`,
-                        userId: currentUser.id,
-                        status: 'IN_PROGRESS',
+                        ticketNumber,
+                        customerId: customer?.id || null,
+                        guestName: currentUser.name || 'Nhà thầu',
+                        subject: 'Hỗ trợ qua chat trực tiếp',
+                        description: `[CHAT TRỰC TIẾP] Nhà thầu ${currentUser.name} quay lại hỗ trợ. ID: ${conversation.id}`,
+                        category: 'GENERAL',
                         priority: 'HIGH',
+                        status: 'IN_PROGRESS',
+                        chatSessionId: conversation.id,
+                        messages: {
+                            create: {
+                                senderType: 'CUSTOMER',
+                                senderId: currentUser.id,
+                                senderName: currentUser.name || 'Nhà thầu',
+                                content: `[CHAT TRỰC TIẾP] Nhà thầu ${currentUser.name} quay lại hỗ trợ. ID: ${conversation.id}`,
+                                isInternal: false,
+                                attachments: []
+                            }
+                        }
                     }
                 })
             }

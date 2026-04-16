@@ -209,7 +209,7 @@ export function getSupportRequestHTML(data: any): string {
                         <span style="color: #64748b; font-size: 10px; font-weight: 600;">SmartBuild Support System</span>
                       </td>
                       <td align="right">
-                        <a href="${baseUrl}/admin/support" style="background: #3b82f6; color: #ffffff; text-decoration: none; padding: 6px 15px; border-radius: 4px; font-size: 11px; font-weight: 700; display: inline-block;">
+                        <a href="${baseUrl}/admin/tickets" style="background: #3b82f6; color: #ffffff; text-decoration: none; padding: 6px 15px; border-radius: 4px; font-size: 11px; font-weight: 700; display: inline-block;">
                           XỬ LÝ NGAY
                         </a>
                       </td>

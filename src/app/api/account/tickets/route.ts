@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getUser } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { saveNotificationForAllManagers } from '@/lib/notification-service'
 
 // GET: List tickets for the current customer
 export async function GET(req: NextRequest) {
@@ -121,6 +122,19 @@ export async function POST(req: NextRequest) {
                 messages: true
             }
         })
+
+        // Notify managers about new ticket from user
+        try {
+            await saveNotificationForAllManagers({
+                type: 'INFO' as any,
+                priority: priority === 'URGENT' || priority === 'HIGH' ? 'HIGH' : 'MEDIUM',
+                title: `🎫 Yêu cầu hỗ trợ mới (Thành viên): ${ticketNumber}`,
+                message: `Khách hàng ${customer?.companyName || user.email} vừa gửi yêu cầu hỗ trợ: ${subject}`,
+                data: { ticketId: ticket.id, ticketNumber }
+            })
+        } catch (pushErr) {
+            console.error('Failed to send push notification for account ticket:', pushErr)
+        }
 
         return NextResponse.json({ ticket }, { status: 201 })
     } catch (error) {

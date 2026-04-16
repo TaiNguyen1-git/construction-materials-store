@@ -9,6 +9,7 @@ import {
     ChevronRight,
     Clock,
     User,
+    Phone,
     MessageCircle,
     AlertCircle,
     CheckCircle,
@@ -153,7 +154,7 @@ export default function AdminTicketsPage() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     content: newMessage,
-                    isInternal
+                    isInternal: (!selectedTicket.customerId) ? true : isInternal
                 })
             })
 
@@ -412,6 +413,12 @@ export default function AdminTicketsPage() {
                                         <User className="w-3 h-3" />
                                         {selectedTicket.guestName || 'Khách hàng đăng ký'}
                                     </div>
+                                    {selectedTicket.guestPhone && (
+                                        <div className="flex items-center gap-1">
+                                            <Phone className="w-3 h-3 text-indigo-500" />
+                                            <span className="font-bold text-slate-700">{selectedTicket.guestPhone}</span>
+                                        </div>
+                                    )}
                                     <div className="flex items-center gap-1">
                                         <Ticket className="w-3 h-3" />
                                         {CATEGORY_LABELS[selectedTicket.category] || selectedTicket.category}
@@ -462,13 +469,23 @@ export default function AdminTicketsPage() {
 
                             {/* Message Input */}
                             <div className="p-4 border-t border-slate-100 bg-white">
+                                {(!selectedTicket.customerId) && (
+                                    <div className="mb-3 p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-3">
+                                        <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+                                        <div>
+                                            <p className="text-sm font-bold text-amber-800">Khách vãng lai đăng ký hỗ trợ!</p>
+                                            <p className="text-xs text-amber-700 mt-1">Xin vui lòng gọi điện hoặc Zalo qua SĐT <strong>{selectedTicket.guestPhone}</strong> để xử lý. Khung dưới đây đã bị khóa thành chế độ <strong>"Chỉ Ghi Chú Nội Bộ"</strong>.</p>
+                                        </div>
+                                    </div>
+                                )}
                                 <div className="flex items-center gap-2 mb-2">
-                                    <label className="flex items-center gap-2 text-xs">
+                                    <label className={`flex items-center gap-2 text-xs ${(!selectedTicket.customerId) ? 'opacity-50 cursor-not-allowed' : ''}`}>
                                         <input
                                             type="checkbox"
-                                            checked={isInternal}
-                                            onChange={(e) => setIsInternal(e.target.checked)}
-                                            className="w-4 h-4 rounded border-slate-300"
+                                            checked={(!selectedTicket.customerId) ? true : isInternal}
+                                            onChange={(e) => { if (selectedTicket.customerId) setIsInternal(e.target.checked) }}
+                                            disabled={!selectedTicket.customerId}
+                                            className="w-4 h-4 rounded border-slate-300 disabled:bg-slate-200"
                                         />
                                         <span className="text-slate-600 font-medium">Ghi chú nội bộ (KH không thấy)</span>
                                     </label>
@@ -479,7 +496,7 @@ export default function AdminTicketsPage() {
                                     </button>
                                     <input
                                         type="text"
-                                        placeholder={isInternal ? "Nhập ghi chú nội bộ..." : "Nhập tin nhắn phản hồi..."}
+                                        placeholder={((!selectedTicket.customerId) || isInternal) ? "Nhập ghi chú nội bộ..." : "Nhập tin nhắn phản hồi..."}
                                         value={newMessage}
                                         onChange={(e) => setNewMessage(e.target.value)}
                                         onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
@@ -488,13 +505,13 @@ export default function AdminTicketsPage() {
                                     <button
                                         onClick={sendMessage}
                                         disabled={sending || !newMessage.trim()}
-                                        className={`px-4 py-2.5 rounded-xl font-bold text-sm flex items-center gap-2 transition-colors disabled:opacity-50 ${isInternal
+                                        className={`px-4 py-2.5 rounded-xl font-bold text-sm flex items-center gap-2 transition-colors disabled:opacity-50 ${((!selectedTicket.customerId) || isInternal)
                                             ? 'bg-amber-500 text-white hover:bg-amber-600'
                                             : 'bg-indigo-600 text-white hover:bg-indigo-700'
                                             }`}
                                     >
                                         <Send className="w-4 h-4" />
-                                        {sending ? 'Đang gửi...' : 'Gửi'}
+                                        {sending ? 'Đang gửi...' : (((!selectedTicket.customerId) || isInternal) ? 'Thêm ghi chú' : 'Gửi')}
                                     </button>
                                 </div>
                             </div>
