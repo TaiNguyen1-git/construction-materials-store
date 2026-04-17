@@ -15,6 +15,7 @@ import {
   CheckCircle,
   Clock,
   TrendingUp,
+  TrendingDown,
   CreditCard,
   Briefcase,
   X,
@@ -251,7 +252,7 @@ export default function PayrollPage() {
           </button>
           <button
             onClick={() => openModal()}
-            className="bg-blue-600 text-white px-6 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-700 shadow-xl shadow-blue-500/20 transition-all active:scale-95 flex items-center gap-2"
+            className="bg-sky-500 text-white px-6 py-4 rounded-2xl font-black text-[11px] uppercase tracking-widest hover:bg-slate-900 shadow-xl shadow-sky-500/20 transition-all active:scale-95 flex items-center gap-3"
           >
             <Plus size={16} />
             Khởi tạo bảng lương
@@ -294,7 +295,7 @@ export default function PayrollPage() {
                 <th className="px-4 py-5 text-right">OT / Thưởng</th>
                 <th className="px-4 py-5 text-right">Thực lãnh (Net)</th>
                 <th className="px-4 py-5 text-center">Tình trạng</th>
-                <th className="px-6 py-5 text-right">Actions</th>
+                <th className="px-6 py-5 text-right">Thao tác</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
@@ -302,7 +303,7 @@ export default function PayrollPage() {
                 <tr>
                   <td colSpan={7} className="px-6 py-24 text-center">
                     <div className="w-10 h-10 border-4 border-emerald-600/20 border-t-emerald-600 rounded-full animate-spin mx-auto mb-4"></div>
-                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Fetching Payroll Data...</span>
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Đang truy xuất dữ liệu lương...</span>
                   </td>
                 </tr>
               ) : payrolls.length === 0 ? (
@@ -321,8 +322,8 @@ export default function PayrollPage() {
                           <User size={18} />
                         </div>
                         <div>
-                          <div className="text-sm font-black text-slate-900 group-hover:text-blue-600 transition-colors uppercase tracking-tight">{payroll.employee?.user?.name || 'Unknown Staff'}</div>
-                          <div className="text-[10px] font-mono text-slate-400 font-bold uppercase tracking-widest mt-0.5">ID: {payroll.employee?.employeeCode || 'N/A'}</div>
+                          <div className="text-sm font-black text-slate-900 group-hover:text-blue-600 transition-colors uppercase tracking-tight">{payroll.employee?.user?.name || 'Nhân viên hệ thống'}</div>
+                          <div className="text-[10px] font-mono text-slate-400 font-bold uppercase tracking-widest mt-0.5">Mã NV: {payroll.employee?.employeeCode || 'Chưa rõ'}</div>
                         </div>
                       </div>
                     </td>
@@ -337,7 +338,7 @@ export default function PayrollPage() {
                     </td>
                     <td className="px-4 py-4 text-right whitespace-nowrap">
                       <div className="text-xs font-black text-blue-600">+{formatCurrency((payroll.overtime || 0) + (payroll.bonuses || 0))}</div>
-                      <div className="text-[9px] text-slate-400 font-bold uppercase tracking-tighter">Adjustments</div>
+                      <div className="text-[9px] text-slate-400 font-bold uppercase tracking-tighter">Điều chỉnh</div>
                     </td>
                     <td className="px-4 py-4 text-right whitespace-nowrap">
                       <span className="text-sm font-black text-slate-900">{formatCurrency(payroll.netPay || 0)}</span>
@@ -351,7 +352,7 @@ export default function PayrollPage() {
                       ) : (
                         <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 text-amber-600 rounded-full text-[9px] font-black uppercase tracking-widest border border-amber-100">
                           <Clock size={10} />
-                          Queue
+                          Chờ duyệt
                         </span>
                       )}
                     </td>
@@ -393,18 +394,23 @@ export default function PayrollPage() {
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-md overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
           <div className="relative bg-white w-full max-w-3xl shadow-2xl rounded-[40px] overflow-hidden animate-in zoom-in-95 duration-300">
             {/* Modal Header */}
-            <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-              <div>
-                <h3 className="text-xl font-black text-slate-900 uppercase tracking-tighter">
-                  {editingPayroll ? 'Cấu hình bản ghi lương' : 'Khởi tạo chi trả mới'}
-                </h3>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Compensation data configuration</p>
+            <div className="p-10 border-b border-slate-100 flex justify-between items-center bg-gradient-to-r from-blue-600 to-indigo-700">
+              <div className="flex items-center gap-5">
+                <div className="w-16 h-16 bg-white/20 backdrop-blur-xl rounded-[24px] flex items-center justify-center text-white border border-white/30 shadow-2xl">
+                  <Calculator size={32} strokeWidth={2.5} />
+                </div>
+                <div>
+                  <h3 className="text-2xl font-black text-white uppercase tracking-tighter leading-none">
+                    {editingPayroll ? 'Cấu hình bản ghi lương' : 'Khởi tạo chi trả mới'}
+                  </h3>
+                  <p className="text-[11px] font-black text-blue-100 uppercase tracking-[0.2em] mt-2 opacity-80">Thiết lập dữ liệu thu nhập nhân sự</p>
+                </div>
               </div>
               <button
                 onClick={() => setShowModal(false)}
-                className="p-3 bg-white text-slate-400 hover:text-slate-900 rounded-2xl border border-slate-100 transition-all hover:scale-110 active:scale-90"
+                className="p-4 bg-white/10 text-white hover:bg-white hover:text-blue-600 rounded-2xl border border-white/20 transition-all hover:rotate-90 shadow-xl"
               >
-                <X size={20} />
+                <X size={24} strokeWidth={3} />
               </button>
             </div>
 
@@ -412,127 +418,163 @@ export default function PayrollPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Employee Selection */}
                 <div className="md:col-span-2">
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Nhân sự thụ hưởng</label>
-                  <div className="relative">
-                    <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
+                  <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">Nhân sự thụ hưởng</label>
+                  <div className="relative group">
+                    <div className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors">
+                      <User size={20} />
+                    </div>
                     <select
                       value={form.employeeId}
                       onChange={(e) => setForm({ ...form, employeeId: e.target.value })}
-                      className="w-full pl-12 pr-4 py-4 bg-slate-50 border-none rounded-2xl text-sm font-black text-slate-900 focus:ring-4 focus:ring-emerald-500/10 transition-all outline-none appearance-none"
+                      className="w-full pl-14 pr-6 py-5 bg-slate-50/50 border-2 border-slate-100 rounded-[28px] text-sm font-black text-slate-900 focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all outline-none appearance-none cursor-pointer"
                       required
                     >
-                      <option value="">-- Click to select staff member --</option>
+                      <option value="">-- Chọn nhân viên từ danh sách --</option>
                       {employees.map((employee) => (
                         <option key={employee.id} value={employee.id}>
                           {employee.user.name.toUpperCase()} ({employee.employeeCode})
                         </option>
                       ))}
                     </select>
+                    <div className="absolute right-6 top-1/2 -translate-y-1/2 pointer-events-none">
+                      <ChevronRight size={16} className="text-slate-400 rotate-90" />
+                    </div>
                   </div>
                 </div>
 
                 {/* Period Configuration */}
                 <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Năm ngân sách</label>
-                  <input
-                    type="number"
-                    value={form.year}
-                    onChange={(e) => setForm({ ...form, year: parseInt(e.target.value) })}
-                    className="w-full px-5 py-4 bg-slate-50 border-none rounded-2xl text-sm font-black text-slate-900 focus:ring-4 focus:ring-emerald-500/10 transition-all outline-none"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Kỳ chi trả (Tháng)</label>
-                  <select
-                    value={form.month}
-                    onChange={(e) => setForm({ ...form, month: parseInt(e.target.value) })}
-                    className="w-full px-5 py-4 bg-slate-50 border-none rounded-2xl text-sm font-black text-slate-900 focus:ring-4 focus:ring-emerald-500/10 transition-all outline-none"
-                    required
-                  >
-                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(m => (
-                      <option key={m} value={m}>Tháng {m < 10 ? `0${m}` : m}</option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Financial Data */}
-                <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Mức lương cơ sở</label>
-                  <div className="relative">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-300">VND</span>
+                  <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">Năm ngân sách</label>
+                  <div className="relative group">
+                    <div className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors">
+                      <Calendar size={18} />
+                    </div>
                     <input
                       type="number"
-                      value={form.baseSalary}
-                      onChange={(e) => setForm({ ...form, baseSalary: parseFloat(e.target.value) })}
-                      className="w-full pl-12 pr-4 py-4 bg-slate-100/50 border-none rounded-2xl text-sm font-black text-slate-900 focus:ring-4 focus:ring-emerald-500/10 transition-all outline-none"
+                      value={form.year}
+                      onChange={(e) => setForm({ ...form, year: parseInt(e.target.value) })}
+                      className="w-full pl-14 pr-6 py-5 bg-slate-50/50 border-2 border-slate-100 rounded-[28px] text-sm font-black text-slate-900 focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all outline-none"
                       required
                     />
                   </div>
                 </div>
                 <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Thưởng hiệu suất</label>
-                  <input
-                    type="number"
-                    value={form.bonuses}
-                    onChange={(e) => setForm({ ...form, bonuses: parseFloat(e.target.value) })}
-                    className="w-full px-5 py-4 bg-emerald-50/50 border-none rounded-2xl text-sm font-black text-emerald-600 focus:ring-4 focus:ring-emerald-500/10 transition-all outline-none"
-                  />
+                  <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">Kỳ chi trả (Tháng)</label>
+                  <div className="relative group">
+                    <div className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors">
+                      <Clock size={18} />
+                    </div>
+                    <select
+                      value={form.month}
+                      onChange={(e) => setForm({ ...form, month: parseInt(e.target.value) })}
+                      className="w-full pl-14 pr-6 py-5 bg-slate-50/50 border-2 border-slate-100 rounded-[28px] text-sm font-black text-slate-900 focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all outline-none appearance-none cursor-pointer"
+                      required
+                    >
+                      {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(m => (
+                        <option key={m} value={m}>Tháng {m < 10 ? `0${m}` : m}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Financial Data */}
+                <div>
+                  <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">Mức lương cơ sở</label>
+                  <div className="relative group">
+                    <div className="absolute left-5 top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-400 px-2 py-1 bg-slate-200 rounded-lg group-focus-within:bg-blue-600 group-focus-within:text-white transition-all">VND</div>
+                    <input
+                      type="number"
+                      value={form.baseSalary}
+                      onChange={(e) => setForm({ ...form, baseSalary: parseFloat(e.target.value) })}
+                      className="w-full pl-16 pr-6 py-5 bg-slate-100/30 border-2 border-slate-100 rounded-[28px] text-sm font-black text-slate-900 focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all outline-none"
+                      required
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">Thưởng hiệu suất</label>
+                  <div className="relative group">
+                    <div className="absolute left-5 top-1/2 -translate-y-1/2 text-emerald-500">
+                      <TrendingUp size={18} />
+                    </div>
+                    <input
+                      type="number"
+                      value={form.bonuses}
+                      onChange={(e) => setForm({ ...form, bonuses: parseFloat(e.target.value) })}
+                      className="w-full pl-14 pr-6 py-5 bg-emerald-50/30 border-2 border-emerald-100 rounded-[28px] text-sm font-black text-emerald-600 focus:bg-white focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all outline-none"
+                    />
+                  </div>
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Giờ tăng ca</label>
-                  <input
-                    type="number"
-                    value={form.overtimeHours}
-                    onChange={(e) => setForm({ ...form, overtimeHours: parseFloat(e.target.value) })}
-                    className="w-full px-5 py-4 bg-slate-50 border-none rounded-2xl text-sm font-black text-slate-900 focus:ring-4 focus:ring-emerald-500/10 transition-all outline-none"
-                  />
+                  <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">Giờ tăng ca</label>
+                  <div className="relative group">
+                    <div className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors">
+                      <Clock size={18} />
+                    </div>
+                    <input
+                      type="number"
+                      value={form.overtimeHours}
+                      onChange={(e) => setForm({ ...form, overtimeHours: parseFloat(e.target.value) })}
+                      className="w-full pl-14 pr-6 py-5 bg-slate-50/50 border-2 border-slate-100 rounded-[28px] text-sm font-black text-slate-900 focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all outline-none"
+                    />
+                  </div>
                 </div>
                 <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Khấu trừ / Phạt</label>
-                  <input
-                    type="number"
-                    value={form.deductions}
-                    onChange={(e) => setForm({ ...form, deductions: parseFloat(e.target.value) })}
-                    className="w-full px-5 py-4 bg-red-50/50 border-none rounded-2xl text-sm font-black text-red-600 focus:ring-4 focus:ring-red-500/10 transition-all outline-none"
-                  />
+                  <label className="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">Khấu trừ / Phạt</label>
+                  <div className="relative group">
+                    <div className="absolute left-5 top-1/2 -translate-y-1/2 text-red-500">
+                      <TrendingDown size={18} />
+                    </div>
+                    <input
+                      type="number"
+                      value={form.deductions}
+                      onChange={(e) => setForm({ ...form, deductions: parseFloat(e.target.value) })}
+                      className="w-full pl-14 pr-6 py-5 bg-red-50/30 border-2 border-red-100 rounded-[28px] text-sm font-black text-red-600 focus:bg-white focus:border-red-500 focus:ring-4 focus:ring-red-500/10 transition-all outline-none"
+                    />
+                  </div>
                 </div>
               </div>
 
               {/* Advanced Calculation Preview */}
-              <div className="bg-slate-900 p-8 rounded-[32px] overflow-hidden relative group">
-                <div className="absolute top-0 right-0 p-6 opacity-20 text-white group-hover:scale-110 transition-transform">
-                  <Calculator size={64} />
+              <div className="bg-slate-900 p-10 rounded-[40px] overflow-hidden relative group shadow-2xl shadow-blue-900/40">
+                <div className="absolute -bottom-10 -right-10 opacity-10 text-white group-hover:scale-125 transition-transform duration-1000 rotate-12">
+                  <Calculator size={180} />
                 </div>
-                <div className="relative z-10 flex flex-col md:flex-row justify-between items-center gap-6">
-                  <div className="space-y-1 text-center md:text-left">
-                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Calculated Net Income</span>
-                    <div className="text-3xl font-black text-white tracking-tighter">{formatCurrency(calculateNet())}</div>
+                <div className="relative z-10 flex flex-col md:flex-row justify-between items-center gap-10">
+                  <div className="space-y-2 text-center md:text-left">
+                    <span className="text-[11px] font-black text-slate-500 uppercase tracking-[0.3em]">Thu nhập thực nhận (Net)</span>
+                    <div className="text-4xl font-black text-white tracking-tighter flex items-baseline gap-2">
+                       {formatCurrency(calculateNet()).split('â')[0]}
+                       <span className="text-xl text-blue-400 font-bold uppercase underline underline-offset-8">đ</span>
+                    </div>
                   </div>
-                  <div className="h-12 w-px bg-slate-800 hidden md:block"></div>
-                  <div className="space-y-1 text-center md:text-right">
-                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Gross Adjustment</span>
-                    <div className="text-xl font-black text-emerald-400">+{formatCurrency(calculateGross() - form.baseSalary)}</div>
+                  <div className="h-16 w-px bg-slate-800/50 hidden md:block"></div>
+                  <div className="space-y-2 text-center md:text-right">
+                    <span className="text-[11px] font-black text-slate-500 uppercase tracking-[0.3em]">Tổng điều chỉnh</span>
+                    <div className="text-2xl font-black text-emerald-400 flex items-center gap-2 justify-center md:justify-end">
+                      <TrendingUp size={20} />
+                      +{formatCurrency(calculateGross() - form.baseSalary)}
+                    </div>
                   </div>
                 </div>
               </div>
 
               {/* Submit Actions */}
-              <div className="flex gap-4 pt-4">
+              <div className="flex gap-4 pt-6">
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="flex-1 py-4 bg-slate-100 text-slate-500 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-200 transition-all"
+                  className="flex-1 py-5 bg-slate-100 text-slate-500 rounded-[28px] font-black text-[11px] uppercase tracking-widest hover:bg-slate-200 transition-all border-2 border-transparent hover:border-slate-300 active:scale-95"
                 >
-                  Discard
+                  Hủy bỏ
                 </button>
                 <button
                   type="submit"
-                  className="flex-[2] py-4 bg-emerald-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-900 shadow-xl shadow-emerald-200 transition-all active:scale-95 flex items-center justify-center gap-2"
+                  className="flex-[2] py-5 bg-sky-500 text-white rounded-[28px] font-black text-[11px] uppercase tracking-widest hover:bg-slate-900 shadow-2xl shadow-sky-200 transition-all active:scale-95 flex items-center justify-center gap-3"
                 >
-                  <CheckCircle size={16} />
-                  Authorize & Finalize
+                  <CheckCircle size={20} />
+                  Xác nhận & Hoàn tất
                 </button>
               </div>
             </form>
@@ -547,7 +589,7 @@ export default function PayrollPage() {
         onConfirm={handleDelete}
         title="Xác nhận gỡ bỏ bản ghi"
         message={`Hệ thống sẽ xóa vĩnh viễn dữ liệu lương của nhân sự tại kỳ ${deletingPayroll?.period}. Thao tác này đòi hỏi quyền quản trị tối cao.`}
-        confirmText="Confirm Delete"
+        confirmText="Xác nhận xóa"
         type="danger"
       />
     </div>
