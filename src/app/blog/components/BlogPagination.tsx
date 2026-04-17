@@ -1,5 +1,6 @@
 'use client'
 
+import { useTransition, useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 
 interface BlogPaginationProps {
@@ -10,11 +11,21 @@ interface BlogPaginationProps {
 export default function BlogPagination({ lastPage, currentPage }: BlogPaginationProps) {
     const router = useRouter()
     const searchParams = useSearchParams()
+    const [isPending, startTransition] = useTransition()
+    const [localPage, setLocalPage] = useState(currentPage)
+
+    // Sync local state with URL
+    useEffect(() => {
+        setLocalPage(currentPage)
+    }, [currentPage])
 
     const goToPage = (page: number) => {
+        setLocalPage(page)
         const params = new URLSearchParams(searchParams.toString())
         params.set('page', page.toString())
-        router.push(`/blog?${params.toString()}`)
+        startTransition(() => {
+            router.push(`/blog?${params.toString()}`, { scroll: true })
+        })
     }
 
     if (lastPage <= 1) return null
@@ -33,7 +44,7 @@ export default function BlogPagination({ lastPage, currentPage }: BlogPagination
                     key={i + 1}
                     onClick={() => goToPage(i + 1)}
                     className={`w-14 h-14 flex items-center justify-center rounded-3xl font-black text-sm transition-all shadow-xl ${
-                        currentPage === i + 1 
+                        localPage === i + 1 
                         ? 'bg-primary-600 text-white shadow-primary-200/50' 
                         : 'bg-white border border-slate-100 text-slate-400 hover:bg-slate-50 shadow-slate-100'
                     }`}

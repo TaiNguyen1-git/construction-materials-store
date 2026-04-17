@@ -81,15 +81,23 @@ export async function getBlogPostBySlug(slug: string) {
     return post
 }
 
+import { unstable_cache } from 'next/cache'
+
 export async function getBlogCategories() {
-    return prisma.blogCategory.findMany({
-        include: {
-            _count: {
-                select: { posts: true }
-            }
+    return unstable_cache(
+        async () => {
+            return prisma.blogCategory.findMany({
+                include: {
+                    _count: {
+                        select: { posts: true }
+                    }
+                },
+                orderBy: { name: 'asc' }
+            })
         },
-        orderBy: { name: 'asc' }
-    })
+        ['blog-categories'],
+        { revalidate: 3600, tags: ['blog-categories'] }
+    )()
 }
 
 export async function getRelatedPosts(categoryId: string, excludeId: string, limit = 3) {

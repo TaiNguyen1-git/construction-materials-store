@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useTransition } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Search, ChevronDown, Sparkles } from 'lucide-react'
+import { Search, ChevronDown, Sparkles, Loader2 } from 'lucide-react'
 
 interface Category {
     id: string
@@ -17,6 +17,7 @@ interface BlogFiltersProps {
 export default function BlogFilters({ categories }: BlogFiltersProps) {
     const router = useRouter()
     const searchParams = useSearchParams()
+    const [isPending, startTransition] = useTransition()
 
     const currentCategoryId = searchParams.get('categoryId') || null
     const currentSort = searchParams.get('sortBy') || 'publishedAt'
@@ -24,6 +25,12 @@ export default function BlogFilters({ categories }: BlogFiltersProps) {
 
     const [searchTerm, setSearchTerm] = useState(currentSearch)
     const [isSortOpen, setIsSortOpen] = useState(false)
+    const [localCategoryId, setLocalCategoryId] = useState<string | null>(currentCategoryId)
+
+    // Sync local state with URL
+    useEffect(() => {
+        setLocalCategoryId(currentCategoryId)
+    }, [currentCategoryId])
 
     // Debounce search
     useEffect(() => {
@@ -31,11 +38,15 @@ export default function BlogFilters({ categories }: BlogFiltersProps) {
             if (searchTerm !== (searchParams.get('search') || '')) {
                 updateFilters({ search: searchTerm, page: '1' })
             }
-        }, 500)
+        }, 300)
         return () => clearTimeout(timer)
     }, [searchTerm])
 
     const updateFilters = (updates: Record<string, string | null>) => {
+        if (updates.categoryId !== undefined) {
+            setLocalCategoryId(updates.categoryId)
+        }
+
         const params = new URLSearchParams(searchParams.toString())
         
         Object.entries(updates).forEach(([key, value]) => {
@@ -46,16 +57,33 @@ export default function BlogFilters({ categories }: BlogFiltersProps) {
             }
         })
 
-        router.push(`/blog?${params.toString()}`, { scroll: false })
+        startTransition(() => {
+            router.push(`/blog?${params.toString()}`, { scroll: false })
+        })
+    }
+
+    const prefetchFilter = (updates: Record<string, string | null>) => {
+        const params = new URLSearchParams(searchParams.toString())
+        Object.entries(updates).forEach(([key, value]) => {
+            if (value === null) params.delete(key)
+            else params.set(key, value)
+        })
+        router.prefetch(`/blog?${params.toString()}`)
     }
 
     return (
         <div className="max-w-7xl mx-auto px-6 -mt-12 relative z-20">
-            <div className="bg-white/90 backdrop-blur-xl border border-neutral-100 p-2.5 rounded-[2rem] shadow-2xl flex flex-col md:flex-row items-center gap-4 ring-1 ring-black/5">
+            {/* Subtle Loading Bar */}
+            <div className={`absolute -top-1 left-8 right-8 h-1 bg-primary-600/20 rounded-full overflow-hidden transition-opacity duration-300 ${isPending ? 'opacity-100' : 'opacity-0'}`}>
+                <div className="h-full bg-primary-600 animate-[loading-bar_1.5s_infinite_linear] w-1/3 rounded-full"></div>
+            </div>
+
+            <div className={`bg-white/90 backdrop-blur-xl border border-neutral-100 p-2.5 rounded-[2rem] shadow-2xl flex flex-col md:flex-row items-center gap-4 ring-1 ring-black/5 transition-all duration-300 ${isPending ? 'ring-primary-500/20 shadow-primary-500/10' : ''}`}>
                 <div className="flex items-center gap-2 overflow-x-auto w-full md:flex-1 p-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                     <button 
                         onClick={() => updateFilters({ categoryId: null, page: '1' })}
-                        className={`px-8 py-3 rounded-full text-[11px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${!currentCategoryId ? 'bg-primary-600 text-white shadow-lg shadow-primary-200' : 'text-neutral-400 hover:text-neutral-900 hover:bg-neutral-50'}`}
+                        onMouseEnter={() => prefetchFilter({ categoryId: null, page: '1' })}
+                        className={`px-8 py-3 rounded-full text-[11px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${!localCategoryId ? 'bg-primary-600 text-white shadow-lg shadow-primary-200' : 'text-neutral-400 hover:text-neutral-900 hover:bg-neutral-50'}`}
                     >
                         Tất cả
                     </button>
@@ -63,7 +91,8 @@ export default function BlogFilters({ categories }: BlogFiltersProps) {
                         <button 
                             key={cat.id}
                             onClick={() => updateFilters({ categoryId: cat.id, page: '1' })}
-                            className={`px-8 py-3 rounded-full text-[11px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${currentCategoryId === cat.id ? 'bg-primary-600 text-white shadow-lg shadow-primary-200' : 'text-neutral-400 hover:text-neutral-900 hover:bg-neutral-50'}`}
+                            onMouseEnter={() => prefetchFilter({ categoryId: cat.id, page: '1' })}
+                            className={`px-8 py-3 rounded-full text-[11px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${localCategoryId === cat.id ? 'bg-primary-600 text-white shadow-lg shadow-primary-200' : 'text-neutral-400 hover:text-neutral-900 hover:bg-neutral-50'}`}
                         >
                             {cat.name}
                         </button>
@@ -100,7 +129,11 @@ export default function BlogFilters({ categories }: BlogFiltersProps) {
                         )}
                     </div>
                     <div className="relative flex-1 md:w-72">
-                        <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-300 transition-colors" />
+                        {isPending ? (
+                            <Loader2 className="absolute left-6 top-1/2 -translate-y-1/2 w-4 h-4 text-primary-500 animate-spin" />
+                        ) : (
+                            <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-300 transition-colors" />
+                        )}
                         <input 
                             type="text"
                             placeholder="Tìm bài viết..."

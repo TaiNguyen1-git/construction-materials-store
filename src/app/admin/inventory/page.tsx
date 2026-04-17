@@ -108,7 +108,11 @@ function InventoryContent() {
   const [adjustForm, setAdjustForm] = useState({ productId: '', type: 'ADJUSTMENT' as 'IN' | 'OUT' | 'ADJUSTMENT', quantity: 0, reason: '' })
 
   useEffect(() => {
-    fetchMetrics()
+    fetchInitialData()
+  }, [])
+
+  useEffect(() => {
+    fetchSecondaryData()
   }, [filters.timeframe])
 
   useEffect(() => {
@@ -128,35 +132,60 @@ function InventoryContent() {
     }
   }, [modalSearchTerm, showAdjustModal])
 
-  const fetchMetrics = async () => {
+  const fetchInitialData = async () => {
     try {
       setLoading(true)
-      const params = new URLSearchParams({ timeframe: filters.timeframe })
-      const [movementsRes, predictionsRes, recommendationsRes, statsRes] = await Promise.all([
-        fetchWithAuth('/api/inventory/movements'),
-        fetchWithAuth(`/api/predictions/inventory?${params}`),
-        fetchWithAuth(`/api/recommendations/purchase?${params}`),
-        fetchWithAuth('/api/admin/stats/products')
-      ])
-
-      if (movementsRes.ok) setMovements((await movementsRes.json()).data || [])
-      if (predictionsRes.ok) {
-        const predData = await predictionsRes.json()
-        setPredictions(predData.data?.predictions || [])
-      }
-      if (recommendationsRes.ok) setRecommendations(((await recommendationsRes.json()).data?.recommendations) || [])
+      // Fetch only the data needed for the default view (Stats + Stock)
+      const statsRes = await fetchWithAuth('/api/admin/stats/products')
+      
       if (statsRes.ok) {
         const statsData = await statsRes.json()
         if (statsData.success) {
           setStats(statsData.data)
         }
       }
+      
+      // Also fetch the first page of stock
+      await fetchStock()
+      
+      setLoading(false) // Show UI as soon as basic stats and stock are ready
+      
+      // Start fetching other data in the background
+      fetchSecondaryData()
     } catch (e) {
       console.error(e)
-      toast.error('Lỗi tải dữ liệu thống kê')
-    } finally {
+      toast.error('Lỗi tải dữ liệu cơ bản')
       setLoading(false)
     }
+  }
+
+  const fetchSecondaryData = async () => {
+    try {
+      const params = new URLSearchParams({ timeframe: filters.timeframe })
+      
+      // These are for other tabs, fetch them without blocking the UI
+      fetchWithAuth('/api/inventory/movements').then(async res => {
+        if (res.ok) setMovements((await res.json()).data || [])
+      })
+      
+      fetchWithAuth(`/api/predictions/inventory?${params}`).then(async res => {
+        if (res.ok) {
+          const predData = await res.json()
+          setPredictions(predData.data?.predictions || [])
+        }
+      })
+      
+      fetchWithAuth(`/api/recommendations/purchase?${params}`).then(async res => {
+        if (res.ok) setRecommendations(((await res.json()).data?.recommendations) || [])
+      })
+    } catch (e) {
+      console.error('Error fetching background data:', e)
+    }
+  }
+
+  const fetchMetrics = async () => {
+    // Legacy function, replaced by more granular fetching
+    fetchSecondaryData()
   }
 
   const fetchStock = async () => {
@@ -213,7 +242,7 @@ function InventoryContent() {
 
   const handleRefresh = async () => {
     setRefreshing(true)
-    await Promise.all([fetchMetrics(), fetchStock()])
+    await Promise.all([fetchInitialData()])
     setRefreshing(false)
     toast.success('Dữ liệu đã được cập nhật')
   }

@@ -83,10 +83,18 @@ export async function getProductById(id: string) {
     })
 }
 
+import { unstable_cache } from 'next/cache'
+
 export async function getCategories() {
-    return prisma.category.findMany({
-        orderBy: { name: 'asc' }
-    })
+    return unstable_cache(
+        async () => {
+            return prisma.category.findMany({
+                orderBy: { name: 'asc' }
+            })
+        },
+        ['product-categories'],
+        { revalidate: 3600, tags: ['product-categories'] }
+    )()
 }
 
 export async function getRelatedProducts(categoryId: string, excludeId: string, limit = 4) {
