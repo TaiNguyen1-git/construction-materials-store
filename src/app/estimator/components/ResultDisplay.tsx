@@ -1,8 +1,9 @@
 'use client'
 
 import React from 'react'
-import { Sparkles, Ruler, Package, ArrowRight, FolderPlus, ShoppingCart, CheckCircle } from 'lucide-react'
+import { Sparkles, Ruler, Package, ArrowRight, FolderPlus, ShoppingCart, CheckCircle, TrendingUp, BarChart3 } from 'lucide-react'
 import { EstimatorResult, formatCurrency, PROJECT_TYPES } from '../types'
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
 
 interface ResultDisplayProps {
     result: EstimatorResult
@@ -15,143 +16,197 @@ interface ResultDisplayProps {
     onAddAllToCart: () => void
 }
 
+const CHART_COLORS = ['#4f46e5', '#2563eb', '#0ea5e9', '#06b6d4', '#10b981', '#8b5cf6', '#f59e0b', '#ef4444']
+
 export default function ResultDisplay({
     result, projectType,
     isAuthenticated, addingToCart,
     onShowDetailedModal, onShowProjectModal, onShowLoginModal,
     onAddAllToCart
 }: ResultDisplayProps) {
+
+    // Build chart data from top materials
+    const chartData = result.materials
+        .filter(m => m.price && m.price > 0)
+        .slice(0, 7)
+        .map(m => ({
+            name: m.productName,
+            value: Math.round(m.price! * m.quantity),
+        }))
+
+    const totalCost = result.totalEstimatedCost
+
     return (
-        <div className="mb-12 space-y-8 animate-in slide-in-from-top-4 duration-700">
-            {/* Summary Header */}
-            <div className="flex flex-col md:flex-row gap-6 items-start justify-between">
-                <div className="flex items-center gap-4">
-                    <div className="w-14 h-14 bg-emerald-100 rounded-2xl flex items-center justify-center shadow-lg shadow-emerald-100/50">
-                        <CheckCircle className="w-7 h-7 text-emerald-600" />
-                    </div>
-                    <div>
-                        <p className="text-[10px] text-emerald-600 font-black uppercase tracking-[0.3em] mb-1">Kết quả phân tích</p>
-                        <h2 className="text-3xl font-black text-slate-900 tracking-tighter">DỰ TOÁN ĐÃ SẴN SÀNG</h2>
-                    </div>
+        <div className="mb-12 space-y-6 animate-in slide-in-from-top-4 duration-700">
+            {/* Success Banner */}
+            <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 rounded-3xl px-8 py-5 flex items-center gap-4 shadow-sm">
+                <div className="w-10 h-10 bg-emerald-500 rounded-2xl flex items-center justify-center shadow-md flex-shrink-0">
+                    <CheckCircle className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                    <p className="text-[10px] text-emerald-600 font-black uppercase tracking-[0.25em]">Phân tích hoàn tất</p>
+                    <h2 className="text-xl font-black text-slate-900 tracking-tight">Dự toán đã sẵn sàng</h2>
                 </div>
             </div>
 
-            {/* CTA: View Details Modal - Elite Redesign */}
-            <div className="bg-white rounded-[3rem] p-8 md:p-12 border border-slate-100 shadow-[0_40px_100px_-20px_rgba(0,0,0,0.05)] relative overflow-hidden group">
-                <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-50/50 rounded-full blur-3xl -mr-48 -mt-48 group-hover:bg-indigo-100/50 transition-colors duration-1000"></div>
-                <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-50/30 rounded-full blur-3xl -ml-32 -mb-32"></div>
+            {/* Bento Grid: Stats + Chart */}
+            <div className="grid grid-cols-12 gap-4">
+                {/* Total Area */}
+                <div className="col-span-6 md:col-span-4 bg-white rounded-3xl border border-slate-100 p-6 shadow-sm hover:shadow-md transition-shadow group">
+                    <div className="flex items-center justify-between mb-3">
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Diện tích sàn</p>
+                        <Ruler className="w-4 h-4 text-slate-300 group-hover:text-indigo-400 transition-colors" />
+                    </div>
+                    <div className="flex items-baseline gap-1.5">
+                        <span className="text-4xl font-black text-slate-900 tracking-tight">{(result.totalArea || 0).toFixed(1)}</span>
+                        <span className="text-sm font-black text-slate-400 uppercase">m²</span>
+                    </div>
+                </div>
 
-                <div className="relative z-10 grid lg:grid-cols-12 gap-12 items-center">
-                    {/* Left Side: Information */}
-                    <div className="lg:col-span-7 space-y-6 text-center lg:text-left">
-                        <div className="inline-flex items-center gap-2.5 bg-indigo-50 px-4 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest text-indigo-600 border border-indigo-100/50">
-                            <Sparkles className="w-3.5 h-3.5" /> Phân tích AI hoàn tất
+                {/* Total Cost */}
+                <div className="col-span-6 md:col-span-4 bg-gradient-to-br from-indigo-600 to-blue-600 rounded-3xl p-6 shadow-xl shadow-indigo-100 group relative overflow-hidden">
+                    <div className="absolute -right-6 -top-6 w-24 h-24 bg-white/10 rounded-full"></div>
+                    <div className="relative z-10">
+                        <p className="text-[10px] font-black text-white/60 uppercase tracking-widest mb-3">Ngân sách dự kiến</p>
+                        <div className="flex items-baseline gap-1.5">
+                            <span className="text-3xl font-black text-white tracking-tight leading-none">
+                                {totalCost > 0 ? formatCurrency(totalCost).replace(/\s*₫/, '') : '...'}
+                            </span>
                         </div>
-                        <h3 className="text-4xl md:text-5xl font-black leading-[1.4] tracking-tighter text-slate-900">
-                            Bảng Phân Tích <br />
-                            <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-blue-600 italic py-2 pr-6 inline-block">Khối Lượng Chi Tiết</span>
-                        </h3>
-                        <p className="text-slate-500 text-lg max-w-md leading-relaxed font-medium">
-                            Hệ thống đã đề xuất <span className="text-indigo-600 font-bold">{result.materials.length} loại vật tư</span> tối ưu cho dự án của bạn.
-                            Tất cả số liệu đã sẵn sàng để quý khách kiểm tra.
-                        </p>
+                        <span className="text-xs text-white/50 font-bold">VNĐ</span>
+                    </div>
+                </div>
 
-                        {/* Quick Stats Inline */}
-                        <div className="flex flex-wrap justify-center lg:justify-start gap-4 pt-4">
-                            <div className="flex items-center gap-2 px-4 py-2 bg-slate-50 rounded-xl border border-slate-100">
-                                <Ruler className="w-4 h-4 text-slate-400" />
-                                <span className="text-xs font-bold text-slate-600">{result.totalArea.toFixed(1)} m² Sàn</span>
-                            </div>
-                            <div className="flex items-center gap-2 px-4 py-2 bg-slate-50 rounded-xl border border-slate-100">
-                                <Package className="w-4 h-4 text-slate-400" />
-                                <span className="text-xs font-bold text-slate-600">{result.materials.length} Vật tư</span>
+                {/* Materials Count */}
+                <div className="col-span-12 md:col-span-4 bg-white rounded-3xl border border-slate-100 p-6 shadow-sm hover:shadow-md transition-shadow group">
+                    <div className="flex items-center justify-between mb-3">
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Vật tư đề xuất</p>
+                        <Package className="w-4 h-4 text-slate-300 group-hover:text-indigo-400 transition-colors" />
+                    </div>
+                    <div className="flex items-baseline gap-1.5">
+                        <span className="text-4xl font-black text-slate-900 tracking-tight">{result.materials.length}</span>
+                        <span className="text-sm font-black text-slate-400">loại</span>
+                    </div>
+                    <p className="text-[10px] text-slate-400 mt-2">{result.rooms.length} phòng · {projectType}</p>
+                </div>
+
+                {/* Cost Breakdown Chart */}
+                {chartData.length > 0 && (
+                    <div className="col-span-12 md:col-span-7 bg-white rounded-3xl border border-slate-100 p-6 shadow-sm">
+                        <div className="flex items-center gap-3 mb-6">
+                            <div className="w-1 h-6 bg-indigo-500 rounded-full"></div>
+                            <h3 className="text-sm font-black text-slate-900 uppercase tracking-tight">Cơ cấu chi phí vật tư</h3>
+                        </div>
+                        <div className="flex gap-6 items-center">
+                            <ResponsiveContainer width={160} height={160}>
+                                <PieChart>
+                                    <Pie
+                                        data={chartData}
+                                        cx="50%"
+                                        cy="50%"
+                                        innerRadius={45}
+                                        outerRadius={75}
+                                        paddingAngle={3}
+                                        dataKey="value"
+                                    >
+                                        {chartData.map((_, index) => (
+                                            <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                                        ))}
+                                    </Pie>
+                                    <Tooltip
+                                        formatter={(val: number) => [formatCurrency(val), '']}
+                                        contentStyle={{ borderRadius: '12px', border: '1px solid #f1f5f9', fontSize: '11px', fontWeight: '700' }}
+                                    />
+                                </PieChart>
+                            </ResponsiveContainer>
+                            <div className="flex-1 space-y-2 overflow-hidden">
+                                {chartData.slice(0, 5).map((item, i) => (
+                                    <div key={i} className="flex items-center gap-2">
+                                        <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }} />
+                                        <p className="text-[10px] font-bold text-slate-600 truncate flex-1">{item.name}</p>
+                                        <p className="text-[10px] font-black text-slate-500 flex-shrink-0">
+                                            {totalCost > 0 ? ((item.value / totalCost) * 100).toFixed(1) : 0}%
+                                        </p>
+                                    </div>
+                                ))}
                             </div>
                         </div>
                     </div>
+                )}
 
-                    {/* Right Side: Actions */}
-                    <div className="lg:col-span-5 flex flex-col gap-5 w-full">
+                {/* Quick rooms list */}
+                {result.rooms.length > 0 && (
+                    <div className="col-span-12 md:col-span-5 bg-white rounded-3xl border border-slate-100 p-6 shadow-sm">
+                        <div className="flex items-center gap-3 mb-5">
+                            <div className="w-1 h-6 bg-emerald-500 rounded-full"></div>
+                            <h3 className="text-sm font-black text-slate-900 uppercase tracking-tight">Các phòng đã phân tích</h3>
+                        </div>
+                        <div className="space-y-2 max-h-36 overflow-y-auto">
+                            {result.rooms.map((room, i) => (
+                                <div key={i} className="flex items-center justify-between px-4 py-2.5 bg-slate-50 rounded-xl hover:bg-indigo-50/50 transition-colors">
+                                    <span className="text-xs font-bold text-slate-700">{room.name}</span>
+                                    <span className="text-[10px] font-black text-indigo-500 bg-indigo-50 px-2.5 py-1 rounded-full">
+                                        {room.area ? room.area.toFixed(0) : '?'} m²
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            {/* CTA Actions Panel */}
+            <div className="bg-white rounded-3xl border border-slate-100 p-8 shadow-sm">
+                <div className="flex flex-col md:flex-row gap-8 items-center justify-between">
+                    <div className="space-y-2 text-center md:text-left">
+                        <div className="inline-flex items-center gap-2 bg-indigo-50 px-3 py-1.5 rounded-xl text-[10px] font-black text-indigo-600 uppercase tracking-widest">
+                            <Sparkles className="w-3.5 h-3.5" /> AI Hoàn tất
+                        </div>
+                        <h3 className="text-2xl font-black text-slate-900 tracking-tight">
+                            Bảng khối lượng chi tiết đã sẵn sàng
+                        </h3>
+                        <p className="text-sm text-slate-500 font-medium">
+                            <span className="text-indigo-600 font-bold">{result.materials.length} loại vật tư</span> đã được đề xuất và định giá
+                        </p>
+                    </div>
+
+                    <div className="flex flex-col gap-3 w-full md:w-auto md:min-w-[280px]">
                         <button
                             onClick={onShowDetailedModal}
-                            className="w-full px-12 py-7 bg-white text-indigo-600 border-2 border-indigo-600/20 hover:border-indigo-600 rounded-[2.5rem] font-black text-sm uppercase tracking-[0.2em] transition-all shadow-[0_20px_50px_-15px_rgba(79,70,229,0.15)] hover:shadow-indigo-200/50 flex items-center justify-center gap-4 group/btn active:scale-95"
+                            className="w-full px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-xl shadow-indigo-100 flex items-center justify-center gap-3 active:scale-[0.98]"
                         >
-                            XEM CHI TIẾT DỰ TOÁN
-                            <div className="w-8 h-8 bg-indigo-50 rounded-full flex items-center justify-center group-hover/btn:translate-x-1 group-hover/btn:bg-indigo-600 group-hover/btn:text-white transition-all">
-                                <ArrowRight className="w-4 h-4" />
-                            </div>
+                            Xem chi tiết dự toán
+                            <ArrowRight className="w-4 h-4" />
                         </button>
 
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-2 gap-3">
                             {isAuthenticated ? (
                                 <button
                                     onClick={onShowProjectModal}
-                                    className="px-6 py-4 bg-slate-50 hover:bg-white border border-slate-100 hover:border-indigo-200 rounded-3xl text-[10px] font-black uppercase tracking-widest text-slate-600 hover:text-indigo-600 transition-all flex flex-col items-center justify-center gap-2 shadow-sm"
+                                    className="flex items-center justify-center gap-2 px-5 py-3.5 bg-slate-50 hover:bg-white border-2 border-slate-100 hover:border-indigo-200 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-600 hover:text-indigo-600 transition-all shadow-sm flex-col"
                                 >
-                                    <FolderPlus className="w-6 h-6 mb-1 opacity-70" /> LƯU DỰ ÁN
+                                    <FolderPlus className="w-5 h-5" />
+                                    Lưu dự án
                                 </button>
                             ) : (
                                 <button
                                     onClick={onShowLoginModal}
-                                    className="px-6 py-4 bg-indigo-50/50 hover:bg-white border border-indigo-100 hover:border-indigo-400 rounded-3xl text-[10px] font-black uppercase tracking-widest text-indigo-600 transition-all flex flex-col items-center justify-center gap-2 shadow-sm"
+                                    className="flex items-center justify-center gap-2 px-5 py-3.5 bg-indigo-50 hover:bg-white border-2 border-indigo-100 hover:border-indigo-400 rounded-2xl text-[10px] font-black uppercase tracking-widest text-indigo-600 transition-all shadow-sm flex-col"
                                 >
-                                    <Sparkles className="w-6 h-6 mb-1" /> MỞ KHÓA DỰ ÁN
+                                    <Sparkles className="w-5 h-5" />
+                                    Mở khóa
                                 </button>
                             )}
                             <button
                                 onClick={onAddAllToCart}
                                 disabled={addingToCart || !result.materials.some(m => m.productId)}
-                                className="px-6 py-4 bg-emerald-50/50 hover:bg-white border border-emerald-100 hover:border-emerald-400 rounded-3xl text-[10px] font-black uppercase tracking-widest text-emerald-600 transition-all flex flex-col items-center justify-center gap-2 shadow-sm disabled:opacity-30"
+                                className="flex items-center justify-center gap-2 px-5 py-3.5 bg-emerald-50 hover:bg-white border-2 border-emerald-100 hover:border-emerald-400 rounded-2xl text-[10px] font-black uppercase tracking-widest text-emerald-600 transition-all shadow-sm disabled:opacity-30 flex-col"
                             >
-                                <ShoppingCart className="w-6 h-6 mb-1" /> GIỎ HÀNG
+                                <ShoppingCart className="w-5 h-5" />
+                                Giỏ hàng
                             </button>
                         </div>
                     </div>
-                </div>
-
-                {/* Decoration */}
-                <div className="absolute left-1/2 bottom-0 -translate-x-1/2 w-1/3 h-1 bg-gradient-to-r from-transparent via-indigo-600/30 to-transparent"></div>
-            </div>
-
-            {/* Results Sidebar Details */}
-            <div className="animate-in slide-in-from-right-4 duration-500 space-y-4">
-                <div className="bg-white rounded-[2rem] shadow-xl border border-slate-50 p-8">
-                    <div className="flex items-center justify-between mb-8">
-                        <div className="flex items-center gap-3">
-                            <div className="w-3 h-8 bg-indigo-600 rounded-full"></div>
-                            <h2 className="text-xl font-black text-slate-900 tracking-tight uppercase tracking-tight">Cơ sở bốc tách</h2>
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4 mb-8">
-                        <div className="bg-indigo-50/50 p-6 rounded-3xl border border-indigo-100 shadow-sm group">
-                            <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-2 group-hover:translate-x-1 transition-transform">Diện tích sàn xây dựng</p>
-                            <div className="flex items-baseline gap-2">
-                                <span className="text-3xl font-black text-indigo-950">{(result.totalArea || 0).toFixed(1)}</span>
-                                <span className="text-sm font-black text-indigo-400 uppercase">m² sàn</span>
-                            </div>
-                        </div>
-                        <div className="bg-emerald-50/50 p-6 rounded-3xl border border-emerald-100 shadow-sm group">
-                            <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-2 group-hover:translate-x-1 transition-transform">Ngân sách dự kiến</p>
-                            <div className="flex items-baseline gap-2">
-                                <span className="text-3xl font-black text-emerald-950">
-                                    {result.totalEstimatedCost > 0
-                                        ? formatCurrency(result.totalEstimatedCost).replace(/₫/g, '')
-                                        : '...'}
-                                </span>
-                                <span className="text-sm font-black text-emerald-400 uppercase">VND</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    {result.rooms.length > 0 && (
-                        <div className="flex flex-wrap gap-1.5 border-t border-gray-50 pt-3">
-                            {result.rooms.map((room, i) => (
-                                <span key={i} className="px-2 py-1 bg-gray-50 rounded text-[10px] text-gray-500 font-bold border border-gray-100">
-                                    tầng {room.name?.toUpperCase().includes('TẦNG') ? '' : ''}{room.name?.toUpperCase()} ({room.area ? room.area.toFixed(0) : '?'}M²)
-                                </span>
-                            ))}
-                        </div>
-                    )}
                 </div>
             </div>
         </div>

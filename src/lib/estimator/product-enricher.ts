@@ -22,10 +22,12 @@ function getSearchName(productName: string): string {
 }
 
 /** Convert units when a DB product uses a different unit than the estimate */
-function convertUnit(quantity: number, fromUnit: string, toUnit: string): number {
-    if (fromUnit === toUnit) return quantity
-    if (fromUnit === 'tấn' && toUnit?.toLowerCase() === 'kg') return quantity * 1000
-    if (fromUnit?.toLowerCase() === 'kg' && toUnit === 'tấn') return quantity / 1000
+function convertUnit(quantity: number, fromUnit: string | undefined, toUnit: string | undefined): number {
+    const f = fromUnit?.toLowerCase()
+    const t = toUnit?.toLowerCase()
+    if (!f || !t || f === t) return quantity
+    if (f === 'tấn' && t === 'kg') return quantity * 1000
+    if (f === 'kg' && t === 'tấn') return quantity / 1000
     return quantity
 }
 
@@ -107,9 +109,17 @@ export async function enrichMaterialsWithProducts(
                 // Market price fallback
                 let fallbackPrice = 0
                 const lowerName = m.productName.toLowerCase()
-                for (const [key, val] of Object.entries(MARKET_PRICES)) {
+                
+                // Sort keys by length descending to match most specific terms first (e.g. 'sắt hộp' before 'sắt')
+                const sortedMarketKeys = Object.keys(MARKET_PRICES).sort((a, b) => b.length - a.length)
+                
+                for (const key of sortedMarketKeys) {
+                    const fallback = MARKET_PRICES[key]
                     if (lowerName.includes(key)) {
-                        fallbackPrice = val.price
+                        // If material unit differs from fallback unit, adjust the price
+                        // Example: Material in kg, Fallback in tấn (18,500,000 / 1000 = 18,500)
+                        const conversionFactor = convertUnit(1, fallback.unit, m.unit)
+                        fallbackPrice = fallback.price / conversionFactor
                         break
                     }
                 }

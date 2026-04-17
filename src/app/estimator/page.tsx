@@ -276,7 +276,7 @@ export default function EstimatorPage() {
     }
 
     return (
-        <div className="min-h-screen bg-[#FDFDFD]">
+        <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-50">
             <Toaster position="top-right" />
             {/* --- Modals --- */}
             {showProjectModal && (
@@ -358,7 +358,7 @@ export default function EstimatorPage() {
 
             <SiteHeader />
 
-            <main className="max-w-7xl mx-auto px-4 py-8">
+            <main className="max-w-7xl mx-auto px-4 py-12">
                 {result && !isReviewing && (
                     <ResultDisplay
                         result={result}

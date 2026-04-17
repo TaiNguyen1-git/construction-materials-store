@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react'
-import { CheckCircle, Plus, Loader2 } from 'lucide-react'
+import { CheckCircle, Plus, Loader2, Home, Layers, Compass } from 'lucide-react'
 import { RoomDimension } from '../types'
 
 interface ReviewSectionProps {
@@ -19,6 +19,12 @@ interface ReviewSectionProps {
     loading: boolean
 }
 
+const BUILD_STYLES = [
+    { id: 'nhà_cấp_4', label: 'Nhà cấp 4', icon: Home, color: 'text-emerald-600 bg-emerald-50 border-emerald-200' },
+    { id: 'nhà_phố', label: 'Nhà phố', icon: Layers, color: 'text-blue-600 bg-blue-50 border-blue-200' },
+    { id: 'biệt_thự', label: 'Biệt thự', icon: Compass, color: 'text-purple-600 bg-purple-50 border-purple-200' },
+]
+
 export default function ReviewSection({
     imagesPreview,
     reviewStyle, setReviewStyle,
@@ -29,136 +35,148 @@ export default function ReviewSection({
     loading
 }: ReviewSectionProps) {
     return (
-        <div className="bg-white rounded-xl shadow-xl border-2 border-slate-100 p-6 animate-in slide-in-from-right-4 duration-500 space-y-6">
-            <div className="flex items-start gap-4 border-b border-gray-100 pb-4">
-                <div className="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center flex-shrink-0">
-                    <CheckCircle className="w-6 h-6 text-indigo-600" />
+        <div className="bg-white rounded-3xl shadow-xl border border-slate-100 p-8 animate-in slide-in-from-right-4 duration-500 space-y-8">
+            {/* Header */}
+            <div className="flex items-center gap-4 pb-6 border-b border-slate-100">
+                <div className="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-200 flex-shrink-0">
+                    <CheckCircle className="w-6 h-6 text-white" />
                 </div>
                 <div>
-                    <h2 className="text-base font-black text-slate-800 uppercase tracking-tight">Xác nhận thông số bản vẽ</h2>
-                    <p className="text-xs text-slate-500">AI đã bóc tách xong, quý khách vui lòng kiểm tra và sửa lại con số nếu cần để dự toán chính xác nhất.</p>
+                    <h2 className="text-lg font-black text-slate-900 tracking-tight">Xác nhận thông số bản vẽ</h2>
+                    <p className="text-xs text-slate-500 mt-0.5 font-medium">AI đã bóc tách xong — kiểm tra và sửa lại nếu cần để dự toán chính xác nhất</p>
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Building Info */}
-                <div className="space-y-4">
-                    <div className="flex gap-3">
-                        {imagesPreview.length > 0 && (
-                            <div className="w-1/3 aspect-[4/3] rounded-xl overflow-hidden border border-gray-100 shadow-inner bg-gray-50 flex-shrink-0">
-                                <img src={imagesPreview[0]} className="w-full h-full object-cover" alt="Floor plan reference" />
-                                <div className="text-[8px] bg-black/50 text-white text-center py-0.5 mt-[-16px] relative z-10 font-bold uppercase">Bản vẽ gốc</div>
-                            </div>
-                        )}
-                        <div className={imagesPreview.length > 0 ? "w-2/3" : "w-full"}>
-                            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Loại hình công trình</label>
-                            <div className="grid grid-cols-1 gap-2">
-                                {[
-                                    { id: 'nhà_cấp_4', label: 'Nhà cấp 4' },
-                                    { id: 'nhà_phố', label: 'Nhà phố' },
-                                    { id: 'biệt_thự', label: 'Biệt thự' }
-                                ].map((style) => (
-                                    <button
-                                        key={style.id}
-                                        onClick={() => setReviewStyle(style.id)}
-                                        className={`text-left px-4 py-2 rounded-xl border text-xs font-bold transition-all ${reviewStyle === style.id
-                                            ? 'border-indigo-500 bg-indigo-50 text-indigo-700 shadow-sm'
-                                            : 'border-gray-100 hover:border-gray-200 text-slate-500'
-                                            }`}
-                                    >
-                                        {style.label}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-
-                    <div>
-                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Loại mái & Kết cấu</label>
-                        <select
-                            value={reviewRoofType}
-                            onChange={(e) => setReviewRoofType(e.target.value)}
-                            className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-bold text-slate-700 bg-white"
-                        >
-                            <option value="mái_tôn">Mái tôn (Tiết kiệm)</option>
-                            <option value="bê_tông">Mái bê tông phẳng (Sân thượng)</option>
-                            <option value="mái_thái">Mái Thái / Mái ngói (Sang trọng)</option>
-                        </select>
-                    </div>
-                    <div className="bg-indigo-600 p-5 rounded-2xl shadow-xl shadow-indigo-100">
-                        <label className="text-[10px] font-black text-white/70 uppercase tracking-widest block mb-1">Tổng diện tích xây dựng (m²)</label>
-                        <div className="flex items-baseline gap-2">
-                            <input
-                                type="number"
-                                value={reviewArea}
-                                onChange={(e) => setReviewArea(Number(e.target.value))}
-                                className="w-full bg-transparent text-4xl font-black text-white outline-none border-none focus:ring-0 p-0"
-                            />
-                            <span className="text-white/50 font-black text-xl">m²</span>
-                        </div>
-                        <p className="text-[9px] text-white/60 mt-2 font-medium italic">* Diện tích bao gồm tất cả các mặt sàn và ban công.</p>
+            {/* Image preview if available */}
+            {imagesPreview.length > 0 && (
+                <div className="relative h-40 w-full rounded-2xl overflow-hidden border border-slate-100">
+                    <img src={imagesPreview[0]} className="w-full h-full object-cover" alt="Bản vẽ gốc" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent flex items-end p-4">
+                        <span className="text-[10px] font-black text-white uppercase tracking-widest bg-black/30 backdrop-blur-sm px-3 py-1.5 rounded-full border border-white/20">
+                            Bản vẽ gốc
+                        </span>
                     </div>
                 </div>
+            )}
 
-                {/* Rooms List */}
-                <div className="space-y-3">
-                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block">Chi tiết các phòng detected</label>
-                    <div className="max-h-[300px] overflow-y-auto space-y-2 pr-2 scrollbar-thin scrollbar-thumb-gray-200">
-                        {reviewRooms.map((room, idx) => (
-                            <div key={idx} className="flex items-center gap-2 bg-gray-50 p-2 rounded-lg border border-gray-100 group">
-                                <span className="text-[10px] font-bold text-gray-400 w-4">{idx + 1}.</span>
+            {/* Main area input */}
+            <div className="bg-gradient-to-br from-indigo-600 to-blue-600 rounded-2xl p-6 shadow-xl shadow-indigo-100">
+                <p className="text-[10px] font-black text-white/60 uppercase tracking-widest mb-2">Tổng diện tích xây dựng</p>
+                <div className="flex items-baseline gap-3">
+                    <input
+                        type="number"
+                        value={reviewArea}
+                        onChange={(e) => setReviewArea(Number(e.target.value))}
+                        className="w-full bg-transparent text-5xl font-black text-white outline-none border-none focus:ring-0 p-0 placeholder-white/30"
+                    />
+                    <span className="text-white/50 font-black text-2xl flex-shrink-0">m²</span>
+                </div>
+                <p className="text-[10px] text-white/50 mt-2 font-medium italic">* Bao gồm tất cả các mặt sàn và ban công</p>
+            </div>
+
+            {/* Build Style */}
+            <div className="space-y-3">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.25em] flex items-center gap-2">
+                    <span className="w-1 h-4 bg-indigo-500 rounded-full inline-block"></span>
+                    Loại hình công trình
+                </p>
+                <div className="grid grid-cols-3 gap-3">
+                    {BUILD_STYLES.map((style) => (
+                        <button
+                            key={style.id}
+                            onClick={() => setReviewStyle(style.id)}
+                            className={`flex flex-col items-center gap-2 p-4 rounded-2xl border-2 transition-all ${
+                                reviewStyle === style.id
+                                    ? style.color + ' shadow-md'
+                                    : 'border-slate-100 text-slate-400 hover:border-slate-200 hover:bg-slate-50'
+                            }`}
+                        >
+                            <style.icon className="w-5 h-5" />
+                            <span className="text-[10px] font-black uppercase tracking-tight">{style.label}</span>
+                        </button>
+                    ))}
+                </div>
+            </div>
+
+            {/* Roof Type */}
+            <div className="space-y-3">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.25em] flex items-center gap-2">
+                    <span className="w-1 h-4 bg-blue-500 rounded-full inline-block"></span>
+                    Loại mái & Kết cấu
+                </p>
+                <select
+                    value={reviewRoofType}
+                    onChange={(e) => setReviewRoofType(e.target.value)}
+                    className="w-full px-4 py-3 border-2 border-slate-100 rounded-2xl focus:ring-2 focus:ring-indigo-400 focus:border-indigo-300 outline-none text-sm font-bold text-slate-700 bg-white transition-all appearance-none"
+                >
+                    <option value="mái_tôn">Mái tôn (Tiết kiệm)</option>
+                    <option value="bê_tông">Mái bê tông phẳng (Sân thượng)</option>
+                    <option value="mái_thái">Mái Thái / Mái ngói (Sang trọng)</option>
+                </select>
+            </div>
+
+            {/* Rooms List */}
+            <div className="space-y-3">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.25em] flex items-center gap-2">
+                    <span className="w-1 h-4 bg-emerald-500 rounded-full inline-block"></span>
+                    Chi tiết các phòng
+                </p>
+                <div className="max-h-[220px] overflow-y-auto space-y-2 pr-1">
+                    {reviewRooms.map((room, idx) => (
+                        <div key={idx} className="flex items-center gap-3 bg-slate-50 border border-slate-100 px-4 py-3 rounded-xl group hover:border-indigo-200 hover:bg-indigo-50/30 transition-all">
+                            <span className="text-[10px] font-black text-slate-300 w-5 flex-shrink-0">{idx + 1}</span>
+                            <input
+                                className="flex-grow bg-transparent text-sm font-bold text-slate-700 outline-none"
+                                value={room.name}
+                                onChange={(e) => {
+                                    const newRooms = [...reviewRooms]
+                                    newRooms[idx].name = e.target.value
+                                    setReviewRooms(newRooms)
+                                }}
+                            />
+                            <div className="flex items-center gap-1.5 flex-shrink-0">
                                 <input
-                                    className="flex-grow bg-transparent text-xs font-bold text-slate-700 outline-none"
-                                    value={room.name}
+                                    type="number"
+                                    className="w-14 bg-white border-2 border-slate-100 rounded-lg px-2 py-1 text-xs font-black text-right outline-none focus:border-indigo-300 focus:ring-1 focus:ring-indigo-200 transition-all"
+                                    value={room.area}
                                     onChange={(e) => {
                                         const newRooms = [...reviewRooms]
-                                        newRooms[idx].name = e.target.value
+                                        newRooms[idx].area = Number(e.target.value)
                                         setReviewRooms(newRooms)
                                     }}
                                 />
-                                <div className="flex items-center gap-1">
-                                    <input
-                                        type="number"
-                                        className="w-12 bg-white border border-gray-200 rounded px-1 py-0.5 text-xs font-black text-right outline-none"
-                                        value={room.area}
-                                        onChange={(e) => {
-                                            const newRooms = [...reviewRooms]
-                                            newRooms[idx].area = Number(e.target.value)
-                                            setReviewRooms(newRooms)
-                                        }}
-                                    />
-                                    <span className="text-[9px] font-bold text-gray-400">m²</span>
-                                </div>
+                                <span className="text-[9px] font-bold text-slate-400">m²</span>
                             </div>
-                        ))}
-                    </div>
-                    <button
-                        onClick={() => setReviewRooms([...reviewRooms, { name: 'Phòng mới', area: 15, length: 0, width: 0 }])}
-                        className="w-full py-2 border-2 border-dashed border-gray-200 rounded-lg text-[10px] font-bold text-gray-400 hover:border-indigo-300 hover:text-indigo-500 transition-all flex items-center justify-center gap-2"
-                    >
-                        <Plus className="w-3 h-3" /> THÊM PHÒNG
-                    </button>
+                        </div>
+                    ))}
                 </div>
+                <button
+                    onClick={() => setReviewRooms([...reviewRooms, { name: 'Phòng mới', area: 15, length: 0, width: 0 }])}
+                    className="w-full py-2.5 border-2 border-dashed border-slate-200 rounded-xl text-[10px] font-black text-slate-400 hover:border-indigo-400 hover:text-indigo-500 hover:bg-indigo-50/30 transition-all flex items-center justify-center gap-2"
+                >
+                    <Plus className="w-3.5 h-3.5" /> Thêm phòng
+                </button>
             </div>
 
-            <div className="pt-4 border-t border-gray-100 flex gap-3">
+            {/* Actions */}
+            <div className="flex gap-3 pt-2 border-t border-slate-100">
                 <button
                     onClick={onBack}
-                    className="flex-shrink-0 px-6 py-3 rounded-xl border border-gray-200 text-[11px] font-black text-gray-400 hover:bg-gray-50 uppercase tracking-tight"
+                    className="flex-shrink-0 px-6 py-3 rounded-2xl border-2 border-slate-200 text-[11px] font-black text-slate-500 hover:bg-slate-50 hover:border-slate-300 uppercase tracking-tight transition-all"
                 >
                     Quay lại
                 </button>
                 <button
                     onClick={onRecalculate}
                     disabled={loading}
-                    className="flex-grow bg-white hover:bg-slate-50 text-slate-900 border border-slate-200 py-4 rounded-xl text-xs font-black uppercase tracking-widest shadow-xl shadow-slate-100 flex items-center justify-center gap-2 transition-all active:scale-95"
+                    className="flex-grow bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white py-4 rounded-2xl text-xs font-black uppercase tracking-widest shadow-xl shadow-indigo-100 flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-50"
                 >
                     {loading ? (
-                        <Loader2 className="w-5 h-5 animate-spin text-indigo-600" />
+                        <Loader2 className="w-5 h-5 animate-spin" />
                     ) : (
                         <>
-                            <CheckCircle className="w-5 h-5 text-emerald-600" />
-                            Xác nhận & Tính toán vật liệu
+                            <CheckCircle className="w-4 h-4" />
+                            Xác nhận & Tính vật liệu
                         </>
                     )}
                 </button>

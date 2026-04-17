@@ -146,10 +146,34 @@ export function calculateMaterials(
             reason: `Lớp bả phẳng bề mặt trước khi sơn`
         })
         materials.push({
-            productName: 'Sơn lót kháng kiềm',
+            productName: 'Sơn lót kháng kiềm (Primer)',
             quantity: Math.ceil((area * 3.0) / 10),
             unit: 'lít',
             reason: `Sơn bảo vệ bề mặt tường chống ẩm mốc`
+        })
+        materials.push({
+            productName: 'Sơn phủ hoàn thiện (Nội/Ngoại thất)',
+            quantity: Math.ceil((area * 3.0 * 2) / 8), // 2 layers, ~8m2/l
+            unit: 'lít',
+            reason: `Sơn màu 2 lớp cho toàn bộ diện tích tường`
+        })
+        materials.push({
+            productName: 'Ống nhựa điện PVC (D20/D25)',
+            quantity: Math.ceil(area * std.electric_pipes),
+            unit: 'm',
+            reason: `Hệ thống ống luồn dây điện âm lót sàn và tường`
+        })
+        materials.push({
+            productName: 'Ống nước PVC/PPR (Cấp thoát)',
+            quantity: Math.ceil(area * std.water_pipes),
+            unit: 'm',
+            reason: `Hệ thống cấp thoát nước sinh hoạt cơ bản`
+        })
+        materials.push({
+            productName: 'Gạch lát nền (Ước tính)',
+            quantity: Math.ceil(area * 1.1), // 10% wastage
+            unit: 'm²',
+            reason: `Diện tích gạch lát sàn cho các phòng`
         })
         materials.push({
             productName: 'Lưới mắt cáo (Chống nứt)',

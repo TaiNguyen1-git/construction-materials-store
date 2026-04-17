@@ -132,8 +132,8 @@ export const MARKET_PRICES: Record<string, { price: number; unit: string }> = {
     'đá 4×6': { price: 380000, unit: 'm³' },
     'thép cuộn': { price: 18200000, unit: 'tấn' },
     'thép thanh': { price: 18500000, unit: 'tấn' },
+    'sắt hộp': { price: 21500, unit: 'kg' }, // Moved before 'sắt'
     'sắt': { price: 18500000, unit: 'tấn' },
-    'sắt hộp': { price: 21500, unit: 'kg' },
     'sơn': { price: 125000, unit: 'lít' },
     'bột trét': { price: 280000, unit: 'bao' },
     'chống thấm': { price: 145000, unit: 'kg' },
@@ -146,6 +146,8 @@ export const MARKET_PRICES: Record<string, { price: number; unit: string }> = {
     'vít bắn tôn': { price: 65000, unit: 'hộp' },
     'keo chà ron': { price: 35000, unit: 'kg' },
     'gạch lát nền': { price: 220000, unit: 'm²' },
+    'ống nhựa điện': { price: 12000, unit: 'm' },
+    'ống nước': { price: 25000, unit: 'm' },
 }
 
 // Simple exponential-backoff retry helper

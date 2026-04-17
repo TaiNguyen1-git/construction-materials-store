@@ -78,7 +78,7 @@ export default function Footer() {
                     <div className="flex gap-6">
                         <Link href="#" className="text-[10px] text-gray-500 hover:text-white transition-colors uppercase font-bold tracking-tighter">Điều khoản</Link>
                         <Link href="#" className="text-[10px] text-gray-500 hover:text-white transition-colors uppercase font-bold tracking-tighter">Bảo mật</Link>
-                        <Link href="/sitemap" className="text-[10px] text-gray-500 hover:text-white transition-colors uppercase font-bold tracking-tighter">Sơ đồ web</Link>
+                        <Link href="/site-map" className="text-[10px] text-gray-500 hover:text-white transition-colors uppercase font-bold tracking-tighter">Sơ đồ web</Link>
                     </div>
                 </div>
             </div>
