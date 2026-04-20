@@ -13,16 +13,13 @@ import toast, { Toaster } from 'react-hot-toast'
 import ChatCallManager from '@/components/ChatCallManager'
 import CustomerContextPanel from '@/components/chatbot/CustomerContextPanel'
 import { useAuth } from '@/contexts/auth-context'
-import { ChatMessage } from '@/components/chat/MessengerChatBubbles'
 
 // Local Components
 import UnifiedSidebar from './components/UnifiedSidebar'
 import DirectChatView from './components/DirectChatView'
 import TicketChatView from './components/TicketChatView'
 import { SupportTicket, TicketMessage, ActiveTab, StatusConfig, PriorityConfig } from './types'
-import { FileText } from 'lucide-react'
-import { Phone } from 'lucide-react'
-import { Video } from 'lucide-react'
+import { FileText, Phone, Video } from 'lucide-react'
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -115,7 +112,10 @@ function MessagesContent() {
         if (tab === 'tickets') setActiveTab('tickets')
         else setActiveTab('chat')
         const id = searchParams.get('id')
-        if (id && tab !== 'tickets') setSelectedId(id)
+        if (id) {
+            if (tab === 'tickets') fetchTicketDetails(id)
+            else setSelectedId(id)
+        }
     }, [searchParams])
 
     // Load Chat Data
@@ -163,17 +163,11 @@ function MessagesContent() {
     useEffect(() => { if (activeTab === 'tickets') fetchTickets() }, [fetchTickets, activeTab])
 
     useEffect(() => {
-        if (activeTab === 'tickets') {
-            const id = searchParams.get('id')
-            if (id) fetchTicketDetails(id)
-        }
-    }, [activeTab, searchParams])
-
-    useEffect(() => {
         if (!selectedTicket) return
         return subscribeToTicketMessages(selectedTicket.id, (newMsg) => {
             setTicketMessages(prev => {
-                if (prev.some(m => m.id === newMsg.id)) return prev
+                const isTemp = newMsg.id?.startsWith('temp-')
+                if (!isTemp && prev.some(m => m.id === newMsg.id)) return prev
                 const tempIdx = prev.findIndex(m => m.id.startsWith('temp-') && m.content === newMsg.content)
                 if (tempIdx !== -1) {
                     const next = [...prev]
@@ -185,7 +179,7 @@ function MessagesContent() {
         })
     }, [selectedTicket])
 
-    // Direct Chat Logic Highlights
+    // Direct Chat Logic
     const fetchConversations = async () => {
         try {
             const res = await fetch('/api/chat/conversations', { headers: getAuthHeaders() })
@@ -193,7 +187,8 @@ function MessagesContent() {
                 const json = await res.json()
                 setConversations(json.data)
                 const urlId = searchParams.get('id')
-                if (!selectedId && !urlId && json.data.length > 0) setSelectedId(json.data[0].id)
+                const tab = searchParams.get('tab')
+                if (!selectedId && !urlId && json.data.length > 0 && tab !== 'tickets') setSelectedId(json.data[0].id)
             }
         } catch (err) { console.error('Fetch error:', err) } finally { setChatLoading(false) }
     }
@@ -231,7 +226,7 @@ function MessagesContent() {
         const content = newMessage.trim()
         if (!content && !fileData) return
         const tempId = 'temp-' + Date.now()
-        setMessages(prev => [...prev, { id: tempId, tempId, senderId: user?.id, content, fileUrl: fileData?.fileUrl, createdAt: new Date().toISOString(), isSending: true }])
+        setMessages(prev => [...prev, { id: tempId, tempId, senderId: user?.id, senderName: user?.name || 'Admin', content, fileUrl: fileData?.fileUrl, createdAt: new Date().toISOString(), isSending: true }])
         setNewMessage(''); scrollToBottom()
         try {
             const res = await fetch('/api/chat/messages', {
@@ -255,7 +250,7 @@ function MessagesContent() {
         } catch { toast.error('Lỗi upload') } finally { setUploading(false); if (fileInputRef.current) fileInputRef.current.value = '' }
     }
 
-    // Ticket Logic Highlights
+    // Ticket Logic 
     const fetchTicketDetails = async (ticketId: string) => {
         try {
             const res = await fetchWithAuth(`/api/support/tickets/${ticketId}`)
@@ -341,7 +336,11 @@ function MessagesContent() {
             {user && <ChatCallManager userId={user.id} userName={user.name || 'Admin'} listenAdminSupport={true} />}
 
             <UnifiedSidebar 
-                activeTab={activeTab} setActiveTab={setActiveTab} searchQuery={searchQuery} setSearchQuery={setSearchQuery}
+                activeTab={activeTab} setActiveTab={(t) => {
+                    setActiveTab(t); 
+                    router.push(`/admin/messages?tab=${t}`, { scroll: false })
+                }} 
+                searchQuery={searchQuery} setSearchQuery={setSearchQuery}
                 isSearching={isSearching} searchResults={searchResults} chatLoading={chatLoading} conversations={conversations}
                 selectedId={selectedId} setSelectedId={setSelectedId} jumpToMessage={(cid, mid) => { setSelectedId(cid); setHighlightId(mid) }}
                 handleSearch={handleSearch} formatLastMessage={c => c || 'Bắt đầu trò chuyện'} user={user}
@@ -353,7 +352,7 @@ function MessagesContent() {
 
             {activeTab === 'chat' ? (
                 <DirectChatView 
-                    selectedConv={selectedConv} displayName={displayName} otherParticipantId={otherParticipantId} isGuestChat={otherParticipantId?.startsWith('guest_') || false}
+                    selectedConv={selectedConv} displayName={displayName} otherParticipantId={otherParticipantId} isGuestChat={!!otherParticipantId?.startsWith('guest_')}
                     messages={messages} newMessage={newMessage} setNewMessage={setNewMessage} sending={sending} uploading={uploading}
                     smartReplies={smartReplies} smartReplyLoading={smartReplyLoading} showMenu={showMenu} setShowMenu={setShowMenu}
                     showScrollButton={showScrollButton} setShowCustomerPanel={setShowCustomerPanel} showCustomerPanel={showCustomerPanel}

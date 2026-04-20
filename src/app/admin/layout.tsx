@@ -87,8 +87,7 @@ function AdminLayoutContent({
       name: 'Điều Hành',
       items: [
         { name: 'Tổng Quan', href: '/admin', icon: BarChart3 },
-        { name: 'Chat Trực Tiếp', href: '/admin/messages', icon: MessageCircle },
-        { name: 'Ticket Hỗ Trợ', href: '/admin/messages?tab=tickets', icon: Ticket },
+        { name: 'Chat', href: '/admin/messages', icon: MessageCircle },
         { name: 'Vận Hành Cửa Hàng', href: '/admin/store-operations', icon: GanttChart },
         { name: 'Quầy Thu Ngân', href: '/admin/pos', icon: Wallet },
         { name: 'Công Việc Của Tôi', href: '/admin/my-tasks', icon: ClipboardList, roles: ['EMPLOYEE'] },
