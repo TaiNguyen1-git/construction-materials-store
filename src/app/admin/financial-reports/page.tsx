@@ -1,4 +1,6 @@
-import { useState, useEffect } from 'react'
+'use client'
+
+import { useState, useEffect, Suspense } from 'react'
 import { 
   Coins, TrendingUp, TrendingDown, FileText, 
   Download, Calendar, BarChart3, CreditCard, Briefcase, RefreshCw 
@@ -30,7 +32,7 @@ interface Invoice {
   supplier?: { name: string }
 }
 
-export default function FinancialReportsPage() {
+function FinancialReportsContent() {
   const searchParams = useSearchParams()
   const [activeTab, setActiveTab] = useState<'reports' | 'credit' | 'contracts'>(
     (searchParams.get('tab') as any) || 'reports'
@@ -335,5 +337,24 @@ export default function FinancialReportsPage() {
         </div>
       )}
     </div>
+  )
+}
+
+export default function FinancialReportsPage() {
+  return (
+    <Suspense fallback={
+      <div className="space-y-8 animate-in fade-in duration-500">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+          <div className="h-10 w-64 bg-slate-100 animate-pulse rounded-xl" />
+        </div>
+        <div className="h-14 w-full bg-slate-100 animate-pulse rounded-[22px]" />
+        <div className="space-y-6">
+          <StatsSkeleton />
+          <TableSkeleton rows={5} />
+        </div>
+      </div>
+    }>
+      <FinancialReportsContent />
+    </Suspense>
   )
 }
