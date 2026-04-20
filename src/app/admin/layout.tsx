@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import {
   Package,
   Users,
@@ -69,7 +69,7 @@ interface NavGroup {
 }
 
 // Nhóm navigation theo category
-export default function AdminLayout({
+function AdminLayoutContent({
   children,
 }: {
   children: React.ReactNode
@@ -77,6 +77,7 @@ export default function AdminLayout({
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [isCollapsed, setIsCollapsed] = useState(false)
   const pathname = usePathname()
+  const searchParams = useSearchParams()
   const router = useRouter()
   const { user, isLoading: authLoading, logout } = useAuth()
 
@@ -86,7 +87,8 @@ export default function AdminLayout({
       name: 'Điều Hành',
       items: [
         { name: 'Tổng Quan', href: '/admin', icon: BarChart3 },
-        { name: 'Tin Nhắn', href: '/admin/messages', icon: MessageCircle },
+        { name: 'Chat Trực Tiếp', href: '/admin/messages', icon: MessageCircle },
+        { name: 'Ticket Hỗ Trợ', href: '/admin/messages?tab=tickets', icon: Ticket },
         { name: 'Vận Hành Cửa Hàng', href: '/admin/store-operations', icon: GanttChart },
         { name: 'Quầy Thu Ngân', href: '/admin/pos', icon: Wallet },
         { name: 'Công Việc Của Tôi', href: '/admin/my-tasks', icon: ClipboardList, roles: ['EMPLOYEE'] },
@@ -332,7 +334,10 @@ export default function AdminLayout({
                   {/* Group Items */}
                   <div className={`space-y-1 overflow-hidden transition-all duration-300 ${expandedGroups.includes(group.name) || isCollapsed ? 'max-h-[1000px] opacity-100' : 'max-h-0 opacity-0'}`}>
                     {group.items.map((item) => {
-                      const isActive = pathname === item.href
+                      // Support both exact match and tab-based routes (e.g. ?tab=tickets)
+                      const isActive = item.href.includes('?')
+                        ? pathname === '/admin/messages' && searchParams.get('tab') === 'tickets' && item.href.includes('tab=tickets')
+                        : pathname === item.href
                       return (
                         <Link
                           key={item.name}
@@ -442,5 +447,13 @@ export default function AdminLayout({
         </main>
       </div>
     </div>
+  )
+}
+
+export default function AdminLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <Suspense fallback={null}>
+      <AdminLayoutContent>{children}</AdminLayoutContent>
+    </Suspense>
   )
 }
