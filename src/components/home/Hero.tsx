@@ -172,10 +172,43 @@ export default function Hero({
                                         </div>
                                     ) : (
                                         <div className="p-4">
-                                            {/* Contractor rendering similar to product suggestions */}
-                                            {/* ... (Keep it consistent with product view) */}
-                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4 px-3">Nhà thầu uy tín</p>
-                                            {/* ... contractor specific items ... */}
+                                            {searchQuery.length === 0 ? (
+                                                <>
+                                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4 px-3">Nhà thầu uy tín</p>
+                                                    <div className="space-y-1">
+                                                        {featuredContractors.map((item, idx) => (
+                                                            <button key={idx} onClick={() => setSearchQuery(item.displayName)} className="w-full flex items-center justify-between px-4 py-3 hover:bg-indigo-50 rounded-2xl transition-all group text-left">
+                                                                <span className="text-sm font-bold text-slate-700 group-hover:text-indigo-600 flex items-center gap-3">
+                                                                    <ShieldCheck className="w-4 h-4 text-indigo-400" /> {item.displayName}
+                                                                </span>
+                                                                {item.city && <span className="text-[9px] px-2 py-1 bg-slate-100 text-slate-500 rounded-lg font-black uppercase">{item.city}</span>}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                </>
+                                            ) : (
+                                                <div className="p-2 space-y-1">
+                                                    {contractorSuggestions.map((item, idx) => (
+                                                        <button key={idx} onClick={() => setSearchQuery(item.displayName)} className="w-full flex items-center justify-between px-4 py-3.5 hover:bg-indigo-50 rounded-2xl transition-all group text-left">
+                                                            <div className="flex items-center gap-4">
+                                                                <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center">
+                                                                    <HardHat className="w-5 h-5 text-slate-400" />
+                                                                </div>
+                                                                <div>
+                                                                    <p className="text-sm font-bold text-slate-800 group-hover:text-indigo-600">{item.displayName}</p>
+                                                                    {item.avgRating && <p className="text-xs font-black text-indigo-500">⭐ {item.avgRating.toFixed(1)}</p>}
+                                                                </div>
+                                                            </div>
+                                                            <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-indigo-500 group-hover:translate-x-1 transition-all" />
+                                                        </button>
+                                                    ))}
+                                                    {contractorSuggestions.length === 0 && (
+                                                        <div className="text-center py-6">
+                                                            <p className="text-sm text-slate-500 font-medium">Không tìm thấy nhà thầu phù hợp</p>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
                                         </div>
                                     )}
                                 </div>

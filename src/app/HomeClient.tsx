@@ -108,6 +108,7 @@ export default function HomeClient({
   const [selectedLocation, setSelectedLocation] = useState('Toàn quốc')
   const [selectedSubCategories, setSelectedSubCategories] = useState<string[]>([])
   const [searchSuggestions, setSearchSuggestions] = useState<{ name: string, price: string }[]>([])
+  const [contractorSuggestions, setContractorSuggestions] = useState<Contractor[]>([])
 
   // Helper Functions
   const removeAccents = (str: string) => str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D')
@@ -132,12 +133,21 @@ export default function HomeClient({
   useEffect(() => {
     if (searchQuery.length > 0) {
       const normalizedQuery = removeAccents(searchQuery.toLowerCase())
-      const allProducts = Object.values(FALLBACK_PRODUCTS).flat()
-      setSearchSuggestions(allProducts.filter(p => removeAccents(p.name.toLowerCase()).includes(normalizedQuery)).slice(0, 5))
+      if (activeSearchTab === 'products') {
+        const allProducts = Object.values(FALLBACK_PRODUCTS).flat()
+        setSearchSuggestions(allProducts.filter(p => removeAccents(p.name.toLowerCase()).includes(normalizedQuery)).slice(0, 5))
+      } else {
+        setContractorSuggestions(featuredContractors.filter(c => 
+          removeAccents(c.displayName.toLowerCase()).includes(normalizedQuery) ||
+          (c.skills && c.skills.some(s => removeAccents(s.toLowerCase()).includes(normalizedQuery))) ||
+          (c.city && removeAccents(c.city.toLowerCase()).includes(normalizedQuery))
+        ).slice(0, 5))
+      }
     } else {
       setSearchSuggestions([])
+      setContractorSuggestions([])
     }
-  }, [searchQuery])
+  }, [searchQuery, activeSearchTab, featuredContractors])
 
   const fetchData = useCallback(async () => {
     try {
@@ -200,7 +210,7 @@ export default function HomeClient({
           isSearchFocused={isSearchFocused}
           setIsSearchFocused={setIsSearchFocused}
           searchSuggestions={searchSuggestions}
-          contractorSuggestions={[]}
+          contractorSuggestions={contractorSuggestions}
           featuredContractors={featuredContractors}
           contractorSearchLoading={false}
           selectedLocation={selectedLocation}
