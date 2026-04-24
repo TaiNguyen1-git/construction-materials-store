@@ -2086,6 +2086,12 @@ model ContractorProfile {
   awards           String[] // Notable awards or certifications
   featuredProjects Json? // Structured featured work: [{title, year, image, desc}]
 
+  // SaaS Subscription Plan
+  subscriptionPlan      String   @default("FREE") // FREE | PRO
+  subscriptionExpiresAt DateTime?
+  monthlyQuoteCount     Int      @default(0) // Số báo giá đã tạo trong tháng
+  monthlyQuoteResetAt   DateTime? // Thời điểm reset counter
+
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   disputes  Dispute[]
@@ -4058,4 +4064,54 @@ enum QuickQuoteStatus {
   ACCEPTED
   REJECTED
   EXPIRED
+}
+
+// ============================================
+// OPEN API & WEBHOOK SYSTEM
+// ============================================
+
+model ApiToken {
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  userId      String    @db.ObjectId
+  name        String    // Tên token (VD: "MISA Integration", "KiotViet")
+  tokenHash   String    @unique // SHA-256 hash của token thực
+  tokenPrefix String    // 8 ký tự đầu để nhận diện (VD: "sk_live_")
+  lastUsedAt  DateTime?
+  expiresAt   DateTime?
+  isActive    Boolean   @default(true)
+  scopes      String[]  @default(["read:orders", "read:products"]) // Phạm vi quyền
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([isActive])
+  @@map("api_tokens")
+}
+
+model WebhookEndpoint {
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  userId      String    @db.ObjectId
+  url         String    // URL nhận webhook events
+  secretKey   String    // Dùng để ký HMAC-SHA256
+  events      String[]  // ["order.created", "order.delivered", "payment.received"]
+  isActive    Boolean   @default(true)
+  description String?
+  lastTriggeredAt DateTime?
+  failureCount    Int     @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([isActive])
+  @@map("webhook_endpoints")
+}
+
+// 🛡️ Deterministic AI Cache - ensures same result for same image/text
+model AiEstimateCache {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  hash      String   @unique
+  result    Json
+  createdAt DateTime @default(now())
+
+  @@map("ai_estimate_cache")
 }

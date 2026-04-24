@@ -2,6 +2,7 @@
 
 import React, { useRef, useState, useEffect, useCallback } from 'react'
 import Image from 'next/image'
+import { useRouter } from 'next/navigation'
 import { Search, MapPin, Package, HardHat, TrendingUp, ChevronDown, ArrowRight, ShieldCheck } from 'lucide-react'
 import { TOP_SEARCHES, LOCATIONS } from '@/config/home-data'
 import Link from 'next/link'
@@ -38,6 +39,15 @@ export default function Hero({
     const [isLocationOpen, setIsLocationOpen] = useState(false)
     const [dropdownDirection, setDropdownDirection] = useState<'up' | 'down'>('down')
     const searchInputRef = useRef<HTMLInputElement>(null)
+    const router = useRouter()
+
+    const handleSearch = useCallback(() => {
+        if (activeSearchTab === 'products') {
+            router.push(`/products?q=${encodeURIComponent(searchQuery)}`)
+        } else {
+            router.push(`/contractors?q=${encodeURIComponent(searchQuery)}&location=${encodeURIComponent(selectedLocation)}`)
+        }
+    }, [activeSearchTab, searchQuery, selectedLocation, router])
 
     const calculateDropdownDirection = useCallback(() => {
         if (searchInputRef.current) {
@@ -118,7 +128,10 @@ export default function Hero({
                     </div>
 
                     {/* Search Bar */}
-                    <div className="bg-white p-2 rounded-[2rem] rounded-tr-none shadow-[0_30px_100px_rgba(0,0,0,0.3)] max-w-4xl mx-auto flex flex-col md:flex-row gap-2 border border-blue-100/20 relative z-30 animate-fade-in-up delay-300">
+                    <form 
+                        onSubmit={(e) => { e.preventDefault(); handleSearch(); }}
+                        className="bg-white p-2 rounded-[2rem] rounded-tr-none shadow-[0_30px_100px_rgba(0,0,0,0.3)] max-w-4xl mx-auto flex flex-col md:flex-row gap-2 border border-blue-100/20 relative z-30 animate-fade-in-up delay-300"
+                    >
                         <div className="flex-[2] relative flex items-center px-6 border-b md:border-b-0 md:border-r border-slate-100 group">
                             <Search className="h-5 w-5 text-indigo-500 mr-4 group-focus-within:scale-110 transition-transform" />
                             <input
@@ -127,6 +140,7 @@ export default function Hero({
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 onFocus={() => setIsSearchFocused(true)}
+                                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleSearch(); } }}
                                 onBlur={() => setTimeout(() => setIsSearchFocused(false), 200)}
                                 placeholder={activeSearchTab === 'products' ? "Tên vật liệu, thương hiệu, mã số..." : "Tên thầu, đội thợ, khu vực..."}
                                 className="w-full py-4 outline-none text-slate-800 placeholder-slate-400 font-bold text-lg bg-transparent"
@@ -142,7 +156,7 @@ export default function Hero({
                                                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4 px-3">Xu hướng tìm kiếm</p>
                                                     <div className="space-y-1">
                                                         {TOP_SEARCHES.map((item, idx) => (
-                                                            <button key={idx} onClick={() => setSearchQuery(item.name)} className="w-full flex items-center justify-between px-4 py-3 hover:bg-indigo-50 rounded-2xl transition-all group text-left">
+                                                            <button type="button" key={idx} onClick={() => { setSearchQuery(item.name); setIsSearchFocused(false); }} className="w-full flex items-center justify-between px-4 py-3 hover:bg-indigo-50 rounded-2xl transition-all group text-left">
                                                                 <span className="text-sm font-bold text-slate-700 group-hover:text-indigo-600 flex items-center gap-3">
                                                                     <TrendingUp className="w-4 h-4 text-indigo-400" /> {item.name}
                                                                 </span>
@@ -154,7 +168,7 @@ export default function Hero({
                                             ) : (
                                                 <div className="p-2 space-y-1">
                                                     {searchSuggestions.map((item, idx) => (
-                                                        <button key={idx} className="w-full flex items-center justify-between px-4 py-3.5 hover:bg-indigo-50 rounded-2xl transition-all group text-left">
+                                                        <button type="button" key={idx} onClick={() => { setSearchQuery(item.name); handleSearch(); }} className="w-full flex items-center justify-between px-4 py-3.5 hover:bg-indigo-50 rounded-2xl transition-all group text-left">
                                                             <div className="flex items-center gap-4">
                                                                 <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center">
                                                                     <Package className="w-5 h-5 text-slate-400" />
@@ -177,7 +191,7 @@ export default function Hero({
                                                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4 px-3">Nhà thầu uy tín</p>
                                                     <div className="space-y-1">
                                                         {featuredContractors.map((item, idx) => (
-                                                            <button key={idx} onClick={() => setSearchQuery(item.displayName)} className="w-full flex items-center justify-between px-4 py-3 hover:bg-indigo-50 rounded-2xl transition-all group text-left">
+                                                            <button type="button" key={idx} onClick={() => { setSearchQuery(item.displayName); setIsSearchFocused(false); }} className="w-full flex items-center justify-between px-4 py-3 hover:bg-indigo-50 rounded-2xl transition-all group text-left">
                                                                 <span className="text-sm font-bold text-slate-700 group-hover:text-indigo-600 flex items-center gap-3">
                                                                     <ShieldCheck className="w-4 h-4 text-indigo-400" /> {item.displayName}
                                                                 </span>
@@ -189,7 +203,7 @@ export default function Hero({
                                             ) : (
                                                 <div className="p-2 space-y-1">
                                                     {contractorSuggestions.map((item, idx) => (
-                                                        <button key={idx} onClick={() => setSearchQuery(item.displayName)} className="w-full flex items-center justify-between px-4 py-3.5 hover:bg-indigo-50 rounded-2xl transition-all group text-left">
+                                                        <button type="button" key={idx} onClick={() => { setSearchQuery(item.displayName); handleSearch(); }} className="w-full flex items-center justify-between px-4 py-3.5 hover:bg-indigo-50 rounded-2xl transition-all group text-left">
                                                             <div className="flex items-center gap-4">
                                                                 <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center">
                                                                     <HardHat className="w-5 h-5 text-slate-400" />
@@ -218,6 +232,7 @@ export default function Hero({
                         {activeSearchTab === 'contractors' && (
                             <div className="flex-1 relative">
                                 <button
+                                    type="button"
                                     onClick={() => setIsLocationOpen(!isLocationOpen)}
                                     className="w-full h-full flex items-center px-6 py-4 text-left outline-none cursor-pointer group"
                                 >
@@ -230,6 +245,7 @@ export default function Hero({
                                     <div className="absolute top-full mt-4 left-0 w-full bg-white rounded-[2rem] shadow-2xl border border-slate-100 overflow-hidden z-[100] p-3 max-h-[300px] overflow-y-auto animate-in fade-in slide-in-from-top-2">
                                         {LOCATIONS.map((loc) => (
                                             <button
+                                                type="button"
                                                 key={loc}
                                                 onClick={() => { setSelectedLocation(loc); setIsLocationOpen(false); }}
                                                 className={`w-full px-5 py-3 text-left text-sm font-bold rounded-xl transition-all flex items-center gap-3 ${selectedLocation === loc ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-50'}`}
@@ -242,10 +258,13 @@ export default function Hero({
                             </div>
                         )}
 
-                        <button className="bg-indigo-600 hover:bg-indigo-700 text-white font-black py-4 px-12 rounded-[1.5rem] transition-all w-full md:w-auto shadow-xl shadow-indigo-100 active:scale-95 flex items-center justify-center gap-3 tracking-widest text-sm">
+                        <button 
+                            type="submit"
+                            className="bg-indigo-600 hover:bg-indigo-700 text-white font-black py-4 px-12 rounded-[1.5rem] transition-all w-full md:w-auto shadow-xl shadow-indigo-100 active:scale-95 flex items-center justify-center gap-3 tracking-widest text-sm"
+                        >
                             TÌM KIẾM
                         </button>
-                    </div>
+                    </form>
 
                     {/* Quick Stats */}
                     <div className="mt-20 flex justify-center animate-fade-in-up delay-400">

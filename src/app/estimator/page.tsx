@@ -258,7 +258,7 @@ export default function EstimatorPage() {
                 setShowProjectModal(false)
                 
                 // Route explicitly based on user role to avoid 403 Forbidden
-                const roleString = (user as any)?.role as string;
+                const roleString = user?.role as string;
                 if (roleString === 'CONTRACTOR') {
                     router.push(`/contractor/projects/${data.data.id}`)
                 } else {

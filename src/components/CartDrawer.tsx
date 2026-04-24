@@ -126,26 +126,34 @@ export default function CartDrawer() {
                             const factor = item.conversionFactor || 1
                             updateQuantity(item.productId, item.quantity - factor)
                           }}
-                          className="p-1.5 hover:bg-white rounded border border-gray-200 transition-colors shadow-sm"
+                          className="p-1.5 hover:bg-white rounded-lg border border-gray-200 transition-all hover:border-primary-400 hover:text-primary-600 shadow-sm active:scale-95 bg-white"
                           aria-label="Giảm số lượng"
                         >
                           <Minus className="h-3.5 w-3.5" />
                         </button>
                         
-                        <div className="flex items-center bg-white border border-gray-200 rounded px-2 min-w-[3rem] h-9">
-                          <input
-                            type="number"
-                            value={item.conversionFactor ? Math.round(item.quantity / item.conversionFactor) : item.quantity}
-                            onChange={(e) => {
-                              const val = parseInt(e.target.value) || 0
-                              const factor = item.conversionFactor || 1
-                              updateQuantity(item.productId, val * factor)
-                            }}
-                            className="w-full text-center bg-transparent font-black text-sm text-slate-800 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                            min="1"
-                          />
-                          <span className="text-[10px] font-bold text-gray-400 ml-1 uppercase">
-                            {item.selectedUnit || item.unit}
+                        <div className="flex flex-col items-center justify-center bg-white border-2 border-primary-100 rounded-xl px-3 min-w-[7rem] h-11 shadow-inner group-hover:border-primary-400 transition-all">
+                          <div className="flex items-center">
+                            <input
+                              type="number"
+                              value={item.conversionFactor ? Math.round(item.quantity / item.conversionFactor) : item.quantity}
+                              onChange={(e) => {
+                                const val = parseInt(e.target.value) || 0
+                                const factor = item.conversionFactor || 1
+                                updateQuantity(item.productId, val * factor)
+                              }}
+                              className="w-full text-center bg-transparent font-black text-base text-slate-900 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                              min="1"
+                            />
+                          </div>
+                          <span className="text-[9px] font-black text-primary-500 uppercase tracking-tighter -mt-1 leading-none">
+                            {(() => {
+                              const qty = item.quantity;
+                              const unit = item.selectedUnit || item.unit || 'đơn vị';
+                              if (unit.toLowerCase() === 'viên' && qty >= 1000) return `~ ${(qty / 1000).toFixed(1)} Thiên`;
+                              if (unit.toLowerCase() === 'kg' && qty >= 1000) return `~ ${(qty / 1000).toFixed(1)} Tấn`;
+                              return unit;
+                            })()}
                           </span>
                         </div>
 
@@ -154,7 +162,7 @@ export default function CartDrawer() {
                             const factor = item.conversionFactor || 1
                             updateQuantity(item.productId, item.quantity + factor)
                           }}
-                          className="p-1.5 hover:bg-white rounded border border-gray-200 transition-colors shadow-sm"
+                          className="p-1.5 hover:bg-white rounded-lg border border-gray-200 transition-all hover:border-primary-400 hover:text-primary-600 shadow-sm active:scale-95 bg-white"
                           aria-label="Tăng số lượng"
                         >
                           <Plus className="h-3.5 w-3.5" />

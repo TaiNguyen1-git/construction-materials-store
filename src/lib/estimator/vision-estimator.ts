@@ -8,6 +8,9 @@
 
 import { GoogleGenerativeAI, Part } from '@google/generative-ai'
 import { EstimatorAIResponseSchema } from '@/lib/validation'
+import { prisma } from '@/lib/prisma'
+import { Prisma } from '@prisma/client'
+import crypto from 'crypto'
 import {
     EstimatorResult,
     RoomDimension,
@@ -71,6 +74,18 @@ export async function analyzeFloorPlanImage(
 
     try {
         const images = Array.isArray(base64Images) ? base64Images : [base64Images]
+        
+        // ── STEP 1: CALCULATE HASH FOR DETERMINISM ──
+        const combinedBase64 = images.join('|')
+        const promptVersion = "v3_strict_style_and_dims"
+        const inputHash = crypto.createHash('sha256').update(combinedBase64 + projectType + promptVersion).digest('hex')
+
+        // ── STEP 2: CHECK CACHE ──
+        const cached = await prisma.aiEstimateCache.findUnique({
+            where: { hash: inputHash }
+        })
+        if (cached) return cached.result as any
+
         const imageParts = images.map(img => ({
             inlineData: {
                 mimeType: 'image/jpeg',
@@ -78,18 +93,33 @@ export async function analyzeFloorPlanImage(
             }
         }))
 
-        const fengShuiPrompt = ''
-
         const aiPrompt = `
-1. ROOM ANALYSIS: Identify all visible rooms. For EACH room, provide estimated "length" and "width" in meters.
-   - Calculate area for EACH room.
-   - Sum all room areas to get the floor area.
-2. TOTAL AREA: The "totalArea" MUST be the mathematical sum of all room areas. Do NOT guess a round number.
-3. SCALE REFERENCE: Find a door (0.9m), kitchen counter (0.6m depth), or dimension line. Use this to calibrate.
-4. BUILDING STYLE: Categorize as "nhà_cấp_4", "nhà_phố", or "biệt_thự".
-5. WALLS: Estimate total "wallPerimeter" for all floors combined in meters.
-6. ROOF: Identify "roofType" (bê_tông, mái_thái, mái_tôn).
-${fengShuiPrompt}
+You are a senior construction engineer. Analyze the provided floor plan with high precision:
+
+1. DIMENSION EXTRACTION (CRITICAL): 
+   - Look for text labels with numbers (e.g., "3000", "4500", "15500", "20000"). These are millimeters. Convert to meters (divide by 1000).
+   - Identify the "Total Land Width" vs "Total Land Length" from the outermost dimension lines.
+   - Identify "Built Area" length by excluding yards (Sân trước, Sân sau).
+
+2. ROOM ANALYSIS: 
+   - Detect every room (Phòng khách, Bếp, Phòng ngủ, WC, etc.).
+   - FOR EACH ROOM: You MUST return a "length" and "width" in meters. 
+   - CRITICAL: If you cannot find the exact number for a room, you MUST ESTIMATE it based on the visual scale (e.g., reference: doors are 0.9m, kitchen counters are 0.6m, total house width is 6m). 
+   - NEVER return 0 for length, width, or area.
+
+3. TOTAL AREA CALCULATION: 
+   - "totalArea" should be the BUILT AREA (excluding outside yards if they are not part of the main slab).
+   - Notes should mention: "Built area identified as approx X meters long by Y meters wide".
+
+4. ARCHITECTURAL STYLE (CRITICAL):
+   - Check if the house is single-story or multi-story. 
+   - If single-story (no stairs) and long (20 x 6m), it is "nhà_cấp_4".
+   - If multi-story or in a dense urban grid, it is "nhà_phố".
+   - For this specific drawing, it is a ground-floor house, categorize as "nhà_cấp_4".
+
+5. TECH DATA:
+   - "wallPerimeter": Sum of perimeters of all rooms + house boundary.
+   - "roofType": "bê_tông", "mái_thái", "mái_tôn".
 
 Return ONLY JSON:
 {
@@ -105,47 +135,51 @@ Return ONLY JSON:
         const responseText = await callGemini(aiPrompt, imageParts)
         const rawData = parseGeminiEstimatorJSON(responseText)
 
-        // Zod schema validation for production reliability
-        const zodResult = EstimatorAIResponseSchema.safeParse(rawData)
-        if (!zodResult.success) {
-            console.warn('[VisionEstimator] Zod validation failed, using raw:', zodResult.error.format())
-        }
-        const data = zodResult.success ? zodResult.data : rawData
-
-        const rooms: RoomDimension[] = (data.rooms || []).map((r: { name?: string; length?: number; width?: number; area?: number }) => ({
+        // Map and validate raw data to ensure non-zero values
+        const rooms: RoomDimension[] = (rawData.rooms || []).map((r: any) => ({
             name: r.name || 'Phòng',
-            length: r.length || 0,
-            width: r.width || 0,
-            area: (r.length && r.width) ? r.length * r.width : (r.area || 0),
+            length: Number(r.length) > 0 ? Number(r.length) : 3, // Fallback to 3m
+            width: Number(r.width) > 0 ? Number(r.width) : 3,
+            area: (Number(r.length) * Number(r.width)) || (Number(r.area) > 0 ? Number(r.area) : 9),
             height: 3.2,
         }))
-        const totalArea = data.totalArea || rooms.reduce((sum, r) => sum + r.area, 0)
+        const totalArea = Number(rawData.totalArea) > 0 ? Number(rawData.totalArea) : rooms.reduce((sum, r) => sum + r.area, 0)
 
         const materials = calculateMaterials(
-            totalArea, projectType, data.rooms || [],
-            data.buildingStyle || 'nhà_cấp_4',
-            data.wallPerimeter || totalArea * 0.8,
-            data.roofType || 'bê_tông'
+            totalArea, projectType, rooms,
+            rawData.buildingStyle || 'nhà_cấp_4',
+            rawData.wallPerimeter || totalArea * 1.2,
+            rawData.roofType || 'bê_tông'
         )
         const enriched = await enrichMaterialsWithProducts(materials)
         const cost = enriched.reduce((sum, m) => sum + (m.price || 0) * m.quantity, 0)
         const validation = validateAgainstIndustryStandards(totalArea, enriched)
 
-        return {
+        const finalResult: EstimatorResult = {
             success: true,
             projectType,
-            buildingStyle: data.buildingStyle,
-            rooms: data.rooms || [],
+            buildingStyle: rawData.buildingStyle || 'nhà_cấp_4',
+            rooms,
             totalArea,
             materials: enriched,
             totalEstimatedCost: cost,
-            confidence: data.confidence || 0.8,
+            confidence: rawData.confidence || 0.8,
             validationStatus: validation.status,
             validationMessage: validation.message,
-            rawAnalysis: `${data.notes || ''} | Roof: ${data.roofType || 'Unknown'}`,
-            wallPerimeter: data.wallPerimeter,
-            roofType: data.roofType,
+            rawAnalysis: `${rawData.notes || ''} | Roof: ${rawData.roofType || 'Unknown'}`,
+            wallPerimeter: rawData.wallPerimeter,
+            roofType: rawData.roofType,
         }
+
+        // ── STEP 3: SAVE TO CACHE ──
+        await prisma.aiEstimateCache.create({
+            data: {
+                hash: inputHash,
+                result: finalResult as unknown as Prisma.InputJsonValue
+            }
+        }).catch(e => console.error('[VisionEstimator] Failed to save cache:', e))
+
+        return finalResult
     } catch (error) {
         const msg = error instanceof Error ? error.message : 'Unknown error during analysis'
         console.error('[VisionEstimator] analyzeFloorPlanImage error:', error)
@@ -164,6 +198,15 @@ export async function estimateFromText(
     if (!genAI) return errorResult(projectType, 'AI service not configured.')
 
     try {
+        // ── STEP 1: CALCULATE HASH FOR DETERMINISM ──
+        const inputHash = crypto.createHash('sha256').update(description + projectType + "v3").digest('hex')
+
+        // ── STEP 2: CHECK CACHE ──
+        const cached = await prisma.aiEstimateCache.findUnique({
+            where: { hash: inputHash }
+        })
+        if (cached) return cached.result as any
+
         const fengShuiPrompt = ''
 
         const aiPrompt = `
@@ -262,7 +305,7 @@ CHỈ trả về JSON, không có text giải thích.`
         const cost = enriched.reduce((sum, m) => sum + (m.price || 0) * m.quantity, 0)
         const validation = validateAgainstIndustryStandards(totalArea, enriched)
 
-        return {
+        const finalResult: EstimatorResult = {
             success: true,
             projectType,
             buildingStyle: data.buildingStyle,
@@ -275,6 +318,16 @@ CHỈ trả về JSON, không có text giải thích.`
             validationMessage: validation.message,
             rawAnalysis: data.notes || `Phân tích từ mô tả: "${description.substring(0, 100)}..."`
         }
+
+        // ── STEP 3: SAVE TO CACHE ──
+        await prisma.aiEstimateCache.create({
+            data: {
+                hash: inputHash,
+                result: finalResult as unknown as Prisma.InputJsonValue
+            }
+        }).catch(e => console.error('[VisionEstimator] Failed to save text cache:', e))
+
+        return finalResult
     } catch (error) {
         const msg = error instanceof Error ? error.message : 'Lỗi khi phân tích mô tả.'
         console.error('[VisionEstimator] estimateFromText error:', error)

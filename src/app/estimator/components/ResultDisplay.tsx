@@ -1,9 +1,10 @@
 'use client'
 
 import React from 'react'
-import { Sparkles, Ruler, Package, ArrowRight, FolderPlus, ShoppingCart, CheckCircle, TrendingUp, BarChart3 } from 'lucide-react'
-import { EstimatorResult, formatCurrency, PROJECT_TYPES } from '../types'
+import { Sparkles, Ruler, Package, ArrowRight, FolderPlus, ShoppingCart, CheckCircle, TrendingUp, BarChart3, Box, Eye } from 'lucide-react'
+import { EstimatorResult, formatCurrency, PROJECT_TYPES, RoomDimension } from '../types'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
+import Link from 'next/link'
 
 interface ResultDisplayProps {
     result: EstimatorResult
@@ -39,14 +40,24 @@ export default function ResultDisplay({
     return (
         <div className="mb-12 space-y-6 animate-in slide-in-from-top-4 duration-700">
             {/* Success Banner */}
-            <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 rounded-3xl px-8 py-5 flex items-center gap-4 shadow-sm">
-                <div className="w-10 h-10 bg-emerald-500 rounded-2xl flex items-center justify-center shadow-md flex-shrink-0">
-                    <CheckCircle className="w-5 h-5 text-white" />
+            <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 rounded-3xl px-8 py-5 flex items-center justify-between shadow-sm">
+                <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 bg-emerald-500 rounded-2xl flex items-center justify-center shadow-md flex-shrink-0">
+                        <CheckCircle className="w-5 h-5 text-white" />
+                    </div>
+                    <div>
+                        <p className="text-[10px] text-emerald-600 font-black uppercase tracking-[0.25em]">Phân tích hoàn tất</p>
+                        <h2 className="text-xl font-black text-slate-900 tracking-tight">Dự toán đã sẵn sàng</h2>
+                    </div>
                 </div>
-                <div>
-                    <p className="text-[10px] text-emerald-600 font-black uppercase tracking-[0.25em]">Phân tích hoàn tất</p>
-                    <h2 className="text-xl font-black text-slate-900 tracking-tight">Dự toán đã sẵn sàng</h2>
-                </div>
+
+                <Link
+                    href={'/estimator/3d-viewer?area=' + result.totalArea + '&type=' + projectType + '&roof=' + (result.roofType || 'bê_tông') + '&rooms=' + encodeURIComponent(JSON.stringify(result.rooms))}
+                    className="hidden sm:flex items-center gap-3 px-5 py-3 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white rounded-2xl shadow-lg shadow-indigo-200 transition-all active:scale-95 group"
+                >
+                    <Box className="w-4 h-4 group-hover:rotate-12 transition-transform" />
+                    <span className="text-xs font-black uppercase tracking-widest">Xem mô hình 3D</span>
+                </Link>
             </div>
 
             {/* Bento Grid: Stats + Chart */}

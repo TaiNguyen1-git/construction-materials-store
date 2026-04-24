@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { createSuccessResponse, createErrorResponse } from '@/lib/api-types'
 import { z } from 'zod'
 import { saveNotificationForUser } from '@/lib/notification-service'
+import { checkContractorPlan } from '@/lib/plan-guard'
 
 // GET /api/quotes/[id] - Get quote details
 export async function GET(
@@ -142,6 +143,27 @@ export async function PATCH(
         // Contractor Responding/Revising (Flow 1, 3, 4)
         if (status === 'REPLIED') {
             if (!isContractor) return NextResponse.json(createErrorResponse('Chỉ nhà thầu mới có thể gửi báo giá', 'FORBIDDEN'), { status: 403 })
+
+            // --- REAL EVENT HOOK: SAAS PLAN GUARD ---
+            const contractorProfileObj = await prisma.contractorProfile.findUnique({
+                where: { customerId: customerProfile.id }
+            })
+            if (contractorProfileObj && quote.status !== 'REPLIED' && quote.status !== 'ACCEPTED') {
+                const planCheck = await checkContractorPlan(contractorProfileObj.id, 'monthlyQuotes')
+                if (!planCheck.allowed) {
+                    return NextResponse.json(
+                        createErrorResponse(planCheck.reason || 'Đã hết lượt báo giá', 'PLAN_LIMIT_REACHED'),
+                        { status: 403 }
+                    )
+                }
+                
+                // Increment quota (if it's a new reply for entirely new quote)
+                await prisma.contractorProfile.update({
+                    where: { id: contractorProfileObj.id },
+                    data: { monthlyQuoteCount: { increment: 1 } }
+                })
+            }
+            // --- END PLAN GUARD ---
 
             const totalFromItems = items?.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0) || priceQuote || 0
 

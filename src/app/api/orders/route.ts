@@ -11,6 +11,7 @@ import { EmailService } from '@/lib/email/email-service'
 import { pricingEngine } from '@/lib/pricing-engine'
 import { getUserIdFromRequest } from '@/lib/auth-middleware-api'
 import { CacheService } from '@/lib/cache'
+import { dispatchWebhook } from '@/lib/webhook-dispatcher'
 
 const createOrderSchema = z.object({
   customerType: z.enum(['REGISTERED', 'GUEST']).default('GUEST'),
@@ -543,6 +544,16 @@ export async function POST(request: NextRequest) {
     
     // Standard Cache Invalidation: Orders change available stock levels
     await CacheService.delByPrefix('products:')
+
+    // --- REAL EVENT HOOK: DISPATCH WEBHOOK ---
+    if (order.customer?.id) {
+       dispatchWebhook(order.customer.id, 'order.created', {
+         orderId: order.id,
+         orderNumber: order.orderNumber,
+         totalAmount: order.totalAmount,
+         status: order.status,
+       }).catch(err => logger.error('Webhook dispatch failed', { err }))
+    }
 
     const res = NextResponse.json(
       createSuccessResponse(order, 'Order created successfully'),
