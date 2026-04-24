@@ -39,6 +39,8 @@ export interface RoomDimension {
     width: number
     height?: number
     area: number
+    x?: number
+    z?: number
 }
 
 export interface MaterialEstimate {

@@ -103,31 +103,18 @@ You are a senior construction engineer. Analyze the provided floor plan with hig
 
 2. ROOM ANALYSIS: 
    - Detect every room (Phòng khách, Bếp, Phòng ngủ, WC, etc.).
-   - FOR EACH ROOM: You MUST return a "length" and "width" in meters. 
-   - CRITICAL: If you cannot find the exact number for a room, you MUST ESTIMATE it based on the visual scale (e.g., reference: doors are 0.9m, kitchen counters are 0.6m, total house width is 6m). 
-   - NEVER return 0 for length, width, or area.
-
-3. TOTAL AREA CALCULATION: 
-   - "totalArea" should be the BUILT AREA (excluding outside yards if they are not part of the main slab).
-   - Notes should mention: "Built area identified as approx X meters long by Y meters wide".
-
-4. ARCHITECTURAL STYLE (CRITICAL):
-   - Check if the house is single-story or multi-story. 
-   - If single-story (no stairs) and long (20 x 6m), it is "nhà_cấp_4".
-   - If multi-story or in a dense urban grid, it is "nhà_phố".
-   - For this specific drawing, it is a ground-floor house, categorize as "nhà_cấp_4".
-
-5. TECH DATA:
-   - "wallPerimeter": Sum of perimeters of all rooms + house boundary.
-   - "roofType": "bê_tông", "mái_thái", "mái_tôn".
+   - FOR EACH ROOM: 
+     - "length" (m) and "width" (m).
+     - "x" (m) and "z" (m): This is the relative position of the ROOM CENTER compared to the center of the house.
+     - IMPORTANT: If rooms are side-by-side horizontally, they should have different X values. If they are one after another vertically, they should have different Z values.
+   - For this Villa drawing: Group rooms based on the grid (e.g. Sảnh/PK/Bếp are on the left lane, the other rooms are on the middle/right lanes).
 
 Return ONLY JSON:
 {
   "buildingStyle": "nhà_cấp_4" | "nhà_phố" | "biệt_thự",
   "roofType": "bê_tông" | "mái_thái" | "mái_tôn",
-  "rooms": [{ "name": "string", "length": float, "width": float }],
+  "rooms": [{ "name": "string", "length": float, "width": float, "x": float, "z": float }],
   "totalArea": float,
-  "wallPerimeter": float,
   "confidence": float,
   "notes": "string"
 }`
@@ -138,9 +125,11 @@ Return ONLY JSON:
         // Map and validate raw data to ensure non-zero values
         const rooms: RoomDimension[] = (rawData.rooms || []).map((r: any) => ({
             name: r.name || 'Phòng',
-            length: Number(r.length) > 0 ? Number(r.length) : 3, // Fallback to 3m
+            length: Number(r.length) > 0 ? Number(r.length) : 3,
             width: Number(r.width) > 0 ? Number(r.width) : 3,
             area: (Number(r.length) * Number(r.width)) || (Number(r.area) > 0 ? Number(r.area) : 9),
+            x: r.x || 0,
+            z: r.z || 0,
             height: 3.2,
         }))
         const totalArea = Number(rawData.totalArea) > 0 ? Number(rawData.totalArea) : rooms.reduce((sum, r) => sum + r.area, 0)
@@ -207,35 +196,32 @@ export async function estimateFromText(
         })
         if (cached) return cached.result as any
 
-        const fengShuiPrompt = ''
-
         const aiPrompt = `
-Bạn là một kỹ sư xây dựng chuyên nghiệp Việt Nam. Phân tích mô tả dự án sau và trích xuất thông tin:
+Bạn là một kiến trúc sư chuyên nghiệp. Hãy phân tích bản vẽ mặt bằng và trích xuất thông tin BIM:
 
-Mô tả: "${description}"
+1. Phân tích các phòng: Tên, Chiều dài (L), Chiều rộng (W).
+2. TỌA ĐỘ (CỰC KỲ QUAN TRỌNG): 
+   - Xác định vị trí (x, z) của TÂM mỗi phòng so với tâm tổng thể của ngôi nhà (đơn vị mét).
+   - Nếu bản vẽ có nhiều phòng cạnh nhau theo chiều ngang, chúng phải có tọa độ X khác nhau.
+   - Nếu bản vẽ có nhiều phòng xếp theo chiều dọc, chúng phải có tọa độ Z khác nhau.
+   - KHÔNG xếp tất cả phòng thành 1 hàng dọc nếu bản vẽ là biệt thự/nhà vườn.
+3. Xác định loại kiến trúc: "nhà_cấp_4", "nhà_phố" hoặc "biệt_thự".
+4. Xác định loại mái: "bê_tông", "mái_thái" hoặc "mái_tôn".
 
-Hãy xác định:
-1. Các phòng/khu vực và kích thước (dài x rộng), ước lượng nếu không rõ.
-2. Loại nhà: "nhà_cấp_4", "nhà_phố", hoặc "biệt_thự" (mặc định là nhà_cấp_4 nếu không rõ).
-3. Loại mái: "bê_tông", "mái_thái", hoặc "mái_tôn".
-4. Ước tính tổng chu vi tường (m).
-${fengShuiPrompt}
-
-VÍ DỤ đầu ra:
+Định dạng JSON:
 {
-  "buildingStyle": "nhà_cấp_4",
-  "roofType": "mái_tôn",
+  "buildingStyle": "biệt_thự",
+  "roofType": "mái_thái",
   "rooms": [
-    { "name": "Sân", "length": 6, "width": 8 },
-    { "name": "Phòng khách", "length": 5, "width": 4 }
+    { "name": "Sảnh chính", "length": 3, "width": 6, "x": -2, "z": 8 },
+    { "name": "Phòng khách", "length": 6, "width": 6, "x": -2, "z": 4 },
+    { "name": "Phòng thờ", "length": 4, "width": 4, "x": 3, "z": 4 }
   ],
-  "totalArea": 68,
-  "wallPerimeter": 40,
-  "confidence": 0.85,
-  "notes": "Dự án lát nền sân và phòng khách"
+  "totalArea": 120,
+  "confidence": 0.95
 }
 
-CHỈ trả về JSON, không có text giải thích.`
+CHỈ trả về JSON.`
 
         let responseText: string
         try {

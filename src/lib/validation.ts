@@ -4,20 +4,24 @@ import { z } from 'zod';
  * AI Material Estimator Response Schema
  * Validates the JSON output from Gemini for material estimation
  */
+export const RoomDimensionSchema = z.object({
+  name: z.string(),
+  length: z.number().describe('Chiều dài (m)'),
+  width: z.number().describe('Chiều rộng (m)'),
+  area: z.number().optional(),
+  x: z.number().optional().describe('Tọa độ X tương đối từ tâm nhà (m)'),
+  z: z.number().optional().describe('Tọa độ Z tương đối từ tâm nhà (m)'),
+  height: z.number().default(3.2)
+});
+
 export const EstimatorAIResponseSchema = z.object({
-  buildingStyle: z.enum(['nhà_cấp_4', 'nhà_phố', 'biệt_thự']).default('nhà_cấp_4'),
-  roofType: z.enum(['bê_tông', 'mái_thái', 'mái_tôn']).default('bê_tông'),
-  rooms: z.array(z.object({
-    name: z.string(),
-    length: z.number().positive(),
-    width: z.number().positive(),
-    area: z.number().optional(),
-  })).min(1),
-  totalArea: z.number().positive(),
-  wallPerimeter: z.number().nonnegative().optional(),
-  confidence: z.number().min(0).max(1).default(0.8),
-  notes: z.string().optional(),
-  fengShuiAdvice: z.string().optional(),
+  buildingStyle: z.enum(['nhà_cấp_4', 'nhà_phố', 'biệt_thự']),
+  roofType: z.string().default('bê_tông'),
+  rooms: z.array(RoomDimensionSchema),
+  totalArea: z.number(),
+  wallPerimeter: z.number().optional(),
+  confidence: z.number(),
+  notes: z.string().optional()
 });
 
 /**

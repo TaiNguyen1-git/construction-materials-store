@@ -38,37 +38,57 @@ interface HouseModelProps {
 }
 
 function HouseModel({ onMeshClick, selectedMesh, buildingStyle, totalArea, roofType, rooms = [], showRoof = true }: HouseModelProps) {
-  const isOneFloor = buildingStyle === 'nhà_cấp_4'
   const isFlatRoof = roofType === 'bê_tông'
   const isThaiRoof = roofType === 'mái_thái'
   
-  const houseWidth = 6
-  let currentZ = 0
-  
   const houseElements = rooms.length > 0 ? rooms : [
-      { name: 'Phòng khách', length: 6, width: 6, area: 36, height: 3.2 },
-      { name: 'Phòng ngủ', length: 4, width: 6, area: 24, height: 3.2 }
+      { name: 'Phòng khách', length: 6, width: 6, area: 36, x: 0, z: 0, height: 3.2 },
+      { name: 'Phòng ngủ', length: 4, width: 6, area: 24, x: 0, z: 5, height: 3.2 }
   ]
 
-  const totalLength = houseElements.reduce((acc, r) => acc + (r.length || 3), 0)
-  const zOffset = totalLength / 2
+  // Tinh toán Bounding Box để dựng nền đất
+  const bounds = houseElements.reduce((acc, r) => {
+    const x = r.x || 0
+    const z = r.z || 0
+    const halfW = (r.width || 6) / 2
+    const halfL = (r.length || 3) / 2
+    return {
+      minX: Math.min(acc.minX, x - halfW),
+      maxX: Math.max(acc.maxX, x + halfW),
+      minZ: Math.min(acc.minZ, z - halfL),
+      maxZ: Math.max(acc.maxZ, z + halfL)
+    }
+  }, { minX: Infinity, maxX: -Infinity, minZ: Infinity, maxZ: -Infinity })
+
+  const houseWidth = bounds.maxX - bounds.minX
+  const houseLength = bounds.maxZ - bounds.minZ
+  const centerX = (bounds.maxX + bounds.minX) / 2
+  const centerZ = (bounds.maxZ + bounds.minZ) / 2
+
+  // Hàm kiểm tra xem có phòng lân cận không để gộp tường
+  const hasNeighbor = (x: number, z: number, dir: 'left' | 'right' | 'front' | 'back', rW: number, rL: number) => {
+    const threshold = 0.5
+    return houseElements.some(r => {
+      if (r.x === x && r.z === z) return false
+      const nx = r.x || 0
+      const nz = r.z || 0
+      const nW = r.width || 6
+      const nL = r.length || 3
+      
+      if (dir === 'left') return Math.abs(nx + nW/2 - (x - rW/2)) < threshold && Math.abs(nz - z) < (rL + nL)/2
+      if (dir === 'right') return Math.abs(nx - nW/2 - (x + rW/2)) < threshold && Math.abs(nz - z) < (rL + nL)/2
+      if (dir === 'front') return Math.abs(nz + nL/2 - (z - rL/2)) < threshold && Math.abs(nx - x) < (rW + nW)/2
+      if (dir === 'back') return Math.abs(nz - nL/2 - (z + rL/2)) < threshold && Math.abs(nx - x) < (rW + nW)/2
+      return false
+    })
+  }
 
   return (
-    <group position={[0, 0, 0]}>
-      {/* ── LANDSCAPE / ENVIRONMENT ── */}
-      <mesh position={[0, -0.4, 0]} receiveShadow>
-        <cylinderGeometry args={[totalLength, totalLength, 0.4, 64]} />
-        <meshStandardMaterial color="#1e293b" roughness={1} />
-      </mesh>
-      <mesh position={[0, -0.3, 0]} receiveShadow>
-        <cylinderGeometry args={[totalLength - 0.5, totalLength - 0.5, 0.45, 64]} />
+    <group position={[-centerX, 0, -centerZ]}>
+      {/* ── GROUND ── */}
+      <mesh position={[centerX, -0.4, centerZ]} receiveShadow>
+        <cylinderGeometry args={[houseLength * 1.5, houseLength * 1.5, 0.4, 64]} />
         <meshStandardMaterial color="#0f172a" roughness={1} />
-      </mesh>
-
-      {/* ── MAIN FOUNDATION ── */}
-      <mesh position={[0, -0.15, 0]} castShadow receiveShadow>
-        <boxGeometry args={[houseWidth + 0.4, 0.3, totalLength + 0.4]} />
-        <meshStandardMaterial color="#334155" roughness={0.8} metalness={0.2} />
       </mesh>
 
       {/* ── ROOMS GENERATION ── */}
@@ -76,148 +96,86 @@ function HouseModel({ onMeshClick, selectedMesh, buildingStyle, totalArea, roofT
         const rLen = room.length || 3
         const rWidth = room.width || 6
         const rHeight = room.height || 3.2
-        const roomZPos = currentZ + rLen / 2 - zOffset
-        currentZ += rLen
-
-        const isLastRoom = idx === houseElements.length - 1
-        const isFirstRoom = idx === 0
+        const x = room.x || 0
+        const z = room.z || 0
+        
         const roomColor = selectedMesh === `Sàn ${room.name}` ? '#6366f1' : '#cbd5e1'
 
         return (
-          <group key={idx} position={[0, 0, roomZPos]}>
+          <group key={idx} position={[x, 0, z]}>
             {/* Floor Slab */}
             <mesh 
               position={[0, 0.05, 0]} 
               receiveShadow
               onClick={(e) => {
                 e.stopPropagation()
-                onMeshClick({ elementType: 'concrete_slab', name: `Sàn ${room.name}`, area: rLen * rWidth }, new THREE.Vector3(0, 0.1, roomZPos))
+                onMeshClick({ elementType: 'concrete_slab', name: `Sàn ${room.name}`, area: rLen * rWidth }, new THREE.Vector3(x, 0.1, z))
               }}
             >
-              <boxGeometry args={[rWidth - 0.1, 0.1, rLen - 0.1]} />
-              <meshStandardMaterial 
-                color={roomColor} 
-                roughness={0.3}
-                metalness={0.1}
-              />
+              <boxGeometry args={[rWidth, 0.1, rLen]} />
+              <meshStandardMaterial color={roomColor} roughness={0.3} />
             </mesh>
 
-            {/* Side Walls with Windows */}
-            <group>
-              {/* Left Wall Segment */}
-              <mesh position={[-rWidth/2, rHeight/2, 0]} castShadow receiveShadow>
-                <boxGeometry args={[0.2, rHeight, rLen]} />
-                <meshStandardMaterial color="#f8fafc" roughness={0.5} />
-              </mesh>
-              {/* Left Window Mock */}
-              <mesh position={[-rWidth/2 + 0.11, rHeight/2 + 0.2, 0]}>
-                <boxGeometry args={[0.02, 1.2, rLen * 0.6]} />
-                <meshStandardMaterial color="#bae6fd" transparent opacity={0.6} metalness={0.8} roughness={0.1} />
-              </mesh>
+            {/* Foundation Block */}
+            <mesh position={[0, -0.1, 0]} receiveShadow>
+                <boxGeometry args={[rWidth + 0.1, 0.2, rLen + 0.1]} />
+                <meshStandardMaterial color="#334155" />
+            </mesh>
 
-              {/* Right Wall Segment */}
-              <mesh position={[rWidth/2, rHeight/2, 0]} castShadow receiveShadow>
-                <boxGeometry args={[0.2, rHeight, rLen]} />
-                <meshStandardMaterial color="#f8fafc" roughness={0.5} />
-              </mesh>
-              {/* Right Window Mock */}
-              <mesh position={[rWidth/2 - 0.11, rHeight/2 + 0.2, 0]}>
-                <boxGeometry args={[0.02, 1.2, rLen * 0.6]} />
-                <meshStandardMaterial color="#bae6fd" transparent opacity={0.6} metalness={0.8} roughness={0.1} />
-              </mesh>
-            </group>
-
-            {/* Partition Wall with Door Hole (Simplified) */}
-            {!isLastRoom && (
-              <group position={[0, rHeight/2, rLen/2]}>
-                {/* Wall Left of Door */}
-                <mesh position={[-rWidth/4 - 0.5, 0, 0]} castShadow>
-                   <boxGeometry args={[rWidth/2 - 1, rHeight, 0.2]} />
-                   <meshStandardMaterial color="#f1f5f9" />
+            {/* Walls - Only render if no neighbor */}
+            {!hasNeighbor(x, z, 'left', rWidth, rLen) && (
+                <mesh position={[-rWidth/2, rHeight/2, 0]} castShadow>
+                    <boxGeometry args={[0.2, rHeight, rLen]} />
+                    <meshStandardMaterial color="#f8fafc" />
                 </mesh>
-                {/* Wall Right of Door */}
-                <mesh position={[rWidth/4 + 0.5, 0, 0]} castShadow>
-                   <boxGeometry args={[rWidth/2 - 1, rHeight, 0.2]} />
-                   <meshStandardMaterial color="#f1f5f9" />
+            )}
+            {!hasNeighbor(x, z, 'right', rWidth, rLen) && (
+                <mesh position={[rWidth/2, rHeight/2, 0]} castShadow>
+                    <boxGeometry args={[0.2, rHeight, rLen]} />
+                    <meshStandardMaterial color="#f8fafc" />
                 </mesh>
-                {/* Wall Above Door */}
-                <mesh position={[0, rHeight/2 - 0.5, 0]} castShadow>
-                   <boxGeometry args={[2, 1, 0.2]} />
-                   <meshStandardMaterial color="#f1f5f9" />
+            )}
+            {!hasNeighbor(x, z, 'front', rWidth, rLen) && (
+                <mesh position={[0, rHeight/2, -rLen/2]} castShadow>
+                    <boxGeometry args={[rWidth, rHeight, 0.2]} />
+                    <meshStandardMaterial color="#f1f5f9" />
                 </mesh>
-                
-                {/* Door Frame Mock */}
-                <mesh 
-                  position={[0, -0.6, 0]} 
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    onMeshClick({ elementType: 'brick_wall', name: `Tường ngăn ${room.name}`, width: rWidth, height: rHeight, depth: 0.2 }, new THREE.Vector3(0, rHeight/2, roomZPos + rLen/2))
-                  }}
-                >
-                  <boxGeometry args={[1, 2, 0.1]} />
-                  <meshStandardMaterial color="#475569" roughness={0.9} />
+            )}
+            {!hasNeighbor(x, z, 'back', rWidth, rLen) && (
+                <mesh position={[0, rHeight/2, rLen/2]} castShadow>
+                    <boxGeometry args={[rWidth, rHeight, 0.2]} />
+                    <meshStandardMaterial color="#f1f5f9" />
                 </mesh>
-              </group>
             )}
 
-            {/* Front Door (For the very first room) */}
-            {isFirstRoom && (
-                <group position={[0, rHeight/2, -rLen/2]}>
-                    <mesh position={[0, -0.5, 0]}>
-                        <boxGeometry args={[1.2, 2.2, 0.2]} />
-                        <meshStandardMaterial color="#1e293b" metalness={0.5} />
-                    </mesh>
+            {/* Compound Roof Segment */}
+            {showRoof && (
+                <group position={[0, rHeight, 0]}>
+                    {isFlatRoof ? (
+                        <mesh position={[0, 0.1, 0]} castShadow>
+                            <boxGeometry args={[rWidth + 0.4, 0.2, rLen + 0.4]} />
+                            <meshStandardMaterial color="#475569" />
+                        </mesh>
+                    ) : (
+                        <mesh rotation={[0, 0, Math.PI / 4]} position={[0, rWidth/4, 0]} castShadow>
+                            <boxGeometry args={[rWidth * 0.7, rWidth * 0.7, rLen + 0.2]} />
+                            <meshStandardMaterial color={isThaiRoof ? '#991b1b' : '#334155'} metalness={0.5} roughness={0.2} />
+                        </mesh>
+                    )}
                 </group>
             )}
 
-            {/* Premium Room Label */}
-            <Html position={[0, rHeight + 0.6, 0]} center distanceFactor={10}>
-              <div className="group flex flex-col items-center gap-1 cursor-default select-none pointer-events-none">
-                <div className="px-3 py-1.5 bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl flex items-center gap-2 transition-all group-hover:scale-110 group-hover:bg-white/20">
-                  <div className="w-2 h-2 rounded-full bg-indigo-400 animate-pulse" />
-                  <span className="text-[10px] font-black text-white uppercase tracking-widest drop-shadow-md">
-                    {room.name}
-                  </span>
-                </div>
-                <div className="h-4 w-px bg-gradient-to-b from-white/40 to-transparent" />
+            {/* Premium Label */}
+            <Html position={[0, rHeight + 0.8, 0]} center distanceFactor={12}>
+              <div className="px-3 py-1 bg-white/10 backdrop-blur-md border border-white/20 rounded-full shadow-xl">
+                <span className="text-[9px] font-black text-white uppercase tracking-tighter">
+                  {room.name}
+                </span>
               </div>
             </Html>
           </group>
         )
       })}
-
-      {/* ── BACK EXTERIOR WALL ── */}
-      <mesh position={[0, 1.6, zOffset]} castShadow>
-        <boxGeometry args={[houseWidth, 3.2, 0.2]} />
-        <meshStandardMaterial color="#f1f5f9" />
-      </mesh>
-
-      {/* ── ROOFING SYSTEM ── */}
-      {showRoof && (
-        <group position={[0, 3.2, 0]} castShadow>
-          {isFlatRoof ? (
-            <mesh position={[0, 0.15, 0]} castShadow>
-              <boxGeometry args={[houseWidth + 0.8, 0.3, totalLength + 0.8]} />
-              <meshStandardMaterial color="#475569" roughness={0.8} metalness={0.1} />
-            </mesh>
-          ) : (
-            <mesh rotation={[0, 0, Math.PI / 4]} position={[0, 1.4, 0]} castShadow>
-              <boxGeometry args={[houseWidth * 0.6, houseWidth * 1.3, totalLength + 1.2]} />
-              <meshStandardMaterial 
-                color={isThaiRoof ? '#991b1b' : '#334155'} 
-                metalness={0.6} 
-                roughness={0.2} 
-              />
-            </mesh>
-          )}
-        </group>
-      )}
-
-      {/* ── AMBIENT DETAILS ── */}
-      <mesh position={[0, -0.15, totalLength/2 + 1]} receiveShadow>
-          <boxGeometry args={[2, 0.05, 2]} />
-          <meshStandardMaterial color="#475569" roughness={0.8} />
-      </mesh>
     </group>
   )
 }
