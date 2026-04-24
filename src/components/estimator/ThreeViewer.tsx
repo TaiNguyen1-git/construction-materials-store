@@ -2,7 +2,7 @@
 
 import { Suspense, useRef, useState, useCallback } from 'react'
 import { Canvas, useLoader, ThreeEvent } from '@react-three/fiber'
-import { OrbitControls, Environment, Grid, Html, useProgress } from '@react-three/drei'
+import { OrbitControls, Environment, Grid, Html, useProgress, Bounds, ContactShadows } from '@react-three/drei'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import * as THREE from 'three'
 import { calculateBoQ, mergeBoQ, type MeshMetadata, type BoQResult } from '@/lib/tcvn-calculator'
@@ -16,16 +16,18 @@ function Loader() {
   const { progress } = useProgress()
   return (
     <Html center>
-      <div className="flex flex-col items-center gap-3">
+      <div className="flex flex-col items-center gap-3 p-8 bg-slate-900/80 backdrop-blur-2xl rounded-3xl border border-white/10 shadow-2xl">
         <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
-        <p className="text-white font-bold text-sm">Đang tải mô hình 3D... {Math.round(progress)}%</p>
+        <p className="text-white font-black text-xs uppercase tracking-widest whitespace-nowrap">
+          Đang dựng BIM... {Math.round(progress)}%
+        </p>
       </div>
     </Html>
   )
 }
 
 // ============================================
-// HOUSE MODEL với raycasting + click detection
+// HOUSE MODEL code...
 // ============================================
 interface HouseModelProps {
   onMeshClick: (meta: MeshMetadata, position: THREE.Vector3) => void
@@ -35,9 +37,10 @@ interface HouseModelProps {
   roofType?: string
   rooms?: RoomDimension[]
   showRoof?: boolean
+  wallHeightMode?: 'full' | 'cut'
 }
 
-function HouseModel({ onMeshClick, selectedMesh, buildingStyle, totalArea, roofType, rooms = [], showRoof = true }: HouseModelProps) {
+function HouseModel({ onMeshClick, selectedMesh, buildingStyle, totalArea, roofType, rooms = [], showRoof = true, wallHeightMode = 'full' }: HouseModelProps) {
   const isFlatRoof = roofType === 'bê_tông'
   const isThaiRoof = roofType === 'mái_thái'
   
@@ -87,7 +90,7 @@ function HouseModel({ onMeshClick, selectedMesh, buildingStyle, totalArea, roofT
     <group position={[-centerX, 0, -centerZ]}>
       {/* ── GROUND ── */}
       <mesh position={[centerX, -0.4, centerZ]} receiveShadow>
-        <cylinderGeometry args={[houseLength * 1.5, houseLength * 1.5, 0.4, 64]} />
+        <cylinderGeometry args={[houseLength * 2, houseLength * 2, 0.4, 64]} />
         <meshStandardMaterial color="#0f172a" roughness={1} />
       </mesh>
 
@@ -95,11 +98,12 @@ function HouseModel({ onMeshClick, selectedMesh, buildingStyle, totalArea, roofT
       {houseElements.map((room, idx) => {
         const rLen = room.length || 3
         const rWidth = room.width || 6
-        const rHeight = room.height || 3.2
+        const rHeight = wallHeightMode === 'cut' ? 0.5 : (room.height || 3.2)
         const x = room.x || 0
         const z = room.z || 0
         
         const roomColor = selectedMesh === `Sàn ${room.name}` ? '#6366f1' : '#cbd5e1'
+        const wallOpacity = wallHeightMode === 'cut' ? 0.4 : 1
 
         return (
           <group key={idx} position={[x, 0, z]}>
@@ -126,25 +130,25 @@ function HouseModel({ onMeshClick, selectedMesh, buildingStyle, totalArea, roofT
             {!hasNeighbor(x, z, 'left', rWidth, rLen) && (
                 <mesh position={[-rWidth/2, rHeight/2, 0]} castShadow>
                     <boxGeometry args={[0.2, rHeight, rLen]} />
-                    <meshStandardMaterial color="#f8fafc" />
+                    <meshStandardMaterial color="#f8fafc" transparent={wallHeightMode === 'cut'} opacity={wallOpacity} />
                 </mesh>
             )}
             {!hasNeighbor(x, z, 'right', rWidth, rLen) && (
                 <mesh position={[rWidth/2, rHeight/2, 0]} castShadow>
                     <boxGeometry args={[0.2, rHeight, rLen]} />
-                    <meshStandardMaterial color="#f8fafc" />
+                    <meshStandardMaterial color="#f8fafc" transparent={wallHeightMode === 'cut'} opacity={wallOpacity} />
                 </mesh>
             )}
             {!hasNeighbor(x, z, 'front', rWidth, rLen) && (
                 <mesh position={[0, rHeight/2, -rLen/2]} castShadow>
                     <boxGeometry args={[rWidth, rHeight, 0.2]} />
-                    <meshStandardMaterial color="#f1f5f9" />
+                    <meshStandardMaterial color="#f1f5f9" transparent={wallHeightMode === 'cut'} opacity={wallOpacity} />
                 </mesh>
             )}
             {!hasNeighbor(x, z, 'back', rWidth, rLen) && (
                 <mesh position={[0, rHeight/2, rLen/2]} castShadow>
                     <boxGeometry args={[rWidth, rHeight, 0.2]} />
-                    <meshStandardMaterial color="#f1f5f9" />
+                    <meshStandardMaterial color="#f1f5f9" transparent={wallHeightMode === 'cut'} opacity={wallOpacity} />
                 </mesh>
             )}
 
@@ -196,6 +200,7 @@ export default function ThreeViewer({ onBoQChange, buildingStyle, totalArea, roo
   const [collectedBoQ, setCollectedBoQ] = useState<BoQResult[]>([])
   const [lastClicked, setLastClicked] = useState<{ name: string; pos: [number, number] } | null>(null)
   const [showRoof, setShowRoof] = useState(true)
+  const [wallHeightMode, setWallHeightMode] = useState<'full' | 'cut'>('full')
 
   const handleMeshClick = useCallback((meta: MeshMetadata, pos: THREE.Vector3) => {
     const boqResult = calculateBoQ(meta)
@@ -230,53 +235,65 @@ export default function ThreeViewer({ onBoQChange, buildingStyle, totalArea, roo
               : 'bg-indigo-600 text-white shadow-indigo-500/40'
           }`}
         >
-          {showRoof ? '🏠 Ẩn mái (Nhìn bên trong)' : '🏠 Hiện mái'}
+          {showRoof ? '🏠 Ẩn mái' : '🏠 Hiện mái'}
+        </button>
+        <button
+          onClick={() => setWallHeightMode(wallHeightMode === 'full' ? 'cut' : 'full')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-black text-xs uppercase tracking-widest transition-all shadow-lg ${
+            wallHeightMode === 'cut' 
+              ? 'bg-orange-500 text-white shadow-orange-500/40' 
+              : 'bg-white text-slate-900 hover:bg-slate-100'
+          }`}
+        >
+          {wallHeightMode === 'full' ? '🧱 Chế độ Mặt bằng (Cắt tường)' : '🧱 Hiện đủ tường'}
         </button>
       </div>
 
       <Canvas
-        camera={{ position: [15, 12, 15], fov: 45 }}
-        className="bg-gradient-to-b from-slate-900 to-slate-800"
+        camera={{ position: [25, 20, 25], fov: 40 }}
+        className="bg-gradient-to-b from-slate-950 to-slate-900"
         shadows
       >
-        <ambientLight intensity={0.5} />
-        <directionalLight position={[10, 10, 5]} intensity={1.2} castShadow />
+        <ambientLight intensity={0.4} />
+        <spotLight position={[20, 20, 10]} angle={0.15} penumbra={1} intensity={1} castShadow />
         <pointLight position={[-10, 10, -10]} intensity={0.5} color="#6366f1" />
         
         <Suspense fallback={<Loader />}>
-          <HouseModel 
-            onMeshClick={handleMeshClick} 
-            selectedMesh={selectedMesh} 
-            buildingStyle={buildingStyle}
-            totalArea={totalArea}
-            roofType={roofType}
-            rooms={rooms}
-            showRoof={showRoof}
-          />
+          <Bounds fit clip observe margin={1.2}>
+            <HouseModel 
+              onMeshClick={handleMeshClick} 
+              selectedMesh={selectedMesh} 
+              buildingStyle={buildingStyle}
+              totalArea={totalArea}
+              roofType={roofType}
+              rooms={rooms}
+              showRoof={showRoof}
+              wallHeightMode={wallHeightMode}
+            />
+          </Bounds>
+          <ContactShadows position={[0, -0.4, 0]} opacity={0.4} scale={40} blur={2} far={4} />
           <Environment preset="city" />
         </Suspense>
 
         <Grid
-          position={[0, -0.4, 0]}
-          args={[40, 40]}
+          position={[0, -0.41, 0]}
+          args={[100, 100]}
           cellSize={1}
-          cellThickness={0.5}
-          cellColor="#334155"
+          cellThickness={1}
+          cellColor="#1e293b"
           sectionSize={5}
-          sectionThickness={1}
-          sectionColor="#475569"
-          fadeDistance={40}
+          sectionThickness={1.5}
+          sectionColor="#334155"
+          fadeDistance={50}
           fadeStrength={1}
           infiniteGrid
         />
 
         <OrbitControls
-          enablePan
-          enableZoom
-          enableRotate
+          makeDefault
           minDistance={5}
-          maxDistance={50}
-          maxPolarAngle={Math.PI / 2}
+          maxDistance={80}
+          maxPolarAngle={Math.PI / 2.1}
         />
       </Canvas>
 
