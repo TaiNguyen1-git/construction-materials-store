@@ -77,7 +77,7 @@ export async function analyzeFloorPlanImage(
         
         // ── STEP 1: CALCULATE HASH FOR DETERMINISM ──
         const combinedBase64 = images.join('|')
-        const promptVersion = "v3_strict_style_and_dims"
+        const promptVersion = "v5_percentage_mapping_multi_floor"
         const inputHash = crypto.createHash('sha256').update(combinedBase64 + projectType + promptVersion).digest('hex')
 
         // ── STEP 2: CHECK CACHE ──
