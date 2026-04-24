@@ -43,13 +43,14 @@ interface HouseModelProps {
 function HouseModel({ onMeshClick, selectedMesh, buildingStyle, totalArea, roofType, rooms = [], showRoof = true, wallHeightMode = 'full' }: HouseModelProps) {
   const isFlatRoof = roofType === 'bê_tông'
   const isThaiRoof = roofType === 'mái_thái'
+  const FLOOR_HEIGHT = 3.3
   
   const houseElements = rooms.length > 0 ? rooms : [
-      { name: 'Phòng khách', length: 6, width: 6, area: 36, x: 0, z: 0, height: 3.2 },
-      { name: 'Phòng ngủ', length: 4, width: 6, area: 24, x: 0, z: 5, height: 3.2 }
+      { name: 'Phòng khách', length: 6, width: 6, area: 36, x: 0, z: 0, floor: 0, height: 3.2 },
+      { name: 'Phòng ngủ', length: 4, width: 6, area: 24, x: 0, z: 5, floor: 0, height: 3.2 }
   ]
 
-  // Tinh toán Bounding Box để dựng nền đất
+  // Tinh toán Bounding Box tổng thể
   const bounds = houseElements.reduce((acc, r) => {
     const x = r.x || 0
     const z = r.z || 0
@@ -63,21 +64,24 @@ function HouseModel({ onMeshClick, selectedMesh, buildingStyle, totalArea, roofT
     }
   }, { minX: Infinity, maxX: -Infinity, minZ: Infinity, maxZ: -Infinity })
 
-  const houseWidth = bounds.maxX - bounds.minX
-  const houseLength = bounds.maxZ - bounds.minZ
   const centerX = (bounds.maxX + bounds.minX) / 2
   const centerZ = (bounds.maxZ + bounds.minZ) / 2
 
-  // Hàm kiểm tra xem có phòng lân cận không để gộp tường
-  const hasNeighbor = (x: number, z: number, dir: 'left' | 'right' | 'front' | 'back', rW: number, rL: number) => {
+  // Xác định tầng cao nhất để đặt mái
+  const maxFloor = Math.max(...houseElements.map(r => r.floor || 0))
+
+  // Hàm kiểm tra xem có phòng lân cận không để gộp tường (trong cùng 1 tầng)
+  const hasNeighbor = (x: number, z: number, floor: number, dir: 'left' | 'right' | 'front' | 'back', rW: number, rL: number) => {
     const threshold = 0.5
     return houseElements.some(r => {
-      if (r.x === x && r.z === z) return false
+      if (r.x === x && r.z === z && (r.floor || 0) === floor) return false
       const nx = r.x || 0
       const nz = r.z || 0
+      const nFloor = r.floor || 0
       const nW = r.width || 6
       const nL = r.length || 3
       
+      if (nFloor !== floor) return false
       if (dir === 'left') return Math.abs(nx + nW/2 - (x - rW/2)) < threshold && Math.abs(nz - z) < (rL + nL)/2
       if (dir === 'right') return Math.abs(nx - nW/2 - (x + rW/2)) < threshold && Math.abs(nz - z) < (rL + nL)/2
       if (dir === 'front') return Math.abs(nz + nL/2 - (z - rL/2)) < threshold && Math.abs(nx - x) < (rW + nW)/2
@@ -90,7 +94,7 @@ function HouseModel({ onMeshClick, selectedMesh, buildingStyle, totalArea, roofT
     <group position={[-centerX, 0, -centerZ]}>
       {/* ── GROUND ── */}
       <mesh position={[centerX, -0.4, centerZ]} receiveShadow>
-        <cylinderGeometry args={[houseLength * 2, houseLength * 2, 0.4, 64]} />
+        <cylinderGeometry args={[20, 20, 0.4, 64]} />
         <meshStandardMaterial color="#0f172a" roughness={1} />
       </mesh>
 
@@ -98,62 +102,67 @@ function HouseModel({ onMeshClick, selectedMesh, buildingStyle, totalArea, roofT
       {houseElements.map((room, idx) => {
         const rLen = room.length || 3
         const rWidth = room.width || 6
+        const floor = room.floor || 0
+        const yBase = floor * FLOOR_HEIGHT
         const rHeight = wallHeightMode === 'cut' ? 0.5 : (room.height || 3.2)
         const x = room.x || 0
         const z = room.z || 0
         
         const roomColor = selectedMesh === `Sàn ${room.name}` ? '#6366f1' : '#cbd5e1'
         const wallOpacity = wallHeightMode === 'cut' ? 0.4 : 1
+        const isHighestFloor = floor === maxFloor
 
         return (
-          <group key={idx} position={[x, 0, z]}>
+          <group key={idx} position={[x, yBase, z]}>
             {/* Floor Slab */}
             <mesh 
               position={[0, 0.05, 0]} 
               receiveShadow
               onClick={(e) => {
                 e.stopPropagation()
-                onMeshClick({ elementType: 'concrete_slab', name: `Sàn ${room.name}`, area: rLen * rWidth }, new THREE.Vector3(x, 0.1, z))
+                onMeshClick({ elementType: 'concrete_slab', name: `Sàn ${room.name}`, area: rLen * rWidth }, new THREE.Vector3(x, yBase + 0.1, z))
               }}
             >
               <boxGeometry args={[rWidth, 0.1, rLen]} />
               <meshStandardMaterial color={roomColor} roughness={0.3} />
             </mesh>
 
-            {/* Foundation Block */}
-            <mesh position={[0, -0.1, 0]} receiveShadow>
-                <boxGeometry args={[rWidth + 0.1, 0.2, rLen + 0.1]} />
-                <meshStandardMaterial color="#334155" />
-            </mesh>
+            {/* Foundation Block (Only for floor 0 or basement) */}
+            {floor <= 0 && (
+                <mesh position={[0, -0.1, 0]} receiveShadow>
+                    <boxGeometry args={[rWidth + 0.1, 0.2, rLen + 0.1]} />
+                    <meshStandardMaterial color="#334155" />
+                </mesh>
+            )}
 
-            {/* Walls - Only render if no neighbor */}
-            {!hasNeighbor(x, z, 'left', rWidth, rLen) && (
+            {/* Walls */}
+            {!hasNeighbor(x, z, floor, 'left', rWidth, rLen) && (
                 <mesh position={[-rWidth/2, rHeight/2, 0]} castShadow>
                     <boxGeometry args={[0.2, rHeight, rLen]} />
                     <meshStandardMaterial color="#f8fafc" transparent={wallHeightMode === 'cut'} opacity={wallOpacity} />
                 </mesh>
             )}
-            {!hasNeighbor(x, z, 'right', rWidth, rLen) && (
+            {!hasNeighbor(x, z, floor, 'right', rWidth, rLen) && (
                 <mesh position={[rWidth/2, rHeight/2, 0]} castShadow>
                     <boxGeometry args={[0.2, rHeight, rLen]} />
                     <meshStandardMaterial color="#f8fafc" transparent={wallHeightMode === 'cut'} opacity={wallOpacity} />
                 </mesh>
             )}
-            {!hasNeighbor(x, z, 'front', rWidth, rLen) && (
+            {!hasNeighbor(x, z, floor, 'front', rWidth, rLen) && (
                 <mesh position={[0, rHeight/2, -rLen/2]} castShadow>
                     <boxGeometry args={[rWidth, rHeight, 0.2]} />
                     <meshStandardMaterial color="#f1f5f9" transparent={wallHeightMode === 'cut'} opacity={wallOpacity} />
                 </mesh>
             )}
-            {!hasNeighbor(x, z, 'back', rWidth, rLen) && (
+            {!hasNeighbor(x, z, floor, 'back', rWidth, rLen) && (
                 <mesh position={[0, rHeight/2, rLen/2]} castShadow>
                     <boxGeometry args={[rWidth, rHeight, 0.2]} />
                     <meshStandardMaterial color="#f1f5f9" transparent={wallHeightMode === 'cut'} opacity={wallOpacity} />
                 </mesh>
             )}
 
-            {/* Compound Roof Segment */}
-            {showRoof && (
+            {/* Roof Segment (Only on the highest floor) */}
+            {showRoof && isHighestFloor && (
                 <group position={[0, rHeight, 0]}>
                     {isFlatRoof ? (
                         <mesh position={[0, 0.1, 0]} castShadow>
@@ -173,7 +182,7 @@ function HouseModel({ onMeshClick, selectedMesh, buildingStyle, totalArea, roofT
             <Html position={[0, rHeight + 0.8, 0]} center distanceFactor={12}>
               <div className="px-3 py-1 bg-white/10 backdrop-blur-md border border-white/20 rounded-full shadow-xl">
                 <span className="text-[9px] font-black text-white uppercase tracking-tighter">
-                  {room.name}
+                  {floor > 0 ? `L${floor} - ` : floor < 0 ? 'Hầm - ' : ''}{room.name}
                 </span>
               </div>
             </Html>
@@ -183,6 +192,7 @@ function HouseModel({ onMeshClick, selectedMesh, buildingStyle, totalArea, roofT
     </group>
   )
 }
+
 
 // ============================================
 // MAIN 3D VIEWER COMPONENT

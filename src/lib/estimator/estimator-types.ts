@@ -41,6 +41,7 @@ export interface RoomDimension {
     area: number
     x?: number
     z?: number
+    floor?: number // 0: ground, 1: floor 1, -1: basement
 }
 
 export interface MaterialEstimate {

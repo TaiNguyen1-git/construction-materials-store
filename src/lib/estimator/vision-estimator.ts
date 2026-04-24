@@ -101,37 +101,61 @@ You are a senior construction engineer. Analyze the provided floor plan with hig
    - Identify the "Total Land Width" vs "Total Land Length" from the outermost dimension lines.
    - Identify "Built Area" length by excluding yards (Sân trước, Sân sau).
 
-2. ROOM ANALYSIS: 
-   - Detect every room (Phòng khách, Bếp, Phòng ngủ, WC, etc.).
-   - FOR EACH ROOM: 
-     - "length" (m) and "width" (m).
-     - "x" (m) and "z" (m): This is the relative position of the ROOM CENTER compared to the center of the house.
-     - IMPORTANT: If rooms are side-by-side horizontally, they should have different X values. If they are one after another vertically, they should have different Z values.
-   - For this Villa drawing: Group rooms based on the grid (e.g. Sảnh/PK/Bếp are on the left lane, the other rooms are on the middle/right lanes).
+2. ROOM SPATIAL MAPPING (GENERIC FOR ALL STYLES):
+   - MULTI-FLOOR DETECTION: Identify if the drawing contains multiple levels (Tầng trệt, Lầu 1, Tầng hầm).
+   - For EACH ROOM:
+     - "floor": 0 (Ground), 1 (Floor 1), 2 (Floor 2), -1 (Basement).
+     - "x_pct", "z_pct" (0-100): Position relative to the building's bounding box on that specific floor.
+   - For "nhà_phố": Ensure floors align vertically.
+   - For Basements: Ensure they are marked with floor: -1.
 
 Return ONLY JSON:
 {
   "buildingStyle": "nhà_cấp_4" | "nhà_phố" | "biệt_thự",
   "roofType": "bê_tông" | "mái_thái" | "mái_tôn",
-  "rooms": [{ "name": "string", "length": float, "width": float, "x": float, "z": float }],
+  "rooms": [{ "name": "string", "length": float, "width": float, "x_pct": float, "z_pct": float, "floor": int }],
   "totalArea": float,
-  "confidence": float,
   "notes": "string"
 }`
 
         const responseText = await callGemini(aiPrompt, imageParts)
         const rawData = parseGeminiEstimatorJSON(responseText)
 
-        // Map and validate raw data to ensure non-zero values
-        const rooms: RoomDimension[] = (rawData.rooms || []).map((r: any) => ({
-            name: r.name || 'Phòng',
-            length: Number(r.length) > 0 ? Number(r.length) : 3,
-            width: Number(r.width) > 0 ? Number(r.width) : 3,
-            area: (Number(r.length) * Number(r.width)) || (Number(r.area) > 0 ? Number(r.area) : 9),
-            x: r.x || 0,
-            z: r.z || 0,
-            height: 3.2,
-        }))
+        // Map and validate raw data using Percentage Mapping
+        const rawRooms = rawData.rooms || []
+        
+        // Tính toán kích thước tổng thể giả định dựa trên tổng chiều dài/rộng các phòng
+        const estTotalWidth = Math.sqrt(Number(rawData.totalArea) || 100) * 1.2
+        const estTotalLength = (Number(rawData.totalArea) || 100) / estTotalWidth
+
+        const rooms: RoomDimension[] = rawRooms.map((r: any, idx: number) => {
+            const length = Number(r.length) > 0 ? Number(r.length) : 3
+            const width = Number(r.width) > 0 ? Number(r.width) : 3
+            
+            // Chuyển đổi % sang mét (0% -> -Total/2, 100% -> +Total/2)
+            let x = 0
+            let z = 0
+            
+            if (r.x_pct !== undefined && r.z_pct !== undefined) {
+                x = (Number(r.x_pct) - 50) * (estTotalWidth / 100)
+                z = (Number(r.z_pct) - 50) * (estTotalLength / 100)
+            } else {
+                // Fallback nếu AI không trả về %
+                x = (idx % 3) * 6 - 6
+                z = Math.floor(idx / 3) * 5
+            }
+
+            return {
+                name: r.name || 'Phòng',
+                length,
+                width,
+                area: (length * width) || (Number(r.area) > 0 ? Number(r.area) : 9),
+                x,
+                z,
+                floor: Number(r.floor) || 0,
+                height: 3.2,
+            }
+        })
         const totalArea = Number(rawData.totalArea) > 0 ? Number(rawData.totalArea) : rooms.reduce((sum, r) => sum + r.area, 0)
 
         const materials = calculateMaterials(
