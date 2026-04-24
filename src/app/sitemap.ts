@@ -1,5 +1,6 @@
 import { MetadataRoute } from 'next'
 import { prisma } from '@/lib/prisma'
+import { encodeId } from '@/lib/id-utils'
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'
@@ -58,7 +59,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }))
 
   const contractorRoutes: MetadataRoute.Sitemap = contractors.map((c) => ({
-    url: `${baseUrl}/contractors/${c.id}`,
+    url: `${baseUrl}/contractors/${encodeId(c.id)}`,
     lastModified: c.updatedAt,
     changeFrequency: 'weekly',
     priority: 0.7,

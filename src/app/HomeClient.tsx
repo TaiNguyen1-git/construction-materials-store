@@ -109,6 +109,7 @@ export default function HomeClient({
   const [selectedSubCategories, setSelectedSubCategories] = useState<string[]>([])
   const [searchSuggestions, setSearchSuggestions] = useState<{ name: string, price: string }[]>([])
   const [contractorSuggestions, setContractorSuggestions] = useState<Contractor[]>([])
+  const [trendingSearches, setTrendingSearches] = useState<{ name: string, tag: string }[]>([])
 
   // Helper Functions
   const removeAccents = (str: string) => str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D')
@@ -152,11 +153,12 @@ export default function HomeClient({
   const fetchData = useCallback(async () => {
     try {
       // Parallel fetching for performance
-      const [statsRes, productsRes, categoriesRes, bannersRes] = await Promise.all([
+      const [statsRes, productsRes, categoriesRes, bannersRes, trendingRes] = await Promise.all([
         fetch('/api/stats'),
         fetch('/api/products?featured=true&limit=10'),
         fetch('/api/categories?limit=8'),
-        fetch('/api/banners')
+        fetch('/api/banners'),
+        fetch('/api/public/trending-searches?limit=4')
       ])
 
       if (statsRes.ok) {
@@ -185,6 +187,13 @@ export default function HomeClient({
           link: b.link
         })))
       }
+
+      if (trendingRes && trendingRes.ok) {
+        const data = await trendingRes.json()
+        if (data.success && data.data) {
+          setTrendingSearches(data.data)
+        }
+      }
     } catch (error) {
       console.error('Failed to fetch home data:', error)
     } finally {
@@ -211,6 +220,7 @@ export default function HomeClient({
           setIsSearchFocused={setIsSearchFocused}
           searchSuggestions={searchSuggestions}
           contractorSuggestions={contractorSuggestions}
+          trendingSearches={trendingSearches}
           featuredContractors={featuredContractors}
           contractorSearchLoading={false}
           selectedLocation={selectedLocation}

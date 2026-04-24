@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import Header from '@/components/Header'
 import toast, { Toaster } from 'react-hot-toast'
+import { encodeId, decodeId } from '@/lib/id-utils'
 
 // Loading component for Suspense fallback
 function CompareLoading() {
@@ -28,7 +29,7 @@ function CompareLoading() {
 function ContractorCompareContent() {
     const searchParams = useSearchParams()
     const idsString = searchParams.get('ids') || ''
-    const ids = idsString.split(',').filter(id => id.length > 0)
+    const ids = idsString.split(',').filter(id => id.length > 0).map(id => decodeId(id))
 
     const [contractors, setContractors] = useState<any[]>([])
     const [loading, setLoading] = useState(true)
@@ -161,7 +162,7 @@ function ContractorCompareContent() {
                                     </div>
                                     <h3 className="text-xl font-black text-gray-900 mb-1 leading-tight">{c.displayName}</h3>
                                     <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-6">{c.companyName || 'SmartBuild Partner'}</p>
-                                    <Link href={`/contractors/${c.id}`} className="px-6 py-2.5 bg-gray-50 text-gray-500 hover:bg-blue-600 hover:text-white rounded-xl text-[10px] font-black uppercase tracking-widest border border-gray-200 transition-all shadow-sm">
+                                    <Link href={`/contractors/${encodeId(c.id)}`} className="px-6 py-2.5 bg-gray-50 text-gray-500 hover:bg-blue-600 hover:text-white rounded-xl text-[10px] font-black uppercase tracking-widest border border-gray-200 transition-all shadow-sm">
                                         Xem hồ sơ chi tiết
                                     </Link>
                                 </div>

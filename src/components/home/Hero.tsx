@@ -16,6 +16,7 @@ interface HeroProps {
     setIsSearchFocused: (focused: boolean) => void
     searchSuggestions: any[]
     contractorSuggestions: any[]
+    trendingSearches: { name: string, tag: string }[]
     featuredContractors: any[]
     contractorSearchLoading: boolean
     selectedLocation: string
@@ -31,6 +32,7 @@ export default function Hero({
     setIsSearchFocused,
     searchSuggestions,
     contractorSuggestions,
+    trendingSearches,
     featuredContractors,
     contractorSearchLoading,
     selectedLocation,
@@ -41,11 +43,12 @@ export default function Hero({
     const searchInputRef = useRef<HTMLInputElement>(null)
     const router = useRouter()
 
-    const handleSearch = useCallback(() => {
+    const handleSearch = useCallback((query?: string) => {
+        const q = query ?? searchQuery
         if (activeSearchTab === 'products') {
-            router.push(`/products?q=${encodeURIComponent(searchQuery)}`)
+            router.push(`/products?q=${encodeURIComponent(q)}`)
         } else {
-            router.push(`/contractors?q=${encodeURIComponent(searchQuery)}&location=${encodeURIComponent(selectedLocation)}`)
+            router.push(`/contractors?q=${encodeURIComponent(q)}&location=${encodeURIComponent(selectedLocation)}`)
         }
     }, [activeSearchTab, searchQuery, selectedLocation, router])
 
@@ -155,8 +158,8 @@ export default function Hero({
                                                 <>
                                                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4 px-3">Xu hướng tìm kiếm</p>
                                                     <div className="space-y-1">
-                                                        {TOP_SEARCHES.map((item, idx) => (
-                                                            <button type="button" key={idx} onClick={() => { setSearchQuery(item.name); setIsSearchFocused(false); }} className="w-full flex items-center justify-between px-4 py-3 hover:bg-indigo-50 rounded-2xl transition-all group text-left">
+                                                        {(trendingSearches && trendingSearches.length > 0 ? trendingSearches : TOP_SEARCHES).map((item, idx) => (
+                                                            <button type="button" key={idx} onClick={() => { setSearchQuery(item.name); setIsSearchFocused(false); handleSearch(item.name); }} className="w-full flex items-center justify-between px-4 py-3 hover:bg-indigo-50 rounded-2xl transition-all group text-left">
                                                                 <span className="text-sm font-bold text-slate-700 group-hover:text-indigo-600 flex items-center gap-3">
                                                                     <TrendingUp className="w-4 h-4 text-indigo-400" /> {item.name}
                                                                 </span>
@@ -168,7 +171,7 @@ export default function Hero({
                                             ) : (
                                                 <div className="p-2 space-y-1">
                                                     {searchSuggestions.map((item, idx) => (
-                                                        <button type="button" key={idx} onClick={() => { setSearchQuery(item.name); handleSearch(); }} className="w-full flex items-center justify-between px-4 py-3.5 hover:bg-indigo-50 rounded-2xl transition-all group text-left">
+                                                        <button type="button" key={idx} onClick={() => { setSearchQuery(item.name); handleSearch(item.name); }} className="w-full flex items-center justify-between px-4 py-3.5 hover:bg-indigo-50 rounded-2xl transition-all group text-left">
                                                             <div className="flex items-center gap-4">
                                                                 <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center">
                                                                     <Package className="w-5 h-5 text-slate-400" />
@@ -191,7 +194,7 @@ export default function Hero({
                                                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4 px-3">Nhà thầu uy tín</p>
                                                     <div className="space-y-1">
                                                         {featuredContractors.map((item, idx) => (
-                                                            <button type="button" key={idx} onClick={() => { setSearchQuery(item.displayName); setIsSearchFocused(false); }} className="w-full flex items-center justify-between px-4 py-3 hover:bg-indigo-50 rounded-2xl transition-all group text-left">
+                                                            <button type="button" key={idx} onClick={() => { setSearchQuery(item.displayName); setIsSearchFocused(false); handleSearch(item.displayName); }} className="w-full flex items-center justify-between px-4 py-3 hover:bg-indigo-50 rounded-2xl transition-all group text-left">
                                                                 <span className="text-sm font-bold text-slate-700 group-hover:text-indigo-600 flex items-center gap-3">
                                                                     <ShieldCheck className="w-4 h-4 text-indigo-400" /> {item.displayName}
                                                                 </span>
@@ -203,7 +206,7 @@ export default function Hero({
                                             ) : (
                                                 <div className="p-2 space-y-1">
                                                     {contractorSuggestions.map((item, idx) => (
-                                                        <button type="button" key={idx} onClick={() => { setSearchQuery(item.displayName); handleSearch(); }} className="w-full flex items-center justify-between px-4 py-3.5 hover:bg-indigo-50 rounded-2xl transition-all group text-left">
+                                                        <button type="button" key={idx} onClick={() => { setSearchQuery(item.displayName); handleSearch(item.displayName); }} className="w-full flex items-center justify-between px-4 py-3.5 hover:bg-indigo-50 rounded-2xl transition-all group text-left">
                                                             <div className="flex items-center gap-4">
                                                                 <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center">
                                                                     <HardHat className="w-5 h-5 text-slate-400" />

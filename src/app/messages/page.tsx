@@ -15,6 +15,7 @@ import { ref, onChildAdded, off } from 'firebase/database'
 import ChatCallManager from '@/components/ChatCallManager'
 import toast, { Toaster } from 'react-hot-toast'
 import MessengerChatBubbles, { ChatMessage } from '@/components/chat/MessengerChatBubbles'
+import { decodeId } from '@/lib/id-utils'
 
 interface Conversation {
     id: string
@@ -78,7 +79,8 @@ function MessagesClient() {
     const [userId, setUserId] = useState<string>('')
     const [userName, setUserName] = useState<string>('')
     const searchParams = useSearchParams()
-    const partnerId = searchParams.get('partnerId')
+    const rawPartnerId = searchParams.get('partnerId')
+    const partnerId = rawPartnerId ? decodeId(rawPartnerId) : null
 
     useEffect(() => {
         if (!authLoading) {

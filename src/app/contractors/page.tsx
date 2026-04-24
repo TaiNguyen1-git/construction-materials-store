@@ -6,7 +6,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import {
     Users, MapPin, Star, ShieldCheck,
     Search, ArrowRight, ArrowLeft,
@@ -17,6 +17,7 @@ import {
     Clock, Trophy, BadgeCheck,
     MessageSquare, Calculator, Camera
 } from 'lucide-react'
+import { encodeId } from '@/lib/id-utils'
 import toast, { Toaster } from 'react-hot-toast'
 import Header from '@/components/Header'
 import LoginIncentiveModal from '@/components/LoginIncentiveModal'
@@ -39,6 +40,7 @@ export default function ContractorMarketplace() {
     const [cityFilter, setCityFilter] = useState('Toàn quốc')
     const [searchTerm, setSearchTerm] = useState('')
     const [showLoginModal, setShowLoginModal] = useState(false)
+    const searchParams = useSearchParams()
 
     // Feature 7: Comparison State
     const [compareList, setCompareList] = useState<any[]>([])
@@ -102,6 +104,13 @@ export default function ContractorMarketplace() {
             toast.error('Lỗi hệ thống khi kết nối')
         }
     }
+
+    useEffect(() => {
+        const q = searchParams.get('q')
+        const location = searchParams.get('location')
+        if (q) setSearchTerm(q)
+        if (location) setCityFilter(location)
+    }, [searchParams])
 
     useEffect(() => {
         fetchContractors()
@@ -396,7 +405,7 @@ export default function ContractorMarketplace() {
 
                         <div className="flex gap-2">
                             <Link
-                                href={`/contractors/compare?ids=${compareList.map(c => c.id).join(',')}`}
+                                href={`/contractors/compare?ids=${compareList.map(c => encodeId(c.id)).join(',')}`}
                                 className="px-8 py-3 bg-blue-600 text-white font-black rounded-[24px] hover:bg-blue-500 transition-all text-xs flex items-center gap-2 shadow-lg shadow-blue-200"
                             >
                                 SO SÁNH NGAY
@@ -517,7 +526,7 @@ function ContractorCard({ contractor, onFavorite, onChat, onCompare, isComparing
                 {/* Final CTA Area */}
                 <div className="mt-auto flex gap-2 pt-4 border-t border-slate-50/80">
                     <Link
-                        href={`/contractors/${contractor.id}`}
+                        href={`/contractors/${encodeId(contractor.id)}`}
                         className="flex-1 bg-blue-600 text-white py-4 rounded-2xl font-black text-[10px] uppercase tracking-[0.1em] text-center shadow-lg shadow-blue-100 hover:bg-blue-700 hover:shadow-blue-200 transition-all active:scale-95 flex items-center justify-center gap-2"
                     >
                         Hồ sơ chi tiết

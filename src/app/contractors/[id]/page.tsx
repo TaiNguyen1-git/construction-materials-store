@@ -2,13 +2,17 @@ import { prisma } from '@/lib/prisma'
 import { Metadata, ResolvingMetadata } from 'next'
 import ContractorDetailView from './ContractorDetailView'
 import ContractorJsonLd from '@/components/seo/ContractorJsonLd'
+import { decodeId } from '@/lib/id-utils'
 import { notFound } from 'next/navigation'
 
 interface Props {
     params: Promise<{ id: string }>
 }
 
-async function getContractor(id: string) {
+async function getContractor(shortId: string) {
+    const id = decodeId(shortId)
+    if (!id) return null
+    
     const contractor = await prisma.contractorProfile.findUnique({
         where: { id },
     })

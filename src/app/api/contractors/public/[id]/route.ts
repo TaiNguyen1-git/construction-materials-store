@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { decodeId } from '@/lib/id-utils'
 import jwt from 'jsonwebtoken'
 
 const getUserRole = (request: NextRequest): string | null => {
@@ -27,7 +28,12 @@ export async function GET(
         const authRole = getUserRole(request)
         const canViewContactInfo = !!authRole
 
-        const { id } = await params
+        const { id: shortId } = await params
+        const id = decodeId(shortId)
+
+        if (!id) {
+            return NextResponse.json({ error: 'Invalid ID format' }, { status: 400 })
+        }
 
         const contractor = await prisma.contractorProfile.findUnique({
             where: { id },

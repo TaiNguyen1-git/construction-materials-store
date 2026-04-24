@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { verifyTokenFromRequest } from '@/lib/auth'
+import { decodeId } from '@/lib/id-utils'
 
 // Admin support ID used for supplier conversations
 const ADMIN_SUPPORT_ID = 'admin_support'
@@ -112,6 +113,8 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ message: 'Recipient ID is required' }, { status: 400 })
         }
 
+        const decodedRecipientId = decodeId(recipientId)
+        
         // TypeScript safety
         const currentUserId = userId as string;
 
@@ -119,8 +122,8 @@ export async function POST(req: NextRequest) {
         let conversation = await prisma.conversation.findFirst({
             where: {
                 OR: [
-                    { participant1Id: currentUserId, participant2Id: recipientId },
-                    { participant1Id: recipientId, participant2Id: currentUserId }
+                    { participant1Id: currentUserId, participant2Id: decodedRecipientId },
+                    { participant1Id: decodedRecipientId, participant2Id: currentUserId }
                 ]
             }
         })
@@ -128,7 +131,7 @@ export async function POST(req: NextRequest) {
         if (!conversation) {
             // Get user names if not provided
             // Special handling for 'admin_support' channel - it's not a real user ID
-            const isAdminSupportChannel = recipientId === 'admin_support'
+            const isAdminSupportChannel = decodedRecipientId === 'admin_support'
 
             let user1Name = userName || 'Người dùng'
             let user2Name = recipientName || 'Hỗ trợ khách hàng'
@@ -141,8 +144,8 @@ export async function POST(req: NextRequest) {
                     isValidObjectId(currentUserId)
                         ? prisma.user.findUnique({ where: { id: currentUserId }, select: { name: true } })
                         : null,
-                    isValidObjectId(recipientId)
-                        ? prisma.user.findUnique({ where: { id: recipientId }, select: { name: true } })
+                    isValidObjectId(decodedRecipientId)
+                        ? prisma.user.findUnique({ where: { id: decodedRecipientId }, select: { name: true } })
                         : null
                 ])
                 user1Name = user1?.name || userName || 'Người dùng'
@@ -153,7 +156,7 @@ export async function POST(req: NextRequest) {
                 data: {
                     participant1Id: currentUserId,
                     participant1Name: user1Name,
-                    participant2Id: recipientId,
+                    participant2Id: decodedRecipientId,
                     participant2Name: user2Name,
                     projectId: projectId || null,
                     projectTitle: projectTitle || null
