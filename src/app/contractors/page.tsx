@@ -4,7 +4,7 @@
  * Public Contractor Marketplace - Enhanced with 7 Premium Features
  */
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import {
@@ -33,7 +33,7 @@ const CATEGORIES = [
 
 const CITIES = ['Toàn quốc', 'Hồ Chí Minh', 'Hà Nội', 'Đà Nẵng', 'Hải Phòng', 'Cần Thơ', 'Biên Hòa']
 
-export default function ContractorMarketplace() {
+function ContractorMarketplaceContent() {
     const [loading, setLoading] = useState(true)
     const [contractors, setContractors] = useState<any[]>([])
     const [filter, setFilter] = useState('all')
@@ -427,6 +427,14 @@ export default function ContractorMarketplace() {
 
             {showChatModal && <ChatModal onClose={() => setShowChatModal(false)} onSubmit={handleGuestSubmit} contact={guestContact} setContact={setGuestContact} />}
         </div>
+    )
+}
+
+export default function ContractorMarketplace() {
+    return (
+        <Suspense fallback={<div className="min-h-screen bg-slate-50 flex items-center justify-center font-black text-blue-600">ĐANG TẢI...</div>}>
+            <ContractorMarketplaceContent />
+        </Suspense>
     )
 }
 
