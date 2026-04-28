@@ -41,7 +41,7 @@ export const KNOWLEDGE_BASE: ProductKnowledge[] = [
     specifications: {
       strength: 'PC40 (Mác 400)',
       weight: '50kg',
-      standard: 'TCVN 2682:2009',
+      standard: 'TCVN 2682:2020',
       settingTime: '45-60 phút',
       color: 'Xám'
     },
@@ -90,7 +90,7 @@ export const KNOWLEDGE_BASE: ProductKnowledge[] = [
     specifications: {
       strength: 'PC30 (Mác 300)',
       weight: '50kg',
-      standard: 'TCVN 2682:2009',
+      standard: 'TCVN 2682:2020',
       settingTime: '45-60 phút',
       color: 'Xám'
     },
@@ -134,7 +134,7 @@ export const KNOWLEDGE_BASE: ProductKnowledge[] = [
     specifications: {
       strength: 'PCB40 (Mác 400)',
       weight: '50kg',
-      standard: 'TCVN 2682:2009',
+      standard: 'TCVN 2682:2020',
       settingTime: '45-60 phút',
       color: 'Xám nhạt'
     },
@@ -177,7 +177,7 @@ export const KNOWLEDGE_BASE: ProductKnowledge[] = [
     specifications: {
       strength: 'PC30 (Mác 300)',
       weight: '50kg',
-      standard: 'TCVN 2682:2009',
+      standard: 'TCVN 2682:2020',
       settingTime: '45-60 phút',
       color: 'Xám nhạt'
     },
@@ -490,7 +490,7 @@ export const KNOWLEDGE_BASE: ProductKnowledge[] = [
       diameter: '10mm',
       length: '11.7m/cây',
       weight: '6.2kg/m',
-      standard: 'TCVN 1651-2:2008',
+      standard: 'TCVN 1651-2:2018',
       grade: 'CB300-V'
     },
     pricing: {
@@ -539,7 +539,7 @@ export const KNOWLEDGE_BASE: ProductKnowledge[] = [
       diameter: '12mm',
       length: '11.7m/cây',
       weight: '8.9kg/m',
-      standard: 'TCVN 1651-2:2008',
+      standard: 'TCVN 1651-2:2018',
       grade: 'CB300-V'
     },
     pricing: {
@@ -582,7 +582,7 @@ export const KNOWLEDGE_BASE: ProductKnowledge[] = [
       diameter: '16mm',
       length: '11.7m/cây',
       weight: '15.8kg/m',
-      standard: 'TCVN 1651-2:2008',
+      standard: 'TCVN 1651-2:2018',
       grade: 'CB400-V'
     },
     pricing: {
