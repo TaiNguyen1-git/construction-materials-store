@@ -9,12 +9,23 @@ const ADMIN_SUPPORT_ID = 'admin_support'
 export async function GET(req: NextRequest) {
     try {
         const decoded = await verifyTokenFromRequest(req)
-        if (!decoded) {
-            return NextResponse.json({ message: 'Unauthorized' }, { status: 401 })
+        const { searchParams } = new URL(req.url)
+        
+        let userId: string | null = decoded?.userId || null
+        let userRole: string | null = decoded?.role || null
+
+        // Support for Guest users
+        if (!userId) {
+            const guestId = req.headers.get('x-guest-id') || searchParams.get('guestId')
+            if (guestId && guestId.startsWith('guest_')) {
+                userId = guestId
+                userRole = 'GUEST'
+            }
         }
 
-        const userId = decoded.userId
-        const userRole = decoded.role
+        if (!userId) {
+            return NextResponse.json({ message: 'Unauthorized' }, { status: 401 })
+        }
 
         // Build query conditions
         const conditions = [

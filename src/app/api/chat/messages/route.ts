@@ -10,9 +10,12 @@ export async function POST(request: NextRequest) {
         const body = await request.json()
         const { conversationId, content, fileUrl, fileName, fileType, tempId, senderId: bodySenderId, senderName: bodySenderName } = body
 
-        // Get userId from header or body (for guests)
-        const userId = request.headers.get('x-user-id') || bodySenderId
-        const userRole = request.headers.get('x-user-role')
+        // Get userId from JWT, header, or body
+        const { verifyTokenFromRequest } = await import('@/lib/auth')
+        const decoded = await verifyTokenFromRequest(request)
+        
+        const userId = decoded?.userId || request.headers.get('x-guest-id') || bodySenderId
+        const userRole = decoded?.role || request.headers.get('x-user-role') || (userId?.startsWith('guest_') ? 'GUEST' : null)
 
         if (!userId) {
             return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })

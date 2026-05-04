@@ -119,7 +119,10 @@ function MessagesClient() {
         try {
             const res = await fetch('/api/chat/conversations', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'x-guest-id': userId
+                },
                 body: JSON.stringify({
                     recipientId: partnerId
                 })
@@ -181,7 +184,9 @@ function MessagesClient() {
 
     const fetchConversations = async (uid: string) => {
         try {
-            const res = await fetch('/api/chat/conversations')
+            const res = await fetch(`/api/chat/conversations?guestId=${uid}`, {
+                headers: { 'x-guest-id': uid }
+            })
             if (res.ok) {
                 const data = await res.json()
                 if (data.success) {
@@ -213,7 +218,9 @@ function MessagesClient() {
         setMessages([])
 
         try {
-            const res = await fetch(`/api/chat/conversations/${convId}/messages`)
+            const res = await fetch(`/api/chat/conversations/${convId}/messages`, {
+                headers: { 'x-guest-id': userId }
+            })
             if (res.ok) {
                 const data = await res.json()
                 if (data.success) {
@@ -340,7 +347,10 @@ function MessagesClient() {
         try {
             await fetch('/api/chat/messages', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'x-guest-id': userId
+                },
                 body: JSON.stringify({
                     conversationId: selectedConv,
                     content: content || null,

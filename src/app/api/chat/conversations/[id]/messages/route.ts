@@ -4,7 +4,10 @@ import { prisma } from '@/lib/prisma'
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {
         const { id: conversationId } = await params
-        const userId = request.headers.get('x-user-id')
+        const { verifyTokenFromRequest } = await import('@/lib/auth')
+        const decoded = await verifyTokenFromRequest(request)
+        
+        const userId = decoded?.userId || request.headers.get('x-guest-id')
         if (!userId) {
             return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
         }

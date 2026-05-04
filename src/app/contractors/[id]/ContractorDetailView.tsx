@@ -62,7 +62,10 @@ export default function ContractorDetailView({ params, initialContractor }: { pa
             // Auto-create/ensure conversation exists via API
             const res = await fetch('/api/chat/conversations', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'x-guest-id': guestId
+                },
                 body: JSON.stringify({
                     senderId: guestId,
                     senderName: guestContact.name,
