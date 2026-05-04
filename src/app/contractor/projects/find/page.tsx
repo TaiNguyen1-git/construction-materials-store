@@ -160,7 +160,7 @@ export default function FindProjectsPage() {
 
         return (
             <div
-                onClick={() => router.push(`/contractor/projects/${project.id}`)}
+                onClick={() => router.push(`/contractor/projects/${project.id}?action=apply`)}
                 className={`group bg-white rounded-2xl cursor-pointer hover:shadow-md hover:border-primary/20 bg-white transition-all duration-300 relative border border-slate-100 p-6 ${viewMode === 'list' ? 'flex flex-col sm:flex-row sm:items-center gap-6' : 'flex flex-col h-full'
                     }`}
             >
