@@ -18,28 +18,27 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
         const project = await prisma.constructionProject.findUnique({
             where: { id },
-            include: {
-                applications: {
-                    where: { status: 'SELECTED' }
-                }
-            }
+            include: { applications: { where: { status: 'SELECTED' } } }
         })
 
-        if (!project) {
+        // If not a ConstructionProject, try internal Project
+        const isInternal = !project
+        let internalProject: any = null
+        if (isInternal) {
+            internalProject = await (prisma as any).project.findUnique({
+                where: { id },
+                include: { projectBids: true }
+            }).catch(() => null)
+        }
+
+        if (!project && !internalProject) {
             return NextResponse.json({ message: 'Project not found' }, { status: 404 })
         }
 
         // Try to find the associated QuoteRequest for milestones
         const quote = await prisma.quoteRequest.findFirst({
-            where: {
-                projectId: id,
-                status: 'ACCEPTED'
-            },
-            include: {
-                milestones: {
-                    orderBy: { order: 'asc' }
-                }
-            }
+            where: { projectId: id, status: 'ACCEPTED' },
+            include: { milestones: { orderBy: { order: 'asc' } } }
         })
 
         // Fetch expenses
@@ -58,28 +57,51 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
             where: { userId: payload.userId }
         })
 
-        // Find if this contractor has submitted an application for this ConstructionProject
+        // For ConstructionProject → check ProjectApplication
+        // For internal Project → check ProjectBid
         let userBid = null
         if (contractor) {
-            const application = await prisma.projectApplication.findFirst({
-                where: { projectId: id, contractorId: contractor.id },
-                orderBy: { createdAt: 'desc' }
-            })
-            if (application) {
-                userBid = {
-                    id: application.id,
-                    status: application.status,
-                    amount: application.proposedBudget || 0,
-                    createdAt: application.createdAt
+            if (!isInternal) {
+                const application = await prisma.projectApplication.findFirst({
+                    where: { projectId: id, contractorId: contractor.id },
+                    orderBy: { createdAt: 'desc' }
+                })
+                if (application) {
+                    userBid = { id: application.id, status: application.status, amount: application.proposedBudget || 0, createdAt: application.createdAt }
+                }
+            } else {
+                const bid = await prisma.projectBid.findFirst({
+                    where: { projectId: id, contractorId: contractor.id },
+                    orderBy: { createdAt: 'desc' }
+                })
+                if (bid) {
+                    userBid = { id: bid.id, status: bid.status, amount: bid.amount, createdAt: bid.createdAt }
                 }
             }
         }
 
+        // Build response data from whichever source was found
+        const sourceProject = project ?? internalProject
+        const applicationCount = project
+            ? (project.applications?.length ?? 0)
+            : (internalProject?.projectBids?.length ?? 0)
+
         return NextResponse.json({
             success: true,
             data: {
-                ...project,
-                applicationCount: project.applications?.length ?? 0,
+                id: sourceProject.id,
+                title: project ? sourceProject.title : sourceProject.name,
+                description: sourceProject.description || '',
+                projectType: project ? sourceProject.projectType : (sourceProject.category || 'general'),
+                location: sourceProject.location || '',
+                city: project ? sourceProject.city : (sourceProject.location?.split(',').pop()?.trim() || 'Toàn quốc'),
+                estimatedBudget: project ? sourceProject.estimatedBudget : sourceProject.budget,
+                status: sourceProject.status,
+                contactName: project ? sourceProject.contactName : (sourceProject.guestName || 'Khách hàng'),
+                isUrgent: project ? sourceProject.isUrgent : (sourceProject.priority === 'HIGH'),
+                requirements: sourceProject.requirements || [],
+                createdAt: sourceProject.createdAt,
+                applicationCount,
                 userBid,
                 milestones: quote?.milestones || [],
                 expenses: expenses || [],

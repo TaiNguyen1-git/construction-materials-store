@@ -92,16 +92,28 @@ export async function GET(
             if (userId) {
                 const contractor = await prisma.customer.findFirst({ where: { userId } })
                 if (contractor) {
-                    const application = await prisma.projectApplication.findFirst({
-                        where: { projectId: id, contractorId: contractor.id },
-                        select: { id: true, status: true, createdAt: true, proposedBudget: true }
-                    })
-                    if (application) {
-                        userBid = {
-                            id: application.id,
-                            status: application.status,
-                            amount: application.proposedBudget || 0,
-                            createdAt: application.createdAt
+                    // ConstructionProject → check ProjectApplication
+                    // Internal Project (fallback) → check ProjectBid
+                    const isConstructionProject = !!(await prisma.constructionProject.findUnique({
+                        where: { id },
+                        select: { id: true }
+                    }).catch(() => null))
+
+                    if (isConstructionProject) {
+                        const application = await prisma.projectApplication.findFirst({
+                            where: { projectId: id, contractorId: contractor.id },
+                            select: { id: true, status: true, createdAt: true, proposedBudget: true }
+                        })
+                        if (application) {
+                            userBid = { id: application.id, status: application.status, amount: application.proposedBudget || 0, createdAt: application.createdAt }
+                        }
+                    } else {
+                        const bid = await prisma.projectBid.findFirst({
+                            where: { projectId: id, contractorId: contractor.id },
+                            select: { id: true, status: true, createdAt: true, amount: true }
+                        })
+                        if (bid) {
+                            userBid = { id: bid.id, status: bid.status, amount: bid.amount, createdAt: bid.createdAt }
                         }
                     }
                 }

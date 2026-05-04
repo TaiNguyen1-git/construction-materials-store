@@ -15,29 +15,18 @@ export async function GET(request: NextRequest) {
         const city = searchParams.get('city')
         const status = searchParams.get('status') || 'OPEN'
 
-        const where: any = {
-            status
-        }
+        // === Source 1: ConstructionProject (native marketplace projects) ===
+        const cpWhere: any = { status }
+        if (type) cpWhere.projectType = type
+        if (city) cpWhere.city = city
 
-        if (type) where.projectType = type
-        if (city) where.city = city
-
-        const projects = await prisma.constructionProject.findMany({
-            where,
-            include: {
-                applications: {
-                    select: { id: true }
-                }
-            },
-            orderBy: [
-                { isUrgent: 'desc' },
-                { isFeatured: 'desc' },
-                { createdAt: 'desc' }
-            ]
+        const constructionProjects = await prisma.constructionProject.findMany({
+            where: cpWhere,
+            include: { applications: { select: { id: true } } },
+            orderBy: [{ isUrgent: 'desc' }, { isFeatured: 'desc' }, { createdAt: 'desc' }]
         })
 
-        // Format response
-        const formattedProjects = projects.map(p => ({
+        const fromConstruction = constructionProjects.map(p => ({
             id: p.id,
             title: p.title,
             description: p.description,
@@ -51,13 +40,57 @@ export async function GET(request: NextRequest) {
             viewCount: p.viewCount,
             isUrgent: p.isUrgent,
             applicationCount: p.applications.length,
-            createdAt: p.createdAt
+            createdAt: p.createdAt,
+            _source: 'construction'
         }))
+
+        // === Source 2: Internal Project (isPublic + APPROVED) — uses ProjectBid ===
+        const internalWhere: any = {
+            isPublic: true,
+            moderationStatus: 'APPROVED'
+        }
+        if (city) internalWhere.location = { contains: city }
+
+        const internalProjects = await (prisma as any).project.findMany({
+            where: internalWhere,
+            include: {
+                projectBids: { select: { id: true } },
+                customer: { select: { user: { select: { name: true } } } }
+            },
+            orderBy: { createdAt: 'desc' }
+        })
+
+        const fromInternal = internalProjects.map((p: any) => ({
+            id: p.id,
+            title: p.name,
+            description: p.description || '',
+            projectType: p.category || 'general',
+            location: p.location || '',
+            city: p.location?.split(',').pop()?.trim() || 'Toàn quốc',
+            estimatedBudget: p.budget || null,
+            budgetType: 'NEGOTIABLE',
+            status: p.status || 'OPEN',
+            contactName: p.guestName || p.customer?.user?.name || 'Khách hàng',
+            viewCount: 0,
+            isUrgent: p.priority === 'HIGH' || p.priority === 'URGENT',
+            applicationCount: p.projectBids?.length ?? 0,
+            createdAt: p.createdAt,
+            _source: 'internal'
+        }))
+
+        // Merge, deduplicate by ID, sort by date
+        const allProjects = [...fromConstruction, ...fromInternal]
+            .filter((p, idx, arr) => arr.findIndex(x => x.id === p.id) === idx)
+            .sort((a, b) => {
+                if (a.isUrgent !== b.isUrgent) return a.isUrgent ? -1 : 1
+                return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+            })
+            .map(({ _source, ...p }) => p) // strip internal _source field
 
         return NextResponse.json(
             createSuccessResponse({
-                projects: formattedProjects,
-                total: formattedProjects.length
+                projects: allProjects,
+                total: allProjects.length
             }, 'Projects loaded'),
             { status: 200 }
         )
