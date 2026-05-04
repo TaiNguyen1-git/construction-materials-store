@@ -27,7 +27,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         if (isInternal) {
             internalProject = await (prisma as any).project.findUnique({
                 where: { id },
-                include: { projectBids: true }
+                include: { bids: true }
             }).catch(() => null)
         }
 
@@ -84,7 +84,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         const sourceProject = project ?? internalProject
         const applicationCount = project
             ? (project.applications?.length ?? 0)
-            : (internalProject?.projectBids?.length ?? 0)
+            : (internalProject?.bids?.length ?? 0)
 
         return NextResponse.json({
             success: true,

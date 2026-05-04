@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
         const internalProjects = await (prisma as any).project.findMany({
             where: internalWhere,
             include: {
-                projectBids: { select: { id: true } },
+                bids: { select: { id: true } },
                 customer: { select: { user: { select: { name: true } } } }
             },
             orderBy: { createdAt: 'desc' }
@@ -73,7 +73,7 @@ export async function GET(request: NextRequest) {
             contactName: p.guestName || p.customer?.user?.name || 'Khách hàng',
             viewCount: 0,
             isUrgent: p.priority === 'HIGH' || p.priority === 'URGENT',
-            applicationCount: p.projectBids?.length ?? 0,
+            applicationCount: p.bids?.length ?? 0,
             createdAt: p.createdAt,
             _source: 'internal'
         }))
