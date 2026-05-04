@@ -160,6 +160,7 @@ model ProjectBid {
   milestones      Json? // [{name, percentage}]
   status          BidStatus @default(PENDING)
   validUntil      DateTime?
+  attachments     String[]  @default([])
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 

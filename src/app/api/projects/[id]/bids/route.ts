@@ -18,6 +18,7 @@ const bidSchema = z.object({
     name: z.string(),
     percentage: z.number()
   })).optional(),
+  attachments: z.array(z.string()).optional(),
   validUntil: z.string().optional().transform(s => s ? new Date(s) : undefined)
 })
 

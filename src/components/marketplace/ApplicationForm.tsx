@@ -213,10 +213,10 @@ ${name}`
             return
         }
         try {
-            const res = await fetch(`/api/products/search?q=${encodeURIComponent(term)}&limit=5`)
+            const res = await fetch(`/api/products?q=${encodeURIComponent(term)}&limit=5`)
             if (res.ok) {
                 const data = await res.json()
-                if (data.success) setSearchResults(data.data.products || [])
+                if (data.success) setSearchResults(data.data.data || [])
             }
         } catch (err) {
             console.error('Search failed:', err)
