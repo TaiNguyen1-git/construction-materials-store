@@ -40,6 +40,20 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
     const [loading, setLoading] = useState(true)
     const [showApplyModal, setShowApplyModal] = useState(false)
     const [isOwner, setIsOwner] = useState(false)
+    const router = useRouter()
+
+    const handleApplyClick = () => {
+        const contId = localStorage.getItem('contractor_id')
+        if (!contId) {
+            toast.error('Vui lòng đăng nhập với tài khoản Nhà thầu để ứng tuyển!')
+            const callbackUrl = encodeURIComponent(`/projects/${projectId}?action=apply`)
+            setTimeout(() => {
+                router.push(`/login?role=contractor&callbackUrl=${callbackUrl}`)
+            }, 1500)
+            return
+        }
+        setShowApplyModal(true)
+    }
     
     // SmartMatch AI State
     const [matchingContractors, setMatchingContractors] = useState<any[]>([])
@@ -52,7 +66,21 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
     const [expandedBidId, setExpandedBidId] = useState<string | null>(null)
 
     useEffect(() => {
-        if (projectId) fetchProject()
+        if (projectId) {
+            fetchProject()
+            // Auto-open apply modal if returning from login
+            if (typeof window !== 'undefined') {
+                const params = new URLSearchParams(window.location.search)
+                if (params.get('action') === 'apply') {
+                    const contId = localStorage.getItem('contractor_id')
+                    if (contId) {
+                        setTimeout(() => setShowApplyModal(true), 500)
+                    }
+                    // Clean up URL
+                    window.history.replaceState({}, '', `/projects/${projectId}`)
+                }
+            }
+        }
     }, [projectId])
 
     const fetchProject = async () => {
@@ -194,7 +222,7 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
 
                             {!isOwner && (
                                 <button
-                                    onClick={() => setShowApplyModal(true)}
+                                    onClick={handleApplyClick}
                                     className="w-full sm:w-auto px-8 py-4 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 transition-all shadow-xl shadow-blue-100 flex items-center justify-center gap-2"
                                 >
                                     <Send className="w-5 h-5" /> Ứng tuyển ngay

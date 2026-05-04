@@ -16,7 +16,7 @@ import { Toaster, toast } from 'react-hot-toast'
 import { useAuth } from '@/contexts/auth-context'
 import { fetchWithAuth } from '@/lib/api-client'
 import { Badge } from '@/components/ui/badge'
-import ApplicationForm from '@/components/marketplace/ApplicationForm'
+import BiddingForm from '@/components/marketplace/BiddingForm'
 import ProjectProgress from '../components/ProjectProgress'
 
 const formatCurrency = (val: number) =>
@@ -60,7 +60,16 @@ export default function ContractorProjectDetailPage() {
     const [newTask, setNewTask] = useState('')
 
     useEffect(() => {
-        if (id) fetchProject()
+        if (id) {
+            fetchProject()
+            if (typeof window !== 'undefined') {
+                const params = new URLSearchParams(window.location.search)
+                if (params.get('action') === 'apply') {
+                    setTimeout(() => setShowApplyModal(true), 500)
+                    window.history.replaceState({}, '', `/contractor/projects/${id}`)
+                }
+            }
+        }
     }, [id])
 
     const fetchProject = async () => {
@@ -512,22 +521,17 @@ export default function ContractorProjectDetailPage() {
 
             {/* Application Modal */}
             {showApplyModal && project && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm animate-in fade-in" onClick={() => setShowApplyModal(false)}></div>
-                    <div className="bg-white rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-2xl animate-in zoom-in-95 duration-300 relative z-[110] p-1">
-                        <ApplicationForm
-                            projectId={project.id}
-                            projectTitle={project.title}
-                            isOpen={showApplyModal}
-                            onClose={() => setShowApplyModal(false)}
-                            onSuccess={() => {
-                                setShowApplyModal(false)
-                                fetchProject()
-                                toast.success('Đã gửi hồ sơ thầu thành công!')
-                            }}
-                        />
-                    </div>
-                </div>
+                <BiddingForm
+                    projectId={project.id}
+                    projectTitle={project.title}
+                    isOpen={showApplyModal}
+                    onClose={() => setShowApplyModal(false)}
+                    onSuccess={() => {
+                        setShowApplyModal(false)
+                        fetchProject()
+                        toast.success('Đã gửi hồ sơ thầu thành công!')
+                    }}
+                />
             )}
 
             {/* Tasks Modal */}
