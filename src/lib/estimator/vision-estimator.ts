@@ -20,6 +20,7 @@ import {
 } from './estimator-types'
 import { calculateMaterials, validateAgainstIndustryStandards } from './material-calculator'
 import { enrichMaterialsWithProducts } from './product-enricher'
+import { convertSymbolsToMaterials } from './symbol-converter'
 
 // Gemini client — initialized once
 const genAI = process.env.GEMINI_API_KEY
@@ -86,12 +87,15 @@ export async function analyzeFloorPlanImage(
         })
         if (cached) return cached.result as any
 
-        const imageParts = images.map(img => ({
-            inlineData: {
-                mimeType: 'image/jpeg',
-                data: img.replace(/^data:image\/\w+;base64,/, '')
+        const imageParts = images.map(img => {
+            const isPdf = img.startsWith('data:application/pdf') || img.length > 1000 && img.substring(0, 30).includes('pdf')
+            return {
+                inlineData: {
+                    mimeType: isPdf ? 'application/pdf' : 'image/jpeg',
+                    data: img.replace(/^data:(image\/\w+|application\/pdf);base64,/, '')
+                }
             }
-        }))
+        })
 
         const aiPrompt = `
 You are a senior construction engineer. Analyze the provided floor plan with high precision:
@@ -114,9 +118,14 @@ Return ONLY JSON:
   "buildingStyle": "nhà_cấp_4" | "nhà_phố" | "biệt_thự",
   "roofType": "bê_tông" | "mái_thái" | "mái_tôn",
   "rooms": [{ "name": "string", "length": float, "width": float, "x_pct": float, "z_pct": float, "floor": int }],
+  "symbols": [
+    { "type": "door" | "window" | "column" | "socket", "count": int, "label": "string" },
+    { "type": "material_area", "material": "tiles" | "paint", "area": float, "label": "string" }
+  ],
   "totalArea": float,
   "notes": "string"
-}`
+}
+Note: If the document is a PDF, analyze all pages. Extract quantity of doors/windows if visible.`
 
         const responseText = await callGemini(aiPrompt, imageParts)
         const rawData = parseGeminiEstimatorJSON(responseText)
@@ -164,6 +173,11 @@ Return ONLY JSON:
             rawData.wallPerimeter || totalArea * 1.2,
             rawData.roofType || 'bê_tông'
         )
+
+        // ── STEP 2.5: SYMBOL CONVERSION ──
+        const symbolMaterials = convertSymbolsToMaterials(rawData.symbols || [])
+        materials.push(...symbolMaterials)
+
         const enriched = await enrichMaterialsWithProducts(materials)
         const cost = enriched.reduce((sum, m) => sum + (m.price || 0) * m.quantity, 0)
         const validation = validateAgainstIndustryStandards(totalArea, enriched)
@@ -182,6 +196,7 @@ Return ONLY JSON:
             rawAnalysis: `${rawData.notes || ''} | Roof: ${rawData.roofType || 'Unknown'}`,
             wallPerimeter: rawData.wallPerimeter,
             roofType: rawData.roofType,
+            symbols: rawData.symbols,
         }
 
         // ── STEP 3: SAVE TO CACHE ──

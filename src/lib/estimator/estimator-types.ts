@@ -71,6 +71,7 @@ export interface EstimatorResult {
     error?: string
     wallPerimeter?: number
     roofType?: string
+    symbols?: any[]
 }
 
 // ─── TCVN Construction material standards ─────────────────────────────────────
