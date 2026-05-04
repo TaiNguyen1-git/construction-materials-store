@@ -192,7 +192,7 @@ ${name}`
 
     useEffect(() => {
         const token = localStorage.getItem('access_token')
-        const custId = localStorage.getItem('customer_id')
+        const custId = localStorage.getItem('contractor_id')
         const userStr = localStorage.getItem('user')
 
         if (token && custId) {

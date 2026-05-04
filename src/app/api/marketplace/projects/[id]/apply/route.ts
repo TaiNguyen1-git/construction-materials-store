@@ -57,7 +57,7 @@ export async function POST(
         }
 
         // Check if project exists and is open
-        const project = await prisma.project.findUnique({
+        const project = await prisma.constructionProject.findUnique({
             where: { id: projectId }
         })
 
@@ -68,7 +68,7 @@ export async function POST(
             )
         }
 
-        if (project.contractorId !== null || project.status === 'COMPLETED' || project.status === 'CANCELLED') {
+        if (project.status === 'IN_PROGRESS' || project.status === 'COMPLETED' || project.status === 'CANCELLED') {
             return NextResponse.json(
                 createErrorResponse('Dự án đã đóng tuyển', 'VALIDATION_ERROR'),
                 { status: 400 }
@@ -113,21 +113,29 @@ export async function POST(
 
         // Create notification for project owner
         const applicantName = isGuest ? guestName : 'Nhà thầu đã xác minh'
-        await prisma.notification.create({
-            data: {
-                type: 'ORDER_NEW',
-                title: 'Có nhà thầu ứng tuyển mới',
-                message: `Dự án "${project.name}" có ${isGuest ? 'hồ sơ tự khai báo' : 'nhà thầu xác minh'} ứng tuyển: ${applicantName}`,
-                priority: isGuest ? 'LOW' : 'MEDIUM',
-                read: false,
-                userId: null,
-                metadata: {
-                    projectId,
-                    applicationId: application.id,
-                    isGuest
+        let projectOwnerUserId = null;
+        if (project.customerId && project.customerId !== 'guest') {
+            const customer = await prisma.customer.findUnique({ where: { id: project.customerId } });
+            if (customer?.userId) projectOwnerUserId = customer.userId;
+        }
+
+        if (projectOwnerUserId) {
+            await prisma.notification.create({
+                data: {
+                    type: 'ORDER_NEW',
+                    title: 'Có nhà thầu ứng tuyển mới',
+                    message: `Dự án "${project.title}" có ${isGuest ? 'hồ sơ tự khai báo' : 'nhà thầu xác minh'} ứng tuyển: ${applicantName}`,
+                    priority: isGuest ? 'LOW' : 'MEDIUM',
+                    read: false,
+                    userId: projectOwnerUserId,
+                    metadata: {
+                        projectId,
+                        applicationId: application.id,
+                        isGuest
+                    }
                 }
-            }
-        })
+            })
+        }
 
         return NextResponse.json(
             createSuccessResponse({ application }, 'Ứng tuyển thành công'),
@@ -260,7 +268,8 @@ export async function PATCH(
         }
 
         const application = await prisma.projectApplication.findUnique({
-            where: { id: applicationId }
+            where: { id: applicationId },
+            include: { project: true }
         })
 
         if (!application || application.projectId !== projectId) {
@@ -304,9 +313,9 @@ export async function PATCH(
                 })
 
                 // Update project status to indicate a contractor has been assigned/progressing
-                await prisma.project.update({
+                await prisma.constructionProject.update({
                     where: { id: projectId },
-                    data: { status: 'IN_PROGRESS', contractorId: application.contractorId } // If selecting a registered contractor, assign ID
+                    data: { status: 'IN_PROGRESS' }
                 })
                 break;
 
@@ -326,6 +335,52 @@ export async function PATCH(
             where: { id: applicationId },
             data: updateData
         })
+
+        if (application.contractorId && action !== 'UNLOCK_CONTACT') {
+            const contractor = await prisma.customer.findUnique({
+                where: { id: application.contractorId }
+            });
+            if (contractor?.userId) {
+                let notifTitle = '';
+                let notifMsg = '';
+                let type: any = 'INFO';
+                let priority: any = 'MEDIUM';
+                
+                if (action === 'SELECT') {
+                    notifTitle = 'Chúc mừng! Bạn đã trúng thầu';
+                    notifMsg = `Hồ sơ ứng tuyển của bạn cho dự án "${application.project.title}" đã được chủ đầu tư chấp thuận.`;
+                    type = 'SUCCESS';
+                    priority = 'HIGH';
+                } else if (action === 'REJECT') {
+                    notifTitle = 'Rất tiếc! Hồ sơ thầu chưa phù hợp';
+                    notifMsg = `Hồ sơ ứng tuyển của bạn cho dự án "${application.project.title}" đã bị từ chối.`;
+                } else if (action === 'SHORTLIST') {
+                    notifTitle = 'Hồ sơ thầu được đánh giá cao';
+                    notifMsg = `Hồ sơ của bạn cho dự án "${application.project.title}" đã được thêm vào danh sách ngắn.`;
+                } else if (action === 'NEGOTIATE') {
+                    notifTitle = 'Chủ đầu tư muốn thương thảo';
+                    notifMsg = `Chủ đầu tư dự án "${application.project.title}" muốn thương thảo thêm về hồ sơ của bạn.`;
+                    priority = 'HIGH';
+                }
+                
+                if (notifTitle) {
+                    await prisma.notification.create({
+                        data: {
+                            type,
+                            title: notifTitle,
+                            message: notifMsg,
+                            priority,
+                            read: false,
+                            userId: contractor.userId,
+                            metadata: {
+                                projectId,
+                                applicationId: application.id
+                            }
+                        }
+                    });
+                }
+            }
+        }
 
         return NextResponse.json(
             createSuccessResponse({ application: updated }, notifyMessage),

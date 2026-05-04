@@ -70,10 +70,10 @@ export default function BiddingForm({
     ])
 
     useEffect(() => {
-        const custId = localStorage.getItem('customer_id')
-        if (custId) {
+        const contId = localStorage.getItem('contractor_id')
+        if (contId) {
             setIsLoggedIn(true)
-            setContractorId(custId)
+            setContractorId(contId)
         }
     }, [])
 
