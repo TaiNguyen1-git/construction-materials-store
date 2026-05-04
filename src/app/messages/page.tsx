@@ -144,6 +144,8 @@ function MessagesClient() {
     const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
         if (messagesContainerRef.current) {
             const container = messagesContainerRef.current
+            // 🛡️ FIX: Use direct scrollTop assignment instead of scrollIntoView 
+            // to prevent the entire browser window from scrolling.
             container.scrollTo({
                 top: container.scrollHeight,
                 behavior
@@ -157,11 +159,19 @@ function MessagesClient() {
         const container = messagesContainerRef.current
         if (!container) return
 
-        const isAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 300
+        // 🛡️ SMART SCROLL LOGIC: 
+        // Only scroll to bottom if:
+        // 1. User just sent a message (isSendingRef.current is true)
+        // 2. User is already near the bottom (within 150px)
+        const isAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 150
 
         if (isSendingRef.current || isAtBottom) {
-            scrollToBottom(isSendingRef.current ? 'smooth' : 'auto')
-            isSendingRef.current = false
+            // Use a slight delay to ensure content is fully rendered
+            const timeoutId = setTimeout(() => {
+                scrollToBottom(isSendingRef.current ? 'smooth' : 'auto')
+                isSendingRef.current = false
+            }, 100)
+            return () => clearTimeout(timeoutId)
         }
     }, [messages])
 
@@ -225,6 +235,7 @@ function MessagesClient() {
                 const data = await res.json()
                 if (data.success) {
                     setMessages(data.data)
+                    setTimeout(() => scrollToBottom('auto'), 100)
                 }
             }
         } catch (error) {
@@ -511,6 +522,7 @@ function MessagesClient() {
                                             } as ChatMessage))}
                                             themeColor="blue"
                                             showSenderNames={false}
+                                            autoScroll={false}
                                         />
                                         <div ref={messagesEndRef} className="h-2" />
                                     </div>

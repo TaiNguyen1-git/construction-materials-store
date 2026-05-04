@@ -69,9 +69,13 @@ export default function MessengerChatBubbles({
     const theme = THEME[themeColor]
 
     useEffect(() => {
+        // 🛡️ DISABLED: scrollIntoView causes the whole window to scroll.
+        // Auto-scroll is now handled by the parent container in page.tsx
+        /*
         if (autoScroll) {
             endRef.current?.scrollIntoView({ behavior: 'smooth' })
         }
+        */
     }, [messages, autoScroll])
 
     // Group messages by date
