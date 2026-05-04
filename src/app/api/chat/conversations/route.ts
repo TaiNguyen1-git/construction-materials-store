@@ -81,8 +81,8 @@ export async function GET(req: NextRequest) {
 
             return {
                 ...conv,
-                otherParticipantId,
-                otherParticipantName,
+                otherUserId: otherParticipantId,
+                otherUserName: otherParticipantName,
                 unreadCount,
                 isSupplierChat: isAdminSupport && !isMyConv
             }
@@ -174,6 +174,23 @@ export async function POST(req: NextRequest) {
                 }
             })
 
+            // Create notification for the recipient
+            try {
+                await prisma.notification.create({
+                    data: {
+                        userId: decodedRecipientId,
+                        title: 'Tin nhắn tư vấn mới',
+                        message: `Bạn có một yêu cầu tư vấn mới từ ${user1Name}.`,
+                        type: 'INFO',
+                        referenceId: conversation.id,
+                        referenceType: 'CONVERSATION',
+                        metadata: { url: `/messages?id=${conversation.id}` }
+                    }
+                })
+            } catch (notifyError) {
+                console.error('Failed to create notification:', notifyError)
+            }
+
             // If an initial message is provided, create it now
             if (body.initialMessage) {
                 const message = await prisma.message.create({
@@ -217,9 +234,18 @@ export async function POST(req: NextRequest) {
             }
         }
 
+        // Format the response for the frontend
+        const isP1 = conversation.participant1Id === userId
+        const formattedConv = {
+            ...conversation,
+            otherUserId: isP1 ? conversation.participant2Id : conversation.participant1Id,
+            otherUserName: isP1 ? conversation.participant2Name : conversation.participant1Name,
+            unreadCount: 0
+        }
+
         return NextResponse.json({
             success: true,
-            data: conversation
+            data: formattedConv
         })
 
     } catch (error: any) {
