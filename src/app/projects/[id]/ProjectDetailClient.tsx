@@ -45,11 +45,12 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
     const handleApplyClick = () => {
         const contId = localStorage.getItem('contractor_id')
         if (!contId) {
-            toast.error('Vui lòng đăng nhập với tài khoản Nhà thầu để ứng tuyển!')
-            const callbackUrl = encodeURIComponent(`/projects/${projectId}?action=apply`)
+            toast.error('Vui lòng đăng nhập với tài khoản Nhà thầu để ứng tuyển!', { duration: 2000 })
+            const callbackUrl = encodeURIComponent(`/contractor/projects/${projectId}?action=apply`)
             setTimeout(() => {
-                router.push(`/login?role=contractor&callbackUrl=${callbackUrl}`)
-            }, 1500)
+                toast.dismiss()
+                router.push(`/contractor/login?callbackUrl=${callbackUrl}`)
+            }, 800)
             return
         }
         setShowApplyModal(true)
