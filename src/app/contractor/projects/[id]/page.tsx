@@ -22,6 +22,21 @@ import ProjectProgress from '../components/ProjectProgress'
 const formatCurrency = (val: number) =>
     new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val)
 
+interface Milestone {
+    id: string
+    name: string
+    amount: number
+    dueDate: string
+    status: string
+}
+
+interface Expense {
+    id: string
+    amount: number
+    description: string
+    date: string
+}
+
 interface Project {
     id: string
     title: string
@@ -38,9 +53,15 @@ interface Project {
     isUrgent: boolean
     applicationCount: number
     viewCount: number
-    milestones: any[]
-    expenses: any[]
+    milestones: Milestone[]
+    expenses: Expense[]
     progress: number
+    userBid?: {
+        id: string
+        status: string
+        amount: number
+        createdAt: string
+    } | null
 }
 
 export default function ContractorProjectDetailPage() {
@@ -277,12 +298,40 @@ export default function ContractorProjectDetailPage() {
                             </div>
 
                             <div className="space-y-3">
-                                <button
-                                    onClick={() => setShowApplyModal(true)}
-                                    className="w-full py-4 bg-blue-600 text-white rounded-xl text-xs font-bold uppercase tracking-wider hover:bg-blue-700 transition-all shadow-md active:scale-95 flex items-center justify-center gap-2"
-                                >
-                                    <Send size={16} /> Gửi hồ sơ thầu
-                                </button>
+                                {project.userBid ? (
+                                    <div className="space-y-4">
+                                        <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-xl space-y-2">
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-[10px] font-bold text-emerald-600 uppercase">Trạng thái hồ sơ</span>
+                                                <Badge className="bg-emerald-500 text-white border-none text-[9px] font-bold">
+                                                    {project.userBid.status === 'PENDING' ? 'ĐANG CHỜ DUYỆT' : project.userBid.status}
+                                                </Badge>
+                                            </div>
+                                            <p className="text-xs font-medium text-slate-600">Bạn đã nộp thầu ngày {new Date(project.userBid.createdAt).toLocaleDateString('vi-VN')}</p>
+                                        </div>
+                                        
+                                        <Link
+                                            href={`/contractor/quotes/${project.userBid.id}/negotiate`}
+                                            className="w-full py-4 bg-indigo-600 text-white rounded-xl text-xs font-bold uppercase tracking-wider hover:bg-indigo-700 transition-all shadow-md active:scale-95 flex items-center justify-center gap-2"
+                                        >
+                                            <MessageSquare size={16} /> Thương thảo Live
+                                        </Link>
+
+                                        <button
+                                            disabled
+                                            className="w-full py-4 bg-slate-100 text-slate-400 rounded-xl text-xs font-bold uppercase tracking-wider cursor-not-allowed flex items-center justify-center gap-2"
+                                        >
+                                            <CheckCircle size={16} /> Đã nộp hồ sơ
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <button
+                                        onClick={() => setShowApplyModal(true)}
+                                        className="w-full py-4 bg-blue-600 text-white rounded-xl text-xs font-bold uppercase tracking-wider hover:bg-blue-700 transition-all shadow-md active:scale-95 flex items-center justify-center gap-2"
+                                    >
+                                        <Send size={16} /> Gửi hồ sơ thầu
+                                    </button>
+                                )}
 
                                 <button
                                     onClick={handleToggleSave}

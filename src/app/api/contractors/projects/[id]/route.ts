@@ -43,9 +43,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         })
 
         // Fetch expenses
-        let expenses = []
+        let expenses: Record<string, unknown>[] = []
         try {
-            expenses = await (prisma as any).projectExpense.findMany({
+            expenses = await prisma.projectExpense.findMany({
                 where: { projectId: id },
                 orderBy: { createdAt: 'desc' }
             })
@@ -53,18 +53,33 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
             console.warn('ProjectExpense query failed (likely Prisma out of sync):', e)
         }
 
+        // Find the current contractor record
+        const contractor = await prisma.customer.findFirst({
+            where: { userId: payload.userId }
+        })
+
+        // Find if this contractor has a bid for this project
+        const userBid = contractor ? await prisma.projectBid.findFirst({
+            where: { 
+                projectId: id,
+                contractorId: contractor.id
+            }
+        }) : null
+
         return NextResponse.json({
             success: true,
             data: {
                 ...project,
+                userBid,
                 milestones: quote?.milestones || [],
                 expenses: expenses || [],
                 progress: quote?.milestones?.length ? (quote.milestones.filter(m => m.status === 'COMPLETED').length / quote.milestones.length) * 100 : 0
             }
         })
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Project Detail API Error:', error)
-        return NextResponse.json({ message: error.message, stack: error.stack }, { status: 500 })
+        const message = error instanceof Error ? error.message : 'Unknown error'
+        return NextResponse.json({ message, stack: error instanceof Error ? error.stack : undefined }, { status: 500 })
     }
 }

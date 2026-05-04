@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
         }
 
         // Fetch quotes using Prisma relations
-        const quotes = await (prisma.quoteRequest as any).findMany({
+        const quotes = await prisma.quoteRequest.findMany({
             where,
             select: {
                 id: true,
@@ -108,8 +108,63 @@ export async function GET(request: NextRequest) {
             orderBy: { createdAt: 'desc' }
         })
 
-        return NextResponse.json(createSuccessResponse(quotes))
-    } catch (error: any) {
+interface QuoteResponse {
+    id: string
+    customerId: string | null
+    contractorId: string
+    projectId: string | null
+    status: string
+    details: string
+    priceQuote: number | null
+    createdAt: Date
+    updatedAt: Date
+    customer: unknown
+    project: { id: string, name: string } | null
+    isBid?: boolean
+}
+
+        // Also fetch ProjectBids for contractors
+        let bids: QuoteResponse[] = []
+        if (type === 'received') {
+            const rawBids = await prisma.projectBid.findMany({
+                where: { contractorId: customer.id },
+                include: {
+                    project: {
+                        include: {
+                            customer: { 
+                                include: { 
+                                    user: { select: { name: true, email: true, phone: true } } 
+                                } 
+                            }
+                        }
+                    }
+                },
+                orderBy: { createdAt: 'desc' }
+            })
+
+            bids = rawBids.map(bid => ({
+                id: bid.id,
+                customerId: bid.project?.customerId || null,
+                contractorId: bid.contractorId,
+                projectId: bid.projectId,
+                status: bid.status,
+                details: bid.message || 'Thầu dự án',
+                priceQuote: bid.amount,
+                createdAt: bid.createdAt,
+                updatedAt: bid.updatedAt,
+                customer: bid.project?.customer,
+                project: bid.project ? { id: bid.project.id, name: bid.project.name } : null,
+                isBid: true
+            }))
+        }
+
+        // Combine and sort
+        const combined = [...quotes, ...bids].sort((a, b) => 
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        )
+
+        return NextResponse.json(createSuccessResponse(combined))
+    } catch (error: unknown) {
         console.error('Get quotes error:', error)
         return NextResponse.json(createErrorResponse('Internal server error', 'INTERNAL_ERROR'), { status: 500 })
     }
@@ -264,7 +319,7 @@ export async function POST(request: NextRequest) {
 
         return NextResponse.json(createSuccessResponse(quote, 'Gửi yêu cầu báo giá thành công'), { status: 201 })
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Create quote error:', error)
         return NextResponse.json(createErrorResponse('Internal server error', 'INTERNAL_ERROR'), { status: 500 })
     }

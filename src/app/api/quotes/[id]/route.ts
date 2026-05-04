@@ -5,6 +5,19 @@ import { z } from 'zod'
 import { saveNotificationForUser } from '@/lib/notification-service'
 import { checkContractorPlan } from '@/lib/plan-guard'
 
+interface UnifiedQuote {
+    id: string
+    status: string
+    details: string
+    priceQuote: number | null
+    items: unknown[]
+    milestones: unknown[]
+    customer: unknown
+    contractor: unknown
+    createdAt: Date
+    isBid?: boolean
+}
+
 // GET /api/quotes/[id] - Get quote details
 export async function GET(
     request: NextRequest,
@@ -17,7 +30,9 @@ export async function GET(
             return NextResponse.json(createErrorResponse('Unauthorized', 'UNAUTHORIZED'), { status: 401 })
         }
 
-        const quote = await prisma.quoteRequest.findUnique({
+        let quote: UnifiedQuote | null = null
+        
+        const dbQuote = await prisma.quoteRequest.findUnique({
             where: { id: quoteId },
             include: {
                 items: true,
@@ -35,12 +50,59 @@ export async function GET(
             }
         })
 
+        if (dbQuote) {
+            quote = dbQuote as unknown as UnifiedQuote
+        } else {
+            // Fallback: Check if it's a ProjectBid
+            const bid = await prisma.projectBid.findUnique({
+                where: { id: quoteId },
+                include: {
+                    project: {
+                        include: {
+                            customer: { include: { user: { select: { name: true, email: true } } } }
+                        }
+                    },
+                    contractor: { include: { user: { select: { name: true, email: true } } } }
+                }
+            })
+
+            if (bid) {
+                // Map ProjectBid to QuoteRequest structure for NegotiationRoom compatibility
+                quote = {
+                    id: bid.id,
+                    status: bid.status === 'ACCEPTED' ? 'ACCEPTED' : 'PENDING',
+                    details: bid.message || 'Thầu dự án',
+                    priceQuote: bid.amount,
+                    items: (bid.boq as unknown as Array<{ item: string, quantity: number, unit: string, price: number }>)?.map((item, idx: number) => ({
+                        id: `bid-item-${idx}`,
+                        description: item.item,
+                        quantity: item.quantity,
+                        unit: item.unit,
+                        unitPrice: item.price,
+                        totalPrice: item.quantity * item.price
+                    })) || [],
+                    milestones: (bid.milestones as unknown as Array<{ name: string, percentage: number }>)?.map((m, idx: number) => ({
+                        id: `bid-ms-${idx}`,
+                        name: m.name,
+                        percentage: m.percentage,
+                        amount: (bid.amount * m.percentage) / 100,
+                        order: idx + 1,
+                        status: bid.status === 'ACCEPTED' ? 'PAID' : 'PENDING'
+                    })) || [],
+                    customer: bid.project?.customer || bid.contractor, // Fallback to contractor if no project customer (shouldn't happen)
+                    contractor: bid.contractor,
+                    createdAt: bid.createdAt,
+                    isBid: true // Flag to distinguish
+                }
+            }
+        }
+
         if (!quote) {
-            return NextResponse.json(createErrorResponse('Yêu cầu báo giá không tồn tại', 'NOT_FOUND'), { status: 404 })
+            return NextResponse.json(createErrorResponse('Yêu cầu báo giá hoặc Hồ sơ thầu không tồn tại', 'NOT_FOUND'), { status: 404 })
         }
 
         return NextResponse.json(createSuccessResponse(quote))
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Get quote error:', error)
         return NextResponse.json(createErrorResponse('Lỗi máy chủ nội bộ', 'INTERNAL_ERROR'), { status: 500 })
     }
@@ -299,7 +361,7 @@ export async function PATCH(
 
         return NextResponse.json(createSuccessResponse(result, 'Cập nhật thành công'))
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Update quote error:', error)
         return NextResponse.json(createErrorResponse('Lỗi máy chủ nội bộ', 'INTERNAL_ERROR'), { status: 500 })
     }

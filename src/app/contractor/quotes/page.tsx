@@ -54,7 +54,8 @@ interface QuoteRequest {
     }
     project: { name: string } | null
     conversationId: string | null
-    history: any[]
+    history: unknown[]
+    isBid?: boolean
 }
 
 export default function ContractorQuotesPage() {
@@ -243,9 +244,14 @@ export default function ContractorQuotesPage() {
                                     }`}
                             >
                                 <div className="flex justify-between items-start mb-3">
-                                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-md ${selectedQuote?.id === quote.id ? 'bg-blue-600 text-white' : getStatusStyle(quote.status)}`}>
-                                        {getStatusText(quote.status)}
-                                    </span>
+                                    <div className="flex gap-2">
+                                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider ${quote.isBid ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-600'}`}>
+                                            {quote.isBid ? 'Gói thầu' : 'Trực tiếp'}
+                                        </span>
+                                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-md ${selectedQuote?.id === quote.id ? 'bg-blue-600 text-white' : getStatusStyle(quote.status)}`}>
+                                            {getStatusText(quote.status)}
+                                        </span>
+                                    </div>
                                     <span className={`text-xs font-medium ${selectedQuote?.id === quote.id ? 'text-blue-600/80' : 'text-slate-500'}`}>
                                         {new Date(quote.createdAt).toLocaleDateString('vi-VN')}
                                     </span>
