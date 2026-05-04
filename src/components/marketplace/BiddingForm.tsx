@@ -79,6 +79,31 @@ export default function BiddingForm({
         { name: 'Nghiệm thu & Bàn giao', percentage: 30 }
     ])
 
+    // Restore draft from localStorage
+    useEffect(() => {
+        const draftKey = `bidding_draft_${projectId}`
+        const savedDraft = localStorage.getItem(draftKey)
+        if (savedDraft) {
+            try {
+                const parsed = JSON.parse(savedDraft)
+                if (parsed.form) setForm(parsed.form)
+                if (parsed.boq) setBoq(parsed.boq)
+                if (parsed.milestones) setMilestones(parsed.milestones)
+                if (parsed.attachments) setAttachments(parsed.attachments)
+                if (parsed.step) setStep(parsed.step)
+            } catch (e) {
+                console.error("Failed to parse draft", e)
+            }
+        }
+    }, [projectId])
+
+    // Auto-save to localStorage whenever data changes
+    useEffect(() => {
+        const draftKey = `bidding_draft_${projectId}`
+        const draftData = { form, boq, milestones, attachments, step }
+        localStorage.setItem(draftKey, JSON.stringify(draftData))
+    }, [form, boq, milestones, attachments, step, projectId])
+
     useEffect(() => {
         const contId = localStorage.getItem('contractor_id')
         if (contId) {
@@ -223,6 +248,8 @@ export default function BiddingForm({
 
             const data = await res.json()
             if (data.success) {
+                // Clean up draft after successful submission
+                localStorage.removeItem(`bidding_draft_${projectId}`)
                 toast.success('Gửi gói thầu thành công!')
                 onSuccess()
             } else {

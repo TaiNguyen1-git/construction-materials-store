@@ -39,18 +39,14 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
     const [project, setProject] = useState<Project | null>(null)
     const [loading, setLoading] = useState(true)
     const [showApplyModal, setShowApplyModal] = useState(false)
+    const [showLoginPrompt, setShowLoginPrompt] = useState(false)
     const [isOwner, setIsOwner] = useState(false)
     const router = useRouter()
 
     const handleApplyClick = () => {
         const contId = localStorage.getItem('contractor_id')
         if (!contId) {
-            toast.error('Vui lòng đăng nhập với tài khoản Nhà thầu để ứng tuyển!', { duration: 2000 })
-            const callbackUrl = encodeURIComponent(`/contractor/projects/${projectId}?action=apply`)
-            setTimeout(() => {
-                toast.dismiss()
-                router.push(`/contractor/login?callbackUrl=${callbackUrl}`)
-            }, 800)
+            setShowLoginPrompt(true)
             return
         }
         setShowApplyModal(true)
@@ -512,6 +508,39 @@ export default function ProjectDetailClient({ projectId }: { projectId: string }
                             fetchProject()
                         }}
                     />
+                )}
+
+                {showLoginPrompt && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                        <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm animate-in fade-in" onClick={() => setShowLoginPrompt(false)}></div>
+                        <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl animate-in zoom-in-95 duration-300 relative z-[110] p-8 text-center border border-slate-100">
+                            <div className="w-20 h-20 bg-blue-50/50 rounded-full flex items-center justify-center mx-auto mb-6 border-8 border-white shadow-sm">
+                                <User className="w-8 h-8 text-blue-600" />
+                            </div>
+                            <h3 className="text-2xl font-black text-slate-900 mb-3 tracking-tight">Yêu cầu đăng nhập</h3>
+                            <p className="text-slate-500 font-medium mb-8 leading-relaxed">
+                                Để ứng tuyển vào dự án này, vui lòng tiếp tục với tư cách là một <span className="font-bold text-slate-700">Nhà thầu chuyên nghiệp</span>.
+                            </p>
+                            
+                            <div className="flex flex-col gap-3">
+                                <button
+                                    onClick={() => {
+                                        const callbackUrl = encodeURIComponent(`/contractor/projects/${projectId}?action=apply`)
+                                        router.push(`/contractor/login?callbackUrl=${callbackUrl}`)
+                                    }}
+                                    className="w-full py-4 bg-blue-600 text-white rounded-2xl font-bold tracking-wide hover:bg-blue-700 transition-all shadow-xl shadow-blue-500/20 active:scale-95 flex items-center justify-center gap-2"
+                                >
+                                    Đến trang Đăng nhập <ArrowRight className="w-4 h-4" />
+                                </button>
+                                <button
+                                    onClick={() => setShowLoginPrompt(false)}
+                                    className="w-full py-4 bg-red-500 text-white hover:bg-red-600 rounded-2xl font-bold transition-all active:scale-95 shadow-xl shadow-red-500/20"
+                                >
+                                    Hủy bỏ
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 )}
             </div>
         </div>
