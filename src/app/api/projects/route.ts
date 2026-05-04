@@ -83,10 +83,10 @@ export async function GET(request: NextRequest) {
             }
           },
           projectTasks: {
-            select: {
-              id: true,
-              status: true
-            }
+            select: { id: true, status: true }
+          },
+          _count: {
+            select: { projectBids: true }
           }
         }
       }),
@@ -103,7 +103,8 @@ export async function GET(request: NextRequest) {
         ...project,
         taskCompletion,
         totalTasks,
-        completedTasks
+        completedTasks,
+        applicationCount: project._count?.projectBids ?? 0
       }
     })
 

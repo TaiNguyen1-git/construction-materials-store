@@ -65,7 +65,7 @@ export default function PublicProjectsPage() {
                     guestName?: string;
                     priority?: string;
                     customer?: { user?: { name: string } };
-                    projectTasks?: { id: string; status: string }[];
+                    applicationCount?: number;
                 }
                 
                 const mappedProjects = (data.data || data.projects || []).map((p: ApiProject) => ({
@@ -78,7 +78,7 @@ export default function PublicProjectsPage() {
                     location: p.location,
                     projectType: p.category || 'general',
                     contactName: p.guestName || p.customer?.user?.name || 'Khách hàng',
-                    applicationCount: p.projectTasks?.length || 0,
+                    applicationCount: p.applicationCount ?? 0,
                     viewCount: 0,
                     isUrgent: p.priority === 'HIGH' || p.priority === 'URGENT'
                 }))
