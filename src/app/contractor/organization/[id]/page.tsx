@@ -7,22 +7,14 @@ import {
     Loader2
 } from 'lucide-react'
 import Link from 'next/link'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams } from 'next/navigation'
 import { fetchWithAuth } from '@/lib/api-client'
 import { toast } from 'react-hot-toast'
 import { useAuth } from '@/contexts/auth-context'
 
-// Contractor Layout Components
-import Sidebar from '../../components/Sidebar'
-import ContractorHeader from '../../components/ContractorHeader'
-
 export default function ContractorOrganizationDetailsPage() {
     const { id } = useParams()
     const { user, isAuthenticated, isLoading: authLoading } = useAuth()
-    const router = useRouter()
-
-    // Layout State
-    const [sidebarOpen, setSidebarOpen] = useState(true)
 
     const [org, setOrg] = useState<any>(null)
     const [loading, setLoading] = useState(true)
@@ -115,7 +107,7 @@ export default function ContractorOrganizationDetailsPage() {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+            <div className="flex items-center justify-center py-32">
                 <Loader2 className="w-10 h-10 animate-spin text-blue-600" />
             </div>
         )
@@ -124,22 +116,17 @@ export default function ContractorOrganizationDetailsPage() {
     const isAdmin = currentUserRole === 'OWNER' || currentUserRole === 'ADMIN'
 
     return (
-        <div className="min-h-screen bg-gray-50 flex flex-col">
-            <ContractorHeader sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
-            <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-
-            <main className={`flex-1 pt-[60px] transition-all duration-300 ${sidebarOpen ? 'lg:ml-64' : 'ml-0'}`}>
-                <div className="p-4 lg:p-8 max-w-7xl mx-auto space-y-8">
+        <div className="space-y-10 max-w-5xl mx-auto">
                     {/* Header */}
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                        <div className="space-y-4">
-                            <Link href="/contractor/organization" className="inline-flex items-center text-slate-400 hover:text-blue-600 font-black text-[10px] uppercase tracking-widest bg-white px-4 py-2 rounded-xl shadow-sm border border-slate-100 transition-all">
-                                <ArrowLeft className="h-4 w-4 mr-2" /> Quay lại danh sách
-                            </Link>
-                            <h1 className="text-3xl md:text-4xl font-black text-slate-900 tracking-tighter uppercase leading-none">
-                                👥 {org?.name}
+                    <div className="space-y-4">
+                        <Link href="/contractor/organization" className="inline-flex items-center text-slate-500 hover:text-blue-600 font-bold text-xs uppercase tracking-widest bg-white px-4 py-2 rounded-xl shadow-sm border border-slate-200 transition-all hover:border-blue-200 active:scale-95">
+                            <ArrowLeft className="h-4 w-4 mr-2" /> Quay lại danh sách
+                        </Link>
+                        <div>
+                            <h1 className="text-3xl font-black text-slate-900 tracking-tight flex items-center gap-3">
+                                <Users className="w-8 h-8 text-blue-600" /> {org?.name}
                             </h1>
-                            <p className="text-slate-500 font-medium">Quản lý và cấp quyền cho các thành viên trong tổ chức.</p>
+                            <p className="text-slate-500 font-medium mt-1">Quản lý và cấp quyền cho các thành viên trong tổ chức.</p>
                         </div>
 
                         {!isAuthenticated && !authLoading && (
@@ -288,8 +275,6 @@ export default function ContractorOrganizationDetailsPage() {
                             </div>
                         </div>
                     </div>
-                </div>
-            </main>
         </div>
     )
 }

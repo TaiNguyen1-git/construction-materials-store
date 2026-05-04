@@ -88,8 +88,13 @@ export async function GET(request: NextRequest) {
         // 5. Score and filter projects
         const now = new Date()
         const scoredProjects: ScoredProject[] = []
+        const seenProjects = new Set<string>() // To filter duplicates by title-location
 
         for (const project of projects) {
+            const projectKey = `${project.title}-${project.location}`
+            if (seenProjects.has(projectKey)) continue
+            seenProjects.add(projectKey)
+
             let score = 0
             const reasons: string[] = []
 

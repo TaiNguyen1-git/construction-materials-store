@@ -16,21 +16,7 @@ import * as HoverCard from '@radix-ui/react-hover-card'
 import { fetchWithAuth } from '@/lib/api-client'
 import { Badge } from '@/components/ui/badge'
 
-// Interfaces
-interface Project {
-    id: string
-    title: string
-    description: string | null
-    status: string
-    createdAt: string
-    estimatedBudget: number | null
-    location: string | null
-    projectType: string | null
-    contactName?: string
-    applicationCount: number
-    viewCount: number
-    isUrgent: boolean
-}
+import { Project, ApiProjectResponse } from '@/types/contractor'
 
 const CATEGORIES = [
     { id: 'all', name: 'Tất cả lĩnh vực' },
@@ -49,6 +35,9 @@ export default function FindProjectsPage() {
     const [search, setSearch] = useState('')
     const [activeCategory, setActiveCategory] = useState('all')
     const [showFilters, setShowFilters] = useState(false)
+    const [filterOnlySaved, setFilterOnlySaved] = useState(false)
+    const [filterUrgentOnly, setFilterUrgentOnly] = useState(false)
+    const [minBudget, setMinBudget] = useState<string>('')
     const [savedProjects, setSavedProjects] = useState<Set<string>>(new Set())
 
     useEffect(() => {
@@ -104,39 +93,24 @@ export default function FindProjectsPage() {
     const fetchProjects = async () => {
         try {
             setLoading(true)
-            const res = await fetchWithAuth(`/api/projects?isPublic=true`)
+            const res = await fetchWithAuth(`/api/marketplace/projects`)
             if (res.ok) {
                 const data = await res.json()
                 
-                // Map the API response format to match what the UI expects
-                interface ApiProject {
-                    id: string;
-                    name: string;
-                    description: string;
-                    status: string;
-                    createdAt: string;
-                    budget: number;
-                    location?: string;
-                    category?: string;
-                    guestName?: string;
-                    priority?: string;
-                    customer?: { user?: { name: string } };
-                    projectTasks?: { id: string; status: string }[];
-                }
-                
-                const mappedProjects = (data.data || data.projects || []).map((p: ApiProject) => ({
+                const mappedProjects: Project[] = (data.data || data.projects || []).map((p: ApiProjectResponse) => ({
                     id: p.id,
                     title: p.name,
                     description: p.description,
                     status: p.status,
                     createdAt: p.createdAt,
                     estimatedBudget: p.budget,
-                    location: p.location,
+                    location: p.location || null,
+                    city: p.city || 'Toàn quốc',
                     projectType: p.category || 'general',
                     contactName: p.guestName || p.customer?.user?.name || 'Khách hàng',
                     applicationCount: p.projectTasks?.length || 0,
-                    viewCount: 0,
-                    isUrgent: p.priority === 'HIGH' || p.priority === 'URGENT'
+                    viewCount: p.viewCount || 0,
+                    isUrgent: p.isUrgent === true
                 }))
                 
                 setProjects(mappedProjects)
@@ -152,7 +126,11 @@ export default function FindProjectsPage() {
         const matchesSearch = p.title.toLowerCase().includes(search.toLowerCase()) ||
             (p.location && p.location.toLowerCase().includes(search.toLowerCase()))
         const matchesCategory = activeCategory === 'all' || p.projectType === activeCategory
-        return matchesSearch && matchesCategory
+        const matchesSaved = !filterOnlySaved || savedProjects.has(p.id)
+        const matchesUrgent = !filterUrgentOnly || p.isUrgent
+        const matchesMinBudget = !minBudget || (p.estimatedBudget && p.estimatedBudget >= parseInt(minBudget))
+        
+        return matchesSearch && matchesCategory && matchesSaved && matchesUrgent && matchesMinBudget
     })
 
     const ProjectCard = ({ project }: { project: Project }) => {
@@ -165,9 +143,11 @@ export default function FindProjectsPage() {
                     }`}
             >
                 {/* Status Badge */}
+                {project.isUrgent && (
                     <div className="absolute top-0 left-0 bg-rose-600 text-white text-[10px] font-bold px-3 py-1.5 rounded-br-xl z-10 flex items-center gap-1.5 shadow-sm">
                         <Zap size={10} className="fill-current text-white" /> GẤP
                     </div>
+                )}
 
                 {/* Content */}
                 <div className="flex-1 min-w-0 space-y-4">
@@ -242,18 +222,33 @@ export default function FindProjectsPage() {
                     </h1>
                     <p className="text-slate-500 text-sm font-medium">Khám phá và thầu các dự án tiềm năng trên Marketplace</p>
                 </div>
-                <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-xl shadow-inner">
+                <div className="flex bg-slate-50 p-1.5 rounded-2xl gap-2 shadow-inner">
                     <button
-                        onClick={() => setViewMode('list')}
-                        className={`p-2 rounded-lg transition-all ${viewMode === 'list' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                        onClick={() => setFilterOnlySaved(false)}
+                        className={`px-6 py-2.5 rounded-xl text-xs font-bold transition-all ${!filterOnlySaved ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
                     >
-                        <ListIcon size={20} />
+                        Tất cả dự án
                     </button>
                     <button
-                        onClick={() => setViewMode('grid')}
-                        className={`p-2 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                        onClick={() => setFilterOnlySaved(true)}
+                        className={`px-6 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${filterOnlySaved ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
                     >
-                        <LayoutGrid size={20} />
+                        <Bookmark size={14} className={filterOnlySaved ? "fill-current" : ""} />
+                        Đã lưu ({savedProjects.size})
+                    </button>
+                </div>
+                <div className="flex bg-slate-50 p-1.5 rounded-2xl gap-2 shadow-inner">
+                    <button
+                        onClick={() => setViewMode('grid')}
+                        className={`p-2.5 rounded-xl transition-all ${viewMode === 'grid' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                    >
+                        <LayoutGrid size={18} />
+                    </button>
+                    <button
+                        onClick={() => setViewMode('list')}
+                        className={`p-2.5 rounded-xl transition-all ${viewMode === 'list' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                    >
+                        <ListIcon size={18} />
                     </button>
                 </div>
             </div>
@@ -292,6 +287,48 @@ export default function FindProjectsPage() {
                     </button>
                 </div>
             </div>
+
+            {/* Expanded Filters */}
+            {showFilters && (
+                <div className="bg-white p-6 rounded-2xl shadow-md border border-blue-100/50 animate-in slide-in-from-top-4 duration-300 mx-4 sm:mx-0">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div className="space-y-3">
+                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-1">Ngân sách tối thiểu (VNĐ)</label>
+                            <input 
+                                type="number" 
+                                value={minBudget}
+                                onChange={(e) => setMinBudget(e.target.value)}
+                                placeholder="VD: 100,000,000"
+                                className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-100 transition-all"
+                            />
+                        </div>
+                        <div className="space-y-3">
+                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-1">Chế độ hiển thị</label>
+                            <div className="flex gap-2">
+                                <button 
+                                    onClick={() => setFilterUrgentOnly(!filterUrgentOnly)}
+                                    className={`flex-1 py-3 px-4 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-2 ${filterUrgentOnly ? 'bg-rose-50 border-rose-200 text-rose-600' : 'bg-slate-50 border-slate-100 text-slate-500'}`}
+                                >
+                                    <Zap size={14} fill={filterUrgentOnly ? "currentColor" : "none"} /> Chỉ dự án khẩn
+                                </button>
+                            </div>
+                        </div>
+                        <div className="flex items-end pb-1">
+                            <button 
+                                onClick={() => {
+                                    setMinBudget('')
+                                    setFilterUrgentOnly(false)
+                                    setActiveCategory('all')
+                                    setSearch('')
+                                }}
+                                className="w-full py-3 text-slate-400 text-xs font-bold uppercase tracking-widest hover:text-blue-600 transition-colors"
+                            >
+                                Xóa tất cả bộ lọc
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Results */}
             <div className={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 px-4 sm:px-0' : 'space-y-4 px-4 sm:px-0'}>

@@ -26,7 +26,9 @@ import {
     Upload,
     Maximize2,
     PanelRightOpen,
-    PanelRightClose
+    PanelRightClose,
+    Search,
+    PackageSearch
 } from 'lucide-react'
 import Peer from 'peerjs'
 import { ref, onValue, set, update, push } from 'firebase/database'
@@ -117,6 +119,14 @@ export default function NegotiationRoom({ quoteId, userId, userName, role, initi
     const [chatInput, setChatInput] = useState('')
     const [galleryCaption, setGalleryCaption] = useState('')
     const [selectedImage, setSelectedImage] = useState<MaterialImage | null>(null)
+    
+    // Product Picker States
+    const [isProductPickerOpen, setIsProductPickerOpen] = useState(false)
+    const [pickerTargetId, setPickerTargetId] = useState<string | null>(null)
+    const [productSearchQuery, setProductSearchQuery] = useState('')
+    const [foundProducts, setFoundProducts] = useState<any[]>([])
+    const [isSearching, setIsSearching] = useState(false)
+    const [dynamicSuggestions, setDynamicSuggestions] = useState<any[]>([])
 
     const localVideoRef = useRef<HTMLVideoElement>(null)
     const remoteVideoRef = useRef<HTMLVideoElement>(null)
@@ -338,7 +348,13 @@ export default function NegotiationRoom({ quoteId, userId, userName, role, initi
                         unit: item.unit,
                         unitPrice: item.unitPrice,
                         category: 'Thỏa thuận'
-                    }))
+                    })),
+                    // Add negotiation metadata
+                    negotiationMetadata: {
+                        activityLog: negotiation?.activityLog || [],
+                        materialGallery: negotiation?.materialGallery || [],
+                        chatSummary: `Số tin nhắn: ${negotiation?.chatMessages?.length || 0}`
+                    }
                 })
             })
 
@@ -490,7 +506,7 @@ export default function NegotiationRoom({ quoteId, userId, userName, role, initi
     }
 
     const handleLeave = () => {
-        if (window.confirm('Bạn có chắc chắn muốn rời khỏi phòng thương thảo?')) {
+        if (confirm('Bạn có chắc muốn rời khỏi phòng thương thảo?')) {
             if (localStream) {
                 localStream.getTracks().forEach(track => track.stop())
             }
@@ -584,6 +600,61 @@ export default function NegotiationRoom({ quoteId, userId, userName, role, initi
         toast.success('Đã gửi ảnh vật tư!')
     }
 
+    // Product Picker Handlers
+    const searchProducts = async (query: string) => {
+        if (!query.trim()) return
+        setIsSearching(true)
+        try {
+            const res = await fetch(`/api/products?q=${encodeURIComponent(query)}&limit=8`)
+            const data = await res.json()
+            if (data.success) {
+                // data.data is a PaginatedResponse, actual products are in data.data.data
+                const products = Array.isArray(data.data) ? data.data : (data.data?.data || [])
+                setFoundProducts(products)
+            }
+        } catch (error) {
+            console.error('Error searching products:', error)
+            toast.error('Lỗi khi tìm kiếm sản phẩm')
+        } finally {
+            setIsSearching(false)
+        }
+    }
+
+    const handleSelectProduct = (product: any) => {
+        if (!pickerTargetId || !negotiation) return
+        if (negotiation?.status === 'locked') return
+
+        const currentBoQ = negotiation?.boq || initialBoQ || []
+        const newBoQ = currentBoQ.map(item => {
+            if (item.id === pickerTargetId) {
+                const unitPrice = product.price || 0
+                return { 
+                    ...item, 
+                    description: product.name,
+                    unit: product.unit || 'Cái',
+                    unitPrice: unitPrice,
+                    totalPrice: item.quantity * unitPrice
+                }
+            }
+            return item
+        })
+
+        const negotiationRef = ref(db, `negotiations/${quoteId}`)
+        update(negotiationRef, {
+            boq: newBoQ,
+            acceptedBy: [],
+            lastUpdate: Date.now()
+        })
+        
+        setIsProductPickerOpen(false)
+        setPickerTargetId(null)
+        setProductSearchQuery('')
+        setFoundProducts([])
+        
+        addActivityLog('update_item', `Đã chọn vật tư từ hệ thống: ${product.name}`)
+        toast.success(`Đã chọn: ${product.name}`)
+    }
+
     // Computed Values
     const totalAmount = (negotiation?.boq || []).reduce((sum, item) => sum + item.totalPrice, 0)
     const originalTotal = negotiation?.originalTotal || totalAmount
@@ -592,7 +663,7 @@ export default function NegotiationRoom({ quoteId, userId, userName, role, initi
     const formatTime = (ts: number) => new Date(ts).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
 
     return (
-        <div className="flex flex-col h-screen bg-gray-900 overflow-hidden">
+        <div className="fixed inset-0 z-[1000] flex flex-col h-screen bg-gray-900 overflow-hidden">
             {/* Header */}
             <div className="bg-gray-800 border-b border-gray-700 p-4 flex items-center justify-between">
                 <div className="flex items-center gap-4">
@@ -628,11 +699,11 @@ export default function NegotiationRoom({ quoteId, userId, userName, role, initi
                         ) : (
                             <div className="flex flex-col items-center justify-center h-full text-gray-500 gap-3">
                                 <div className="w-16 h-16 bg-gray-700 rounded-full flex items-center justify-center animate-pulse">
-                                    <Video className="w-8 h-8" />
+                                    <VideoOff className="w-8 h-8 text-gray-600" />
                                 </div>
-                                <span className="text-sm">Đang chờ đối phương...</span>
+                                <p className="text-xs font-medium">Đang đợi đối tác tham gia...</p>
                                 <button
-                                    onClick={handleManualCall}
+                                    onClick={() => window.location.reload()}
                                     className="mt-2 text-[10px] text-blue-400 hover:underline"
                                 >
                                     Thử kết nối lại
@@ -701,7 +772,7 @@ export default function NegotiationRoom({ quoteId, userId, userName, role, initi
                                             onClick={handleAddItem}
                                             className="bg-white/20 hover:bg-white/30 px-3 py-1 rounded-lg font-bold flex items-center gap-1 transition-all"
                                         >
-                                            <Plus className="w-4 h-4" /> Thêm hạng mục
+                                            <Plus className="w-4 h-4" /> Thêm sản phẩm
                                         </button>
                                     )}
                                     <div className="bg-white/20 px-3 py-1 rounded-full">
@@ -713,7 +784,7 @@ export default function NegotiationRoom({ quoteId, userId, userName, role, initi
                             <table className="w-full text-left border-collapse">
                                 <thead className="bg-gray-50 text-gray-600 text-xs font-bold uppercase">
                                     <tr>
-                                        <th className="px-6 py-4">Hạng mục</th>
+                                        <th className="px-6 py-4">Sản phẩm / Vật tư</th>
                                         <th className="px-6 py-4 text-center">Khối lượng</th>
                                         <th className="px-6 py-4">ĐVT</th>
                                         <th className="px-6 py-4 text-right">Đơn giá</th>
@@ -724,13 +795,49 @@ export default function NegotiationRoom({ quoteId, userId, userName, role, initi
                                     {(negotiation?.boq || []).map((item) => (
                                         <tr key={item.id} className="hover:bg-blue-50/50 transition-colors group">
                                             <td className="px-6 py-4">
-                                                <input
-                                                    type="text"
-                                                    value={item.description}
-                                                    onChange={(e) => handleUpdateItem(item.id, 'description', e.target.value)}
-                                                    disabled={negotiation?.status === 'locked'}
-                                                    className="w-full bg-transparent border-b border-transparent hover:border-gray-200 focus:border-blue-500 outline-none transition-all py-1 font-medium text-gray-900"
-                                                />
+                                                <div className="flex items-center gap-2 group/input">
+                                                    <input
+                                                        type="text"
+                                                        value={item.description}
+                                                        onChange={(e) => {
+                                                            const val = e.target.value
+                                                            handleUpdateItem(item.id, 'description', val)
+                                                            if (val.length > 1) {
+                                                                // Fetch dynamic suggestions
+                                                                fetch(`/api/products?q=${encodeURIComponent(val)}&limit=5`)
+                                                                    .then(res => res.json())
+                                                                    .then(data => {
+                                                                        if (data.success) {
+                                                                            setDynamicSuggestions(Array.isArray(data.data) ? data.data : (data.data?.data || []))
+                                                                        }
+                                                                    })
+                                                            }
+                                                        }}
+                                                        onBlur={(e) => {
+                                                            const selectedName = e.target.value
+                                                            const matched = dynamicSuggestions.find(p => p.name === selectedName)
+                                                            if (matched) {
+                                                                handleSelectProduct(matched)
+                                                            }
+                                                        }}
+                                                        disabled={negotiation?.status === 'locked'}
+                                                        list="dynamic-products"
+                                                        placeholder="Gõ tên sản phẩm (xi măng, cát, đá...)"
+                                                        className="w-full bg-transparent border-b border-transparent hover:border-gray-200 focus:border-blue-500 outline-none transition-all py-1 font-medium text-gray-900"
+                                                    />
+                                                    {negotiation?.status !== 'locked' && (
+                                                        <button
+                                                            onClick={() => {
+                                                                setPickerTargetId(item.id)
+                                                                setIsProductPickerOpen(true)
+                                                            }}
+                                                            className="p-1 text-blue-400 hover:text-blue-600 opacity-0 group-hover/input:opacity-100 transition-all"
+                                                            title="Chọn vật tư từ hệ thống"
+                                                        >
+                                                            <PackageSearch className="w-4 h-4" />
+                                                        </button>
+                                                    )}
+                                                </div>
                                             </td>
                                             <td className="px-6 py-4 text-center">
                                                 <input
@@ -750,7 +857,8 @@ export default function NegotiationRoom({ quoteId, userId, userName, role, initi
                                                     value={item.unit}
                                                     onChange={(e) => handleUpdateItem(item.id, 'unit', e.target.value)}
                                                     disabled={negotiation?.status === 'locked'}
-                                                    className="w-16 bg-transparent border-b border-transparent hover:border-gray-200 focus:border-blue-500 outline-none transition-all py-1 text-center text-gray-500"
+                                                    list="units"
+                                                    className="w-16 bg-transparent border-b border-transparent hover:border-gray-200 focus:border-blue-500 outline-none transition-all py-1 text-center text-gray-500 font-bold"
                                                 />
                                             </td>
                                             <td className="px-6 py-4 text-right">
@@ -861,7 +969,7 @@ export default function NegotiationRoom({ quoteId, userId, userName, role, initi
                                         }`}
                                 >
                                     <CheckCircle2 className="w-6 h-6" />
-                                    {(negotiation?.acceptedBy || []).includes(userId) ? 'ĐANG CHỜ ĐỐI TÁC...' : 'CHỐP THỎA THUẬN'}
+                                    {(negotiation?.acceptedBy || []).includes(userId) ? 'ĐANG CHỜ ĐỐI TÁC XÁC NHẬN...' : 'XÁC NHẬN THỎA THUẬN'}
                                 </button>
                             )}
                         </div>
@@ -1062,6 +1170,123 @@ export default function NegotiationRoom({ quoteId, userId, userName, role, initi
                     </div>
                 </div>
             )}
+            {/* Smart Suggestions Datalists */}
+            <datalist id="categories">
+                <option value="Xây gạch ống" />
+                <option value="Tô trát tường" />
+                <option value="Sơn nước (2 lớp)" />
+                <option value="Lát gạch nền" />
+                <option value="Ốp gạch tường" />
+                <option value="Lắp đặt cửa" />
+                <option value="Hệ thống điện" />
+                <option value="Hệ thống nước" />
+                <option value="Chống thấm sàn" />
+                <option value="Trần thạch cao" />
+                <option value="Nhân công thô" />
+                <option value="Vệ sinh công nghiệp" />
+            </datalist>
+
+            <datalist id="units">
+                <option value="m2" />
+                <option value="m3" />
+                <option value="md" />
+                <option value="Bộ" />
+                <option value="Cái" />
+                <option value="Hệ" />
+                <option value="kg" />
+                <option value="Tấn" />
+                <option value="Lô" />
+                <option value="Nhân công" />
+            </datalist>
+            {/* Product Picker Modal */}
+            {isProductPickerOpen && (
+                <div className="fixed inset-0 z-[1100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+                    <div className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh] animate-in zoom-in-95 duration-300">
+                        <div className="p-6 border-b flex justify-between items-center bg-slate-50">
+                            <div>
+                                <h3 className="font-bold text-slate-900 text-lg flex items-center gap-2">
+                                    <PackageSearch className="w-5 h-5 text-blue-600" />
+                                    Thư viện Vật tư Hệ thống
+                                </h3>
+                                <p className="text-xs text-slate-500 font-medium">Tìm kiếm và áp dụng vật tư trực tiếp vào BoQ</p>
+                            </div>
+                            <button 
+                                onClick={() => setIsProductPickerOpen(false)}
+                                className="w-10 h-10 rounded-full hover:bg-slate-200 flex items-center justify-center text-slate-400 transition-all"
+                            >
+                                <X className="w-6 h-6" />
+                            </button>
+                        </div>
+                        
+                        <div className="p-6 border-b">
+                            <div className="relative">
+                                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                                <input
+                                    autoFocus
+                                    type="text"
+                                    value={productSearchQuery}
+                                    onChange={(e) => {
+                                        setProductSearchQuery(e.target.value)
+                                        if (e.target.value.length > 2) searchProducts(e.target.value)
+                                    }}
+                                    onKeyPress={(e) => e.key === 'Enter' && searchProducts(productSearchQuery)}
+                                    placeholder="Tìm theo tên vật tư (ví dụ: Xi măng, Gạch, Sơn...)"
+                                    className="w-full pl-12 pr-4 py-3 bg-slate-100 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none font-medium"
+                                />
+                                {isSearching && (
+                                    <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                                        <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="flex-1 overflow-y-auto p-4 space-y-2 bg-slate-50">
+                            {foundProducts.length === 0 ? (
+                                <div className="py-12 text-center text-slate-400">
+                                    <PackageSearch className="w-16 h-16 mx-auto mb-3 opacity-10" />
+                                    <p className="text-sm font-medium">Nhập từ khóa để tìm kiếm vật tư từ kho hàng</p>
+                                </div>
+                            ) : (
+                                foundProducts.map((product) => (
+                                    <div 
+                                        key={product.id}
+                                        onClick={() => handleSelectProduct(product)}
+                                        className="bg-white p-3 rounded-2xl border border-slate-100 hover:border-blue-300 hover:shadow-md cursor-pointer transition-all flex items-center gap-4 group"
+                                    >
+                                        <div className="w-14 h-14 bg-slate-100 rounded-xl overflow-hidden flex-shrink-0">
+                                            {product.images?.[0] ? (
+                                                <img src={product.images[0]} alt={product.name} className="w-full h-full object-cover" />
+                                            ) : (
+                                                <div className="w-full h-full flex items-center justify-center text-slate-300">
+                                                    <ImageIcon className="w-6 h-6" />
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <h4 className="font-bold text-slate-900 truncate group-hover:text-blue-600 transition-colors">{product.name}</h4>
+                                            <div className="flex gap-3 mt-1">
+                                                <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded uppercase tracking-wider">{product.unit || 'Cái'}</span>
+                                                <span className="text-xs font-medium text-slate-500">Kho: {product.categoryId || 'Vật tư'}</span>
+                                            </div>
+                                        </div>
+                                        <div className="text-right flex-shrink-0 pr-2">
+                                            <p className="font-black text-slate-900">{product.price?.toLocaleString('vi-VN')}đ</p>
+                                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">Giá tham khảo</p>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+            {/* Dynamic Product Suggestions Datalist */}
+            <datalist id="dynamic-products">
+                {dynamicSuggestions.map((p, idx) => (
+                    <option key={`suggest-${idx}`} value={p.name} />
+                ))}
+            </datalist>
         </div>
     )
 }

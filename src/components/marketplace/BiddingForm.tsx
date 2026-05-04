@@ -5,7 +5,7 @@ import {
     X, Send, User, Phone, Package,
     Plus, Search, Trash2, CheckCircle, AlertTriangle,
     Sparkles, Loader2, ArrowRight, ShoppingCart,
-    Calendar, DollarSign, ListTodo, ShieldCheck,
+    Calendar, Coins, ListTodo, ShieldCheck,
     CreditCard, Clock, UploadCloud, Paperclip, FileText
 } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -242,6 +242,16 @@ export default function BiddingForm({
             return
         }
 
+        if (!form.amount || parseFloat(form.amount) <= 0) {
+            toast.error('Vui lòng nhập tổng giá trị gói thầu (VNĐ)')
+            return
+        }
+
+        if (!form.completionDays || parseInt(form.completionDays) <= 0) {
+            toast.error('Vui lòng nhập thời gian thực hiện dự kiến (Ngày)')
+            return
+        }
+
         setSubmitting(true)
         try {
             const payload = {
@@ -265,10 +275,9 @@ export default function BiddingForm({
             if (data.success) {
                 // Clean up draft after successful submission
                 localStorage.removeItem(`bidding_draft_${projectId}`)
-                toast.success('Gửi gói thầu thành công!')
                 onSuccess()
             } else {
-                toast.error(data.error?.message || 'Có lỗi xảy ra')
+                toast.error(data.error || 'Có lỗi xảy ra')
             }
         } catch (err) {
             toast.error('Lỗi kết nối')
@@ -498,17 +507,20 @@ export default function BiddingForm({
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                 <div className="space-y-3">
                                     <label className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
-                                        <DollarSign className="w-4 h-4" /> TỔNG GIÁ TRỊ GÓI THẦU (VNĐ)
+                                        <Coins className="w-4 h-4 text-blue-600" /> TỔNG GIÁ TRỊ GÓI THẦU (VNĐ)
                                     </label>
                                     <div className="relative">
                                         <input
-                                            type="number"
-                                            value={form.amount}
-                                            onChange={(e) => setForm({ ...form, amount: e.target.value })}
-                                            placeholder="Gói thầu trọn gói..."
+                                            type="text"
+                                            value={form.amount ? parseInt(form.amount).toLocaleString('vi-VN') : ''}
+                                            onChange={(e) => {
+                                                const val = e.target.value.replace(/\D/g, '');
+                                                setForm({ ...form, amount: val });
+                                            }}
+                                            placeholder="Nhập giá trị gói thầu..."
                                             className="w-full px-8 py-5 bg-slate-50 border border-slate-200 rounded-2xl text-2xl font-bold text-slate-900 outline-none focus:ring-4 focus:ring-blue-50 focus:border-blue-400 transition-all placeholder:text-slate-400"
                                         />
-                                        <span className="absolute right-8 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400 uppercase">VND</span>
+                                        <div className="absolute right-6 top-1/2 -translate-y-1/2 text-sm font-black text-slate-300">VND</div>
                                     </div>
                                 </div>
                                 <div className="space-y-3">

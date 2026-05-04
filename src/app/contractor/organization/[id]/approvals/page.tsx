@@ -6,23 +6,16 @@ import {
     Package, Loader2
 } from 'lucide-react'
 import Link from 'next/link'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams } from 'next/navigation'
 import { fetchWithAuth } from '../../../../../lib/api-client'
 import { toast } from 'react-hot-toast'
 import { useAuth } from '../../../../../contexts/auth-context'
 import { formatCurrency } from '../../../../../lib/utils'
 
-// Contractor Layout Components
-import Sidebar from '../../../components/Sidebar'
-import ContractorHeader from '../../../components/ContractorHeader'
-
 export default function ContractorOrganizationApprovalsPage() {
     const { id } = useParams()
     const { user, isAuthenticated, isLoading: authLoading } = useAuth()
-    const router = useRouter()
 
-    // Layout State
-    const [sidebarOpen, setSidebarOpen] = useState(true)
 
     const [orders, setOrders] = useState<any[]>([])
     const [loading, setLoading] = useState(true)
@@ -93,23 +86,16 @@ export default function ContractorOrganizationApprovalsPage() {
     const isAdmin = currentUserRole === 'OWNER' || currentUserRole === 'ADMIN'
 
     return (
-        <div className="min-h-screen bg-gray-50 flex flex-col font-sans">
-            <ContractorHeader sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
-            <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-
-            <main className={`flex-1 pt-[60px] transition-all duration-300 ${sidebarOpen ? 'lg:ml-64' : 'ml-0'}`}>
-                <div className="p-4 lg:p-8 max-w-5xl mx-auto space-y-8">
+        <div className="space-y-8 max-w-5xl mx-auto">
                     {/* Header */}
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                        <div className="space-y-4">
-                            <Link href="/contractor/organization" className="inline-flex items-center text-slate-400 hover:text-blue-600 font-black text-[10px] uppercase tracking-widest bg-white px-4 py-2 rounded-xl shadow-sm border border-slate-100 transition-all">
-                                <ArrowLeft className="h-4 w-4 mr-2" /> Quay lại danh sách
-                            </Link>
-                            <h1 className="text-4xl font-black text-slate-900 tracking-tighter uppercase leading-none">
-                                📦 Duyệt Đơn Hàng
-                            </h1>
-                            <p className="text-slate-500 font-medium">Quản lý các yêu cầu mua hàng từ thành viên.</p>
-                        </div>
+                    <Link href="/contractor/organization" className="inline-flex items-center text-slate-500 hover:text-blue-600 font-bold text-xs uppercase tracking-widest bg-white px-4 py-2 rounded-xl shadow-sm border border-slate-200 transition-all hover:border-blue-200 active:scale-95">
+                        <ArrowLeft className="h-4 w-4 mr-2" /> Quay lại danh sách
+                    </Link>
+                    <div>
+                        <h1 className="text-3xl font-black text-slate-900 tracking-tight flex items-center gap-3">
+                            <Package className="w-8 h-8 text-blue-600" /> Duyệt Đơn Hàng
+                        </h1>
+                        <p className="text-slate-500 font-medium mt-1">Quản lý các yêu cầu mua hàng từ thành viên.</p>
                     </div>
 
                     {!isAuthenticated && !authLoading && (
@@ -121,7 +107,7 @@ export default function ContractorOrganizationApprovalsPage() {
                     )}
 
                     {/* Tabs */}
-                    <div className="flex bg-white p-1 rounded-2xl border border-slate-100 shadow-sm w-fit">
+                    <div className="flex bg-white p-1.5 rounded-2xl border border-slate-100 shadow-sm w-fit">
                         <button
                             onClick={() => setActiveTab('pending')}
                             className={`px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'pending' ? 'bg-blue-500 text-white shadow-lg shadow-blue-100' : 'text-slate-400 hover:bg-slate-50'}`}
@@ -220,8 +206,6 @@ export default function ContractorOrganizationApprovalsPage() {
                             </div>
                         )}
                     </div>
-                </div>
-            </main>
         </div>
     )
 }

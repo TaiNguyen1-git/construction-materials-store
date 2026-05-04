@@ -12,6 +12,8 @@ import { fetchWithAuth } from '@/lib/api-client'
 
 // Helper function removed in favor of centralized api-client
 
+import { Project } from '@/types/contractor'
+
 interface NotificationPrefs {
     skills: string[]
     city: string | null
@@ -40,7 +42,7 @@ export default function NotificationPrefsWidget() {
     })
     const [hasProfile, setHasProfile] = useState(false)
     const [expanded, setExpanded] = useState(false)
-    const [recentProjects, setRecentProjects] = useState<any[]>([])
+    const [recentProjects, setRecentProjects] = useState<Project[]>([])
     const [matchCount, setMatchCount] = useState(0)
 
     useEffect(() => {
@@ -50,18 +52,27 @@ export default function NotificationPrefsWidget() {
 
     const fetchRecentProjects = async () => {
         try {
-            const res = await fetchWithAuth('/api/marketplace/projects/suggested')
+            const res = await fetchWithAuth('/api/projects?isPublic=true&limit=5')
             if (res.ok) {
                 const data = await res.json()
-                if (data.success && data.data) {
-                    const combined = [
-                        ...(data.data.urgent || []),
-                        ...(data.data.matching || []),
-                        ...(data.data.recent || [])
-                    ]
-                    setMatchCount(combined.length)
-                    setRecentProjects(combined.slice(0, 5))
-                }
+                const rawProjects = data.data || data.projects || []
+                const mapped = rawProjects.map((p: any) => ({
+                    id: p.id,
+                    title: p.name,
+                    description: p.description,
+                    status: p.status,
+                    createdAt: p.createdAt,
+                    estimatedBudget: p.budget,
+                    location: p.location || null,
+                    city: p.city || 'Toàn quốc',
+                    projectType: p.category || 'general',
+                    contactName: p.guestName || p.customer?.user?.name || 'Khách hàng',
+                    applicationCount: p.projectTasks?.length || 0,
+                    viewCount: p.viewCount || 0,
+                    isUrgent: p.isUrgent === true || p.priority === 'HIGH' || p.priority === 'URGENT'
+                }))
+                setMatchCount(mapped.length)
+                setRecentProjects(mapped)
             }
         } catch (err) {
             console.error('Failed to fetch recent projects')

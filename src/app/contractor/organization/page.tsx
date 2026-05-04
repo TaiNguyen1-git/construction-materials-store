@@ -72,14 +72,14 @@ export default function ContractorOrganizationPage() {
     }
 
     return (
-        <div className="space-y-8 pb-20 max-w-7xl mx-auto">
+        <div className="space-y-8 pb-20 px-4 md:px-8 max-w-6xl mx-auto">
             <Toaster position="top-right" />
             
             {/* Standard Header */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 px-4 sm:px-0">
                 <div className="space-y-1">
                     <h1 className="text-3xl font-bold text-slate-900 tracking-tight flex items-center gap-3">
-                        <Building2 className="w-8 h-8 text-primary" />
+                        <Building2 className="w-8 h-8 text-blue-600" />
                         Tổ chức & Công ty
                     </h1>
                     <p className="text-slate-500 text-sm font-medium">Quản lý mạng lưới và phân quyền nhân sự B2B</p>
@@ -88,13 +88,13 @@ export default function ContractorOrganizationPage() {
                 <div className="flex items-center gap-3">
                     <Link
                         href="/contractor/dashboard"
-                        className="w-10 h-10 flex items-center justify-center bg-white border border-slate-200 text-slate-400 hover:text-primary rounded-xl transition-all shadow-sm active:scale-90"
+                        className="w-10 h-10 flex items-center justify-center bg-white border border-slate-200 text-slate-400 hover:text-blue-600 rounded-xl transition-all shadow-sm active:scale-90"
                     >
                         <ArrowLeft className="w-5 h-5" />
                     </Link>
                     <button
                         onClick={() => setShowCreateModal(true)}
-                        className="px-6 py-2.5 bg-primary text-white rounded-xl text-sm font-semibold flex items-center gap-2 hover:opacity-90 transition-all shadow-sm active:scale-95"
+                        className="px-6 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-blue-700 transition-all shadow-md active:scale-95"
                     >
                         <Plus size={18} /> Thêm tổ chức
                     </button>
@@ -129,7 +129,7 @@ export default function ContractorOrganizationPage() {
                         <div key={org.id} className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm hover:shadow-md transition-all group overflow-hidden">
                             <div className="space-y-6">
                                 <div className="flex items-center gap-4">
-                                    <div className="w-16 h-16 bg-slate-50 rounded-xl flex items-center justify-center text-primary border border-slate-100 font-bold text-2xl group-hover:bg-primary group-hover:text-white transition-all">
+                                    <div className="w-16 h-16 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600 border border-blue-100 font-bold text-2xl group-hover:bg-blue-600 group-hover:text-white transition-all">
                                         {org.name.charAt(0).toUpperCase()}
                                     </div>
                                     <div className="space-y-1">
@@ -142,7 +142,7 @@ export default function ContractorOrganizationPage() {
                                                 {org.userRole === 'OWNER' ? 'Chủ sở hữu' : org.userRole === 'ADMIN' ? 'Quản trị viên' : 'Thành viên'}
                                             </Badge>
                                             <span className="text-[11px] text-slate-400 font-bold flex items-center gap-1.5">
-                                                <Users size={14} className="text-primary/60" />
+                                                <Users size={14} className="text-blue-600/60" />
                                                 {org.memberCount} Thành viên
                                             </span>
                                         </div>
@@ -186,7 +186,7 @@ export default function ContractorOrganizationPage() {
                         </div>
                         <button
                             onClick={() => setShowCreateModal(true)}
-                            className="bg-primary text-white px-8 py-3 rounded-xl font-bold text-sm shadow-md hover:opacity-90 transition-all active:scale-95"
+                            className="bg-blue-600 text-white px-8 py-3 rounded-xl font-bold text-sm shadow-lg hover:bg-blue-700 transition-all active:scale-95"
                         >
                             Thiết lập Tổ chức ngay
                         </button>
@@ -199,8 +199,11 @@ export default function ContractorOrganizationPage() {
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
                     <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm animate-in fade-in" onClick={() => !submitting && setShowCreateModal(false)} />
                     <div className="relative bg-white w-full max-w-lg rounded-2xl shadow-xl overflow-hidden animate-in zoom-in-95">
-                        <div className="p-6 bg-slate-900 text-white">
-                            <h3 className="text-xl font-bold uppercase tracking-tight">Thêm Tổ chức mới</h3>
+                        <div className="p-6 bg-blue-600 text-white shadow-lg">
+                            <h3 className="text-xl font-bold uppercase tracking-tight flex items-center gap-3">
+                                <Plus className="w-6 h-6" />
+                                Thêm Tổ chức mới
+                            </h3>
                         </div>
 
                         <form onSubmit={handleCreate} className="p-6 space-y-6">
@@ -213,7 +216,7 @@ export default function ContractorOrganizationPage() {
                                         value={createData.name}
                                         onChange={e => setCreateData({ ...createData, name: e.target.value })}
                                         placeholder="Vd: Công ty Xây Dựng Số 1"
-                                        className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-semibold outline-none focus:ring-2 focus:ring-primary/10 focus:bg-white transition-all"
+                                        className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-600/5 focus:bg-white transition-all"
                                     />
                                 </div>
                                 <div className="space-y-1.5">
@@ -223,7 +226,7 @@ export default function ContractorOrganizationPage() {
                                         value={createData.taxCode}
                                         onChange={e => setCreateData({ ...createData, taxCode: e.target.value })}
                                         placeholder="010xxxxxxx"
-                                        className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-semibold outline-none focus:ring-2 focus:ring-primary/10 focus:bg-white transition-all"
+                                        className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-600/5 focus:bg-white transition-all"
                                     />
                                 </div>
                                 <div className="space-y-1.5">
@@ -233,7 +236,7 @@ export default function ContractorOrganizationPage() {
                                         value={createData.address}
                                         onChange={e => setCreateData({ ...createData, address: e.target.value })}
                                         placeholder="Vd: Số 123 Đường Láng, Hà Nội"
-                                        className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-semibold outline-none focus:ring-2 focus:ring-primary/10 focus:bg-white transition-all"
+                                        className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-blue-600/5 focus:bg-white transition-all"
                                     />
                                 </div>
                             </div>
@@ -243,14 +246,14 @@ export default function ContractorOrganizationPage() {
                                     type="button"
                                     disabled={submitting}
                                     onClick={() => setShowCreateModal(false)}
-                                    className="flex-1 py-3 bg-slate-100 text-slate-500 font-bold rounded-xl text-xs uppercase tracking-wider hover:bg-slate-200 transition-all"
+                                    className="flex-1 py-3 bg-slate-100 text-slate-700 font-bold rounded-xl text-xs uppercase tracking-wider hover:bg-slate-200 transition-all border border-slate-200"
                                 >
                                     Hủy
                                 </button>
                                 <button
                                     type="submit"
                                     disabled={submitting}
-                                    className="flex-[2] py-3 bg-primary text-white font-bold rounded-xl text-xs uppercase tracking-wider shadow-lg flex items-center justify-center gap-2 hover:opacity-90 active:scale-95"
+                                    className="flex-[2] py-3 bg-blue-600 text-white font-bold rounded-xl text-xs uppercase tracking-wider shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2 hover:bg-blue-700 active:scale-95 transition-all"
                                 >
                                     {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save size={16} />}
                                     Lưu tổ chức

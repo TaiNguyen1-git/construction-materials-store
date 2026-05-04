@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { createSuccessResponse, createErrorResponse } from '@/lib/api-types'
+import { verifyTokenFromRequest } from '@/lib/auth-middleware-api'
 
 // GET /api/marketplace/projects/[id] - Get project details
 export async function GET(
@@ -84,8 +85,38 @@ export async function GET(
             } catch (e) {}
         }
 
+        // Check if the current user has already applied (if logged in)
+        let userBid = null
+        try {
+            const userId = request.headers.get('x-user-id') || verifyTokenFromRequest(request)?.userId
+            if (userId) {
+                const contractor = await prisma.customer.findFirst({
+                    where: { userId }
+                })
+                if (contractor) {
+                    userBid = await prisma.projectBid.findFirst({
+                        where: { 
+                            projectId: id,
+                            contractorId: contractor.id
+                        },
+                        select: {
+                            id: true,
+                            status: true,
+                            createdAt: true,
+                            amount: true
+                        }
+                    })
+                }
+            }
+        } catch (e) {
+            console.warn('Could not check userBid in marketplace API:', e)
+        }
+
         return NextResponse.json(
-            createSuccessResponse(project, 'Project loaded'),
+            createSuccessResponse({
+                ...project,
+                userBid
+            }, 'Project loaded'),
             { status: 200 }
         )
     } catch (error) {

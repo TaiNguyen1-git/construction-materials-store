@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { saveNotificationForUser } from '@/lib/notification-service'
 import { z } from 'zod'
+import { verifyTokenFromRequest } from '@/lib/auth-middleware-api'
 
 const bidSchema = z.object({
   contractorId: z.string(),
@@ -54,18 +55,59 @@ export async function POST(
 ) {
   try {
     const { id: projectId } = await params
+    const payload = verifyTokenFromRequest(request)
+    if (!payload?.userId) {
+        return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
+    }
+
+    // Find the contractor profile for this user (ensure they are a contractor)
+    if (payload.role !== 'CONTRACTOR') {
+        return NextResponse.json({ success: false, error: 'Chỉ nhà thầu mới có thể nộp hồ sơ' }, { status: 403 })
+    }
+
+    const contractor = await prisma.customer.findFirst({
+        where: { userId: payload.userId }
+    })
+
+    if (!contractor) {
+        return NextResponse.json({ success: false, error: 'Chỉ nhà thầu mới có thể nộp hồ sơ' }, { status: 403 })
+    }
+
     const body = await request.json()
+    // Inject contractorId if missing or ensure it matches
+    body.contractorId = contractor.id
+    
     const validation = bidSchema.safeParse(body)
 
     if (!validation.success) {
-      return NextResponse.json({ success: false, error: validation.error.format() }, { status: 400 })
+        return NextResponse.json({ success: false, error: 'Dữ liệu không hợp lệ', details: validation.error.format() }, { status: 400 })
     }
 
-    const project = await prisma.project.findUnique({ where: { id: projectId } })
-    if (!project) return NextResponse.json({ success: false, error: 'Project not found' }, { status: 404 })
+    // Try to find the project in any of the possible tables
+    let targetProject: any = await prisma.project.findUnique({ where: { id: projectId } })
+    let projectType: 'PROJECT' | 'MARKET' | 'CONSTRUCTION' = 'PROJECT'
+
+    if (!targetProject) {
+        targetProject = await prisma.marketProject.findUnique({ where: { id: projectId } })
+        projectType = 'MARKET'
+    }
+
+    if (!targetProject) {
+        targetProject = await prisma.constructionProject.findUnique({ where: { id: projectId } })
+        projectType = 'CONSTRUCTION'
+    }
+
+    if (!targetProject) {
+        return NextResponse.json({ success: false, error: 'Không tìm thấy dự án' }, { status: 404 })
+    }
 
     const existingBid = await prisma.projectBid.findFirst({
-        where: { projectId, contractorId: validation.data.contractorId }
+        where: { 
+            OR: [
+                { projectId, contractorId: contractor.id },
+                { marketProjectId: projectId, contractorId: contractor.id }
+            ]
+        }
     })
 
     if (existingBid) {
@@ -74,24 +116,28 @@ export async function POST(
 
     const bid = await prisma.projectBid.create({
       data: {
-        projectId,
+        projectId: projectType === 'PROJECT' || projectType === 'CONSTRUCTION' ? projectId : undefined,
+        marketProjectId: projectType === 'MARKET' ? projectId : undefined,
         ...validation.data,
+        contractorId: contractor.id,
         status: 'PENDING'
       }
     })
 
     // Notify project owner
-    if (project.customerId) {
+    const customerId = targetProject.customerId
+    if (customerId) {
         const owner = await prisma.customer.findUnique({
-            where: { id: project.customerId },
+            where: { id: customerId },
             select: { userId: true }
         })
         if (owner?.userId) {
+            const projectName = targetProject.name || targetProject.title || 'Dự án'
             await saveNotificationForUser({
                 type: 'ORDER_UPDATE' as any,
                 priority: 'HIGH',
                 title: '🏗️ Gói thầu mới!',
-                message: `Có gói thầu mới trị giá ${validation.data.amount.toLocaleString()}đ cho dự án "${project.name}"`,
+                message: `Có gói thầu mới trị giá ${validation.data.amount.toLocaleString()}đ cho dự án "${projectName}"`,
                 data: { projectId, bidId: bid.id }
             }, owner.userId, 'CUSTOMER')
         }

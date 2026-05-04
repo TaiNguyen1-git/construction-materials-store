@@ -7,51 +7,34 @@ import { Briefcase, Target, ArrowRight, Zap, Clock, MapPin, Coins } from 'lucide
 import { useQuery } from '@tanstack/react-query'
 import React from 'react'
 
-interface SuggestedProject {
-    id: string
-    title: string
-    description: string
-    projectType: string
-    location: string
-    city: string
-    estimatedBudget: number | null
-    budgetType: string
-    isUrgent: boolean
-    applicationCount: number
-    createdAt: string
-    matchScore: number
-    matchReasons: string[]
-}
-
-const PROJECT_TYPE_LABELS: Record<string, string> = {
-    NEW_CONSTRUCTION: 'Xây mới',
-    RENOVATION: 'Cải tạo',
-    INTERIOR: 'Nội thất',
-    EXTERIOR: 'Ngoại thất',
-    FLOORING: 'Lát sàn',
-    PAINTING: 'Sơn',
-    PLUMBING: 'Ống nước',
-    ELECTRICAL: 'Điện',
-    ROOFING: 'Mái',
-    OTHER: 'Khác'
-}
+import { Project } from '@/types/contractor'
 
 interface SuggestedProjectsWidgetProps {
     displayMode?: 'list' | 'grid'
 }
 
 function SuggestedProjectsWidgetComponent({ displayMode = 'list' }: SuggestedProjectsWidgetProps) {
-    const fetchSuggestedProjects = async (): Promise<SuggestedProject[]> => {
-        const res = await fetchWithAuth('/api/marketplace/projects/suggested')
+    const fetchSuggestedProjects = async (): Promise<Project[]> => {
+        const res = await fetchWithAuth('/api/projects?isPublic=true&limit=6')
         if (!res.ok) throw new Error('Không thể tải dữ liệu')
         const data = await res.json()
-        if (!data.success) throw new Error('Lỗi phản hồi dữ liệu')
-        // Combine urgent and matching, prioritize urgent
-        return [
-            ...(data.data.urgent || []),
-            ...(data.data.matching || []),
-            ...(data.data.recent || [])
-        ].slice(0, 6)
+        
+        const rawProjects = data.data || data.projects || []
+        return rawProjects.map((p: any) => ({
+            id: p.id,
+            title: p.name,
+            description: p.description,
+            status: p.status,
+            createdAt: p.createdAt,
+            estimatedBudget: p.budget,
+            location: p.location || null,
+            city: p.city || 'Toàn quốc',
+            projectType: p.category || 'general',
+            contactName: p.guestName || p.customer?.user?.name || 'Khách hàng',
+            applicationCount: p.projectTasks?.length || 0,
+            viewCount: p.viewCount || 0,
+            isUrgent: p.isUrgent === true || p.priority === 'HIGH' || p.priority === 'URGENT'
+        }))
     }
 
     const { data: projects = [], isLoading: loading, error } = useQuery({

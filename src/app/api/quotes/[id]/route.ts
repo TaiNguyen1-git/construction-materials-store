@@ -4,6 +4,7 @@ import { createSuccessResponse, createErrorResponse } from '@/lib/api-types'
 import { z } from 'zod'
 import { saveNotificationForUser } from '@/lib/notification-service'
 import { checkContractorPlan } from '@/lib/plan-guard'
+import { verifyTokenFromRequest } from '@/lib/auth-middleware-api'
 
 interface UnifiedQuote {
     id: string
@@ -25,7 +26,8 @@ export async function GET(
 ) {
     try {
         const { id: quoteId } = await params
-        const userId = request.headers.get('x-user-id')
+        const payload = verifyTokenFromRequest(request)
+        const userId = payload?.userId
         if (!userId) {
             return NextResponse.json(createErrorResponse('Unauthorized', 'UNAUTHORIZED'), { status: 401 })
         }
@@ -128,7 +130,8 @@ const updateQuoteRequestSchema = z.object({
     response: z.string().optional(),
     priceQuote: z.number().optional(),
     items: z.array(quoteItemSchema).optional(), // Flow 1
-    milestones: z.array(milestoneSchema).optional() // Flow 3
+    milestones: z.array(milestoneSchema).optional(), // Flow 3
+    negotiationMetadata: z.any().optional()
 })
 
 // PATCH /api/quotes/[id] - Update quote request
@@ -138,7 +141,8 @@ export async function PATCH(
 ) {
     try {
         const { id: quoteId } = await params
-        const userId = request.headers.get('x-user-id')
+        const payload = verifyTokenFromRequest(request)
+        const userId = payload?.userId
         if (!userId) {
             return NextResponse.json(createErrorResponse('Unauthorized', 'UNAUTHORIZED'), { status: 401 })
         }
@@ -245,12 +249,18 @@ export async function PATCH(
                         respondedAt: new Date(),
                         version: quote.version + 1,
                         parentQuoteId: quote.parentQuoteId || quote.id,
+                        isLatest: true,
+                        metadata: body.negotiationMetadata || quote.metadata,
                         attachments: quote.attachments,
                         conversationId: quote.conversationId,
                         items: {
                             create: items?.map(item => ({
-                                ...item,
-                                totalPrice: item.quantity * item.unitPrice
+                                description: item.description,
+                                quantity: item.quantity,
+                                unit: item.unit,
+                                unitPrice: item.unitPrice,
+                                totalPrice: item.quantity * item.unitPrice,
+                                category: item.category || 'General'
                             }))
                         },
                         milestones: {

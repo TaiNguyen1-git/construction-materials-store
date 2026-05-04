@@ -93,9 +93,9 @@ export default function ContractorProjectDetailPage() {
         }
     }, [id])
 
-    const fetchProject = async () => {
+    const fetchProject = async (silent = false) => {
         try {
-            setLoading(true)
+            if (!silent) setLoading(true)
             const res = await fetchWithAuth(`/api/contractors/projects/${id}`)
             if (res.ok) {
                 const data = await res.json()
@@ -122,9 +122,30 @@ export default function ContractorProjectDetailPage() {
         }
     }
 
-    const handleToggleSave = () => {
-        setIsSaved(!isSaved)
-        toast.success(isSaved ? 'Đã bỏ lưu dự án' : 'Đã lưu dự án vào danh sách quan tâm')
+    const handleToggleSave = async () => {
+        const newSavedState = !isSaved
+        setIsSaved(newSavedState)
+        
+        try {
+            const res = await fetchWithAuth('/api/contractor/saved-projects', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ projectId: id })
+            })
+            
+            if (res.ok) {
+                toast.success(newSavedState ? 'Đã lưu dự án vào danh sách quan tâm' : 'Đã bỏ lưu dự án', {
+                    icon: newSavedState ? '⭐' : '🗑️'
+                })
+            } else {
+                // Revert state if failed
+                setIsSaved(!newSavedState)
+                toast.error('Không thể cập nhật trạng thái lưu.')
+            }
+        } catch (error) {
+            setIsSaved(!newSavedState)
+            toast.error('Lỗi kết nối máy chủ.')
+        }
     }
 
     const handleAuditDownload = () => {
@@ -186,7 +207,8 @@ export default function ContractorProjectDetailPage() {
         </div>
     )
 
-    const isListing = project.status === 'OPEN'
+    // Only show management dashboard if the contractor has an ACCEPTED bid
+    const isListing = !project.userBid || project.userBid.status !== 'ACCEPTED'
 
     return (
         <div className="space-y-8 pb-20 max-w-7xl mx-auto px-4 sm:px-0">
@@ -577,8 +599,12 @@ export default function ContractorProjectDetailPage() {
                     onClose={() => setShowApplyModal(false)}
                     onSuccess={() => {
                         setShowApplyModal(false)
-                        fetchProject()
-                        toast.success('Đã gửi hồ sơ thầu thành công!')
+                        // Fetch silently to update the buttons without flicker
+                        fetchProject(true)
+                        toast.success('Hồ sơ thầu của bạn đã được gửi thành công!', {
+                            icon: '🚀',
+                            duration: 5000
+                        })
                     }}
                 />
             )}

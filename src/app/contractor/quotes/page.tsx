@@ -19,6 +19,8 @@ import {
     Building2,
     Send,
     User,
+    Mail,
+    Phone,
     Paperclip,
     Plus,
     AlertCircle,
@@ -50,8 +52,9 @@ interface QuoteRequest {
     attachments: string[]
     customer: {
         id: string
-        user: { name: string, email: string, phone: string }
-    }
+        companyName?: string
+        user?: { name: string, email: string, phone: string }
+    } | null
     project: { name: string } | null
     conversationId: string | null
     history: unknown[]
@@ -259,7 +262,7 @@ export default function ContractorQuotesPage() {
                                 <h3 className={`font-bold text-base flex items-center gap-2 ${selectedQuote?.id === quote.id ? 'text-blue-900' : 'text-slate-900'}`}>
                                     #{quote.id.slice(-6).toUpperCase()}
                                 </h3>
-                                <p className={`text-sm font-medium mt-1 ${selectedQuote?.id === quote.id ? 'text-blue-800' : 'text-slate-600'}`}>{quote.customer.user.name}</p>
+                                <p className={`text-sm font-medium mt-1 ${selectedQuote?.id === quote.id ? 'text-blue-800' : 'text-slate-600'}`}>{quote.customer?.user?.name || quote.customer?.companyName || 'Khách hàng hệ thống'}</p>
                                 <p className={`text-sm mt-3 line-clamp-2 leading-relaxed ${selectedQuote?.id === quote.id ? 'text-blue-700/80' : 'text-slate-500'}`}>{quote.details}</p>
 
                                 <div className={`mt-4 pt-4 border-t flex items-center justify-between ${selectedQuote?.id === quote.id ? 'border-blue-200' : 'border-slate-100'}`}>
@@ -285,10 +288,20 @@ export default function ContractorQuotesPage() {
                                 <div className="flex flex-col md:flex-row justify-between items-start gap-4 mb-6">
                                     <div className="space-y-1">
                                         <div className="flex items-center gap-3">
-                                            <h2 className="text-xl font-bold text-slate-900">Chi tiết Báo giá</h2>
+                                            <h2 className="text-xl font-bold text-slate-900">{selectedQuote.customer?.user?.name || selectedQuote.customer?.companyName || 'Khách hàng hệ thống'}</h2>
                                             <span className={`px-3 py-1 rounded-md text-xs font-semibold ${selectedQuote.status === 'ACCEPTED' ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'}`}>
                                                 {getStatusText(selectedQuote.status)}
                                             </span>
+                                        </div>
+                                        <div className="flex flex-wrap gap-4 mt-2">
+                                            <div className="flex items-center gap-1.5 text-sm text-slate-500 font-medium">
+                                                <Phone className="w-4 h-4" />
+                                                {selectedQuote.customer?.user?.phone || 'Chưa cập nhật'}
+                                            </div>
+                                            <div className="flex items-center gap-1.5 text-sm text-slate-500 font-medium">
+                                                <Mail className="w-4 h-4" />
+                                                {selectedQuote.customer?.user?.email || 'N/A'}
+                                            </div>
                                         </div>
                                         <p className="text-sm font-semibold text-slate-500">ID: #{selectedQuote.id.toUpperCase()}</p>
                                     </div>
@@ -305,7 +318,7 @@ export default function ContractorQuotesPage() {
 
                                 <div className="grid md:grid-cols-3 gap-4">
                                     {[
-                                        { label: 'Khách hàng', value: selectedQuote.customer.user.name, icon: User, color: 'text-blue-600', bg: 'bg-blue-50' },
+                                        { label: 'Khách hàng', value: selectedQuote.customer?.user?.name || selectedQuote.customer?.companyName || 'Khách hàng hệ thống', icon: User, color: 'text-blue-600', bg: 'bg-blue-50' },
                                         { label: 'Dự án liên kết', value: selectedQuote.project?.name || 'Chưa liên kết', icon: Building2, color: 'text-emerald-600', bg: 'bg-emerald-50' },
                                         { label: 'Ngân sách (dự kiến)', value: `${selectedQuote.budget?.toLocaleString() || 0}đ`, icon: Coins, color: 'text-amber-600', bg: 'bg-amber-50' }
                                     ].map((stat, i) => (

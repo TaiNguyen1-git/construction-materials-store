@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { createSuccessResponse, createErrorResponse } from '@/lib/api-types'
 import { z } from 'zod'
 import { saveNotificationForUser } from '@/lib/notification-service'
+import { verifyTokenFromRequest } from '@/lib/auth-middleware-api'
 
 const createQuoteRequestSchema = z.object({
     contractorId: z.string(),
@@ -17,7 +18,9 @@ const createQuoteRequestSchema = z.object({
 // GET /api/quotes - List quotes for current user (either sent or received)
 export async function GET(request: NextRequest) {
     try {
-        const userId = request.headers.get('x-user-id')
+        const payload = verifyTokenFromRequest(request)
+        const userId = payload?.userId
+
         if (!userId) {
             return NextResponse.json(createErrorResponse('Unauthorized', 'UNAUTHORIZED'), { status: 401 })
         }
@@ -170,10 +173,12 @@ interface QuoteResponse {
     }
 }
 
-// POST /api/quotes - Create new quote request
+// POST /api/quotes - Create a new quote request (Customer -> Contractor)
 export async function POST(request: NextRequest) {
     try {
-        const userId = request.headers.get('x-user-id')
+        const payload = verifyTokenFromRequest(request)
+        const userId = payload?.userId
+
         if (!userId) {
             return NextResponse.json(createErrorResponse('Unauthorized', 'UNAUTHORIZED'), { status: 401 })
         }
