@@ -22,16 +22,16 @@ function SuggestedProjectsWidgetComponent({ displayMode = 'list' }: SuggestedPro
         const rawProjects = data.data || data.projects || []
         return rawProjects.map((p: any) => ({
             id: p.id,
-            title: p.name,
+            title: p.title || p.name,
             description: p.description,
             status: p.status,
             createdAt: p.createdAt,
-            estimatedBudget: p.budget,
+            estimatedBudget: p.estimatedBudget || p.budget,
             location: p.location || null,
             city: p.city || 'Toàn quốc',
-            projectType: p.category || 'general',
-            contactName: p.guestName || p.customer?.user?.name || 'Khách hàng',
-            applicationCount: p.projectTasks?.length || 0,
+            projectType: p.projectType || p.category || 'general',
+            contactName: p.contactName || p.guestName || p.customer?.user?.name || 'Khách hàng',
+            applicationCount: p.applicationCount || p.projectTasks?.length || 0,
             viewCount: p.viewCount || 0,
             isUrgent: p.isUrgent === true || p.priority === 'HIGH' || p.priority === 'URGENT'
         }))

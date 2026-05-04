@@ -85,29 +85,63 @@ export async function POST(
 
     // Try to find the project in any of the possible tables
     let targetProject: any = await prisma.project.findUnique({ where: { id: projectId } })
-    let projectType: 'PROJECT' | 'MARKET' | 'CONSTRUCTION' = 'PROJECT'
-
-    if (!targetProject) {
-        targetProject = await prisma.marketProject.findUnique({ where: { id: projectId } })
-        projectType = 'MARKET'
-    }
+    let projectType: 'PROJECT' | 'CONSTRUCTION' = 'PROJECT'
 
     if (!targetProject) {
         targetProject = await prisma.constructionProject.findUnique({ where: { id: projectId } })
-        projectType = 'CONSTRUCTION'
+        if (targetProject) projectType = 'CONSTRUCTION'
     }
 
     if (!targetProject) {
         return NextResponse.json({ success: false, error: 'Không tìm thấy dự án' }, { status: 404 })
     }
 
-    const existingBid = await prisma.projectBid.findFirst({
-        where: { 
-            OR: [
-                { projectId, contractorId: contractor.id },
-                { marketProjectId: projectId, contractorId: contractor.id }
-            ]
+    // ConstructionProject uses ProjectApplication (not ProjectBid)
+    if (projectType === 'CONSTRUCTION') {
+        const existingApp = await prisma.projectApplication.findFirst({
+            where: { projectId, contractorId: contractor.id }
+        })
+        if (existingApp) {
+            return NextResponse.json({ success: false, error: 'Bạn đã nộp thầu cho dự án này rồi' }, { status: 400 })
         }
+
+        const application = await prisma.projectApplication.create({
+            data: {
+                projectId,
+                contractorId: contractor.id,
+                message: validation.data.message || '',
+                proposedBudget: validation.data.amount,
+                proposedDays: validation.data.completionDays,
+                materials: validation.data.boq ?? undefined,
+                attachments: validation.data.attachments ?? [],
+                status: 'PENDING'
+            }
+        })
+
+        // Notify project owner
+        const ownerId = targetProject.customerId
+        if (ownerId && ownerId !== 'guest') {
+            const owner = await prisma.customer.findFirst({
+                where: { userId: ownerId },
+                select: { userId: true }
+            }).catch(() => null)
+            if (owner?.userId) {
+                await saveNotificationForUser({
+                    type: 'ORDER_UPDATE' as any,
+                    priority: 'HIGH',
+                    title: '🏗️ Gói thầu mới!',
+                    message: `Có gói thầu mới trị giá ${validation.data.amount.toLocaleString()}đ cho dự án "${targetProject.title}"`,
+                    data: { projectId, applicationId: application.id }
+                }, owner.userId, 'CUSTOMER')
+            }
+        }
+
+        return NextResponse.json({ success: true, data: application, message: 'Nộp thầu thành công' })
+    }
+
+    // For PROJECT type — use ProjectBid
+    const existingBid = await prisma.projectBid.findFirst({
+        where: { projectId, contractorId: contractor.id }
     })
 
     if (existingBid) {
@@ -116,8 +150,7 @@ export async function POST(
 
     const bid = await prisma.projectBid.create({
       data: {
-        projectId: projectType === 'PROJECT' || projectType === 'CONSTRUCTION' ? projectId : undefined,
-        marketProjectId: projectType === 'MARKET' ? projectId : undefined,
+        projectId,
         ...validation.data,
         contractorId: contractor.id,
         status: 'PENDING'

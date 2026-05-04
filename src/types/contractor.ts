@@ -18,16 +18,21 @@ export interface Project {
 
 export interface ApiProjectResponse {
     id: string
-    name: string
+    title?: string       // From Marketplace API
+    name?: string        // From Projects API
     description: string
     status: string
     createdAt: string
-    budget: number
+    estimatedBudget?: number // From Marketplace API
+    budget?: number          // From Projects API
     location?: string
     city?: string
-    category?: string
-    guestName?: string
+    projectType?: string     // From Marketplace API
+    category?: string        // From Projects API
+    contactName?: string     // From Marketplace API
+    guestName?: string       // From Projects API
     viewCount?: number
+    applicationCount?: number // From Marketplace API
     isUrgent?: boolean
     customer?: { 
         user?: { 

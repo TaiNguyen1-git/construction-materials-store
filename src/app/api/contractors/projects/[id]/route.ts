@@ -58,18 +58,28 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
             where: { userId: payload.userId }
         })
 
-        // Find if this contractor has a bid for this project
-        const userBid = contractor ? await prisma.projectBid.findFirst({
-            where: { 
-                projectId: id,
-                contractorId: contractor.id
+        // Find if this contractor has submitted an application for this ConstructionProject
+        let userBid = null
+        if (contractor) {
+            const application = await prisma.projectApplication.findFirst({
+                where: { projectId: id, contractorId: contractor.id },
+                orderBy: { createdAt: 'desc' }
+            })
+            if (application) {
+                userBid = {
+                    id: application.id,
+                    status: application.status,
+                    amount: application.proposedBudget || 0,
+                    createdAt: application.createdAt
+                }
             }
-        }) : null
+        }
 
         return NextResponse.json({
             success: true,
             data: {
                 ...project,
+                applicationCount: project.applications?.length ?? 0,
                 userBid,
                 milestones: quote?.milestones || [],
                 expenses: expenses || [],

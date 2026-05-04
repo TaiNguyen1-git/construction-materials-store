@@ -99,16 +99,16 @@ export default function FindProjectsPage() {
                 
                 const mappedProjects: Project[] = (data.data || data.projects || []).map((p: ApiProjectResponse) => ({
                     id: p.id,
-                    title: p.name,
+                    title: p.title || p.name || 'Dự án không tên',
                     description: p.description,
                     status: p.status,
                     createdAt: p.createdAt,
-                    estimatedBudget: p.budget,
+                    estimatedBudget: p.estimatedBudget || p.budget || null,
                     location: p.location || null,
                     city: p.city || 'Toàn quốc',
-                    projectType: p.category || 'general',
-                    contactName: p.guestName || p.customer?.user?.name || 'Khách hàng',
-                    applicationCount: p.projectTasks?.length || 0,
+                    projectType: p.projectType || p.category || 'general',
+                    contactName: p.contactName || p.guestName || p.customer?.user?.name || 'Khách hàng',
+                    applicationCount: p.applicationCount || p.projectTasks?.length || 0,
                     viewCount: p.viewCount || 0,
                     isUrgent: p.isUrgent === true
                 }))

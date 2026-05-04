@@ -88,24 +88,22 @@ export async function GET(
         // Check if the current user has already applied (if logged in)
         let userBid = null
         try {
-            const userId = request.headers.get('x-user-id') || verifyTokenFromRequest(request)?.userId
+            const userId = verifyTokenFromRequest(request)?.userId
             if (userId) {
-                const contractor = await prisma.customer.findFirst({
-                    where: { userId }
-                })
+                const contractor = await prisma.customer.findFirst({ where: { userId } })
                 if (contractor) {
-                    userBid = await prisma.projectBid.findFirst({
-                        where: { 
-                            projectId: id,
-                            contractorId: contractor.id
-                        },
-                        select: {
-                            id: true,
-                            status: true,
-                            createdAt: true,
-                            amount: true
-                        }
+                    const application = await prisma.projectApplication.findFirst({
+                        where: { projectId: id, contractorId: contractor.id },
+                        select: { id: true, status: true, createdAt: true, proposedBudget: true }
                     })
+                    if (application) {
+                        userBid = {
+                            id: application.id,
+                            status: application.status,
+                            amount: application.proposedBudget || 0,
+                            createdAt: application.createdAt
+                        }
+                    }
                 }
             }
         } catch (e) {

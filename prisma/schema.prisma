@@ -149,27 +149,24 @@ model UserSession {
 }
 
 model ProjectBid {
-  id              String    @id @default(auto()) @map("_id") @db.ObjectId
-  projectId       String?   @db.ObjectId
-  marketProjectId String?   @db.ObjectId
-  contractorId    String    @db.ObjectId
-  amount          Float
-  completionDays  Int
-  message         String?
-  boq             Json? // [{item, unit, qty, price}]
-  milestones      Json? // [{name, percentage}]
-  status          BidStatus @default(PENDING)
-  validUntil      DateTime?
-  attachments     String[]  @default([])
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  id             String    @id @default(auto()) @map("_id") @db.ObjectId
+  projectId      String?   @db.ObjectId
+  contractorId   String    @db.ObjectId
+  amount         Float
+  completionDays Int
+  message        String?
+  boq            Json? // [{item, unit, qty, price}]
+  milestones     Json? // [{name, percentage}]
+  status         BidStatus @default(PENDING)
+  validUntil     DateTime?
+  attachments    String[]  @default([])
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
-  project       Project?       @relation(fields: [projectId], references: [id])
-  marketProject MarketProject? @relation(fields: [marketProjectId], references: [id])
-  contractor    Customer       @relation(fields: [contractorId], references: [id])
+  project    Project?  @relation(fields: [projectId], references: [id])
+  contractor Customer  @relation(fields: [contractorId], references: [id])
 
   @@index([projectId])
-  @@index([marketProjectId])
   @@index([contractorId])
   @@index([status])
   @@map("project_bids")
@@ -2254,57 +2251,6 @@ enum ProjectType {
   OTHER // Khác
 }
 
-model MarketProject {
-  id           String        @id @default(auto()) @map("_id") @db.ObjectId
-  customerId   String        @db.ObjectId // Owner of the project
-  title        String
-  description  String
-  projectType  ProjectType   @default(NEW_BUILD)
-  status       ProjectStatus @default(PLANNING)
-  address      String?
-  district     String?
-  city         String        @default("Biên Hòa")
-  budgetMin    Float? // Minimum budget
-  budgetMax    Float? // Maximum budget
-  startDate    DateTime? // Expected start date
-  endDate      DateTime? // Expected end date
-  requirements String[] // Required skills
-  images       String[] // Project images
-  isUrgent     Boolean       @default(false)
-  viewCount    Int           @default(0)
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-
-  // Relationships
-  applications MarketProjectApplication[]
-  bids         ProjectBid[]
-
-  @@index([status])
-  @@index([projectType])
-  @@index([city])
-  @@index([isUrgent])
-  @@map("market_projects")
-}
-
-model MarketProjectApplication {
-  id             String   @id @default(auto()) @map("_id") @db.ObjectId
-  projectId      String   @db.ObjectId
-  contractorId   String   @db.ObjectId
-  message        String // Application message
-  proposedBudget Float? // Proposed budget
-  proposedDays   Int? // Proposed number of days to complete
-  status         String   @default("PENDING") // PENDING, ACCEPTED, REJECTED, WITHDRAWN
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  // Relationships
-  project MarketProject @relation(fields: [projectId], references: [id])
-
-  @@index([projectId])
-  @@index([contractorId])
-  @@index([status])
-  @@map("market_project_applications")
-}
 
 model ConstructionProject {
   id              String   @id @default(auto()) @map("_id") @db.ObjectId
