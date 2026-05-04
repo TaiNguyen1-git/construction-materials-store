@@ -104,12 +104,42 @@ export default function FindProjectsPage() {
     const fetchProjects = async () => {
         try {
             setLoading(true)
-            const res = await fetchWithAuth(`/api/marketplace/projects`)
+            const res = await fetchWithAuth(`/api/projects?isPublic=true`)
             if (res.ok) {
                 const data = await res.json()
-                if (data.success) {
-                    setProjects(data.data.projects || [])
+                
+                // Map the API response format to match what the UI expects
+                interface ApiProject {
+                    id: string;
+                    name: string;
+                    description: string;
+                    status: string;
+                    createdAt: string;
+                    budget: number;
+                    location?: string;
+                    category?: string;
+                    guestName?: string;
+                    priority?: string;
+                    customer?: { user?: { name: string } };
+                    projectTasks?: { id: string; status: string }[];
                 }
+                
+                const mappedProjects = (data.data || data.projects || []).map((p: ApiProject) => ({
+                    id: p.id,
+                    title: p.name,
+                    description: p.description,
+                    status: p.status,
+                    createdAt: p.createdAt,
+                    estimatedBudget: p.budget,
+                    location: p.location,
+                    projectType: p.category || 'general',
+                    contactName: p.guestName || p.customer?.user?.name || 'Khách hàng',
+                    applicationCount: p.projectTasks?.length || 0,
+                    viewCount: 0,
+                    isUrgent: p.priority === 'HIGH' || p.priority === 'URGENT'
+                }))
+                
+                setProjects(mappedProjects)
             }
         } catch (error) {
             console.error('Failed to fetch projects:', error)

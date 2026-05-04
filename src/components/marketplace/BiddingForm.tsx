@@ -106,9 +106,24 @@ export default function BiddingForm({
 
     useEffect(() => {
         const contId = localStorage.getItem('contractor_id')
-        if (contId) {
+        const userHintStr = localStorage.getItem('user_hint')
+        
+        let userId = contId
+        
+        if (!userId && userHintStr) {
+            try {
+                const userHint = JSON.parse(userHintStr)
+                if (userHint && userHint.role === 'CONTRACTOR') {
+                    userId = userHint.id
+                    // Auto-repair missing contractor_id
+                    localStorage.setItem('contractor_id', userHint.id)
+                }
+            } catch (e) {}
+        }
+        
+        if (userId) {
             setIsLoggedIn(true)
-            setContractorId(contId)
+            setContractorId(userId)
         }
     }, [])
 

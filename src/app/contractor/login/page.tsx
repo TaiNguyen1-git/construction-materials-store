@@ -93,8 +93,8 @@ export default function ContractorLoginPage() {
             }
 
             // Handle Contractor specific storage for legacy support if needed
-            if ((loggedInUser as ExtendedUser).contractorId) {
-                localStorage.setItem('contractor_id', (loggedInUser as ExtendedUser).contractorId!)
+            if (loggedInUser.role === 'CONTRACTOR') {
+                localStorage.setItem('contractor_id', loggedInUser.id)
             }
 
             // Redirect
