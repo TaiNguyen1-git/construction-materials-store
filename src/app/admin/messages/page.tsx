@@ -7,7 +7,7 @@ import {
 } from 'lucide-react'
 import { getAuthHeaders, fetchWithAuth } from '@/lib/api-client'
 import { getFirebaseDatabase } from '@/lib/firebase'
-import { ref, onChildAdded, off } from 'firebase/database'
+import { ref, onChildAdded, onChildChanged, off } from 'firebase/database'
 import { subscribeToTicketMessages } from '@/lib/firebase-notifications'
 import toast, { Toaster } from 'react-hot-toast'
 import ChatCallManager from '@/components/ChatCallManager'
@@ -138,7 +138,18 @@ function MessagesContent() {
                 })
             }
         })
-        return () => off(messagesRef)
+
+        const unsubChanged = onChildChanged(messagesRef, (snapshot) => {
+            const updatedMsg = snapshot.val()
+            if (updatedMsg) {
+                updatedMsg.id = updatedMsg.id || snapshot.key
+                setMessages(prev => prev.map(m => m.id === updatedMsg.id ? updatedMsg : m))
+            }
+        })
+
+        return () => {
+            off(messagesRef)
+        }
     }, [selectedId])
 
     // Load Ticket Data

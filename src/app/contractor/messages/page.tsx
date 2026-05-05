@@ -139,6 +139,7 @@ function MessagesContent() {
         onChildChanged(messagesRef, (snapshot: any) => {
             const updatedMsg = snapshot.val()
             if (updatedMsg) {
+                updatedMsg.id = updatedMsg.id || snapshot.key
                 setMessages(prev => {
                     // If message is now removed for this user, filter it out
                     if (updatedMsg.removedBy?.includes(user?.id)) {

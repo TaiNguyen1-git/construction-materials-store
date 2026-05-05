@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import { Check, CheckCheck, Clock, Paperclip, AlertCircle, Reply, Undo2, Trash2, MoreHorizontal } from 'lucide-react'
+import { Check, CheckCheck, Clock, Paperclip, AlertCircle, MessageSquareReply, RotateCcw, Trash2, MoreHorizontal, Undo2 } from 'lucide-react'
 
 export interface ChatMessage {
     id: string
@@ -216,12 +216,12 @@ export default function MessengerChatBubbles({
                                         className={`
                                             relative px-4 py-2.5 shadow-sm w-fit max-w-[75%]
                                             ${isMe
-                                                ? `${theme.bubble} text-white ${msg.isFirst ? 'rounded-t-2xl' : 'rounded-t-lg'} ${msg.isLast ? 'rounded-bl-2xl rounded-br-sm' : 'rounded-b-lg'}`
+                                                ? `${!msg.isUnsent ? theme.bubble : 'bg-slate-50 border border-slate-200'} ${!msg.isUnsent ? 'text-white' : 'text-slate-400'} ${msg.isFirst ? 'rounded-t-2xl' : 'rounded-t-lg'} ${msg.isLast ? 'rounded-bl-2xl rounded-br-sm' : 'rounded-b-lg'}`
                                                 : `bg-white border border-slate-100 text-slate-800 ${msg.isFirst ? 'rounded-t-2xl' : 'rounded-t-lg'} ${msg.isLast ? 'rounded-br-2xl rounded-bl-sm' : 'rounded-b-lg'}`
                                             }
                                             ${isSending ? 'opacity-70' : ''}
                                             ${isError ? 'ring-2 ring-red-400' : ''}
-                                            ${msg.isUnsent ? '!bg-slate-50 !text-slate-400 !border-slate-200 !shadow-none' : ''}
+                                            ${msg.isUnsent && !isMe ? '!bg-slate-50 !text-slate-400 !border-slate-200 !shadow-none' : ''}
                                             transition-all duration-150 overflow-hidden
                                         `}
                                     >
@@ -247,8 +247,8 @@ export default function MessengerChatBubbles({
 
                                         {/* Text with Link Protection or Unsent State */}
                                         {msg.isUnsent ? (
-                                            <p className="text-[13px] italic opacity-70 flex items-center gap-1.5">
-                                                <Undo2 size={12} /> Tin nhắn đã được thu hồi
+                                            <p className="text-[13px] italic flex items-center gap-1.5 py-0.5">
+                                                <RotateCcw size={12} className="opacity-50" /> Tin nhắn đã được thu hồi
                                             </p>
                                         ) : msg.content && (
                                             <p className="text-sm whitespace-pre-wrap leading-relaxed break-words overflow-wrap-anywhere">
@@ -364,7 +364,7 @@ export default function MessengerChatBubbles({
                                                 className="p-1.5 hover:bg-slate-100 rounded-full text-slate-400 hover:text-blue-600 transition-all active:scale-90" 
                                                 title="Trả lời"
                                             >
-                                                <Reply size={14} />
+                                                <MessageSquareReply size={14} />
                                             </button>
                                             {isMe && onUnsend && (
                                                 <button 
@@ -372,7 +372,7 @@ export default function MessengerChatBubbles({
                                                     className="p-1.5 hover:bg-slate-100 rounded-full text-slate-400 hover:text-rose-500 transition-all active:scale-90" 
                                                     title="Thu hồi"
                                                 >
-                                                    <Undo2 size={14} />
+                                                    <RotateCcw size={14} />
                                                 </button>
                                             )}
                                             {onRemove && (
