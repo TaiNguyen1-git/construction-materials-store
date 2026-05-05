@@ -8,7 +8,10 @@ import path from 'path'
 import { v4 as uuidv4 } from 'uuid'
 
 // Private uploads directory - outside of public folder
-const PRIVATE_UPLOADS_DIR = path.join(process.cwd(), 'private_uploads')
+// 🛡️ VERCEL FIX: Use /tmp directory on Vercel as other paths are read-only
+const PRIVATE_UPLOADS_DIR = process.env.VERCEL 
+    ? path.join('/tmp', 'private_uploads')
+    : path.join(process.cwd(), 'private_uploads')
 
 export interface StoredFile {
     id: string

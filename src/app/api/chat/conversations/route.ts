@@ -6,6 +6,9 @@ import { decodeId } from '@/lib/id-utils'
 // Admin support ID used for supplier conversations
 const ADMIN_SUPPORT_ID = 'admin_support'
 
+// Only query users if they have valid ObjectIDs (24 hex chars)
+const isValidObjectId = (id: string) => /^[a-f\d]{24}$/i.test(id)
+
 export async function GET(req: NextRequest) {
     try {
         const decoded = await verifyTokenFromRequest(req)
@@ -124,7 +127,19 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ message: 'Recipient ID is required' }, { status: 400 })
         }
 
-        const decodedRecipientId = decodeId(recipientId)
+        let decodedRecipientId = decodeId(recipientId)
+        
+        // Resolve ContractorProfile ID to User ID if necessary
+        // This ensures the conversation is linked to the real User account for the contractor
+        if (isValidObjectId(decodedRecipientId)) {
+            const contractor = await prisma.contractorProfile.findUnique({
+                where: { id: decodedRecipientId },
+                include: { customer: { select: { userId: true } } }
+            })
+            if (contractor && contractor.customer?.userId) {
+                decodedRecipientId = contractor.customer.userId
+            }
+        }
         
         // TypeScript safety
         const currentUserId = userId as string;
@@ -146,9 +161,6 @@ export async function POST(req: NextRequest) {
 
             let user1Name = userName || 'Người dùng'
             let user2Name = recipientName || 'Hỗ trợ khách hàng'
-
-            // Only query users if they have valid ObjectIDs (24 hex chars)
-            const isValidObjectId = (id: string) => /^[a-f\d]{24}$/i.test(id)
 
             if (!isAdminSupportChannel) {
                 const [user1, user2] = await Promise.all([

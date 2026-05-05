@@ -46,18 +46,23 @@ export async function POST(request: NextRequest) {
             if (bodySenderName) senderName = bodySenderName
         } else if (!bodySenderName) {
             // Regular user or supplier (if not providing name) - get their info
-            const [user, supplier] = await Promise.all([
-                prisma.user.findUnique({ where: { id: userId } }),
-                prisma.supplier.findUnique({ where: { id: userId } })
-            ])
+            // 🛡️ FIX: Only query if userId is a valid ObjectId hex string (24 chars)
+            // Guests use 'guest_xxx' which is not a valid ObjectId and would cause Prisma to throw 500
+            const isValidObjectId = userId && userId.length === 24 && /^[0-9a-fA-F]+$/.test(userId)
+            
+            if (isValidObjectId) {
+                const [user, supplier] = await Promise.all([
+                    prisma.user.findUnique({ where: { id: userId } }),
+                    prisma.supplier.findUnique({ where: { id: userId } })
+                ])
 
-            if (user) {
-                senderName = user.name
-            } else if (supplier) {
-                senderName = supplier.name
-            } else if (!userId.startsWith('guest_')) {
-                // If not found and not a guest, it might be an issue, but let's not 404
-                // senderName stays 'Người dùng' or body.senderName
+                if (user) {
+                    senderName = user.name
+                } else if (supplier) {
+                    senderName = supplier.name
+                }
+            } else if (userId?.startsWith('guest_')) {
+                senderName = 'Khách'
             }
         }
 

@@ -46,6 +46,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
             items: [
                 { href: '/contractor/dashboard', icon: Home, label: 'Dashboard' },
                 { href: '/contractor/estimator', icon: Sparkles, label: 'Bóc Tách AI' },
+                { href: '/contractor/messages', icon: MessageSquare, label: 'Tin nhắn' },
                 { href: '/contractor/projects/find', icon: Briefcase, label: 'Tìm việc mới' },
             ]
         },
