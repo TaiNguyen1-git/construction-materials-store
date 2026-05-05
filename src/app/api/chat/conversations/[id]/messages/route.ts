@@ -18,7 +18,18 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         const messages = await prisma.message.findMany({
             where: { conversationId },
             orderBy: { createdAt: 'asc' },
-            take: 100 // Limit last 100 messages
+            take: 100, // Limit last 100 messages
+            include: {
+                replyTo: {
+                    select: {
+                        id: true,
+                        content: true,
+                        senderName: true,
+                        fileUrl: true,
+                        fileType: true
+                    }
+                }
+            }
         })
 
         // Mark as read for this user

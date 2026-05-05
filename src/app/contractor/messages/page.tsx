@@ -96,6 +96,7 @@ function MessagesContent() {
     const fileInputRef = useRef<HTMLInputElement>(null)
     const messagesEndRef = useRef<HTMLDivElement>(null)
     const scrollContainerRef = useRef<HTMLDivElement>(null)
+    const selectedIdRef = useRef<string | null>(null)
     
     const selectedConv = conversations.find(c => c.id === selectedId)
     const displayName = selectedConv
@@ -114,6 +115,7 @@ function MessagesContent() {
         const id = searchParams.get('id')
         if (id) {
             setSelectedId(id)
+            selectedIdRef.current = id
         }
     }, [searchParams])
 
@@ -240,8 +242,10 @@ function MessagesContent() {
             const res = await fetchWithAuth(`/api/chat/conversations/${convId}/messages`)
             if (res.ok) {
                 const json = await res.json()
-                // Always set messages when switching or loading to avoid stale content
-                setMessages(json.data)
+                // 🛡️ RACE CONDITION FIX: Only update messages if this conversation is still selected
+                if (selectedIdRef.current === convId) {
+                    setMessages(json.data)
+                }
                 if (!quiet) setTimeout(scrollToBottom, 100)
                 
                 // Refresh conversations list to update unread counts

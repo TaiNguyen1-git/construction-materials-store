@@ -86,6 +86,7 @@ function MessagesClient() {
     const [partnerIsTyping, setPartnerIsTyping] = useState(false)
     const [replyingTo, setReplyingTo] = useState<Message | null>(null)
     const hasAutoConnectedRef = useRef(false)
+    const selectedConvRef = useRef<string | null>(null)
 
     // Get current user from localStorage or AuthContext
     const [userId, setUserId] = useState<string>('')
@@ -238,6 +239,7 @@ function MessagesClient() {
 
     const selectConversation = async (convId: string) => {
         setSelectedConv(convId)
+        selectedConvRef.current = convId
         setMessages([])
 
         try {
@@ -246,7 +248,7 @@ function MessagesClient() {
             })
             if (res.ok) {
                 const data = await res.json()
-                if (data.success) {
+                if (data.success && selectedConvRef.current === convId) {
                     setMessages(data.data)
                     setTimeout(() => scrollToBottom('auto'), 100)
                     

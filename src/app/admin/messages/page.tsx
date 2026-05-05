@@ -90,6 +90,7 @@ function MessagesContent() {
     const fileInputRef = useRef<HTMLInputElement>(null)
     const messagesEndRef = useRef<HTMLDivElement>(null)
     const scrollContainerRef = useRef<HTMLDivElement>(null)
+    const selectedIdRef = useRef<string | null>(null)
 
     const selectedConv = conversations.find(c => c.id === selectedId)
     const otherParticipantId = selectedConv ? (user?.id === selectedConv.participant1Id ? selectedConv.participant2Id : selectedConv.participant1Id) : null
@@ -119,7 +120,10 @@ function MessagesContent() {
         const id = searchParams.get('id')
         if (id) {
             if (tab === 'tickets') fetchTicketDetails(id)
-            else setSelectedId(id)
+            else {
+                setSelectedId(id)
+                selectedIdRef.current = id
+            }
         }
     }, [searchParams])
 
@@ -248,7 +252,7 @@ function MessagesContent() {
             const res = await fetch(`/api/chat/conversations/${convId}/messages`, { headers: getAuthHeaders() })
             if (res.ok) {
                 const json = await res.json()
-                if (json.data.length !== messages.length || !quiet) {
+                if (selectedIdRef.current === convId) {
                     setMessages(json.data)
                     if (!quiet) setTimeout(scrollToBottom, 100)
                 }
