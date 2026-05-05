@@ -23,6 +23,8 @@ interface Props {
     themeColor?: 'indigo' | 'blue' | 'green' | 'amber'
     showSenderNames?: boolean
     autoScroll?: boolean
+    onImageClick?: (url: string) => void
+    onFileClick?: (att: { fileName: string; fileUrl: string; fileType: string }) => void
 }
 
 const THEME = {
@@ -64,6 +66,8 @@ export default function MessengerChatBubbles({
     themeColor = 'indigo',
     showSenderNames = true,
     autoScroll = true,
+    onImageClick,
+    onFileClick
 }: Props) {
     const endRef = useRef<HTMLDivElement>(null)
     const theme = THEME[themeColor]
@@ -211,7 +215,7 @@ export default function MessengerChatBubbles({
                                                 src={msg.imageUrl}
                                                 alt="image"
                                                 className="max-w-[220px] max-h-[280px] rounded-xl mb-2 cursor-pointer hover:scale-[1.02] transition-transform"
-                                                onClick={() => window.open(msg.imageUrl, '_blank')}
+                                                onClick={() => onImageClick ? onImageClick(msg.imageUrl!) : window.open(msg.imageUrl, '_blank')}
                                             />
                                         )}
 
@@ -231,19 +235,17 @@ export default function MessengerChatBubbles({
                                                             src={att.fileUrl}
                                                             alt={att.fileName}
                                                             className="max-w-[180px] rounded-xl cursor-pointer hover:scale-[1.02] transition-transform"
-                                                            onClick={() => window.open(att.fileUrl, '_blank')}
+                                                            onClick={() => onImageClick ? onImageClick(att.fileUrl) : window.open(att.fileUrl, '_blank')}
                                                         />
                                                     ) : (
-                                                        <a
+                                                        <button
                                                             key={i}
-                                                            href={att.fileUrl}
-                                                            target="_blank"
-                                                            rel="noopener noreferrer"
+                                                            onClick={() => onFileClick ? onFileClick(att) : window.open(att.fileUrl, '_blank')}
                                                             className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${isMe ? theme.attach : 'bg-slate-100 hover:bg-slate-200 text-slate-700'}`}
                                                         >
                                                             <Paperclip className="w-3 h-3 flex-shrink-0" />
                                                             <span className="truncate max-w-[140px]">{att.fileName || 'Tệp đính kèm'}</span>
-                                                        </a>
+                                                        </button>
                                                     )
                                                 })}
                                             </div>

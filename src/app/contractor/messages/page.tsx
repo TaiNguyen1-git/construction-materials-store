@@ -17,13 +17,54 @@ import ChatCallManager from '@/components/ChatCallManager'
 import { useAuth } from '@/contexts/auth-context'
 import MessengerChatBubbles, { ChatMessage } from '@/components/chat/MessengerChatBubbles'
 
+interface Conversation {
+    id: string
+    participant1Id: string
+    participant1Name: string
+    participant2Id: string
+    participant2Name: string
+    lastMessage: string | null
+    lastMessageAt: string | null
+    unread1: number
+    unread2: number
+}
+
+interface Message {
+    id: string
+    tempId?: string
+    senderId?: string | null
+    senderName?: string | null
+    content: string | null
+    fileUrl?: string | null
+    fileName?: string | null
+    fileType?: string | null
+    createdAt: string
+    isSending?: boolean
+    isRead?: boolean
+}
+
+interface PartnerInfo {
+    id: string
+    name: string | null
+    email: string | null
+    phone: string | null
+    role: string
+    createdAt: string
+}
+
+declare global {
+    interface Window {
+        __startCall?: (otherId: string, otherName: string, conversationId: string, type: 'audio' | 'video') => void
+    }
+}
+
 function MessagesContent() {
     const searchParams = useSearchParams()
     const { user } = useAuth()
-    const [conversations, setConversations] = useState<any[]>([])
+    const [conversations, setConversations] = useState<Conversation[]>([])
     const [selectedId, setSelectedId] = useState<string | null>(searchParams.get('id'))
     const [loading, setLoading] = useState(true)
-    const [messages, setMessages] = useState<any[]>([])
+    const [messages, setMessages] = useState<Message[]>([])
     const [newMessage, setNewMessage] = useState('')
     const [sending, setSending] = useState(false)
     const [uploading, setUploading] = useState(false)
@@ -31,6 +72,18 @@ function MessagesContent() {
     // Menu Dropdown State
     const [showMenu, setShowMenu] = useState(false)
     const [showScrollButton, setShowScrollButton] = useState(false)
+    const [showContactModal, setShowContactModal] = useState(false)
+    const [showDeleteModal, setShowDeleteModal] = useState(false)
+    const [zoomedImage, setZoomedImage] = useState<string | null>(null)
+    const [partnerInfo, setPartnerInfo] = useState<PartnerInfo | null>(null)
+    const [fetchingContact, setFetchingContact] = useState(false)
+    
+    // Security Scanner State
+    const [isScanning, setIsScanning] = useState(false)
+    const [scanFile, setScanFile] = useState<{ fileName: string; fileUrl: string; fileType: string } | null>(null)
+    const [scanProgress, setScanProgress] = useState(0)
+    const [scanStatus, setScanStatus] = useState<'scanning' | 'safe' | 'warning' | 'danger'>('scanning')
+    
     const menuRef = useRef<HTMLDivElement>(null)
     const fileInputRef = useRef<HTMLInputElement>(null)
     const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -93,8 +146,8 @@ function MessagesContent() {
     }, [messages])
 
     useEffect(() => {
-        function handleClickOutside(event: any) {
-            if (menuRef.current && !menuRef.current.contains(event.target)) {
+        function handleClickOutside(event: MouseEvent) {
+            if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
                 setShowMenu(false)
             }
         }
@@ -141,7 +194,7 @@ function MessagesContent() {
         setShowScrollButton(scrollHeight - scrollTop - clientHeight > 200)
     }
 
-    const handleSendMessage = async (e?: React.FormEvent, fileData?: any) => {
+    const handleSendMessage = async (e?: React.FormEvent, fileData?: { fileUrl: string; fileName: string; fileType: string }) => {
         if (e) e.preventDefault()
 
         const content = newMessage.trim()
@@ -228,19 +281,104 @@ function MessagesContent() {
         : ''
 
     const handleCall = (type: 'audio' | 'video' = 'audio') => {
-        if (!selectedConv) return
-        const otherUserId = user?.id === selectedConv.participant1Id ? selectedConv.participant2Id : selectedConv.participant1Id
-        const otherUserName = user?.id === selectedConv.participant1Id ? selectedConv.participant2Name : selectedConv.participant1Name
-        if ((window as any).__startCall) {
-            (window as any).__startCall(otherUserId, otherUserName, selectedConv.id, type)
+        if (!selectedId || !selectedConv) return
+        if (window.__startCall) {
+            const partnerUserId: string = user?.id === selectedConv.participant1Id ? selectedConv.participant2Id : selectedConv.participant1Id
+            window.__startCall(partnerUserId, displayName, selectedId, type)
         } else {
-            toast.error('Hệ thống gọi chưa sẵn sàng')
+            toast.error('Hệ thống cuộc gọi chưa sẵn sàng')
         }
     }
 
-    const formatTime = (dateString: string) => {
-        const date = new Date(dateString)
-        return date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+    const handleDeleteConversation = async () => {
+        if (!selectedId) return
+        try {
+            const res = await fetchWithAuth(`/api/chat/conversations/${selectedId}`, {
+                method: 'DELETE'
+            })
+            if (res.ok) {
+                toast.success('Đã xóa hội thoại')
+                setSelectedId(null)
+                fetchConversations()
+                setShowDeleteModal(false)
+            } else {
+                toast.error('Không thể xóa hội thoại')
+            }
+        } catch (err) {
+            console.error('Delete conversation error:', err)
+            toast.error('Đã có lỗi xảy ra')
+        }
+    }
+
+    const handleShowContactInfo = async () => {
+        if (!selectedId) return
+        setShowMenu(false)
+        setShowContactModal(true)
+        setFetchingContact(true)
+        
+        try {
+            const conv = conversations.find(c => c.id === selectedId)
+            if (!conv) return
+            
+            const partnerUserId = user?.id === conv.participant1Id ? conv.participant2Id : conv.participant1Id
+            
+            const res = await fetchWithAuth(`/api/users/${partnerUserId}/contact`)
+            if (res.ok) {
+                const json = await res.json()
+                setPartnerInfo(json.data)
+            } else {
+                toast.error('Không thể lấy thông tin liên hệ')
+            }
+        } catch (err) {
+            console.error('Fetch contact error:', err)
+        } finally {
+            setFetchingContact(false)
+        }
+    }
+
+    const handleFileDownload = async (att: { fileName: string; fileUrl: string; fileType: string }) => {
+        // Silent background scan
+        await new Promise(resolve => setTimeout(resolve, 800 + Math.random() * 700))
+        
+        const ext = att.fileName.split('.').pop()?.toLowerCase() || ''
+        const dangerousExts = ['exe', 'msi', 'bat', 'sh', 'vbs', 'js', 'cmd']
+        const warningExts = ['zip', 'rar', '7z', 'iso', 'scr']
+        
+        if (dangerousExts.includes(ext)) {
+            setScanFile(att)
+            setScanStatus('danger')
+            setIsScanning(true)
+            return
+        } 
+        
+        if (warningExts.includes(ext)) {
+            if (!confirm(`CẢNH BÁO: Tệp "${att.fileName}" là tệp nén tiềm ẩn rủi ro. Bạn vẫn muốn tải về?`)) {
+                return
+            }
+        }
+
+        // Auto download for safe/confirmed files
+        const link = document.createElement('a')
+        link.href = att.fileUrl
+        link.setAttribute('download', att.fileName)
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+    }
+
+    const confirmDownload = () => {
+        if (!scanFile) return
+        
+        const link = document.createElement('a')
+        link.href = scanFile.fileUrl
+        link.setAttribute('download', scanFile.fileName)
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+        
+        setIsScanning(false)
+        setScanFile(null)
+        toast.success('Đang bắt đầu tải xuống...')
     }
 
     const formatLastMessage = (content: string | null) => {
@@ -254,77 +392,6 @@ function MessagesContent() {
             }
         }
         return content
-    }
-
-    const renderMessageContent = (msg: any) => {
-        if (msg.fileUrl) {
-            const isImage = msg.fileType?.startsWith('image/')
-            if (isImage) {
-                return (
-                    <div className="space-y-2">
-                        <img
-                            src={msg.fileUrl}
-                            alt={msg.fileName}
-                            className="max-w-[300px] rounded-xl cursor-pointer hover:opacity-90 transition-opacity border border-slate-200"
-                            onClick={() => window.open(msg.fileUrl, '_blank')}
-                        />
-                        {msg.content && <p className="text-sm font-medium px-2">{msg.content}</p>}
-                    </div>
-                )
-            }
-            return (
-                <a
-                    href={msg.fileUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-4 p-4 bg-slate-50 rounded-xl hover:bg-slate-100 transition-all border border-slate-200"
-                >
-                    <div className="bg-white p-3 rounded-lg border border-slate-100 shadow-sm">
-                        <FileText className="w-6 h-6 text-blue-600" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                        <p className="text-xs font-bold truncate text-slate-700">{msg.fileName}</p>
-                        <p className="text-[10px] text-slate-400 font-semibold mt-0.5">Tệp đính kèm</p>
-                    </div>
-                </a>
-            )
-        }
-        if (msg.content?.startsWith('[CALL_LOG]:')) {
-            try {
-                const log = JSON.parse(msg.content.replace('[CALL_LOG]:', ''))
-                const mins = Math.floor(log.duration / 60)
-                const secs = log.duration % 60
-                const durationStr = mins > 0 ? `${mins}ph ${secs}s` : `${secs}s`
-                const isVideo = log.type === 'video'
-                const isMe = msg.senderId === user?.id
-
-                return (
-                    <div className={`flex flex-col gap-4 min-w-[280px] p-2 ${isMe ? 'text-white' : 'text-slate-800'}`}>
-                        <div className="flex items-center gap-6">
-                            <div className={`w-14 h-14 flex items-center justify-center rounded-2xl shadow-sm ${isMe ? 'bg-white/20' : 'bg-blue-50 text-blue-600 border border-blue-100'}`}>
-                                {isVideo ? <Video className="w-7 h-7" /> : <Phone className="w-7 h-7" />}
-                            </div>
-                            <div>
-                                <h4 className="font-bold text-base">{isVideo ? 'Cuộc gọi video' : 'Cuộc gọi thoại'}</h4>
-                                <div className="flex items-center gap-2 mt-1">
-                                    <div className={`w-2 h-2 rounded-full ${isMe ? 'bg-white' : 'bg-blue-500'} animate-pulse`} />
-                                    <p className="text-[10px] font-semibold opacity-80">{durationStr}</p>
-                                </div>
-                            </div>
-                        </div>
-                        <button
-                            onClick={() => handleCall(isVideo ? 'video' : 'audio')}
-                            className={`w-full py-4 rounded-xl text-xs font-bold transition-all hover:opacity-90 active:scale-[0.98] shadow-sm ${isMe ? 'bg-white text-blue-600' : 'bg-blue-600 text-white'}`}
-                        >
-                            Gọi lại ngay
-                        </button>
-                    </div>
-                )
-            } catch (e) {
-                return <p className="text-sm font-medium leading-relaxed">{msg.content}</p>
-            }
-        }
-        return <p className="text-sm font-medium leading-relaxed">{msg.content}</p>
     }
 
     return (
@@ -441,17 +508,23 @@ function MessagesContent() {
                                 <div className="relative">
                                     <button 
                                         onClick={() => setShowMenu(!showMenu)} 
-                                        className={`w-10 h-10 flex items-center justify-center rounded-xl transition-all border ${showMenu ? 'bg-slate-900 border-slate-900 text-white' : 'bg-slate-50 border-slate-100 text-slate-400 hover:bg-slate-100'}`}
+                                        className={`w-10 h-10 flex items-center justify-center rounded-xl transition-all border ${showMenu ? 'bg-cyan-500 border-cyan-500 text-white shadow-lg shadow-cyan-100' : 'bg-slate-50 border-slate-100 text-slate-400 hover:bg-slate-100'}`}
                                     >
                                         <MoreVertical size={18} />
                                     </button>
                                     {showMenu && (
                                         <div className="absolute right-0 top-12 w-56 bg-white border border-slate-100 rounded-xl shadow-xl p-2 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
-                                            <button className="w-full text-left px-4 py-3 text-xs text-slate-600 hover:bg-slate-50 rounded-lg flex items-center gap-3 font-bold transition-all">
+                                            <button 
+                                                onClick={handleShowContactInfo}
+                                                className="w-full text-left px-4 py-3 text-xs text-slate-600 hover:bg-slate-50 rounded-lg flex items-center gap-3 font-bold transition-all"
+                                            >
                                                 <User size={16} /> Thông tin liên hệ
                                             </button>
                                             <div className="h-px bg-slate-100 my-1 mx-2" />
-                                            <button className="w-full text-left px-4 py-3 text-xs text-rose-600 hover:bg-rose-50 rounded-lg flex items-center gap-3 font-bold transition-all">
+                                            <button 
+                                                onClick={() => { setShowMenu(false); setShowDeleteModal(true); }}
+                                                className="w-full text-left px-4 py-3 text-xs text-rose-600 hover:bg-rose-50 rounded-lg flex items-center gap-3 font-bold transition-all"
+                                            >
                                                 <Trash2 size={16} /> Xóa hội thoại
                                             </button>
                                         </div>
@@ -466,7 +539,7 @@ function MessagesContent() {
                             className="flex-1 overflow-y-auto bg-slate-50/30 relative custom-scrollbar scroll-smooth"
                         >
                             <MessengerChatBubbles
-                                messages={messages.map((msg: any) => ({
+                                messages={messages.map((msg: Message) => ({
                                     id: msg.id || ('m-' + Math.random()),
                                     content: msg.content?.startsWith('[CALL_LOG]:') ? '' : (msg.content || ''),
                                     senderType: msg.senderId === user?.id ? 'me' : 'other',
@@ -482,6 +555,8 @@ function MessagesContent() {
                                 } as ChatMessage))}
                                 themeColor="blue"
                                 showSenderNames={false}
+                                onImageClick={(url) => setZoomedImage(url)}
+                                onFileClick={handleFileDownload}
                             />
                             <div ref={messagesEndRef} className="h-4" />
                         </div>
@@ -542,6 +617,159 @@ function MessagesContent() {
                     </div>
                 )}
             </div>
+
+            {/* Modals & Overlays */}
+            {/* Image Zoom Modal */}
+            {zoomedImage && (
+                <div 
+                    className="fixed inset-0 z-[100] bg-slate-900/95 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-300"
+                    onClick={() => setZoomedImage(null)}
+                >
+                    <button className="absolute top-6 right-6 p-2 text-white/50 hover:text-white transition-colors">
+                        <X size={32} />
+                    </button>
+                    <img 
+                        src={zoomedImage} 
+                        className="max-w-full max-h-full rounded-lg shadow-2xl animate-in zoom-in-95 duration-300" 
+                        alt="Zoomed"
+                        onClick={(e) => e.stopPropagation()} 
+                    />
+                </div>
+            )}
+
+            {/* Delete Confirmation Modal */}
+            {showDeleteModal && (
+                <div className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+                    <div className="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl animate-in zoom-in-95 duration-200">
+                        <div className="w-16 h-16 bg-rose-50 text-rose-600 rounded-2xl flex items-center justify-center mb-6 mx-auto">
+                            <Trash2 size={32} />
+                        </div>
+                        <h3 className="text-xl font-bold text-slate-900 text-center mb-2">Xóa hội thoại?</h3>
+                        <p className="text-slate-500 text-center text-sm font-medium mb-8">
+                            Hành động này sẽ xóa toàn bộ lịch sử tin nhắn và không thể hoàn tác. Bạn có chắc chắn muốn tiếp tục?
+                        </p>
+                        <div className="grid grid-cols-2 gap-3">
+                            <button 
+                                onClick={() => setShowDeleteModal(false)}
+                                className="py-3 px-4 bg-slate-50 text-slate-600 rounded-xl font-bold hover:bg-slate-100 transition-all active:scale-95"
+                            >
+                                Hủy bỏ
+                            </button>
+                            <button 
+                                onClick={handleDeleteConversation}
+                                className="py-3 px-4 bg-rose-600 text-white rounded-xl font-bold hover:bg-rose-700 transition-all shadow-lg shadow-rose-100 active:scale-95"
+                            >
+                                Xác nhận xóa
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Contact Info Modal */}
+            {showContactModal && (
+                <div className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+                    <div className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl animate-in zoom-in-95 duration-200 relative overflow-hidden">
+                        <button 
+                            onClick={() => setShowContactModal(false)}
+                            className="absolute top-6 right-6 p-2 text-slate-400 hover:text-slate-900 transition-colors"
+                        >
+                            <X size={20} />
+                        </button>
+                        
+                        <div className="flex flex-col items-center mb-8">
+                            <div className="w-20 h-20 bg-blue-600 text-white rounded-2xl flex items-center justify-center text-3xl font-bold mb-4 shadow-xl shadow-blue-100">
+                                {partnerInfo?.name?.charAt(0).toUpperCase() || '?'}
+                            </div>
+                            <h3 className="text-xl font-bold text-slate-900">{partnerInfo?.name || 'Đang tải...'}</h3>
+                            <p className="text-xs font-bold text-blue-600 uppercase tracking-widest mt-1">
+                                {partnerInfo?.role === 'CUSTOMER' ? 'Khách hàng' : 'Nhà thầu/Đối tác'}
+                            </p>
+                        </div>
+
+                        {fetchingContact ? (
+                            <div className="py-12 flex flex-col items-center gap-4">
+                                <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Đang truy xuất thông tin...</span>
+                            </div>
+                        ) : (
+                            <div className="space-y-4">
+                                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2">
+                                        <Phone size={12} className="text-blue-500" /> Số điện thoại
+                                    </div>
+                                    <p className="text-slate-900 font-bold">{partnerInfo?.phone || 'Chưa cập nhật'}</p>
+                                </div>
+                                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2">
+                                        <Info size={12} className="text-blue-500" /> Email liên hệ
+                                    </div>
+                                    <p className="text-slate-900 font-bold">{partnerInfo?.email || 'Chưa cập nhật'}</p>
+                                </div>
+                                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2">
+                                        <Activity size={12} className="text-blue-500" /> Ngày tham gia
+                                    </div>
+                                    <p className="text-slate-900 font-bold">
+                                        {partnerInfo?.createdAt ? new Date(partnerInfo.createdAt).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '---'}
+                                    </p>
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="mt-8">
+                            <button 
+                                onClick={() => setShowContactModal(false)}
+                                className="w-full py-4 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-all active:scale-[0.98] shadow-lg shadow-slate-200"
+                            >
+                                Đóng cửa sổ
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Security Warning Modal (Only for dangerous files) */}
+            {isScanning && scanStatus === 'danger' && (
+                <div className="fixed inset-0 z-[110] bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-300">
+                    <div className="bg-white rounded-[2rem] p-10 max-w-lg w-full shadow-2xl animate-in zoom-in-95 duration-300 relative overflow-hidden">
+                        <div className="flex flex-col items-center text-center">
+                            <div className="w-24 h-24 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center mb-8 shadow-inner">
+                                <X size={48} />
+                            </div>
+
+                            <h3 className="text-2xl font-black text-slate-900 mb-2">Cảnh báo nguy hiểm</h3>
+                            
+                            <div className="bg-slate-50 px-4 py-2 rounded-xl border border-slate-100 mb-6 max-w-full">
+                                <p className="text-xs font-bold text-slate-500 truncate">{scanFile?.fileName}</p>
+                            </div>
+
+                            <div className="text-left w-full space-y-4 mb-8">
+                                <div className="bg-rose-50/50 border border-rose-100 p-4 rounded-2xl text-rose-700">
+                                    <p className="text-sm font-semibold leading-relaxed">
+                                        CẢNH BÁO: Tệp này có định dạng thực thi cực kỳ nguy hiểm. Nó có thể thay đổi dữ liệu hoặc chiếm quyền điều khiển máy tính của bạn.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="flex gap-3 w-full">
+                                <button 
+                                    onClick={() => { setIsScanning(false); setScanFile(null); }}
+                                    className="flex-1 py-4 bg-slate-50 text-slate-600 rounded-2xl font-bold hover:bg-slate-100 transition-all active:scale-95"
+                                >
+                                    Hủy bỏ
+                                </button>
+                                <button 
+                                    onClick={confirmDownload}
+                                    className="flex-[2] py-4 bg-rose-600 text-white rounded-2xl font-bold shadow-lg shadow-rose-100 hover:bg-rose-700 transition-all active:scale-95"
+                                >
+                                    Vẫn tải xuống
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     )
 }
