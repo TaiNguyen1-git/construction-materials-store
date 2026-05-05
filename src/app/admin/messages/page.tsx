@@ -221,7 +221,7 @@ function MessagesContent() {
 
     const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
 
-    const handleSendMessage = async (e?: any, fileData?: any) => {
+    const handleSendMessage = async (e?: any, fileData?: any, replyToId?: string) => {
         if (e) e.preventDefault()
         const content = newMessage.trim()
         if (!content && !fileData) return
@@ -232,7 +232,7 @@ function MessagesContent() {
             const res = await fetch('/api/chat/messages', {
                 method: 'POST',
                 headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
-                body: JSON.stringify({ conversationId: selectedId, content, fileUrl: fileData?.fileUrl, fileName: fileData?.fileName, fileType: fileData?.fileType, tempId, senderId: user?.id })
+                body: JSON.stringify({ conversationId: selectedId, content, fileUrl: fileData?.fileUrl, fileName: fileData?.fileName, fileType: fileData?.fileType, tempId, senderId: user?.id, replyToId })
             })
             if (!res.ok) { toast.error('Lỗi gửi'); setMessages(prev => prev.filter(m => m.id !== tempId)); setNewMessage(content) }
         } catch { setMessages(prev => prev.filter(m => m.id !== tempId)) }

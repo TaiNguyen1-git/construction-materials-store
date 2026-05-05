@@ -7,6 +7,10 @@ import {
     Check, CheckCheck, MessageCircle
 } from 'lucide-react'
 import { ChatMessage } from '@/components/chat/MessengerChatBubbles'
+import MessengerChatBubbles from '@/components/chat/MessengerChatBubbles'
+import { useState } from 'react'
+import { X } from 'lucide-react'
+import toast from 'react-hot-toast'
 
 interface DirectChatViewProps {
     selectedConv: any
@@ -26,7 +30,7 @@ interface DirectChatViewProps {
     setShowCustomerPanel: (show: any) => void
     showCustomerPanel: boolean
     highlightId: string | null
-    handleSendMessage: (e?: any, fileData?: any) => void
+    handleSendMessage: (e?: any, fileData?: any, replyToId?: string) => void
     handleFileUpload: (e: any) => void
     handleCall: (type?: 'audio' | 'video') => void
     handleMenuAction: (action: string) => void
@@ -79,6 +83,52 @@ export default function DirectChatView({
     selectedId,
     fetchConversations
 }: DirectChatViewProps) {
+    const [replyingTo, setReplyingTo] = useState<ChatMessage | null>(null)
+
+    const handleUnsend = async (msgId: string) => {
+        try {
+            const res = await fetch(`/api/chat/messages/${msgId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'unsend' })
+            })
+            if (res.ok) {
+                toast.success('Đã thu hồi tin nhắn')
+            } else {
+                toast.error('Không thể thu hồi tin nhắn')
+            }
+        } catch (err) {
+            console.error('Unsend error:', err)
+        }
+    }
+
+    const handleRemoveMessage = async (msgId: string) => {
+        try {
+            const res = await fetch(`/api/chat/messages/${msgId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'remove_for_me' })
+            })
+            if (res.ok) {
+                toast.success('Đã ẩn tin nhắn')
+            }
+        } catch (err) {
+            console.error('Remove error:', err)
+        }
+    }
+
+    const handleSendWithReply = async (e?: any, fileData?: any) => {
+        if (e) e.preventDefault()
+        
+        // Wrap handleSendMessage to include replyToId
+        const content = newMessage.trim()
+        if (!content && !fileData) return
+
+        // We can't easily modify the parent's handleSendMessage without changing its props
+        // But we can call the original and let the API handle the rest if we modify the request
+        // Actually, the easiest way is to modify the handleSendMessage in page.tsx to check for replyingTo
+    }
+
     if (!selectedConv) {
         return (
             <div className="flex-1 flex flex-col items-center justify-center p-12 text-center bg-gray-50/20">
@@ -141,60 +191,37 @@ export default function DirectChatView({
             </div>
 
             {/* Messages Container */}
-            <div ref={scrollContainerRef} className="flex-1 overflow-y-auto px-6 py-6 space-y-4 bg-gray-50/50 custom-scrollbar relative">
-                {messages.map((msg, idx) => {
-                    const isAI = msg.senderId === 'smartbuild_bot' || msg.senderRole === 'BOT'
-                    const isStaffFlag = msg.senderId === 'admin_support'
-                    const isTrulyMe = msg.realSenderId ? String(msg.realSenderId) === String(user?.id) : String(msg.senderId) === String(user?.id)
-                    const role = msg.senderRole
-                    const isAdminRole = role === 'MANAGER'
-                    const isStaffRole = role === 'EMPLOYEE'
-                    const isMe = isTrulyMe || isStaffFlag
-                    const showAvatar = !isMe && (idx === 0 || messages[idx - 1].senderId !== msg.senderId)
-                    return (
-                        <div key={msg.id || `msg-idx-${idx}`} id={`msg-${msg.id || idx}`}
-                            className={`flex ${isMe ? 'justify-end' : 'justify-start'} items-end gap-2`}>
-                            {!isMe && (
-                                <div className="w-8 h-8 flex-shrink-0">
-                                    {showAvatar ? (
-                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold ${isAI ? 'bg-purple-100 text-purple-600' : 'bg-gray-200 text-gray-600'}`}>
-                                            {isAI ? 'AI' : msg.senderName?.charAt(0)}
-                                        </div>
-                                    ) : <div className="w-8" />}
-                                </div>
-                            )}
-                            <div className="max-w-[70%] group relative">
-                                <div className={`flex items-center gap-1 mb-1 ${isMe ? 'justify-end' : 'justify-start'}`}>
-                                    {isAI && (
-                                        <span className="px-1.5 py-0.5 rounded bg-purple-100 text-purple-600 text-[8px] font-black uppercase tracking-tighter shadow-sm flex items-center gap-0.5">
-                                            <Sparkles className="w-2 h-2" /> AI BOT
-                                        </span>
-                                    )}
-                                    {isTrulyMe && (
-                                        <span className="px-1.5 py-0.5 rounded bg-green-100 text-green-600 text-[8px] font-black uppercase tracking-tighter shadow-sm">
-                                            BẠN ({isAdminRole ? 'ADMIN' : (isStaffRole ? 'NHÂN VIÊN' : 'ME')})
-                                        </span>
-                                    )}
-                                    {!isTrulyMe && isStaffFlag && (
-                                        isAdminRole
-                                            ? <span className="px-1.5 py-0.5 rounded bg-red-100 text-red-600 text-[8px] font-black uppercase tracking-tighter shadow-sm">ADMIN: {msg.senderName}</span>
-                                            : <span className="px-1.5 py-0.5 rounded bg-blue-100 text-blue-600 text-[8px] font-black uppercase tracking-tighter shadow-sm">NV: {msg.senderName}</span>
-                                    )}
-                                </div>
-                                <div className={`p-3.5 rounded-2xl shadow-sm border ${isMe
-                                    ? 'bg-indigo-600 text-white border-indigo-500 rounded-br-none'
-                                    : 'bg-white text-gray-800 border-gray-100 rounded-bl-none'
-                                    } ${msg.id === highlightId ? 'ring-4 ring-amber-400 ring-offset-2 scale-[1.02] transition-all duration-500' : ''}`}>
-                                    {renderMessageContent(msg)}
-                                </div>
-                                <div className={`flex items-center gap-1.5 mt-1 ${isMe ? 'justify-end' : 'justify-start'}`}>
-                                    <span className="text-[9px] text-gray-400 font-bold uppercase">{formatTime(msg.createdAt)}</span>
-                                    {isMe && (msg.isRead ? <CheckCheck className="w-3 h-3 text-indigo-500" /> : <Check className="w-3 h-3 text-gray-300" />)}
-                                </div>
-                            </div>
-                        </div>
-                    )
-                })}
+            <div ref={scrollContainerRef} className="flex-1 overflow-y-auto bg-gray-50/50 custom-scrollbar relative scroll-smooth">
+                <MessengerChatBubbles 
+                    messages={messages.map((msg, idx) => {
+                        const isMe = msg.senderId === 'admin_support' || (msg.realSenderId ? String(msg.realSenderId) === String(user?.id) : String(msg.senderId) === String(user?.id))
+                        const isAI = msg.senderId === 'smartbuild_bot' || msg.senderRole === 'BOT'
+                        
+                        return {
+                            id: msg.id || `msg-${idx}`,
+                            content: msg.content || '',
+                            senderType: isMe ? 'me' : 'other',
+                            senderName: msg.senderName,
+                            createdAt: msg.createdAt,
+                            status: msg.id?.startsWith('temp-') ? 'sending' : (msg.isRead ? 'seen' : 'sent'),
+                            imageUrl: msg.fileUrl && msg.fileType?.startsWith('image/') ? msg.fileUrl : undefined,
+                            attachments: msg.fileUrl && !msg.fileType?.startsWith('image/') ? [{
+                                fileName: msg.fileName || 'Tệp đính kèm',
+                                fileUrl: msg.fileUrl,
+                                fileType: msg.fileType || ''
+                            }] : [],
+                            isUnsent: msg.isUnsent,
+                            replyTo: msg.replyTo,
+                            isInternal: msg.senderRole === 'BOT', // Bot messages as internal-ish style or just regular
+                            internalLabel: isAI ? 'AI BOT' : undefined
+                        } as ChatMessage
+                    })}
+                    themeColor="blue"
+                    onImageClick={(url) => window.open(url, '_blank')}
+                    onReply={(msg) => setReplyingTo(msg)}
+                    onUnsend={handleUnsend}
+                    onRemove={handleRemoveMessage}
+                />
                 <div ref={messagesEndRef} className="h-2" />
             </div>
 
@@ -207,7 +234,25 @@ export default function DirectChatView({
             )}
 
             {/* Chat Input with Smart Reply */}
-            <div className="p-4 bg-white border-t border-gray-100">
+            <div className="p-4 bg-white border-t border-gray-100 relative">
+                {/* Quoted Message Preview */}
+                {replyingTo && (
+                    <div className="absolute bottom-full left-0 right-0 px-8 py-3 bg-slate-50 border-t border-slate-100 flex items-center justify-between animate-in slide-in-from-bottom-2 duration-200">
+                        <div className="flex items-center gap-3 border-l-4 border-indigo-500 pl-3">
+                            <div className="flex flex-col">
+                                <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">Đang trả lời {replyingTo.senderName}</span>
+                                <span className="text-xs text-slate-500 line-clamp-1 italic">{replyingTo.content || 'Tệp đính kèm'}</span>
+                            </div>
+                        </div>
+                        <button 
+                            onClick={() => setReplyingTo(null)}
+                            className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-200 rounded-full transition-all"
+                        >
+                            <X size={16} />
+                        </button>
+                    </div>
+                )}
+
                 {(smartReplies.length > 0 || smartReplyLoading) && (
                     <div className="mb-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
                         <div className="flex items-center gap-2 mb-2">
@@ -250,9 +295,9 @@ export default function DirectChatView({
                         <textarea rows={1} placeholder="Nhập tin nhắn..."
                             className="w-full p-3 bg-transparent border-none rounded-2xl text-sm focus:ring-0 resize-none max-h-32"
                             value={newMessage} onChange={e => setNewMessage(e.target.value)}
-                            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage() } }} />
+                            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(undefined, undefined, replyingTo?.id); setReplyingTo(null) } }} />
                     </div>
-                    <button onClick={() => handleSendMessage()} disabled={sending || (!newMessage.trim() && !uploading)}
+                    <button onClick={() => { handleSendMessage(undefined, undefined, replyingTo?.id); setReplyingTo(null) }} disabled={sending || (!newMessage.trim() && !uploading)}
                         className="p-3 bg-indigo-600 text-white rounded-full hover:bg-indigo-700 disabled:opacity-50 shadow-lg shadow-indigo-100 transition-all hover:scale-105">
                         {sending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
                     </button>

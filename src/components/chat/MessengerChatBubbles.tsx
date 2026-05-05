@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import { Check, CheckCheck, Clock, Paperclip, AlertCircle } from 'lucide-react'
+import { Check, CheckCheck, Clock, Paperclip, AlertCircle, Reply, Undo2, Trash2, MoreHorizontal } from 'lucide-react'
 
 export interface ChatMessage {
     id: string
@@ -15,6 +15,15 @@ export interface ChatMessage {
     isInternal?: boolean
     internalLabel?: string
     imageUrl?: string
+    // Professional features
+    isUnsent?: boolean
+    replyTo?: {
+        id: string
+        content: string
+        senderName: string
+        fileUrl?: string
+        fileType?: string
+    }
 }
 
 interface Props {
@@ -25,6 +34,9 @@ interface Props {
     autoScroll?: boolean
     onImageClick?: (url: string) => void
     onFileClick?: (att: { fileName: string; fileUrl: string; fileType: string }) => void
+    onReply?: (msg: ChatMessage) => void
+    onUnsend?: (msgId: string) => void
+    onRemove?: (msgId: string) => void
 }
 
 const THEME = {
@@ -67,7 +79,10 @@ export default function MessengerChatBubbles({
     showSenderNames = true,
     autoScroll = true,
     onImageClick,
-    onFileClick
+    onFileClick,
+    onReply,
+    onUnsend,
+    onRemove
 }: Props) {
     const endRef = useRef<HTMLDivElement>(null)
     const theme = THEME[themeColor]
@@ -188,7 +203,7 @@ export default function MessengerChatBubbles({
                                     </div>
                                 )}
 
-                                <div className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} max-w-[72%]`}>
+                                <div className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} max-w-[72%] group/msg relative`}>
                                     {/* Sender name (first in group) */}
                                     {!isMe && showSenderNames && msg.isFirst && msg.senderName && (
                                         <span className="text-[10px] font-bold text-slate-400 mb-1 ml-1">
@@ -199,18 +214,29 @@ export default function MessengerChatBubbles({
                                     {/* Bubble */}
                                     <div
                                         className={`
-                                            relative px-4 py-2.5 shadow-sm
+                                            relative px-4 py-2.5 shadow-sm w-fit max-w-[75%]
                                             ${isMe
                                                 ? `${theme.bubble} text-white ${msg.isFirst ? 'rounded-t-2xl' : 'rounded-t-lg'} ${msg.isLast ? 'rounded-bl-2xl rounded-br-sm' : 'rounded-b-lg'}`
                                                 : `bg-white border border-slate-100 text-slate-800 ${msg.isFirst ? 'rounded-t-2xl' : 'rounded-t-lg'} ${msg.isLast ? 'rounded-br-2xl rounded-bl-sm' : 'rounded-b-lg'}`
                                             }
                                             ${isSending ? 'opacity-70' : ''}
                                             ${isError ? 'ring-2 ring-red-400' : ''}
-                                            transition-all duration-150
+                                            ${msg.isUnsent ? '!bg-slate-50 !text-slate-400 !border-slate-200 !shadow-none' : ''}
+                                            transition-all duration-150 overflow-hidden
                                         `}
                                     >
+                                        {/* Quoted Message (Reply) */}
+                                        {msg.replyTo && !msg.isUnsent && (
+                                            <div className={`mb-2 p-2 rounded-lg border-l-4 text-[10px] ${isMe ? 'bg-black/10 border-white/30' : 'bg-slate-50 border-blue-400'}`}>
+                                                <p className={`font-black mb-0.5 ${isMe ? 'text-white/80' : 'text-blue-600'}`}>{msg.replyTo.senderName}</p>
+                                                <p className={`line-clamp-1 italic ${isMe ? 'text-white/70' : 'text-slate-500'}`}>
+                                                    {msg.replyTo.content || (msg.replyTo.fileUrl ? '📎 Tệp đính kèm' : '...')}
+                                                </p>
+                                            </div>
+                                        )}
+
                                         {/* Inline image */}
-                                        {msg.imageUrl && (
+                                        {msg.imageUrl && !msg.isUnsent && (
                                             <img
                                                 src={msg.imageUrl}
                                                 alt="image"
@@ -219,9 +245,13 @@ export default function MessengerChatBubbles({
                                             />
                                         )}
 
-                                        {/* Text with Link Protection (Link Shimming) */}
-                                        {msg.content && (
-                                            <p className="text-sm whitespace-pre-wrap leading-relaxed break-words">
+                                        {/* Text with Link Protection or Unsent State */}
+                                        {msg.isUnsent ? (
+                                            <p className="text-[13px] italic opacity-70 flex items-center gap-1.5">
+                                                <Undo2 size={12} /> Tin nhắn đã được thu hồi
+                                            </p>
+                                        ) : msg.content && (
+                                            <p className="text-sm whitespace-pre-wrap leading-relaxed break-words overflow-wrap-anywhere">
                                                 {msg.content.split(/(https?:\/\/[^\s]+)/g).map((part, i) => {
                                                     const isLink = part.match(/https?:\/\/[^\s]+/)
                                                     if (isLink) {
@@ -244,7 +274,7 @@ export default function MessengerChatBubbles({
                                         )}
 
                                         {/* Attachments */}
-                                        {msg.attachments && msg.attachments.length > 0 && (
+                                        {msg.attachments && msg.attachments.length > 0 && !msg.isUnsent && (
                                             <div className="mt-2 flex flex-wrap gap-1.5">
                                                 {msg.attachments.map((att, i) => {
                                                     const isImg = att.fileType?.startsWith('image/')
@@ -323,6 +353,37 @@ export default function MessengerChatBubbles({
                                         <div className={`flex items-center gap-1 mt-1 px-1 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
                                             <span className="text-[10px] text-slate-400">{formatRelativeTime(msg.createdAt)}</span>
                                             {isMe && <StatusIcon status={msg.status} />}
+                                        </div>
+                                    )}
+
+                                    {/* Action Menu (on Hover) */}
+                                    {!isSystem && !isInternal && !msg.isUnsent && (
+                                        <div className={`absolute top-0 ${isMe ? '-left-24' : '-right-24'} opacity-0 group-hover/msg:opacity-100 transition-opacity flex items-center gap-0.5 h-10`}>
+                                            <button 
+                                                onClick={() => onReply?.(msg)} 
+                                                className="p-1.5 hover:bg-slate-100 rounded-full text-slate-400 hover:text-blue-600 transition-all active:scale-90" 
+                                                title="Trả lời"
+                                            >
+                                                <Reply size={14} />
+                                            </button>
+                                            {isMe && onUnsend && (
+                                                <button 
+                                                    onClick={() => onUnsend(msg.id)} 
+                                                    className="p-1.5 hover:bg-slate-100 rounded-full text-slate-400 hover:text-rose-500 transition-all active:scale-90" 
+                                                    title="Thu hồi"
+                                                >
+                                                    <Undo2 size={14} />
+                                                </button>
+                                            )}
+                                            {onRemove && (
+                                                <button 
+                                                    onClick={() => onRemove(msg.id)} 
+                                                    className="p-1.5 hover:bg-slate-100 rounded-full text-slate-400 hover:text-slate-600 transition-all active:scale-90" 
+                                                    title="Gỡ ở phía tôi"
+                                                >
+                                                    <Trash2 size={14} />
+                                                </button>
+                                            )}
                                         </div>
                                     )}
                                 </div>

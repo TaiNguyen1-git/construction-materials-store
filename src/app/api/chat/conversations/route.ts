@@ -230,9 +230,8 @@ export async function POST(req: NextRequest) {
                     const { getFirebaseDatabase } = await import('@/lib/firebase')
                     const { ref, push, set } = await import('firebase/database')
                     const db = getFirebaseDatabase()
-                    const messagesRef = ref(db, `conversations/${conversation.id}/messages`)
-                    const newMessageRef = push(messagesRef)
-                    await set(newMessageRef, {
+                    const messageRef = ref(db, `conversations/${conversation.id}/messages/${message.id}`)
+                    await set(messageRef, {
                         id: message.id,
                         senderId: currentUserId,
                         senderName: message.senderName,

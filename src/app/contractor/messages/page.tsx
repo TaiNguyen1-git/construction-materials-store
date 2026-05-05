@@ -11,7 +11,7 @@ import {
 } from 'lucide-react'
 import { fetchWithAuth } from '@/lib/api-client'
 import { getFirebaseDatabase } from '@/lib/firebase'
-import { ref, onChildAdded, off, serverTimestamp } from 'firebase/database'
+import { ref, onChildAdded, onChildChanged, off, serverTimestamp } from 'firebase/database'
 import toast from 'react-hot-toast'
 import ChatCallManager from '@/components/ChatCallManager'
 import { useAuth } from '@/contexts/auth-context'
@@ -84,6 +84,9 @@ function MessagesContent() {
     const [scanProgress, setScanProgress] = useState(0)
     const [scanStatus, setScanStatus] = useState<'scanning' | 'safe' | 'warning' | 'danger'>('scanning')
     
+    // Professional Chat State
+    const [replyingTo, setReplyingTo] = useState<ChatMessage | null>(null)
+    
     const menuRef = useRef<HTMLDivElement>(null)
     const fileInputRef = useRef<HTMLInputElement>(null)
     const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -122,10 +125,26 @@ function MessagesContent() {
             const newMsg = snapshot.val()
             if (newMsg) {
                 setMessages(prev => {
+                    // Filter out messages removed for this user
+                    if (newMsg.removedBy?.includes(user?.id)) return prev
+
                     if (prev.some(m => m.id === newMsg.id || (m.tempId && m.tempId === newMsg.tempId))) {
                         return prev.map(m => (m.tempId === newMsg.tempId ? newMsg : m))
                     }
                     return [...prev, newMsg]
+                })
+            }
+        })
+
+        onChildChanged(messagesRef, (snapshot: any) => {
+            const updatedMsg = snapshot.val()
+            if (updatedMsg) {
+                setMessages(prev => {
+                    // If message is now removed for this user, filter it out
+                    if (updatedMsg.removedBy?.includes(user?.id)) {
+                        return prev.filter(m => m.id !== updatedMsg.id)
+                    }
+                    return prev.map(m => m.id === updatedMsg.id ? updatedMsg : m)
                 })
             }
         })
@@ -228,16 +247,18 @@ function MessagesContent() {
                     fileUrl: fileData?.fileUrl,
                     fileName: fileData?.fileName,
                     fileType: fileData?.fileType,
-                    tempId: tempId
+                    tempId: tempId,
+                    replyToId: replyingTo?.id
                 })
             })
 
-            if (!res.ok) {
+            if (res.ok) {
+                setReplyingTo(null)
+                fetchConversations()
+            } else {
                 toast.error('Gửi tin nhắn thất bại')
                 setMessages(prev => prev.filter(m => m.id !== tempId))
                 setNewMessage(content)
-            } else {
-                fetchConversations()
             }
         } catch (err) {
             console.error('Send message error:', err)
@@ -307,6 +328,37 @@ function MessagesContent() {
         } catch (err) {
             console.error('Delete conversation error:', err)
             toast.error('Đã có lỗi xảy ra')
+        }
+    }
+
+    const handleUnsend = async (msgId: string) => {
+        try {
+            const res = await fetchWithAuth(`/api/chat/messages/${msgId}`, {
+                method: 'PATCH',
+                body: JSON.stringify({ action: 'unsend' })
+            })
+            if (res.ok) {
+                toast.success('Đã thu hồi tin nhắn')
+            } else {
+                toast.error('Không thể thu hồi tin nhắn')
+            }
+        } catch (err) {
+            console.error('Unsend error:', err)
+        }
+    }
+
+    const handleRemoveMessage = async (msgId: string) => {
+        try {
+            const res = await fetchWithAuth(`/api/chat/messages/${msgId}`, {
+                method: 'PATCH',
+                body: JSON.stringify({ action: 'remove_for_me' })
+            })
+            if (res.ok) {
+                setMessages(prev => prev.filter(m => m.id !== msgId))
+                toast.success('Đã ẩn tin nhắn')
+            }
+        } catch (err) {
+            console.error('Remove error:', err)
         }
     }
 
@@ -557,6 +609,9 @@ function MessagesContent() {
                                 showSenderNames={false}
                                 onImageClick={(url) => setZoomedImage(url)}
                                 onFileClick={handleFileDownload}
+                                onReply={(msg) => setReplyingTo(msg)}
+                                onUnsend={handleUnsend}
+                                onRemove={handleRemoveMessage}
                             />
                             <div ref={messagesEndRef} className="h-4" />
                         </div>
@@ -570,7 +625,24 @@ function MessagesContent() {
                             </button>
                         )}
 
-                        <div className="px-8 py-6 bg-white border-t border-slate-100">
+                        <div className="px-8 py-6 bg-white border-t border-slate-100 relative">
+                            {/* Quoted Message Preview */}
+                            {replyingTo && (
+                                <div className="absolute bottom-full left-0 right-0 px-8 py-3 bg-slate-50 border-t border-slate-100 flex items-center justify-between animate-in slide-in-from-bottom-2 duration-200">
+                                    <div className="flex items-center gap-3 border-l-4 border-blue-500 pl-3">
+                                        <div className="flex flex-col">
+                                            <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest">Đang trả lời {replyingTo.senderName}</span>
+                                            <span className="text-xs text-slate-500 line-clamp-1 italic">{replyingTo.content || 'Tệp đính kèm'}</span>
+                                        </div>
+                                    </div>
+                                    <button 
+                                        onClick={() => setReplyingTo(null)}
+                                        className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-200 rounded-full transition-all"
+                                    >
+                                        <X size={16} />
+                                    </button>
+                                </div>
+                            )}
                             <div className="max-w-4xl mx-auto flex items-end gap-3 bg-slate-50 p-2 rounded-2xl border border-slate-200/50 shadow-inner group focus-within:bg-white focus-within:border-blue-300 focus-within:ring-4 focus-within:ring-blue-50 transition-all">
                                 <button
                                     onClick={() => fileInputRef.current?.click()}
@@ -720,7 +792,7 @@ function MessagesContent() {
                         <div className="mt-8">
                             <button 
                                 onClick={() => setShowContactModal(false)}
-                                className="w-full py-4 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-all active:scale-[0.98] shadow-lg shadow-slate-200"
+                                className="w-full py-4 bg-blue-500 text-white rounded-xl font-bold hover:bg-blue-600 transition-all active:scale-[0.98] shadow-lg shadow-blue-100"
                             >
                                 Đóng cửa sổ
                             </button>

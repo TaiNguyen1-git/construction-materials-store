@@ -8,7 +8,7 @@ const ADMIN_SUPPORT_NAME = 'Hỗ trợ SmartBuild'
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json()
-        const { conversationId, content, fileUrl, fileName, fileType, tempId, senderId: bodySenderId, senderName: bodySenderName } = body
+        const { conversationId, content, fileUrl, fileName, fileType, tempId, senderId: bodySenderId, senderName: bodySenderName, replyToId } = body
 
         // Get userId from JWT, header, or body
         const { verifyTokenFromRequest } = await import('@/lib/auth')
@@ -80,7 +80,19 @@ export async function POST(request: NextRequest) {
                 fileName,
                 fileType,
                 isRead: false,
+                replyToId: replyToId || undefined,
                 metadata: isAgreement ? { type: 'AGREEMENT_PROPOSAL' } : undefined
+            },
+            include: {
+                replyTo: {
+                    select: {
+                        id: true,
+                        content: true,
+                        senderName: true,
+                        fileUrl: true,
+                        fileType: true
+                    }
+                }
             }
         })
 
@@ -102,10 +114,9 @@ export async function POST(request: NextRequest) {
             const { ref, push, set } = await import('firebase/database')
 
             const db = getFirebaseDatabase()
-            const messagesRef = ref(db, `conversations/${conversationId}/messages`)
-            const newMessageRef = push(messagesRef)
+            const messageRef = ref(db, `conversations/${conversationId}/messages/${message.id}`)
 
-            await set(newMessageRef, {
+            await set(messageRef, {
                 id: message.id,
                 tempId: tempId || null,
                 senderId,
@@ -118,6 +129,7 @@ export async function POST(request: NextRequest) {
                 fileType: fileType || null,
                 createdAt: message.createdAt.toISOString(),
                 isRead: false,
+                replyTo: (message as any).replyTo || null,
                 metadata: message.metadata || null
             })
 
