@@ -274,9 +274,32 @@ export default function MessengerChatBubbles({
                                                               att.fileName.toLowerCase().endsWith('.pdf')) && (
                                                                 <button
                                                                     onClick={() => {
-                                                                        const viewerUrl = att.fileName.toLowerCase().endsWith('.pdf') 
-                                                                            ? att.fileUrl 
-                                                                            : `https://view.officeapps.live.com/op/view.aspx?src=${encodeURIComponent(att.fileUrl)}`
+                                                                        const isBase64 = att.fileUrl.startsWith('data:')
+                                                                        let finalUrl = att.fileUrl
+
+                                                                        if (isBase64) {
+                                                                            try {
+                                                                                const parts = att.fileUrl.split(',')
+                                                                                const mime = parts[0].match(/:(.*?);/)?.[1] || 'application/octet-stream'
+                                                                                const b64Data = parts[1]
+                                                                                const byteCharacters = atob(b64Data)
+                                                                                const byteNumbers = new Array(byteCharacters.length)
+                                                                                for (let i = 0; i < byteCharacters.length; i++) {
+                                                                                    byteNumbers[i] = byteCharacters.charCodeAt(i)
+                                                                                }
+                                                                                const byteArray = new Uint8Array(byteNumbers)
+                                                                                const blob = new Blob([byteArray], { type: mime })
+                                                                                finalUrl = URL.createObjectURL(blob)
+                                                                            } catch (e) {
+                                                                                console.error('Blob conversion failed', e)
+                                                                            }
+                                                                        }
+
+                                                                        const isPdf = att.fileName.toLowerCase().endsWith('.pdf')
+                                                                        const viewerUrl = (isPdf || isBase64)
+                                                                            ? finalUrl 
+                                                                            : `https://view.officeapps.live.com/op/view.aspx?src=${encodeURIComponent(finalUrl)}`
+                                                                        
                                                                         window.open(viewerUrl, '_blank')
                                                                     }}
                                                                     className={`flex items-center gap-1 px-1.5 py-1 text-[9px] font-black uppercase tracking-tighter rounded-md border border-dashed transition-all ${
