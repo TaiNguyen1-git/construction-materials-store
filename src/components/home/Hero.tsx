@@ -91,7 +91,7 @@ export default function Hero({
             </div>
 
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-                <div className="text-center max-w-5xl mx-auto">
+                <div className="text-center max-w-6xl mx-auto">
                     {/* Badge */}
                     <div className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-white/5 border border-white/10 backdrop-blur-xl text-blue-200 text-[11px] font-black tracking-widest mb-10 animate-fade-in-up uppercase">
                         <span className="relative flex h-2 w-2">
@@ -101,11 +101,11 @@ export default function Hero({
                         Kỷ Nguyên Vật Tư Số 4.0
                     </div>
 
-                    <h1 className="text-5xl md:text-7xl font-black mb-8 leading-[1.1] tracking-tight text-white animate-fade-in-up">
+                    <h1 className="text-4xl md:text-6xl lg:text-7xl font-black mb-8 leading-[1.1] tracking-tight text-white animate-fade-in-up">
                         Nền Tảng Cung Cấp <br className="hidden lg:block" />
                         <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-indigo-300 to-sky-300 animate-gradient-text">
-                            Vật Liệu Xây Dựng
-                        </span> Thông Minh
+                            Vật Liệu Xây Dựng Thông Minh
+                        </span>
                     </h1>
 
                     <p className="text-lg md:text-xl text-slate-300 mb-12 max-w-2xl mx-auto leading-relaxed font-medium animate-fade-in-up delay-100 opacity-90">
