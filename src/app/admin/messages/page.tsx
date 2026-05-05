@@ -301,7 +301,24 @@ function MessagesContent() {
         const content = newMessage.trim()
         if (!content && !fileData) return
         const tempId = 'temp-' + Date.now()
-        setMessages(prev => [...prev, { id: tempId, tempId, senderId: user?.id, senderName: user?.name || 'Admin', content, fileUrl: fileData?.fileUrl, createdAt: new Date().toISOString(), isSending: true }])
+        const replyMsg = replyToId ? messages.find(m => m.id === replyToId) : null
+        setMessages(prev => [...prev, { 
+            id: tempId, 
+            tempId, 
+            senderId: user?.id, 
+            senderName: user?.name || 'Admin', 
+            content, 
+            fileUrl: fileData?.fileUrl, 
+            createdAt: new Date().toISOString(), 
+            isSending: true,
+            replyTo: replyMsg ? {
+                id: replyMsg.id,
+                senderName: replyMsg.senderName,
+                content: replyMsg.content,
+                fileUrl: replyMsg.fileUrl,
+                fileType: replyMsg.fileType
+            } : undefined
+        }])
         setNewMessage(''); scrollToBottom()
         try {
             const res = await fetch('/api/chat/messages', {

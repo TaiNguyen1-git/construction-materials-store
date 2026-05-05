@@ -270,8 +270,12 @@ function MessagesClient() {
             const newMsg = snapshot.val()
             if (newMsg) {
                 setMessages(prev => {
-                    const exists = prev.some(m => m.id === newMsg.id || (m.tempId && m.tempId === newMsg.tempId))
-                    if (exists) return prev
+                    const existingIdx = prev.findIndex(m => m.id === newMsg.id || (m.tempId && m.tempId === newMsg.tempId))
+                    if (existingIdx !== -1) {
+                        const updated = [...prev]
+                        updated[existingIdx] = { ...prev[existingIdx], ...newMsg }
+                        return updated
+                    }
                     return [...prev, newMsg]
                 })
 

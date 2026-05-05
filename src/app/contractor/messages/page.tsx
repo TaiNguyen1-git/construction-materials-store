@@ -284,7 +284,13 @@ function MessagesContent() {
             fileName: fileData?.fileName,
             fileType: fileData?.fileType,
             createdAt: new Date().toISOString(),
-            isSending: true
+            isSending: true,
+            replyTo: replyingTo ? {
+                id: replyingTo.id,
+                senderName: replyingTo.senderName,
+                content: replyingTo.content,
+                fileUrl: replyingTo.imageUrl || (replyingTo.attachments?.[0]?.fileUrl)
+            } : undefined
         }
 
         setMessages(prev => [...prev, optimisticMsg])
