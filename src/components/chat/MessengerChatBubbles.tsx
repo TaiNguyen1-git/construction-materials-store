@@ -219,9 +219,28 @@ export default function MessengerChatBubbles({
                                             />
                                         )}
 
-                                        {/* Text */}
+                                        {/* Text with Link Protection (Link Shimming) */}
                                         {msg.content && (
-                                            <p className="text-sm whitespace-pre-wrap leading-relaxed break-words">{msg.content}</p>
+                                            <p className="text-sm whitespace-pre-wrap leading-relaxed break-words">
+                                                {msg.content.split(/(https?:\/\/[^\s]+)/g).map((part, i) => {
+                                                    const isLink = part.match(/https?:\/\/[^\s]+/)
+                                                    if (isLink) {
+                                                        const safeRedirectUrl = `/link-protection?url=${encodeURIComponent(part)}`
+                                                        return (
+                                                            <a 
+                                                                key={i} 
+                                                                href={safeRedirectUrl} 
+                                                                target="_blank" 
+                                                                rel="noopener noreferrer"
+                                                                className={`underline decoration-2 underline-offset-2 font-bold ${isMe ? 'text-white/90 hover:text-white' : 'text-blue-600 hover:text-blue-700'}`}
+                                                            >
+                                                                {part}
+                                                            </a>
+                                                        )
+                                                    }
+                                                    return part
+                                                })}
+                                            </p>
                                         )}
 
                                         {/* Attachments */}
@@ -238,14 +257,38 @@ export default function MessengerChatBubbles({
                                                             onClick={() => onImageClick ? onImageClick(att.fileUrl) : window.open(att.fileUrl, '_blank')}
                                                         />
                                                     ) : (
-                                                        <button
-                                                            key={i}
-                                                            onClick={() => onFileClick ? onFileClick(att) : window.open(att.fileUrl, '_blank')}
-                                                            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${isMe ? theme.attach : 'bg-slate-100 hover:bg-slate-200 text-slate-700'}`}
-                                                        >
-                                                            <Paperclip className="w-3 h-3 flex-shrink-0" />
-                                                            <span className="truncate max-w-[140px]">{att.fileName || 'Tệp đính kèm'}</span>
-                                                        </button>
+                                                        <div key={i} className="flex flex-col gap-1">
+                                                            <button
+                                                                onClick={() => onFileClick ? onFileClick(att) : window.open(att.fileUrl, '_blank')}
+                                                                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${isMe ? theme.attach : 'bg-slate-100 hover:bg-slate-200 text-slate-700'}`}
+                                                            >
+                                                                <Paperclip className="w-3 h-3 flex-shrink-0" />
+                                                                <span className="truncate max-w-[120px]">{att.fileName || 'Tệp đính kèm'}</span>
+                                                            </button>
+                                                            
+                                                            {/* Safe Preview Button for Docs */}
+                                                            {(att.fileName.toLowerCase().endsWith('.docx') || 
+                                                              att.fileName.toLowerCase().endsWith('.doc') || 
+                                                              att.fileName.toLowerCase().endsWith('.xlsx') || 
+                                                              att.fileName.toLowerCase().endsWith('.pptx') ||
+                                                              att.fileName.toLowerCase().endsWith('.pdf')) && (
+                                                                <button
+                                                                    onClick={() => {
+                                                                        const viewerUrl = att.fileName.toLowerCase().endsWith('.pdf') 
+                                                                            ? att.fileUrl 
+                                                                            : `https://view.officeapps.live.com/op/view.aspx?src=${encodeURIComponent(att.fileUrl)}`
+                                                                        window.open(viewerUrl, '_blank')
+                                                                    }}
+                                                                    className={`flex items-center gap-1 px-1.5 py-1 text-[9px] font-black uppercase tracking-tighter rounded-md border border-dashed transition-all ${
+                                                                        isMe 
+                                                                        ? 'border-white/30 text-white/80 hover:bg-white/10' 
+                                                                        : 'border-blue-200 text-blue-500 hover:bg-blue-50'
+                                                                    }`}
+                                                                >
+                                                                    Xem trước an toàn
+                                                                </button>
+                                                            )}
+                                                        </div>
                                                     )
                                                 })}
                                             </div>
