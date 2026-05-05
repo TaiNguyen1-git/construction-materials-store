@@ -85,6 +85,7 @@ function MessagesClient() {
     const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
     const [partnerIsTyping, setPartnerIsTyping] = useState(false)
     const [replyingTo, setReplyingTo] = useState<Message | null>(null)
+    const hasAutoConnectedRef = useRef(false)
 
     // Get current user from localStorage or AuthContext
     const [userId, setUserId] = useState<string>('')
@@ -111,7 +112,8 @@ function MessagesClient() {
 
     // Auto-select partner from URL
     useEffect(() => {
-        if (partnerId && userId && conversations.length >= 0 && !loading) {
+        if (partnerId && userId && conversations.length > 0 && !loading && !hasAutoConnectedRef.current) {
+            hasAutoConnectedRef.current = true
             handleAutoConnectPartner()
         }
     }, [partnerId, userId, conversations, loading])

@@ -196,7 +196,7 @@ function MessagesContent() {
             off(messagesRef)
             off(typingRef)
         }
-    }, [selectedId, user, selectedConv])
+    }, [selectedId, user])
 
     const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
         if (messagesEndRef.current) {

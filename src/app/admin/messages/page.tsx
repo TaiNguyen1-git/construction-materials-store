@@ -189,7 +189,7 @@ function MessagesContent() {
             off(messagesRef)
             off(typingRef)
         }
-    }, [selectedId, user, selectedConv])
+    }, [selectedId, user])
 
     // Load Ticket Data
     const fetchTickets = useCallback(async () => {
