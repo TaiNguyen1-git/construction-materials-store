@@ -236,6 +236,9 @@ function MessagesClient() {
                 if (data.success) {
                     setMessages(data.data)
                     setTimeout(() => scrollToBottom('auto'), 100)
+                    
+                    // Refresh conversations to update unread counts
+                    fetchConversations(userId)
                 }
             }
         } catch (error) {

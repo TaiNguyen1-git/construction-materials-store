@@ -55,6 +55,9 @@ function MessagesContent() {
     useEffect(() => {
         if (!selectedId) return
 
+        // Clear messages when switching conversations to avoid showing old content
+        setMessages([])
+        
         const db = getFirebaseDatabase()
         const messagesRef = ref(db, `conversations/${selectedId}/messages`)
 
@@ -121,10 +124,12 @@ function MessagesContent() {
             const res = await fetchWithAuth(`/api/chat/conversations/${convId}/messages`)
             if (res.ok) {
                 const json = await res.json()
-                if (json.data.length !== messages.length || !quiet) {
-                    setMessages(json.data)
-                    if (!quiet) setTimeout(scrollToBottom, 100)
-                }
+                // Always set messages when switching or loading to avoid stale content
+                setMessages(json.data)
+                if (!quiet) setTimeout(scrollToBottom, 100)
+                
+                // Refresh conversations list to update unread counts
+                fetchConversations()
             }
         } catch (err) {
             console.error('Fetch messages error:', err)
