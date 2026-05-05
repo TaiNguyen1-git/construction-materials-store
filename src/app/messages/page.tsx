@@ -11,7 +11,7 @@ import { useAuth } from '@/contexts/auth-context'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { getFirebaseDatabase } from '@/lib/firebase'
-import { ref, onChildAdded, off } from 'firebase/database'
+import { ref, onChildAdded, onChildChanged, onValue, set, off, serverTimestamp } from 'firebase/database'
 import ChatCallManager from '@/components/ChatCallManager'
 import toast, { Toaster } from 'react-hot-toast'
 import MessengerChatBubbles, { ChatMessage } from '@/components/chat/MessengerChatBubbles'
@@ -40,6 +40,14 @@ interface Message {
     fileType: string | null
     fileSize: number | null
     isRead: boolean
+    isDelivered?: boolean
+    isUnsent?: boolean
+    replyToId?: string
+    replyTo?: {
+        senderName: string
+        content: string | null
+        fileUrl: string | null
+    } | null
     createdAt: string
 }
 
@@ -74,6 +82,9 @@ function MessagesClient() {
     const fileInputRef = useRef<HTMLInputElement>(null)
     const isSendingRef = useRef(false)
     const messagesContainerRef = useRef<HTMLDivElement>(null)
+    const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+    const [partnerIsTyping, setPartnerIsTyping] = useState(false)
+    const [replyingTo, setReplyingTo] = useState<Message | null>(null)
 
     // Get current user from localStorage or AuthContext
     const [userId, setUserId] = useState<string>('')
@@ -246,37 +257,63 @@ function MessagesClient() {
         }
     }
 
+    // Listen for messages
     useEffect(() => {
         if (!selectedConv) return
 
         const db = getFirebaseDatabase()
         const messagesRef = ref(db, `conversations/${selectedConv}/messages`)
 
-        const unsubscribe = onChildAdded(messagesRef, (snapshot) => {
+        const unsubscribeAdded = onChildAdded(messagesRef, (snapshot) => {
             const newMsg = snapshot.val()
             if (newMsg) {
                 setMessages(prev => {
-                    // Check if message already exists by ID or tempId
-                    const isDuplicate = prev.some(m =>
-                        m.id === newMsg.id ||
-                        (newMsg.tempId && m.tempId === newMsg.tempId)
-                    )
-
-                    if (isDuplicate) {
-                        // Replace temp message with real one to update ID and remove sending state if any
-                        return prev.map(m =>
-                            (m.tempId && m.tempId === newMsg.tempId) ? newMsg : m
-                        )
-                    }
+                    const exists = prev.some(m => m.id === newMsg.id || (m.tempId && m.tempId === newMsg.tempId))
+                    if (exists) return prev
                     return [...prev, newMsg]
                 })
+
+                // Mark as read if from other
+                if (newMsg.senderId !== userId && !newMsg.isRead) {
+                    markAsRead(selectedConv, newMsg.id)
+                }
+            }
+        })
+
+        const unsubscribeChanged = onChildChanged(messagesRef, (snapshot) => {
+            const updatedMsg = snapshot.val()
+            if (updatedMsg) {
+                setMessages(prev => prev.map(m => m.id === updatedMsg.id ? updatedMsg : m))
             }
         })
 
         return () => {
-            off(messagesRef, 'child_added', unsubscribe)
+            off(messagesRef)
         }
-    }, [selectedConv])
+    }, [selectedConv, userId])
+
+    // Listen for typing status
+    useEffect(() => {
+        if (!selectedConv) return
+
+        const db = getFirebaseDatabase()
+        const typingRef = ref(db, `conversations/${selectedConv}/typing`)
+        const currentConv = conversations.find(c => c.id === selectedConv)
+        const realPartnerId = currentConv?.otherUserId || partnerId
+
+        onValue(typingRef, (snapshot) => {
+            const data = snapshot.val()
+            if (data && userId && realPartnerId) {
+                setPartnerIsTyping(!!data[realPartnerId])
+            } else {
+                setPartnerIsTyping(false)
+            }
+        })
+
+        return () => {
+            off(typingRef)
+        }
+    }, [selectedConv, userId, partnerId, conversations])
 
     const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0]
@@ -336,12 +373,19 @@ function MessagesClient() {
             fileType: selectedFile?.type || null,
             fileSize: selectedFile?.file.size || 0,
             isRead: false,
+            replyToId: replyingTo?.id,
+            replyTo: replyingTo ? {
+                senderName: replyingTo.senderName,
+                content: replyingTo.content,
+                fileUrl: replyingTo.fileUrl
+            } : null,
             createdAt: new Date().toISOString()
         }
         setMessages(prev => [...prev, optimisticMsg])
 
         setNewMessage('')
         setSelectedFile(null)
+        setReplyingTo(null)
         if (fileInputRef.current) fileInputRef.current.value = ''
 
         isSendingRef.current = true
@@ -368,9 +412,11 @@ function MessagesClient() {
                 body: JSON.stringify({
                     conversationId: selectedConv,
                     content: content || null,
+                    senderName: userName,
                     fileUrl: fileData ? `/api/files/${fileData.fileId}` : null,
                     fileName: fileData?.fileName,
                     fileType: fileData?.fileType,
+                    replyToId: replyingTo?.id,
                     tempId: tempId // Pass tempId for sync
                 })
             })
@@ -384,11 +430,65 @@ function MessagesClient() {
     }
 
     const formatTime = (dateStr: string) => {
-        const date = new Date(dateStr)
-        return date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+        const d = new Date(dateStr)
+        return d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
     }
 
-    const formatFileSize = (bytes?: number) => {
+    const handleTyping = () => {
+        if (!selectedConv || !userId) return
+        const db = getFirebaseDatabase()
+        const myTypingRef = ref(db, `conversations/${selectedConv}/typing/${userId}`)
+        
+        set(myTypingRef, true)
+        
+        if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current)
+        typingTimeoutRef.current = setTimeout(() => {
+            set(myTypingRef, null)
+            typingTimeoutRef.current = null
+        }, 4000)
+    }
+
+    const markAsRead = async (convId: string, msgId: string) => {
+        try {
+            await fetch(`/api/chat/messages/${msgId}/read`, {
+                method: 'POST',
+                headers: { 'x-guest-id': userId }
+            })
+        } catch (error) {
+            console.error('Failed to mark as read:', error)
+        }
+    }
+
+    const handleUnsend = async (msgId: string) => {
+        if (!confirm('Bạn có chắc chắn muốn thu hồi tin nhắn này?')) return
+        try {
+            const res = await fetch(`/api/chat/messages/${msgId}/unsend`, {
+                method: 'POST',
+                headers: { 'x-guest-id': userId }
+            })
+            if (!res.ok) throw new Error('Failed')
+            toast.success('Đã thu hồi tin nhắn')
+        } catch (error) {
+            toast.error('Không thể thu hồi tin nhắn')
+        }
+    }
+
+    const handleRemoveMessage = async (msgId: string) => {
+        if (!confirm('Bạn có chắc chắn muốn xóa tin nhắn này ở phía bạn?')) return
+        try {
+            const res = await fetch(`/api/chat/messages/${msgId}`, {
+                method: 'DELETE',
+                headers: { 'x-guest-id': userId }
+            })
+            if (!res.ok) throw new Error('Failed')
+            setMessages(prev => prev.filter(m => m.id !== msgId))
+            toast.success('Đã xóa tin nhắn')
+        } catch (error) {
+            toast.error('Không thể xóa tin nhắn')
+        }
+    }
+
+    const formatFileSize = (bytes: number) => {
         if (!bytes) return ''
         if (bytes < 1024) return bytes + ' B'
         if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
@@ -515,7 +615,15 @@ function MessagesClient() {
                                                 senderType: msg.senderId === userId ? 'me' : 'other',
                                                 senderName: msg.senderName || 'Đối tác',
                                                 createdAt: msg.createdAt,
-                                                status: (msg as any).isSending ? 'sending' : 'sent',
+                                                status: msg.isUnsent ? 'unsent' : (
+                                                    (msg as any).isSending ? 'sending' : (
+                                                        msg.isRead ? 'seen' : (
+                                                            msg.isDelivered ? 'delivered' : 'sent'
+                                                        )
+                                                    )
+                                                ),
+                                                isUnsent: msg.isUnsent,
+                                                replyTo: msg.replyTo,
                                                 imageUrl: msg.fileUrl && msg.fileType === 'image' ? msg.fileUrl : undefined,
                                                 attachments: msg.fileUrl && msg.fileType !== 'image' ? [{
                                                     fileName: msg.fileName || 'Tệp đính kèm',
@@ -526,9 +634,32 @@ function MessagesClient() {
                                             themeColor="blue"
                                             showSenderNames={false}
                                             autoScroll={false}
+                                            isTyping={partnerIsTyping}
+                                            typingPartnerName={conversations.find(c => c.id === selectedConv)?.otherUserName || 'Đối tác'}
+                                            onReply={(msg) => setReplyingTo(msg as any)}
+                                            onUnsend={handleUnsend}
+                                            onRemove={handleRemoveMessage}
                                         />
                                         <div ref={messagesEndRef} className="h-2" />
                                     </div>
+
+                                    {/* Reply Preview */}
+                                    {replyingTo && (
+                                        <div className="px-4 py-2 bg-blue-50 border-t border-blue-100 flex items-center justify-between animate-in slide-in-from-bottom duration-200">
+                                            <div className="flex items-center gap-3 overflow-hidden">
+                                                <div className="w-1 bg-blue-500 h-8 rounded-full flex-shrink-0" />
+                                                <div className="min-w-0">
+                                                    <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest mb-0.5">Đang trả lời {replyingTo.senderName}</p>
+                                                    <p className="text-xs text-gray-600 truncate italic">
+                                                        {replyingTo.content || (replyingTo.fileUrl ? '📎 Tệp đính kèm' : '...')}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <button onClick={() => setReplyingTo(null)} className="p-1.5 hover:bg-blue-100 rounded-full text-blue-400 transition-colors">
+                                                <X className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    )}
 
                                     {/* Scroll to Bottom Button */}
                                     {showScrollButton && (
@@ -587,11 +718,16 @@ function MessagesClient() {
                                             />
                                             <textarea
                                                 value={newMessage}
-                                                onChange={e => setNewMessage(e.target.value)}
+                                                onChange={e => {
+                                                    setNewMessage(e.target.value)
+                                                    handleTyping()
+                                                }}
                                                 onKeyDown={e => {
                                                     if (e.key === 'Enter' && !e.shiftKey) {
                                                         e.preventDefault()
                                                         sendMessage()
+                                                    } else {
+                                                        handleTyping()
                                                     }
                                                 }}
                                                 placeholder="Nhập tin nhắn..."

@@ -7,7 +7,7 @@ import {
 } from 'lucide-react'
 import { getAuthHeaders, fetchWithAuth } from '@/lib/api-client'
 import { getFirebaseDatabase } from '@/lib/firebase'
-import { ref, onChildAdded, onChildChanged, off } from 'firebase/database'
+import { ref, onChildAdded, onChildChanged, onValue, set, off } from 'firebase/database'
 import { subscribeToTicketMessages } from '@/lib/firebase-notifications'
 import toast, { Toaster } from 'react-hot-toast'
 import ChatCallManager from '@/components/ChatCallManager'
@@ -83,11 +83,16 @@ function MessagesContent() {
     const [isSearching, setIsSearching] = useState(false)
     const [highlightId, setHighlightId] = useState<string | null>(null)
     const [hideSmartReplies, setHideSmartReplies] = useState(false)
+    const [partnerIsTyping, setPartnerIsTyping] = useState(false)
+    const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
     const menuRef = useRef<HTMLDivElement>(null)
     const fileInputRef = useRef<HTMLInputElement>(null)
     const messagesEndRef = useRef<HTMLDivElement>(null)
     const scrollContainerRef = useRef<HTMLDivElement>(null)
+
+    const selectedConv = conversations.find(c => c.id === selectedId)
+    const otherParticipantId = selectedConv ? (user?.id === selectedConv.participant1Id ? selectedConv.participant2Id : selectedConv.participant1Id) : null
 
     // Ticket state
     const [tickets, setTickets] = useState<SupportTicket[]>([])
@@ -131,11 +136,24 @@ function MessagesContent() {
             if (newMsg) {
                 newMsg.id = newMsg.id || snapshot.key
                 setMessages(prev => {
-                    if (prev.some(m => m.id === newMsg.id || (m.tempId && m.tempId === newMsg.tempId))) {
-                        return prev.map(m => (m.tempId === newMsg.tempId ? newMsg : m))
+                    const existingIdx = prev.findIndex(m => 
+                        (m.id && m.id === newMsg.id) || 
+                        (m.tempId && m.tempId === newMsg.tempId)
+                    )
+
+                    if (existingIdx !== -1) {
+                        const next = [...prev]
+                        next[existingIdx] = { ...prev[existingIdx], ...newMsg }
+                        return next
                     }
                     return [...prev, newMsg]
                 })
+
+                // Mark as read if from other
+                const isMe = newMsg.senderId === 'admin_support' || (newMsg.realSenderId ? String(newMsg.realSenderId) === String(user?.id) : String(newMsg.senderId) === String(user?.id))
+                if (!isMe && !newMsg.isRead) {
+                    markAsRead(newMsg.id)
+                }
             }
         })
 
@@ -143,14 +161,35 @@ function MessagesContent() {
             const updatedMsg = snapshot.val()
             if (updatedMsg) {
                 updatedMsg.id = updatedMsg.id || snapshot.key
-                setMessages(prev => prev.map(m => m.id === updatedMsg.id ? updatedMsg : m))
+                setMessages(prev => {
+                    const existingIdx = prev.findIndex(m => m.id === updatedMsg.id)
+                    if (existingIdx !== -1) {
+                        const next = [...prev]
+                        next[existingIdx] = { ...prev[existingIdx], ...updatedMsg }
+                        return next
+                    }
+                    return prev
+                })
+            }
+        })
+
+        // Typing indicator listener
+        const typingRef = ref(db, `conversations/${selectedId}/typing`)
+        const unsubscribeTyping = onValue(typingRef, (snapshot) => {
+            const data = snapshot.val()
+            if (data && user && selectedConv) {
+                const partnerId = user.id === selectedConv.participant1Id ? selectedConv.participant2Id : selectedConv.participant1Id
+                setPartnerIsTyping(!!data[partnerId])
+            } else {
+                setPartnerIsTyping(false)
             }
         })
 
         return () => {
             off(messagesRef)
+            off(typingRef)
         }
-    }, [selectedId])
+    }, [selectedId, user, selectedConv])
 
     // Load Ticket Data
     const fetchTickets = useCallback(async () => {
@@ -231,6 +270,31 @@ function MessagesContent() {
     }
 
     const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+
+    const markAsRead = async (msgId: string) => {
+        try {
+            await fetchWithAuth(`/api/chat/messages/${msgId}/read`, {
+                method: 'POST'
+            })
+        } catch (err) {
+            console.error('Mark read error:', err)
+        }
+    }
+
+    const handleTyping = useCallback(() => {
+        if (!selectedId || !user) return
+
+        const db = getFirebaseDatabase()
+        const myTypingRef = ref(db, `conversations/${selectedId}/typing/${user.id}`)
+
+        set(myTypingRef, true)
+
+        if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current)
+        typingTimeoutRef.current = setTimeout(() => {
+            set(myTypingRef, null)
+            typingTimeoutRef.current = null
+        }, 4000)
+    }, [selectedId, user])
 
     const handleSendMessage = async (e?: any, fileData?: any, replyToId?: string) => {
         if (e) e.preventDefault()
@@ -321,9 +385,7 @@ function MessagesContent() {
         attachments: (m.attachments || []).map(a => ({ fileName: 'Đính kèm', fileUrl: a, fileType: '' })), isInternal: m.isInternal, internalLabel: 'Ghi chú nội bộ'
     }))
 
-    const selectedConv = conversations.find(c => c.id === selectedId)
     const displayName = selectedConv ? (user?.id === selectedConv.participant1Id ? selectedConv.participant2Name : selectedConv.participant1Name) : ''
-    const otherParticipantId = selectedConv ? (user?.id === selectedConv.participant1Id ? selectedConv.participant2Id : selectedConv.participant1Id) : null
 
     // Render logic for messages
     const renderMessageContent = (msg: any) => {
@@ -373,6 +435,7 @@ function MessagesContent() {
                     scrollToBottom={scrollToBottom} renderMessageContent={renderMessageContent} formatTime={formatTime}
                     messagesEndRef={messagesEndRef} scrollContainerRef={scrollContainerRef} fileInputRef={fileInputRef} menuRef={menuRef}
                     user={user} setSmartReplies={setSmartReplies} setHideSmartReplies={setHideSmartReplies} selectedId={selectedId} fetchConversations={fetchConversations}
+                    handleTyping={handleTyping} partnerIsTyping={partnerIsTyping}
                 />
             ) : (
                 <TicketChatView 

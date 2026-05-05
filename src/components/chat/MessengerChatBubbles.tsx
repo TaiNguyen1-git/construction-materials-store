@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
-import { Check, CheckCheck, Clock, Paperclip, AlertCircle, MessageSquareReply, RotateCcw, Trash2, MoreHorizontal, Undo2 } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
+import { Check, CheckCheck, Clock, Paperclip, AlertCircle, MessageSquareReply, RotateCcw, Trash2, MoreHorizontal, Undo2, Loader2 } from 'lucide-react'
 
 export interface ChatMessage {
     id: string
@@ -37,6 +37,8 @@ interface Props {
     onReply?: (msg: ChatMessage) => void
     onUnsend?: (msgId: string) => void
     onRemove?: (msgId: string) => void
+    isTyping?: boolean
+    typingPartnerName?: string
 }
 
 const THEME = {
@@ -63,6 +65,11 @@ function formatDateGroup(dateStr: string) {
     if (d.toDateString() === yesterday.toDateString()) return 'Hôm qua'
     return d.toLocaleDateString('vi-VN', { weekday: 'long', day: '2-digit', month: '2-digit' })
 }
+function formatFullTime(dateStr: string) {
+    const d = new Date(dateStr)
+    if (isNaN(d.getTime())) return ''
+    return d.toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })
+}
 
 function StatusIcon({ status }: { status?: string }) {
     if (status === 'sending') return <Clock className="w-3 h-3 opacity-60 animate-pulse" />
@@ -73,6 +80,7 @@ function StatusIcon({ status }: { status?: string }) {
     return null
 }
 
+
 export default function MessengerChatBubbles({
     messages,
     themeColor = 'indigo',
@@ -82,10 +90,15 @@ export default function MessengerChatBubbles({
     onFileClick,
     onReply,
     onUnsend,
-    onRemove
+    onRemove,
+    isTyping = false,
+    typingPartnerName
 }: Props) {
     const endRef = useRef<HTMLDivElement>(null)
     const theme = THEME[themeColor]
+    const [confirmAction, setConfirmAction] = useState<{ id: string, type: 'unsend' | 'remove' } | null>(null)
+    const [isProcessing, setIsProcessing] = useState(false)
+    const [selectedMsgId, setSelectedMsgId] = useState<string | null>(null)
 
     useEffect(() => {
         // 🛡️ DISABLED: scrollIntoView causes the whole window to scroll.
@@ -203,7 +216,7 @@ export default function MessengerChatBubbles({
                                     </div>
                                 )}
 
-                                <div className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} max-w-[72%] group/msg relative`}>
+                                <div className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} max-w-[75%] group/msg relative`}>
                                     {/* Sender name (first in group) */}
                                     {!isMe && showSenderNames && msg.isFirst && msg.senderName && (
                                         <span className="text-[10px] font-bold text-slate-400 mb-1 ml-1">
@@ -213,20 +226,25 @@ export default function MessengerChatBubbles({
 
                                     {/* Bubble */}
                                     <div
+                                        onClick={() => !msg.isUnsent && setSelectedMsgId(selectedMsgId === msg.id ? null : msg.id)}
                                         className={`
-                                            relative px-4 py-2.5 shadow-sm w-fit max-w-[75%]
-                                            ${isMe
-                                                ? `${!msg.isUnsent ? theme.bubble : 'bg-slate-50 border border-slate-200'} ${!msg.isUnsent ? 'text-white' : 'text-slate-400'} ${msg.isFirst ? 'rounded-t-2xl' : 'rounded-t-lg'} ${msg.isLast ? 'rounded-bl-2xl rounded-br-sm' : 'rounded-b-lg'}`
-                                                : `bg-white border border-slate-100 text-slate-800 ${msg.isFirst ? 'rounded-t-2xl' : 'rounded-t-lg'} ${msg.isLast ? 'rounded-br-2xl rounded-bl-sm' : 'rounded-b-lg'}`
+                                            relative px-4 py-2.5 shadow-sm w-fit min-w-[60px] max-w-full cursor-pointer
+                                            ${msg.isUnsent 
+                                                ? 'bg-slate-50 border border-slate-200 text-slate-400 shadow-none' 
+                                                : (isMe ? `${theme.bubble} text-white` : 'bg-white border border-slate-100 text-slate-800')
+                                            }
+                                            ${msg.isFirst ? 'rounded-t-2xl' : 'rounded-t-lg'} 
+                                            ${isMe 
+                                                ? (msg.isLast ? 'rounded-bl-2xl rounded-br-sm' : 'rounded-b-lg')
+                                                : (msg.isLast ? 'rounded-br-2xl rounded-bl-sm' : 'rounded-b-lg')
                                             }
                                             ${isSending ? 'opacity-70' : ''}
                                             ${isError ? 'ring-2 ring-red-400' : ''}
-                                            ${msg.isUnsent && !isMe ? '!bg-slate-50 !text-slate-400 !border-slate-200 !shadow-none' : ''}
                                             transition-all duration-150 overflow-hidden
                                         `}
                                     >
                                         {/* Quoted Message (Reply) */}
-                                        {msg.replyTo && !msg.isUnsent && (
+                                        {!msg.isUnsent && msg.replyTo && (
                                             <div className={`mb-2 p-2 rounded-lg border-l-4 text-[10px] ${isMe ? 'bg-black/10 border-white/30' : 'bg-slate-50 border-blue-400'}`}>
                                                 <p className={`font-black mb-0.5 ${isMe ? 'text-white/80' : 'text-blue-600'}`}>{msg.replyTo.senderName}</p>
                                                 <p className={`line-clamp-1 italic ${isMe ? 'text-white/70' : 'text-slate-500'}`}>
@@ -236,13 +254,15 @@ export default function MessengerChatBubbles({
                                         )}
 
                                         {/* Inline image */}
-                                        {msg.imageUrl && !msg.isUnsent && (
-                                            <img
-                                                src={msg.imageUrl}
-                                                alt="image"
-                                                className="max-w-[220px] max-h-[280px] rounded-xl mb-2 cursor-pointer hover:scale-[1.02] transition-transform"
-                                                onClick={() => onImageClick ? onImageClick(msg.imageUrl!) : window.open(msg.imageUrl, '_blank')}
-                                            />
+                                        {!msg.isUnsent && msg.imageUrl && (
+                                            <div className="mt-1 mb-2 overflow-hidden rounded-xl">
+                                                <img
+                                                    src={msg.imageUrl}
+                                                    alt="image"
+                                                    className="max-w-[260px] h-auto max-h-[300px] rounded-xl cursor-pointer hover:scale-[1.02] transition-transform object-contain"
+                                                    onClick={() => onImageClick ? onImageClick(msg.imageUrl!) : window.open(msg.imageUrl, '_blank')}
+                                                />
+                                            </div>
                                         )}
 
                                         {/* Text with Link Protection or Unsent State */}
@@ -251,7 +271,7 @@ export default function MessengerChatBubbles({
                                                 <RotateCcw size={12} className="opacity-50" /> Tin nhắn đã được thu hồi
                                             </p>
                                         ) : msg.content && (
-                                            <p className="text-sm whitespace-pre-wrap leading-relaxed break-words overflow-wrap-anywhere">
+                                            <p className="text-sm whitespace-pre-wrap leading-relaxed break-words">
                                                 {msg.content.split(/(https?:\/\/[^\s]+)/g).map((part, i) => {
                                                     const isLink = part.match(/https?:\/\/[^\s]+/)
                                                     if (isLink) {
@@ -348,12 +368,22 @@ export default function MessengerChatBubbles({
                                         )}
                                     </div>
 
-                                    {/* Timestamp + Status (only last in group) */}
-                                    {msg.isLast && (
-                                        <div className={`flex items-center gap-1 mt-1 px-1 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
-                                            <span className="text-[10px] text-slate-400">{formatRelativeTime(msg.createdAt)}</span>
-                                            {isMe && <StatusIcon status={msg.status} />}
+                                    {/* Message Details (Visible on Click OR if it's the last message overall) */}
+                                    {(selectedMsgId === msg.id || (msg.id === messages[messages.length - 1]?.id)) && !msg.isUnsent ? (
+                                        <div className={`text-[10px] font-bold text-slate-400 mt-1 flex items-center gap-1.5 animate-in slide-in-from-top-1 duration-200 ${isMe ? 'justify-end mr-1' : 'ml-1'}`}>
+                                            <span className="opacity-80">{formatFullTime(msg.createdAt)}</span>
+                                            <span className="w-1 h-1 bg-slate-300 rounded-full" />
+                                            <span className={msg.status === 'seen' ? 'text-blue-400' : ''}>
+                                                {msg.status === 'seen' ? 'Đã xem' : (msg.status === 'sent' ? 'Đã gửi' : 'Đang gửi')}
+                                            </span>
                                         </div>
+                                    ) : (
+                                        msg.isLast && (
+                                            <div className={`flex items-center gap-1 mt-1 px-1 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
+                                                <span className="text-[10px] text-slate-400">{formatRelativeTime(msg.createdAt)}</span>
+                                                {isMe && <StatusIcon status={msg.status} />}
+                                            </div>
+                                        )
                                     )}
 
                                     {/* Action Menu (on Hover) */}
@@ -368,7 +398,7 @@ export default function MessengerChatBubbles({
                                             </button>
                                             {isMe && onUnsend && (
                                                 <button 
-                                                    onClick={() => onUnsend(msg.id)} 
+                                                    onClick={() => setConfirmAction({ id: msg.id, type: 'unsend' })} 
                                                     className="p-1.5 hover:bg-slate-100 rounded-full text-slate-400 hover:text-rose-500 transition-all active:scale-90" 
                                                     title="Thu hồi"
                                                 >
@@ -377,7 +407,7 @@ export default function MessengerChatBubbles({
                                             )}
                                             {onRemove && (
                                                 <button 
-                                                    onClick={() => onRemove(msg.id)} 
+                                                    onClick={() => setConfirmAction({ id: msg.id, type: 'remove' })} 
                                                     className="p-1.5 hover:bg-slate-100 rounded-full text-slate-400 hover:text-slate-600 transition-all active:scale-90" 
                                                     title="Gỡ ở phía tôi"
                                                 >
@@ -397,6 +427,64 @@ export default function MessengerChatBubbles({
             ))}
 
             <div ref={endRef} className="h-1" />
+
+            {/* Typing Indicator */}
+            {isTyping && (
+                <div className="flex items-end gap-2 mb-4 animate-in slide-in-from-bottom-2 duration-300">
+                    <div className="w-7 h-7 rounded-full bg-gradient-to-br from-slate-200 to-slate-300 flex items-center justify-center text-[10px] font-black text-slate-500 shadow-sm overflow-hidden">
+                        {typingPartnerName?.charAt(0)?.toUpperCase() || '?'}
+                    </div>
+                    <div className="bg-white border border-slate-100 rounded-2xl rounded-bl-sm px-4 py-3 shadow-sm flex gap-1 items-center">
+                        <span className="w-1.5 h-1.5 bg-slate-300 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+                        <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+                        <span className="w-1.5 h-1.5 bg-slate-300 rounded-full animate-bounce"></span>
+                    </div>
+                </div>
+            )}
+
+            {/* Confirmation Modal */}
+            {confirmAction && (
+                <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-white rounded-3xl p-6 max-w-[320px] w-full shadow-2xl animate-in zoom-in-95 duration-200">
+                        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-4 mx-auto ${confirmAction.type === 'unsend' ? 'bg-orange-50 text-orange-600' : 'bg-rose-50 text-rose-600'}`}>
+                            {confirmAction.type === 'unsend' ? <RotateCcw size={28} /> : <Trash2 size={28} />}
+                        </div>
+                        <h3 className="text-lg font-bold text-slate-900 text-center mb-2">
+                            {confirmAction.type === 'unsend' ? 'Thu hồi tin nhắn?' : 'Gỡ tin nhắn?'}
+                        </h3>
+                        <p className="text-slate-500 text-center text-[11px] font-medium mb-6 leading-relaxed">
+                            {confirmAction.type === 'unsend' 
+                                ? 'Tin nhắn này sẽ bị xóa đối với tất cả mọi người trong cuộc trò chuyện.' 
+                                : 'Tin nhắn này sẽ chỉ bị gỡ khỏi thiết bị của bạn.'}
+                        </p>
+                        <div className="flex flex-col gap-2">
+                            <button 
+                                disabled={isProcessing}
+                                onClick={async () => {
+                                    setIsProcessing(true)
+                                    try {
+                                        if (confirmAction.type === 'unsend' && onUnsend) await onUnsend(confirmAction.id)
+                                        if (confirmAction.type === 'remove' && onRemove) await onRemove(confirmAction.id)
+                                    } finally {
+                                        setIsProcessing(false)
+                                        setConfirmAction(null)
+                                    }
+                                }}
+                                className={`py-3 rounded-xl font-bold text-white transition-all active:scale-95 flex items-center justify-center gap-2 ${isProcessing ? 'opacity-70 cursor-not-allowed' : ''} ${confirmAction.type === 'unsend' ? 'bg-orange-500 hover:bg-orange-600' : 'bg-rose-500 hover:bg-rose-600'}`}
+                            >
+                                {isProcessing ? <Loader2 size={18} className="animate-spin" /> : 'Xác nhận'}
+                            </button>
+                            <button 
+                                disabled={isProcessing}
+                                onClick={() => setConfirmAction(null)}
+                                className="py-3 bg-slate-50 text-slate-600 rounded-xl font-bold hover:bg-slate-100 transition-all active:scale-95 disabled:opacity-50"
+                            >
+                                Hủy bỏ
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     )
 }

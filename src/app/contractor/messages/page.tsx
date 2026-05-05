@@ -11,7 +11,7 @@ import {
 } from 'lucide-react'
 import { fetchWithAuth } from '@/lib/api-client'
 import { getFirebaseDatabase } from '@/lib/firebase'
-import { ref, onChildAdded, onChildChanged, off, serverTimestamp } from 'firebase/database'
+import { ref, onChildAdded, onChildChanged, onValue, set, off, serverTimestamp } from 'firebase/database'
 import toast from 'react-hot-toast'
 import ChatCallManager from '@/components/ChatCallManager'
 import { useAuth } from '@/contexts/auth-context'
@@ -41,6 +41,9 @@ interface Message {
     createdAt: string
     isSending?: boolean
     isRead?: boolean
+    isUnsent?: boolean
+    metadata?: any
+    replyTo?: any
 }
 
 interface PartnerInfo {
@@ -77,6 +80,8 @@ function MessagesContent() {
     const [zoomedImage, setZoomedImage] = useState<string | null>(null)
     const [partnerInfo, setPartnerInfo] = useState<PartnerInfo | null>(null)
     const [fetchingContact, setFetchingContact] = useState(false)
+    const [partnerIsTyping, setPartnerIsTyping] = useState(false)
+    const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
     
     // Security Scanner State
     const [isScanning, setIsScanning] = useState(false)
@@ -91,6 +96,11 @@ function MessagesContent() {
     const fileInputRef = useRef<HTMLInputElement>(null)
     const messagesEndRef = useRef<HTMLDivElement>(null)
     const scrollContainerRef = useRef<HTMLDivElement>(null)
+    
+    const selectedConv = conversations.find(c => c.id === selectedId)
+    const displayName = selectedConv
+        ? (user?.id === selectedConv.participant1Id ? selectedConv.participant2Name : selectedConv.participant1Name)
+        : ''
 
     // Initial Auth & Conversations
     useEffect(() => {
@@ -121,18 +131,32 @@ function MessagesContent() {
         fetchMessages(selectedId)
 
         // Then listen for new ones
-        onChildAdded(messagesRef, (snapshot) => {
+        onChildAdded(messagesRef, (snapshot: any) => {
             const newMsg = snapshot.val()
             if (newMsg) {
+                newMsg.id = newMsg.id || snapshot.key
                 setMessages(prev => {
                     // Filter out messages removed for this user
                     if (newMsg.removedBy?.includes(user?.id)) return prev
 
-                    if (prev.some(m => m.id === newMsg.id || (m.tempId && m.tempId === newMsg.tempId))) {
-                        return prev.map(m => (m.tempId === newMsg.tempId ? newMsg : m))
+                    // Use snapshot key as ID for comparison if id field is missing
+                    const existingIdx = prev.findIndex(m => 
+                        (m.id && m.id === newMsg.id) || 
+                        (m.tempId && m.tempId === newMsg.tempId)
+                    )
+
+                    if (existingIdx !== -1) {
+                        const updated = [...prev]
+                        updated[existingIdx] = { ...prev[existingIdx], ...newMsg }
+                        return updated
                     }
                     return [...prev, newMsg]
                 })
+
+                // Mark as read if from other
+                if (newMsg.senderId !== user?.id && !newMsg.isRead) {
+                    markAsRead(newMsg.id)
+                }
             }
         })
 
@@ -145,15 +169,34 @@ function MessagesContent() {
                     if (updatedMsg.removedBy?.includes(user?.id)) {
                         return prev.filter(m => m.id !== updatedMsg.id)
                     }
-                    return prev.map(m => m.id === updatedMsg.id ? updatedMsg : m)
+                    const existingIdx = prev.findIndex(m => m.id === updatedMsg.id)
+                    if (existingIdx !== -1) {
+                        const next = [...prev]
+                        next[existingIdx] = { ...prev[existingIdx], ...updatedMsg }
+                        return next
+                    }
+                    return prev
                 })
+            }
+        })
+
+        // Listen for typing status
+        const typingRef = ref(db, `conversations/${selectedId}/typing`)
+        const unsubscribeTyping = onValue(typingRef, (snapshot) => {
+            const data = snapshot.val()
+            if (data && user && selectedConv) {
+                const partnerId = user.id === selectedConv.participant1Id ? selectedConv.participant2Id : selectedConv.participant1Id
+                setPartnerIsTyping(!!data[partnerId])
+            } else {
+                setPartnerIsTyping(false)
             }
         })
 
         return () => {
             off(messagesRef)
+            off(typingRef)
         }
-    }, [selectedId])
+    }, [selectedId, user, selectedConv])
 
     const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
         if (messagesEndRef.current) {
@@ -209,6 +252,16 @@ function MessagesContent() {
         }
     }
 
+    const markAsRead = async (msgId: string) => {
+        try {
+            await fetchWithAuth(`/api/chat/messages/${msgId}/read`, {
+                method: 'POST'
+            })
+        } catch (err) {
+            console.error('Mark read error:', err)
+        }
+    }
+
     const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
         const { scrollTop, scrollHeight, clientHeight } = e.currentTarget
         setShowScrollButton(scrollHeight - scrollTop - clientHeight > 200)
@@ -245,6 +298,7 @@ function MessagesContent() {
                 body: JSON.stringify({
                     conversationId: selectedId,
                     content: content,
+                    senderName: user?.name,
                     fileUrl: fileData?.fileUrl,
                     fileName: fileData?.fileName,
                     fileType: fileData?.fileType,
@@ -297,10 +351,6 @@ function MessagesContent() {
         }
     }
 
-    const selectedConv = conversations.find(c => c.id === selectedId)
-    const displayName = selectedConv
-        ? (user?.id === selectedConv.participant1Id ? selectedConv.participant2Name : selectedConv.participant1Name)
-        : ''
 
     const handleCall = (type: 'audio' | 'video' = 'audio') => {
         if (!selectedId || !selectedConv) return
@@ -361,6 +411,21 @@ function MessagesContent() {
         } catch (err) {
             console.error('Remove error:', err)
         }
+    }
+
+    const handleTyping = () => {
+        if (!selectedId || !user) return
+
+        const db = getFirebaseDatabase()
+        const myTypingRef = ref(db, `conversations/${selectedId}/typing/${user.id}`)
+
+        set(myTypingRef, true)
+
+        if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current)
+        typingTimeoutRef.current = setTimeout(() => {
+            set(myTypingRef, null)
+            typingTimeoutRef.current = null
+        }, 4000)
     }
 
     const handleShowContactInfo = async () => {
@@ -598,13 +663,16 @@ function MessagesContent() {
                                     senderType: msg.senderId === user?.id ? 'me' : 'other',
                                     senderName: msg.senderName || displayName,
                                     createdAt: msg.createdAt,
-                                    status: msg.isSending ? 'sending' : (msg.isRead ? 'seen' : 'sent'),
+                                    tempId: msg.tempId || (msg.metadata as any)?.tempId,
+                                    status: msg.id?.startsWith('temp-') ? 'sending' : (msg.isRead ? 'seen' : 'sent'),
                                     imageUrl: msg.fileUrl && msg.fileType?.startsWith('image/') ? msg.fileUrl : undefined,
                                     attachments: msg.fileUrl && !msg.fileType?.startsWith('image/') ? [{
                                         fileName: msg.fileName || 'Tệp đính kèm',
                                         fileUrl: msg.fileUrl,
                                         fileType: msg.fileType || ''
-                                    }] : []
+                                    }] : [],
+                                    isUnsent: msg.isUnsent,
+                                    replyTo: msg.replyTo
                                 } as ChatMessage))}
                                 themeColor="blue"
                                 showSenderNames={false}
@@ -613,6 +681,8 @@ function MessagesContent() {
                                 onReply={(msg) => setReplyingTo(msg)}
                                 onUnsend={handleUnsend}
                                 onRemove={handleRemoveMessage}
+                                isTyping={partnerIsTyping}
+                                typingPartnerName={displayName}
                             />
                             <div ref={messagesEndRef} className="h-4" />
                         </div>
@@ -659,11 +729,16 @@ function MessagesContent() {
                                     placeholder="Soạn tin nhắn mới..."
                                     className="flex-1 py-3 bg-transparent border-none rounded-xl text-sm font-semibold focus:ring-0 resize-none max-h-40 placeholder:text-slate-400"
                                     value={newMessage}
-                                    onChange={(e) => setNewMessage(e.target.value)}
+                                    onChange={(e) => {
+                                        setNewMessage(e.target.value)
+                                        handleTyping()
+                                    }}
                                     onKeyDown={(e) => {
                                         if (e.key === 'Enter' && !e.shiftKey) {
                                             e.preventDefault()
                                             handleSendMessage()
+                                        } else {
+                                            handleTyping()
                                         }
                                     }}
                                 />

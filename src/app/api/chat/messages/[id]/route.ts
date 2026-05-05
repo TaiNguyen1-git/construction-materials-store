@@ -63,6 +63,7 @@ export async function PATCH(
                 const { ref, update } = await import('firebase/database')
                 const db = getFirebaseDatabase()
                 const messageRef = ref(db, `conversations/${message.conversationId}/messages/${messageId}`)
+                const convRef = ref(db, `conversations/${message.conversationId}`)
                 
                 await update(messageRef, {
                     isUnsent: true,
@@ -72,9 +73,22 @@ export async function PATCH(
                     fileType: null,
                     fileSize: null
                 })
+
+                // Also update conversation lastMessage
+                await update(convRef, {
+                    lastMessage: 'Tin nhắn đã được thu hồi',
+                    lastMessageAt: new Date().toISOString()
+                })
+
             } catch (fbError) {
                 console.error('Firebase unsend sync failed:', fbError)
             }
+
+            // Also update Prisma conversation
+            await prisma.conversation.update({
+                where: { id: message.conversationId },
+                data: { lastMessage: 'Tin nhắn đã được thu hồi' }
+            })
 
             return NextResponse.json({ success: true, data: updatedMessage })
         }

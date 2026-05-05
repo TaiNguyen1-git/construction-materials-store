@@ -46,6 +46,8 @@ interface DirectChatViewProps {
     setHideSmartReplies: (h: boolean) => void
     selectedId: string | null
     fetchConversations: () => void
+    handleTyping?: () => void
+    partnerIsTyping?: boolean
 }
 
 export default function DirectChatView({
@@ -81,7 +83,9 @@ export default function DirectChatView({
     setSmartReplies,
     setHideSmartReplies,
     selectedId,
-    fetchConversations
+    fetchConversations,
+    handleTyping,
+    partnerIsTyping = false
 }: DirectChatViewProps) {
     const [replyingTo, setReplyingTo] = useState<ChatMessage | null>(null)
 
@@ -203,6 +207,7 @@ export default function DirectChatView({
                             senderType: isMe ? 'me' : 'other',
                             senderName: msg.senderName,
                             createdAt: msg.createdAt,
+                            tempId: msg.tempId || (msg.metadata as any)?.tempId,
                             status: msg.id?.startsWith('temp-') ? 'sending' : (msg.isRead ? 'seen' : 'sent'),
                             imageUrl: msg.fileUrl && msg.fileType?.startsWith('image/') ? msg.fileUrl : undefined,
                             attachments: msg.fileUrl && !msg.fileType?.startsWith('image/') ? [{
@@ -221,6 +226,8 @@ export default function DirectChatView({
                     onReply={(msg) => setReplyingTo(msg)}
                     onUnsend={handleUnsend}
                     onRemove={handleRemoveMessage}
+                    isTyping={partnerIsTyping}
+                    typingPartnerName={displayName}
                 />
                 <div ref={messagesEndRef} className="h-2" />
             </div>
@@ -294,8 +301,20 @@ export default function DirectChatView({
                     <div className="flex-1">
                         <textarea rows={1} placeholder="Nhập tin nhắn..."
                             className="w-full p-3 bg-transparent border-none rounded-2xl text-sm focus:ring-0 resize-none max-h-32"
-                            value={newMessage} onChange={e => setNewMessage(e.target.value)}
-                            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(undefined, undefined, replyingTo?.id); setReplyingTo(null) } }} />
+                            value={newMessage} 
+                            onChange={e => {
+                                setNewMessage(e.target.value)
+                                if (handleTyping) handleTyping()
+                            }}
+                            onKeyDown={e => { 
+                                if (e.key === 'Enter' && !e.shiftKey) { 
+                                    e.preventDefault()
+                                    handleSendMessage(undefined, undefined, replyingTo?.id)
+                                    setReplyingTo(null) 
+                                } else if (handleTyping) {
+                                    handleTyping()
+                                }
+                            }} />
                     </div>
                     <button onClick={() => { handleSendMessage(undefined, undefined, replyingTo?.id); setReplyingTo(null) }} disabled={sending || (!newMessage.trim() && !uploading)}
                         className="p-3 bg-indigo-600 text-white rounded-full hover:bg-indigo-700 disabled:opacity-50 shadow-lg shadow-indigo-100 transition-all hover:scale-105">

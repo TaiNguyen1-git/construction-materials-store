@@ -80,8 +80,13 @@ export async function POST(request: NextRequest) {
                 fileName,
                 fileType,
                 isRead: false,
+                isDelivered: true,
+                deliveredAt: new Date(),
                 replyToId: replyToId || undefined,
-                metadata: isAgreement ? { type: 'AGREEMENT_PROPOSAL' } : undefined
+                metadata: {
+                    ...(isAgreement ? { type: 'AGREEMENT_PROPOSAL' } : {}),
+                    tempId
+                }
             },
             include: {
                 replyTo: {
@@ -129,6 +134,8 @@ export async function POST(request: NextRequest) {
                 fileType: fileType || null,
                 createdAt: message.createdAt.toISOString(),
                 isRead: false,
+                isDelivered: true,
+                deliveredAt: message.createdAt.toISOString(),
                 replyTo: (message as any).replyTo || null,
                 metadata: message.metadata || null
             })
