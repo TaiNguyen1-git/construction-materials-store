@@ -32,23 +32,22 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
             }
         })
 
-        // Mark as read for this user
-        // We can do this async without awaiting if performance is key, but better to await.
-        // Identify which participant am I (1 or 2) to reset unread count?
-        // For now, simpler: Just update all messages sent by OTHER to Read? No, 'isRead' is per message.
-        // Let's reset the Conversation.unreadX count.
-
-        const conv = await prisma.conversation.findUnique({ where: { id: conversationId } })
-        if (conv) {
-            const isP1 = conv.participant1Id === userId
-
-            // Reset my unread count
-            if (isP1 && conv.unread1 > 0) {
-                await prisma.conversation.update({ where: { id: conversationId }, data: { unread1: 0 } })
-            } else if (!isP1 && conv.participant2Id === userId && conv.unread2 > 0) {
-                await prisma.conversation.update({ where: { id: conversationId }, data: { unread2: 0 } })
+        // Mark as read for this user - FIRE AND FORGET (Run in background to speed up response)
+        const updateUnreadPromise = (async () => {
+            try {
+                const conv = await prisma.conversation.findUnique({ where: { id: conversationId } })
+                if (conv) {
+                    const isP1 = conv.participant1Id === userId
+                    if (isP1 && conv.unread1 > 0) {
+                        await prisma.conversation.update({ where: { id: conversationId }, data: { unread1: 0 } })
+                    } else if (!isP1 && conv.participant2Id === userId && conv.unread2 > 0) {
+                        await prisma.conversation.update({ where: { id: conversationId }, data: { unread2: 0 } })
+                    }
+                }
+            } catch (err) {
+                console.error('Background unread update error:', err)
             }
-        }
+        })()
 
         return NextResponse.json({ success: true, data: messages })
 

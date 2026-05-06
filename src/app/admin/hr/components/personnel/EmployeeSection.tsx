@@ -2,7 +2,7 @@
 
 import React from 'react'
 import { Users, Plus, Edit, Trash2, XCircle, ChevronUp, ChevronDown } from 'lucide-react'
-import { Employee, getStatusBadge, getStatusText } from '../types'
+import { Employee, getStatusBadge, getStatusText } from './types'
 
 interface EmployeeSectionProps {
     employees: Employee[]

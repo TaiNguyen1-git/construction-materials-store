@@ -42,13 +42,16 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
     try {
         const body = await request.json()
-        const { disputeId, resolution, status, adminId } = body
+        const { disputeId, resolution, status, adminId, banDuration, banTarget } = body
 
         if (!disputeId || !resolution || !status || !adminId) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
         }
 
-        const result = await disputeService.resolveDispute(disputeId, resolution, status as DisputeStatus, adminId)
+        const result = await disputeService.resolveDispute(disputeId, resolution, status as DisputeStatus, adminId, {
+            banDuration,
+            banTarget
+        })
         return NextResponse.json(result)
     } catch (error) {
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })

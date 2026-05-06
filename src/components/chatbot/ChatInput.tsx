@@ -14,6 +14,7 @@ interface ChatInputProps {
     isAdmin: boolean;
     onConnectSupport?: () => void;
     isHumanMode?: boolean;
+    onTyping?: () => void;
 }
 
 export default function ChatInput({
@@ -25,7 +26,8 @@ export default function ChatInput({
     onSendMessage,
     isAdmin,
     onConnectSupport,
-    isHumanMode = false
+    isHumanMode = false,
+    onTyping
 }: ChatInputProps) {
     const fileInputRef = useRef<HTMLInputElement>(null)
     const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -161,6 +163,7 @@ export default function ChatInput({
                         value={currentMessage}
                         onChange={(e) => {
                             setCurrentMessage(e.target.value);
+                            if (onTyping) onTyping();
                             // Auto-resize logic
                             e.target.style.height = 'auto';
                             e.target.style.height = `${e.target.scrollHeight}px`;

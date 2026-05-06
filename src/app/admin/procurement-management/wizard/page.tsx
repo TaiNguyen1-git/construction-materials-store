@@ -17,7 +17,7 @@ export default function ProcurementWizardPage() {
                 {/* Breadcrumb */}
                 <div className="mb-6">
                     <Link
-                        href="/admin/procurement-management"
+                        href="/admin/finance?tab=procurement"
                         className="inline-flex items-center gap-2 text-gray-500 hover:text-blue-600 transition-colors text-sm font-medium"
                     >
                         <ArrowLeft className="w-4 h-4" />

@@ -19,7 +19,9 @@ import {
   Ticket,
   ChevronRight,
   PlusCircle,
-  X
+  X,
+  PieChart,
+  LucideIcon
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { clsx, type ClassValue } from 'clsx'
@@ -33,7 +35,7 @@ interface SearchItem {
   id: string
   name: string
   href?: string
-  icon: React.ElementType
+  icon: LucideIcon
   category: 'PAGES' | 'ACTIONS' | 'DATA'
   description?: string
   action?: () => void
@@ -45,9 +47,9 @@ const PAGES: SearchItem[] = [
   { id: 'inventory', name: 'Tồn Kho & Sản Phẩm', href: '/admin/inventory', icon: Package, category: 'PAGES' },
   { id: 'dispatch', name: 'Điều Xe Giao Hàng', href: '/admin/store-operations', icon: Truck, category: 'PAGES' },
   { id: 'customers', name: 'Khách Hàng', href: '/admin/customers', icon: Users, category: 'PAGES' },
-  { id: 'finance', name: 'Quản Lý Công Nợ', href: '/admin/credit-management', icon: CreditCard, category: 'PAGES' },
+  { id: 'finance', name: 'Tài Chính & Kế Toán', href: '/admin/finance', icon: PieChart, category: 'PAGES' },
   { id: 'integrity', name: 'Nhật Ký Audit & Rủi Ro', href: '/admin/integrity', icon: ShieldCheck, category: 'PAGES' },
-  { id: 'hr', name: 'Quản Lý Nhân Sự', href: '/admin/hr-management', icon: Briefcase, category: 'PAGES' },
+  { id: 'hr', name: 'Quản Lý Nhân Sự', href: '/admin/hr', icon: Briefcase, category: 'PAGES' },
   { id: 'support', name: 'Tickets Hỗ Trợ', href: '/admin/tickets', icon: Ticket, category: 'PAGES' },
 ]
 

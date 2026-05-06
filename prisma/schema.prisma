@@ -379,6 +379,7 @@ model Customer {
   materialCalculations MaterialCalculation[]
   creditApprovals      CreditApproval[]
   contracts            Contract[]
+  restrictions         UserRestriction[]
   disputes             Dispute[]
 
   // Brokerage
@@ -731,6 +732,8 @@ model Product {
   cartItems            CartItem[]
   purchaseReturnItems  PurchaseReturnItem[]
   customerReturnItems  CustomerReturnItem[]
+  inventoryBatches     InventoryBatch[]
+
 
   @@index([categoryId])
   @@index([name])
@@ -1028,6 +1031,8 @@ model Supplier {
   documents        SupplierDocument[]
   disputes         Dispute[]
   supplierBids     SupplierBid[]
+  inventoryBatches InventoryBatch[]
+
 
   @@index([name])
   @@index([isActive])
@@ -1448,10 +1453,22 @@ enum NotificationType {
   ERROR
   SUCCESS
   STOCK_ALERT
+  LOW_STOCK
+  REORDER_NEEDED
+  PREDICTION_ALERT
+  MONTHLY_REMINDER
   ORDER_NEW
   ORDER_UPDATE
-  PAYMENT_UPDATE
+  QUOTE_NEW
+  QUOTE_UPDATE
+  KYC_PENDING
+  SMART_REORDER
+  STOCK_UPDATE
   PROJECT_MATCH
+  PAYMENT_UPDATE
+  FRAUD_ALERT
+  DISPUTE_UPDATE
+  REPORT_UPDATE
 }
 
 // Project Management
@@ -2668,6 +2685,7 @@ model Dispute {
   resolution  String? // Admin resolution
   resolvedAt  DateTime?
   resolvedBy  String?       @db.ObjectId // Admin ID
+  reporterId  String?       @db.ObjectId // Admin who reported it (for chat reports)
 
   evidence DisputeEvidence[]
   comments DisputeComment[]
@@ -2796,7 +2814,7 @@ model AuditLog {
   // What happened
   action     AuditAction // Type of action
   entityType String // Target entity type (Customer, Order, Wallet, etc.)
-  entityId   String?     @db.ObjectId // Target entity ID
+  entityId   String?     // Target entity ID (User, Guest, or Object)
 
   // Change details
   oldValue Json? // Previous value (for updates)
@@ -3008,8 +3026,12 @@ enum AlertStatus {
 
 // Layer 4: User Restrictions - Cấm vận đa cấp độ
 model UserRestriction {
-  id         String @id @default(auto()) @map("_id") @db.ObjectId
-  customerId String @db.ObjectId
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  customerId     String?  @db.ObjectId
+  customer       Customer? @relation(fields: [customerId], references: [id])
+  
+  guestId        String?  // Dành cho khách vãng lai
+  ipAddress      String?  // Dành cho chặn IP
 
   // Restriction Type
   type     RestrictionType
@@ -3055,6 +3077,7 @@ enum RestrictionType {
   BIDDING_BAN // Cấm đấu thầu
   COMMUNICATION_BAN // Cấm chat
   PROBATION // Thời gian thử thách (theo dõi)
+  IP_BAN // Chặn địa chỉ IP
 }
 
 enum AppealStatus {
@@ -3749,14 +3772,52 @@ model InventoryBinLink {
   id              String @id @default(auto()) @map("_id") @db.ObjectId
   inventoryItemId String @db.ObjectId
   binId           String @db.ObjectId
+  batchId         String? @db.ObjectId
   quantity        Float  @default(0)
 
   inventoryItem InventoryItem @relation(fields: [inventoryItemId], references: [id])
   bin           WarehouseBin  @relation(fields: [binId], references: [id])
+  batch         InventoryBatch? @relation(fields: [batchId], references: [id])
 
-  @@unique([inventoryItemId, binId])
+  @@unique([inventoryItemId, binId, batchId])
   @@map("inventory_bin_links")
 }
+
+model InventoryBatch {
+  id             String    @id @default(auto()) @map("_id") @db.ObjectId
+  productId      String    @db.ObjectId
+  batchNumber    String // Lô sản xuất: L-202405-001
+  productionDate DateTime?
+  expiryDate     DateTime?
+  supplierId     String?   @db.ObjectId
+  initialQty     Float     @default(0)
+  remainingQty   Float     @default(0)
+  costPrice      Float?
+  notes          String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  product  Product            @relation(fields: [productId], references: [id])
+  supplier Supplier?          @relation(fields: [supplierId], references: [id])
+  binLinks InventoryBinLink[]
+
+  @@unique([productId, batchNumber])
+  @@index([expiryDate])
+  @@map("inventory_batches")
+}
+
+model ExternalFactorLog {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  type       String // WEATHER, MARKET_PRICE, SEASONAL_EVENT
+  source     String // OpenWeather, Gemini_Market_Analysis
+  value      Json // Dữ liệu thô: { temp: 30, condition: 'Rainy' }
+  impact     Float? // Mức độ ảnh hưởng ước tính (-1.0 to 1.0)
+  recordedAt DateTime @default(now())
+
+  @@index([type, recordedAt])
+  @@map("external_factor_logs")
+}
+
 
 // ============================================
 // CUSTOMER RETURNS FLOW

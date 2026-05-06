@@ -45,7 +45,8 @@ import {
   BookOpen,
   Store,
   Wallet,
-  GanttChart
+  GanttChart,
+  Layout
 } from 'lucide-react'
 import { LucideIcon } from 'lucide-react'
 import NotificationBell from '@/components/NotificationBell'
@@ -84,67 +85,44 @@ function AdminLayoutContent({
   // Define full navigation items
   const allGroups: NavGroup[] = [
     {
-      name: 'Điều Hành',
+      name: 'Điều Hành Chung',
       items: [
-        { name: 'Tổng Quan', href: '/admin', icon: BarChart3 },
-        { name: 'Chat', href: '/admin/messages', icon: MessageCircle },
+        { name: 'Tổng Quan Hệ Thống', href: '/admin', icon: BarChart3 },
+        { name: 'Trung Tâm Tin Nhắn', href: '/admin/messages', icon: MessageCircle },
         { name: 'Vận Hành Cửa Hàng', href: '/admin/store-operations', icon: GanttChart },
-        { name: 'Quầy Thu Ngân', href: '/admin/pos', icon: Wallet },
-        { name: 'Công Việc Của Tôi', href: '/admin/my-tasks', icon: ClipboardList, roles: ['EMPLOYEE'] },
+        { name: 'Quầy Thu Ngân (POS)', href: '/admin/pos', icon: Wallet },
+        { name: 'Nhiệm Vụ Của Tôi', href: '/admin/my-tasks', icon: ClipboardList, roles: ['EMPLOYEE'] },
       ]
     },
     {
-      name: 'Kinh Doanh',
+      name: 'Kinh Doanh & Tài Chính',
       icon: ShoppingCart,
       items: [
-        { name: 'Đơn Hàng', href: '/admin/orders', icon: ShoppingCart },
-        { name: 'Dự Án', href: '/admin/projects', icon: Briefcase },
-        { name: 'Vận Tải', href: '/admin/delivery/tracking', icon: Truck },
-        { name: 'Khuyến Mãi', href: '/admin/promotions', icon: Ticket },
-        { name: 'Khách Hàng', href: '/admin/customers', icon: Users },
-        { name: 'Tổ Chức B2B', href: '/admin/organizations', icon: Building2 },
-        { name: 'Loyalty', href: '/admin/loyalty', icon: Trophy },
+        { name: 'Quản Lý Đơn Hàng', href: '/admin/orders', icon: ShoppingCart },
+        { name: 'Dự Án & Công Trình', href: '/admin/projects', icon: Briefcase },
+        { name: 'Tài Chính & Kế Toán', href: '/admin/finance', icon: PieChart },
+        { name: 'Vận Tải & Giao Hàng', href: '/admin/delivery/tracking', icon: Truck },
+        { name: 'Khách Hàng & CRM', href: '/admin/crm', icon: HeartHandshake },
       ]
     },
     {
-      name: 'Kho Hàng',
+      name: 'Kho & Dữ Liệu',
       icon: Box,
       items: [
-        { name: 'Tồn Kho & Sản Phẩm', href: '/admin/inventory', icon: Box },
-        { name: 'Hoàn Trả', href: '/admin/returns', icon: RotateCcw },
+        { name: 'Quản Lý Tồn Kho', href: '/admin/inventory', icon: Box },
+        { name: 'Danh Mục Sản Phẩm', href: '/admin/products', icon: Package },
+        { name: 'Quản Lý Nội Dung', href: '/admin/content', icon: Layout },
+        { name: 'Xử Lý Hoàn Trả', href: '/admin/returns', icon: RotateCcw },
       ]
     },
     {
-      name: 'Đối Tác & Hỗ Trợ',
+      name: 'Đối Tác & Nhân Sự',
       icon: ShieldCheck,
       items: [
-        { name: 'Quản Lý Đối Tác', href: '/admin/contractors', icon: Users },
+        { name: 'Quản Lý Đối tác', href: '/admin/contractors', icon: Users },
+        { name: 'Quản Trị Nhân Sự', href: '/admin/hr', icon: Briefcase },
         { name: 'Rủi Ro & Tuân Thủ', href: '/admin/integrity', icon: ShieldAlert },
         { name: 'Trung Tâm Hỗ Trợ', href: '/admin/customer-care', icon: HeartHandshake },
-        { name: 'FAQ & Hướng Dẫn', href: '/admin/help-center', icon: BookOpen },
-      ]
-    },
-    {
-      name: 'Tài Chính',
-      icon: CreditCard,
-      items: [
-        { name: 'Công Nợ', href: '/admin/credit-management', icon: CreditCard },
-        { name: 'Thu Mua', href: '/admin/procurement-management', icon: Truck },
-        { name: 'Hợp Đồng', href: '/admin/contract-management', icon: FileText },
-        { name: 'Doanh Thu & Báo Cáo', href: '/admin/financial-reports', icon: PieChart },
-      ]
-    },
-    {
-      name: 'Hệ Thống',
-      icon: Settings,
-      roles: ['MANAGER'],
-      items: [
-        { name: 'Nhân Viên', href: '/admin/hr-management', icon: Users },
-        { name: 'Bảng Lương', href: '/admin/payroll', icon: CreditCard },
-        { name: 'Vai Trò & Phân Quyền', href: '/admin/settings/roles', icon: ShieldCheck },
-        { name: 'Thông Báo', href: '/admin/announcements', icon: Bell },
-        { name: 'Banner', href: '/admin/banners', icon: Star },
-        { name: 'Tin Tức / Blog', href: '/admin/blog', icon: BookOpen },
       ]
     },
   ]

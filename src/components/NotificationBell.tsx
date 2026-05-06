@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter, usePathname } from 'next/navigation'
 import { Bell, X, CheckCircle, AlertTriangle, Info, RefreshCw, Building2, FileText } from 'lucide-react'
 import { getAuthHeaders } from '@/lib/api-client'
 import { useAuth } from '@/contexts/auth-context'
@@ -17,6 +18,7 @@ interface Notification {
   createdAt: string
   referenceId?: string
   referenceType?: string
+  url?: string // Fallback URL from metadata
 }
 
 interface RawNotification extends Partial<FirebaseNotification> {
@@ -34,6 +36,9 @@ export default function NotificationBell() {
   const [page, setPage] = useState(1)
   const [hasMore, setHasMore] = useState(false)
   const { user } = useAuth()
+  const router = useRouter()
+  const pathname = usePathname()
+  const firebaseDataReceived = useState(false)[0] // Simple flag to track if FB is active
 
   // Sync unreadCount based on current notifications
   useEffect(() => {
@@ -74,7 +79,8 @@ export default function NotificationBell() {
             read: n.isRead !== undefined ? n.isRead : (n.read !== undefined ? n.read : false),
             createdAt: n.createdAt,
             referenceId: n.referenceId,
-            referenceType: n.referenceType
+            referenceType: n.referenceType,
+            url: (n as any).metadata?.url || (n as any).data?.url
           }))
 
           if (loadMore) {
@@ -168,7 +174,8 @@ export default function NotificationBell() {
                 read: n.read,
                 createdAt: n.createdAt,
                 referenceId: n.referenceId,
-                referenceType: n.referenceType
+                referenceType: n.referenceType,
+                url: n.data?.url
               }))
 
             setNotifications(notifs)
@@ -323,44 +330,54 @@ export default function NotificationBell() {
 
     // Navigate based on type
     if (notification.referenceId) {
-      const isAdmin = window.location.pathname.startsWith('/admin')
-      const isContractor = window.location.pathname.startsWith('/contractor')
+      const isAdmin = pathname.startsWith('/admin')
+      const isContractor = pathname.startsWith('/contractor')
 
       if (notification.type === 'PROJECT_MATCH') {
-        window.location.href = `/projects/${notification.referenceId}`
+        router.push(`/projects/${notification.referenceId}`)
         return
       }
 
       if (notification.type === 'QUOTE_NEW' || notification.type === 'QUOTE_UPDATE') {
-        window.location.href = `/contractor/quotes`
+        router.push(`/contractor/quotes`)
         return
       }
 
       if (notification.referenceType === 'ORDER' || notification.type === 'ORDER_NEW' || notification.type === 'ORDER_UPDATE') {
         if (isAdmin) {
-          window.location.href = `/admin/orders`
+          router.push(`/admin/orders`)
         } else if (isContractor) {
-          window.location.href = `/contractor/orders`
+          router.push(`/contractor/orders`)
         } else {
-          window.location.href = `/order-tracking?orderId=${notification.referenceId}`
+          router.push(`/order-tracking?orderId=${notification.referenceId}`)
         }
       } else if (notification.referenceType === 'MILESTONE') {
-        const isContractor = window.location.pathname.startsWith('/contractor')
+        const isContractor = pathname.startsWith('/contractor')
         if (isContractor) {
-          window.location.href = `/contractor/projects` // Could be more specific if we had project ID
+          router.push(`/contractor/projects`)
         } else {
-          window.location.href = `/account/projects`
+          router.push(`/account/projects`)
         }
       } else if (notification.referenceType === 'PRODUCT' || notification.type === 'LOW_STOCK' || notification.type === 'REORDER_NEEDED') {
         if (isAdmin) {
-          window.location.href = `/admin/products`
+          router.push(`/admin/products`)
         } else {
-          window.location.href = `/products/${notification.referenceId}`
+          router.push(`/products/${notification.referenceId}`)
         }
+      } else if (notification.referenceType === 'CONVERSATION') {
+        if (isAdmin) {
+          router.push(`/admin/messages?id=${notification.referenceId}`)
+        } else {
+          router.push(`/messages?id=${notification.referenceId}`)
+        }
+      } else if (notification.url) {
+        router.push(notification.url)
       }
+    } else if (notification.url) {
+      router.push(notification.url)
     } else {
       if (notification.type === 'QUOTE_NEW' || notification.type === 'QUOTE_UPDATE') {
-        window.location.href = `/contractor/quotes`
+        router.push(`/contractor/quotes`)
       }
     }
   }

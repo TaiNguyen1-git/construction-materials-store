@@ -13,7 +13,7 @@ import { pushNotificationToFirebase, cleanupOldFirebaseNotifications } from './f
 import { NotificationType, Priority } from '@prisma/client'
 
 export interface Notification {
-  type: 'LOW_STOCK' | 'REORDER_NEEDED' | 'PREDICTION_ALERT' | 'MONTHLY_REMINDER' | 'ORDER_NEW' | 'ORDER_UPDATE' | 'QUOTE_NEW' | 'QUOTE_UPDATE' | 'KYC_PENDING' | 'SMART_REORDER' | 'STOCK_UPDATE' | 'PROJECT_MATCH' | 'PAYMENT_UPDATE' | 'FRAUD_ALERT'
+  type: 'LOW_STOCK' | 'REORDER_NEEDED' | 'PREDICTION_ALERT' | 'MONTHLY_REMINDER' | 'ORDER_NEW' | 'ORDER_UPDATE' | 'QUOTE_NEW' | 'QUOTE_UPDATE' | 'KYC_PENDING' | 'SMART_REORDER' | 'STOCK_UPDATE' | 'PROJECT_MATCH' | 'PAYMENT_UPDATE' | 'FRAUD_ALERT' | 'DISPUTE_UPDATE' | 'REPORT_UPDATE'
   priority: 'HIGH' | 'MEDIUM' | 'LOW'
   title: string
   message: string
@@ -24,6 +24,7 @@ export interface Notification {
   milestoneId?: string
   ticketId?: string
   ticketNumber?: string
+  disputeId?: string
   data?: Record<string, unknown>
 }
 
@@ -280,8 +281,8 @@ export async function saveNotificationForUser(notification: Notification, userId
       message: notification.message,
       priority: notification.priority as Priority,
       read: false,
-      referenceId: notification.orderId || notification.productId || notification.milestoneId,
-      referenceType: notification.orderId ? 'ORDER' : notification.productId ? 'PRODUCT' : notification.milestoneId ? 'MILESTONE' : null,
+      referenceId: notification.orderId || notification.productId || notification.milestoneId || notification.disputeId,
+      referenceType: notification.orderId ? 'ORDER' : notification.productId ? 'PRODUCT' : notification.milestoneId ? 'MILESTONE' : notification.disputeId ? 'DISPUTE' : null,
       metadata: (notification.data || {}) as any
     }
   })
@@ -297,8 +298,8 @@ export async function saveNotificationForUser(notification: Notification, userId
     read: false,
     createdAt: new Date().toISOString(),
     data: notification.data,
-    referenceId: notification.orderId || notification.productId || notification.milestoneId,
-    referenceType: notification.orderId ? 'ORDER' : notification.productId ? 'PRODUCT' : notification.milestoneId ? 'MILESTONE' : undefined
+    referenceId: notification.orderId || notification.productId || notification.milestoneId || notification.disputeId,
+    referenceType: notification.orderId ? 'ORDER' : notification.productId ? 'PRODUCT' : notification.milestoneId ? 'MILESTONE' : notification.disputeId ? 'DISPUTE' : undefined
   }).catch(err => console.error('Firebase push error (non-critical):', err))
 
   // 3. Auto-cleanup old notifications in Firebase
@@ -771,6 +772,33 @@ export async function notifyMatchingContractors(project: {
 
     await saveNotificationForUser(notification, userId, 'CUSTOMER')
   }
+}
+
+/**
+ * Create notification for dispute/report update
+ */
+export async function createDisputeUpdateNotification(data: {
+  disputeId: string
+  status: string
+  resolution: string
+  adminName: string
+  targetId: string // The admin/user who created the report
+}) {
+  const isResolved = data.status === 'RESOLVED'
+
+  const notification: Notification = {
+    type: isResolved ? 'DISPUTE_UPDATE' : 'REPORT_UPDATE',
+    priority: isResolved ? 'HIGH' : 'MEDIUM',
+    title: isResolved ? '✅ Báo cáo đã được xử lý' : '❌ Báo cáo đã bị bác bỏ',
+    message: `Báo cáo #${data.disputeId.substring(0, 8)}: ${data.resolution}`,
+    disputeId: data.disputeId,
+    data: {
+      ...data,
+      timestamp: new Date().toISOString()
+    }
+  }
+
+  await saveNotificationForUser(notification, data.targetId, 'MANAGER')
 }
 
 /**

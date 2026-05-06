@@ -18,6 +18,8 @@ export default function AdminDisputePage() {
     const [selectedDispute, setSelectedDispute] = useState<any>(null)
     const [resolution, setResolution] = useState('')
     const [processing, setProcessing] = useState(false)
+    const [banDuration, setBanDuration] = useState<number | null>(null) // null = Vĩnh viễn
+    const [banTarget, setBanTarget] = useState<'ACCOUNT' | 'IP'>('ACCOUNT')
 
     const [searchTerm, setSearchTerm] = useState('')
 
@@ -63,7 +65,9 @@ export default function AdminDisputePage() {
                     disputeId: selectedDispute.id,
                     resolution,
                     status,
-                    adminId: me.id
+                    adminId: me.id,
+                    banDuration,
+                    banTarget
                 })
             })
 
@@ -201,7 +205,7 @@ export default function AdminDisputePage() {
                     {selectedDispute ? (
                         <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-2xl sticky top-24 animate-in fade-in slide-in-from-right-4 duration-300">
                             <h2 className="text-lg font-bold mb-6 flex items-center gap-2 border-b pb-4">
-                                <MessageSquare size={20} className="text-blue-600" /> Bảng Phân Xử
+                                <MessageSquare size={20} className="text-blue-600" /> Trung Tâm Khiếu Nại & Báo Cáo
                             </h2>
 
                             <div className="space-y-6">
@@ -260,8 +264,55 @@ export default function AdminDisputePage() {
                                             onChange={e => setResolution(e.target.value)}
                                             rows={3}
                                             className="w-full bg-gray-50 border border-gray-200 rounded-xl p-4 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-                                            placeholder="Nhập phương án giải quyết cuối cùng..."
+                                            placeholder="Nhập ghi chú hoặc hướng giải quyết chi tiết..."
                                         ></textarea>
+
+                                        {/* Enforcement Options */}
+                                        <div className="mt-4 p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                                            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-3">Hình thức xử phạt (Nếu đồng ý)</label>
+                                            
+                                            <div className="grid grid-cols-3 gap-2 mb-4">
+                                                {[
+                                                    { label: '24 Giờ', value: 1 },
+                                                    { label: '7 Ngày', value: 7 },
+                                                    { label: 'Vĩnh viễn', value: null }
+                                                ].map(opt => (
+                                                    <button
+                                                        key={String(opt.value)}
+                                                        onClick={() => setBanDuration(opt.value)}
+                                                        className={`py-2 px-3 rounded-lg text-xs font-bold transition-all border ${
+                                                            banDuration === opt.value 
+                                                            ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-100' 
+                                                            : 'bg-white text-gray-600 border-gray-200 hover:border-blue-300'
+                                                        }`}
+                                                    >
+                                                        {opt.label}
+                                                    </button>
+                                                ))}
+                                            </div>
+
+                                            <div className="flex items-center gap-4">
+                                                <label className="text-xs font-bold text-gray-600">Đối tượng:</label>
+                                                <div className="flex bg-white p-1 rounded-xl border border-gray-200">
+                                                    <button
+                                                        onClick={() => setBanTarget('ACCOUNT')}
+                                                        className={`px-4 py-1.5 rounded-lg text-[10px] font-black transition-all ${
+                                                            banTarget === 'ACCOUNT' ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-md shadow-indigo-200' : 'text-gray-400 hover:text-gray-600'
+                                                        }`}
+                                                    >
+                                                        TÀI KHOẢN
+                                                    </button>
+                                                    <button
+                                                        onClick={() => setBanTarget('IP')}
+                                                        className={`px-4 py-1.5 rounded-lg text-[10px] font-black transition-all ${
+                                                            banTarget === 'IP' ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-md shadow-indigo-200' : 'text-gray-400 hover:text-gray-600'
+                                                        }`}
+                                                    >
+                                                        ĐỊA CHỈ IP
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
 
                                         <div className="grid grid-cols-2 gap-3 mt-6">
                                             <button
@@ -305,7 +356,7 @@ export default function AdminDisputePage() {
 
                                 <div className="pt-8 border-t border-gray-100">
                                     <h3 className="text-sm font-black uppercase tracking-widest mb-4 flex items-center gap-2">
-                                        <MessageSquare size={16} className="text-gray-400" /> Nhật ký đối chất
+                                        <MessageSquare size={16} className="text-gray-400" /> Nhật ký 
                                     </h3>
 
                                     <div className="space-y-4 mb-6 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">

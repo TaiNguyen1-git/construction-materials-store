@@ -166,6 +166,58 @@ export default function ChatbotPremium({ customerId, onClose }: ChatbotProps) {
         }
     }, [hybridManager.identity])
 
+    // Handle Admin Presence
+    useEffect(() => {
+        if (hybridManager.adminPresence && chatMode !== 'HUMAN') {
+            setChatMode('HUMAN');
+            
+            // Add a one-time system message if not already present
+            setMessages(prev => {
+                if (prev.some(m => m.id === 'system_admin_connected')) return prev;
+                return [...prev, {
+                    id: 'system_admin_connected',
+                    userMessage: '',
+                    botMessage: `${hybridManager.adminPresence?.name} đã tham gia cuộc trò chuyện.`,
+                    suggestions: [],
+                    confidence: 1,
+                    timestamp: new Date().toISOString(),
+                    requiresConfirmation: false,
+                    isSystem: true
+                }];
+            });
+            
+            toast.success(`${hybridManager.adminPresence.name} đã kết nối để hỗ trợ bạn!`);
+        }
+    }, [hybridManager.adminPresence, chatMode])
+
+    const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+
+    const handleTyping = useCallback(() => {
+        const id = hybridManager.identity?.id || currentUserId
+        const name = hybridManager.identity?.name || (isAuthenticated ? user?.name : 'Khách') || 'Người dùng'
+        const convId = hybridManager.conversationId
+
+        if (!convId || !id) return
+
+        updateTypingStatus(
+            convId,
+            id,
+            name,
+            true
+        )
+
+        if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current)
+        typingTimeoutRef.current = setTimeout(() => {
+            updateTypingStatus(
+                convId,
+                id,
+                name,
+                false
+            )
+            typingTimeoutRef.current = null
+        }, 3000)
+    }, [hybridManager.conversationId, hybridManager.identity, currentUserId, user, isAuthenticated])
+
     const handleConnectSupport = async () => {
         const loadingMsg: ChatMessage = {
             id: Date.now().toString(),
@@ -1165,6 +1217,7 @@ export default function ChatbotPremium({ customerId, onClose }: ChatbotProps) {
                         isAdmin={isAdmin}
                         onConnectSupport={handleConnectSupport}
                         isHumanMode={chatMode === 'HUMAN'}
+                        onTyping={handleTyping}
                     />
                 </div>
             )}

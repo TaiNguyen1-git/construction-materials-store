@@ -14,8 +14,8 @@ import {
 import Pagination from '@/components/Pagination'
 import { PageSkeleton } from '@/components/admin/skeletons/AdminSkeletons'
 import InventoryAnalytics from '@/components/admin/InventoryAnalytics'
-import InventoryManagement from '@/components/admin/InventoryManagement'
 import SmartInventoryAlerts from '@/components/admin/SmartInventoryAlerts'
+
 import WMSManagement from '@/components/admin/WMSManagement'
 
 interface Product {
@@ -94,9 +94,10 @@ function InventoryContent() {
   const [modalProducts, setModalProducts] = useState<Product[]>([])
   const [modalSearchTerm, setModalSearchTerm] = useState('')
 
-  const [activeTab, setActiveTab] = useState<'stock' | 'alerts' | 'analytics' | 'management' | 'wms'>('stock')
+  const [activeTab, setActiveTab] = useState<'stock' | 'alerts' | 'analytics' | 'wms'>('stock')
 
   const [filters, setFilters] = useState({ category: '', status: '', lowStock: false, timeframe: 'MONTH' })
+
   const pageSize = 20
   const [stockPage, setStockPage] = useState(1)
   const searchParams = useSearchParams()
@@ -357,11 +358,11 @@ function InventoryContent() {
       <div className="flex bg-slate-100 p-1.5 rounded-[22px] w-full md:w-max border border-slate-200/50">
         {[
           { id: 'stock', label: 'Tổng Quan Tồn Kho', icon: LayoutGrid },
-          { id: 'alerts', label: 'Cảnh Báo Thông Minh', icon: Sparkles },
+          { id: 'alerts', label: 'Cảnh Báo & Vận Hành', icon: Sparkles },
           { id: 'analytics', label: 'Phân Tích Sức Mua', icon: BarChart3 },
           { id: 'wms', label: 'Vị Trí Kho (WMS)', icon: MapPin },
-          { id: 'management', label: 'Cơ Chế Vận Hành', icon: Settings }
         ].map(tab => (
+
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id as any)}
@@ -501,9 +502,9 @@ function InventoryContent() {
 
         {activeTab === 'alerts' && <SmartInventoryAlerts />}
         {activeTab === 'analytics' && <InventoryAnalytics predictions={predictions} onRefresh={() => Promise.all([fetchMetrics(), fetchStock()])} />}
-        {activeTab === 'wms' && <WMSManagement />} {/* Added WMSManagement component */}
-        {activeTab === 'management' && <InventoryManagement recommendations={recommendations} movements={movements} />}
+        {activeTab === 'wms' && <WMSManagement />}
       </div>
+
 
       {/* Premium Adjustment Modal */}
       {showAdjustModal && (

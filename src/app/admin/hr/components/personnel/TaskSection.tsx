@@ -2,7 +2,7 @@
 
 import React from 'react'
 import { ClipboardList, Plus, Edit, Trash2, ChevronUp, ChevronDown } from 'lucide-react'
-import { Task, getStatusBadge, getStatusText, getPriorityBadge, getPriorityText, formatDate } from '../types'
+import { Task, getStatusBadge, getStatusText, getPriorityBadge, getPriorityText, formatDate } from './types'
 
 interface TaskSectionProps {
     tasks: Task[]

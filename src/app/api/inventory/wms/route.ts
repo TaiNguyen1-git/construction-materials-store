@@ -40,9 +40,11 @@ export async function GET(request: NextRequest) {
                                             select: { name: true, sku: true, unit: true }
                                         }
                                     }
-                                }
+                                },
+                                batch: true
                             }
                         }
+
                     }
                 }
             }

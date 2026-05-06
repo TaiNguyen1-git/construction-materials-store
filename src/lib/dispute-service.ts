@@ -2,6 +2,7 @@
 import { prisma } from './prisma'
 // @ts-ignore
 import { DisputeStatus, DisputeType } from '@prisma/client'
+import { RestrictionService } from './restriction-service'
 
 export const disputeService = {
     /**
@@ -16,7 +17,8 @@ export const disputeService = {
         type: DisputeType,
         reason: string,
         description: string,
-        evidence: string[] // Array of image URLs
+        evidence: string[], // Array of image URLs
+        reporterId?: string
     }) {
         return await (prisma as any).dispute.create({
             data: {
@@ -28,6 +30,7 @@ export const disputeService = {
                 type: data.type,
                 reason: data.reason,
                 description: data.description,
+                reporterId: data.reporterId,
                 evidence: {
                     create: data.evidence.map(url => ({
                         imageUrl: url
@@ -126,15 +129,80 @@ export const disputeService = {
     /**
      * Resolve a dispute
      */
-    async resolveDispute(disputeId: string, resolution: string, status: DisputeStatus, adminId: string) {
-        return await (prisma as any).dispute.update({
+    async resolveDispute(
+        disputeId: string, 
+        resolution: string, 
+        status: DisputeStatus, 
+        adminId: string,
+        options?: {
+            banDuration?: number | null,
+            banTarget?: 'ACCOUNT' | 'IP'
+        }
+    ) {
+        const updatedDispute = await (prisma as any).dispute.update({
             where: { id: disputeId },
             data: {
                 resolution,
                 status,
                 resolvedAt: new Date(),
                 resolvedBy: adminId
+            },
+            include: {
+                customer: { include: { user: true } }
             }
         })
+
+        // Notify the reporter if exists
+        if (updatedDispute.reporterId) {
+            try {
+                const { createDisputeUpdateNotification } = await import('./notification-service')
+                const admin = await (prisma as any).user.findUnique({ where: { id: adminId }, select: { name: true } })
+                
+                await createDisputeUpdateNotification({
+                    disputeId: updatedDispute.id,
+                    status: updatedDispute.status,
+                    resolution: updatedDispute.resolution,
+                    adminName: admin?.name || 'Admin',
+                    targetId: updatedDispute.reporterId
+                })
+            } catch (err) {
+                console.error('Failed to send dispute notification:', err)
+            }
+        }
+
+        // 3. APPLY ENFORCEMENT IF IT'S A REPORT AND RESOLVED
+        if (status === 'RESOLVED' && (updatedDispute.reporterId || updatedDispute.description.includes('Báo cáo từ Chat Admin'))) {
+            try {
+                const targetId = updatedDispute.customerId
+                const description = updatedDispute.description || ''
+                // If banDuration is null (permanent), we pass undefined to use the service default or 36500
+                const finalDuration = options?.banDuration === null ? undefined : (options?.banDuration ?? 36500)
+                
+                if (targetId) {
+                    // Ban registered user
+                    await RestrictionService.applyRestriction(targetId, 'FULL_BAN', {
+                        reason: `[TỰ ĐỘNG] Vi phạm được xác nhận qua Khiếu nại #${updatedDispute.id.slice(-6).toUpperCase()}: ${resolution}`,
+                        imposedBy: adminId,
+                        durationDays: finalDuration
+                    })
+                } else {
+                    // Try to extract Guest ID from description
+                    const guestMatch = description.match(/GUEST ID: (guest_[a-f0-9]+)/)
+                    if (guestMatch) {
+                        const guestId = guestMatch[1]
+                        
+                        await RestrictionService.applyRestriction(guestId, 'FULL_BAN', {
+                            reason: `[TỰ ĐỘNG] Khách vãng lai vi phạm: ${resolution}`,
+                            imposedBy: adminId,
+                            durationDays: finalDuration
+                        })
+                    }
+                }
+            } catch (err) {
+                console.error('Failed to apply automatic enforcement on dispute resolution:', err)
+            }
+        }
+
+        return updatedDispute
     }
 }

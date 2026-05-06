@@ -11,6 +11,7 @@ interface MessageBubbleProps {
     isLoading: boolean;
     onImageClick?: (url: string) => void; // New prop for lightbox
     isLast?: boolean;
+    isSystem?: boolean;
 }
 
 // Format time helper
@@ -202,8 +203,17 @@ export default function MessageBubble({
 
     return (
         <div className="space-y-4 animate-fadeIn group/message">
+            {/* System Message */}
+            {message.isSystem && (
+                <div className="flex justify-center my-4">
+                    <div className="px-4 py-1.5 bg-gray-100/80 backdrop-blur-sm border border-gray-200 rounded-full text-[12px] text-gray-500 font-medium shadow-sm">
+                        {message.botMessage}
+                    </div>
+                </div>
+            )}
+
             {/* User Message */}
-            {(message.userMessage || message.userImage) && !isHelloMessage && (
+            {(message.userMessage || message.userImage) && !isHelloMessage && !message.isSystem && (
                 <div className="flex justify-end pr-2">
                     <div
                         className={`
@@ -263,7 +273,7 @@ export default function MessageBubble({
             )}
 
             {/* Bot Message */}
-            {message.botMessage && (
+            {message.botMessage && !message.isSystem && (
                 <div className="flex justify-start gap-3 pl-1">
                     {/* Avatar */}
                     <div className="flex-shrink-0 w-8 h-8 rounded-full overflow-hidden border border-slate-200 bg-white mt-1">

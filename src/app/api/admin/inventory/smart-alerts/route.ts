@@ -162,9 +162,30 @@ export async function GET(request: NextRequest) {
             return sum + (a.suggestedOrderQty * (product?.costPrice || product?.price || 0))
         }, 0)
 
+        // Get recent movements (for combined view)
+        const recentMovements = await prisma.inventoryMovement.findMany({
+            take: 10,
+            orderBy: { createdAt: 'desc' },
+            include: {
+                product: {
+                    select: { name: true, sku: true }
+                }
+            }
+        })
+
         return NextResponse.json({
             success: true,
             alerts: analyses,
+            recentMovements: recentMovements.map(m => ({
+                id: m.id,
+                product: m.product,
+                type: m.movementType,
+                quantity: m.quantity,
+                reason: m.reason,
+                reference: m.referenceId,
+                createdAt: m.createdAt.toISOString()
+            })),
+
             summary: {
                 criticalCount,
                 warningCount,
@@ -174,6 +195,7 @@ export async function GET(request: NextRequest) {
                 daysAhead
             }
         })
+
 
     } catch (error) {
         console.error('Error analyzing inventory:', error)

@@ -4,10 +4,14 @@ import React, { useState, useEffect } from 'react'
 import {
     Plus, Box, LayoutGrid, MapPin,
     ChevronRight, ArrowRight, Loader2,
-    AlertTriangle, Check, CircleAlert, CircleDot, Droplets, Boxes, Warehouse
+    AlertTriangle, Check, CircleAlert, CircleDot, Droplets, Boxes, Warehouse,
+    Zap, Camera
 } from 'lucide-react'
+
 import { fetchWithAuth } from '@/lib/api-client'
 import { toast } from 'react-hot-toast'
+import QRScanner from './QRScanner'
+
 
 const RACK_TYPES: Record<string, { label: string, icon: any }> = {
     RACK: { label: 'Kệ Hàng', icon: LayoutGrid },
@@ -23,6 +27,9 @@ export default function WMSManagement() {
     const [showAddRack, setShowAddRack] = useState(false)
     const [newRack, setNewRack] = useState({ name: '', warehouse: 'Kho Chính', type: 'RACK' })
     const [creating, setCreating] = useState(false)
+    const [heatmapMode, setHeatmapMode] = useState(false)
+    const [showScanner, setShowScanner] = useState(false)
+
 
     useEffect(() => {
         fetchWMS()
@@ -100,13 +107,29 @@ export default function WMSManagement() {
                     <h2 className="text-2xl font-black text-slate-900 tracking-tight uppercase">Sơ Đồ Kho Chi Tiết</h2>
                     <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-1">Quản lý dãy kệ (Rack) và ô chứa (Bin)</p>
                 </div>
-                <button
-                    onClick={() => setShowAddRack(true)}
-                    className="bg-blue-600 text-white px-6 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-700 transition-all shadow-lg active:scale-95 flex items-center gap-2"
-                >
-                    <Plus size={16} /> Thêm dãy kệ
-                </button>
+                <div className="flex items-center gap-3">
+                    <button
+                        onClick={() => setHeatmapMode(!heatmapMode)}
+                        className={`px-6 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all shadow-lg flex items-center gap-2 border ${heatmapMode ? 'bg-orange-500 text-white border-orange-400 ring-4 ring-orange-500/20' : 'bg-white text-slate-600 border-slate-100 hover:bg-slate-50'}`}
+                    >
+                        <Zap size={16} className={heatmapMode ? 'animate-pulse text-yellow-200' : ''} />
+                        {heatmapMode ? 'Heatmap: Đang Bật' : 'Bật Heatmap'}
+                    </button>
+                    <button
+                        onClick={() => setShowScanner(true)}
+                        className="bg-slate-900 text-white px-6 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-black transition-all shadow-lg active:scale-95 flex items-center gap-2"
+                    >
+                        <Camera size={16} /> Quét QR/Barcode
+                    </button>
+                    <button
+                        onClick={() => setShowAddRack(true)}
+                        className="bg-blue-600 text-white px-6 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-700 transition-all shadow-lg active:scale-95 flex items-center gap-2"
+                    >
+                        <Plus size={16} /> Thêm dãy kệ
+                    </button>
+                </div>
             </div>
+
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 {racks.map((rack) => (
@@ -132,17 +155,77 @@ export default function WMSManagement() {
 
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                             {rack.bins.map((bin: any) => (
-                                <div key={bin.id} className="bg-slate-50 rounded-[28px] p-5 border border-slate-100 group hover:border-blue-300 hover:bg-white transition-all">
+                                <div 
+                                    key={bin.id} 
+                                    className={`bg-slate-50 rounded-[28px] p-5 border group hover:border-blue-300 hover:bg-white transition-all relative overflow-hidden ${heatmapMode ? 'border-2' : 'border-slate-100'}`}
+                                    style={heatmapMode ? {
+                                        backgroundColor: (() => {
+                                            const total = bin.stockItems.reduce((acc: number, item: any) => acc + item.quantity, 0)
+                                            const cap = bin.capacity || 100
+                                            const ratio = total / cap
+                                            if (ratio > 0.8) return 'rgba(239, 68, 68, 0.08)' // Red tint
+                                            if (ratio > 0.4) return 'rgba(245, 158, 11, 0.08)' // Orange tint
+                                            if (ratio > 0) return 'rgba(16, 185, 129, 0.08)' // Green tint
+                                            return undefined
+                                        })(),
+                                        borderColor: (() => {
+                                            const total = bin.stockItems.reduce((acc: number, item: any) => acc + item.quantity, 0)
+                                            const cap = bin.capacity || 100
+                                            const ratio = total / cap
+                                            if (ratio > 0.8) return '#ef4444'
+                                            if (ratio > 0.4) return '#f59e0b'
+                                            if (ratio > 0) return '#10b981'
+                                            return '#e2e8f0'
+                                        })()
+                                    } : {}}
+                                >
+                                    {/* Heatmap Indicator Bar */}
+                                    {heatmapMode && (
+                                        <div 
+                                            className="absolute top-0 left-0 right-0 h-1.5 transition-all duration-1000"
+                                            style={{ 
+                                                width: `${Math.min(100, (bin.stockItems.reduce((acc: number, item: any) => acc + item.quantity, 0) / (bin.capacity || 100)) * 100)}%`, 
+                                                backgroundColor: (() => {
+                                                    const total = bin.stockItems.reduce((acc: number, item: any) => acc + item.quantity, 0)
+                                                    const cap = bin.capacity || 100
+                                                    const ratio = total / cap
+                                                    if (ratio > 0.8) return '#ef4444'
+                                                    if (ratio > 0.4) return '#f59e0b'
+                                                    return '#10b981'
+                                                })()
+                                            }}
+                                        />
+                                    )}
+
                                     <div className="flex items-center justify-between mb-3 text-[10px] font-black uppercase tracking-widest text-slate-400 group-hover:text-blue-500">
                                         <span>Vị trí</span>
-                                        <Box size={14} className={bin.stockItems.length > 0 ? 'text-blue-500' : 'text-slate-200'} />
+                                        <div className="flex items-center gap-2">
+                                            {heatmapMode && (
+                                                <span className={`text-[8px] font-black px-1.5 py-0.5 rounded-md ${(() => {
+                                                    const total = bin.stockItems.reduce((acc: number, item: any) => acc + item.quantity, 0)
+                                                    const cap = bin.capacity || 100
+                                                    const ratio = total / cap
+                                                    if (ratio > 0.8) return 'bg-red-500 text-white'
+                                                    if (ratio > 0.4) return 'bg-orange-500 text-white'
+                                                    return 'bg-emerald-500 text-white'
+                                                })()}`}>
+                                                    {Math.round((bin.stockItems.reduce((acc: number, item: any) => acc + item.quantity, 0) / (bin.capacity || 100)) * 100)}% LẤP ĐẦY
+                                                </span>
+                                            )}
+                                            <Box size={14} className={bin.stockItems.length > 0 ? (heatmapMode ? 'text-current' : 'text-blue-500') : 'text-slate-200'} />
+                                        </div>
                                     </div>
                                     <p className="text-lg font-black text-slate-900 mb-4">{bin.code}</p>
 
                                     <div className="space-y-2">
                                         {bin.stockItems.map((link: any) => (
-                                            <div key={link.id} className="flex flex-col gap-1 p-2 bg-white rounded-xl border border-slate-100 shadow-sm">
+                                            <div key={link.id} className="flex flex-col gap-1 p-2 bg-white rounded-xl border border-slate-100 shadow-sm relative group/item">
                                                 <p className="text-[9px] font-black text-slate-900 leading-tight truncate">{link.inventoryItem.product.name}</p>
+                                                {link.batch && (
+                                                    <span className="absolute -top-1 -right-1 bg-amber-500 text-white text-[7px] font-black px-1.5 py-0.5 rounded-full shadow-sm">
+                                                        Lô: {link.batch.batchNumber}
+                                                    </span>
+                                                )}
                                                 <div className="flex items-center justify-between">
                                                     <span className="text-[8px] font-medium text-slate-400">{link.inventoryItem.product.sku}</span>
                                                     <span className="text-[9px] font-black text-blue-600">{link.quantity} {link.inventoryItem.product.unit}</span>
@@ -154,6 +237,7 @@ export default function WMSManagement() {
                                         )}
                                     </div>
                                 </div>
+
                             ))}
                         </div>
                     </div>
@@ -217,6 +301,18 @@ export default function WMSManagement() {
                     </div>
                 </div>
             )}
+
+            {showScanner && (
+                <QRScanner 
+                    onClose={() => setShowScanner(false)} 
+                    onScan={(data) => {
+                        toast.success(`Tìm thấy thông tin cho: ${data}`)
+                        setShowScanner(false)
+                        // logic to filter or highlight would go here
+                    }} 
+                />
+            )}
         </div>
+
     )
 }

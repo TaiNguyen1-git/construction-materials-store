@@ -5,6 +5,8 @@ import { createSuccessResponse, createErrorResponse } from '@/lib/api-types'
 import { requireEmployee, requireManager } from '@/lib/auth-middleware-api'
 import { z } from 'zod'
 import { mlPredictionService } from '@/lib/ml-prediction'
+import { externalDataService } from '@/lib/external-data-service'
+
 
 interface PredictionFactors {
   productId?: string
@@ -107,8 +109,47 @@ function generatePredictionReason(factors: any, timeframe: string): string {
     }
   }
 
+  // Add Timeframe Context
+  const startDate = new Date()
+  const endDate = new Date()
+  if (timeframe === 'WEEK') {
+    endDate.setDate(startDate.getDate() + 7)
+  } else if (timeframe === 'MONTH') {
+    endDate.setMonth(startDate.getMonth() + 1)
+  } else if (timeframe === 'QUARTER') {
+    endDate.setMonth(startDate.getMonth() + 3)
+  }
+  
+  const dateRange = `Giai đoạn: T${startDate.getMonth() + 1} - T${endDate.getMonth() + 1}/${endDate.getFullYear()}`
+  reasons.unshift(dateRange)
+
+  // Add External Impact context
+  if (factors.externalImpact) {
+    if (factors.externalImpact > 0.05) {
+      reasons.push('Tăng cường do yếu tố thị trường thuận lợi')
+    } else if (factors.externalImpact < -0.05) {
+      reasons.push('Điều chỉnh giảm do ảnh hưởng thời tiết/thị trường')
+    }
+  }
+
+  // Add Cross-Procurement Suggestions (Combo)
+  if (factors.category) {
+    const cat = factors.category.toLowerCase()
+    if (cat.includes('xi măng') || cat.includes('bê tông')) {
+      reasons.push('💡 Gợi ý: Nhập thêm Cát, Đá để đồng bộ thi công')
+    } else if (cat.includes('gạch')) {
+      reasons.push('💡 Gợi ý: Kiểm tra tồn kho Xi măng, Cát xây tô')
+    } else if (cat.includes('sơn')) {
+      reasons.push('💡 Gợi ý: Kiểm tra phụ kiện (Cọ, Rulo, Bột trét)')
+    } else if (cat.includes('thép')) {
+      reasons.push('💡 Gợi ý: Kiểm tra Que hàn, Đinh vít đi kèm')
+    }
+  }
+
   return reasons.length > 0 ? reasons.join(' • ') : 'Dự đoán cơ bản'
 }
+
+
 
 // Prophet ML Prediction (Advanced)
 async function predictWithProphetML(
@@ -354,8 +395,11 @@ async function predictInventoryDemand(
     basePrediction = averageMonthlyDemand * 3
   }
 
-  // Apply trend and seasonality
-  const predictedDemand = Math.max(0, basePrediction * seasonalMultiplier + trend)
+  // Apply external impact (AI Brain)
+  const externalImpact = await externalDataService.getCombinedImpact(productId)
+  
+  // Apply trend, seasonality, and external impact
+  const predictedDemand = Math.max(0, (basePrediction * seasonalMultiplier + trend) * (1 + externalImpact))
 
   // Calculate confidence based on data quality
   const dataPoints = historicalOrders.length
@@ -376,11 +420,13 @@ async function predictInventoryDemand(
     historicalAverage: Math.round(averageMonthlyDemand),
     trend: Math.round(trend),
     seasonalMultiplier: Math.round(seasonalMultiplier * 100) / 100,
+    externalImpact: Math.round(externalImpact * 100) / 100,
     dataPoints,
     variability: Math.round(variability * 100) / 100,
     currentStock,
     safetyStock: Math.round(safetyStock)
   }
+
 
   return {
     predictedDemand: Math.round(predictedDemand),
@@ -515,7 +561,8 @@ export async function GET(request: NextRequest) {
           category: product.category.name,
           currentStock: product.inventoryItem?.availableQuantity || 0,
           minStockLevel: product.inventoryItem?.minStockLevel || 0,
-          ...prediction
+          ...prediction,
+          factors: { ...prediction.factors, category: product.category.name }
         }]
       } else {
         // All products prediction
@@ -531,19 +578,23 @@ export async function GET(request: NextRequest) {
         const predictionPromises = products.map(async (product) => {
           try {
             const prediction = await getPrediction(product.id, timeframe, includeSeasonality)
+            const enhancedFactors = { ...prediction.factors, category: product.category.name }
             return {
               productId: product.id,
               productName: product.name,
               category: product.category.name,
               currentStock: product.inventoryItem?.availableQuantity || 0,
               minStockLevel: product.inventoryItem?.minStockLevel || 0,
-              ...prediction
+              ...prediction,
+              factors: enhancedFactors,
+              reason: generatePredictionReason(enhancedFactors, timeframe)
             }
           } catch (error) {
             console.error(`Prediction error for product ${product.id}:`, error)
             return null
           }
         })
+
 
         const allPredictions = await Promise.all(predictionPromises)
         predictions = allPredictions

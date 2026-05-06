@@ -46,9 +46,14 @@ export class RestrictionService {
             ? new Date(Date.now() + data.durationDays * 24 * 60 * 60 * 1000)
             : null
 
-        await prisma.userRestriction.create({
+        const isGuest = customerId.startsWith('guest_')
+        const isIpBan = (type as string) === 'IP_BAN'
+
+        await (prisma as any).userRestriction.create({
             data: {
-                customerId,
+                customerId: isGuest ? undefined : customerId,
+                guestId: isGuest ? customerId : null,
+                ipAddress: isIpBan ? (context?.actorIp || null) : null,
                 type,
                 reason: data.reason,
                 evidence: data.evidence,
@@ -104,7 +109,7 @@ export class RestrictionService {
         await AuditService.logRestriction(
             { actorId: liftedBy },
             'USER_UNBAN',
-            restriction.customerId,
+            (restriction.customerId || restriction.guestId || 'unknown') as string,
             {
                 restrictionType: restriction.type,
                 reason: liftReason
@@ -112,7 +117,7 @@ export class RestrictionService {
         )
 
         // Update customer flags
-        await this.updateCustomerFlags(restriction.customerId)
+        await (this as any).updateCustomerFlags((restriction.customerId || restriction.guestId || '') as string)
     }
 
     /**
@@ -167,9 +172,10 @@ export class RestrictionService {
      * Get all active restrictions for a customer
      */
     static async getActiveRestrictions(customerId: string) {
-        return prisma.userRestriction.findMany({
+        const isGuest = customerId.startsWith('guest_')
+        return (prisma as any).userRestriction.findMany({
             where: {
-                customerId,
+                ...(isGuest ? { guestId: customerId } : { customerId }),
                 isActive: true,
                 OR: [
                     { endDate: null },
@@ -337,8 +343,10 @@ export class RestrictionService {
      * Update customer model flags based on active restrictions
      */
     private static async updateCustomerFlags(customerId: string): Promise<void> {
+        if (customerId.startsWith('guest_')) return // Guests don't have customer flags in DB
+
         const activeRestrictions = await this.getActiveRestrictions(customerId)
-        const restrictionTypes = activeRestrictions.map(r => r.type)
+        const restrictionTypes = activeRestrictions.map((r: any) => r.type)
 
         // Update creditHold flag
         const shouldHoldCredit = restrictionTypes.includes('CREDIT_FREEZE') ||

@@ -3,11 +3,11 @@
 import { useState, useEffect, Suspense, useRef, useCallback } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import {
-    Loader2, AlertCircle, RefreshCw, Clock, CheckCircle, XCircle, AlertTriangle
+    Loader2, AlertCircle, RefreshCw, Clock, CheckCircle, XCircle, AlertTriangle, ShieldAlert
 } from 'lucide-react'
 import { getAuthHeaders, fetchWithAuth } from '@/lib/api-client'
 import { getFirebaseDatabase } from '@/lib/firebase'
-import { ref, onChildAdded, onChildChanged, onValue, set, off } from 'firebase/database'
+import { ref, onChildAdded, onChildChanged, onValue, set, off, query, limitToLast } from 'firebase/database'
 import { subscribeToTicketMessages } from '@/lib/firebase-notifications'
 import toast, { Toaster } from 'react-hot-toast'
 import ChatCallManager from '@/components/ChatCallManager'
@@ -84,6 +84,16 @@ function MessagesContent() {
     const [highlightId, setHighlightId] = useState<string | null>(null)
     const [hideSmartReplies, setHideSmartReplies] = useState(false)
     const [partnerIsTyping, setPartnerIsTyping] = useState(false)
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+    const [showReportModal, setShowReportModal] = useState(false)
+    const [showBanModal, setShowBanModal] = useState(false)
+    const [reportReason, setReportReason] = useState('')
+    const [customReason, setCustomReason] = useState('')
+    const [banReason, setBanReason] = useState('')
+    const [banDuration, setBanDuration] = useState<number | null>(null) // null = Permanent
+    const [banTarget, setBanTarget] = useState<'ACCOUNT' | 'IP'>('ACCOUNT')
+    const [isRestricted, setIsRestricted] = useState(false)
+    const [activeRestrictionId, setActiveRestrictionId] = useState<string | null>(null)
     const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
     const menuRef = useRef<HTMLDivElement>(null)
@@ -112,7 +122,7 @@ function MessagesContent() {
     const [ticketTotalPages, setTicketTotalPages] = useState(1)
     const ticketFileInputRef = useRef<HTMLInputElement>(null)
 
-    // Sync with URL
+    // Sync with URL on initial load only (searchParams changes)
     useEffect(() => {
         const tab = searchParams.get('tab')
         if (tab === 'tickets') setActiveTab('tickets')
@@ -122,10 +132,39 @@ function MessagesContent() {
             if (tab === 'tickets') fetchTicketDetails(id)
             else {
                 setSelectedId(id)
-                selectedIdRef.current = id
             }
         }
     }, [searchParams])
+
+    // Check restriction status separately to avoid loop
+    useEffect(() => {
+        if (otherParticipantId && !otherParticipantId.startsWith('guest_')) {
+            checkRestrictionStatus(otherParticipantId)
+        }
+    }, [otherParticipantId])
+
+    // Immediately sync selectedIdRef when selectedId changes
+    useEffect(() => {
+        selectedIdRef.current = selectedId
+    }, [selectedId])
+
+    const checkRestrictionStatus = async (customerId: string) => {
+        try {
+            const res = await fetch(`/api/admin/integrity/restrictions?customerId=${customerId}`, {
+                headers: getAuthHeaders()
+            })
+            const data = await res.json()
+            if (data.success && data.data.restrictions && data.data.restrictions.length > 0) {
+                setIsRestricted(true)
+                setActiveRestrictionId(data.data.restrictions[0].id)
+            } else {
+                setIsRestricted(false)
+                setActiveRestrictionId(null)
+            }
+        } catch (err) {
+            console.error('Check restriction error:', err)
+        }
+    }
 
     // Load Chat Data
     useEffect(() => { if (user) fetchConversations() }, [user])
@@ -137,17 +176,19 @@ function MessagesContent() {
             if (params.get('id') !== selectedId || params.get('tab') !== 'chat') {
                 params.set('id', selectedId)
                 params.set('tab', 'chat')
-                router.push(`/admin/messages?${params.toString()}`, { scroll: false })
+                window.history.replaceState(null, '', `/admin/messages?${params.toString()}`)
             }
         }
-    }, [selectedId, activeTab, router])
+    }, [selectedId, activeTab])
 
     useEffect(() => {
         if (!selectedId) return
+        setMessages([]) // Clear old messages immediately for responsive UI
         const db = getFirebaseDatabase()
         const messagesRef = ref(db, `conversations/${selectedId}/messages`)
+        const recentMessagesQuery = query(messagesRef, limitToLast(20))
         fetchMessages(selectedId)
-        const unsub = onChildAdded(messagesRef, (snapshot) => {
+        const unsub = onChildAdded(recentMessagesQuery, (snapshot) => {
             const newMsg = snapshot.val()
             if (newMsg) {
                 newMsg.id = newMsg.id || snapshot.key
@@ -191,20 +232,46 @@ function MessagesContent() {
 
         // Typing indicator listener
         const typingRef = ref(db, `conversations/${selectedId}/typing`)
-        const unsubscribeTyping = onValue(typingRef, (snapshot) => {
+        onValue(typingRef, (snapshot) => {
             const data = snapshot.val()
-            if (data && user && selectedConv) {
-                const partnerId = user.id === selectedConv.participant1Id ? selectedConv.participant2Id : selectedConv.participant1Id
-                setPartnerIsTyping(!!data[partnerId])
+            if (data && user) {
+                // Read selectedConv from ref to avoid stale closure & prevent re-running effect
+                const convParticipant1Id = selectedIdRef.current ? conversations.find(c => c.id === selectedIdRef.current)?.participant1Id : null
+                const convParticipant2Id = selectedIdRef.current ? conversations.find(c => c.id === selectedIdRef.current)?.participant2Id : null
+                const partnerId = user.id === convParticipant1Id ? convParticipant2Id : convParticipant1Id
+                if (partnerId) {
+                    const status = data[partnerId]
+                    if (typeof status === 'boolean') {
+                        setPartnerIsTyping(status)
+                    } else if (status && typeof status === 'object') {
+                        const isTyping = status.isTyping && (Date.now() - (status.timestamp || 0) < 5000)
+                        setPartnerIsTyping(isTyping)
+                    } else {
+                        setPartnerIsTyping(false)
+                    }
+                }
             } else {
                 setPartnerIsTyping(false)
             }
         })
 
+        // Mark Admin Presence in this conversation
+        if (user && (user.role === 'MANAGER' || user.role === 'EMPLOYEE')) {
+            const statusRef = ref(db, `conversations/${selectedId}/status`)
+            set(statusRef, {
+                activeAdmin: {
+                    id: user.id,
+                    name: user.name || 'Nhân viên'
+                },
+                lastActiveAt: new Date().toISOString()
+            })
+        }
+
         return () => {
             off(messagesRef)
             off(typingRef)
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedId, user])
 
     // Load Ticket Data
@@ -290,7 +357,8 @@ function MessagesContent() {
     const markAsRead = async (msgId: string) => {
         try {
             await fetchWithAuth(`/api/chat/messages/${msgId}/read`, {
-                method: 'POST'
+                method: 'POST',
+                body: JSON.stringify({ conversationId: selectedId })
             })
         } catch (err) {
             console.error('Mark read error:', err)
@@ -303,11 +371,19 @@ function MessagesContent() {
         const db = getFirebaseDatabase()
         const myTypingRef = ref(db, `conversations/${selectedId}/typing/${user.id}`)
 
-        set(myTypingRef, true)
+        set(myTypingRef, {
+            isTyping: true,
+            userName: user.name || 'Nhân viên',
+            timestamp: Date.now()
+        })
 
         if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current)
         typingTimeoutRef.current = setTimeout(() => {
-            set(myTypingRef, null)
+            set(myTypingRef, {
+                isTyping: false,
+                userName: user.name || 'Nhân viên',
+                timestamp: Date.now()
+            })
             typingTimeoutRef.current = null
         }, 4000)
     }, [selectedId, user])
@@ -407,6 +483,160 @@ function MessagesContent() {
         } catch { toast.error('Lỗi cập nhật') }
     }
 
+    const deleteConversation = async (convId: string) => {
+        try {
+            const res = await fetch(`/api/chat/conversations/${convId}`, {
+                method: 'DELETE',
+                headers: getAuthHeaders()
+            })
+            if (res.ok) {
+                toast.success('Đã xóa cuộc hội thoại')
+                setSelectedId(null)
+                fetchConversations()
+            } else {
+                toast.error('Không thể xóa cuộc hội thoại')
+            }
+        } catch (err) {
+            console.error('Delete error:', err)
+            toast.error('Lỗi khi xóa cuộc hội thoại')
+        }
+    }
+
+    const reportConversation = async (reason: string) => {
+        if (!selectedId || !selectedConv) return
+        const finalReason = reason === 'Lý do khác' ? customReason : reason
+        if (!finalReason.trim()) {
+            toast.error('Vui lòng nhập lý do')
+            return
+        }
+        
+        try {
+            toast.loading('Đang gửi báo cáo...', { id: 'report' })
+            
+            // Get recent messages as evidence
+            const recentMessages = messages.slice(-10).map(m => 
+                `[${new Date(m.createdAt).toLocaleTimeString()}] ${m.senderName}: ${m.content || (m.fileUrl ? '[Tệp đính kèm]' : '')}`
+            ).join('\n')
+
+            // Get current admin info
+            const meRes = await fetch('/api/auth/me', { headers: getAuthHeaders() })
+            const me = await meRes.json()
+
+            // Send to Dispute Center API
+            const response = await fetch('/api/disputes', {
+                method: 'POST',
+                headers: {
+                    ...getAuthHeaders(),
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    customerId: otherParticipantId?.startsWith('guest_') ? null : otherParticipantId,
+                    type: 'CUSTOMER_TO_STORE',
+                    reason: reason,
+                    description: `Báo cáo từ Chat Admin${otherParticipantId?.startsWith('guest_') ? ` (GUEST ID: ${otherParticipantId})` : ''}: ${finalReason}\n\n--- BẰNG CHỨNG HỘI THOẠI ---\n${recentMessages}`,
+                    evidence: [], // Can be extended to include real image URLs if needed
+                    reporterId: me.id
+                })
+            })
+
+            if (response.ok) {
+                toast.success('Cảm ơn bạn! Báo cáo đã được gửi tới Trung tâm Khiếu nại & Báo cáo.', { id: 'report' })
+                setShowReportModal(false)
+                setReportReason('')
+                setCustomReason('')
+            } else {
+                toast.error('Không thể gửi báo cáo. Vui lòng thử lại sau.', { id: 'report' })
+            }
+        } catch (err) {
+            console.error('Report error:', err)
+            toast.error('Lỗi khi gửi báo cáo', { id: 'report' })
+        }
+    }
+
+    const banUser = async () => {
+        if (!selectedId || !otherParticipantId) return
+        if (!banReason.trim()) {
+            toast.error('Vui lòng nhập lý do khóa')
+            return
+        }
+
+        try {
+            toast.loading('Đang xử lý khóa tài khoản...', { id: 'ban' })
+
+            // Real ban for all users (Registered or Guest) via Restriction API
+            const response = await fetch('/api/admin/integrity/restrictions', {
+                method: 'POST',
+                headers: {
+                    ...getAuthHeaders(),
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    customerId: otherParticipantId,
+                    type: banTarget === 'IP' ? 'IP_BAN' : 'FULL_BAN',
+                    reason: banReason,
+                    durationDays: banDuration
+                })
+            })
+
+            if (response.ok) {
+                const result = await response.json()
+                toast.success('Đã khóa người dùng thành công.', { id: 'ban' })
+                
+                // Cập nhật UI ngay lập tức
+                setIsRestricted(true)
+                if (result.data?.id) {
+                    setActiveRestrictionId(result.data.id)
+                }
+            } else {
+                toast.error('Lỗi khi thực hiện lệnh khóa.', { id: 'ban' })
+            }
+            
+            setShowBanModal(false)
+            setBanReason('')
+        } catch (err) {
+            console.error('Ban error:', err)
+            toast.error('Lỗi hệ thống khi thực hiện lệnh khóa', { id: 'ban' })
+        }
+    }
+
+    const liftBan = async () => {
+        // Nếu không có ID lệnh khóa nhưng đang bị restricted (có thể là Guest hoặc vừa khóa xong)
+        // thì ta vẫn cho phép gỡ trạng thái UI
+        if (!activeRestrictionId) {
+            setIsRestricted(false)
+            toast.success('Đã gỡ bỏ hạn chế tạm thời.', { id: 'unban' })
+            return
+        }
+        
+        try {
+            toast.loading('Đang gỡ bỏ hạn chế...', { id: 'unban' })
+
+            const response = await fetch('/api/admin/integrity/restrictions', {
+                method: 'PATCH',
+                headers: {
+                    ...getAuthHeaders(),
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    restrictionId: activeRestrictionId,
+                    action: 'LIFT',
+                    reason: 'Admin gỡ khóa trực tiếp từ khung Chat'
+                })
+            })
+
+            if (response.ok) {
+                toast.success('Đã gỡ khóa tài khoản thành công.', { id: 'unban' })
+                setIsRestricted(false)
+                setActiveRestrictionId(null)
+            } else {
+                toast.error('Lỗi khi gỡ khóa tài khoản.', { id: 'unban' })
+            }
+        } catch (err) {
+            console.error('Unban error:', err)
+            toast.error('Lỗi hệ thống khi thực hiện lệnh gỡ khóa', { id: 'unban' })
+        }
+    }
+
     // Shared Helpers
     const isSlaBreached = (ticket: SupportTicket): boolean => !!(ticket.slaDeadline && ticket.status !== 'RESOLVED' && ticket.status !== 'CLOSED' && new Date(ticket.slaDeadline) < new Date())
     const formatDate = (date: string) => new Date(date).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
@@ -444,7 +674,7 @@ function MessagesContent() {
             <UnifiedSidebar 
                 activeTab={activeTab} setActiveTab={(t) => {
                     setActiveTab(t); 
-                    router.push(`/admin/messages?tab=${t}`, { scroll: false })
+                    window.history.replaceState(null, '', `/admin/messages?tab=${t}`)
                 }} 
                 searchQuery={searchQuery} setSearchQuery={setSearchQuery}
                 isSearching={isSearching} searchResults={searchResults} chatLoading={chatLoading} conversations={conversations}
@@ -464,11 +694,22 @@ function MessagesContent() {
                     showScrollButton={showScrollButton} setShowCustomerPanel={setShowCustomerPanel} showCustomerPanel={showCustomerPanel}
                     highlightId={highlightId} handleSendMessage={handleSendMessage} handleFileUpload={handleFileUpload} 
                     handleCall={t => { if ((window as any).__startCall) (window as any).__startCall(otherParticipantId, displayName, selectedId, t) }}
-                    handleMenuAction={a => { if (a === 'info') setShowCustomerPanel(!showCustomerPanel) }}
+                    handleMenuAction={a => { 
+                        if (a === 'info') setShowCustomerPanel(!showCustomerPanel)
+                        if (a === 'delete') setShowDeleteConfirm(true)
+                        if (a === 'report') setShowReportModal(true)
+                        if (a === 'ban') {
+                            const isGuest = !!otherParticipantId?.startsWith('guest_')
+                            setBanTarget(isGuest ? 'IP' : 'ACCOUNT')
+                            setShowBanModal(true)
+                        }
+                        if (a === 'unban') liftBan()
+                    }} 
                     scrollToBottom={scrollToBottom} renderMessageContent={renderMessageContent} formatTime={formatTime}
                     messagesEndRef={messagesEndRef} scrollContainerRef={scrollContainerRef} fileInputRef={fileInputRef} menuRef={menuRef}
                     user={user} setSmartReplies={setSmartReplies} setHideSmartReplies={setHideSmartReplies} selectedId={selectedId} fetchConversations={fetchConversations}
                     handleTyping={handleTyping} partnerIsTyping={partnerIsTyping}
+                    isRestricted={isRestricted}
                 />
             ) : (
                 <TicketChatView 
@@ -483,6 +724,194 @@ function MessagesContent() {
 
             {activeTab === 'chat' && selectedConv && showCustomerPanel && otherParticipantId && (
                 <CustomerContextPanel customerId={otherParticipantId} isGuest={!!otherParticipantId.startsWith('guest_')} onClose={() => setShowCustomerPanel(false)} />
+            )}
+
+            {/* Delete Confirmation Modal */}
+            {showDeleteConfirm && (
+                <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-white rounded-3xl p-6 max-w-[360px] w-full shadow-2xl animate-in zoom-in-95 duration-200">
+                        <div className="w-16 h-16 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mb-4 mx-auto">
+                            <XCircle size={32} />
+                        </div>
+                        <h3 className="text-xl font-black text-slate-900 text-center mb-2">Xóa cuộc hội thoại?</h3>
+                        <p className="text-slate-500 text-center text-xs font-medium mb-8 leading-relaxed">
+                            Hành động này sẽ xóa toàn bộ lịch sử chat của <strong>{displayName}</strong>. Thao tác này không thể hoàn tác.
+                        </p>
+                        <div className="flex flex-col gap-2">
+                            <button 
+                                onClick={() => {
+                                    if (selectedId) deleteConversation(selectedId)
+                                    setShowDeleteConfirm(false)
+                                }}
+                                className="py-4 bg-rose-600 text-white rounded-2xl font-black text-xs hover:bg-rose-700 transition-all active:scale-95 shadow-lg shadow-rose-100"
+                            >
+                                XÁC NHẬN XÓA
+                            </button>
+                            <button 
+                                onClick={() => setShowDeleteConfirm(false)}
+                                className="py-4 bg-slate-50 text-slate-600 rounded-2xl font-black text-xs hover:bg-slate-100 transition-all active:scale-95"
+                            >
+                                HỦY BỎ
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Report Modal */}
+            {showReportModal && (
+                <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-white rounded-3xl p-6 max-w-[400px] w-full shadow-2xl animate-in zoom-in-95 duration-200">
+                        <div className="w-16 h-16 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-4 mx-auto">
+                            <AlertTriangle size={32} />
+                        </div>
+                        <h3 className="text-xl font-black text-slate-900 text-center mb-2">Báo cáo vi phạm</h3>
+                        <p className="text-slate-500 text-center text-xs font-medium mb-6 leading-relaxed">
+                            Hãy chọn lý do bạn báo cáo cuộc hội thoại với <strong>{displayName}</strong>.
+                        </p>
+                        
+                        <div className="grid grid-cols-1 gap-2 mb-4">
+                            {['Spam / Quảng cáo', 'Ngôn từ không phù hợp', 'Quấy rối / Đe dọa', 'Vấn đề kỹ thuật', 'Lý do khác'].map(reason => (
+                                <button 
+                                    key={reason}
+                                    onClick={() => setReportReason(reason)}
+                                    className={`text-left px-4 py-3 rounded-xl text-xs font-bold transition-all border ${
+                                        reportReason === reason 
+                                        ? 'bg-indigo-50 text-indigo-600 border-indigo-200' 
+                                        : 'bg-slate-50 text-slate-700 border-transparent hover:bg-slate-100'
+                                    }`}
+                                >
+                                    {reason}
+                                </button>
+                            ))}
+                        </div>
+
+                        {reportReason === 'Lý do khác' && (
+                            <div className="mb-6 animate-in slide-in-from-top-2 duration-200">
+                                <textarea
+                                    value={customReason}
+                                    onChange={(e) => setCustomReason(e.target.value)}
+                                    placeholder="Nhập lý do cụ thể của bạn..."
+                                    className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-medium focus:bg-white focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all resize-none h-24"
+                                    autoFocus
+                                />
+                            </div>
+                        )}
+                        
+                        <div className="flex flex-col gap-2">
+                            <button 
+                                onClick={() => reportConversation(reportReason)}
+                                disabled={!reportReason || (reportReason === 'Lý do khác' && !customReason.trim())}
+                                className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-black text-xs hover:bg-indigo-700 transition-all active:scale-95 shadow-lg shadow-indigo-100 disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none"
+                            >
+                                GỬI BÁO CÁO
+                            </button>
+                            <button 
+                                onClick={() => {
+                                    setShowReportModal(false)
+                                    setReportReason('')
+                                    setCustomReason('')
+                                }}
+                                className="w-full py-4 bg-white text-slate-400 rounded-2xl font-black text-xs hover:text-slate-600 transition-all border border-slate-100"
+                            >
+                                HỦY BỎ
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {/* Ban Modal */}
+            {showBanModal && (
+                <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-white rounded-3xl p-6 max-w-[400px] w-full shadow-2xl animate-in zoom-in-95 duration-200">
+                        <div className="w-16 h-16 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mb-4 mx-auto">
+                            <ShieldAlert size={32} />
+                        </div>
+                        <h3 className="text-xl font-black text-slate-900 text-center mb-2">Khóa tài khoản</h3>
+                        <div className="flex items-center gap-4 mb-4">
+                            <label className="text-xs font-bold text-slate-600">Đối tượng:</label>
+                            <div className="flex bg-slate-50 p-1 rounded-xl border border-slate-100">
+                                <button
+                                    onClick={() => setBanTarget('ACCOUNT')}
+                                    className={`px-4 py-1.5 rounded-lg text-[10px] font-black transition-all ${
+                                        banTarget === 'ACCOUNT' ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-md shadow-indigo-200' : 'text-slate-400 hover:text-slate-600'
+                                    }`}
+                                >
+                                    TÀI KHOẢN
+                                </button>
+                                <button
+                                    onClick={() => setBanTarget('IP')}
+                                    className={`px-4 py-1.5 rounded-lg text-[10px] font-black transition-all ${
+                                        banTarget === 'IP' ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-md shadow-indigo-200' : 'text-slate-400 hover:text-slate-600'
+                                    }`}
+                                >
+                                    ĐỊA CHỈ IP
+                                </button>
+                            </div>
+                        </div>
+
+                        {otherParticipantId?.startsWith('guest_') && banTarget === 'IP' && (
+                            <div className="mt-3 mb-4 p-3 bg-amber-50 rounded-xl border border-amber-100 flex items-start gap-3 animate-in slide-in-from-top-1">
+                                <AlertCircle size={14} className="text-amber-600 mt-0.5 flex-shrink-0" />
+                                <p className="text-[10px] text-amber-700 font-medium leading-relaxed">
+                                    <strong>Gợi ý:</strong> Đối với khách vãng lai, chặn IP là phương pháp triệt để nhất để ngăn họ quay lại.
+                                </p>
+                            </div>
+                        )}
+
+                        <p className="text-slate-500 text-center text-xs font-medium mb-6 leading-relaxed">
+                            Chọn thời hạn và lý do khóa tài khoản của <strong>{displayName}</strong>.
+                        </p>
+
+                        <div className="grid grid-cols-3 gap-2 mb-4">
+                            {[
+                                { label: '24 Giờ', value: 1 },
+                                { label: '7 Ngày', value: 7 },
+                                { label: 'Vĩnh viễn', value: null }
+                            ].map(opt => (
+                                <button
+                                    key={String(opt.value)}
+                                    onClick={() => setBanDuration(opt.value)}
+                                    className={`py-2.5 rounded-xl text-xs font-bold transition-all border ${
+                                        banDuration === opt.value 
+                                        ? 'bg-rose-600 text-white border-rose-600 shadow-md shadow-rose-100' 
+                                        : 'bg-slate-50 text-slate-600 border-transparent hover:bg-slate-100'
+                                    }`}
+                                >
+                                    {opt.label}
+                                </button>
+                            ))}
+                        </div>
+
+                        <div className="mb-6">
+                            <textarea
+                                value={banReason}
+                                onChange={(e) => setBanReason(e.target.value)}
+                                placeholder="Nhập lý do khóa tài khoản..."
+                                className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-medium focus:bg-white focus:ring-2 focus:ring-rose-500/10 focus:border-rose-500 outline-none transition-all resize-none h-24"
+                            />
+                        </div>
+                        
+                        <div className="flex flex-col gap-2">
+                            <button 
+                                onClick={() => banUser()}
+                                disabled={!banReason.trim()}
+                                className="w-full py-4 bg-rose-600 text-white rounded-2xl font-black text-xs hover:bg-rose-700 transition-all active:scale-95 shadow-lg shadow-rose-100 disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none"
+                            >
+                                XÁC NHẬN KHÓA
+                            </button>
+                            <button 
+                                onClick={() => {
+                                    setShowBanModal(false)
+                                    setBanReason('')
+                                }}
+                                className="w-full py-4 bg-white text-slate-400 rounded-2xl font-black text-xs hover:text-slate-600 transition-all border border-slate-100"
+                            >
+                                HỦY BỎ
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     )

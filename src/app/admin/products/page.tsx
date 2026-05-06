@@ -13,17 +13,16 @@ import {
 } from './types'
 
 import ProductSection from './components/ProductSection'
-import SupplierSection from './components/SupplierSection'
 import { TableSkeleton } from '@/components/admin/skeletons/AdminSkeletons'
 
 export default function ProductsSuppliersPage() {
   const [expandedSections, setExpandedSections] = useState({
-    products: true,
-    suppliers: false
+    products: true
   })
 
   // Products state
   const [products, setProducts] = useState<Product[]>([])
+  const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [totalProductItems, setTotalProductItems] = useState(0)
   const [productsLoading, setProductsLoading] = useState(true)
   const [productSearch, setProductSearch] = useState('')
@@ -40,23 +39,6 @@ export default function ProductsSuppliersPage() {
     images: [] as string[], description: ''
   })
 
-  // Suppliers state
-  const [suppliers, setSuppliers] = useState<Supplier[]>([])
-  const [totalSupplierItems, setTotalSupplierItems] = useState(0)
-  const [suppliersLoading, setSuppliersLoading] = useState(false)
-  const [supplierSearch, setSupplierSearch] = useState('')
-  const [supplierPage, setSupplierPage] = useState(1)
-  const [supplierPageSize] = useState(20)
-  const [showSupplierModal, setShowSupplierModal] = useState(false)
-  const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null)
-  const [deletingSupplier, setDeletingSupplier] = useState<Supplier | null>(null)
-  const [supplierFormLoading, setSupplierFormLoading] = useState(false)
-
-  const [supplierForm, setSupplierForm] = useState({
-    name: '', contactPerson: '', email: '', phone: '',
-    address: '', city: '', creditLimit: 0, isActive: true
-  })
-
   // Categories state
   const [categories, setCategories] = useState<Category[]>([])
   const [showAddCategory, setShowAddCategory] = useState(false)
@@ -67,8 +49,6 @@ export default function ProductsSuppliersPage() {
   const [stats, setStats] = useState({
     totalProducts: 0,
     activeProducts: 0,
-    totalSuppliers: 0,
-    activeSuppliers: 0,
     lowStockProducts: 0,
     totalInventoryValue: 0
   })
@@ -76,6 +56,7 @@ export default function ProductsSuppliersPage() {
   useEffect(() => {
     fetchStats()
     fetchCategories()
+    fetchSuppliers()
   }, [])
 
   useEffect(() => {
@@ -85,14 +66,6 @@ export default function ProductsSuppliersPage() {
     return () => clearTimeout(timer)
   }, [productPage, productSearch])
 
-  useEffect(() => {
-    if (expandedSections.suppliers) {
-      const timer = setTimeout(() => {
-        fetchSuppliers()
-      }, 300)
-      return () => clearTimeout(timer)
-    }
-  }, [expandedSections.suppliers, supplierPage, supplierSearch])
 
   const toggleSection = (section: keyof typeof expandedSections) => {
     setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }))
@@ -163,22 +136,12 @@ export default function ProductsSuppliersPage() {
 
   const fetchSuppliers = async () => {
     try {
-      setSuppliersLoading(true)
-      const params = new URLSearchParams()
-      params.append('page', supplierPage.toString())
-      params.append('limit', supplierPageSize.toString())
-      if (supplierSearch) {
-        params.append('search', supplierSearch)
-      }
-
-      const res = await fetchWithAuth(`/api/suppliers?${params.toString()}`)
+      const res = await fetchWithAuth('/api/suppliers?limit=100')
       if (res.ok) {
         const data = await res.json()
         setSuppliers(Array.isArray(data.data) ? data.data : [])
-        setTotalSupplierItems(data.pagination?.total || 0)
       }
-    } catch { toast.error('Lỗi tải nhà cung cấp') }
-    finally { setSuppliersLoading(false) }
+    } catch { }
   }
 
   const [uploadingImage, setUploadingImage] = useState(false)
@@ -210,7 +173,6 @@ export default function ProductsSuppliersPage() {
 
   // --- CRUD HANDLERS ---
   const openProductModal = (product?: Product) => {
-    if (suppliers.length === 0) fetchSuppliers()
     if (product) {
       setEditingProduct(product)
       setProductForm({
@@ -259,59 +221,13 @@ export default function ProductsSuppliersPage() {
     } catch { toast.error('Lỗi xóa sản phẩm') }
   }
 
-  const openSupplierModal = (supplier?: Supplier) => {
-    if (supplier) {
-      setEditingSupplier(supplier)
-      setSupplierForm({
-        name: supplier.name, contactPerson: supplier.contactPerson || '',
-        email: supplier.email || '', phone: supplier.phone || '',
-        address: supplier.address || '', city: supplier.city || '',
-        creditLimit: supplier.creditLimit, isActive: supplier.isActive
-      })
-    } else {
-      setEditingSupplier(null)
-      setSupplierForm({
-        name: '', contactPerson: '', email: '', phone: '', address: '', city: '', creditLimit: 0, isActive: true
-      })
-    }
-    setShowSupplierModal(true)
-  }
-
-  const handleSupplierSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setSupplierFormLoading(true)
-    try {
-      const res = await fetchWithAuth(editingSupplier ? `/api/suppliers/${editingSupplier.id}` : '/api/suppliers', {
-        method: editingSupplier ? 'PUT' : 'POST',
-        body: JSON.stringify(supplierForm)
-      })
-      if (res.ok) {
-        toast.success(editingSupplier ? 'Cập nhật thành công' : 'Thêm thành công')
-        setShowSupplierModal(false)
-        fetchSuppliers()
-      }
-    } catch { toast.error('Lỗi lưu nhà cung cấp') }
-    finally { setSupplierFormLoading(false) }
-  }
-
-  const handleDeleteSupplier = async () => {
-    if (!deletingSupplier) return
-    try {
-      const res = await fetchWithAuth(`/api/suppliers/${deletingSupplier.id}`, { method: 'DELETE' })
-      if (res.ok) {
-        toast.success('Xóa nhà cung cấp thành công')
-        setDeletingSupplier(null)
-        fetchSuppliers()
-      }
-    } catch { toast.error('Lỗi xóa nhà cung cấp') }
-  }
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Quản Lý Sản Phẩm & Nhà Cung Cấp</h1>
-          <p className="text-sm text-gray-500 mt-1">Quản lý toàn bộ sản phẩm và nhà cung cấp</p>
+          <h1 className="text-2xl font-bold text-gray-900">Quản Lý Sản Phẩm</h1>
+          <p className="text-sm text-gray-500 mt-1">Danh sách sản phẩm trong kho hệ thống</p>
         </div>
       </div>
 
@@ -323,14 +239,6 @@ export default function ProductsSuppliersPage() {
             <div className="text-xs text-green-600 mt-1">{stats.activeProducts} đang bán</div>
           </div>
           <Package className="w-8 h-8 text-blue-600" />
-        </div>
-        <div className="bg-white p-4 rounded-lg shadow border-l-4 border-green-500 flex items-center justify-between">
-          <div>
-            <div className="text-sm text-gray-600">Nhà Cung Cấp</div>
-            <div className="text-2xl font-bold text-gray-900">{stats.totalSuppliers}</div>
-            <div className="text-xs text-green-600 mt-1">{stats.activeSuppliers} đang hợp tác</div>
-          </div>
-          <Building className="w-8 h-8 text-green-600" />
         </div>
         <div className="bg-white p-4 rounded-lg shadow border-l-4 border-red-500 flex items-center justify-between">
           <div>
@@ -359,15 +267,6 @@ export default function ProductsSuppliersPage() {
         search={productSearch} onSearchChange={(val) => { setProductSearch(val); setProductPage(1); }}
         page={productPage} onPageChange={setProductPage} pageSize={productPageSize}
         totalItems={totalProductItems}
-      />
-
-      <SupplierSection
-        suppliers={suppliers} loading={suppliersLoading} expanded={expandedSections.suppliers}
-        onToggle={() => toggleSection('suppliers')}
-        onAdd={() => openSupplierModal()} onEdit={openSupplierModal} onDelete={setDeletingSupplier}
-        search={supplierSearch} onSearchChange={(val) => { setSupplierSearch(val); setSupplierPage(1); }}
-        page={supplierPage} onPageChange={setSupplierPage} pageSize={supplierPageSize}
-        totalItems={totalSupplierItems}
       />
 
       {/* PRODUCT MODAL */}
@@ -516,53 +415,6 @@ export default function ProductsSuppliersPage() {
         </div>
       </FormModal>
 
-      {/* SUPPLIER MODAL */}
-      <FormModal
-        isOpen={showSupplierModal} onClose={() => setShowSupplierModal(false)}
-        title={editingSupplier ? 'Sửa Nhà Cung Cấp' : 'Thêm Nhà Cung Cấp'} onSubmit={handleSupplierSubmit}
-        loading={supplierFormLoading}
-      >
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Tên nhà cung cấp</label>
-            <input type="text" required value={supplierForm.name} onChange={e => setSupplierForm({ ...supplierForm, name: e.target.value })} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm" />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Người liên hệ</label>
-              <input type="text" value={supplierForm.contactPerson} onChange={e => setSupplierForm({ ...supplierForm, contactPerson: e.target.value })} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Điện thoại</label>
-              <input type="tel" value={supplierForm.phone} onChange={e => setSupplierForm({ ...supplierForm, phone: e.target.value })} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm" />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Email</label>
-              <input type="email" value={supplierForm.email} onChange={e => setSupplierForm({ ...supplierForm, email: e.target.value })} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Hạn mức tín dụng</label>
-              <FormattedNumberInput value={supplierForm.creditLimit} onChange={val => setSupplierForm({ ...supplierForm, creditLimit: val })} suffix="đ" />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="col-span-1">
-              <label className="block text-sm font-medium text-gray-700">Thành phố</label>
-              <input type="text" value={supplierForm.city} onChange={e => setSupplierForm({ ...supplierForm, city: e.target.value })} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm" />
-            </div>
-            <div className="flex items-center pt-6">
-              <input id="supplierActive" type="checkbox" checked={supplierForm.isActive} onChange={e => setSupplierForm({ ...supplierForm, isActive: e.target.checked })} className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500" />
-              <label htmlFor="supplierActive" className="ml-2 block text-sm text-gray-900">Đang hoạt động</label>
-            </div>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Địa chỉ</label>
-            <input type="text" value={supplierForm.address} onChange={e => setSupplierForm({ ...supplierForm, address: e.target.value })} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm" />
-          </div>
-        </div>
-      </FormModal>
 
       {/* QUICK ADD CATEGORY MODAL */}
       <FormModal
@@ -581,11 +433,6 @@ export default function ProductsSuppliersPage() {
         onConfirm={handleDeleteProduct}
       />
 
-      <ConfirmDialog
-        isOpen={!!deletingSupplier} onClose={() => setDeletingSupplier(null)}
-        title="Xóa nhà cung cấp" description={`Bạn có chắc muốn xóa nhà cung cấp ${deletingSupplier?.name}? Hành động này không thể hoàn tác.`}
-        onConfirm={handleDeleteSupplier}
-      />
     </div>
   )
 }

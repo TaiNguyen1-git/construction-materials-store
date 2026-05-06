@@ -12,6 +12,33 @@ import { NextRequest, NextResponse } from 'next/server'
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
+  // ===== IP & GUEST BAN ENFORCEMENT =====
+  const clientIp = request.headers.get('x-forwarded-for')?.split(',')[0] || '127.0.0.1'
+  
+  // Bỏ qua kiểm tra cho trang /restricted và các file tĩnh để tránh loop
+  const isRestrictedPage = pathname.startsWith('/restricted')
+  const isIntegrityAPI = pathname.startsWith('/api/integrity')
+  const isApiRoute = pathname.startsWith('/api/')
+  const isRSC = request.headers.has('rsc') || request.headers.has('next-router-prefetch')
+  
+  if (!isRestrictedPage && !isIntegrityAPI && !isApiRoute && !isRSC && !pathname.startsWith('/_next') && !pathname.includes('.')) {
+    try {
+      const checkResponse = await fetch(new URL(`/api/integrity/check-ip?ip=${clientIp}`, request.url))
+      const { restricted, reason, type, endDate } = await checkResponse.json()
+      
+      if (restricted) {
+        const url = new URL('/restricted', request.url)
+        url.searchParams.set('reason', reason || '')
+        url.searchParams.set('type', type || 'IP_BAN')
+        if (endDate) url.searchParams.set('until', endDate)
+        
+        return NextResponse.redirect(url)
+      }
+    } catch (e) {
+      console.error('Middleware IP Check failed:', e)
+    }
+  }
+
   // Skip middleware for static files and Next.js internals
   if (
     pathname.startsWith('/_next') ||

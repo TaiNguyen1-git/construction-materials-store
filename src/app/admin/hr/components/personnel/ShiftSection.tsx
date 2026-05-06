@@ -2,7 +2,7 @@
 
 import React from 'react'
 import { Calendar, Plus, Edit, Trash2, ChevronUp, ChevronDown } from 'lucide-react'
-import { WorkShift, getStatusBadge, getStatusText, formatDate } from '../types'
+import { WorkShift, getStatusBadge, getStatusText, formatDate } from './types'
 
 interface ShiftSectionProps {
     shifts: WorkShift[]

@@ -153,7 +153,7 @@ export default function CustomerCarePage() {
                     </div>
                     <div>
                         <h1 className="text-2xl font-black text-slate-900">Trung tâm Chăm sóc Khách hàng</h1>
-                        <p className="text-sm text-slate-500 font-medium">Hộp thư hợp nhất — Tất cả kênh hỗ trợ</p>
+                        <p className="text-sm text-slate-500 font-medium">Hộp thư — Hỗ trợ Khách hàng</p>
                     </div>
                 </div>
                 <div className="flex items-center gap-3">
@@ -281,8 +281,8 @@ export default function CustomerCarePage() {
                             </div>
                         ) : (
                             filteredTimeline.map((item) => {
-                                const typeCfg = TYPE_CONFIG[item.type]
-                                const TypeIcon = typeCfg.icon
+                                const typeCfg = TYPE_CONFIG[item.type as TimelineItemType]
+                                const TypeIcon = typeCfg.icon as any
 
                                 return (
                                     <Link

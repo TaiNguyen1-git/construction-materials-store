@@ -67,6 +67,7 @@ export interface ChatMessage {
     orderData?: OrderData;
     data?: ReportData;
     requiresConfirmation?: boolean;
+    isSystem?: boolean;
 }
 
 export interface ChatbotProps {

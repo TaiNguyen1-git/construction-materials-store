@@ -4,7 +4,7 @@ import { useRef, useEffect } from 'react'
 import {
     MoreVertical, User, Flag, Trash2, Phone, Video,
     ChevronDown, Sparkles, Loader2, Paperclip, Send,
-    Check, CheckCheck, MessageCircle
+    Check, CheckCheck, MessageCircle, ShieldAlert, CheckCircle
 } from 'lucide-react'
 import { ChatMessage } from '@/components/chat/MessengerChatBubbles'
 import MessengerChatBubbles from '@/components/chat/MessengerChatBubbles'
@@ -48,6 +48,7 @@ interface DirectChatViewProps {
     fetchConversations: () => void
     handleTyping?: () => void
     partnerIsTyping?: boolean
+    isRestricted?: boolean
 }
 
 export default function DirectChatView({
@@ -85,7 +86,8 @@ export default function DirectChatView({
     selectedId,
     fetchConversations,
     handleTyping,
-    partnerIsTyping = false
+    partnerIsTyping = false,
+    isRestricted = false
 }: DirectChatViewProps) {
     const [replyingTo, setReplyingTo] = useState<ChatMessage | null>(null)
 
@@ -182,9 +184,15 @@ export default function DirectChatView({
                             <button onClick={() => handleMenuAction('info')} className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-3 font-medium">
                                 <User className="w-4 h-4 text-gray-400" /> {showCustomerPanel ? 'Ẩn thông tin KH' : 'Xem thông tin KH'}
                             </button>
-                            <button onClick={() => handleMenuAction('report')} className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-3 font-medium">
-                                <Flag className="w-4 h-4 text-gray-400" /> Báo cáo
-                            </button>
+                            {isRestricted ? (
+                                <button onClick={() => handleMenuAction('unban')} className="w-full text-left px-4 py-2.5 text-sm text-green-600 hover:bg-green-50 flex items-center gap-3 font-bold">
+                                    <CheckCircle className="w-4 h-4" /> Gỡ khóa tài khoản
+                                </button>
+                            ) : (
+                                <button onClick={() => handleMenuAction('ban')} className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-3 font-bold">
+                                    <ShieldAlert className="w-4 h-4" /> Khóa tài khoản
+                                </button>
+                            )}
                             <div className="h-px bg-gray-50 my-2 mx-2" />
                             <button onClick={() => handleMenuAction('delete')} className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-3 font-bold">
                                 <Trash2 className="w-4 h-4" /> Xóa hội thoại

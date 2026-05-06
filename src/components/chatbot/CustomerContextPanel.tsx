@@ -43,12 +43,18 @@ export default function CustomerContextPanel({
             const res = await fetch(`/api/customers/${customerId}/context`, {
                 headers: getAuthHeaders()
             })
-            if (!res.ok) throw new Error('Failed to fetch')
+            if (!res.ok) {
+                setError('Không thể tải thông tin khách hàng')
+                return
+            }
             const data = await res.json()
+            if (!data || !data.data) {
+                setError('Không có dữ liệu')
+                return
+            }
             setCustomer(data.data)
         } catch (err) {
-            setError('Không thể tải thông tin khách hàng')
-            console.error(err)
+            setError('Lỗi kết nối khi tải thông tin')
         } finally {
             setLoading(false)
         }

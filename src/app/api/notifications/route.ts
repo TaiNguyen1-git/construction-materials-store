@@ -43,7 +43,6 @@ export async function GET(request: NextRequest) {
     const dbNotifications = await prisma.notification.findMany({
       where: { userId },
       orderBy: [
-        { read: 'asc' },
         { createdAt: 'desc' }
       ],
       skip,
@@ -56,16 +55,10 @@ export async function GET(request: NextRequest) {
       isRead: n.read
     }))
 
-    // Unread count is still global, not paged. Add caching for 10s to reduce polling load.
-    const unreadCacheKey = `notifications:unread:${userId}`
-    let unreadCount = await CacheService.get<number>(unreadCacheKey)
-
-    if (unreadCount === null) {
-      unreadCount = await prisma.notification.count({
-        where: { userId, read: false }
-      })
-      await CacheService.set(unreadCacheKey, unreadCount, 10) // Cache for 10s
-    }
+    // Get fresh unread count
+    const unreadCount = await prisma.notification.count({
+      where: { userId, read: false }
+    })
 
     const totalPages = Math.ceil(totalCount / limit)
 
@@ -85,7 +78,9 @@ export async function GET(request: NextRequest) {
       {
         status: 200,
         headers: {
-          'Cache-Control': 'private, max-age=5' // Browser-side cache for 5s
+          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
         }
       }
     )

@@ -70,26 +70,23 @@ interface AuditLog {
 export default function IntegrityDashboard() {
     const [stats, setStats] = useState<IntegrityStats | null>(null)
     const [alerts, setAlerts] = useState<SuspiciousActivity[]>([])
-    const [kycQueue, setKycQueue] = useState<KYCDocument[]>([])
     const [restrictions, setRestrictions] = useState<UserRestriction[]>([])
     const [appeals, setAppeals] = useState<UserRestriction[]>([])
     const [auditLogs, setAuditLogs] = useState<AuditLog[]>([])
-    const [workerFraud, setWorkerFraud] = useState<any[]>([])
     
-    const [activeTab, setActiveTab] = useState<'overview' | 'alerts' | 'kyc' | 'restrictions' | 'appeals' | 'audit' | 'worker-fraud'>('overview')
+    const [activeTab, setActiveTab] = useState<'overview' | 'alerts' | 'restrictions' | 'appeals' | 'audit'>('overview')
     const [loading, setLoading] = useState(true)
 
     // Phase 2 State
     const [currentPage, setCurrentPage] = useState(1);
     const ITEMS_PER_PAGE = 15;
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
-    const [previewDoc, setPreviewDoc] = useState<KYCDocument | null>(null);
     
     // Modal State
     const [modalConfig, setModalConfig] = useState<{
         isOpen: boolean;
         title: string;
-        type: 'rejectKYC' | 'resolveAlert' | 'liftRestriction' | 'rejectReport' | 'appeal';
+        type: 'resolveAlert' | 'liftRestriction' | 'appeal';
         targetId: string;
         extraData?: any;
     } | null>(null);
@@ -113,10 +110,6 @@ export default function IntegrityDashboard() {
                 const res = await fetch('/api/admin/integrity/alerts')
                 const data = await res.json()
                 if (data.success) setAlerts(data.data.alerts)
-            } else if (activeTab === 'kyc') {
-                const res = await fetch('/api/admin/integrity?view=kyc-queue')
-                const data = await res.json()
-                if (data.success) setKycQueue(data.data.documents)
             } else if (activeTab === 'restrictions') {
                 const res = await fetch('/api/admin/integrity/restrictions')
                 const data = await res.json()
@@ -129,10 +122,6 @@ export default function IntegrityDashboard() {
                 const res = await fetch('/api/admin/integrity?view=audit-logs')
                 const data = await res.json()
                 if (data.success) setAuditLogs(data.data.logs)
-            } else if (activeTab === 'worker-fraud') {
-                const res = await fetch('/api/admin/integrity/worker-fraud')
-                const data = await res.json()
-                if (data.success) setWorkerFraud(data.data)
             }
         } catch (error) {
             console.error('Failed to fetch data:', error)
@@ -142,7 +131,7 @@ export default function IntegrityDashboard() {
 
     // === PHASE 2 CAPABILITIES ===
     const handleExportCSV = () => {
-        const dataMap: any = { 'alerts': alerts, 'kyc': kycQueue, 'restrictions': restrictions, 'appeals': appeals, 'audit': auditLogs, 'worker-fraud': workerFraud };
+        const dataMap: any = { 'alerts': alerts, 'restrictions': restrictions, 'appeals': appeals, 'audit': auditLogs };
         const activeData = dataMap[activeTab];
         if (!activeData || activeData.length === 0) return toast.error('Không có dữ liệu!');
         const headers = Object.keys(activeData[0]).join(',');
@@ -178,21 +167,6 @@ export default function IntegrityDashboard() {
         );
     };
 
-    const handleKYCAction = async (docId: string, action: 'APPROVE') => {
-        try {
-            const res = await fetch('/api/admin/integrity/kyc', {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ documentId: docId, action })
-            })
-            if (res.ok) {
-                toast.success('Đã duyệt hồ sơ KYC')
-                fetchData()
-            }
-        } catch (error) {
-            console.error('KYC action failed:', error)
-        }
-    }
 
     const handleQuickResolveAlert = async (alertId: string, action: string) => {
         try {
@@ -208,19 +182,6 @@ export default function IntegrityDashboard() {
         } catch (error) { }
     }
 
-    const handleQuickApproveReport = async (reportId: string) => {
-        try {
-            const res = await fetch('/api/admin/integrity/worker-fraud', {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ reportId, status: 'APPROVED' })
-            })
-            if (res.ok) {
-                toast.success('Đã chấp nhận báo cáo')
-                fetchData()
-            }
-        } catch (error) { }
-    }
 
     const handleReviewAppeal = async (restrictionId: string, approved: boolean) => {
         try {
@@ -243,21 +204,7 @@ export default function IntegrityDashboard() {
         if (!modalConfig) return;
         
         try {
-            if (modalConfig.type === 'rejectKYC') {
-                if (!modalInput.trim()) return toast.error('Vui lòng nhập lý do từ chối');
-                
-                const res = await fetch('/api/admin/integrity/kyc', {
-                    method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ documentId: modalConfig.targetId, action: 'REJECT', rejectionReason: modalInput })
-                })
-                if (res.ok) {
-                    toast.success('Đã từ chối hồ sơ KYC')
-                    fetchData()
-                    setModalConfig(null)
-                }
-            } 
-            else if (modalConfig.type === 'resolveAlert') {
+            if (modalConfig.type === 'resolveAlert') {
                 const body: any = { 
                     alertId: modalConfig.targetId, 
                     action: 'RESOLVE', 
@@ -291,20 +238,6 @@ export default function IntegrityDashboard() {
                 })
                 if (res.ok) {
                     toast.success('Đã gỡ bỏ hạn chế thành công')
-                    fetchData()
-                    setModalConfig(null)
-                }
-            }
-            else if (modalConfig.type === 'rejectReport') {
-                if (!modalInput.trim()) return toast.error('Vui lòng nhập lý do từ chối báo cáo');
-                
-                const res = await fetch('/api/admin/integrity/worker-fraud', {
-                    method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ reportId: modalConfig.targetId, status: 'REJECTED', rejectionReason: modalInput })
-                })
-                if (res.ok) {
-                    toast.success('Đã từ chối báo cáo')
                     fetchData()
                     setModalConfig(null)
                 }
@@ -366,10 +299,8 @@ export default function IntegrityDashboard() {
                         {[
                             { id: 'overview', label: 'Tổng quan', count: null },
                             { id: 'alerts', label: 'Cảnh báo', count: stats?.overview.openAlerts },
-                            { id: 'kyc', label: 'Duyệt KYC', count: stats?.overview.pendingKYC },
                             { id: 'restrictions', label: 'Hạn chế', count: stats?.overview.activeRestrictions },
                             { id: 'appeals', label: 'Kháng cáo', count: appeals.length || null },
-                            { id: 'worker-fraud', label: 'Kiểm thợ', count: workerFraud.length || null },
                             { id: 'audit', label: 'Audit Logs', count: null }
                         ].map(tab => (
                             <button
@@ -426,11 +357,6 @@ export default function IntegrityDashboard() {
                             <div className="space-y-6">
                                 {/* Stats Grid */}
                                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                                    <div className="bg-white rounded-2xl p-6 shadow-sm border border-orange-100 relative overflow-hidden">
-                                        <div className="absolute -right-4 -top-4 w-20 h-20 bg-orange-50 rounded-full opacity-50"></div>
-                                        <div className="text-3xl font-black text-orange-600 relative z-10">{stats.overview.pendingKYC}</div>
-                                        <div className="text-sm text-gray-500 mt-1 uppercase tracking-wider font-semibold relative z-10">KYC chờ duyệt</div>
-                                    </div>
                                     <div className="bg-white rounded-2xl p-6 shadow-sm border border-red-100 relative overflow-hidden">
                                         <div className="absolute -right-4 -top-4 w-20 h-20 bg-red-50 rounded-full opacity-50"></div>
                                         <div className="text-3xl font-black text-red-600 relative z-10">{stats.overview.openAlerts}</div>
@@ -557,63 +483,6 @@ export default function IntegrityDashboard() {
                             </div>
                         )}
 
-                        {/* KYC Tab */}
-                        {activeTab === 'kyc' && (
-                            <div className="space-y-4">
-                                {kycQueue.length === 0 ? (
-                                    <div className="text-center py-20 bg-white rounded-2xl border border-dashed border-gray-300">
-                                        <p className="text-gray-500 font-bold">✅ Không có hồ sơ KYC nào chờ duyệt</p>
-                                    </div>
-                                ) : (
-                                    kycQueue.map(doc => (
-                                        <div key={doc.id} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-                                            <div className="flex items-center justify-between gap-6">
-                                                <div className="flex-1">
-                                                    <div className="font-black text-lg text-gray-900">
-                                                        {doc.customer?.contractorProfile?.displayName || doc.customer?.companyName || doc.customer?.user?.name || '---'}
-                                                    </div>
-                                                    <div className="text-sm text-gray-500 font-medium">
-                                                        {doc.customer?.user?.email}
-                                                    </div>
-                                                    <div className="mt-4 flex items-center gap-2">
-                                                        <span className="px-3 py-1 text-xs font-bold uppercase tracking-wider bg-blue-50 text-blue-700 rounded-lg border border-blue-100">
-                                                            Loại: {doc.documentType}
-                                                        </span>
-                                                        <span className="text-xs text-gray-400 font-medium">
-                                                            {new Date(doc.createdAt).toLocaleDateString('vi-VN')}
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                                <div className="flex gap-2 min-w-[240px]">
-                                                    <button
-                                                        onClick={() => setPreviewDoc(doc)}
-                                                        className="flex-1 px-4 py-2 text-sm font-bold bg-indigo-50 text-indigo-700 rounded-xl hover:bg-indigo-100 transition-colors"
-                                                    >
-                                                        Chi tiết
-                                                    </button>
-                                                    <button
-                                                        onClick={() => {
-                                                            setModalInput('');
-                                                            setModalSelect('');
-                                                            setModalConfig({ isOpen: true, title: 'Từ chối Hồ sơ KYC', type: 'rejectKYC', targetId: doc.id });
-                                                        }}
-                                                        className="flex-1 px-4 py-2 text-sm font-bold bg-gray-50 text-gray-700 rounded-xl hover:bg-gray-100 border border-gray-200 transition-colors"
-                                                    >
-                                                        Từ chối
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handleKYCAction(doc.id, 'APPROVE')}
-                                                        className="flex-1 px-4 py-2 text-sm font-bold bg-blue-600 text-white rounded-xl hover:bg-blue-700 shadow-sm transition-colors"
-                                                    >
-                                                        ✓ Duyệt
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ))
-                                )}
-                            </div>
-                        )}
 
                         {/* Appeals Tab */}
                         {activeTab === 'appeals' && (
@@ -772,98 +641,6 @@ export default function IntegrityDashboard() {
                             </div>
                         )}
 
-                        {/* Worker Fraud Tab */}
-                        {activeTab === 'worker-fraud' && (
-                            <div className="space-y-6">
-                                <div className="bg-gradient-to-r from-orange-50 to-rose-50 border border-orange-100 p-5 rounded-2xl flex items-center gap-4">
-                                    <div className="w-12 h-12 bg-white rounded-2xl shadow-sm border border-orange-100 flex items-center justify-center text-orange-600">
-                                        <AlertCircle className="w-6 h-6" />
-                                    </div>
-                                    <div>
-                                        <h4 className="font-black text-orange-900 text-lg">Giám sát Công trường bằng AI</h4>
-                                        <p className="text-sm text-orange-800 font-medium">Auto-pilot: Lọc báo cáo Check-in gian lận GPS/Vị trí & Hình ảnh giả mạo.</p>
-                                    </div>
-                                </div>
-
-                                <div className="grid grid-cols-1 gap-4">
-                                    {workerFraud.length === 0 ? (
-                                        <div className="text-center py-20 bg-white rounded-2xl border border-dashed border-gray-300">
-                                            <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto mb-2" />
-                                            <p className="text-gray-500 font-bold text-lg">Không phát hiện hành vi gian lận nào</p>
-                                        </div>
-                                    ) : (
-                                        workerFraud.map(report => (
-                                            <div key={report.id} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex flex-col md:flex-row gap-6">
-                                                <div className="w-full md:w-56 h-56 bg-gray-100 rounded-xl overflow-hidden relative group">
-                                                    <img src={report.photoUrl} alt="Report" className="w-full h-full object-cover" />
-                                                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-sm">
-                                                        <a href={report.photoUrl} target="_blank" className="text-white text-sm font-bold bg-white/20 px-4 py-2 rounded-lg hover:bg-white/40 border border-white/50 transition-all">Phóng to Ảnh</a>
-                                                    </div>
-                                                </div>
-
-                                                <div className="flex-1 flex flex-col">
-                                                    <div className="flex items-center justify-between mb-4">
-                                                        <div className="flex items-center gap-2">
-                                                            <span className="text-xs font-black bg-rose-100 text-rose-700 px-3 py-1 rounded-lg uppercase tracking-widest border border-rose-200">
-                                                                RỦI RO: {report.riskScore}%
-                                                            </span>
-                                                            <span className="text-base font-black text-gray-900">{report.project.title}</span>
-                                                        </div>
-                                                        <span className="text-xs text-gray-400 font-bold bg-gray-50 px-3 py-1 rounded-lg">{new Date(report.createdAt).toLocaleString('vi-VN')}</span>
-                                                    </div>
-
-                                                    <div className="flex flex-wrap gap-2 mb-4">
-                                                        {report.fraudType.map((t: string) => (
-                                                            <span key={t} className="text-xs font-bold bg-slate-900 text-white px-3 py-1 rounded-lg">
-                                                                {t}
-                                                            </span>
-                                                        ))}
-                                                    </div>
-
-                                                    <div className="bg-rose-50 p-4 rounded-xl border border-rose-100 mb-6 flex-1">
-                                                        <p className="text-sm text-rose-800 font-bold flex gap-2">
-                                                            <span className="text-rose-500">⚠️</span> {report.fraudDetails}
-                                                        </p>
-                                                    </div>
-
-                                                    <div className="flex items-center justify-between mt-auto">
-                                                        <div className="grid grid-cols-2 gap-8 text-sm bg-gray-50 px-4 py-2 rounded-xl">
-                                                            <div>
-                                                                <span className="text-gray-400 text-xs font-bold uppercase tracking-widest block mb-0.5">Thợ chụp:</span>
-                                                                <span className="font-black text-gray-800">{report.workerName}</span>
-                                                            </div>
-                                                            <div>
-                                                                <span className="text-gray-400 text-xs font-bold uppercase tracking-widest block mb-0.5">Nhà thầu QL:</span>
-                                                                <span className="font-black text-gray-800">{report.contractor.name}</span>
-                                                            </div>
-                                                        </div>
-                                                        
-                                                        <div className="flex gap-2">
-                                                            <button
-                                                                onClick={() => {
-                                                                    setModalInput('');
-                                                                    setModalSelect('');
-                                                                    setModalConfig({ isOpen: true, title: 'Từ chối (Hủy Báo cáo)', type: 'rejectReport', targetId: report.id });
-                                                                }}
-                                                                className="px-6 py-2.5 bg-white text-rose-600 rounded-xl text-sm font-bold hover:bg-rose-50 border border-rose-200 transition-colors"
-                                                            >
-                                                                Từ chối
-                                                            </button>
-                                                            <button
-                                                                onClick={() => handleQuickApproveReport(report.id)}
-                                                                className="px-6 py-2.5 bg-emerald-600 text-white rounded-xl text-sm font-bold hover:bg-emerald-700 shadow-sm shadow-emerald-500/20 transition-all"
-                                                            >
-                                                                Đúng, Khẳng định Gian lận
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        ))
-                                    )}
-                                </div>
-                            </div>
-                        )}
                     </div>
                 )}
             </main>
@@ -960,56 +737,6 @@ export default function IntegrityDashboard() {
                     </div>
                 </div>
             )}
-            {/* KYC Detail Drawer */}
-            {previewDoc && (
-                <div className="fixed inset-y-0 right-0 w-full md:w-[450px] bg-white shadow-[-10px_0_40px_rgba(0,0,0,0.1)] transition-transform transform z-[60] flex flex-col">
-                    <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-white z-10">
-                        <h2 className="text-xl font-bold flex items-center gap-2"><Eye className="w-5 h-5 text-indigo-500" /> Chi tiết Hồ sơ KYC</h2>
-                        <button onClick={() => setPreviewDoc(null)} className="p-2 hover:bg-gray-100 rounded-lg text-gray-500"><X className="w-5 h-5"/></button>
-                    </div>
-                    <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-slate-50">
-                        <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
-                            <h3 className="font-bold text-gray-500 text-xs uppercase mb-3">Thông tin Khách hàng</h3>
-                            <div className="space-y-3">
-                                <div className="flex justify-between border-b border-gray-50 pb-2">
-                                    <span className="text-sm text-gray-500">Tên:</span>
-                                    <span className="text-sm font-bold text-gray-900">{previewDoc.customer?.contractorProfile?.displayName || previewDoc.customer?.companyName || previewDoc.customer?.user?.name || '---'}</span>
-                                </div>
-                                <div className="flex justify-between border-b border-gray-50 pb-2">
-                                    <span className="text-sm text-gray-500">Email:</span>
-                                    <span className="text-sm font-medium text-gray-800">{previewDoc.customer?.user?.email}</span>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
-                            <h3 className="font-bold text-gray-500 text-xs uppercase mb-3">Tài liệu Cung cấp</h3>
-                            <div className="aspect-video bg-gray-100 rounded-xl flex flex-col items-center justify-center text-gray-400 mb-4 border border-dashed border-gray-300">
-                                <Eye className="w-8 h-8 opacity-20 mb-2" />
-                                <span className="text-xs font-semibold">Tài liệu đính kèm (Bản chụp)</span>
-                            </div>
-                            <div className="space-y-3">
-                                <div className="flex justify-between items-center text-sm border-b border-gray-50 pb-2">
-                                    <span className="text-gray-500">Phân loại giấy tờ:</span>
-                                    <span className="font-bold bg-blue-50 text-blue-700 px-2 py-0.5 rounded">{previewDoc.documentType}</span>
-                                </div>
-                                <div className="flex justify-between items-center text-sm border-b border-gray-50 pb-2">
-                                    <span className="text-gray-500">Mã tham chiếu:</span>
-                                    <span className="font-mono text-xs bg-gray-100 px-2 py-0.5 rounded text-gray-600">{previewDoc.id.slice(0, 8).toUpperCase()}</span>
-                                </div>
-                                <div className="flex justify-between items-center text-sm">
-                                    <span className="text-gray-500">Ngày đệ trình:</span>
-                                    <span className="font-medium text-gray-700">{new Date(previewDoc.createdAt).toLocaleString('vi-VN')}</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div className="p-6 border-t border-gray-100 bg-white grid grid-cols-2 gap-3">
-                        <button onClick={() => { setModalInput(''); setModalConfig({ isOpen: true, title: 'Từ chối Hồ sơ KYC', type: 'rejectKYC', targetId: previewDoc.id }); setPreviewDoc(null); }} className="px-4 py-3 font-bold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors">Tự chối & Yêu cầu làm lại</button>
-                        <button onClick={() => { handleKYCAction(previewDoc.id, 'APPROVE'); setPreviewDoc(null); }} className="px-4 py-3 font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-600/20 rounded-xl transition-colors">Xác minh Hợp lệ</button>
-                    </div>
-                </div>
-            )}
-            {previewDoc && <div onClick={() => setPreviewDoc(null)} className="fixed inset-0 bg-slate-900/20 backdrop-blur-sm z-50"></div>}
         </div>
     )
 }

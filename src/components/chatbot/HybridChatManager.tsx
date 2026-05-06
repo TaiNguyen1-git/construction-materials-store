@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import { getFirebaseDatabase } from '@/lib/firebase'
-import { ref, onChildAdded, off, push, set } from 'firebase/database'
+import { ref, onChildAdded, onValue, off, push, set } from 'firebase/database'
 import { useAuth } from '@/contexts/auth-context'
 import { ChatMode, GuestIdentity, HybridChatState, LiveChatMessage } from './types'
 import toast from 'react-hot-toast'
@@ -30,6 +30,7 @@ export default function useHybridChatManager({
     const { user, isAuthenticated } = useAuth()
     const [identity, setIdentity] = useState<{ id: string, name: string } | null>(null)
     const [conversationId, setConversationId] = useState<string | null>(null)
+    const [adminPresence, setAdminPresence] = useState<{ id: string, name: string } | null>(null)
 
     // Using refs for callbacks to prevent effect re-runs when functions are recreated in parent
     const onHistoryLoadedRef = useRef(onHistoryLoaded)
@@ -127,9 +128,21 @@ export default function useHybridChatManager({
         };
 
         onChildAdded(messagesRef, handleNewMessage);
+ 
+        // Listen to Admin Presence
+        const statusRef = ref(db, `conversations/${conversationId}/status`);
+        const unsubscribeStatus = onValue(statusRef, (snapshot: any) => {
+            const data = snapshot.val();
+            if (data && data.activeAdmin) {
+                setAdminPresence(data.activeAdmin);
+            } else {
+                setAdminPresence(null);
+            }
+        });
 
         return () => {
             off(messagesRef, 'child_added', handleNewMessage);
+            off(statusRef, 'value', unsubscribeStatus);
         };
     }, [conversationId, identity?.id])
 
@@ -211,6 +224,7 @@ export default function useHybridChatManager({
         connectToAgent,
         identity,
         conversationId,
+        adminPresence,
         saveMessageToFirebase,
         sendMessage: async (content: string, fileData?: any) => {
             if (!conversationId || !identity) return false;

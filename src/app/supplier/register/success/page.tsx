@@ -78,7 +78,7 @@ export default function SupplierRegistrationSuccessPage() {
                                 <div className="flex-1">
                                     <h3 className="font-black text-slate-900 uppercase tracking-tight text-sm">Liên hệ tư vấn vận hành</h3>
                                     <p className="text-xs text-slate-500 font-medium mt-1 leading-relaxed">
-                                        Bộ phận quản lý nhà thầu sẽ gọi điện hướng dẫn quy trình đăng tải sản phẩm.
+                                        Bộ phận quản lý đối tác sẽ gọi điện hướng dẫn quy trình đăng tải sản phẩm.
                                     </p>
                                 </div>
                             </div>
