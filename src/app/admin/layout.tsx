@@ -364,7 +364,7 @@ function AdminLayoutContent({
       {/* Main content */}
       <div className={`flex flex-col flex-1 transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] ${isCollapsed ? 'md:pl-20' : 'md:pl-72'}`}>
         {/* Top Header */}
-        <header className="sticky top-0 z-20 flex flex-shrink-0 h-20 bg-white/60 backdrop-blur-xl border-b border-white/20 px-8 items-center justify-between">
+        <header className="sticky top-0 z-50 flex flex-shrink-0 h-20 bg-white/60 backdrop-blur-xl border-b border-white/20 px-8 items-center justify-between">
           <div className="flex items-center md:hidden">
             <button
               type="button"

@@ -166,29 +166,41 @@ export default function ChatbotPremium({ customerId, onClose }: ChatbotProps) {
         }
     }, [hybridManager.identity])
 
-    // Handle Admin Presence
+    // Handle Admin Presence - show "connected" message when admin joins
+    const prevAdminPresenceRef = useRef<any>(null)
     useEffect(() => {
-        if (hybridManager.adminPresence && chatMode !== 'HUMAN') {
-            setChatMode('HUMAN');
-            
-            // Add a one-time system message if not already present
+        const presence = hybridManager.adminPresence
+        const wasAbsent = !prevAdminPresenceRef.current
+        const nowPresent = !!presence
+
+        // Only fire when admin transitions from absent → present
+        if (nowPresent && wasAbsent) {
+            prevAdminPresenceRef.current = presence
+            setChatMode('HUMAN')
+
+            // Add a local system message to UI immediately
             setMessages(prev => {
-                if (prev.some(m => m.id === 'system_admin_connected')) return prev;
+                if (prev.some(m => m.id === 'system_admin_connected')) return prev
                 return [...prev, {
                     id: 'system_admin_connected',
                     userMessage: '',
-                    botMessage: `${hybridManager.adminPresence?.name} đã tham gia cuộc trò chuyện.`,
+                    botMessage: `✅ ${presence.name} đã kết nối và sẵn sàng hỗ trợ bạn!`,
                     suggestions: [],
                     confidence: 1,
                     timestamp: new Date().toISOString(),
                     requiresConfirmation: false,
                     isSystem: true
-                }];
-            });
-            
-            toast.success(`${hybridManager.adminPresence.name} đã kết nối để hỗ trợ bạn!`);
+                }]
+            })
+
+            // NOTE: Do NOT save to Firebase here — admin side already shows it,
+            // and saving would cause onChildAdded to re-deliver it to the customer after session ends.
+            toast.success(`${presence.name} đã kết nối để hỗ trợ bạn!`)
+        } else if (!nowPresent) {
+            prevAdminPresenceRef.current = null
         }
-    }, [hybridManager.adminPresence, chatMode])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [hybridManager.adminPresence])
 
     const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
@@ -265,8 +277,8 @@ export default function ChatbotPremium({ customerId, onClose }: ChatbotProps) {
         }
         setMessages(prev => [...prev, msg])
 
-        // Save to firebase with a system notice for the admin
-        hybridManager.saveMessageToFirebase('Hệ thống: Khách hàng đã kết thúc hỗ trợ và chuyển về AI.', 'SYSTEM');
+        // Save to firebase with a system notice for the admin ONLY (not visible to customer)
+        hybridManager.saveMessageToFirebase('Hệ thống: Khách hàng đã kết thúc hỗ trợ và chuyển về AI.', 'SYSTEM', { adminOnly: true });
     }
 
     // Hidden pages list

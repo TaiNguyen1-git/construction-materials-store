@@ -92,9 +92,14 @@ export default function useHybridChatManager({
                         conversationId
                     })) as LiveChatMessage[];
 
-                    // Sort by timestamp
-                    historyMessages.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-                    onHistoryLoadedRef.current?.(historyMessages);
+                    // Sort by timestamp and filter out admin-only messages
+                    historyMessages
+                        .filter((m: any) => !m.adminOnly)
+                        .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+                    
+                    const filtered = historyMessages.filter((m: any) => !m.adminOnly)
+                    filtered.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+                    onHistoryLoadedRef.current?.(filtered);
                 }
             } catch (err) {
                 console.error("Error fetching history:", err);
@@ -114,6 +119,9 @@ export default function useHybridChatManager({
         const handleNewMessage = (snapshot: any) => {
             const data = snapshot.val();
             if (data) {
+                // Skip admin-only system messages on customer side
+                if (data.adminOnly) return;
+
                 const message: LiveChatMessage = {
                     ...data,
                     id: snapshot.key,
