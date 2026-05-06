@@ -130,6 +130,18 @@ function MessagesContent() {
     // Load Chat Data
     useEffect(() => { if (user) fetchConversations() }, [user])
 
+    // Sync state to URL for Service Worker notification suppression
+    useEffect(() => {
+        if (activeTab === 'chat' && selectedId) {
+            const params = new URLSearchParams(window.location.search)
+            if (params.get('id') !== selectedId || params.get('tab') !== 'chat') {
+                params.set('id', selectedId)
+                params.set('tab', 'chat')
+                router.push(`/admin/messages?${params.toString()}`, { scroll: false })
+            }
+        }
+    }, [selectedId, activeTab, router])
+
     useEffect(() => {
         if (!selectedId) return
         const db = getFirebaseDatabase()

@@ -206,15 +206,15 @@ export default function ChatbotPremium({ customerId, onClose }: ChatbotProps) {
         const msg: ChatMessage = {
             id: Date.now().toString(),
             userMessage: '',
-            botMessage: 'Đã chuyển về chế độ AI tự động. Tôi có thể giúp gì tiếp ạ?',
+            botMessage: 'Đã chuyển về chế độ AI tự động. Bạn cần trợ giúp gì thêm?',
             suggestions: ['Tra cứu đơn hàng', 'Tìm sản phẩm'],
             confidence: 1,
             timestamp: new Date().toISOString()
         }
         setMessages(prev => [...prev, msg])
 
-        // Save to firebase
-        hybridManager.saveMessageToFirebase(msg.botMessage, 'AI');
+        // Save to firebase with a system notice for the admin
+        hybridManager.saveMessageToFirebase('Hệ thống: Khách hàng đã kết thúc hỗ trợ và chuyển về AI.', 'SYSTEM');
     }
 
     // Hidden pages list

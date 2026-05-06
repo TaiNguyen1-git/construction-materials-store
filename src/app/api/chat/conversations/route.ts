@@ -184,21 +184,93 @@ export async function POST(req: NextRequest) {
                     projectId: projectId || null,
                     projectTitle: projectTitle || null
                 }
-            })
+            });
+            
+            if (!conversation) {
+                throw new Error('Failed to create conversation');
+            }
+            const currentConv = conversation;
 
-            // Create notification for the recipient
+            // Create notification for the recipient(s)
             try {
-                await prisma.notification.create({
-                    data: {
-                        userId: decodedRecipientId,
-                        title: 'Tin nhắn tư vấn mới',
-                        message: `Bạn có một yêu cầu tư vấn mới từ ${user1Name}.`,
-                        type: 'INFO',
-                        referenceId: conversation.id,
-                        referenceType: 'CONVERSATION',
-                        metadata: { url: `/messages?id=${conversation.id}` }
+                if (isAdminSupportChannel) {
+                    // Notify all admins/managers
+                    const admins = await prisma.user.findMany({
+                        where: {
+                            role: { in: ['MANAGER', 'EMPLOYEE'] }
+                        },
+                        select: { id: true }
+                    });
+
+                    if (admins.length > 0) {
+                        const adminIds = admins.map(a => a.id);
+                        
+                        // Create in DB
+                        await prisma.notification.createMany({
+                            data: adminIds.map(adminId => ({
+                                userId: adminId,
+                                title: 'Yêu cầu hỗ trợ mới',
+                                message: `${user1Name} đang cần hỗ trợ trực tuyến.`,
+                                type: 'INFO',
+                                priority: 'HIGH',
+                                referenceId: currentConv.id,
+                                referenceType: 'CONVERSATION',
+                                metadata: { url: `/admin/messages?id=${currentConv.id}` }
+                            }))
+                        });
+
+                        // Push to Firebase for real-time
+                        const { pushNotificationToFirebase } = await import('@/lib/firebase-notifications');
+                        for (const adminId of adminIds) {
+                            await pushNotificationToFirebase({
+                                userId: adminId,
+                                userRole: 'MANAGER', // Default for push logic
+                                title: 'Yêu cầu hỗ trợ mới',
+                                message: `${user1Name} đang cần hỗ trợ trực tuyến.`,
+                                type: 'INFO',
+                                priority: 'HIGH',
+                                read: false,
+                                createdAt: new Date().toISOString(),
+                                referenceId: currentConv.id,
+                                referenceType: 'CONVERSATION',
+                                data: { url: `/admin/messages?id=${currentConv.id}` }
+                            });
+                        }
                     }
-                })
+                } else {
+                    // Original single notification logic for direct chats
+                    await prisma.notification.create({
+                        data: {
+                            userId: decodedRecipientId,
+                            title: 'Tin nhắn tư vấn mới',
+                            message: `Bạn có một yêu cầu tư vấn mới từ ${user1Name}.`,
+                            type: 'INFO',
+                            referenceId: currentConv.id,
+                            referenceType: 'CONVERSATION',
+                            metadata: { url: `/messages?id=${currentConv.id}` }
+                        }
+                    })
+
+                    // Push to Firebase for direct recipient
+                    try {
+                        const { pushNotificationToFirebase } = await import('@/lib/firebase-notifications');
+                        await pushNotificationToFirebase({
+                            userId: decodedRecipientId,
+                            userRole: 'CUSTOMER', // Fallback
+                            title: 'Tin nhắn tư vấn mới',
+                            message: `Bạn có một yêu cầu tư vấn mới từ ${user1Name}.`,
+                            type: 'INFO',
+                            priority: 'MEDIUM',
+                            read: false,
+                            createdAt: new Date().toISOString(),
+                            referenceId: currentConv.id,
+                            referenceType: 'CONVERSATION',
+                            data: { url: `/messages?id=${currentConv.id}` }
+                        });
+                    } catch (fbErr) {
+                        console.error('Firebase push failed:', fbErr);
+                    }
+                }
             } catch (notifyError) {
                 console.error('Failed to create notification:', notifyError)
             }
@@ -207,7 +279,7 @@ export async function POST(req: NextRequest) {
             if (body.initialMessage) {
                 const message = await prisma.message.create({
                     data: {
-                        conversationId: conversation.id,
+                        conversationId: currentConv.id,
                         senderId: currentUserId,
                         senderName: user1Name,
                         content: body.initialMessage,
@@ -217,7 +289,7 @@ export async function POST(req: NextRequest) {
 
                 // Update conversation last message
                 await prisma.conversation.update({
-                    where: { id: conversation.id },
+                    where: { id: currentConv.id },
                     data: {
                         lastMessage: body.initialMessage.substring(0, 100),
                         lastMessageAt: new Date(),
@@ -230,7 +302,7 @@ export async function POST(req: NextRequest) {
                     const { getFirebaseDatabase } = await import('@/lib/firebase')
                     const { ref, push, set } = await import('firebase/database')
                     const db = getFirebaseDatabase()
-                    const messageRef = ref(db, `conversations/${conversation.id}/messages/${message.id}`)
+                    const messageRef = ref(db, `conversations/${currentConv.id}/messages/${message.id}`)
                     await set(messageRef, {
                         id: message.id,
                         senderId: currentUserId,
@@ -245,12 +317,17 @@ export async function POST(req: NextRequest) {
             }
         }
 
+        const finalConversation = conversation;
+        if (!finalConversation) {
+            return NextResponse.json({ message: 'Conversation not found' }, { status: 404 });
+        }
+
         // Format the response for the frontend
-        const isP1 = conversation.participant1Id === userId
+        const isP1 = finalConversation.participant1Id === userId
         const formattedConv = {
-            ...conversation,
-            otherUserId: isP1 ? conversation.participant2Id : conversation.participant1Id,
-            otherUserName: isP1 ? conversation.participant2Name : conversation.participant1Name,
+            ...finalConversation,
+            otherUserId: isP1 ? finalConversation.participant2Id : finalConversation.participant1Id,
+            otherUserName: isP1 ? finalConversation.participant2Name : finalConversation.participant1Name,
             unreadCount: 0
         }
 

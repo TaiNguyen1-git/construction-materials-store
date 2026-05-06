@@ -140,47 +140,95 @@ export async function POST(request: NextRequest) {
                 metadata: message.metadata || null
             })
 
-            // Trigger Web Push Notification if sending to Admin Support
-            console.log('[CHAT_MSG] Push check:', { isSupplierConv, isAdminUser, senderId, userId })
+            // Trigger Web Push and In-App Notifications if sending to Admin Support
+            console.log('[CHAT_MSG] Notification check:', { isSupplierConv, isAdminUser, senderId, userId })
             if (isSupplierConv && !isAdminUser) {
-                console.log('[CHAT_MSG] Triggering push notification lookup...')
-                // Fetch all admins with push subscriptions
-                const adminSubscriptions = await prisma.userPushSubscription.findMany({
+                console.log('[CHAT_MSG] Triggering notifications lookup...')
+                
+                // 1. Fetch all admins with roles MANAGER/EMPLOYEE
+                const admins = await prisma.user.findMany({
                     where: {
-                        user: {
-                            role: { in: ['MANAGER', 'EMPLOYEE'] }
-                        }
-                    }
+                        role: { in: ['MANAGER', 'EMPLOYEE'] }
+                    },
+                    select: { id: true }
                 })
-                console.log('[CHAT_MSG] Found admin subscriptions:', adminSubscriptions.length)
+                
+                const adminIds = admins.map(a => a.id)
 
-                if (adminSubscriptions.length > 0) {
-                    const webpush = (await import('@/lib/webpush')).default
-                    const payload = JSON.stringify({
-                        title: `Khách hảng mới: ${senderName}`,
-                        body: content || (fileUrl ? 'Đã gửi một tệp đính kèm' : 'Đang gửi tin nhắn...'),
-                        icon: '/images/smartbuild_bot.png',
-                        url: `/admin/messages?id=${conversationId}`
-                    })
-
-                    // Send push to all registered admins
-                    adminSubscriptions.forEach((sub: any) => {
-                        // We don't necessarily need to await each one synchronously 
-                        // but we should handle individual failures
-                        webpush.sendNotification(
-                            {
-                                endpoint: sub.endpoint,
-                                keys: sub.keys as any
-                            },
-                            payload
-                        ).catch((err: any) => {
-                            if (err.statusCode === 410 || err.statusCode === 404) {
-                                // Subscription has expired or is no longer valid
-                                prisma.userPushSubscription.delete({ where: { id: sub.id } }).catch(() => { })
-                            }
-                            console.error('Push failed for sub:', sub.id, err.message)
+                if (adminIds.length > 0) {
+                    // 2. Create In-App Notifications in Prisma
+                    try {
+                        await prisma.notification.createMany({
+                            data: adminIds.map(adminId => ({
+                                userId: adminId,
+                                title: `Tin nhắn mới từ ${senderName}`,
+                                message: content || (fileUrl ? 'Đã gửi một tệp đính kèm' : 'Đang nhắn tin...'),
+                                type: 'INFO',
+                                priority: 'MEDIUM',
+                                referenceId: conversationId,
+                                referenceType: 'CONVERSATION',
+                                metadata: { url: `/admin/messages?id=${conversationId}` }
+                            }))
                         })
+                    } catch (dbNotifyErr) {
+                        console.error('Failed to create DB notifications:', dbNotifyErr)
+                    }
+
+                    // 3. Push to Firebase for real-time bell update
+                    try {
+                        const { pushNotificationToFirebase } = await import('@/lib/firebase-notifications')
+                        for (const adminId of adminIds) {
+                            await pushNotificationToFirebase({
+                                userId: adminId,
+                                userRole: 'MANAGER',
+                                title: `Tin nhắn mới từ ${senderName}`,
+                                message: content || (fileUrl ? 'Đã gửi một tệp đính kèm' : 'Đang nhắn tin...'),
+                                type: 'INFO',
+                                priority: 'MEDIUM',
+                                read: false,
+                                createdAt: new Date().toISOString(),
+                                referenceId: conversationId,
+                                referenceType: 'CONVERSATION',
+                                data: { url: `/admin/messages?id=${conversationId}` }
+                            })
+                        }
+                    } catch (fbNotifyErr) {
+                        console.error('Failed to push Firebase notifications:', fbNotifyErr)
+                    }
+
+                    // 4. Existing Web Push Notification logic
+                    const adminSubscriptions = await prisma.userPushSubscription.findMany({
+                        where: {
+                            userId: { in: adminIds }
+                        }
                     })
+                    
+                    console.log('[CHAT_MSG] Found admin web-push subscriptions:', adminSubscriptions.length)
+
+                    if (adminSubscriptions.length > 0) {
+                        const webpush = (await import('@/lib/webpush')).default
+                        const payload = JSON.stringify({
+                            title: `Khách hàng mới: ${senderName}`,
+                            body: content || (fileUrl ? 'Đã gửi một tệp đính kèm' : 'Đang gửi tin nhắn...'),
+                            icon: '/images/smartbuild_bot.png',
+                            url: `/admin/messages?id=${conversationId}`
+                        })
+
+                        adminSubscriptions.forEach((sub: any) => {
+                            webpush.sendNotification(
+                                {
+                                    endpoint: sub.endpoint,
+                                    keys: sub.keys as any
+                                },
+                                payload
+                            ).catch((err: any) => {
+                                if (err.statusCode === 410 || err.statusCode === 404) {
+                                    prisma.userPushSubscription.delete({ where: { id: sub.id } }).catch(() => { })
+                                }
+                                console.error('Push failed for sub:', sub.id, err.message)
+                            })
+                        })
+                    }
                 }
             }
 
