@@ -382,10 +382,21 @@ export default function NotificationBell() {
     }
   }
 
+  const [dropdownPos, setDropdownPos] = useState<{ top: number; right: number } | null>(null)
+  const bellRef = useState<HTMLButtonElement | null>(null)
+
+  const handleToggle = (e: React.MouseEvent<HTMLButtonElement>) => {
+    if (!isOpen) {
+      const rect = e.currentTarget.getBoundingClientRect()
+      setDropdownPos({ top: rect.bottom + 8, right: window.innerWidth - rect.right })
+    }
+    setIsOpen(!isOpen)
+  }
+
   return (
     <div className="relative">
       <button
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={handleToggle}
         className="relative p-2 text-gray-600 hover:text-gray-900 focus:outline-none"
       >
         <Bell className="w-6 h-6" />
@@ -396,8 +407,14 @@ export default function NotificationBell() {
         )}
       </button>
 
-      {isOpen && (
-        <div className="absolute right-0 mt-2 w-80 bg-white rounded-md shadow-lg z-50 border border-gray-200">
+      {isOpen && dropdownPos && (
+        <>
+          {/* Backdrop to close on outside click */}
+          <div className="fixed inset-0 z-[199]" onClick={() => setIsOpen(false)} />
+          <div
+            className="fixed w-80 bg-white rounded-md shadow-lg border border-gray-200 z-[200]"
+            style={{ top: dropdownPos.top, right: dropdownPos.right }}
+          >
           <div className="p-4 border-b border-gray-200">
             <div className="flex justify-between items-center">
               <div className="flex items-center gap-2">
@@ -497,6 +514,7 @@ export default function NotificationBell() {
             ) : null}
           </div>
         </div>
+        </>
       )}
     </div>
   )
