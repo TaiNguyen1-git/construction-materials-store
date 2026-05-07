@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/contexts/auth-context'
-import { Shield, AlertTriangle, FileText, CheckCircle, Clock, Download, X, ShieldCheck, HeartPulse, Building2, Zap, ArrowUpRight, History, CreditCard, Lock } from 'lucide-react'
+import { Shield, AlertTriangle, FileText, CheckCircle, Clock, Download, X, ShieldCheck, HeartPulse, Building2, Zap, ArrowUpRight, History, CreditCard, Lock, Loader2, Camera } from 'lucide-react'
 import FormModal from '@/components/FormModal'
-import { toast } from 'react-hot-toast'
+import { Toaster, toast } from 'react-hot-toast'
 
 export default function ContractorInsurancePage() {
     const { user } = useAuth()
@@ -13,6 +13,7 @@ export default function ContractorInsurancePage() {
     const [showBuyModal, setShowBuyModal] = useState(false)
     const [selectedFiles, setSelectedFiles] = useState<File[]>([])
     const [buyingType, setBuyingType] = useState<string | null>(null)
+    const [loading, setLoading] = useState(false)
 
     // Form state for claim
     const [claimForm, setClaimForm] = useState({
@@ -25,7 +26,7 @@ export default function ContractorInsurancePage() {
         if (e.target.files && e.target.files.length > 0) {
             const newFiles = Array.from(e.target.files)
             setSelectedFiles([...selectedFiles, ...newFiles])
-            toast.success(`Protocol: ${newFiles.length} evidence tokens registered`)
+            toast.success(`Đã đăng ký ${newFiles.length} tệp chứng cứ`);
         }
     }
 
@@ -34,9 +35,9 @@ export default function ContractorInsurancePage() {
         toast.promise(
             new Promise((resolve) => setTimeout(resolve, 2000)),
             {
-                loading: 'Initializing Institutional Contract...',
-                success: 'Protocol registered successfully! Awaiting fiscal settlement.',
-                error: 'Transmission Failure'
+                loading: 'Đang khởi tạo hợp đồng...',
+                success: 'Hợp đồng đã được đăng ký thành công! Đang chờ quyết toán.',
+                error: 'Lỗi truyền tải dữ liệu'
             }
         ).then(() => {
             setShowBuyModal(false)
@@ -47,23 +48,23 @@ export default function ContractorInsurancePage() {
     const insuranceTypes = [
         {
             id: 'MATERIAL_TRANSIT',
-            name: 'Material Transit Protocol',
-            desc: 'Protects bulk construction assets during logistics and deployment phases.',
-            price: 'From 0.1% Asset Value',
+            name: 'Bảo hiểm Vận chuyển Vật tư',
+            desc: 'Bảo vệ vật tư xây dựng trong quá trình vận chuyển và tập kết.',
+            price: 'Từ 0.1% giá trị tài sản',
             icon: <Building2 className="w-6 h-6" />
         },
         {
             id: 'CONSTRUCTION_ALL_RISK',
-            name: 'CAR Risk Mitigation (CAR)',
-            desc: 'Comprehensive structural, asset, and third-party liability coverage.',
-            price: 'From 0.5% Project Value',
+            name: 'Bảo hiểm mọi rủi ro (CAR)',
+            desc: 'Bảo hiểm toàn diện cho cấu trúc, tài sản và trách nhiệm bên thứ ba.',
+            price: 'Từ 0.5% giá trị dự án',
             icon: <ShieldCheck className="w-6 h-6" />
         },
         {
             id: 'WORKERS_COMPENSATION',
-            name: 'Force Integrity Protection',
-            desc: 'Operational accident coverage for ground personnel and engineering teams.',
-            price: '200.000 VNĐ / Unit / Year',
+            name: 'Bảo hiểm tai nạn con người',
+            desc: 'Bảo hiểm tai nạn lao động cho công nhân và đội ngũ kỹ sư.',
+            price: '200.000 VNĐ / Người / Năm',
             icon: <HeartPulse className="w-6 h-6" />
         }
     ]
@@ -73,7 +74,7 @@ export default function ContractorInsurancePage() {
             id: '1',
             policyNumber: 'BH-MAT-2024-00123',
             type: 'MATERIAL_TRANSIT',
-            insurer: 'PVI Institutional Insurance',
+            insurer: 'Bảo hiểm PVI',
             coverage: 500000000,
             expiryDate: '2024-05-30',
             status: 'ACTIVE',
@@ -83,7 +84,7 @@ export default function ContractorInsurancePage() {
             id: '2',
             policyNumber: 'BH-CAR-2024-00456',
             type: 'CONSTRUCTION_ALL_RISK',
-            insurer: 'Bao Viet Global',
+            insurer: 'Bảo hiểm Bảo Việt',
             coverage: 2000000000,
             expiryDate: '2024-12-31',
             status: 'ACTIVE',
@@ -104,18 +105,22 @@ export default function ContractorInsurancePage() {
 
     const submitClaim = () => {
         if (!claimForm.description || !claimForm.estimatedLoss) {
-            toast.error('Context validation failed: Incident data incomplete')
+            toast.error('Thông tin không đầy đủ: Vui lòng nhập chi tiết sự cố')
             return
         }
 
+        setLoading(true)
         toast.promise(
             new Promise((resolve) => setTimeout(resolve, 1500)),
             {
-                loading: 'Transmitting claim protocol to underwriter...',
-                success: 'Claim authorized! Reference: CLM-2024-8892',
-                error: 'Submission Timeout'
+                loading: 'Đang gửi yêu cầu bồi thường đến đơn vị bảo hiểm...',
+                success: 'Yêu cầu bồi thường đã được tiếp nhận! Mã tham chiếu: CLM-2024-8892',
+                error: 'Lỗi gửi dữ liệu (Timeout)'
             }
-        ).then(() => setReportingClaim(null))
+        ).then(() => {
+            setLoading(false)
+            setReportingClaim(null)
+        })
     }
 
     return (
@@ -225,7 +230,7 @@ export default function ContractorInsurancePage() {
             <FormModal
                 isOpen={showBuyModal}
                 onClose={() => setShowBuyModal(false)}
-                title="Initialize New Coverage Protocol"
+                title="Khởi tạo hợp đồng bảo hiểm mới"
                 size="lg"
             >
                 <div className="p-8 space-y-8 animate-in zoom-in duration-300">
@@ -263,7 +268,7 @@ export default function ContractorInsurancePage() {
             <FormModal
                 isOpen={!!viewingPolicy}
                 onClose={() => setViewingPolicy(null)}
-                title="Operational Contract Audit"
+                title="Kiểm tra chi tiết hợp đồng bảo hiểm"
                 size="lg"
             >
                 {viewingPolicy && (
@@ -401,53 +406,12 @@ export default function ContractorInsurancePage() {
                         <div className="flex gap-4 pt-8 border-t border-slate-100">
                             <button onClick={() => setReportingClaim(null)} className="flex-1 py-3 bg-slate-100 text-slate-500 rounded-xl font-bold text-xs uppercase tracking-wider hover:bg-slate-200 transition-all">Hủy bỏ</button>
                             <button onClick={submitClaim} className="flex-[2] py-3 bg-rose-600 text-white rounded-xl font-bold text-xs uppercase tracking-wider shadow-lg hover:bg-rose-700 transition-all flex items-center justify-center gap-2 active:scale-95">
-                                <ShieldAlert size={18} /> Gửi yêu cầu bồi thường
+                                {loading ? <Loader2 size={16} className="animate-spin text-white" /> : 'Gửi yêu cầu bồi thường'}
                             </button>
                         </div>
                     </div>
                 )}
             </FormModal>
         </div>
-    )
-}
-
-function Camera(props: any) {
-    return (
-        <svg
-            {...props}
-            xmlns="http://www.w3.org/2000/svg"
-            width="24"
-            height="24"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-        >
-            <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" />
-            <circle cx="12" cy="13" r="3" />
-        </svg>
-    )
-}
-
-function ShieldAlert(props: any) {
-    return (
-        <svg
-            {...props}
-            xmlns="http://www.w3.org/2000/svg"
-            width="24"
-            height="24"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-        >
-            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10" />
-            <path d="M12 8v4" />
-            <path d="M12 16h.01" />
-        </svg>
     )
 }

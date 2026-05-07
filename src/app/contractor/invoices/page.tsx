@@ -1,6 +1,8 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import { useAuth } from '@/contexts/auth-context'
 import { fetchWithAuth } from '@/lib/api-client'
 import { Receipt, Download, FileText, CheckCircle, Clock, AlertTriangle, Eye, ArrowUpRight, Search, Filter, ShieldCheck, Zap, Briefcase, FileSearch } from 'lucide-react'
@@ -46,6 +48,7 @@ interface InvoiceDetail extends Invoice {
 }
 
 export default function ContractorInvoicesPage() {
+    const pathname = usePathname()
     const { user, isAuthenticated } = useAuth()
     const [viewingInvoice, setViewingInvoice] = useState<InvoiceDetail | null>(null)
 
@@ -119,6 +122,28 @@ export default function ContractorInvoicesPage() {
                         <ShieldCheck size={18} /> Ký hàng loạt
                     </button>
                 </div>
+            </div>
+
+            {/* Tab Navigation */}
+            <div className="flex border-b border-slate-200 gap-8">
+                <Link 
+                    href="/contractor/debt"
+                    className={`pb-4 text-sm font-bold transition-all border-b-2 ${pathname === '/contractor/debt' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
+                >
+                    Công nợ đối tác
+                </Link>
+                <Link 
+                    href="/contractor/wallet"
+                    className={`pb-4 text-sm font-bold transition-all border-b-2 ${pathname === '/contractor/wallet' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
+                >
+                    Ví hoa hồng
+                </Link>
+                <Link 
+                    href="/contractor/invoices"
+                    className={`pb-4 text-sm font-bold transition-all border-b-2 ${pathname === '/contractor/invoices' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
+                >
+                    Hóa đơn VAT
+                </Link>
             </div>
 
             {/* Invoices List Table - Bento Architecture */}

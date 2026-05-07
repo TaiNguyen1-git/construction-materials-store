@@ -9,7 +9,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import FormModal from '@/components/FormModal'
-import { Toaster } from 'react-hot-toast'
+import { Toaster, toast } from 'react-hot-toast'
 import { useAuth } from '@/contexts/auth-context'
 import {
     Building2,
@@ -33,7 +33,9 @@ import {
     ArrowUpRight,
     Zap,
     Briefcase,
-    FileLock
+    FileLock,
+    AlertCircle,
+    Loader2
 } from 'lucide-react'
 import { formatCurrency } from '@/lib/format-utils'
 
@@ -54,13 +56,16 @@ export default function ContractorContractsPage() {
     const { user } = useAuth()
     const [contracts, setContracts] = useState<Contract[]>([])
     const [selectedContract, setSelectedContract] = useState<Contract | null>(null)
+    const [showAmendmentModal, setShowAmendmentModal] = useState(false)
+    const [amendmentReason, setAmendmentReason] = useState('')
+    const [submitting, setSubmitting] = useState(false)
 
     useEffect(() => {
         setContracts([
             {
                 id: '1',
                 contractNumber: 'HD-CONTRACTOR-001',
-                name: 'Strategic Infrastructure Provider Agreement 2025',
+                name: 'Hợp đồng Cung ứng Hạ tầng Chiến lược 2025',
                 type: 'DISCOUNT',
                 status: 'ACTIVE',
                 validFrom: '2025-01-01',
@@ -82,9 +87,9 @@ export default function ContractorContractsPage() {
 
     const getStatusText = (status: string) => {
         switch (status) {
-            case 'ACTIVE': return 'Legally Binding'
-            case 'EXPIRED': return 'Terminated'
-            case 'PENDING': return 'Await Signature'
+            case 'ACTIVE': return 'Hợp đồng chính thức'
+            case 'EXPIRED': return 'Đã tất toán'
+            case 'PENDING': return 'Đang chờ ký'
             default: return status
         }
     }
@@ -96,14 +101,17 @@ export default function ContractorContractsPage() {
                 <div className="space-y-1">
                     <h1 className="text-3xl font-bold text-slate-900 tracking-tight flex items-center gap-3">
                         <FileLock className="w-8 h-8 text-blue-600" />
-                        Legal Agreements
+                        Hợp đồng & Cam kết
                     </h1>
                     <p className="text-slate-500 text-sm font-medium">Quản lý các cam kết hợp tác & Điều khoản ưu đãi B2B</p>
                 </div>
 
                 <div className="flex items-center gap-3">
-                    <button className="px-6 py-3 bg-blue-600 text-white rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-blue-700 transition-all flex items-center gap-2 shadow-md">
-                        <ShieldCheck size={16} /> Request Amendment
+                    <button 
+                        onClick={() => setShowAmendmentModal(true)}
+                        className="px-6 py-3 bg-blue-600 text-white rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-blue-700 transition-all flex items-center gap-2 shadow-md active:scale-95"
+                    >
+                        <ShieldCheck size={16} /> Yêu cầu điều chỉnh
                     </button>
                 </div>
             </div>
@@ -132,7 +140,7 @@ export default function ContractorContractsPage() {
                             <FileText size={40} className="text-slate-200" />
                         </div>
                         <div className="space-y-3">
-                            <h3 className="text-2xl font-bold text-slate-900 tracking-tight">No Active Protocols</h3>
+                            <h3 className="text-2xl font-bold text-slate-900 tracking-tight">Không có hợp đồng hiện dụng</h3>
                             <p className="text-slate-400 font-bold max-w-md mx-auto text-[10px] tracking-widest leading-relaxed uppercase opacity-60">
                                 Liên hệ với chúng tôi để thiết lập khung hợp tác pháp lý & Nhận các đặc quyền tài chính dành riêng cho đối tác.
                             </p>
@@ -141,7 +149,7 @@ export default function ContractorContractsPage() {
                             href="/contact"
                             className="bg-blue-600 text-white px-10 py-4 rounded-xl font-bold uppercase text-[10px] tracking-widest hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/20 active:scale-95 flex items-center gap-3"
                         >
-                            Initiate Agreement <ArrowUpRight size={16} />
+                            Thiết lập hợp đồng <ArrowUpRight size={16} />
                         </Link>
                     </div>
                 ) : (
@@ -167,10 +175,10 @@ export default function ContractorContractsPage() {
 
                                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
                                     {[
-                                        { label: 'Effective Date', value: contract.validFrom, icon: Calendar, color: 'bg-slate-50 text-slate-500', border: 'border-slate-100' },
-                                        { label: 'Termination', value: contract.validTo, icon: Calendar, color: 'bg-slate-50 text-slate-500', border: 'border-slate-100' },
-                                        { label: 'B2B Leverage', value: `${contract.discountPercent}%`, icon: TrendingDown, color: 'bg-emerald-50 text-emerald-600', border: 'border-emerald-100' },
-                                        { label: 'Credit Capacity', value: formatCurrency(contract.creditLimit), icon: Zap, color: 'bg-blue-50 text-blue-600', border: 'border-blue-100' }
+                                        { label: 'Ngày hiệu lực', value: contract.validFrom, icon: Calendar, color: 'bg-slate-50 text-slate-500', border: 'border-slate-100' },
+                                        { label: 'Ngày đáo hạn', value: contract.validTo, icon: Calendar, color: 'bg-slate-50 text-slate-500', border: 'border-slate-100' },
+                                        { label: 'Chiết khấu B2B', value: `${contract.discountPercent}%`, icon: TrendingDown, color: 'bg-emerald-50 text-emerald-600', border: 'border-emerald-100' },
+                                        { label: 'Hạn mức tín dụng', value: formatCurrency(contract.creditLimit), icon: Zap, color: 'bg-blue-50 text-blue-600', border: 'border-blue-100' }
                                     ].map((stat, i) => (
                                         <div key={i} className={`${stat.color.split(' ')[0]} rounded-2xl p-6 border ${stat.border} flex flex-col justify-between h-32 group/stat hover:scale-105 transition-all duration-500`}>
                                             <div className="flex items-center gap-2 text-[9px] font-bold uppercase tracking-widest opacity-60">
@@ -193,13 +201,13 @@ export default function ContractorContractsPage() {
                                         onClick={() => setSelectedContract(contract)}
                                         className="flex-1 md:flex-none flex items-center justify-center gap-3 bg-blue-50 text-blue-600 px-6 py-3.5 rounded-xl font-bold text-[10px] uppercase tracking-widest border border-blue-100 hover:bg-blue-100 transition-all shadow-sm active:scale-95"
                                     >
-                                        <Eye size={16} /> Review Protocol
+                                        <Eye size={16} /> Xem chi tiết
                                     </button>
                                     <button
                                         onClick={() => window.print()}
                                         className="flex-1 md:flex-none flex items-center justify-center gap-3 bg-blue-600 text-white px-6 py-3.5 rounded-xl font-bold text-[10px] uppercase tracking-widest hover:bg-blue-700 transition-all shadow-md shadow-blue-500/10 no-print active:scale-95"
                                     >
-                                        <Download size={16} /> Export Vault
+                                        <Download size={16} /> Xuất file hợp đồng
                                     </button>
                                 </div>
                             </div>
@@ -211,7 +219,7 @@ export default function ContractorContractsPage() {
             <FormModal
                 isOpen={!!selectedContract}
                 onClose={() => setSelectedContract(null)}
-                title="Contractual Protocol"
+                title="Chi tiết điều khoản hợp đồng"
                 size="lg"
             >
                 {selectedContract && (
@@ -231,12 +239,12 @@ export default function ContractorContractsPage() {
                         {/* Detailed Metrics */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                             <div className="space-y-6">
-                                <h4 className="text-[10px] font-bold text-slate-900 uppercase tracking-widest border-b-4 border-blue-600 inline-block pb-1">Institutional Context</h4>
+                                <h4 className="text-[10px] font-bold text-slate-900 uppercase tracking-widest border-b-4 border-blue-600 inline-block pb-1">Thông tin pháp lý</h4>
                                 <div className="space-y-3">
                                     {[
-                                        { label: 'Activation Date', value: selectedContract.validFrom },
-                                        { label: 'Expiration Period', value: selectedContract.validTo },
-                                        { label: 'Account Executive', value: 'Strategic Business Admin' }
+                                        { label: 'Ngày kích hoạt', value: selectedContract.validFrom },
+                                        { label: 'Thời hạn đáo hạn', value: selectedContract.validTo },
+                                        { label: 'Quản lý tài khoản', value: 'Quản trị viên chiến lược' }
                                     ].map((field, i) => (
                                         <div key={i} className="flex justify-between items-center p-4 bg-slate-50 rounded-xl border border-slate-100">
                                             <span className="text-slate-400 font-bold uppercase text-[9px] tracking-widest">{field.label}</span>
@@ -247,24 +255,24 @@ export default function ContractorContractsPage() {
                             </div>
 
                             <div className="space-y-6">
-                                <h4 className="text-[10px] font-bold text-slate-900 uppercase tracking-widest border-b-4 border-emerald-500 inline-block pb-1">Commercial Rights</h4>
+                                <h4 className="text-[10px] font-bold text-slate-900 uppercase tracking-widest border-b-4 border-emerald-500 inline-block pb-1">Quyền lợi thương mại</h4>
                                 <div className="space-y-4">
                                     <div className="bg-emerald-50 p-6 rounded-2xl border border-emerald-100 group hover:shadow-md transition-all duration-300">
                                         <div className="flex justify-between items-center mb-2">
-                                            <span className="text-emerald-800 font-bold uppercase text-[9px] tracking-widest">B2B Discount Rate</span>
+                                            <span className="text-emerald-800 font-bold uppercase text-[9px] tracking-widest">Tỷ lệ chiết khấu B2B</span>
                                             <span className="text-3xl font-bold text-emerald-600 tracking-tight tabular-nums">{selectedContract.discountPercent}%</span>
                                         </div>
                                         <p className="text-[9px] text-emerald-700 font-bold uppercase tracking-widest opacity-60 leading-relaxed italic">
-                                            Priority pricing applied to all digital procurement transactions.
+                                            Giá ưu đãi áp dụng cho tất cả giao dịch mua sắm trực tuyến.
                                         </p>
                                     </div>
                                     <div className="bg-blue-50 p-6 rounded-2xl border border-blue-100 group hover:shadow-md transition-all duration-300">
                                         <div className="flex justify-between items-center mb-2">
-                                            <span className="text-blue-800 font-bold uppercase text-[9px] tracking-widest">Credit Provisioning</span>
+                                            <span className="text-blue-800 font-bold uppercase text-[9px] tracking-widest">Hạn mức tín dụng</span>
                                             <span className="text-2xl font-bold text-blue-600 tracking-tight tabular-nums">{formatCurrency(selectedContract.creditLimit)}</span>
                                         </div>
                                         <p className="text-[9px] text-blue-700 font-bold uppercase tracking-widest opacity-60 leading-relaxed italic">
-                                            Revolving credit limit for high-frequency infrastructure procurement.
+                                            Hạn mức tín dụng xoay vòng cho mua sắm hạ tầng tần suất cao.
                                         </p>
                                     </div>
                                 </div>
@@ -273,12 +281,12 @@ export default function ContractorContractsPage() {
 
                         {/* Terms & Conditions Block */}
                         <div className="space-y-4">
-                            <h4 className="text-[10px] font-bold text-slate-900 uppercase tracking-widest border-b-4 border-slate-900 inline-block pb-1">Terms of Engagement</h4>
+                            <h4 className="text-[10px] font-bold text-slate-900 uppercase tracking-widest border-b-4 border-slate-900 inline-block pb-1">Điều khoản cam kết</h4>
                             <div className="bg-slate-50 p-8 rounded-3xl text-[10px] text-slate-600 space-y-4 max-h-56 overflow-y-auto custom-scrollbar font-bold uppercase tracking-widest leading-loose">
-                                <p className="flex items-start gap-4"><span className="text-slate-900">01 / Assurance:</span> SmartBuild guarantee standard material specifications defined by regional manufacturing protocols.</p>
-                                <p className="flex items-start gap-4"><span className="text-slate-900">02 / Pricing:</span> Valuations remain static throughout the contractual duration, mitigating market volatility risks.</p>
-                                <p className="flex items-start gap-4"><span className="text-slate-900">03 / Logistics:</span> Complimentary expedited delivery for consolidated procurement reaching the designated threshold.</p>
-                                <p className="flex items-start gap-4"><span className="text-slate-900">04 / Settlement:</span> Monthly commercial audits concluded by the 5th business day. Late settlement incurs operational overhead.</p>
+                                <p className="flex items-start gap-4"><span className="text-slate-900">01 / Chất lượng:</span> SmartBuild đảm bảo tiêu chuẩn vật tư theo đúng quy định sản xuất khu vực.</p>
+                                <p className="flex items-start gap-4"><span className="text-slate-900">02 / Giá cả:</span> Định giá được giữ cố định trong suốt thời hạn hợp đồng, giảm thiểu rủi ro biến động thị trường.</p>
+                                <p className="flex items-start gap-4"><span className="text-slate-900">03 / Vận chuyển:</span> Miễn phí giao hàng hỏa tốc cho các đơn hàng đạt ngưỡng tối thiểu theo quy định.</p>
+                                <p className="flex items-start gap-4"><span className="text-slate-900">04 / Thanh toán:</span> Đối soát thương mại định kỳ vào ngày 5 hàng tháng. Thanh toán trễ sẽ chịu phí quá hạn.</p>
                             </div>
                         </div>
 
@@ -287,15 +295,80 @@ export default function ContractorContractsPage() {
                                 onClick={() => setSelectedContract(null)}
                                 className="flex-1 py-4 bg-slate-100 text-slate-400 rounded-xl font-bold text-[10px] uppercase tracking-widest hover:bg-slate-200 transition-all"
                             >
-                                Dismiss
+                                Đóng
                             </button>
                             <button className="flex-[2] py-4 bg-blue-600 text-white rounded-xl font-bold text-[10px] uppercase tracking-widest hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/20 flex items-center justify-center gap-3 group active:scale-95">
                                 <Download size={18} className="group-hover:translate-y-0.5 transition-transform" />
-                                Official Vault Export
+                                Xuất file bản sao chính thức
                             </button>
                         </div>
                     </div>
                 )}
+            </FormModal>
+
+            {/* Amendment Request Modal */}
+            <FormModal
+                isOpen={showAmendmentModal}
+                onClose={() => setShowAmendmentModal(false)}
+                title="Yêu cầu điều chỉnh hợp đồng"
+                size="md"
+            >
+                <div className="p-8 space-y-6">
+                    <div className="bg-amber-50 p-6 rounded-2xl border border-amber-100 flex items-start gap-4">
+                        <AlertCircle className="w-6 h-6 text-amber-600 flex-shrink-0" />
+                        <p className="text-xs font-semibold text-amber-700 leading-relaxed italic">
+                            Các yêu cầu điều chỉnh sẽ được bộ phận pháp lý của SmartBuild xem xét trong vòng 24-48h làm việc.
+                        </p>
+                    </div>
+
+                    <div className="space-y-4">
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-1">Lý do điều chỉnh</label>
+                            <select className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm font-semibold focus:ring-2 focus:ring-blue-600/10 outline-none transition-all appearance-none">
+                                <option>Nâng hạn mức tín dụng</option>
+                                <option>Thay đổi tỷ lệ chiết khấu</option>
+                                <option>Gia hạn thời gian hợp đồng</option>
+                                <option>Thay đổi thông tin pháp nhân</option>
+                                <option>Khác...</option>
+                            </select>
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-1">Chi tiết nội dung cần thay đổi</label>
+                            <textarea
+                                rows={5}
+                                value={amendmentReason}
+                                onChange={(e) => setAmendmentReason(e.target.value)}
+                                placeholder="Mô tả chi tiết mong muốn của bạn..."
+                                className="w-full px-5 py-4 bg-slate-50 border-none rounded-2xl text-sm font-semibold italic focus:ring-2 focus:ring-blue-600/10 outline-none transition-all min-h-[120px]"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="flex gap-4 pt-4">
+                        <button 
+                            onClick={() => setShowAmendmentModal(false)}
+                            className="flex-1 py-3 bg-slate-100 text-slate-500 rounded-xl font-bold text-[10px] uppercase tracking-widest hover:bg-slate-200 transition-all"
+                        >
+                            Hủy bỏ
+                        </button>
+                        <button 
+                            onClick={() => {
+                                setSubmitting(true);
+                                setTimeout(() => {
+                                    setSubmitting(false);
+                                    setShowAmendmentModal(false);
+                                    setAmendmentReason('');
+                                    toast.success('Yêu cầu điều chỉnh đã được gửi thành công!');
+                                }, 1500);
+                            }}
+                            disabled={submitting || !amendmentReason}
+                            className="flex-[2] py-3 bg-blue-600 text-white rounded-xl font-bold text-[10px] uppercase tracking-widest shadow-lg hover:bg-blue-700 active:scale-95 transition-all flex items-center justify-center gap-2"
+                        >
+                            {submitting ? <Loader2 size={16} className="animate-spin" /> : 'Gửi yêu cầu'}
+                        </button>
+                    </div>
+                </div>
             </FormModal>
         </div>
     )

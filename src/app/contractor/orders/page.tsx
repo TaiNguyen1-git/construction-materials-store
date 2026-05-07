@@ -7,6 +7,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import toast, { Toaster } from 'react-hot-toast'
 import {
     Building2,
@@ -55,6 +56,7 @@ interface Order {
 }
 
 export default function ContractorOrdersPage() {
+    const pathname = usePathname()
     const { user, isAuthenticated } = useAuth()
     const queryClient = useQueryClient()
     const [statusFilter, setStatusFilter] = useState('all')
@@ -230,6 +232,28 @@ export default function ContractorOrdersPage() {
                         Đã hoàn tất
                     </button>
                 </div>
+            </div>
+
+            {/* Tab Navigation */}
+            <div className="flex border-b border-slate-200 gap-8">
+                <Link 
+                    href="/contractor/orders"
+                    className={`pb-4 text-sm font-bold transition-all border-b-2 ${pathname === '/contractor/orders' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
+                >
+                    Đơn hàng đã đặt
+                </Link>
+                <Link 
+                    href="/contractor/cart"
+                    className={`pb-4 text-sm font-bold transition-all border-b-2 ${pathname === '/contractor/cart' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
+                >
+                    Giỏ hàng
+                </Link>
+                <Link 
+                    href="/contractor/quick-order"
+                    className={`pb-4 text-sm font-bold transition-all border-b-2 ${pathname === '/contractor/quick-order' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
+                >
+                    Đặt hàng nhanh
+                </Link>
             </div>
 
             {/* Content Table Container */}

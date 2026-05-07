@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import QRPayment from '@/components/QRPayment'
 import { useAuth } from '@/contexts/auth-context'
 import { fetchWithAuth } from '@/lib/api-client'
@@ -34,17 +35,51 @@ import { toast, Toaster } from 'react-hot-toast'
 import React from 'react'
 import { Badge } from '@/components/ui/badge'
 
+interface FinancialSummary {
+    totalDebt: number
+    creditLimit: number
+    escrowBalance: number
+    dueThisWeek: number
+}
+
+interface FinancialProject {
+    id: string
+    name: string
+    startDate: string
+    debtAmount: number
+    nextDueDate: string
+    daysLeft: number
+    hasOverdue: boolean
+}
+
+interface FinancialInvoice {
+    id?: string
+    invoiceNumber: string
+    projectName?: string
+    dueDate?: string
+    amount: number
+    paid?: number
+    status?: string
+}
+
+interface FinancialData {
+    summary: FinancialSummary
+    projects: FinancialProject[]
+    invoices: FinancialInvoice[]
+}
+
 const formatCurrency = (val: number) =>
     new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val)
 
 export default function ContractorFinancialHub() {
+    const pathname = usePathname()
     const { user } = useAuth()
     const [loading, setLoading] = useState(true)
-    const [data, setData] = useState<any>(null)
+    const [data, setData] = useState<FinancialData | null>(null)
 
     // Modal States
     const [showPaymentModal, setShowPaymentModal] = useState(false)
-    const [selectedInvoice, setSelectedInvoice] = useState<any>(null)
+    const [selectedInvoice, setSelectedInvoice] = useState<FinancialInvoice | null>(null)
     const [showCreditRequestModal, setShowCreditRequestModal] = useState(false)
     const [creditRequestAmount, setCreditRequestAmount] = useState('')
     const [creditRequestReason, setCreditRequestReason] = useState('')
@@ -146,6 +181,28 @@ export default function ContractorFinancialHub() {
                 </div>
             </div>
 
+            {/* Tab Navigation */}
+            <div className="flex border-b border-slate-200 gap-8">
+                <Link 
+                    href="/contractor/debt"
+                    className={`pb-4 text-sm font-bold transition-all border-b-2 ${pathname === '/contractor/debt' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
+                >
+                    Công nợ đối tác
+                </Link>
+                <Link 
+                    href="/contractor/wallet"
+                    className={`pb-4 text-sm font-bold transition-all border-b-2 ${pathname === '/contractor/wallet' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
+                >
+                    Ví hoa hồng
+                </Link>
+                <Link 
+                    href="/contractor/invoices"
+                    className={`pb-4 text-sm font-bold transition-all border-b-2 ${pathname === '/contractor/invoices' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
+                >
+                    Hóa đơn VAT
+                </Link>
+            </div>
+
             {/* Financial Status Banner */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Credit Limits Card */}
@@ -215,7 +272,7 @@ export default function ContractorFinancialHub() {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {projects.map((project: any) => (
+                    {projects.map((project: FinancialProject) => (
                         <div key={project.id} className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm hover:shadow-md transition-all flex flex-col h-full">
                             <div className="space-y-6 flex-1">
                                 <div className="flex items-start justify-between">
@@ -290,7 +347,7 @@ export default function ContractorFinancialHub() {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50">
-                            {data?.invoices?.map((inv: any) => (
+                            {data?.invoices?.map((inv: FinancialInvoice) => (
                                 <tr key={inv.id} className="hover:bg-slate-50 transition-all duration-300">
                                     <td className="px-6 py-4 whitespace-nowrap">
                                         <span className="text-xs font-bold text-blue-600">{inv.invoiceNumber}</span>
@@ -304,7 +361,7 @@ export default function ContractorFinancialHub() {
                                         </Badge>
                                     </td>
                                     <td className="px-6 py-4 text-right">
-                                        <span className="text-sm font-bold text-slate-900">{formatCurrency(inv.amount - inv.paid)}</span>
+                                        <span className="text-sm font-bold text-slate-900">{formatCurrency(inv.amount - (inv.paid || 0))}</span>
                                     </td>
                                     <td className="px-6 py-4 text-right">
                                         <button

@@ -8,7 +8,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import {
     ShoppingCart,
     Trash2,
@@ -32,6 +32,7 @@ const formatCurrency = (amount: number) => {
 }
 
 export default function ContractorCartPage() {
+    const pathname = usePathname()
     const { user } = useAuth()
     const router = useRouter()
     const [isProcessing, setIsProcessing] = useState(false)
@@ -199,6 +200,28 @@ export default function ContractorCartPage() {
                                 <p className="text-xs text-gray-500 font-medium mt-0.5">{totalItems} sản phẩm trong giỏ</p>
                             </div>
                         </div>
+                    </div>
+
+                    {/* Tab Navigation */}
+                    <div className="flex border-b border-slate-200 gap-8 mb-8">
+                        <Link 
+                            href="/contractor/orders"
+                            className={`pb-4 text-sm font-bold transition-all border-b-2 ${pathname === '/contractor/orders' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
+                        >
+                            Đơn hàng đã đặt
+                        </Link>
+                        <Link 
+                            href="/contractor/cart"
+                            className={`pb-4 text-sm font-bold transition-all border-b-2 ${pathname === '/contractor/cart' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
+                        >
+                            Giỏ hàng
+                        </Link>
+                        <Link 
+                            href="/contractor/quick-order"
+                            className={`pb-4 text-sm font-bold transition-all border-b-2 ${pathname === '/contractor/quick-order' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
+                        >
+                            Đặt hàng nhanh
+                        </Link>
                     </div>
 
                     {items.length === 0 ? (

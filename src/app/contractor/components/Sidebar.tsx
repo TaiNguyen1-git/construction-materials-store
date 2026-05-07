@@ -24,7 +24,8 @@ import {
     Shield,
     HelpCircle,
     MessageSquare,
-    Sparkles
+    Sparkles,
+    LucideIcon
 } from 'lucide-react'
 import { useContractorCartStore } from '@/stores/contractorCartStore'
 
@@ -40,7 +41,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 
 
     // Grouped navigation items for better organization
-    const navGroups: { title: string; items: { href: string; icon: any; label: string; badge?: number }[] }[] = [
+    const navGroups: { title: string; items: { href: string; icon: LucideIcon; label: string; badge?: number }[] }[] = [
         {
             title: 'Tổng quan',
             items: [
@@ -61,18 +62,9 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
         {
             title: 'Mua sắm & Tài chính',
             items: [
-                { href: '/contractor/quick-order', icon: ClipboardList, label: 'Đặt hàng nhanh' },
-                { href: '/contractor/cart', icon: ShoppingCart, label: 'Giỏ hàng', badge: cartItemCount },
-                { href: '/contractor/orders', icon: Package, label: 'Đơn hàng đã đặt' },
-                { href: '/contractor/debt', icon: CreditCard, label: 'Công nợ' },
-                { href: '/contractor/wallet', icon: Wallet, label: 'Ví hoa hồng & Affiliate' },
-            ]
-        },
-        {
-            title: 'Doanh nghiệp (Enterprise)',
-            items: [
-                { href: '/contractor/invoices', icon: Receipt, label: 'Hóa đơn VAT' },
-                { href: '/contractor/insurance', icon: Shield, label: 'Bảo hiểm công trình' },
+                { href: '/contractor/orders', icon: Package, label: 'Quản lý Đơn hàng' },
+                { href: '/contractor/debt', icon: CreditCard, label: 'Tài chính & Ví' },
+                { href: '/contractor/insurance', icon: Shield, label: 'Dịch vụ & Bảo hiểm' },
             ]
         },
         {

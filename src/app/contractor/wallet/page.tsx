@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
+import Link from 'next/link'
 import {
     Wallet,
     TrendingUp,
@@ -52,6 +53,7 @@ interface WalletData {
 }
 
 export default function ContractorWalletPage() {
+    const pathname = usePathname()
     const { user, isAuthenticated } = useAuth()
     const queryClient = useQueryClient()
     const [showWithdrawModal, setShowWithdrawModal] = useState(false)
@@ -177,6 +179,28 @@ export default function ContractorWalletPage() {
                 </div>
             </div>
 
+            {/* Tab Navigation */}
+            <div className="flex border-b border-slate-200 gap-8">
+                <Link 
+                    href="/contractor/debt"
+                    className={`pb-4 text-sm font-bold transition-all border-b-2 ${pathname === '/contractor/debt' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
+                >
+                    Công nợ đối tác
+                </Link>
+                <Link 
+                    href="/contractor/wallet"
+                    className={`pb-4 text-sm font-bold transition-all border-b-2 ${pathname === '/contractor/wallet' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
+                >
+                    Ví hoa hồng
+                </Link>
+                <Link 
+                    href="/contractor/invoices"
+                    className={`pb-4 text-sm font-bold transition-all border-b-2 ${pathname === '/contractor/invoices' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
+                >
+                    Hóa đơn VAT
+                </Link>
+            </div>
+
             {/* Main Cards Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Balance Card */}
@@ -256,7 +280,7 @@ export default function ContractorWalletPage() {
                         </thead>
                         <tbody className="divide-y divide-slate-50">
                             {wallet.transactions.length > 0 ? (
-                                wallet.transactions.map((tx: any) => (
+                                wallet.transactions.map((tx: Transaction) => (
                                     <tr key={tx.id} className="hover:bg-slate-50 transition-all">
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <span className="text-[11px] font-bold text-slate-500">{new Date(tx.createdAt).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
