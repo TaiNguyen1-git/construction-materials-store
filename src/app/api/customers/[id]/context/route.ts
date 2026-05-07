@@ -22,15 +22,74 @@ export async function GET(
 
         // Check if it's a guest ID
         if (customerId.startsWith('guest_')) {
+            // 1. Try to find a support ticket with this chat session ID
+            const ticket = await prisma.supportTicket.findFirst({
+                where: { chatSessionId: customerId },
+                orderBy: { createdAt: 'desc' }
+            })
+
+            let guestPhone = ticket?.guestPhone || null
+            let guestEmail = ticket?.guestEmail || null
+            let guestName = ticket?.guestName || `Khách #${customerId.replace('guest_', '')}`
+
+            // 2. If no ticket, try to find info in the first message of the conversation
+            if (!guestPhone) {
+                const firstMessage = await prisma.message.findFirst({
+                    where: { 
+                        conversationId: { contains: customerId }, // ID in conversations is usually the guest ID
+                        senderId: customerId 
+                    },
+                    orderBy: { createdAt: 'asc' }
+                })
+                if (firstMessage?.content) {
+                    const phoneMatch = firstMessage.content.match(/(?:SĐT(?: liên hệ)?:\s*)([\d\s\.\-]+)/i)
+                    if (phoneMatch) guestPhone = phoneMatch[1].trim()
+                }
+            }
+
+            // 3. Find orders for this guest (by phone or email if we found them)
+            let recentOrders: any[] = []
+            let totalSpent = 0
+            let totalOrders = 0
+
+            if (guestPhone || guestEmail) {
+                const orders = await prisma.order.findMany({
+                    where: {
+                        OR: [
+                            guestPhone ? { guestPhone } : undefined,
+                            guestEmail ? { guestEmail } : undefined
+                        ].filter(Boolean) as any
+                    },
+                    orderBy: { createdAt: 'desc' },
+                    include: {
+                        orderItems: { select: { id: true } }
+                    }
+                })
+
+                recentOrders = orders.slice(0, 5).map(order => ({
+                    id: order.id,
+                    orderNumber: order.orderNumber,
+                    status: order.status,
+                    totalAmount: order.netAmount || 0,
+                    createdAt: order.createdAt.toISOString(),
+                    itemCount: order.orderItems.length
+                }))
+                totalOrders = orders.length
+                totalSpent = orders.reduce((sum, o) => sum + (o.netAmount || 0), 0)
+            }
+
             return NextResponse.json({
                 success: true,
                 data: {
                     id: customerId,
-                    name: `Khách #${customerId.replace('guest_', '')}`,
+                    name: guestName,
+                    phone: guestPhone,
+                    email: guestEmail,
                     isGuest: true,
-                    totalSpent: 0,
-                    totalOrders: 0,
-                    recentOrders: []
+                    totalSpent,
+                    totalOrders,
+                    recentOrders,
+                    membershipTier: 'NONE'
                 }
             })
         }

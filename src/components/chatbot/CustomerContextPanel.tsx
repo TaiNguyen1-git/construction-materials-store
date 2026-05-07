@@ -21,19 +21,6 @@ export default function CustomerContextPanel({
     const [error, setError] = useState<string | null>(null)
 
     useEffect(() => {
-        if (isGuest) {
-            setCustomer({
-                id: customerId,
-                name: `Khách #${customerId.replace('guest_', '')}`,
-                isGuest: true,
-                totalSpent: 0,
-                totalOrders: 0,
-                recentOrders: []
-            })
-            setLoading(false)
-            return
-        }
-
         fetchCustomerContext()
     }, [customerId, isGuest])
 
@@ -160,7 +147,7 @@ export default function CustomerContextPanel({
                 </div>
 
                 {/* Contact Info */}
-                {!customer.isGuest && (
+                {(customer.phone || customer.email) && (
                     <div className="space-y-2 text-sm">
                         {customer.phone && (
                             <div className="flex items-center gap-2 text-gray-600">
