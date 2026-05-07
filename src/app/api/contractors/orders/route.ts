@@ -40,8 +40,8 @@ export async function GET(request: NextRequest) {
 
         // Get query params
         const { searchParams } = new URL(request.url)
-        const page = parseInt(searchParams.get('page') || '1')
-        const limit = parseInt(searchParams.get('limit') || '20')
+        const page = Math.max(1, parseInt(searchParams.get('page') || '1') || 1)
+        const limit = Math.max(1, Math.min(100, parseInt(searchParams.get('limit') || '20') || 20))
         const status = searchParams.get('status')
         const search = searchParams.get('search')
         const skip = (page - 1) * limit
@@ -110,32 +110,43 @@ export async function GET(request: NextRequest) {
         ])
 
         // Transform orders for frontend
-        const transformedOrders = orders.map(order => ({
-            id: order.id,
-            orderNumber: order.orderNumber,
-            date: order.createdAt.toISOString().split('T')[0],
-            total: order.netAmount,
-            status: order.status,
-            items: order.orderItems.length,
-            paymentMethod: order.paymentMethod,
-            paymentStatus: order.paymentStatus,
-            paymentType: order.paymentType,
-            depositAmount: order.depositAmount,
-            remainingAmount: order.remainingAmount,
-            notes: order.notes,
-            deliveryToken: order.delivery?.deliveryToken,
-            project: order.notes?.includes('Dự án') ? order.notes.split(':')[0] : 'N/A',
-            orderItems: order.orderItems.map(item => ({
-                id: item.id,
-                productId: item.product.id,
-                productName: item.product.name,
-                sku: item.product.sku,
-                image: item.product.images?.[0] || null,
-                quantity: item.quantity,
-                unitPrice: item.unitPrice,
-                totalPrice: item.totalPrice
-            }))
-        }))
+        const transformedOrders = orders.map(order => {
+            let dateStr = 'N/A';
+            try {
+                dateStr = order.createdAt instanceof Date 
+                    ? order.createdAt.toISOString().split('T')[0] 
+                    : new Date(order.createdAt).toISOString().split('T')[0];
+            } catch (e) {
+                console.warn('Invalid date for order:', order.id);
+            }
+
+            return {
+                id: order.id,
+                orderNumber: order.orderNumber,
+                date: dateStr,
+                total: order.netAmount || 0,
+                status: order.status,
+                items: order.orderItems?.length || 0,
+                paymentMethod: order.paymentMethod,
+                paymentStatus: order.paymentStatus,
+                paymentType: order.paymentType,
+                depositAmount: order.depositAmount,
+                remainingAmount: order.remainingAmount,
+                notes: order.notes,
+                deliveryToken: order.delivery?.deliveryToken,
+                project: order.notes?.includes('Dự án') ? order.notes.split(':')[0].replace('Dự án:', '').trim() : 'N/A',
+                orderItems: (order.orderItems || []).map(item => ({
+                    id: item.id,
+                    productId: item.product?.id || 'deleted',
+                    productName: item.product?.name || 'Sản phẩm không tồn tại',
+                    sku: item.product?.sku || 'N/A',
+                    image: item.product?.images?.[0] || null,
+                    quantity: item.quantity,
+                    unitPrice: item.unitPrice,
+                    totalPrice: item.totalPrice
+                }))
+            };
+        })
 
         return NextResponse.json(
             createSuccessResponse({
@@ -150,10 +161,13 @@ export async function GET(request: NextRequest) {
             { status: 200 }
         )
 
-    } catch (error) {
+    } catch (error: any) {
         console.error('Error fetching contractor orders:', error)
         return NextResponse.json(
-            createErrorResponse('Internal server error', 'INTERNAL_ERROR'),
+            createErrorResponse(
+                process.env.NODE_ENV === 'development' ? `Internal server error: ${error.message}` : 'Internal server error', 
+                'INTERNAL_ERROR'
+            ),
             { status: 500 }
         )
     }

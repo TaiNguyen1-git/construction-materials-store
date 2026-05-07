@@ -74,7 +74,16 @@ export class PricingEngine {
         })
 
         if (!product) {
-            throw new Error('Không tìm thấy sản phẩm')
+            return {
+                productId,
+                basePrice: 0,
+                effectivePrice: 0,
+                discountAmount: 0,
+                discountPercent: 0,
+                priceSource: 'BASE',
+                isLocked: true,
+                notes: 'Sản phẩm không tồn tại hoặc đã bị xóa'
+            }
         }
 
         const basePrice = product.price
