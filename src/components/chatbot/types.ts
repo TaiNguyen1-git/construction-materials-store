@@ -117,7 +117,7 @@ export interface CustomerContext {
     name: string;
     email?: string;
     phone?: string;
-    membershipTier?: 'BRONZE' | 'SILVER' | 'GOLD' | 'PLATINUM';
+    membershipTier?: 'BRONZE' | 'SILVER' | 'GOLD' | 'PLATINUM' | 'DIAMOND' | 'NONE';
     totalSpent: number;
     totalOrders: number;
     recentOrders: CustomerOrder[];

@@ -1,6 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { verifyTokenFromRequest } from '@/lib/auth'
+import { OrderStatus } from '@prisma/client'
+
+interface CustomerOrder {
+    id: string
+    orderNumber: string
+    status: OrderStatus
+    totalAmount: number
+    createdAt: string
+    itemCount: number
+}
 
 // GET /api/customers/[id]/context - Get customer context for support chat
 export async function GET(
@@ -85,7 +95,7 @@ export async function GET(
             }
 
             // 3. Find orders for this guest (by phone or email if we found them)
-            let recentOrders: any[] = []
+            let recentOrders: CustomerOrder[] = []
             let totalSpent = 0
             let totalOrders = 0
 
@@ -93,9 +103,9 @@ export async function GET(
                 const orders = await prisma.order.findMany({
                     where: {
                         OR: [
-                            guestPhone ? { guestPhone } : undefined,
-                            guestEmail ? { guestEmail } : undefined
-                        ].filter(Boolean) as any
+                            ...(guestPhone ? [{ guestPhone }] : []),
+                            ...(guestEmail ? [{ guestEmail }] : [])
+                        ]
                     },
                     orderBy: { createdAt: 'desc' },
                     include: {
@@ -201,14 +211,23 @@ export async function GET(
                     select: { id: true }
                 }
             }
-        })
+        }).then(orders => orders.map(order => ({
+            id: order.id,
+            orderNumber: order.orderNumber,
+            status: order.status,
+            totalAmount: order.netAmount || 0,
+            createdAt: order.createdAt.toISOString(),
+            itemCount: order.orderItems.length
+        })))
 
         // Determine membership tier based on total spent
         const totalSpent = orderStats._sum.netAmount || 0
-        let membershipTier: 'BRONZE' | 'SILVER' | 'GOLD' | 'PLATINUM' | 'NONE' = 'BRONZE'
-        if (totalSpent >= 100000000) membershipTier = 'PLATINUM' // 100M+
-        else if (totalSpent >= 50000000) membershipTier = 'GOLD' // 50M+
-        else if (totalSpent >= 10000000) membershipTier = 'SILVER' // 10M+
+        let membershipTier: 'BRONZE' | 'SILVER' | 'GOLD' | 'PLATINUM' | 'DIAMOND' | 'NONE' = 'NONE'
+        if (totalSpent >= 200000000) membershipTier = 'DIAMOND'
+        else if (totalSpent >= 100000000) membershipTier = 'PLATINUM'
+        else if (totalSpent >= 50000000) membershipTier = 'GOLD'
+        else if (totalSpent >= 10000000) membershipTier = 'SILVER'
+        else if (totalSpent > 0) membershipTier = 'BRONZE'
 
         return NextResponse.json({
             success: true,
@@ -220,14 +239,7 @@ export async function GET(
                 membershipTier,
                 totalSpent,
                 totalOrders: orderStats._count.id,
-                recentOrders: recentOrders.map(order => ({
-                    id: order.id,
-                    orderNumber: order.orderNumber,
-                    status: order.status,
-                    totalAmount: order.netAmount || 0,
-                    createdAt: order.createdAt.toISOString(),
-                    itemCount: order.orderItems.length
-                })),
+                recentOrders,
                 isGuest: false
             }
         })

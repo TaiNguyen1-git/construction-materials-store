@@ -7,6 +7,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import FormModal from '@/components/FormModal'
 import { Toaster } from 'react-hot-toast'
 import { useAuth } from '@/contexts/auth-context'
@@ -49,6 +50,7 @@ interface Contract {
 }
 
 export default function ContractorContractsPage() {
+    const pathname = usePathname()
     const { user } = useAuth()
     const [contracts, setContracts] = useState<Contract[]>([])
     const [selectedContract, setSelectedContract] = useState<Contract | null>(null)
@@ -104,6 +106,22 @@ export default function ContractorContractsPage() {
                         <ShieldCheck size={16} /> Request Amendment
                     </button>
                 </div>
+            </div>
+
+            {/* Tab Navigation */}
+            <div className="flex border-b border-slate-200 gap-8 px-1">
+                <Link 
+                    href="/contractor/quotes"
+                    className={`pb-4 text-sm font-bold transition-all border-b-2 ${pathname === '/contractor/quotes' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
+                >
+                    Báo giá & Đấu thầu
+                </Link>
+                <Link 
+                    href="/contractor/contracts"
+                    className={`pb-4 text-sm font-bold transition-all border-b-2 ${pathname === '/contractor/contracts' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
+                >
+                    Quản lý Hợp đồng
+                </Link>
             </div>
 
             {/* Contracts List */}

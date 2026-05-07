@@ -53,12 +53,9 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
         {
             title: 'Quản lý dự án',
             items: [
-                { href: '/contractor/projects', icon: Building2, label: 'Công trình của tôi' },
-                { href: '/contractor/monitoring', icon: Map, label: 'Giám sát thợ (Live)' },
-                { href: '/contractor/organization', icon: Users, label: 'Tổ chức & Đội nhóm' },
-                { href: '/contractor/team', icon: Users, label: 'Đội ngũ thợ' },
-                { href: '/contractor/quotes', icon: PenTool, label: 'Báo giá & Đấu thầu' },
-                { href: '/contractor/contracts', icon: FileText, label: 'Hợp đồng' },
+                { href: '/contractor/projects', icon: Building2, label: 'Quản lý Thi công' },
+                { href: '/contractor/team', icon: Users, label: 'Đội ngũ & Nhân sự' },
+                { href: '/contractor/quotes', icon: PenTool, label: 'Đấu thầu & Hợp đồng' },
             ]
         },
         {

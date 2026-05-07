@@ -1,8 +1,8 @@
 "use client"
 
 import { useState, useEffect } from 'react'
+import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
 import {
     Clock,
@@ -62,6 +62,7 @@ interface QuoteRequest {
 }
 
 export default function ContractorQuotesPage() {
+    const pathname = usePathname()
     const { user } = useAuth()
     const [quotes, setQuotes] = useState<QuoteRequest[]>([])
     const [loading, setLoading] = useState(true)
@@ -192,6 +193,22 @@ export default function ContractorQuotesPage() {
                     </h1>
                     <p className="text-slate-500 text-sm">Quản lý yêu cầu báo giá và chiến lược đấu thầu dự án</p>
                 </div>
+            </div>
+
+            {/* Tab Navigation */}
+            <div className="flex border-b border-slate-200 gap-8">
+                <Link 
+                    href="/contractor/quotes"
+                    className={`pb-4 text-sm font-bold transition-all border-b-2 ${pathname === '/contractor/quotes' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
+                >
+                    Báo giá & Đấu thầu
+                </Link>
+                <Link 
+                    href="/contractor/contracts"
+                    className={`pb-4 text-sm font-bold transition-all border-b-2 ${pathname === '/contractor/contracts' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
+                >
+                    Quản lý Hợp đồng
+                </Link>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

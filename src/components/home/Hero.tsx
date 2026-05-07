@@ -3,9 +3,21 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
-import { Search, MapPin, Package, HardHat, TrendingUp, ChevronDown, ArrowRight, ShieldCheck } from 'lucide-react'
+import { Search, MapPin, Package, HardHat, TrendingUp, ChevronDown, ArrowRight, ShieldCheck, Loader2 } from 'lucide-react'
 import { TOP_SEARCHES, LOCATIONS } from '@/config/home-data'
 import Link from 'next/link'
+
+interface ProductSuggestion {
+    name: string
+    price: string
+}
+
+interface ContractorSuggestion {
+    id: string
+    displayName: string
+    avgRating?: number
+    city?: string
+}
 
 interface HeroProps {
     searchQuery: string
@@ -14,10 +26,10 @@ interface HeroProps {
     setActiveSearchTab: (tab: 'products' | 'contractors') => void
     isSearchFocused: boolean
     setIsSearchFocused: (focused: boolean) => void
-    searchSuggestions: any[]
-    contractorSuggestions: any[]
+    searchSuggestions: ProductSuggestion[]
+    contractorSuggestions: ContractorSuggestion[]
     trendingSearches: { name: string, tag: string }[]
-    featuredContractors: any[]
+    featuredContractors: ContractorSuggestion[]
     contractorSearchLoading: boolean
     selectedLocation: string
     setSelectedLocation: (loc: string) => void
@@ -40,11 +52,13 @@ export default function Hero({
 }: HeroProps) {
     const [isLocationOpen, setIsLocationOpen] = useState(false)
     const [dropdownDirection, setDropdownDirection] = useState<'up' | 'down'>('down')
+    const [isSearching, setIsSearching] = useState(false)
     const searchInputRef = useRef<HTMLInputElement>(null)
     const router = useRouter()
 
     const handleSearch = useCallback((query?: string) => {
         const q = query ?? searchQuery
+        setIsSearching(true)
         if (activeSearchTab === 'products') {
             router.push(`/products?q=${encodeURIComponent(q)}`)
         } else {
@@ -147,6 +161,7 @@ export default function Hero({
                                 onBlur={() => setTimeout(() => setIsSearchFocused(false), 200)}
                                 placeholder={activeSearchTab === 'products' ? "Tên vật liệu, thương hiệu, mã số..." : "Tên thầu, đội thợ, khu vực..."}
                                 className="w-full py-4 outline-none text-slate-800 placeholder-slate-400 font-bold text-lg bg-transparent"
+                                disabled={isSearching}
                             />
 
                             {/* Suggestions */}
@@ -263,9 +278,17 @@ export default function Hero({
 
                         <button 
                             type="submit"
-                            className="bg-indigo-600 hover:bg-indigo-700 text-white font-black py-4 px-12 rounded-[1.5rem] transition-all w-full md:w-auto shadow-xl shadow-indigo-100 active:scale-95 flex items-center justify-center gap-3 tracking-widest text-sm"
+                            disabled={isSearching}
+                            className={`bg-indigo-600 hover:bg-indigo-700 text-white font-black py-4 px-12 rounded-[1.5rem] transition-all w-full md:w-auto shadow-xl shadow-indigo-100 active:scale-95 flex items-center justify-center gap-3 tracking-widest text-sm ${isSearching ? 'opacity-80 cursor-not-allowed' : ''}`}
                         >
-                            TÌM KIẾM
+                            {isSearching ? (
+                                <>
+                                    <Loader2 className="w-5 h-5 animate-spin" />
+                                    ĐANG TÌM...
+                                </>
+                            ) : (
+                                'TÌM KIẾM'
+                            )}
                         </button>
                     </form>
 

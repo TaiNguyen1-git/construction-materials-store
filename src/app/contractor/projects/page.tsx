@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import {
     Building2,
     Search,
@@ -45,6 +46,7 @@ interface Project {
 }
 
 export default function ContractorProjectsPage() {
+    const pathname = usePathname()
     const { user, isAuthenticated } = useAuth()
     const [searchQuery, setSearchQuery] = useState('')
     const [statusFilter, setStatusFilter] = useState('all')
@@ -96,6 +98,22 @@ export default function ContractorProjectsPage() {
                         <RefreshCw className="w-5 h-5" />
                     </button>
                 </div>
+            </div>
+            
+            {/* Tab Navigation */}
+            <div className="flex border-b border-slate-200 gap-8 px-4 sm:px-0">
+                <Link 
+                    href="/contractor/projects"
+                    className={`pb-4 text-sm font-bold transition-all border-b-2 ${pathname === '/contractor/projects' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
+                >
+                    Danh sách công trình
+                </Link>
+                <Link 
+                    href="/contractor/monitoring"
+                    className={`pb-4 text-sm font-bold transition-all border-b-2 ${pathname === '/contractor/monitoring' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
+                >
+                    Giám sát thợ (Live)
+                </Link>
             </div>
 
             {/* Filter Bar */}

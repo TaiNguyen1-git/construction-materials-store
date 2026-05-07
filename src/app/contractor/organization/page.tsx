@@ -9,16 +9,27 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import { fetchWithAuth } from '@/lib/api-client'
 import { toast, Toaster } from 'react-hot-toast'
 import { useAuth } from '@/contexts/auth-context'
 import { Badge } from '@/components/ui/badge'
 
+interface Organization {
+    id: string
+    name: string
+    userRole: string
+    memberCount: number
+    taxCode?: string
+    address?: string
+}
+
 export default function ContractorOrganizationPage() {
+    const pathname = usePathname()
     const { user, isAuthenticated, isLoading: authLoading } = useAuth()
     const router = useRouter()
 
-    const [organizations, setOrganizations] = useState<any[]>([])
+    const [organizations, setOrganizations] = useState<Organization[]>([])
     const [loading, setLoading] = useState(true)
     const [showCreateModal, setShowCreateModal] = useState(false)
     const [createData, setCreateData] = useState({ name: '', taxCode: '', address: '' })
@@ -99,6 +110,22 @@ export default function ContractorOrganizationPage() {
                         <Plus size={18} /> Thêm tổ chức
                     </button>
                 </div>
+            </div>
+            
+            {/* Primary Tab Navigation */}
+            <div className="flex border-b border-slate-200 gap-8 px-4 sm:px-0">
+                <Link 
+                    href="/contractor/team"
+                    className={`pb-4 text-sm font-bold transition-all border-b-2 ${pathname === '/contractor/team' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
+                >
+                    Đội ngũ thợ
+                </Link>
+                <Link 
+                    href="/contractor/organization"
+                    className={`pb-4 text-sm font-bold transition-all border-b-2 ${pathname === '/contractor/organization' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
+                >
+                    Tổ chức & Đội nhóm
+                </Link>
             </div>
 
             {/* Info Banner */}

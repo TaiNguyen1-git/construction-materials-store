@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect, useRef } from 'react'
 import { Map as MapIcon, Users, AlertTriangle, Crosshair, RefreshCw, Navigation, Loader2, Info, ChevronRight, Activity } from 'lucide-react'
+import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import { fetchWithAuth } from '@/lib/api-client'
 import toast, { Toaster } from 'react-hot-toast'
 
@@ -27,6 +29,7 @@ interface WorkerReport {
 }
 
 export default function ContractorMonitoringPage() {
+    const pathname = usePathname()
     const [data, setData] = useState<{ projects: Project[], reports: WorkerReport[] } | null>(null)
     const [loading, setLoading] = useState(true)
     const mapRef = useRef<HTMLDivElement>(null)
@@ -167,8 +170,24 @@ export default function ContractorMonitoringPage() {
     }
 
     return (
-        <div className="h-[calc(100vh-140px)] flex flex-col overflow-hidden">
+        <div className="h-[calc(100vh-140px)] flex flex-col overflow-hidden space-y-6">
             <Toaster position="top-right" />
+            
+            {/* Tab Navigation */}
+            <div className="flex border-b border-slate-200 gap-8 px-4 sm:px-0">
+                <Link 
+                    href="/contractor/projects"
+                    className={`pb-4 text-sm font-bold transition-all border-b-2 ${pathname === '/contractor/projects' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
+                >
+                    Danh sách công trình
+                </Link>
+                <Link 
+                    href="/contractor/monitoring"
+                    className={`pb-4 text-sm font-bold transition-all border-b-2 ${pathname === '/contractor/monitoring' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
+                >
+                    Giám sát thợ (Live)
+                </Link>
+            </div>
             <div className="flex-1 relative flex flex-col rounded-3xl overflow-hidden shadow-sm border border-slate-200 bg-slate-50">
                 {/* Header Overlay */}
                 <div className="absolute top-6 left-6 right-6 z-10 flex flex-col lg:flex-row gap-4 pointer-events-none">

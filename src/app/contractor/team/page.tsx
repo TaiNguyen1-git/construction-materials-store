@@ -4,11 +4,13 @@ import { useState, useEffect } from 'react'
 import { Plus, Users, Copy, ExternalLink, Package, Check, X, Clock, RefreshCw, Download, ArrowRight, ShieldCheck, Zap, ArrowLeft, Loader2, Activity } from 'lucide-react'
 import toast, { Toaster } from 'react-hot-toast'
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import { useAuth } from '@/contexts/auth-context'
 import { fetchWithAuth } from '@/lib/api-client'
 import { Badge } from '@/components/ui/badge'
 
 export default function ContractorTeamPage() {
+    const pathname = usePathname()
     const { user } = useAuth()
     const [activeTab, setActiveTab] = useState<'LINKS' | 'REQUESTS' | 'MEMBERS'>('REQUESTS')
     const [data, setData] = useState<any>({ projects: [], requests: [], reports: [] })
@@ -187,6 +189,22 @@ export default function ContractorTeamPage() {
                         </button>
                     ))}
                 </div>
+            </div>
+            
+            {/* Primary Tab Navigation */}
+            <div className="flex border-b border-slate-200 gap-8 px-4 sm:px-0">
+                <Link 
+                    href="/contractor/team"
+                    className={`pb-4 text-sm font-bold transition-all border-b-2 ${pathname === '/contractor/team' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
+                >
+                    Đội ngũ thợ
+                </Link>
+                <Link 
+                    href="/contractor/organization"
+                    className={`pb-4 text-sm font-bold transition-all border-b-2 ${pathname === '/contractor/organization' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
+                >
+                    Tổ chức & Đội nhóm
+                </Link>
             </div>
 
             {loading ? (
