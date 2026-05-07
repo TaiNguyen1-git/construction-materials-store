@@ -32,18 +32,55 @@ export async function GET(
             let guestEmail = ticket?.guestEmail || null
             let guestName = ticket?.guestName || `Khách #${customerId.replace('guest_', '')}`
 
-            // 2. If no ticket, try to find info in the first message of the conversation
+            // 2. If no ticket, try to find info in the messages
             if (!guestPhone) {
-                const firstMessage = await prisma.message.findFirst({
-                    where: { 
-                        conversationId: { contains: customerId }, // ID in conversations is usually the guest ID
-                        senderId: customerId 
-                    },
-                    orderBy: { createdAt: 'asc' }
+                const conversation = await prisma.conversation.findFirst({
+                    where: {
+                        OR: [
+                            { participant1Id: customerId },
+                            { participant2Id: customerId }
+                        ]
+                    }
                 })
-                if (firstMessage?.content) {
-                    const phoneMatch = firstMessage.content.match(/(?:SĐT(?: liên hệ)?:\s*)([\d\s\.\-]+)/i)
-                    if (phoneMatch) guestPhone = phoneMatch[1].trim()
+
+                if (conversation) {
+                    // Search all messages from this guest for a phone number pattern
+                    const messages = await prisma.message.findMany({
+                        where: { 
+                            conversationId: conversation.id,
+                            senderId: customerId 
+                        },
+                        orderBy: { createdAt: 'desc' }
+                    })
+
+                    for (const msg of messages) {
+                        if (msg.content) {
+                            // Look for explicit SĐT label or just a Vietnamese phone number pattern
+                            const phoneMatch = msg.content.match(/(?:SĐT(?: liên hệ)?:\s*|(?:\s|^))((?:0[3|5|7|8|9])[0-9]{8})(?:\s|$)/i)
+                            if (phoneMatch) {
+                                guestPhone = phoneMatch[1].trim()
+                                break
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 3. Fallback: Search for the guest ID in Order notes or Ticket descriptions
+            if (!guestPhone) {
+                const orderWithGuestId = await prisma.order.findFirst({
+                    where: {
+                        OR: [
+                            { notes: { contains: customerId } },
+                            { guestName: { contains: customerId.replace('guest_', '') } }
+                        ]
+                    },
+                    select: { guestPhone: true, guestEmail: true, guestName: true }
+                })
+                if (orderWithGuestId) {
+                    guestPhone = orderWithGuestId.guestPhone || guestPhone
+                    guestEmail = orderWithGuestId.guestEmail || guestEmail
+                    guestName = orderWithGuestId.guestName || guestName
                 }
             }
 
