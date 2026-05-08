@@ -105,7 +105,7 @@ function SuggestedProjectsWidgetComponent({ displayMode = 'list' }: SuggestedPro
                     <h2 className="text-lg font-semibold text-gray-900 mb-4">Dự án phù hợp</h2>
                     <div className="text-center py-6">
                         <p className="text-gray-500 text-sm mb-3">Chưa có dự án mới</p>
-                        <Link href="/projects" className="text-blue-600 text-sm font-medium hover:underline">
+                        <Link href="/contractor/projects/find" className="text-blue-600 text-sm font-medium hover:underline">
                             Tìm kiếm tất cả
                         </Link>
                     </div>
@@ -168,7 +168,7 @@ function SuggestedProjectsWidgetComponent({ displayMode = 'list' }: SuggestedPro
                         {projects.length} dự án mới
                     </span>
                 </h2>
-                <Link href="/projects" className="text-sm font-medium text-primary-600 hover:text-primary-700 flex items-center gap-1">
+                <Link href="/contractor/projects/find" className="text-sm font-medium text-primary-600 hover:text-primary-700 flex items-center gap-1">
                     Xem tất cả <ArrowRight className="w-4 h-4" />
                 </Link>
             </div>

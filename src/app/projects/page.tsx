@@ -47,40 +47,40 @@ export default function PublicProjectsPage() {
     const fetchProjects = async () => {
         try {
             setLoading(true)
-            // Using our internal dynamic marketplace projects API
-            const res = await fetch(`/api/projects?isPublic=true`)
+            // Using the unified marketplace projects API to ensure synchronization with contractor portal
+            const res = await fetch(`/api/marketplace/projects`)
             if (res.ok) {
                 const data = await res.json()
                 console.log('Fetched marketplace projects:', data)
                 
                 interface ApiProject {
                     id: string;
-                    name: string;
+                    title: string;
                     description: string;
                     status: string;
                     createdAt: string;
-                    budget: number;
+                    estimatedBudget: number;
                     location?: string;
-                    category?: string;
-                    guestName?: string;
-                    priority?: string;
-                    customer?: { user?: { name: string } };
+                    projectType?: string;
+                    contactName?: string;
+                    isUrgent?: boolean;
                     applicationCount?: number;
+                    viewCount?: number;
                 }
                 
-                const mappedProjects = (data.data || data.projects || []).map((p: ApiProject) => ({
+                const mappedProjects = (data.data?.projects || data.projects || []).map((p: ApiProject) => ({
                     id: p.id,
-                    title: p.name,
+                    title: p.title,
                     description: p.description,
                     status: p.status,
                     createdAt: p.createdAt,
-                    estimatedBudget: p.budget,
+                    estimatedBudget: p.estimatedBudget,
                     location: p.location,
-                    projectType: p.category || 'general',
-                    contactName: p.guestName || p.customer?.user?.name || 'Khách hàng',
+                    projectType: p.projectType || 'general',
+                    contactName: p.contactName || 'Khách hàng',
                     applicationCount: p.applicationCount ?? 0,
-                    viewCount: 0,
-                    isUrgent: p.priority === 'HIGH' || p.priority === 'URGENT'
+                    viewCount: p.viewCount ?? 0,
+                    isUrgent: p.isUrgent === true
                 }))
                 setProjects(mappedProjects)
             }

@@ -27,7 +27,10 @@ import {
     MessageSquare,
     Sparkles,
     LifeBuoy,
-    LucideIcon
+    LucideIcon,
+    PanelLeftClose,
+    PanelLeftOpen,
+    ArrowRight
 } from 'lucide-react'
 import { useContractorCartStore } from '@/stores/contractorCartStore'
 
@@ -35,13 +38,14 @@ interface SidebarProps {
     isOpen: boolean
     onClose: () => void
     onToggle?: () => void
+    isCollapsed?: boolean
+    setIsCollapsed?: (collapsed: boolean) => void
 }
 
-export default function Sidebar({ isOpen, onClose, onToggle }: SidebarProps) {
+export default function Sidebar({ isOpen, onClose, onToggle, isCollapsed, setIsCollapsed }: SidebarProps) {
     const pathname = usePathname()
     const { getTotalItems } = useContractorCartStore()
     const cartItemCount = getTotalItems()
-
 
     // Grouped navigation items for better organization
     const navGroups: { title: string; items: { href: string; icon: LucideIcon; label: string; badge?: number }[] }[] = [
@@ -95,82 +99,152 @@ export default function Sidebar({ isOpen, onClose, onToggle }: SidebarProps) {
         <>
             {/* Mobile Overlay */}
             {isOpen && (
-                <div className="lg:hidden fixed inset-0 bg-black/50 z-40" onClick={onClose} />
+                <div 
+                    className="lg:hidden fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[60] animate-in fade-in duration-300"
+                    onClick={onClose} 
+                />
             )}
 
             {/* Sidebar */}
             <aside className={`
-                fixed top-0 left-0 bottom-0 w-64 bg-white border-r border-gray-200 z-50
-                transform transition-transform duration-300
-                ${isOpen ? 'translate-x-0' : '-translate-x-full'}
-                lg:top-[60px]
+                hidden lg:flex flex-col
+                fixed left-0 top-0 bottom-0 z-50
+                transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]
+                ${isOpen ? (isCollapsed ? 'w-24 px-2' : 'w-72 px-4') : 'w-0 overflow-hidden px-0'}
             `}>
-                {/* Sidebar Header with Toggle */}
-                <div className="flex items-center justify-between p-4 border-b border-gray-100">
-                    <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 bg-gradient-to-br from-primary-600 to-indigo-600 rounded-lg flex items-center justify-center shadow-lg shadow-primary-100">
-                            <Building2 className="w-5 h-5 text-white" />
-                        </div>
-                        <span className="font-black text-gray-900 text-sm tracking-tight">SmartBuild PRO</span>
-                    </div>
-                    {/* Desktop Collapse Button */}
-                    <button 
-                        onClick={onToggle || onClose} 
-                        className="hidden lg:flex p-1 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-md transition-all active:scale-90"
-                        title="Thu gọn sidebar"
-                    >
-                        <ChevronLeft className="w-4 h-4" />
-                    </button>
-                    {/* Mobile Close Button */}
-                    <button onClick={onClose} className="lg:hidden p-1.5 text-gray-500 hover:bg-gray-100 rounded-lg">
-                        <X className="w-5 h-5" />
-                    </button>
-                </div>
-
-                <nav className="p-4 space-y-2 overflow-y-auto h-[calc(100vh-140px)]">
-                    {navGroups.map((group, groupIndex) => (
-                        <div key={groupIndex} className="mb-2">
-                            <button
-                                onClick={() => toggleGroup(group.title)}
-                                className="w-full flex items-center justify-between px-4 py-2 text-xs font-bold text-gray-400 uppercase tracking-wider hover:text-gray-600 transition-colors"
-                            >
-                                <span>{group.title}</span>
-                                {expandedGroups[group.title] ? (
-                                    <ChevronDown className="w-3 h-3" />
-                                ) : (
-                                    <ChevronRight className="w-3 h-3" />
-                                )}
-                            </button>
-
-                            {expandedGroups[group.title] && (
-                                <div className="space-y-1 mt-1 animate-in slide-in-from-top-1 duration-200">
-                                    {group.items.map((item) => {
-                                        const isActive = pathname === item.href
-                                        return (
-                                            <Link
-                                                key={item.href}
-                                                href={item.href}
-                                                onClick={handleLinkClick}
-                                                className={`flex items-center gap-2.5 px-4 py-2 rounded-lg font-bold transition-all text-xs ${isActive
-                                                    ? 'bg-primary-50 text-primary-700'
-                                                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                                                    }`}
-                                            >
-                                                <item.icon className={`w-4 h-4 ${isActive ? 'text-primary-600' : 'text-gray-400'}`} />
-                                                <span className="flex-1">{item.label}</span>
-                                                {item.badge !== undefined && item.badge > 0 && (
-                                                    <span className="bg-red-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-md min-w-[18px] text-center shadow-sm shadow-red-200">
-                                                        {item.badge}
-                                                    </span>
-                                                )}
-                                            </Link>
-                                        )
-                                    })}
+                <div className="flex-1 flex flex-col min-h-0 border-r border-gray-100/60 bg-white/80 backdrop-blur-2xl shadow-[0_20px_50px_rgba(0,0,0,0.04)] my-4 rounded-[32px] overflow-hidden">
+                    <div className="flex-1 flex flex-col pt-8 pb-4 overflow-y-auto overflow-x-hidden custom-scrollbar">
+                        {/* Brand Section */}
+                        <div className={`flex items-center flex-shrink-0 px-6 mb-10 transition-all duration-500 ${isCollapsed ? 'justify-center px-0' : ''}`}>
+                            <div className="relative group cursor-pointer" onClick={() => (window.location.href = '/contractor/dashboard')}>
+                                <div className="absolute -inset-1.5 bg-gradient-to-r from-primary-600 to-indigo-600 rounded-xl blur opacity-20 group-hover:opacity-40 transition duration-1000"></div>
+                                <div className="relative p-2.5 bg-gradient-to-br from-primary-600 to-indigo-700 rounded-xl shadow-xl shadow-primary-500/20 transform group-hover:scale-105 transition-transform">
+                                    <Building2 className="h-5 w-5 text-white" />
+                                </div>
+                            </div>
+                            {!isCollapsed && (
+                                <div className="ml-4 min-w-0 flex flex-col">
+                                    <h1 className="text-xl font-black text-slate-900 tracking-tighter leading-none mb-1">SmartBuild</h1>
+                                    <span className="text-[9px] text-primary-500 font-black uppercase tracking-widest opacity-70">PRO Contractor</span>
                                 </div>
                             )}
                         </div>
-                    ))}
-                </nav>
+
+                        <nav className="flex-1 space-y-8">
+                            {navGroups.map((group, groupIndex) => (
+                                <div key={groupIndex} className="space-y-1">
+                                    {!isCollapsed && (
+                                        <button
+                                            onClick={() => toggleGroup(group.title)}
+                                            className="w-full flex items-center justify-between px-6 py-1 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] hover:text-primary-600 transition-colors group/header"
+                                        >
+                                            <span>{group.title}</span>
+                                            <div className={`transition-transform duration-300 ${!expandedGroups[group.title] ? '-rotate-90' : ''}`}>
+                                                <ChevronDown className="h-3.5 w-3.5 opacity-50" />
+                                            </div>
+                                        </button>
+                                    )}
+                                    {isCollapsed && <div className="h-px bg-slate-100 mx-4 my-6 opacity-60" />}
+
+                                    <div className={`space-y-1 transition-all duration-300 overflow-hidden ${!expandedGroups[group.title] && !isCollapsed ? 'max-h-0 opacity-0' : 'max-h-[500px] opacity-100'}`}>
+                                        {group.items.map((item) => {
+                                            const isActive = pathname === item.href
+                                            return (
+                                                <Link
+                                                    key={item.href}
+                                                    href={item.href}
+                                                    onClick={handleLinkClick}
+                                                    className={`
+                                                        group relative flex items-center ${isCollapsed ? 'justify-center px-0 mx-auto w-12 h-12' : 'px-4 mx-2'} py-3 rounded-2xl transition-all duration-300
+                                                        ${isActive
+                                                            ? 'bg-primary-600 text-white shadow-lg shadow-primary-600/20 ring-1 ring-primary-600/10'
+                                                            : 'text-slate-600 hover:bg-slate-50 hover:text-primary-600'
+                                                        }
+                                                    `}
+                                                    title={isCollapsed ? item.label : ''}
+                                                >
+                                                    <item.icon
+                                                        strokeWidth={isActive ? 2.5 : 2}
+                                                        className={`flex-shrink-0 h-5 w-5 transition-all duration-300 group-hover:scale-110 ${!isCollapsed && 'mr-3'} ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-primary-500'}`}
+                                                    />
+                                                    {!isCollapsed && <span className="truncate font-bold text-sm tracking-tight">{item.label}</span>}
+                                                    {item.badge !== undefined && item.badge > 0 && (
+                                                        <span className={`
+                                                            ${isCollapsed ? 'absolute -top-1 -right-1 min-w-[16px] h-[16px]' : 'ml-auto px-1.5 py-0.5'}
+                                                            flex items-center justify-center text-[9px] font-black rounded-full shadow-sm
+                                                            ${isActive ? 'bg-white/20 text-white backdrop-blur-sm' : 'bg-red-500 text-white'}
+                                                        `}>
+                                                            {item.badge}
+                                                        </span>
+                                                    )}
+                                                    {isActive && !isCollapsed && (
+                                                        <ArrowRight className="ml-auto w-4 h-4 opacity-70 group-hover:translate-x-1 transition-transform" />
+                                                    )}
+                                                </Link>
+                                            )
+                                        })}
+                                    </div>
+                                </div>
+                            ))}
+                        </nav>
+                    </div>
+
+                    {/* Sidebar Footer */}
+                    <div className="p-4 border-t border-slate-100/60 bg-slate-50/50">
+                        <button
+                            onClick={() => setIsCollapsed && setIsCollapsed(!isCollapsed)}
+                            className="w-full flex items-center justify-center h-10 rounded-xl bg-white border border-slate-100 text-slate-400 hover:text-primary-600 hover:border-primary-100 hover:shadow-sm transition-all group"
+                        >
+                            {isCollapsed ? (
+                                <PanelLeftOpen className="h-5 w-5" />
+                            ) : (
+                                <div className="flex items-center gap-2">
+                                    <PanelLeftClose className="h-5 w-5" />
+                                    <span className="text-[10px] font-black uppercase tracking-widest">Thu gọn menu</span>
+                                </div>
+                            )}
+                        </button>
+                    </div>
+                </div>
+            </aside>
+
+            {/* Mobile Sidebar */}
+            <aside className={`
+                fixed top-0 left-0 bottom-0 w-72 bg-white z-[70] lg:hidden
+                transform transition-transform duration-300 ease-out
+                ${isOpen ? 'translate-x-0' : '-translate-x-full'}
+            `}>
+                <div className="flex flex-col h-full">
+                    <div className="p-6 flex items-center justify-between border-b border-slate-50">
+                        <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center">
+                                <Building2 className="w-5 h-5 text-white" />
+                            </div>
+                            <span className="font-bold text-slate-900 text-lg tracking-tighter">SmartBuild</span>
+                        </div>
+                        <button onClick={onClose} className="p-2 text-slate-400 hover:bg-slate-50 rounded-xl">
+                            <X className="w-5 h-5" />
+                        </button>
+                    </div>
+                    <nav className="flex-1 p-4 space-y-6 overflow-y-auto">
+                        {navGroups.map((group, groupIndex) => (
+                            <div key={groupIndex} className="space-y-1">
+                                <h3 className="px-4 py-2 text-[10px] font-black text-slate-400 uppercase tracking-widest">{group.title}</h3>
+                                {group.items.map((item) => (
+                                    <Link
+                                        key={item.href}
+                                        href={item.href}
+                                        onClick={onClose}
+                                        className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all ${pathname === item.href ? 'bg-primary-600 text-white shadow-lg shadow-primary-500/30' : 'text-slate-600 hover:bg-slate-50'}`}
+                                    >
+                                        <item.icon className="w-5 h-5" />
+                                        {item.label}
+                                    </Link>
+                                ))}
+                            </div>
+                        ))}
+                    </nav>
+                </div>
             </aside>
         </>
     )

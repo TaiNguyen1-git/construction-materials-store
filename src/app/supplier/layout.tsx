@@ -25,8 +25,23 @@ import {
     ChevronLeft,
     ChevronRight,
     ChevronDown,
-    TrendingDown
+    TrendingDown,
+    PanelLeftClose,
+    PanelLeftOpen,
+    ArrowRight
 } from 'lucide-react'
+
+interface MenuItem {
+    name: string
+    href: string
+    icon: React.ComponentType<any>
+    count?: number
+}
+
+interface MenuGroup {
+    group: string
+    items: MenuItem[]
+}
 
 export default function SupplierLayout({ children }: { children: React.ReactNode }) {
     const router = useRouter()
@@ -45,7 +60,6 @@ export default function SupplierLayout({ children }: { children: React.ReactNode
         }))
     }
 
-    // Don't show authenticated layout on public pages
     const isPublicPage = pathname === '/supplier' ||
         pathname === '/supplier/login' ||
         pathname?.startsWith('/supplier/register') ||
@@ -86,7 +100,6 @@ export default function SupplierLayout({ children }: { children: React.ReactNode
         localStorage.removeItem('supplier_token')
         localStorage.removeItem('supplier_id')
         localStorage.removeItem('supplier_name')
-        // Clear supplier-specific cookie
         document.cookie = 'supplier_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT'
         router.push('/supplier/login')
     }
@@ -95,7 +108,7 @@ export default function SupplierLayout({ children }: { children: React.ReactNode
         return <>{children}</>
     }
 
-    const menuItems = [
+    const menuItems: MenuGroup[] = [
         {
             group: 'Tổng quan',
             items: [
@@ -136,141 +149,167 @@ export default function SupplierLayout({ children }: { children: React.ReactNode
             />
 
             <div className="flex relative min-h-screen">
-                {/* Sidebar */}
+                {/* Desktop Sidebar */}
                 <aside className={`
-                    flex flex-col
-                    fixed lg:fixed left-0 bottom-0 z-50
-                    bg-white/80 backdrop-blur-2xl border-r border-indigo-50/60
-                    shadow-[4px_0_24px_-12px_rgba(0,0,0,0.05)]
-                    transform transition-all duration-300 ease-out
-                    lg:top-[65px] top-0
-                    ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:-translate-x-full'}
-                    ${isCollapsed ? 'w-20' : 'w-[280px]'}
+                    hidden lg:flex flex-col
+                    fixed left-0 top-0 bottom-0 z-50
+                    transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]
+                    ${sidebarOpen ? (isCollapsed ? 'w-24 px-2' : 'w-72 px-4') : 'w-0 overflow-hidden px-0'}
                 `}>
-                    {/* Brand - Only visible on mobile or when no header */}
-                    <div className={`p-6 flex items-center lg:hidden ${isCollapsed ? 'justify-center' : 'justify-between'}`}>
-                        <div className={`flex items-center gap-4 group cursor-pointer ${isCollapsed ? 'justify-center' : ''}`}>
-                            <div className="relative w-10 h-10 flex-shrink-0">
-                                <div className="absolute inset-0 bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-xl rotate-6 group-hover:rotate-12 transition-transform duration-300 opacity-20 blur-sm"></div>
-                                <div className="relative w-full h-full bg-gradient-to-br from-blue-600 to-indigo-700 rounded-xl flex items-center justify-center shadow-xl shadow-blue-500/30 group-hover:scale-105 transition-all duration-300 border border-white/10">
-                                    <Building2 className="w-5 h-5 text-white" />
-                                </div>
-                            </div>
-                            {!isCollapsed && (
-                                <div className="flex flex-col">
-                                    <h1 className="font-bold text-slate-900 text-lg tracking-tight leading-none">SmartBuild</h1>
-                                    <span className="text-[9px] font-bold text-indigo-500 uppercase tracking-widest mt-1 opacity-80">
-                                        Supplier Hub
-                                    </span>
-                                </div>
-                            )}
-                        </div>
-                        <button onClick={() => setSidebarOpen(false)} className="lg:hidden p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-xl">
-                            <X className="w-5 h-5" />
-                        </button>
-                    </div>
-
-                    {/* Navigation */}
-                    <div className="flex-1 px-3 py-2 space-y-6 overflow-y-auto custom-scrollbar hover:custom-scrollbar-visible">
-                        {menuItems.map((group, groupIndex) => {
-                            const isGroupCollapsed = collapsedGroups[group.group]
-
-                            return (
-                                <div key={groupIndex}>
-                                    {!isCollapsed && (
-                                        <button
-                                            onClick={() => toggleGroup(group.group)}
-                                            className="w-full flex items-center justify-between px-4 mb-2 group/header hover:bg-indigo-50/50 rounded-lg py-1 transition-colors"
-                                        >
-                                            <h3 className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest truncate group-hover/header:text-indigo-600 transition-colors">
-                                                {group.group}
-                                            </h3>
-                                            <ChevronDown
-                                                className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${isGroupCollapsed ? '-rotate-90' : 'rotate-0'}`}
-                                            />
-                                        </button>
-                                    )}
-                                    <div className={`space-y-1 transition-all duration-300 overflow-hidden ${isGroupCollapsed && !isCollapsed ? 'max-h-0 opacity-0' : 'max-h-[500px] opacity-100'}`}>
-                                        {group.items.map((item) => {
-                                            const isActive = pathname === item.href
-                                            return (
-                                                <Link
-                                                    key={item.href}
-                                                    href={item.href}
-                                                    onClick={() => setSidebarOpen(false)}
-                                                    className={`
-                                                        group relative flex items-center ${isCollapsed ? 'justify-center px-1' : 'justify-between px-4'} py-2.5 rounded-xl transition-all duration-200
-                                                        ${isActive
-                                                            ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/25'
-                                                            : 'text-slate-500 hover:bg-indigo-50 hover:text-indigo-700'
-                                                        }
-                                                    `}
-                                                    title={isCollapsed ? item.name : ''}
-                                                >
-                                                    <div className="flex items-center gap-3 relative z-10">
-                                                        <item.icon
-                                                            strokeWidth={isActive ? 2.5 : 2}
-                                                            className={`w-5 h-5 transition-transform duration-200 ${!isCollapsed && 'group-hover:scale-110'} ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-indigo-600'}`}
-                                                        />
-                                                        {!isCollapsed && (
-                                                            <span className={`text-[13px] ${isActive ? 'font-semibold' : 'font-medium'}`}>{item.name}</span>
-                                                        )}
-                                                    </div>
-                                                    {(item as any).count !== undefined && (item as any).count > 0 && (
-                                                        <span className={`
-                                                            ${isCollapsed ? 'absolute -top-1 -right-1 min-w-[16px] h-[16px] px-0.5' : 'px-1.5 py-0.5'}
-                                                            flex items-center justify-center text-[9px] font-bold rounded-full shadow-sm
-                                                            ${isActive ? 'bg-white/20 text-white backdrop-blur-sm' : 'bg-red-500 text-white'}
-                                                        `}>
-                                                            {(item as any).count}
-                                                        </span>
-                                                    )}
-                                                </Link>
-                                            )
-                                        })}
+                    <div className="flex-1 flex flex-col min-h-0 border-r border-indigo-100/60 bg-white/80 backdrop-blur-2xl shadow-[0_20px_50px_rgba(0,0,0,0.04)] my-4 rounded-[32px] overflow-hidden">
+                        <div className="flex-1 flex flex-col pt-8 pb-4 overflow-y-auto overflow-x-hidden custom-scrollbar">
+                            {/* Logo Section */}
+                            <div className={`flex items-center flex-shrink-0 px-6 mb-10 transition-all duration-500 ${isCollapsed ? 'justify-center px-0' : ''}`}>
+                                <div className="relative group cursor-pointer" onClick={() => router.push('/supplier/dashboard')}>
+                                    <div className="absolute -inset-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl blur opacity-20 group-hover:opacity-40 transition duration-1000"></div>
+                                    <div className="relative p-2.5 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-xl shadow-xl shadow-blue-500/20 transform group-hover:scale-105 transition-transform">
+                                        <Building2 className="h-5 w-5 text-white" />
                                     </div>
                                 </div>
-                            )
-                        })}
-                    </div>
+                                {!isCollapsed && (
+                                    <div className="ml-4 min-w-0 flex flex-col">
+                                        <h1 className="text-xl font-black text-slate-900 tracking-tighter leading-none mb-1">SmartBuild</h1>
+                                        <span className="text-[9px] text-indigo-500 font-black uppercase tracking-widest opacity-70">Supplier Hub</span>
+                                    </div>
+                                )}
+                            </div>
 
-                    {/* Collapse Toggle & Logout */}
-                    <div className="p-3 border-t border-indigo-50/60 space-y-2">
-                        <button
-                            onClick={() => setIsCollapsed(!isCollapsed)}
-                            className={`w-full flex items-center ${isCollapsed ? 'justify-center' : 'gap-3 px-4'} py-2 rounded-xl text-slate-400 hover:bg-slate-50 hover:text-slate-600 transition-colors duration-200`}
-                        >
-                            {isCollapsed ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
-                            {!isCollapsed && <span className="text-[13px] font-medium">Thu gọn sidebar</span>}
-                        </button>
+                            <nav className="flex-1 space-y-8">
+                                {menuItems.map((group) => {
+                                    const isGroupCollapsed = collapsedGroups[group.group]
+                                    return (
+                                        <div key={group.group} className="space-y-1">
+                                            {!isCollapsed && (
+                                                <button
+                                                    onClick={() => toggleGroup(group.group)}
+                                                    className="w-full flex items-center justify-between px-6 py-1 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] hover:text-indigo-600 transition-colors group/header"
+                                                >
+                                                    <span>{group.group}</span>
+                                                    <div className={`transition-transform duration-300 ${isGroupCollapsed ? '-rotate-90' : ''}`}>
+                                                        <ChevronDown className="h-3.5 w-3.5 opacity-50" />
+                                                    </div>
+                                                </button>
+                                            )}
+                                            {isCollapsed && <div className="h-px bg-slate-100 mx-4 my-6 opacity-60" />}
 
-                        <button
-                            onClick={handleLogout}
-                            className={`w-full group flex items-center ${isCollapsed ? 'justify-center' : 'gap-3 px-4'} py-2 rounded-xl text-slate-500 hover:bg-red-50 hover:text-red-600 transition-all duration-200`}
-                            title={isCollapsed ? 'Đăng xuất' : ''}
-                        >
-                            <LogOut strokeWidth={2} className={`w-5 h-5 text-slate-400 group-hover:text-red-500 transition-transform duration-200 ${!isCollapsed && 'group-hover:scale-110'}`} />
-                            {!isCollapsed && <span className="font-medium text-[13px]">Đăng xuất</span>}
-                        </button>
+                                            <div className={`space-y-1 transition-all duration-300 overflow-hidden ${isGroupCollapsed && !isCollapsed ? 'max-h-0 opacity-0' : 'max-h-[500px] opacity-100'}`}>
+                                                {group.items.map((item) => {
+                                                    const isActive = pathname === item.href
+                                                    return (
+                                                        <Link
+                                                            key={item.href}
+                                                            href={item.href}
+                                                            className={`
+                                                                group relative flex items-center ${isCollapsed ? 'justify-center px-0 mx-auto w-12 h-12' : 'px-4 mx-2'} py-3 rounded-2xl transition-all duration-300
+                                                                ${isActive
+                                                                    ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20 ring-1 ring-indigo-600/10'
+                                                                    : 'text-slate-600 hover:bg-slate-50 hover:text-indigo-600'
+                                                                }
+                                                            `}
+                                                            title={isCollapsed ? item.name : ''}
+                                                        >
+                                                            <item.icon
+                                                                strokeWidth={isActive ? 2.5 : 2}
+                                                                className={`flex-shrink-0 h-5 w-5 transition-all duration-300 group-hover:scale-110 ${!isCollapsed && 'mr-3'} ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-indigo-500'}`}
+                                                            />
+                                                            {!isCollapsed && <span className="truncate font-bold text-sm tracking-tight">{item.name}</span>}
+                                                            {item.count !== undefined && item.count > 0 && (
+                                                                <span className={`
+                                                                    ${isCollapsed ? 'absolute -top-1 -right-1 min-w-[16px] h-[16px]' : 'ml-auto px-1.5 py-0.5'}
+                                                                    flex items-center justify-center text-[9px] font-black rounded-full shadow-sm
+                                                                    ${isActive ? 'bg-white/20 text-white backdrop-blur-sm' : 'bg-red-500 text-white'}
+                                                                `}>
+                                                                    {item.count}
+                                                                </span>
+                                                            )}
+                                                            {isActive && !isCollapsed && (
+                                                                <ArrowRight className="ml-auto w-4 h-4 opacity-70 group-hover:translate-x-1 transition-transform" />
+                                                            )}
+                                                        </Link>
+                                                    )
+                                                })}
+                                            </div>
+                                        </div>
+                                    )
+                                })}
+                            </nav>
+                        </div>
+
+                        {/* Sidebar Footer */}
+                        <div className="p-4 border-t border-slate-100/60 bg-slate-50/50">
+                            <button
+                                onClick={() => setIsCollapsed(!isCollapsed)}
+                                className="w-full flex items-center justify-center h-10 rounded-xl bg-white border border-slate-100 text-slate-400 hover:text-indigo-600 hover:border-indigo-100 hover:shadow-sm transition-all group"
+                            >
+                                {isCollapsed ? (
+                                    <PanelLeftOpen className="h-5 w-5" />
+                                ) : (
+                                    <div className="flex items-center gap-2">
+                                        <PanelLeftClose className="h-5 w-5" />
+                                        <span className="text-[10px] font-black uppercase tracking-widest">Thu gọn menu</span>
+                                    </div>
+                                )}
+                            </button>
+                        </div>
                     </div>
                 </aside>
 
-                {/* Overlay for mobile */}
+                {/* Mobile Sidebar Overlay */}
                 {sidebarOpen && (
-                    <div
-                        className="fixed inset-0 bg-slate-900/40 backdrop-blur-md z-40 lg:hidden animate-in fade-in duration-300"
+                    <div 
+                        className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[60] lg:hidden animate-in fade-in duration-300"
                         onClick={() => setSidebarOpen(false)}
                     />
                 )}
-
-                {/* Main Content */}
-                <main className={`
-                    flex-1 min-w-0 min-h-screen relative p-4 lg:p-8 overflow-x-hidden
-                    transition-all duration-300 ease-out
-                    ${sidebarOpen ? (isCollapsed ? 'lg:ml-20' : 'lg:ml-[280px]') : 'lg:ml-0'}
+                
+                {/* Mobile Sidebar */}
+                <aside className={`
+                    fixed top-0 left-0 bottom-0 w-72 bg-white z-[70] lg:hidden
+                    transform transition-transform duration-300 ease-out
+                    ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
                 `}>
-                    <div className="max-w-[1600px] mx-auto animate-in slide-in-from-bottom-2 duration-500 delay-100">
-                        {children}
+                    <div className="flex flex-col h-full">
+                        <div className="p-6 flex items-center justify-between border-b border-slate-50">
+                            <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
+                                    <Building2 className="w-5 h-5 text-white" />
+                                </div>
+                                <span className="font-bold text-slate-900">SmartBuild</span>
+                            </div>
+                            <button onClick={() => setSidebarOpen(false)} className="p-2 text-slate-400 hover:bg-slate-50 rounded-xl">
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+                        <nav className="flex-1 p-4 space-y-6 overflow-y-auto">
+                            {menuItems.map((group) => (
+                                <div key={group.group} className="space-y-1">
+                                    <h3 className="px-4 py-2 text-[10px] font-black text-slate-400 uppercase tracking-widest">{group.group}</h3>
+                                    {group.items.map((item) => (
+                                        <Link
+                                            key={item.href}
+                                            href={item.href}
+                                            onClick={() => setSidebarOpen(false)}
+                                            className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all ${pathname === item.href ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/30' : 'text-slate-600 hover:bg-slate-50'}`}
+                                        >
+                                            <item.icon className="w-5 h-5" />
+                                            {item.name}
+                                        </Link>
+                                    ))}
+                                </div>
+                            ))}
+                        </nav>
+                    </div>
+                </aside>
+
+                {/* Main Content Area */}
+                <main className={`
+                    flex-1 transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]
+                    ${sidebarOpen ? (isCollapsed ? 'lg:pl-24' : 'lg:pl-72') : 'lg:pl-0'}
+                `}>
+                    <div className="p-4 lg:p-10 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                        <div className="max-w-[1600px] mx-auto">
+                            {children}
+                        </div>
                     </div>
                 </main>
             </div>
