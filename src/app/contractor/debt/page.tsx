@@ -99,10 +99,20 @@ export default function ContractorFinancialHub() {
                 const result = await res.json()
                 setData(result.data)
             } else {
-                setData(MOCK_DATA)
+                toast.error('Không thể tải dữ liệu tài chính.')
+                setData({
+                    summary: { totalDebt: 0, creditLimit: 0, escrowBalance: 0, dueThisWeek: 0 },
+                    projects: [],
+                    invoices: []
+                })
             }
         } catch (error) {
-            setData(MOCK_DATA)
+            toast.error('Lỗi kết nối máy chủ.')
+            setData({
+                summary: { totalDebt: 0, creditLimit: 0, escrowBalance: 0, dueThisWeek: 0 },
+                projects: [],
+                invoices: []
+            })
         } finally {
             setLoading(false)
         }
@@ -145,9 +155,9 @@ export default function ContractorFinancialHub() {
         )
     }
 
-    const summary = data?.summary || MOCK_DATA.summary
-    const projects = data?.projects || MOCK_DATA.projects
-    const creditUsage = (summary.totalDebt / summary.creditLimit) * 100
+    const summary = data?.summary || { totalDebt: 0, creditLimit: 0, escrowBalance: 0, dueThisWeek: 0 }
+    const projects = data?.projects || []
+    const creditUsage = summary.creditLimit > 0 ? (summary.totalDebt / summary.creditLimit) * 100 : 0
 
     return (
         <div className="space-y-8 pb-20 max-w-7xl mx-auto px-4 sm:px-0">
@@ -271,62 +281,69 @@ export default function ContractorFinancialHub() {
                     <h2 className="text-xl font-bold text-slate-900">Chi tiết nợ theo dự án</h2>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {projects.map((project: FinancialProject) => (
-                        <div key={project.id} className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm hover:shadow-md transition-all flex flex-col h-full">
-                            <div className="space-y-6 flex-1">
-                                <div className="flex items-start justify-between">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-12 h-12 bg-slate-50 rounded-xl flex items-center justify-center text-slate-300 border border-slate-100">
-                                            <Building2 size={24} />
+                {projects.length === 0 ? (
+                    <div className="bg-white p-20 text-center rounded-3xl border-2 border-dashed border-slate-100 text-slate-300">
+                        <Building2 size={64} className="mx-auto mb-4 opacity-20" />
+                        <p className="text-sm font-bold uppercase tracking-widest">Không có dư nợ dự án</p>
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {projects.map((project: FinancialProject) => (
+                            <div key={project.id} className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm hover:shadow-md transition-all flex flex-col h-full">
+                                <div className="space-y-6 flex-1">
+                                    <div className="flex items-start justify-between">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-12 h-12 bg-slate-50 rounded-xl flex items-center justify-center text-slate-300 border border-slate-100">
+                                                <Building2 size={24} />
+                                            </div>
+                                            <div className="space-y-0.5">
+                                                <h4 className="text-base font-bold text-slate-900 line-clamp-1">{project.name}</h4>
+                                                <p className="text-[10px] font-bold text-slate-400 uppercase">Bắt đầu: {project.startDate}</p>
+                                            </div>
                                         </div>
-                                        <div className="space-y-0.5">
-                                            <h4 className="text-base font-bold text-slate-900 line-clamp-1">{project.name}</h4>
-                                            <p className="text-[10px] font-bold text-slate-400 uppercase">Bắt đầu: {project.startDate}</p>
+                                        {project.hasOverdue && (
+                                            <Badge className="bg-rose-50 text-rose-600 text-[9px] font-bold uppercase border-rose-100 shadow-none px-2 py-0.5">Overdue</Badge>
+                                        )}
+                                    </div>
+
+                                    <div className="space-y-4 py-4 border-y border-slate-50">
+                                        <div className="flex justify-between items-end">
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Tổng nợ dự án</p>
+                                            <p className="text-lg font-bold text-slate-900">{formatCurrency(project.debtAmount)}</p>
+                                        </div>
+                                        <div className="flex justify-between items-end">
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Hạn thanh toán</p>
+                                            <div className="text-right">
+                                                <p className={`text-xs font-bold ${project.hasOverdue ? 'text-rose-500' : 'text-slate-700'}`}>{project.nextDueDate}</p>
+                                                <p className="text-[9px] font-bold text-slate-400">
+                                                    {project.daysLeft < 0 ? `Trễ ${Math.abs(project.daysLeft)} ngày` : `Còn ${project.daysLeft} ngày`}
+                                                </p>
+                                            </div>
                                         </div>
                                     </div>
-                                    {project.hasOverdue && (
-                                        <Badge className="bg-rose-50 text-rose-600 text-[9px] font-bold uppercase border-rose-100 shadow-none px-2 py-0.5">Overdue</Badge>
-                                    )}
                                 </div>
 
-                                <div className="space-y-4 py-4 border-y border-slate-50">
-                                    <div className="flex justify-between items-end">
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Tổng nợ dự án</p>
-                                        <p className="text-lg font-bold text-slate-900">{formatCurrency(project.debtAmount)}</p>
-                                    </div>
-                                    <div className="flex justify-between items-end">
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Hạn thanh toán</p>
-                                        <div className="text-right">
-                                            <p className={`text-xs font-bold ${project.hasOverdue ? 'text-rose-500' : 'text-slate-700'}`}>{project.nextDueDate}</p>
-                                            <p className="text-[9px] font-bold text-slate-400">
-                                                {project.daysLeft < 0 ? `Trễ ${Math.abs(project.daysLeft)} ngày` : `Còn ${project.daysLeft} ngày`}
-                                            </p>
-                                        </div>
-                                    </div>
+                                <div className="pt-6 flex gap-2 mt-auto">
+                                    <Link
+                                        href={`/contractor/projects/${project.id}`}
+                                        className="flex-1 py-2.5 bg-slate-50 text-slate-500 hover:bg-slate-100 rounded-xl text-[11px] font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all active:scale-95 border border-slate-200"
+                                    >
+                                        Chi tiết
+                                    </Link>
+                                    <button
+                                        onClick={() => {
+                                            setSelectedInvoice({ amount: project.debtAmount, invoiceNumber: `PAY-PROJ-${project.id}` })
+                                            setShowPaymentModal(true)
+                                        }}
+                                        className="flex-1 py-2.5 bg-blue-600 text-white rounded-xl text-[11px] font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all active:scale-95 shadow-sm hover:bg-blue-700"
+                                    >
+                                        Thanh toán
+                                    </button>
                                 </div>
                             </div>
-
-                            <div className="pt-6 flex gap-2 mt-auto">
-                                <Link
-                                    href={`/contractor/projects/${project.id}`}
-                                    className="flex-1 py-2.5 bg-slate-50 text-slate-500 hover:bg-slate-100 rounded-xl text-[11px] font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all active:scale-95 border border-slate-200"
-                                >
-                                    Chi tiết
-                                </Link>
-                                <button
-                                    onClick={() => {
-                                        setSelectedInvoice({ amount: project.debtAmount, invoiceNumber: `PAY-PROJ-${project.id}` })
-                                        setShowPaymentModal(true)
-                                    }}
-                                    className="flex-1 py-2.5 bg-blue-600 text-white rounded-xl text-[11px] font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all active:scale-95 shadow-sm hover:bg-blue-700"
-                                >
-                                    Thanh toán
-                                </button>
-                            </div>
-                        </div>
-                    ))}
-                </div>
+                        ))}
+                    </div>
+                )}
             </div>
 
             {/* Invoices Ledger Table */}
@@ -347,35 +364,43 @@ export default function ContractorFinancialHub() {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50">
-                            {data?.invoices?.map((inv: FinancialInvoice) => (
-                                <tr key={inv.id} className="hover:bg-slate-50 transition-all duration-300">
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        <span className="text-xs font-bold text-blue-600">{inv.invoiceNumber}</span>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <span className="text-xs font-bold text-slate-700">{inv.projectName || 'Mua lẻ'}</span>
-                                    </td>
-                                    <td className="px-6 py-4 text-center">
-                                        <Badge className={`px-2 py-0.5 rounded-lg text-[9px] font-bold uppercase shadow-none border-none ${inv.status === 'OVERDUE' ? 'bg-rose-50 text-rose-600' : 'bg-slate-100 text-slate-500'}`}>
-                                            {inv.dueDate}
-                                        </Badge>
-                                    </td>
-                                    <td className="px-6 py-4 text-right">
-                                        <span className="text-sm font-bold text-slate-900">{formatCurrency(inv.amount - (inv.paid || 0))}</span>
-                                    </td>
-                                    <td className="px-6 py-4 text-right">
-                                        <button
-                                            onClick={() => {
-                                                setSelectedInvoice(inv)
-                                                setShowPaymentModal(true)
-                                            }}
-                                            className="px-4 py-2 bg-blue-600 text-white rounded-lg text-[10px] font-bold uppercase tracking-wider hover:bg-blue-700 transition-all active:scale-95 shadow-sm"
-                                        >
-                                            Trả nợ
-                                        </button>
+                            {(!data?.invoices || data.invoices.length === 0) ? (
+                                <tr>
+                                    <td colSpan={5} className="px-6 py-10 text-center text-xs font-bold text-slate-400 uppercase tracking-widest">
+                                        Không có hóa đơn tồn đọng
                                     </td>
                                 </tr>
-                            ))}
+                            ) : (
+                                data.invoices.map((inv: FinancialInvoice) => (
+                                    <tr key={inv.id} className="hover:bg-slate-50 transition-all duration-300">
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                            <span className="text-xs font-bold text-blue-600">{inv.invoiceNumber}</span>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <span className="text-xs font-bold text-slate-700">{inv.projectName || 'Mua lẻ'}</span>
+                                        </td>
+                                        <td className="px-6 py-4 text-center">
+                                            <Badge className={`px-2 py-0.5 rounded-lg text-[9px] font-bold uppercase shadow-none border-none ${inv.status === 'OVERDUE' ? 'bg-rose-50 text-rose-600' : 'bg-slate-100 text-slate-500'}`}>
+                                                {inv.dueDate}
+                                            </Badge>
+                                        </td>
+                                        <td className="px-6 py-4 text-right">
+                                            <span className="text-sm font-bold text-slate-900">{formatCurrency(inv.amount - (inv.paid || 0))}</span>
+                                        </td>
+                                        <td className="px-6 py-4 text-right">
+                                            <button
+                                                onClick={() => {
+                                                    setSelectedInvoice(inv)
+                                                    setShowPaymentModal(true)
+                                                }}
+                                                className="px-4 py-2 bg-blue-600 text-white rounded-lg text-[10px] font-bold uppercase tracking-wider hover:bg-blue-700 transition-all active:scale-95 shadow-sm"
+                                            >
+                                                Trả nợ
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
                         </tbody>
                     </table>
                 </div>
@@ -463,39 +488,4 @@ export default function ContractorFinancialHub() {
             )}
         </div>
     )
-}
-
-// MOCK DATA used when API is not ready
-const MOCK_DATA = {
-    summary: {
-        totalDebt: 45200000,
-        creditLimit: 100000000,
-        escrowBalance: 15000000,
-        dueThisWeek: 8500000
-    },
-    projects: [
-        {
-            id: 'PROJ-001',
-            name: 'Biệt thự Vườn Riverside Phase 1',
-            startDate: '2025-12-15',
-            debtAmount: 32500000,
-            nextDueDate: '2026-02-05',
-            daysLeft: 5,
-            hasOverdue: false
-        },
-        {
-            id: 'PROJ-002',
-            name: 'Showroom Nội thất Minh Long HQ',
-            startDate: '2026-01-10',
-            debtAmount: 12700000,
-            nextDueDate: '2026-01-28',
-            daysLeft: -2,
-            hasOverdue: true
-        }
-    ],
-    invoices: [
-        { id: 'INV-1021', invoiceNumber: 'INV-1021', projectName: 'Biệt thự Riverside', dueDate: '2026-02-05', amount: 15000000, paid: 0, status: 'PENDING' },
-        { id: 'INV-1018', invoiceNumber: 'INV-1018', projectName: 'Minh Long HQ', dueDate: '2026-01-28', amount: 8500000, paid: 0, status: 'OVERDUE' },
-        { id: 'INV-1022', invoiceNumber: 'INV-1022', projectName: 'Biệt thự Riverside', dueDate: '2026-02-10', amount: 17500000, paid: 0, status: 'PENDING' }
-    ]
 }

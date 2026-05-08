@@ -19,12 +19,14 @@ import {
     Map,
     ChevronDown,
     ChevronRight,
+    ChevronLeft,
     Wallet,
     Receipt,
     Shield,
     HelpCircle,
     MessageSquare,
     Sparkles,
+    LifeBuoy,
     LucideIcon
 } from 'lucide-react'
 import { useContractorCartStore } from '@/stores/contractorCartStore'
@@ -32,9 +34,10 @@ import { useContractorCartStore } from '@/stores/contractorCartStore'
 interface SidebarProps {
     isOpen: boolean
     onClose: () => void
+    onToggle?: () => void
 }
 
-export default function Sidebar({ isOpen, onClose }: SidebarProps) {
+export default function Sidebar({ isOpen, onClose, onToggle }: SidebarProps) {
     const pathname = usePathname()
     const { getTotalItems } = useContractorCartStore()
     const cartItemCount = getTotalItems()
@@ -65,13 +68,6 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                 { href: '/contractor/orders', icon: Package, label: 'Quản lý Đơn hàng' },
                 { href: '/contractor/debt', icon: CreditCard, label: 'Tài chính & Ví' },
                 { href: '/contractor/insurance', icon: Shield, label: 'Dịch vụ & Bảo hiểm' },
-            ]
-        },
-        {
-            title: 'Hỗ trợ',
-            items: [
-                { href: '/contractor/help', icon: HelpCircle, label: 'Trung tâm hỗ trợ' },
-                { href: '/contractor/disputes', icon: MessageSquare, label: 'Tranh chấp' },
             ]
         }
     ]
@@ -109,15 +105,24 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                 ${isOpen ? 'translate-x-0' : '-translate-x-full'}
                 lg:top-[60px]
             `}>
-                {/* Mobile Header */}
-                <div className="lg:hidden flex items-center justify-between p-3 border-b border-gray-100">
+                {/* Sidebar Header with Toggle */}
+                <div className="flex items-center justify-between p-4 border-b border-gray-100">
                     <div className="flex items-center gap-2.5">
                         <div className="w-8 h-8 bg-gradient-to-br from-primary-600 to-indigo-600 rounded-lg flex items-center justify-center shadow-lg shadow-primary-100">
                             <Building2 className="w-5 h-5 text-white" />
                         </div>
-                        <span className="font-black text-gray-900 text-lg tracking-tight">SmartBuild PRO</span>
+                        <span className="font-black text-gray-900 text-sm tracking-tight">SmartBuild PRO</span>
                     </div>
-                    <button onClick={onClose} className="p-1.5 text-gray-500 hover:bg-gray-100 rounded-lg">
+                    {/* Desktop Collapse Button */}
+                    <button 
+                        onClick={onToggle || onClose} 
+                        className="hidden lg:flex p-1 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-md transition-all active:scale-90"
+                        title="Thu gọn sidebar"
+                    >
+                        <ChevronLeft className="w-4 h-4" />
+                    </button>
+                    {/* Mobile Close Button */}
+                    <button onClick={onClose} className="lg:hidden p-1.5 text-gray-500 hover:bg-gray-100 rounded-lg">
                         <X className="w-5 h-5" />
                     </button>
                 </div>

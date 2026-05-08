@@ -54,6 +54,7 @@ export default function ContractorLayout({
             <Sidebar 
                 isOpen={sidebarOpen} 
                 onClose={() => setSidebarOpen(false)} 
+                onToggle={() => setSidebarOpen(!sidebarOpen)}
             />
 
             {/* Main Content Area with sidebar offset */}

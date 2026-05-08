@@ -13,7 +13,8 @@ import {
     KeyRound,
     Settings,
     ShoppingBag,
-    Package
+    Package,
+    LifeBuoy
 } from 'lucide-react'
 import NotificationBell from '@/components/NotificationBell'
 import MessagingDropdown from '@/components/MessagingDropdown'
@@ -116,7 +117,7 @@ export default function ContractorHeader({ sidebarOpen, setSidebarOpen }: Omit<C
                     <div className="flex items-center gap-3 flex-shrink-0">
                         <button
                             onClick={() => setSidebarOpen(!sidebarOpen)}
-                            className="p-1.5 text-gray-500 hover:bg-gray-50 hover:text-primary-600 rounded-lg transition-colors border border-transparent hover:border-gray-100 md:hidden"
+                            className="p-1.5 text-gray-500 hover:bg-gray-50 hover:text-primary-600 rounded-lg transition-colors border border-transparent hover:border-gray-100"
                         >
                             <Menu className="w-5 h-5" />
                         </button>
@@ -263,6 +264,14 @@ export default function ContractorHeader({ sidebarOpen, setSidebarOpen }: Omit<C
                                         >
                                             <KeyRound className="w-4 h-4" />
                                             Đổi mật khẩu
+                                        </Link>
+                                        <Link
+                                            href="/contractor/help"
+                                            onClick={() => setProfileDropdownOpen(false)}
+                                            className="flex items-center gap-3 px-3 py-2 text-xs font-bold text-gray-700 hover:bg-primary-50 hover:text-primary-700 rounded-lg transition-colors"
+                                        >
+                                            <LifeBuoy className="w-4 h-4" />
+                                            Hỗ trợ & Khiếu nại
                                         </Link>
                                     </div>
 
