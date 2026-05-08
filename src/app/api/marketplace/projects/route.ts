@@ -87,9 +87,12 @@ export async function GET(request: NextRequest) {
             })
             .map(({ _source, ...p }) => p) // strip internal _source field
 
+        const limit = parseInt(searchParams.get('limit') || '50')
+        const slicedProjects = allProjects.slice(0, limit)
+
         return NextResponse.json(
             createSuccessResponse({
-                projects: allProjects,
+                projects: slicedProjects,
                 total: allProjects.length
             }, 'Projects loaded'),
             { status: 200 }

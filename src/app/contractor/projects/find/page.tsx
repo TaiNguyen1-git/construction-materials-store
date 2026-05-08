@@ -47,8 +47,10 @@ export default function FindProjectsPage() {
                 const res = await fetchWithAuth('/api/contractor/saved-projects')
                 if (res.ok) {
                     const data = await res.json()
-                    if (data.success) {
-                        setSavedProjects(new Set(data.data))
+                    // data.data is the list of IDs
+                    const savedIds = data.data || data.savedProjects || []
+                    if (Array.isArray(savedIds)) {
+                        setSavedProjects(new Set(savedIds))
                     }
                 }
             } catch (err) {
@@ -97,23 +99,29 @@ export default function FindProjectsPage() {
             if (res.ok) {
                 const data = await res.json()
                 
-                const mappedProjects: Project[] = (data.data || data.projects || []).map((p: ApiProjectResponse) => ({
-                    id: p.id,
-                    title: p.title || p.name || 'Dự án không tên',
-                    description: p.description,
-                    status: p.status,
-                    createdAt: p.createdAt,
-                    estimatedBudget: p.estimatedBudget || p.budget || null,
-                    location: p.location || null,
-                    city: p.city || 'Toàn quốc',
-                    projectType: p.projectType || p.category || 'general',
-                    contactName: p.contactName || p.guestName || p.customer?.user?.name || 'Khách hàng',
-                    applicationCount: p.applicationCount || p.projectTasks?.length || 0,
-                    viewCount: p.viewCount || 0,
-                    isUrgent: p.isUrgent === true
-                }))
+                // The API uses createSuccessResponse({ projects: allProjects, total: ... })
+                // So the array is in data.data.projects
+                const projectList = data.data?.projects || data.projects || []
                 
-                setProjects(mappedProjects)
+                if (Array.isArray(projectList)) {
+                    const mappedProjects: Project[] = projectList.map((p: ApiProjectResponse) => ({
+                        id: p.id,
+                        title: p.title || p.name || 'Dự án không tên',
+                        description: p.description,
+                        status: p.status,
+                        createdAt: p.createdAt,
+                        estimatedBudget: p.estimatedBudget || p.budget || null,
+                        location: p.location || null,
+                        city: p.city || 'Toàn quốc',
+                        projectType: p.projectType || p.category || 'general',
+                        contactName: p.contactName || p.guestName || p.customer?.user?.name || 'Khách hàng',
+                        applicationCount: p.applicationCount || p.projectTasks?.length || 0,
+                        viewCount: p.viewCount || 0,
+                        isUrgent: p.isUrgent === true
+                    }))
+                    
+                    setProjects(mappedProjects)
+                }
             }
         } catch (error) {
             console.error('Failed to fetch projects:', error)

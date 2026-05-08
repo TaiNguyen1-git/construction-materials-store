@@ -5,7 +5,8 @@ import {
     List,
     Filter,
     FileSpreadsheet,
-    Download
+    Download,
+    Percent
 } from 'lucide-react'
 
 export default function ProductHeader({
@@ -71,6 +72,14 @@ export default function ProductHeader({
                     >
                         <Download className="w-5 h-5 text-blue-600" />
                         <span className="hidden lg:inline">Xuất Tệp</span>
+                    </button>
+                    <button
+                        onClick={() => window.location.href = '/supplier/promotions'}
+                        className="flex items-center gap-2 px-4 py-3 bg-amber-100 text-amber-700 rounded-2xl font-bold hover:bg-amber-200 transition-all active:scale-95 border border-amber-200"
+                        title="Quản lý chương trình khuyến mãi"
+                    >
+                        <Percent className="w-5 h-5" />
+                        <span className="hidden lg:inline">Ưu đãi</span>
                     </button>
                     <button
                         onClick={() => setIsImporting(true)}

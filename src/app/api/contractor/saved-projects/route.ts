@@ -24,7 +24,11 @@ export async function GET(request: NextRequest) {
         })
 
         if (!contractor) {
-            return NextResponse.json({ error: 'Contractor profile not found' }, { status: 404 })
+            // If no profile, just return empty list instead of 404 to avoid console errors
+            return NextResponse.json({
+                success: true,
+                data: []
+            })
         }
 
         // Fetch saved projects
@@ -72,7 +76,7 @@ export async function POST(request: NextRequest) {
         })
 
         if (!contractor) {
-            return NextResponse.json({ error: 'Contractor profile not found' }, { status: 404 })
+            return NextResponse.json({ error: 'Vui lòng hoàn tất hồ sơ nhà thầu để thực hiện chức năng này' }, { status: 400 })
         }
 
         // Check if already saved

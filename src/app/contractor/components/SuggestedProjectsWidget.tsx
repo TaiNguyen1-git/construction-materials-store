@@ -15,11 +15,12 @@ interface SuggestedProjectsWidgetProps {
 
 function SuggestedProjectsWidgetComponent({ displayMode = 'list' }: SuggestedProjectsWidgetProps) {
     const fetchSuggestedProjects = async (): Promise<Project[]> => {
-        const res = await fetchWithAuth('/api/projects?isPublic=true&limit=6')
+        const res = await fetchWithAuth('/api/marketplace/projects?limit=6')
         if (!res.ok) throw new Error('Không thể tải dữ liệu')
         const data = await res.json()
         
-        const rawProjects = data.data || data.projects || []
+        // The API returns { success: true, data: { projects: [], total: 0 } }
+        const rawProjects = data.data?.projects || data.projects || []
         return rawProjects.map((p: any) => ({
             id: p.id,
             title: p.title || p.name,
@@ -131,7 +132,7 @@ function SuggestedProjectsWidgetComponent({ displayMode = 'list' }: SuggestedPro
 
                 <div className="divide-y divide-gray-50 flex-1 overflow-auto max-h-[400px]">
                     {projects.map((project) => (
-                        <Link key={project.id} href={`/projects/${project.id}`} className="block p-4 hover:bg-gray-50 transition-colors">
+                        <Link key={project.id} href={`/contractor/projects/${project.id}`} className="block p-4 hover:bg-gray-50 transition-colors">
                             <div className="flex items-start gap-3">
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-2 mb-1.5">
@@ -180,7 +181,7 @@ function SuggestedProjectsWidgetComponent({ displayMode = 'list' }: SuggestedPro
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {projects.slice(0, 3).map((project) => (
-                        <Link key={project.id} href={`/projects/${project.id}`}
+                        <Link key={project.id} href={`/contractor/projects/${project.id}`}
                             className="group bg-white rounded-2xl p-5 border border-gray-100 shadow-sm hover:shadow-xl hover:shadow-primary-100/50 hover:border-primary-200 transition-all duration-300 relative overflow-hidden flex flex-col h-full">
 
                             {/* Urgent Badge */}

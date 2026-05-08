@@ -6,6 +6,7 @@ import Link from 'next/link'
 import SupplierChatSupport from '@/components/supplier/SupplierChatSupport'
 import ProfileHealthModal from '@/components/supplier/ProfileHealthModal'
 import ChatCallManager from '@/components/ChatCallManager'
+import SupplierHeader from './components/SupplierHeader'
 import {
     Building2,
     LayoutDashboard,
@@ -32,7 +33,7 @@ export default function SupplierLayout({ children }: { children: React.ReactNode
     const pathname = usePathname()
     const [supplierName, setSupplierName] = useState('')
     const [supplierId, setSupplierId] = useState<string | null>(null)
-    const [sidebarOpen, setSidebarOpen] = useState(false)
+    const [sidebarOpen, setSidebarOpen] = useState(true)
     const [isCollapsed, setIsCollapsed] = useState(false)
     const [unreadCount, setUnreadCount] = useState(0)
     const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({})
@@ -105,11 +106,9 @@ export default function SupplierLayout({ children }: { children: React.ReactNode
         {
             group: 'Quản lý bán hàng',
             items: [
-                { name: 'Sản phẩm', href: '/supplier/products', icon: Package },
-                { name: 'Cơ hội thầu', href: '/supplier/opportunities', icon: TrendingDown },
-                { name: 'Đơn hàng', href: '/supplier/orders', icon: FileText },
-                { name: 'Khuyến mãi', href: '/supplier/promotions', icon: Percent },
-                { name: 'Trả hàng', href: '/supplier/returns', icon: RotateCcw },
+                { name: 'Sản phẩm & Ưu đãi', href: '/supplier/products', icon: Package },
+                { name: 'Thị trường & Đấu thầu', href: '/supplier/opportunities', icon: TrendingDown },
+                { name: 'Quản lý Đơn hàng', href: '/supplier/orders', icon: FileText },
             ]
         },
         {
@@ -118,41 +117,38 @@ export default function SupplierLayout({ children }: { children: React.ReactNode
                 { name: 'Hóa đơn', href: '/supplier/invoices', icon: FileText },
                 { name: 'Công nợ', href: '/supplier/payments', icon: Wallet },
             ]
-        },
-        {
-            group: 'Hệ thống',
-            items: [
-                { name: 'Thông báo', href: '/supplier/notifications', icon: Bell, count: unreadCount },
-                { name: 'Hồ sơ pháp lý', href: '/supplier/documents', icon: ShieldCheck },
-                { name: 'Thông tin NCC', href: '/supplier/profile', icon: Building2 },
-                { name: 'Hỗ trợ', href: '/supplier/support', icon: LifeBuoy },
-            ]
         }
     ]
 
     return (
         <div className="min-h-screen bg-[#F0F4F8] text-slate-900 font-sans selection:bg-indigo-100 selection:text-indigo-700">
             {/* Ambient Background Glows */}
-            {/* ... (keep background) ... */}
-
-            {/* Mobile Header - Keep same */}
-            <div className="lg:hidden sticky top-0 bg-white/90 backdrop-blur-xl border-b border-indigo-100/50 text-slate-900 p-4 flex items-center justify-between z-[60] shadow-sm">
-                {/* ... (keep mobile header content) ... */}
+            <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
+                <div className="absolute top-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-100/30 rounded-full blur-[120px] animate-pulse"></div>
+                <div className="absolute bottom-[-10%] left-[-10%] w-[40%] h-[40%] bg-indigo-100/30 rounded-full blur-[120px] animate-pulse delay-1000"></div>
             </div>
+
+            <SupplierHeader 
+                sidebarOpen={sidebarOpen}
+                setSidebarOpen={setSidebarOpen}
+                supplierName={supplierName}
+                unreadCount={unreadCount}
+            />
 
             <div className="flex relative min-h-screen">
                 {/* Sidebar */}
                 <aside className={`
                     flex flex-col
-                    fixed lg:sticky top-0 h-screen z-50
+                    fixed lg:fixed left-0 bottom-0 z-50
                     bg-white/80 backdrop-blur-2xl border-r border-indigo-50/60
                     shadow-[4px_0_24px_-12px_rgba(0,0,0,0.05)]
                     transform transition-all duration-300 ease-out
-                    ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+                    lg:top-[65px] top-0
+                    ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:-translate-x-full'}
                     ${isCollapsed ? 'w-20' : 'w-[280px]'}
                 `}>
-                    {/* Brand */}
-                    <div className={`p-6 flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'}`}>
+                    {/* Brand - Only visible on mobile or when no header */}
+                    <div className={`p-6 flex items-center lg:hidden ${isCollapsed ? 'justify-center' : 'justify-between'}`}>
                         <div className={`flex items-center gap-4 group cursor-pointer ${isCollapsed ? 'justify-center' : ''}`}>
                             <div className="relative w-10 h-10 flex-shrink-0">
                                 <div className="absolute inset-0 bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-xl rotate-6 group-hover:rotate-12 transition-transform duration-300 opacity-20 blur-sm"></div>
@@ -169,6 +165,9 @@ export default function SupplierLayout({ children }: { children: React.ReactNode
                                 </div>
                             )}
                         </div>
+                        <button onClick={() => setSidebarOpen(false)} className="lg:hidden p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-xl">
+                            <X className="w-5 h-5" />
+                        </button>
                     </div>
 
                     {/* Navigation */}
@@ -217,13 +216,13 @@ export default function SupplierLayout({ children }: { children: React.ReactNode
                                                             <span className={`text-[13px] ${isActive ? 'font-semibold' : 'font-medium'}`}>{item.name}</span>
                                                         )}
                                                     </div>
-                                                    {item.count !== undefined && item.count > 0 && (
+                                                    {(item as any).count !== undefined && (item as any).count > 0 && (
                                                         <span className={`
                                                             ${isCollapsed ? 'absolute -top-1 -right-1 min-w-[16px] h-[16px] px-0.5' : 'px-1.5 py-0.5'}
                                                             flex items-center justify-center text-[9px] font-bold rounded-full shadow-sm
                                                             ${isActive ? 'bg-white/20 text-white backdrop-blur-sm' : 'bg-red-500 text-white'}
                                                         `}>
-                                                            {item.count}
+                                                            {(item as any).count}
                                                         </span>
                                                     )}
                                                 </Link>
@@ -265,7 +264,11 @@ export default function SupplierLayout({ children }: { children: React.ReactNode
                 )}
 
                 {/* Main Content */}
-                <main className="flex-1 min-w-0 min-h-screen relative lg:p-8 p-4 overflow-x-hidden">
+                <main className={`
+                    flex-1 min-w-0 min-h-screen relative p-4 lg:p-8 overflow-x-hidden
+                    transition-all duration-300 ease-out
+                    ${sidebarOpen ? (isCollapsed ? 'lg:ml-20' : 'lg:ml-[280px]') : 'lg:ml-0'}
+                `}>
                     <div className="max-w-[1600px] mx-auto animate-in slide-in-from-bottom-2 duration-500 delay-100">
                         {children}
                     </div>
