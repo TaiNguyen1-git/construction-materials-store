@@ -1,10 +1,10 @@
 'use client'
 
 /**
- * Public Contractor Marketplace - Enhanced with 7 Premium Features
+ * Public Contractor Marketplace - Premium Master-Detail Layout
  */
 
-import { useState, useEffect, Suspense } from 'react'
+import { useState, useEffect, Suspense, use } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import {
@@ -15,20 +15,44 @@ import {
     Heart, CheckCircle2, X, Filter,
     Scale, AlertCircle, Check,
     Clock, Trophy, BadgeCheck,
-    MessageSquare, Calculator, Camera
+    MessageSquare, Calculator, Camera,
+    ArrowUpRight, Phone, Mail, Info
 } from 'lucide-react'
 import { encodeId } from '@/lib/id-utils'
 import toast, { Toaster } from 'react-hot-toast'
 import Header from '@/components/Header'
 import LoginIncentiveModal from '@/components/LoginIncentiveModal'
 
+const SKILL_MAP: Record<string, string> = {
+    'all': 'Tất cả',
+    'rough_construction': 'Xây thô',
+    'mep': 'Điện nước',
+    'painting': 'Sơn bả',
+    'interior': 'Nội thất',
+    'repair': 'Sửa chữa',
+    'flooring': 'Lát nền',
+    'tiling': 'Ốp lát',
+    'roofing': 'Làm mái',
+    'renovation': 'Cải tạo',
+    'plumbing': 'Điện nước',
+    'electrical': 'Hệ thống điện',
+    'landscaping': 'Cảnh quan'
+}
+
+const getSkillName = (skill: string | null | undefined) => {
+    if (!skill) return 'Chuyên gia'
+    const normalizedSkill = skill.toLowerCase()
+    if (SKILL_MAP[normalizedSkill]) return SKILL_MAP[normalizedSkill]
+    return skill
+}
+
 const CATEGORIES = [
     { id: 'all', name: 'Tất cả', icon: Users },
-    { id: 'Xây thô', name: 'Xây thô', icon: HardHat },
-    { id: 'Điện nước', name: 'Điện nước', icon: Zap },
-    { id: 'Sơn bả', name: 'Sơn bả', icon: Paintbrush },
-    { id: 'Nội thất', name: 'Nội thất', icon: Briefcase },
-    { id: 'Sửa chữa', name: 'Sửa chữa', icon: Wrench },
+    { id: 'rough_construction', name: 'Xây thô', icon: HardHat, dbValue: 'Xây thô' },
+    { id: 'mep', name: 'Điện nước', icon: Zap, dbValue: 'Điện nước' },
+    { id: 'painting', name: 'Sơn bả', icon: Paintbrush, dbValue: 'Sơn bả' },
+    { id: 'interior', name: 'Nội thất', icon: Briefcase, dbValue: 'Nội thất' },
+    { id: 'repair', name: 'Sửa chữa', icon: Wrench, dbValue: 'Sửa chữa' },
 ]
 
 const CITIES = ['Toàn quốc', 'Hồ Chí Minh', 'Hà Nội', 'Đà Nẵng', 'Hải Phòng', 'Cần Thơ', 'Biên Hòa']
@@ -40,6 +64,7 @@ function ContractorMarketplaceContent() {
     const [cityFilter, setCityFilter] = useState('Toàn quốc')
     const [searchTerm, setSearchTerm] = useState('')
     const [showLoginModal, setShowLoginModal] = useState(false)
+    const [selectedContractorId, setSelectedContractorId] = useState<string | null>(null)
     const searchParams = useSearchParams()
 
     // Feature 7: Comparison State
@@ -53,7 +78,6 @@ function ContractorMarketplaceContent() {
 
     const handleChatClick = (id: string) => {
         const token = typeof window !== 'undefined' ? (localStorage.getItem('access_token') || sessionStorage.getItem('access_token')) : null
-
         if (token) {
             router.push(`/messages?partnerId=${id}`)
         } else {
@@ -67,10 +91,7 @@ function ContractorMarketplaceContent() {
         if (!guestContact.name || !guestContact.phone || !chatContractorId) return
 
         try {
-            // Find contractor name
             const contractor = contractors.find(c => c.id === chatContractorId)
-
-            // Generate or get guest ID
             let guestId = localStorage.getItem('user_id')
             if (!guestId || !guestId.startsWith('guest_')) {
                 guestId = 'guest_' + Math.random().toString(36).substr(2, 9)
@@ -79,7 +100,6 @@ function ContractorMarketplaceContent() {
             localStorage.setItem('user_name', guestContact.name)
             localStorage.setItem('user_phone', guestContact.phone)
 
-            // Auto-create/ensure conversation exists via API
             const res = await fetch('/api/chat/conversations', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -120,13 +140,21 @@ function ContractorMarketplaceContent() {
         setLoading(true)
         try {
             let url = '/api/contractors/public?'
-            if (filter !== 'all') url += `skill=${encodeURIComponent(filter)}&`
+            if (filter !== 'all') {
+                const category = CATEGORIES.find(c => c.id === filter)
+                const skillQuery = category?.dbValue || filter
+                url += `skill=${encodeURIComponent(skillQuery)}&`
+            }
             if (cityFilter !== 'Toàn quốc') url += `city=${encodeURIComponent(cityFilter)}&`
 
             const res = await fetch(url)
             if (res.ok) {
                 const data = await res.json()
-                setContractors(data.data || [])
+                const list = data.data || []
+                setContractors(list)
+                if (list.length > 0 && !selectedContractorId) {
+                    setSelectedContractorId(list[0].id)
+                }
             }
         } catch (err) {
             toast.error('Lỗi khi tải danh sách đối tác')
@@ -139,6 +167,8 @@ function ContractorMarketplaceContent() {
         c.displayName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         c.companyName?.toLowerCase().includes(searchTerm.toLowerCase())
     )
+
+    const selectedContractor = contractors.find(c => c.id === selectedContractorId)
 
     const toggleCompare = (contractor: any) => {
         if (compareList.find(c => c.id === contractor.id)) {
@@ -157,235 +187,319 @@ function ContractorMarketplaceContent() {
             <Toaster position="top-right" />
             <Header />
 
-            {/* 🚀 PREMIUM HERO SECTION: The "Awe" Factor */}
-            <div className="relative pt-24 pb-56 overflow-hidden bg-slate-950">
-                {/* Advanced Mesh Gradient Background */}
+            {/* 🚀 PREMIUM HERO SECTION */}
+            <div className="relative pt-24 pb-48 overflow-hidden bg-slate-950">
                 <div className="absolute inset-0 z-0">
                     <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_20%_30%,#1e3a8a_0%,transparent_50%),radial-gradient(circle_at_80%_20%,#312e81_0%,transparent_50%),radial-gradient(circle_at_50%_80%,#164e63_0%,transparent_50%)] opacity-80"></div>
                 </div>
-
-                {/* High-Tech Blueprint Overlay */}
-                <div className="absolute inset-0 opacity-[0.05] pointer-events-none z-[1]" style={{ backgroundImage: `linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)`, backgroundSize: '50px 50px' }}></div>
-
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-                    <div className="flex flex-col lg:flex-row items-center justify-between gap-16">
-                        <div className="max-w-3xl lg:text-left text-center">
-                            <div className="inline-flex items-center gap-3 px-5 py-2 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-300 mb-10 animate-fade-in-up backdrop-blur-md">
-                                <ShieldCheck className="w-4 h-4" />
-                                <span className="text-[10px] font-black uppercase tracking-[0.4em]">Đối tác tin cậy - Vững xây tương lai</span>
-                            </div>
-
-                            <h1 className="text-6xl md:text-8xl font-black text-white mb-8 tracking-tight leading-[1.4] animate-fade-in-up delay-100 uppercase">
-                                Vươn Tầm <br />
-                                <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-cyan-200 to-blue-500 italic pr-4 inline-block py-2">Kiến Trúc</span>
-                            </h1>
-
-                            <p className="text-xl text-slate-300 font-medium leading-relaxed max-w-2xl mb-12 animate-fade-in-up delay-200 mx-auto lg:mx-0">
-                                Đồng hành cùng những chuyên gia hàng đầu để biến ý tưởng thành hiện thực. Chúng tôi xác thực năng lực, bạn sở hữu những <span className="text-white font-bold border-b-2 border-blue-500">không gian đẳng cấp</span>.
-                            </p>
-
-                            {/* 🔎 UNIFIED SEARCH COMMANDER: DARK MODE EDITION */}
-                            <div className="relative max-w-3xl animate-fade-in-up delay-300">
-                                <div className="bg-white p-2 rounded-[32px] shadow-[0_32px_80px_rgba(0,0,0,0.5)] flex flex-col md:flex-row items-center gap-2">
-                                    <div className="flex-1 flex items-center px-6 w-full">
-                                        <Search className="w-5 h-5 text-blue-600 mr-4" />
-                                        <input
-                                            type="text"
-                                            placeholder="Bạn đang cần tìm nhà thầu trong lĩnh vực gì?"
-                                            value={searchTerm}
-                                            onChange={(e) => setSearchTerm(e.target.value)}
-                                            className="w-full py-5 bg-transparent font-bold text-slate-800 outline-none placeholder:text-slate-400"
-                                        />
-                                    </div>
-                                    <div className="h-10 w-[1px] bg-slate-100 hidden md:block"></div>
-                                    <div className="w-full md:w-56 flex items-center px-6">
-                                        <MapPin className="w-5 h-5 text-blue-600 mr-4" />
-                                        <select
-                                            value={cityFilter}
-                                            onChange={(e) => setCityFilter(e.target.value)}
-                                            className="w-full py-5 bg-transparent font-black text-slate-800 outline-none appearance-none cursor-pointer"
-                                        >
-                                            {CITIES.map(city => <option key={city} value={city}>{city}</option>)}
-                                        </select>
-                                    </div>
-                                    <button className="w-full md:w-auto px-12 py-5 bg-blue-600 font-black text-white rounded-[24px] hover:bg-blue-500 transition-all shadow-xl shadow-blue-500/20 active:scale-95 uppercase tracking-widest text-xs">
-                                        TÌM KIẾM
-                                    </button>
-                                </div>
-                            </div>
+                <div className="max-w-[1400px] mx-auto px-4 relative z-10">
+                    <div className="max-w-4xl">
+                        <div className="inline-flex items-center gap-3 px-5 py-2 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-300 mb-8 backdrop-blur-md">
+                            <ShieldCheck className="w-4 h-4" />
+                            <span className="text-[10px] font-black uppercase tracking-[0.4em]">Hệ thống nhà thầu chuyên nghiệp SmartBuild</span>
                         </div>
-
-                        {/* Visual 3D Card Mockup */}
-                        <div className="hidden lg:block relative w-full max-w-md perspective-1000">
-                            <div className="relative transform rotate-y-6 rotate-x-6 bg-white/5 backdrop-blur-2xl p-1 rounded-[40px] border border-white/10 shadow-2xl animate-float">
-                                <div className="bg-slate-900/40 rounded-[38px] p-8 overflow-hidden relative">
-                                    <div className="flex flex-col gap-10">
-                                        <div className="flex items-center gap-5">
-                                            <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/20">
-                                                <Trophy className="w-8 h-8 text-white" />
-                                            </div>
-                                            <div className="space-y-3">
-                                                <div className="h-4 w-32 bg-white/20 rounded-full"></div>
-                                                <div className="h-3 w-20 bg-white/10 rounded-full"></div>
-                                            </div>
-                                        </div>
-                                        <div className="space-y-4">
-                                            <div className="h-2 w-full bg-white/5 rounded-full"></div>
-                                            <div className="h-2 w-4/5 bg-white/5 rounded-full"></div>
-                                        </div>
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div className="bg-white/5 p-4 rounded-2xl border border-white/5 text-center">
-                                                <div className="text-xl font-bold text-blue-400">4.9/5</div>
-                                                <div className="text-[8px] text-slate-400 uppercase font-black">Xếp hạng</div>
-                                            </div>
-                                            <div className="bg-white/5 p-4 rounded-2xl border border-white/5 text-center">
-                                                <div className="text-xl font-bold text-cyan-400">12+</div>
-                                                <div className="text-[8px] text-slate-400 uppercase font-black">Năm kinh nghiệm</div>
-                                            </div>
-                                        </div>
-                                    </div>
+                        <h1 className="text-5xl md:text-7xl font-black text-white mb-8 tracking-tight uppercase">
+                            Tìm Kiếm <span className="text-blue-400 italic">Đối Tác</span> <br /> Thi Công Tin Cậy
+                        </h1>
+                        <div className="relative max-w-2xl">
+                            <div className="bg-white p-2 rounded-3xl shadow-2xl flex flex-col md:flex-row items-center gap-2">
+                                <div className="flex-1 flex items-center px-4 w-full">
+                                    <Search className="w-5 h-5 text-blue-600 mr-3" />
+                                    <input
+                                        type="text"
+                                        placeholder="Nhà thầu xây dựng, điện nước..."
+                                        value={searchTerm}
+                                        onChange={(e) => setSearchTerm(e.target.value)}
+                                        className="w-full py-4 bg-transparent font-bold text-slate-800 outline-none"
+                                    />
                                 </div>
+                                <div className="w-full md:w-48 flex items-center px-4 border-l border-slate-100">
+                                    <MapPin className="w-5 h-5 text-blue-600 mr-2" />
+                                    <select
+                                        value={cityFilter}
+                                        onChange={(e) => setCityFilter(e.target.value)}
+                                        className="w-full py-4 bg-transparent font-black text-slate-800 outline-none appearance-none cursor-pointer"
+                                    >
+                                        {CITIES.map(city => <option key={city} value={city}>{city}</option>)}
+                                    </select>
+                                </div>
+                                <button className="w-full md:w-auto px-8 py-4 bg-blue-600 font-black text-white rounded-2xl hover:bg-blue-700 transition-all uppercase tracking-widest text-xs">
+                                    TÌM KIẾM
+                                </button>
                             </div>
                         </div>
                     </div>
                 </div>
-
-                {/* Smooth Section Divider Bridge */}
-                <div className="absolute bottom-0 left-0 w-full h-32 bg-gradient-to-t from-slate-50 to-transparent z-[5]"></div>
-                <div className="absolute bottom-0 left-0 w-full overflow-hidden leading-[0] z-[6]">
-                    <svg className="relative block w-full h-[60px]" viewBox="0 0 1200 120" preserveAspectRatio="none">
-                        <path d="M321.39,56.44c125-9.33,260.67-17.33,485.39,15.17c224.72,32.5,302.44,19.33,403.22,1.33V120H0V95.33C0,95.33,196.39,65.77,321.39,56.44z" className="fill-slate-50"></path>
-                    </svg>
-                </div>
             </div>
 
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-24 relative z-20">
-                {/* 🏷️ BALANCED FILTER & SORT BAR */}
-                <div className="flex flex-col md:flex-row items-center justify-between gap-6 mb-16 px-4 py-4 bg-white/80 backdrop-blur-2xl rounded-[32px] border border-white shadow-[0_20px_50px_rgba(0,0,0,0.05)]">
-                    <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar max-w-full">
+            <div className="max-w-[1400px] mx-auto px-4 -mt-12 relative z-20">
+                <div className="bg-white/80 backdrop-blur-2xl rounded-3xl p-4 border border-white shadow-xl flex flex-wrap items-center justify-between gap-4">
+                    <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
                         {CATEGORIES.map((cat) => (
                             <button
                                 key={cat.id}
                                 onClick={() => setFilter(cat.id)}
-                                className={`flex items-center gap-2 px-6 py-3 rounded-[14px] text-xs font-black whitespace-nowrap transition-all duration-300 ${filter === cat.id ? 'bg-white text-blue-600 shadow-sm border border-slate-200/50 scale-105' : 'text-slate-400 hover:text-slate-600 hover:bg-white/50'}`}
+                                className={`flex items-center gap-2 px-6 py-3 rounded-xl text-xs font-black whitespace-nowrap transition-all ${filter === cat.id ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'}`}
                             >
                                 <cat.icon className="w-4 h-4" />
                                 {cat.name.toUpperCase()}
                             </button>
                         ))}
                     </div>
-
-                    <div className="flex items-center gap-4 px-6 py-3 bg-white rounded-2xl border border-slate-100 shadow-sm group">
-                        <div className="flex items-center gap-3">
-                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-r border-slate-100 pr-4">Sắp xếp theo</span>
-                            <div className="flex items-center gap-2">
-                                <select className="bg-transparent text-xs font-black text-slate-900 outline-none cursor-pointer appearance-none pr-6 relative">
-                                    <option>Nổi bật nhất</option>
-                                    <option>Đánh giá khách hàng</option>
-                                    <option>Kinh nghiệm lâu năm</option>
-                                    <option>Nhiều dự án nhất</option>
-                                </select>
-                                <Filter className="w-4 h-4 text-slate-400 transition-colors group-hover:text-blue-600" />
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* 📉 SEARCH METRICS */}
-                <div className="flex items-center justify-between mb-8 px-2">
-                    <h2 className="text-sm font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-3">
-                        Kết quả hiển thị
-                        <span className="w-8 h-[1px] bg-slate-200"></span>
-                        <span className="text-slate-900">{filteredContractors.length} đối tác</span>
-                    </h2>
-                </div>
-
-                {loading ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                        {[1, 2, 3, 4, 5, 6].map((i) => (
-                            <div key={i} className="bg-white rounded-[32px] shadow-sm p-8 animate-pulse border border-slate-100 h-96"></div>
-                        ))}
-                    </div>
-                ) : filteredContractors.length === 0 ? (
-                    <div className="bg-white rounded-[40px] py-20 text-center border-2 border-dashed border-slate-200">
-                        <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6">
-                            <Users className="h-10 w-10 text-slate-300" />
-                        </div>
-                        <h3 className="text-2xl font-black text-slate-900 mb-2">Không tìm thấy nhà thầu</h3>
-                        <p className="text-slate-500 font-medium mb-8">Thử thay đổi từ khóa hoặc khu vực tìm kiếm của bạn</p>
-                        <button
-                            onClick={() => { setFilter('all'); setCityFilter('Toàn quốc'); setSearchTerm(''); }}
-                            className="px-8 py-4 bg-blue-600 text-white font-black rounded-2xl hover:bg-blue-700 transition-all uppercase text-xs tracking-widest shadow-xl shadow-blue-100"
-                        >
-                            Đặt lại bộ lọc
-                        </button>
-                    </div>
-                ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                        {filteredContractors.map((c) => (
-                            <ContractorCard
-                                key={c.id}
-                                contractor={c}
-                                onFavorite={() => setShowLoginModal(true)}
-                                onChat={() => handleChatClick(c.id)}
-                                onCompare={() => toggleCompare(c)}
-                                isComparing={compareList.some(item => item.id === c.id)}
-                            />
-                        ))}
-                    </div>
-                )}
-
-                {/* Registration CTA - Modernized */}
-                <div className="mt-24 relative rounded-[48px] overflow-hidden bg-white shadow-[0_40px_100px_rgba(0,0,0,0.08)] border border-slate-100">
-                    <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-blue-50/50 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
-                    <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-indigo-50/50 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2"></div>
-
-                    <div className="relative z-10 grid grid-cols-1 lg:grid-cols-2 gap-12 p-12 md:p-20 items-center">
-                        <div>
-                            <div className="w-16 h-16 bg-blue-600 text-white rounded-[24px] flex items-center justify-center mb-8 shadow-xl shadow-blue-100">
-                                <Trophy className="w-8 h-8" />
-                            </div>
-                            <h2 className="text-4xl md:text-5xl font-black text-slate-900 mb-6 leading-tight">
-                                Trở thành đối tác <br /><span className="text-blue-600">SmartBuild Elite</span>
-                            </h2>
-                            <p className="text-slate-500 text-lg font-medium leading-relaxed mb-10">
-                                Cam kết cung cấp dự án ổn định, hỗ trợ vật tư ưu đãi và giải pháp quản lý thi công chuyên nghiệp cho các nhà thầu xuất sắc.
-                            </p>
-                            <div className="flex flex-wrap gap-4">
-                                <Link href="/contractor/login" className="inline-flex items-center gap-3 px-10 py-5 bg-blue-600 text-white font-black rounded-[24px] hover:bg-blue-700 transition-all shadow-2xl shadow-blue-200 group">
-                                    ĐĂNG KÝ NGAY
-                                    <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                                </Link>
-                                <Link href="/contact" className="inline-flex items-center gap-3 px-10 py-5 bg-white text-blue-600 font-black rounded-[24px] border-2 border-blue-50 hover:bg-blue-50 transition-all">
-                                    LIÊN HỆ TƯ VẤN
-                                </Link>
-                            </div>
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
-                            {[
-                                { label: 'Dự án mới mỗi ngày', icon: Building2, color: 'text-blue-600', bg: 'bg-blue-50' },
-                                { label: 'Thanh toán minh bạch', icon: Calculator, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-                                { label: 'Hỗ trợ vật tư 24/7', icon: Truck, color: 'text-amber-600', bg: 'bg-amber-50' },
-                                { label: 'Quản lý thông minh', icon: BadgeCheck, color: 'text-indigo-600', bg: 'bg-indigo-50' },
-                            ].map((item, i) => (
-                                <div key={i} className="bg-slate-50/50 p-6 rounded-[32px] border border-slate-100 hover:bg-white hover:shadow-xl hover:shadow-slate-100/50 transition-all duration-300">
-                                    <div className={`${item.bg} ${item.color} w-12 h-12 rounded-2xl flex items-center justify-center mb-4`}>
-                                        <item.icon className="w-6 h-6" />
-                                    </div>
-                                    <p className="font-bold text-slate-900 text-sm">{item.label}</p>
-                                </div>
-                            ))}
-                        </div>
+                    <div className="flex items-center gap-4 px-4 py-2 bg-slate-50 rounded-xl border border-slate-100">
+                        <span className="text-[10px] font-black text-slate-400 uppercase">Sắp xếp:</span>
+                        <select className="bg-transparent text-xs font-black text-slate-900 outline-none cursor-pointer">
+                            <option>Mặc định</option>
+                            <option>Đánh giá cao nhất</option>
+                            <option>Kinh nghiệm lâu năm</option>
+                        </select>
                     </div>
                 </div>
             </div>
 
+            <main className="max-w-[1400px] mx-auto px-4 py-12">
+                <div className="flex flex-col lg:flex-row gap-8">
+                    {/* Left Column: List */}
+                    <div className="w-full lg:w-[450px] space-y-4">
+                        <h2 className="text-sm font-black text-slate-900 uppercase tracking-widest mb-6">
+                            Kết quả tìm kiếm ({filteredContractors.length})
+                        </h2>
+
+                        {loading ? (
+                            <div className="space-y-4">
+                                {[1, 2, 3, 4].map(i => (
+                                    <div key={i} className="h-40 bg-white rounded-3xl animate-pulse border border-slate-100"></div>
+                                ))}
+                            </div>
+                        ) : filteredContractors.length === 0 ? (
+                            <div className="bg-white rounded-[40px] p-12 text-center border-2 border-dashed border-slate-200">
+                                <Users className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+                                <p className="text-slate-500 font-bold">Không tìm thấy nhà thầu phù hợp</p>
+                            </div>
+                        ) : (
+                            <div className="space-y-4 max-h-[1200px] overflow-y-auto no-scrollbar pr-2">
+                                {filteredContractors.map((c) => (
+                                    <div
+                                        key={c.id}
+                                        onClick={() => setSelectedContractorId(c.id)}
+                                        className={`group relative p-6 rounded-[32px] border-2 transition-all cursor-pointer ${selectedContractorId === c.id 
+                                            ? 'bg-white border-blue-500 shadow-2xl shadow-blue-100' 
+                                            : 'bg-white border-slate-100 hover:border-slate-200 hover:shadow-xl'}`}
+                                    >
+                                        <div className="flex gap-4 items-start mb-4">
+                                            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-xl font-black transition-colors ${selectedContractorId === c.id ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-900 group-hover:bg-blue-50 group-hover:text-blue-600'}`}>
+                                                {c.displayName?.charAt(0)}
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <h3 className="font-black text-slate-900 group-hover:text-blue-600 transition-colors uppercase truncate">
+                                                    {c.displayName}
+                                                </h3>
+                                                <p className="text-xs font-bold text-slate-400 truncate">
+                                                    {c.companyName || 'Đối tác chiến lược'} • {c.city || 'Toàn quốc'}
+                                                </p>
+                                            </div>
+                                            <div className="flex gap-1">
+                                                <button 
+                                                    onClick={(e) => { e.stopPropagation(); toggleCompare(c); }}
+                                                    className={`p-2 rounded-xl transition-all ${compareList.some(item => item.id === c.id) ? 'bg-blue-600 text-white' : 'bg-slate-50 text-slate-400 hover:text-blue-600 hover:bg-blue-50'}`}
+                                                >
+                                                    <Scale className="w-3.5 h-3.5" />
+                                                </button>
+                                                <button 
+                                                    onClick={(e) => { e.stopPropagation(); setShowLoginModal(true); }}
+                                                    className="p-2 bg-slate-50 text-slate-400 rounded-xl hover:text-red-500 hover:bg-red-50 transition-all"
+                                                >
+                                                    <Heart className="w-3.5 h-3.5" />
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex flex-wrap gap-1.5 mb-6">
+                                            {c.skills?.slice(0, 2).map((s: string) => (
+                                                <span key={s} className="px-2.5 py-1 bg-slate-50 text-slate-500 rounded-lg text-[9px] font-black uppercase tracking-wider">
+                                                    {getSkillName(s)}
+                                                </span>
+                                            ))}
+                                        </div>
+
+                                        <div className="flex items-center justify-between mt-auto">
+                                            <div className="flex items-center gap-1.5 px-3 py-1 bg-amber-50 text-amber-600 rounded-full text-[10px] font-black border border-amber-100">
+                                                <Star className="w-3 h-3 fill-current" />
+                                                {c.avgRating || '5.0'}
+                                            </div>
+                                            <div className="text-[10px] font-black text-blue-600 uppercase tracking-widest flex items-center gap-1 group-hover:gap-2 transition-all">
+                                                Chi tiết <ArrowRight className="w-4 h-4" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Right Column: Detail View */}
+                    <div className="flex-1 hidden lg:block">
+                        {selectedContractor ? (
+                            <div className="sticky top-24 bg-white rounded-[40px] border border-slate-100 shadow-2xl shadow-slate-200/40 overflow-hidden h-[calc(100vh-120px)] flex flex-col">
+                                <div className="flex-1 overflow-y-auto no-scrollbar pb-12">
+                                    {/* Header Section Inside Scrollable */}
+                                    <div className="h-28 bg-gradient-to-r from-blue-600 to-indigo-700 relative shrink-0">
+                                        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_50%,rgba(255,255,255,0.1)_0%,transparent_50%)]"></div>
+                                    </div>
+                                    
+                                    <div className="px-10 -mt-12 relative z-10">
+                                        <div className="flex justify-between items-end mb-6">
+                                            <div className="relative">
+                                                <div className="w-24 h-24 rounded-[32px] bg-white p-1 shadow-xl">
+                                                    <div className="w-full h-full rounded-[28px] bg-slate-100 flex items-center justify-center text-3xl font-black text-slate-900 border border-slate-50">
+                                                        {selectedContractor.displayName?.charAt(0)}
+                                                    </div>
+                                                </div>
+                                                <div className="absolute -bottom-1 -right-1 w-8 h-8 bg-emerald-500 rounded-full border-2 border-white flex items-center justify-center shadow-lg">
+                                                    <BadgeCheck className="w-4 h-4 text-white" />
+                                                </div>
+                                            </div>
+                                            <div className="flex gap-2 mb-1">
+                                                <button 
+                                                    onClick={() => setShowLoginModal(true)}
+                                                    className="p-3 bg-white/10 backdrop-blur-md text-white rounded-xl hover:bg-white/20 transition-all border border-white/20 sm:bg-slate-50 sm:text-slate-400 sm:border-slate-100 sm:hover:text-red-500 sm:hover:bg-red-50"
+                                                >
+                                                    <Heart className="w-4 h-4" />
+                                                </button>
+                                                <button 
+                                                    onClick={() => toggleCompare(selectedContractor)}
+                                                    className={`p-3 backdrop-blur-md rounded-xl transition-all border ${compareList.some(item => item.id === selectedContractor.id) 
+                                                        ? 'bg-blue-600 text-white border-blue-600' 
+                                                        : 'bg-white/10 text-white border-white/20 sm:bg-slate-50 sm:text-slate-400 sm:border-slate-100 sm:hover:text-blue-600 sm:hover:bg-blue-50'}`}
+                                                >
+                                                    <Scale className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        <div className="mb-8">
+                                            <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tight mb-1">
+                                                {selectedContractor.displayName}
+                                            </h2>
+                                            <p className="text-sm font-bold text-slate-500 flex items-center gap-2">
+                                                {selectedContractor.companyName || 'Đối tác chiến lược'} <span className="w-1 h-1 rounded-full bg-slate-300"></span> {selectedContractor.city || 'Toàn quốc'}
+                                            </p>
+                                        </div>
+
+                                        <div className="grid grid-cols-4 gap-3 mb-8">
+                                            {[
+                                                { label: 'Đánh giá', value: `${selectedContractor.avgRating || '5.0'} ⭐`, color: 'text-amber-600', bg: 'bg-amber-50' },
+                                                { label: 'Kinh nghiệm', value: `${selectedContractor.experienceYears || '0'} Năm`, color: 'text-blue-600', bg: 'bg-blue-50' },
+                                                { label: 'Dự án', value: `${selectedContractor.totalProjectsCompleted || '0'} C.Trình`, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+                                                { label: 'Đội ngũ', value: `${selectedContractor.teamSize || '1'} N.Sự`, color: 'text-indigo-600', bg: 'bg-indigo-50' }
+                                            ].map((stat, i) => (
+                                                <div key={i} className={`${stat.bg} p-3 rounded-2xl border border-white shadow-sm text-center`}>
+                                                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">{stat.label}</p>
+                                                    <p className={`text-[11px] font-black ${stat.color}`}>{stat.value}</p>
+                                                </div>
+                                            ))}
+                                        </div>
+
+                                        <div className="flex gap-3 mb-10">
+                                            <button 
+                                                onClick={() => handleChatClick(selectedContractor.id)}
+                                                className="flex-[2] py-4 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-[0.15em] text-[10px] shadow-xl shadow-blue-100 hover:bg-blue-700 transition-all active:scale-95 flex items-center justify-center gap-2"
+                                            >
+                                                Nhắn tin ngay <MessageSquare className="w-4 h-4" />
+                                            </button>
+                                            <Link 
+                                                href={`/contractors/${encodeId(selectedContractor.id)}`}
+                                                className="flex-1 py-4 bg-white text-slate-900 border border-slate-200 rounded-2xl font-black uppercase tracking-[0.15em] text-[10px] hover:bg-slate-50 transition-all flex items-center justify-center"
+                                            >
+                                                Hồ sơ
+                                            </Link>
+                                        </div>
+
+                                        <div className="space-y-8">
+                                            <div>
+                                                <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
+                                                    <Info className="w-3.5 h-3.5" /> Giới thiệu đối tác
+                                                </h3>
+                                                <p className="text-slate-600 font-medium leading-relaxed text-base">
+                                                    {selectedContractor.bio || 'Chưa có thông tin giới thiệu chi tiết cho đối tác này.'}
+                                                </p>
+                                            </div>
+
+                                            <div>
+                                                <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
+                                                    <Wrench className="w-3.5 h-3.5" /> Chuyên môn chính
+                                                </h3>
+                                                <div className="flex flex-wrap gap-1.5">
+                                                    {selectedContractor.skills?.map((s: string) => (
+                                                        <span key={s} className="px-4 py-2 bg-slate-50 text-slate-600 rounded-xl text-[10px] font-black border border-slate-100 uppercase tracking-widest">
+                                                            {getSkillName(s)}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            </div>
+
+                                            {/* 🤝 SIMILAR CONTRACTORS SECTION */}
+                                            <div className="pt-8 border-t border-slate-100">
+                                                <div className="flex items-center justify-between mb-6">
+                                                    <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2">
+                                                        <Users className="w-3.5 h-3.5" /> Đối tác tương tự
+                                                    </h3>
+                                                </div>
+                                                <div className="space-y-3">
+                                                    {contractors
+                                                        .filter(c => c.id !== selectedContractor.id)
+                                                        .slice(0, 3)
+                                                        .map(similar => (
+                                                            <div 
+                                                                key={similar.id}
+                                                                onClick={() => setSelectedContractorId(similar.id)}
+                                                                className="group/item flex items-center gap-4 p-4 rounded-2xl border border-slate-50 hover:border-blue-100 hover:bg-blue-50/30 transition-all cursor-pointer"
+                                                            >
+                                                                <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center text-lg font-black text-slate-400 group-hover/item:bg-blue-600 group-hover/item:text-white transition-colors shrink-0">
+                                                                    {similar.displayName?.charAt(0)}
+                                                                </div>
+                                                                <div className="flex-1 min-w-0">
+                                                                    <h4 className="text-xs font-black text-slate-900 uppercase truncate mb-0.5 group-hover/item:text-blue-600 transition-colors">
+                                                                        {similar.displayName}
+                                                                    </h4>
+                                                                    <div className="flex items-center gap-2">
+                                                                        <div className="flex items-center gap-1 text-[10px] font-bold text-amber-500">
+                                                                            <Star className="w-3 h-3 fill-current" /> {similar.avgRating || '5.0'}
+                                                                        </div>
+                                                                        <span className="w-1 h-1 rounded-full bg-slate-200"></span>
+                                                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">
+                                                                            {similar.experienceYears || '0'} năm kinh nghiệm
+                                                                        </p>
+                                                                    </div>
+                                                                </div>
+                                                                <ArrowUpRight className="w-4 h-4 text-slate-300 group-hover/item:text-blue-500 group-hover/item:translate-x-0.5 group-hover/item:-translate-y-0.5 transition-all" />
+                                                            </div>
+                                                        ))}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="sticky top-24 bg-white rounded-[40px] border-2 border-dashed border-slate-100 h-[600px] flex flex-col items-center justify-center p-12 text-center">
+                                <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mb-5 text-slate-200">
+                                    <Users className="w-10 h-10" />
+                                </div>
+                                <h3 className="text-xl font-black text-slate-900 mb-2 uppercase">Chọn nhà thầu</h3>
+                                <p className="text-slate-400 font-medium text-sm max-w-xs">Chọn một đối tác từ danh sách bên trái để xem hồ sơ năng lực chi tiết</p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </main>
+
             {/* Comparison Float Bar - Improved Bright Style */}
             {compareList.length > 0 && (
                 <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[60] w-full max-w-2xl px-4">
-                    <div className="bg-white/90 backdrop-blur-2xl rounded-[32px] p-2 pl-6 flex items-center justify-between shadow-[0_20px_50px_rgba(0,0,0,0.1)] border border-white">
+                    <div className="bg-white/90 backdrop-blur-2xl rounded-[32px] p-2 pl-6 flex items-center justify-between shadow-[0_20px_50px_rgba(0,0,0,0.15)] border border-white">
                         <div className="flex items-center gap-4">
-                            <span className="text-slate-400 font-black text-xs uppercase tracking-widest hidden sm:block">Đang chọn</span>
+                            <span className="text-slate-400 font-black text-[10px] uppercase tracking-widest hidden sm:block">Đang chọn</span>
                             <div className="flex -space-x-3">
                                 {compareList.map(c => (
                                     <div key={c.id} className="w-10 h-10 rounded-full border-2 border-white bg-blue-600 flex items-center justify-center text-xs font-black text-white shadow-lg relative group">
@@ -404,11 +518,17 @@ function ContractorMarketplaceContent() {
                         </div>
 
                         <div className="flex gap-2">
+                            <button 
+                                onClick={() => setCompareList([])}
+                                className="px-6 py-3 bg-slate-50 text-slate-400 font-black rounded-[20px] hover:text-slate-600 transition-all text-[10px] uppercase tracking-widest"
+                            >
+                                Xóa hết
+                            </button>
                             <Link
                                 href={`/contractors/compare?ids=${compareList.map(c => encodeId(c.id)).join(',')}`}
-                                className="px-8 py-3 bg-blue-600 text-white font-black rounded-[24px] hover:bg-blue-500 transition-all text-xs flex items-center gap-2 shadow-lg shadow-blue-200"
+                                className="px-8 py-3 bg-blue-600 text-white font-black rounded-[20px] hover:bg-blue-500 transition-all text-[10px] flex items-center gap-2 shadow-lg shadow-blue-200 uppercase tracking-widest"
                             >
-                                SO SÁNH NGAY
+                                So sánh ngay
                                 <ArrowRight className="w-4 h-4" />
                             </Link>
                         </div>
@@ -432,214 +552,75 @@ function ContractorMarketplaceContent() {
 
 export default function ContractorMarketplace() {
     return (
-        <Suspense fallback={<div className="min-h-screen bg-slate-50 flex items-center justify-center font-black text-blue-600">ĐANG TẢI...</div>}>
+        <Suspense fallback={<div className="min-h-screen bg-slate-50 flex items-center justify-center font-black text-blue-600 uppercase tracking-[0.3em]">Đang tải dữ liệu...</div>}>
             <ContractorMarketplaceContent />
         </Suspense>
     )
 }
 
-// Sub-components for better organization
-// 🏗️ MODERN BENTO CONTRACTOR CARD
-function ContractorCard({ contractor, onFavorite, onChat, onCompare, isComparing }: any) {
-    const isTopRated = (contractor.avgRating || 0) >= 4.8
-    const isAvailable = contractor.isAvailable !== false
-
-    return (
-        <div className={`group relative bg-white rounded-[32px] transition-all duration-500 flex flex-col h-full border ${isComparing ? 'border-blue-600 shadow-[0_0_0_4px_rgba(37,99,235,0.1)]' : 'border-slate-100/80 hover:border-blue-200 hover:shadow-[0_40px_100px_-20px_rgba(0,0,0,0.06)]'}`}>
-            {/* Top Interactive Row */}
-            <div className="p-6 flex items-center justify-between">
-                <div className="flex gap-2">
-                    {isTopRated && (
-                        <div className="flex items-center gap-1.5 px-3 py-1 bg-amber-50 text-amber-600 rounded-full text-[9px] font-black uppercase tracking-wider border border-amber-100">
-                            <Trophy className="w-2.5 h-2.5" />
-                            DẪN ĐẦU
-                        </div>
-                    )}
-                    {isAvailable && (
-                        <div className="flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-600 rounded-full text-[9px] font-black uppercase tracking-wider border border-emerald-100">
-                            <div className="w-1 h-1 bg-emerald-500 rounded-full animate-pulse"></div>
-                            SẮN SÀNG
-                        </div>
-                    )}
-                </div>
-                <div className="flex gap-2 translate-x-2">
-                    <button
-                        onClick={(e) => { e.preventDefault(); onCompare(); }}
-                        className={`p-2.5 rounded-xl transition-all ${isComparing ? 'bg-blue-600 text-white' : 'bg-slate-50 text-slate-400 hover:text-blue-600 hover:bg-blue-50'}`}
-                    >
-                        <Scale className="w-4 h-4" />
-                    </button>
-                    <button
-                        onClick={(e) => { e.preventDefault(); onFavorite(); }}
-                        className="p-2.5 bg-slate-50 text-slate-400 rounded-xl hover:text-red-500 hover:bg-red-50 transition-all"
-                    >
-                        <Heart className="w-4 h-4" />
-                    </button>
-                </div>
-            </div>
-
-            <div className="px-6 pb-6 flex-1 flex flex-col">
-                {/* Main Identity */}
-                <div className="flex items-start gap-4 mb-8">
-                    <div className="relative shrink-0">
-                        <div className="w-20 h-20 rounded-[28px] bg-slate-100 flex items-center justify-center text-2xl font-black text-slate-900 border-2 border-white shadow-sm transition-transform duration-500 group-hover:scale-105 group-hover:rotate-2">
-                            {contractor.displayName?.charAt(0) || 'N'}
-                        </div>
-                        <div className="absolute -bottom-1.5 -right-1.5 bg-white p-1 rounded-full shadow-md">
-                            <ShieldCheck className="w-5 h-5 text-blue-600" />
-                        </div>
-                    </div>
-                    <div className="flex-1 min-w-0 pt-2">
-                        <h3 className="text-lg font-black text-slate-900 mb-1 leading-tight group-hover:text-blue-600 transition-colors">
-                            {contractor.displayName}
-                        </h3>
-                        <p className="text-xs font-bold text-slate-400 truncate flex items-center gap-1.5">
-                            <Building2 className="w-3.5 h-3.5" />
-                            {contractor.companyName || 'Đối tác chiến lược'}
-                        </p>
-                    </div>
-                </div>
-
-                {/* Performance Bento */}
-                <div className="grid grid-cols-3 gap-2 p-1.5 bg-slate-50/50 rounded-2xl mb-8 border border-slate-100/50">
-                    <div className="bg-white py-3 rounded-[14px] text-center shadow-sm">
-                        <div className="flex items-center justify-center gap-1 mb-0.5">
-                            <Star className="w-3 h-3 text-amber-400 fill-amber-400" />
-                            <span className="text-xs font-black text-slate-900">{contractor.avgRating || '5.0'}</span>
-                        </div>
-                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Đánh giá</p>
-                    </div>
-                    <div className="py-3 text-center">
-                        <span className="text-xs font-black text-slate-900 block mb-0.5">{contractor.experienceYears || '0'}</span>
-                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Năm KN</p>
-                    </div>
-                    <div className="py-3 text-center">
-                        <span className="text-xs font-black text-slate-900 block mb-0.5">{contractor.totalProjectsCompleted || '0'}</span>
-                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Dự án</p>
-                    </div>
-                </div>
-
-                {/* Skills Cloud */}
-                <div className="flex flex-wrap gap-1.5 mb-8">
-                    {(contractor.skills || []).slice(0, 3).map((skill: string) => (
-                        <span key={skill} className="px-3 py-1 bg-white text-slate-500 rounded-lg text-[10px] font-bold border border-slate-100">
-                            {skill}
-                        </span>
-                    ))}
-                    {(contractor.skills?.length > 3) && (
-                        <span className="px-2 py-1 text-[10px] font-bold text-slate-400">+{contractor.skills.length - 3}</span>
-                    )}
-                </div>
-
-                {/* Final CTA Area */}
-                <div className="mt-auto flex gap-2 pt-4 border-t border-slate-50/80">
-                    <Link
-                        href={`/contractors/${encodeId(contractor.id)}`}
-                        className="flex-1 bg-blue-600 text-white py-4 rounded-2xl font-black text-[10px] uppercase tracking-[0.1em] text-center shadow-lg shadow-blue-100 hover:bg-blue-700 hover:shadow-blue-200 transition-all active:scale-95 flex items-center justify-center gap-2"
-                    >
-                        Hồ sơ chi tiết
-                        <ArrowRight className="w-3.5 h-3.5" />
-                    </Link>
-                    <button
-                        onClick={(e) => { e.preventDefault(); onChat(); }}
-                        className="px-5 bg-white text-slate-400 border border-slate-100 rounded-2xl hover:text-blue-600 hover:border-blue-200 hover:bg-blue-50 transition-all"
-                    >
-                        <MessageSquare className="w-5 h-5" />
-                    </button>
-                </div>
-            </div>
-        </div>
-    )
-}
-
 function ChatModal({ onClose, onSubmit, contact, setContact }: any) {
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md animate-fade-in">
-            <div className="bg-white rounded-[40px] shadow-2xl max-w-lg w-full p-10 relative overflow-hidden animate-slide-in">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-blue-50/50 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2"></div>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-fade-in">
+            <div className="bg-white rounded-[48px] shadow-2xl max-w-xl w-full p-12 relative overflow-hidden animate-slide-in border border-white">
+                <div className="absolute top-0 right-0 w-48 h-48 bg-blue-50/50 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
 
-                <button onClick={onClose} className="absolute top-8 right-8 p-2 text-slate-400 hover:text-slate-900 rounded-full hover:bg-slate-50 transition-all">
+                <button onClick={onClose} className="absolute top-10 right-10 p-3 text-slate-400 hover:text-slate-900 rounded-full hover:bg-slate-50 transition-all border border-slate-100">
                     <X className="w-6 h-6" />
                 </button>
 
                 <div className="text-center mb-10">
-                    <div className="w-20 h-20 bg-blue-50 rounded-[28px] flex items-center justify-center mx-auto mb-6 text-blue-600 shadow-inner">
-                        <MessageSquare className="w-10 h-10" />
+                    <div className="w-24 h-24 bg-blue-50 rounded-[32px] flex items-center justify-center mx-auto mb-6 text-blue-600 shadow-inner">
+                        <MessageSquare className="w-12 h-12" />
                     </div>
-                    <h3 className="text-3xl font-black text-slate-900 mb-3 tracking-tight">Liên hệ nhà thầu</h3>
+                    <h3 className="text-4xl font-black text-slate-900 mb-3 tracking-tight uppercase">Kết nối đối tác</h3>
                     <p className="text-slate-500 font-medium">Để lại lời nhắn, nhà thầu sẽ phản hồi bạn sớm nhất có thể.</p>
                 </div>
 
                 <form onSubmit={onSubmit} className="space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-1.5">
-                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Họ tên</label>
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Họ và tên</label>
                             <input
                                 required
                                 placeholder="Nguyễn Văn A"
-                                className="w-full px-5 py-4 bg-slate-50 rounded-2xl border border-slate-100 font-bold text-sm outline-none focus:bg-white focus:border-blue-500 transition-all"
+                                className="w-full px-6 py-5 bg-slate-50 rounded-[24px] border border-slate-100 font-bold text-sm outline-none focus:bg-white focus:border-blue-500 transition-all shadow-sm"
                                 value={contact.name}
                                 onChange={e => setContact({ ...contact, name: e.target.value })}
                             />
                         </div>
-                        <div className="space-y-1.5">
-                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Số điện thoại</label>
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Số điện thoại</label>
                             <input
                                 required
                                 placeholder="0901 xxx xxx"
-                                className="w-full px-5 py-4 bg-slate-50 rounded-2xl border border-slate-100 font-bold text-sm outline-none focus:bg-white focus:border-blue-500 transition-all"
+                                className="w-full px-6 py-5 bg-slate-50 rounded-[24px] border border-slate-100 font-bold text-sm outline-none focus:bg-white focus:border-blue-500 transition-all shadow-sm"
                                 value={contact.phone}
                                 onChange={e => setContact({ ...contact, phone: e.target.value })}
                             />
                         </div>
                     </div>
-                    <div className="space-y-1.5">
-                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nội dung trao đổi</label>
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Nội dung trao đổi</label>
                         <textarea
                             required
                             placeholder="Mô tả sơ qua về nhu cầu của bạn..."
                             rows={4}
-                            className="w-full px-5 py-4 bg-slate-50 rounded-2xl border border-slate-100 font-bold text-sm outline-none focus:bg-white focus:border-blue-500 transition-all resize-none"
+                            className="w-full px-6 py-5 bg-slate-50 rounded-[24px] border border-slate-100 font-bold text-sm outline-none focus:bg-white focus:border-blue-500 transition-all shadow-sm resize-none"
                             value={contact.message}
                             onChange={e => setContact({ ...contact, message: e.target.value })}
                         />
                     </div>
-                    <button type="submit" className="w-full py-5 bg-blue-600 text-white font-black rounded-3xl hover:bg-blue-700 transition-all shadow-xl shadow-blue-100 uppercase tracking-widest text-xs">
+                    <button type="submit" className="w-full py-6 bg-blue-600 text-white font-black rounded-[28px] hover:bg-blue-700 transition-all shadow-2xl shadow-blue-100 uppercase tracking-[0.2em] text-xs active:scale-95">
                         GỬI TIN NHẮN NGAY
                     </button>
                 </form>
 
-                <div className="mt-8 pt-8 border-t border-slate-50 text-center">
-                    <Link href="/login" className="text-xs font-black text-blue-600 hover:text-blue-700 uppercase tracking-widest">
-                        ĐÃ CÓ TÀI KHOẢN? ĐĂNG NHẬP ĐỂ CHAT TRỰC TIẾP
+                <div className="mt-10 pt-8 border-t border-slate-100 text-center">
+                    <Link href="/login" className="text-xs font-black text-blue-600 hover:text-blue-700 uppercase tracking-widest flex items-center justify-center gap-2">
+                        Đã có tài khoản? <span className="underline">Đăng nhập để chat trực tiếp</span>
                     </Link>
                 </div>
             </div>
         </div>
     )
 }
-
-function Truck(props: any) {
-    return (
-        <svg
-            {...props}
-            xmlns="http://www.w3.org/2000/svg"
-            width="24"
-            height="24"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-        >
-            <path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2" />
-            <path d="M15 18H9" />
-            <path d="M19 18h2a1 1 0 0 0 1-1v-5h-7v7" />
-            <path d="M16 8h4l3 3v2h-7V8z" />
-            <circle cx="7.5" cy="18.5" r="2.5" />
-            <circle cx="17.5" cy="18.5" r="2.5" />
-        </svg>
-    )
-}
-

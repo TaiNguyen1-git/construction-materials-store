@@ -127,14 +127,14 @@ export default function LoginIncentiveModal({
                     {/* Action Buttons */}
                     <div className="space-y-3">
                         <Link
-                            href="/login"
+                            href={`/login?callbackUrl=${encodeURIComponent(typeof window !== 'undefined' ? `${window.location.pathname}${feature === 'review' ? '?openReview=true' : ''}` : '')}`}
                             className="flex items-center justify-center gap-2 w-full bg-primary-600 text-white py-3.5 rounded-xl text-sm font-black shadow-lg shadow-primary-200 hover:bg-primary-700 hover:scale-[1.02] active:scale-[0.98] transition-all"
                         >
                             <LogIn size={18} />
                             Đăng Nhập Ngay
                         </Link>
                         <Link
-                            href="/register"
+                            href={`/register?callbackUrl=${encodeURIComponent(typeof window !== 'undefined' ? `${window.location.pathname}${feature === 'review' ? '?openReview=true' : ''}` : '')}`}
                             className="flex items-center justify-center gap-2 w-full bg-white text-primary-600 border-2 border-primary-50 py-3.2 rounded-xl text-sm font-black hover:bg-primary-50 transition-all text-center"
                         >
                             <UserPlus size={18} />

@@ -13,7 +13,8 @@ import {
     CheckCircle2, AlertCircle, ExternalLink,
     Users, Building, LucideIcon, Loader2,
     Calendar, FileText, TrendingUp, Wallet,
-    Camera, Image as ImageIcon
+    Camera, Image as ImageIcon,
+    MessageSquare, Trash2, Eye, EyeOff
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import jsPDF from 'jspdf'
@@ -24,6 +25,10 @@ export default function AdminContractorDetail({ params }: { params: Promise<{ id
     const [loading, setLoading] = useState(true)
     const [data, setData] = useState<any>(null)
     const [actionLoading, setActionLoading] = useState(false)
+    const [reviews, setReviews] = useState<any[]>([
+        { id: '1', customerName: 'Nguyễn Văn Hùng', rating: 5, comment: 'Thi công rất chuyên nghiệp, đúng tiến độ.', createdAt: '2024-03-20T08:00:00Z', isPublished: true, isAnonymous: false },
+        { id: '2', customerName: 'Trần Thị Mai', rating: 2, comment: 'Thái độ công nhân chưa tốt, hay làm ồn.', createdAt: '2024-03-18T10:30:00Z', isPublished: true, isAnonymous: true },
+    ])
 
     useEffect(() => {
         fetchContractorDetails()
@@ -178,6 +183,20 @@ export default function AdminContractorDetail({ params }: { params: Promise<{ id
         } finally {
             setActionLoading(false)
         }
+    }
+
+    const handleDeleteReview = (reviewId: string) => {
+        if (confirm('Bạn có chắc chắn muốn xóa nhận xét này không? Thao tác này không thể hoàn tác.')) {
+            setReviews(prev => prev.filter(r => r.id !== reviewId))
+            toast.success('Đã xóa nhận xét thành công')
+        }
+    }
+
+    const handleToggleReviewStatus = (reviewId: string) => {
+        setReviews(prev => prev.map(r => 
+            r.id === reviewId ? { ...r, isPublished: !r.isPublished } : r
+        ))
+        toast.success('Đã cập nhật trạng thái hiển thị')
     }
 
     if (loading) return (
@@ -408,6 +427,73 @@ export default function AdminContractorDetail({ params }: { params: Promise<{ id
                                             </div>
                                         </div>
                                     ))
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Review Management Section - NEW */}
+                        <div className="bg-white rounded-[40px] border border-slate-200 shadow-sm overflow-hidden">
+                            <div className="px-10 py-8 border-b border-slate-100 flex items-center justify-between">
+                                <h3 className="text-xl font-black text-slate-900 flex items-center gap-3">
+                                    <MessageSquare className="w-6 h-6 text-blue-600" />
+                                    Quản lý Đánh giá & Nhận xét
+                                </h3>
+                                <span className="px-4 py-1.5 bg-slate-100 text-slate-600 rounded-full text-xs font-black">
+                                    {reviews.length} nhận xét
+                                </span>
+                            </div>
+                            <div className="p-10">
+                                {reviews.length === 0 ? (
+                                    <div className="py-10 text-center">
+                                        <p className="text-slate-400 font-bold italic">Chưa có nhận xét nào cho nhà thầu này.</p>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-6">
+                                        {reviews.map((rev) => (
+                                            <div key={rev.id} className={`p-6 rounded-3xl border transition-all ${rev.isPublished ? 'bg-slate-50 border-slate-100' : 'bg-gray-50 border-gray-200 opacity-60'}`}>
+                                                <div className="flex justify-between items-start mb-4">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-slate-900 font-black text-xs shadow-sm border border-slate-100">
+                                                            {rev.customerName?.charAt(0)}
+                                                        </div>
+                                                        <div>
+                                                            <div className="flex items-center gap-2">
+                                                                <h4 className="font-black text-sm text-slate-900">{rev.customerName}</h4>
+                                                                {rev.isAnonymous && (
+                                                                    <span className="px-2 py-0.5 bg-slate-100 text-slate-400 text-[8px] font-black uppercase rounded-md border border-slate-200">Ẩn danh</span>
+                                                                )}
+                                                            </div>
+                                                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+                                                                {new Date(rev.createdAt).toLocaleDateString('vi-VN')}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex gap-2">
+                                                        <button 
+                                                            onClick={() => handleToggleReviewStatus(rev.id)}
+                                                            title={rev.isPublished ? 'Ẩn nhận xét' : 'Hiện nhận xét'}
+                                                            className={`p-2 rounded-xl border transition-all ${rev.isPublished ? 'bg-white text-amber-500 border-amber-100 hover:bg-amber-50' : 'bg-amber-500 text-white border-amber-500'}`}
+                                                        >
+                                                            {rev.isPublished ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                                        </button>
+                                                        <button 
+                                                            onClick={() => handleDeleteReview(rev.id)}
+                                                            title="Xóa nhận xét"
+                                                            className="p-2 bg-white text-red-500 border border-red-100 rounded-xl hover:bg-red-50 transition-all"
+                                                        >
+                                                            <Trash2 className="w-4 h-4" />
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-1 mb-3">
+                                                    {[...Array(5)].map((_, i) => (
+                                                        <Star key={i} className={`w-3 h-3 ${i < rev.rating ? 'text-amber-400 fill-current' : 'text-slate-200'}`} />
+                                                    ))}
+                                                </div>
+                                                <p className="text-sm text-slate-600 font-medium leading-relaxed italic">"{rev.comment}"</p>
+                                            </div>
+                                        ))}
+                                    </div>
                                 )}
                             </div>
                         </div>
