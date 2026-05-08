@@ -9,6 +9,27 @@ import React from 'react'
 
 import { Project } from '@/types/contractor'
 
+const PROJECT_TYPE_MAP: Record<string, string> = {
+    'all': 'Tất cả',
+    'general': 'Xây dựng chung',
+    'new_build': 'Xây mới',
+    'flooring': 'Lát nền',
+    'painting': 'Sơn tường',
+    'tiling': 'Ốp lát',
+    'roofing': 'Làm mái',
+    'renovation': 'Cải tạo',
+    'plumbing': 'Điện nước',
+    'electrical': 'Hệ thống điện',
+    'interior': 'Nội thất',
+    'landscaping': 'Cảnh quan'
+}
+
+const getProjectTypeName = (type: string | null | undefined) => {
+    if (!type) return 'Xây dựng'
+    const normalizedType = type.toLowerCase()
+    return PROJECT_TYPE_MAP[normalizedType] || type
+}
+
 interface SuggestedProjectsWidgetProps {
     displayMode?: 'list' | 'grid'
 }
@@ -139,6 +160,9 @@ function SuggestedProjectsWidgetComponent({ displayMode = 'list' }: SuggestedPro
                                         {project.isUrgent && (
                                             <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide bg-red-100 text-red-700 rounded">Gấp</span>
                                         )}
+                                        <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide bg-blue-50 text-blue-600 rounded">
+                                            {getProjectTypeName(project.projectType)}
+                                        </span>
                                         <span className="text-[11px] text-gray-400">{getTimeAgo(project.createdAt)}</span>
                                     </div>
                                     <h3 className="font-medium text-gray-900 text-sm truncate mb-1">{project.title}</h3>
@@ -196,7 +220,12 @@ function SuggestedProjectsWidgetComponent({ displayMode = 'list' }: SuggestedPro
                                 <div className="p-2.5 bg-primary-50 text-primary-600 rounded-xl group-hover:bg-primary-600 group-hover:text-white transition-colors duration-300 shadow-sm">
                                     <Briefcase className="w-5 h-5" />
                                 </div>
-                                <span className="text-xs text-gray-400 font-medium px-2 py-1 bg-gray-50 rounded-lg">{getTimeAgo(project.createdAt)}</span>
+                                <div className="flex flex-col items-end gap-1">
+                                    <span className="text-[10px] font-bold text-blue-600 uppercase tracking-widest px-2 py-0.5 bg-blue-50 rounded-lg">
+                                        {getProjectTypeName(project.projectType)}
+                                    </span>
+                                    <span className="text-xs text-gray-400 font-medium px-2 py-1 bg-gray-50 rounded-lg">{getTimeAgo(project.createdAt)}</span>
+                                </div>
                             </div>
 
                             {/* Card Content */}

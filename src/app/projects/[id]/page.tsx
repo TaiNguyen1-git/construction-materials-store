@@ -9,9 +9,24 @@ interface Props {
 }
 
 async function getProject(id: string) {
-    const project = await prisma.project.findUnique({
+    // Try ConstructionProject first (Marketplace native)
+    let project = await prisma.constructionProject.findUnique({
         where: { id },
-    })
+    }) as any
+
+    if (!project) {
+        // Fallback to internal Project
+        const internalProject = await prisma.project.findUnique({
+            where: { id },
+        })
+        if (internalProject) {
+            project = {
+                ...internalProject,
+                title: internalProject.name
+            }
+        }
+    }
+    
     return project
 }
 
@@ -31,15 +46,15 @@ export async function generateMetadata(
     const previousImages = (await parent).openGraph?.images || []
 
     return {
-        title: `${project.name} | Dự án Marketplace SmartBuild`,
+        title: `${project.title || project.name} | Dự án Marketplace SmartBuild`,
         description: (project.description || '').substring(0, 160),
         openGraph: {
-            title: project.name,
+            title: project.title || project.name,
             description: (project.description || '').substring(0, 160),
             images: previousImages,
             type: 'website',
         },
-        keywords: [project.name, 'dự án xây dựng', 'tìm thầu', 'SmartBuild', project.location || ''],
+        keywords: [project.title || project.name, 'dự án xây dựng', 'tìm thầu', 'SmartBuild', project.location || ''],
     }
 }
 
@@ -56,11 +71,11 @@ export default async function Page({ params }: Props) {
     return (
         <>
             <ProjectJsonLd project={{
-                title: project.name,
+                title: project.title || project.name,
                 description: project.description || '',
                 location: project.location || '',
                 datePosted: project.createdAt.toISOString(),
-                budget: project.budget || undefined
+                budget: project.budget || project.estimatedBudget || undefined
             }} />
             <ProjectDetailClient projectId={id} />
         </>

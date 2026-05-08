@@ -18,8 +18,30 @@ import { Badge } from '@/components/ui/badge'
 
 import { Project, ApiProjectResponse } from '@/types/contractor'
 
+const PROJECT_TYPE_MAP: Record<string, string> = {
+    'all': 'Tất cả',
+    'general': 'Xây dựng chung',
+    'new_build': 'Xây mới',
+    'flooring': 'Lát nền',
+    'painting': 'Sơn tường',
+    'tiling': 'Ốp lát',
+    'roofing': 'Làm mái',
+    'renovation': 'Cải tạo',
+    'plumbing': 'Điện nước',
+    'electrical': 'Hệ thống điện',
+    'interior': 'Nội thất',
+    'landscaping': 'Cảnh quan'
+}
+
+const getProjectTypeName = (type: string | null | undefined) => {
+    if (!type) return 'Xây dựng'
+    const normalizedType = type.toLowerCase()
+    return PROJECT_TYPE_MAP[normalizedType] || type
+}
+
 const CATEGORIES = [
     { id: 'all', name: 'Tất cả lĩnh vực' },
+    { id: 'new_build', name: 'Xây mới' },
     { id: 'flooring', name: 'Lát nền & Sàn' },
     { id: 'painting', name: 'Sơn bả & Trang trí' },
     { id: 'tiling', name: 'Ốp lát tường' },
@@ -163,6 +185,11 @@ export default function FindProjectsPage() {
                         <h3 className="font-bold text-slate-900 line-clamp-1 group-hover:text-blue-600 transition-all text-xl">
                             {project.title}
                         </h3>
+                        <div className="flex gap-2 mt-1">
+                            <span className="px-2 py-0.5 bg-blue-50 text-blue-600 text-[10px] font-bold uppercase rounded">
+                                {getProjectTypeName(project.projectType)}
+                            </span>
+                        </div>
                         {viewMode === 'list' && (
                             <div className="hidden sm:flex items-center gap-1.5 text-[10px] text-slate-400 font-bold whitespace-nowrap bg-slate-50 px-3 py-1 rounded-full">
                                 <Clock size={12} /> {new Date(project.createdAt).toLocaleDateString('vi-VN')}

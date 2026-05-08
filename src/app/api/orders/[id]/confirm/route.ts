@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { createSuccessResponse, createErrorResponse } from '@/lib/api-types'
 import { pushOrderStatusUpdate } from '@/lib/firebase-notifications'
+import { ProcurementService } from '@/lib/procurement-service'
 
 // PUT /api/orders/[id]/confirm - Admin confirms order
 export async function PUT(
@@ -129,6 +130,11 @@ export async function PUT(
     // Push status update to Firebase for real-time tracking (non-blocking)
     pushOrderStatusUpdate(orderId, newStatus, order.orderNumber)
       .catch(err => console.error('Firebase push error:', err))
+
+    // 🚀 NEW: Automatically split order to Purchase Orders for Suppliers
+    // We do this after confirmation so suppliers see their pending POs
+    ProcurementService.splitOrderToPurchaseOrders(orderId, userId || 'ADMIN')
+      .catch(err => console.error('[OrderConfirm] Auto-splitting error:', err))
 
     // Send confirmation email to customer (non-blocking)
     const customerEmail = updatedOrder.customer?.user?.email || updatedOrder.guestEmail

@@ -852,6 +852,7 @@ model Order {
   orderItems      OrderItem[]
   invoices        Invoice[]
   orderTracking   OrderTracking[]
+  purchaseOrders  PurchaseOrder[]
   delivery        OrderDelivery?
   deliveryPhases  DeliveryPhase[]
   disputes        Dispute[]
@@ -1086,6 +1087,7 @@ model PurchaseOrder {
   discountAmount Float               @default(0)
   netAmount      Float
   notes          String?
+  parentOrderId  String?             @db.ObjectId // Link back to the original Customer Order
   createdBy      String
   approvedBy     String?
   approvedAt     DateTime?
@@ -1094,6 +1096,7 @@ model PurchaseOrder {
 
   // Relationships
   supplier      Supplier         @relation(fields: [supplierId], references: [id])
+  parentOrder   Order?           @relation(fields: [parentOrderId], references: [id])
   purchaseItems PurchaseItem[]
   returns       PurchaseReturn[]
 
