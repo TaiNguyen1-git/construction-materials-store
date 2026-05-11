@@ -2,54 +2,22 @@
 
 import { useState, useEffect, useRef, Suspense } from 'react'
 import Header from '@/components/Header'
-import ChatSummaryButton from '@/components/ChatSummaryButton'
-import {
-    Send, ArrowLeft, MessageCircle, Paperclip, Image as ImageIcon,
-    FileText, Download, X, Sparkles, UserPlus, Phone, Video, ChevronDown, Search
-} from 'lucide-react'
+import { Toaster, toast } from 'react-hot-toast'
+import { ChevronDown } from 'lucide-react'
 import { useAuth } from '@/contexts/auth-context'
-import Link from 'next/link'
-import { useSearchParams } from 'next/navigation'
+import { useSearchParams, useRouter } from 'next/navigation'
 import { getFirebaseDatabase } from '@/lib/firebase'
-import { ref, onChildAdded, onChildChanged, onValue, set, off, serverTimestamp } from 'firebase/database'
+import { ref, onChildAdded, onChildChanged, onValue, set, off } from 'firebase/database'
 import ChatCallManager from '@/components/ChatCallManager'
-import toast, { Toaster } from 'react-hot-toast'
-import MessengerChatBubbles, { ChatMessage } from '@/components/chat/MessengerChatBubbles'
+import MessengerChatBubbles from '@/components/chat/MessengerChatBubbles'
 import { decodeId } from '@/lib/id-utils'
 
-interface Conversation {
-    id: string
-    otherUserId: string
-    otherUserName: string
-    projectId: string | null
-    projectTitle: string | null
-    lastMessage: string | null
-    unreadCount: number
-    lastMessageAt: string | null
-    createdAt: string
-}
-
-interface Message {
-    id: string
-    tempId?: string
-    senderId: string
-    senderName: string
-    content: string | null
-    fileUrl: string | null
-    fileName: string | null
-    fileType: string | null
-    fileSize: number | null
-    isRead: boolean
-    isDelivered?: boolean
-    isUnsent?: boolean
-    replyToId?: string
-    replyTo?: {
-        senderName: string
-        content: string | null
-        fileUrl: string | null
-    } | null
-    createdAt: string
-}
+// Refactored Components
+import ChatSidebar from '@/components/chat/ChatSidebar'
+import ChatHeader from '@/components/chat/ChatHeader'
+import ChatInput from '@/components/chat/ChatInput'
+import ChatEmptyState from '@/components/chat/ChatEmptyState'
+import { Conversation, ChatMessage } from '@/components/chat/types'
 
 export default function MessagesPage() {
     return (
@@ -64,43 +32,36 @@ export default function MessagesPage() {
 }
 
 function MessagesClient() {
-    const { user, isAuthenticated, isLoading: authLoading } = useAuth()
+    const { user, authLoading } = useAuth() as any
     const [conversations, setConversations] = useState<Conversation[]>([])
     const [selectedConv, setSelectedConv] = useState<string | null>(null)
-    const [messages, setMessages] = useState<Message[]>([])
+    const [messages, setMessages] = useState<ChatMessage[]>([])
     const [newMessage, setNewMessage] = useState('')
     const [loading, setLoading] = useState(true)
     const [sending, setSending] = useState(false)
     const [uploading, setUploading] = useState(false)
-    const [selectedFile, setSelectedFile] = useState<{
-        file: File;
-        preview: string;
-        type: string;
-    } | null>(null)
+    const [selectedFile, setSelectedFile] = useState<{ file: File; preview: string; type: string } | null>(null)
     const [showScrollButton, setShowScrollButton] = useState(false)
     const messagesEndRef = useRef<HTMLDivElement>(null)
-    const fileInputRef = useRef<HTMLInputElement>(null)
     const isSendingRef = useRef(false)
     const messagesContainerRef = useRef<HTMLDivElement>(null)
     const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
     const [partnerIsTyping, setPartnerIsTyping] = useState(false)
-    const [replyingTo, setReplyingTo] = useState<Message | null>(null)
+    const [replyingTo, setReplyingTo] = useState<ChatMessage | null>(null)
     const hasAutoConnectedRef = useRef(false)
     const selectedConvRef = useRef<string | null>(null)
 
-    // Get current user from localStorage or AuthContext
     const [userId, setUserId] = useState<string>('')
     const [userName, setUserName] = useState<string>('')
     const searchParams = useSearchParams()
-    const rawPartnerId = searchParams.get('partnerId')
-    const partnerId = rawPartnerId ? decodeId(rawPartnerId) : null
+    const router = useRouter()
+    const partnerId = searchParams.get('partnerId') ? decodeId(searchParams.get('partnerId')!) : null
 
     useEffect(() => {
         if (!authLoading) {
             const uid = user?.id || localStorage.getItem('user_id') || 'guest_' + Date.now()
             const uname = user?.name || localStorage.getItem('user_name') || 'Khách'
 
-            // Persist guest ID if newly generated
             if (!user && !localStorage.getItem('user_id')) {
                 localStorage.setItem('user_id', uid)
             }
@@ -111,7 +72,6 @@ function MessagesClient() {
         }
     }, [user, authLoading])
 
-    // Auto-select partner from URL
     useEffect(() => {
         if (partnerId && userId && conversations.length > 0 && !loading && !hasAutoConnectedRef.current) {
             hasAutoConnectedRef.current = true
@@ -120,32 +80,22 @@ function MessagesClient() {
     }, [partnerId, userId, conversations, loading])
 
     const handleAutoConnectPartner = async () => {
-        // 1. Check if already have a conversation with this partner
         const existing = conversations.find(c => c.otherUserId === partnerId)
         if (existing) {
-            if (selectedConv !== existing.id) {
-                selectConversation(existing.id)
-            }
+            if (selectedConv !== existing.id) selectConversation(existing.id)
             return
         }
 
-        // 2. If not, try to create/ensure it exists
         try {
             const res = await fetch('/api/chat/conversations', {
                 method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json',
-                    'x-guest-id': userId
-                },
-                body: JSON.stringify({
-                    recipientId: partnerId
-                })
+                headers: { 'Content-Type': 'application/json', 'x-guest-id': userId },
+                body: JSON.stringify({ recipientId: partnerId })
             })
 
             if (res.ok) {
                 const data = await res.json()
                 if (data.success) {
-                    // Re-fetch conversations to include new one
                     await fetchConversations(userId)
                     selectConversation(data.data.id)
                 }
@@ -157,11 +107,8 @@ function MessagesClient() {
 
     const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
         if (messagesContainerRef.current) {
-            const container = messagesContainerRef.current
-            // 🛡️ FIX: Use direct scrollTop assignment instead of scrollIntoView 
-            // to prevent the entire browser window from scrolling.
-            container.scrollTo({
-                top: container.scrollHeight,
+            messagesContainerRef.current.scrollTo({
+                top: messagesContainerRef.current.scrollHeight,
                 behavior
             })
         }
@@ -169,18 +116,11 @@ function MessagesClient() {
 
     useEffect(() => {
         if (messages.length === 0) return
-
         const container = messagesContainerRef.current
         if (!container) return
 
-        // 🛡️ SMART SCROLL LOGIC: 
-        // Only scroll to bottom if:
-        // 1. User just sent a message (isSendingRef.current is true)
-        // 2. User is already near the bottom (within 150px)
         const isAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 150
-
         if (isSendingRef.current || isAtBottom) {
-            // Use a slight delay to ensure content is fully rendered
             const timeoutId = setTimeout(() => {
                 scrollToBottom(isSendingRef.current ? 'smooth' : 'auto')
                 isSendingRef.current = false
@@ -194,18 +134,6 @@ function MessagesClient() {
         setShowScrollButton(scrollHeight - scrollTop - clientHeight > 300)
     }
 
-    const handleCall = (type: 'audio' | 'video' = 'audio') => {
-        if (!selectedConv) return
-        const conv = conversations.find(c => c.id === selectedConv)
-        if (!conv) return
-
-        if ((window as any).__startCall) {
-            (window as any).__startCall(conv.otherUserId, conv.otherUserName, conv.id, type)
-        } else {
-            toast.error('Hệ thống gọi chưa sẵn sàng')
-        }
-    }
-
     const fetchConversations = async (uid: string) => {
         try {
             const res = await fetch(`/api/chat/conversations?guestId=${uid}`, {
@@ -213,28 +141,13 @@ function MessagesClient() {
             })
             if (res.ok) {
                 const data = await res.json()
-                if (data.success) {
-                    setConversations(data.data)
-                }
+                if (data.success) setConversations(data.data)
             }
         } catch (error) {
             console.error('Failed to fetch conversations:', error)
         } finally {
             setLoading(false)
         }
-    }
-
-    const formatLastMessage = (content: string | null) => {
-        if (!content) return 'Bắt đầu trò chuyện'
-        if (content.startsWith('[CALL_LOG]:')) {
-            try {
-                const log = JSON.parse(content.replace('[CALL_LOG]:', ''))
-                return log.type === 'video' ? '📽️ Cuộc gọi video' : '📞 Cuộc gọi thoại'
-            } catch (e) {
-                return 'Cuộc gọi'
-            }
-        }
-        return content
     }
 
     const selectConversation = async (convId: string) => {
@@ -251,8 +164,6 @@ function MessagesClient() {
                 if (data.success && selectedConvRef.current === convId) {
                     setMessages(data.data)
                     setTimeout(() => scrollToBottom('auto'), 100)
-                    
-                    // Refresh conversations to update unread counts
                     fetchConversations(userId)
                 }
             }
@@ -261,10 +172,8 @@ function MessagesClient() {
         }
     }
 
-    // Listen for messages
     useEffect(() => {
         if (!selectedConv) return
-
         const db = getFirebaseDatabase()
         const messagesRef = ref(db, `conversations/${selectedConv}/messages`)
 
@@ -280,30 +189,20 @@ function MessagesClient() {
                     }
                     return [...prev, newMsg]
                 })
-
-                // Mark as read if from other
-                if (newMsg.senderId !== userId && !newMsg.isRead) {
-                    markAsRead(selectedConv, newMsg.id)
-                }
+                if (newMsg.senderId !== userId && !newMsg.isRead) markAsRead(selectedConv, newMsg.id)
             }
         })
 
         const unsubscribeChanged = onChildChanged(messagesRef, (snapshot) => {
             const updatedMsg = snapshot.val()
-            if (updatedMsg) {
-                setMessages(prev => prev.map(m => m.id === updatedMsg.id ? updatedMsg : m))
-            }
+            if (updatedMsg) setMessages(prev => prev.map(m => m.id === updatedMsg.id ? updatedMsg : m))
         })
 
-        return () => {
-            off(messagesRef)
-        }
+        return () => { off(messagesRef) }
     }, [selectedConv, userId])
 
-    // Listen for typing status
     useEffect(() => {
         if (!selectedConv) return
-
         const db = getFirebaseDatabase()
         const typingRef = ref(db, `conversations/${selectedConv}/typing`)
         const currentConv = conversations.find(c => c.id === selectedConv)
@@ -311,47 +210,21 @@ function MessagesClient() {
 
         onValue(typingRef, (snapshot) => {
             const data = snapshot.val()
-            if (data && userId && realPartnerId) {
-                setPartnerIsTyping(!!data[realPartnerId])
-            } else {
-                setPartnerIsTyping(false)
-            }
+            setPartnerIsTyping(!!(data && userId && realPartnerId && data[realPartnerId]))
         })
 
-        return () => {
-            off(typingRef)
-        }
+        return () => { off(typingRef) }
     }, [selectedConv, userId, partnerId, conversations])
 
-    const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0]
-        if (!file) return
-
-        const type = file.type.startsWith('image/') ? 'image' : 'file'
-        const preview = type === 'image' ? URL.createObjectURL(file) : ''
-
-        setSelectedFile({ file, preview, type })
-    }
-
-    const uploadFileLoad = async (file: File): Promise<{ fileId: string; fileName: string; fileType: string; fileSize: number } | null> => {
+    const uploadFileLoad = async (file: File) => {
         setUploading(true)
         try {
             const formData = new FormData()
             formData.append('file', file)
-
-            const res = await fetch('/api/upload/secure', {
-                method: 'POST',
-                body: formData
-            })
-
+            const res = await fetch('/api/upload/secure', { method: 'POST', body: formData })
             if (res.ok) {
                 const data = await res.json()
-                return {
-                    fileId: data.fileId,
-                    fileName: data.originalName,
-                    fileType: file.type.startsWith('image/') ? 'image' : 'document',
-                    fileSize: data.size
-                }
+                return { fileId: data.fileId, fileName: data.originalName, fileType: file.type.startsWith('image/') ? 'image' : 'document', fileSize: data.size }
             }
             return null
         } catch (error) {
@@ -369,32 +242,28 @@ function MessagesClient() {
         const fileToUpload = selectedFile?.file
         const tempId = 'temp-' + Date.now()
 
-        // 1. Optimistic Update (Instant response)
-        const optimisticMsg: Message = {
-            id: tempId,
-            tempId: tempId,
-            senderId: userId,
+        const optimisticMsg: ChatMessage = {
+            id: tempId, 
+            tempId, 
+            senderId: userId, 
             senderName: userName,
-            content: content || null,
+            content: content || null, 
             fileUrl: selectedFile?.preview || null,
-            fileName: selectedFile?.file.name || null,
+            fileName: selectedFile?.file.name || null, 
             fileType: selectedFile?.type || null,
-            fileSize: selectedFile?.file.size || 0,
+            fileSize: selectedFile?.file.size || 0, 
             isRead: false,
-            replyToId: replyingTo?.id,
-            replyTo: replyingTo ? {
-                senderName: replyingTo.senderName,
-                content: replyingTo.content,
-                fileUrl: replyingTo.fileUrl
+            replyToId: replyingTo?.id, 
+            replyTo: replyingTo ? { 
+                id: replyingTo.id,
+                senderName: replyingTo.senderName, 
+                content: replyingTo.content, 
+                fileUrl: replyingTo.fileUrl 
             } : null,
             createdAt: new Date().toISOString()
         }
         setMessages(prev => [...prev, optimisticMsg])
-
-        setNewMessage('')
-        setSelectedFile(null)
-        setReplyingTo(null)
-        if (fileInputRef.current) fileInputRef.current.value = ''
+        setNewMessage(''); setSelectedFile(null); setReplyingTo(null)
 
         isSendingRef.current = true
         setSending(true)
@@ -403,104 +272,59 @@ function MessagesClient() {
         if (fileToUpload) {
             fileData = await uploadFileLoad(fileToUpload)
             if (!fileData) {
-                alert('Tải file thất bại')
-                setMessages(prev => prev.filter(m => m.tempId !== tempId)) // Rollback
-                setSending(false)
-                return
+                toast.error('Tải file thất bại')
+                setMessages(prev => prev.filter(m => m.tempId !== tempId))
+                setSending(false); return
             }
         }
 
         try {
             await fetch('/api/chat/messages', {
                 method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json',
-                    'x-guest-id': userId
-                },
-                body: JSON.stringify({
-                    conversationId: selectedConv,
-                    content: content || null,
-                    senderName: userName,
-                    fileUrl: fileData ? `/api/files/${fileData.fileId}` : null,
-                    fileName: fileData?.fileName,
-                    fileType: fileData?.fileType,
-                    replyToId: replyingTo?.id,
-                    tempId: tempId // Pass tempId for sync
-                })
+                headers: { 'Content-Type': 'application/json', 'x-guest-id': userId },
+                body: JSON.stringify({ conversationId: selectedConv, content: content || null, senderName: userName, fileUrl: fileData ? `/api/files/${fileData.fileId}` : null, fileName: fileData?.fileName, fileType: fileData?.fileType, replyToId: replyingTo?.id, tempId })
             })
         } catch (error) {
-            console.error('Failed to send message:', error)
-            setMessages(prev => prev.filter(m => m.tempId !== tempId)) // Rollback
+            setMessages(prev => prev.filter(m => m.tempId !== tempId))
         } finally {
             setSending(false)
             if (isSendingRef.current) setTimeout(() => { isSendingRef.current = false }, 100)
         }
     }
 
-    const formatTime = (dateStr: string) => {
-        const d = new Date(dateStr)
-        return d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
-    }
-
     const handleTyping = () => {
         if (!selectedConv || !userId) return
         const db = getFirebaseDatabase()
         const myTypingRef = ref(db, `conversations/${selectedConv}/typing/${userId}`)
-        
         set(myTypingRef, true)
-        
         if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current)
-        typingTimeoutRef.current = setTimeout(() => {
-            set(myTypingRef, null)
-            typingTimeoutRef.current = null
-        }, 4000)
+        typingTimeoutRef.current = setTimeout(() => { set(myTypingRef, null); typingTimeoutRef.current = null }, 4000)
     }
 
     const markAsRead = async (convId: string, msgId: string) => {
-        try {
-            await fetch(`/api/chat/messages/${msgId}/read`, {
-                method: 'POST',
-                headers: { 'x-guest-id': userId }
-            })
-        } catch (error) {
-            console.error('Failed to mark as read:', error)
-        }
+        try { await fetch(`/api/chat/messages/${msgId}/read`, { method: 'POST', headers: { 'x-guest-id': userId } }) } catch (e) { }
     }
 
     const handleUnsend = async (msgId: string) => {
-        if (!confirm('Bạn có chắc chắn muốn thu hồi tin nhắn này?')) return
+        if (!confirm('Xác nhận thu hồi tin nhắn?')) return
         try {
-            const res = await fetch(`/api/chat/messages/${msgId}/unsend`, {
-                method: 'POST',
-                headers: { 'x-guest-id': userId }
-            })
-            if (!res.ok) throw new Error('Failed')
-            toast.success('Đã thu hồi tin nhắn')
-        } catch (error) {
-            toast.error('Không thể thu hồi tin nhắn')
-        }
+            const res = await fetch(`/api/chat/messages/${msgId}/unsend`, { method: 'POST', headers: { 'x-guest-id': userId } })
+            if (res.ok) toast.success('Đã thu hồi')
+        } catch (e) { toast.error('Lỗi thu hồi') }
     }
 
     const handleRemoveMessage = async (msgId: string) => {
-        if (!confirm('Bạn có chắc chắn muốn xóa tin nhắn này ở phía bạn?')) return
+        if (!confirm('Xác nhận xóa tin nhắn này?')) return
         try {
-            const res = await fetch(`/api/chat/messages/${msgId}`, {
-                method: 'DELETE',
-                headers: { 'x-guest-id': userId }
-            })
-            if (!res.ok) throw new Error('Failed')
-            setMessages(prev => prev.filter(m => m.id !== msgId))
-            toast.success('Đã xóa tin nhắn')
-        } catch (error) {
-            toast.error('Không thể xóa tin nhắn')
-        }
+            const res = await fetch(`/api/chat/messages/${msgId}`, { method: 'DELETE', headers: { 'x-guest-id': userId } })
+            if (res.ok) { setMessages(prev => prev.filter(m => m.id !== msgId)); toast.success('Đã xóa') }
+        } catch (e) { toast.error('Lỗi xóa') }
     }
 
-    const formatFileSize = (bytes: number) => {
-        if (!bytes) return ''
-        if (bytes < 1024) return bytes + ' B'
-        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
-        return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
+    const handleCall = (type: 'audio' | 'video') => {
+        const conv = conversations.find(c => c.id === selectedConv)
+        if (conv && (window as any).__startCall) (window as any).__startCall(conv.otherUserId, conv.otherUserName, conv.id, type)
+        else toast.error('Hệ thống gọi chưa sẵn sàng')
     }
 
     return (
@@ -512,134 +336,41 @@ function MessagesClient() {
             <div className="flex-1 max-w-6xl w-full mx-auto px-1 sm:px-4 py-2 sm:py-4 flex flex-col min-h-0">
                 <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden h-[calc(100vh-180px)] min-h-[500px] flex flex-col shadow-2xl mb-8 mt-2">
                     <div className="flex flex-1 min-h-0">
-                        {/* Conversation List */}
-                        <div className="w-80 border-r border-gray-100 overflow-y-auto bg-white flex-shrink-0 flex flex-col">
-                            <div className="p-4 border-b border-gray-50 flex-shrink-0">
-                                <div className="relative group mb-2">
-                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-blue-600 transition-colors" />
-                                    <input
-                                        type="text"
-                                        placeholder="Tìm cuộc hội thoại..."
-                                        className="w-full pl-10 pr-4 py-2.5 bg-gray-100 border-none rounded-2xl text-xs font-bold focus:ring-2 focus:ring-blue-500 transition-all outline-none"
-                                    />
-                                </div>
-                            </div>
-                            <div className="flex-1 overflow-y-auto custom-scrollbar">
-                                {loading ? (
-                                    <div className="p-12 text-center text-gray-400 flex flex-col items-center gap-3">
-                                        <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                                        <span className="text-[10px] font-black uppercase tracking-widest">Đang tải...</span>
-                                    </div>
-                                ) : conversations.length === 0 ? (
-                                    <div className="p-12 text-center">
-                                        <MessageCircle className="w-12 h-12 text-gray-200 mx-auto mb-3" />
-                                        <p className="text-gray-400 text-xs font-bold uppercase tracking-widest">Chưa có tin nhắn</p>
-                                    </div>
-                                ) : (
-                                    conversations.map(conv => (
-                                        <button
-                                            key={conv.id}
-                                            onClick={() => selectConversation(conv.id)}
-                                            className={`w-full p-4 text-left flex items-center gap-3 transition-all border-l-4 ${selectedConv === conv.id
-                                                ? 'bg-blue-50/50 border-l-blue-600'
-                                                : 'border-l-transparent hover:bg-gray-50'
-                                                }`}
-                                        >
-                                            <div className="relative flex-shrink-0">
-                                                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center text-white font-black text-sm shadow-md">
-                                                    {conv.otherUserName.charAt(0)}
-                                                </div>
-                                                <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                                <div className="flex justify-between items-baseline mb-0.5">
-                                                    <span className="font-black text-gray-900 truncate text-[13px] tracking-tight flex items-center gap-2">
-                                                        {conv.otherUserName}
-                                                        <span className="px-1.5 py-0.5 bg-blue-50 text-blue-600 text-[8px] font-black rounded-md border border-blue-100 uppercase tracking-tighter">Nhà thầu</span>
-                                                    </span>
-                                                    <span className="text-[9px] text-gray-400 font-bold ml-2">
-                                                        {conv.lastMessageAt ? formatTime(conv.lastMessageAt) : ''}
-                                                    </span>
-                                                </div>
-                                                <p className={`text-[11px] truncate ${conv.unreadCount > 0 ? 'font-black text-blue-700' : 'text-gray-400 font-medium'}`}>
-                                                    {formatLastMessage(conv.lastMessage)}
-                                                </p>
-                                            </div>
-                                            {conv.unreadCount > 0 && (
-                                                <div className="w-5 h-5 bg-blue-600 rounded-full flex items-center justify-center text-[10px] text-white font-black shadow-lg">
-                                                    {conv.unreadCount}
-                                                </div>
-                                            )}
-                                        </button>
-                                    ))
-                                )}
-                            </div>
-                        </div>
+                        <ChatSidebar 
+                            conversations={conversations}
+                            selectedConv={selectedConv}
+                            loading={loading}
+                            onSelect={selectConversation}
+                            formatTime={(date) => new Date(date).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+                            formatLastMessage={(content) => {
+                                if (!content) return 'Bắt đầu trò chuyện'
+                                if (content.startsWith('[CALL_LOG]:')) return '📞 Cuộc gọi'
+                                return content
+                            }}
+                        />
 
-                        {/* Message Area */}
                         <div className="flex-1 flex flex-col bg-white min-w-0">
                             {selectedConv ? (
                                 <>
-                                    {/* Chat Header with Status and Call Buttons */}
-                                    <div className="px-6 py-4 border-b bg-white flex items-center justify-between sticky top-0 z-20 shadow-sm">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center text-white font-black shadow-md">
-                                                {(conversations.find(c => c.id === selectedConv)?.otherUserName || 'U').charAt(0)}
-                                            </div>
-                                            <div className="min-w-0">
-                                                <h3 className="font-black text-gray-900 truncate tracking-tight text-sm flex items-center gap-2">
-                                                    {conversations.find(c => c.id === selectedConv)?.otherUserName || 'Cuộc hội thoại'}
-                                                    <span className="px-2 py-0.5 bg-blue-50 text-blue-600 text-[9px] font-black rounded-lg border border-blue-100 uppercase tracking-widest">Nhà thầu</span>
-                                                </h3>
-                                                <div className="flex items-center gap-1.5">
-                                                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                                                    <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest">Đang hoạt động</p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <button onClick={() => handleCall('audio')} className="p-2.5 text-blue-600 hover:bg-blue-50 rounded-full transition-all" title="Gọi thoại">
-                                                <Phone className="w-5 h-5" />
-                                            </button>
-                                            <button onClick={() => handleCall('video')} className="p-2.5 text-blue-600 hover:bg-blue-50 rounded-full transition-all" title="Gọi video">
-                                                <Video className="w-5 h-5" />
-                                            </button>
-                                            <div className="w-px h-8 bg-gray-100 mx-1" />
-                                            <ChatSummaryButton
-                                                conversationId={selectedConv}
-                                                currentUserId={userId}
-                                            />
-                                        </div>
-                                    </div>
+                                    <ChatHeader 
+                                        partnerName={conversations.find(c => c.id === selectedConv)?.otherUserName || 'Đối tác'}
+                                        userId={userId}
+                                        selectedConv={selectedConv}
+                                        onCall={handleCall}
+                                    />
 
-                                    {/* Messages Container */}
-                                    <div
-                                        ref={messagesContainerRef}
-                                        onScroll={handleScroll}
-                                        className="flex-1 overflow-y-auto bg-gray-50/30 custom-scrollbar relative"
-                                    >
+                                    <div ref={messagesContainerRef} onScroll={handleScroll} className="flex-1 overflow-y-auto bg-gray-50/30 custom-scrollbar relative">
                                         <MessengerChatBubbles
                                             messages={messages.map(msg => ({
+                                                ...msg,
                                                 id: msg.id || ('msg-' + Math.random()),
                                                 content: msg.content || '',
-                                                senderType: msg.senderId === userId ? 'me' : 'other',
+                                                senderType: (msg as any).senderType || (msg.senderId === userId ? 'me' : 'other'),
                                                 senderName: msg.senderName || 'Đối tác',
                                                 createdAt: msg.createdAt,
-                                                status: msg.isUnsent ? 'unsent' : (
-                                                    (msg as any).isSending ? 'sending' : (
-                                                        msg.isRead ? 'seen' : (
-                                                            msg.isDelivered ? 'delivered' : 'sent'
-                                                        )
-                                                    )
-                                                ),
-                                                isUnsent: msg.isUnsent,
-                                                replyTo: msg.replyTo,
-                                                imageUrl: msg.fileUrl && msg.fileType === 'image' ? msg.fileUrl : undefined,
-                                                attachments: msg.fileUrl && msg.fileType !== 'image' ? [{
-                                                    fileName: msg.fileName || 'Tệp đính kèm',
-                                                    fileUrl: msg.fileUrl,
-                                                    fileType: msg.fileType || ''
-                                                }] : []
+                                                status: msg.isUnsent ? 'unsent' : (msg.isRead ? 'seen' : (msg.isDelivered ? 'delivered' : 'sent')),
+                                                imageUrl: msg.imageUrl || (msg.fileUrl && msg.fileType === 'image' ? msg.fileUrl : undefined),
+                                                attachments: msg.attachments || (msg.fileUrl && msg.fileType !== 'image' ? [{ fileName: msg.fileName || 'Tệp đính kèm', fileUrl: msg.fileUrl, fileType: msg.fileType || '' }] : [])
                                             } as ChatMessage))}
                                             themeColor="blue"
                                             showSenderNames={false}
@@ -653,119 +384,33 @@ function MessagesClient() {
                                         <div ref={messagesEndRef} className="h-2" />
                                     </div>
 
-                                    {/* Reply Preview */}
-                                    {replyingTo && (
-                                        <div className="px-4 py-2 bg-blue-50 border-t border-blue-100 flex items-center justify-between animate-in slide-in-from-bottom duration-200">
-                                            <div className="flex items-center gap-3 overflow-hidden">
-                                                <div className="w-1 bg-blue-500 h-8 rounded-full flex-shrink-0" />
-                                                <div className="min-w-0">
-                                                    <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest mb-0.5">Đang trả lời {replyingTo.senderName}</p>
-                                                    <p className="text-xs text-gray-600 truncate italic">
-                                                        {replyingTo.content || (replyingTo.fileUrl ? '📎 Tệp đính kèm' : '...')}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                            <button onClick={() => setReplyingTo(null)} className="p-1.5 hover:bg-blue-100 rounded-full text-blue-400 transition-colors">
-                                                <X className="w-4 h-4" />
-                                            </button>
-                                        </div>
-                                    )}
-
-                                    {/* Scroll to Bottom Button */}
                                     {showScrollButton && (
-                                        <button
-                                            onClick={() => scrollToBottom()}
-                                            className="absolute bottom-24 right-8 p-4 bg-white text-primary-600 rounded-full shadow-2xl border border-primary-50 animate-bounce active:scale-110 transition-all z-30 group"
-                                        >
+                                        <button onClick={() => scrollToBottom()} className="absolute bottom-24 right-8 p-4 bg-white text-primary-600 rounded-full shadow-2xl border border-primary-50 animate-bounce z-30 group">
                                             <ChevronDown className="w-6 h-6" />
-                                            <span className="absolute -top-12 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-[10px] py-2 px-4 rounded-xl opacity-0 group-hover:opacity-100 transition-all whitespace-nowrap font-black shadow-2xl border border-white/10">
-                                                MỚI NHẤT ↓
-                                            </span>
                                         </button>
                                     )}
 
-                                    {/* Input Area */}
-                                    <div className="p-4 bg-white border-t border-gray-100">
-                                        {selectedFile && (
-                                            <div className="mb-3 p-3 bg-gray-50 rounded-2xl flex items-center justify-between border-2 border-dashed border-gray-200 animate-in slide-in-from-bottom duration-300">
-                                                <div className="flex items-center gap-3">
-                                                    {selectedFile.type === 'image' ? (
-                                                        <img src={selectedFile.preview} className="w-12 h-12 object-cover rounded-xl shadow-sm" />
-                                                    ) : (
-                                                        <div className="w-12 h-12 bg-blue-100 flex items-center justify-center rounded-xl">
-                                                            <FileText className="text-blue-600 w-6 h-6" />
-                                                        </div>
-                                                    )}
-                                                    <div>
-                                                        <p className="text-xs font-black text-gray-800 max-w-[200px] truncate leading-tight mb-0.5">
-                                                            {selectedFile.file.name}
-                                                        </p>
-                                                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">{formatFileSize(selectedFile.file.size)}</p>
-                                                    </div>
-                                                </div>
-                                                <button
-                                                    onClick={() => setSelectedFile(null)}
-                                                    className="p-1.5 hover:bg-gray-200 rounded-full text-gray-400 transition-colors"
-                                                >
-                                                    <X className="w-5 h-5" />
-                                                </button>
-                                            </div>
-                                        )}
-                                        <div className="flex items-center gap-3 bg-gray-100 p-2 rounded-[32px] focus-within:ring-2 focus-within:ring-blue-500 focus-within:bg-white transition-all shadow-inner">
-                                            <button
-                                                onClick={() => fileInputRef.current?.click()}
-                                                disabled={sending || uploading}
-                                                className="p-3 text-gray-500 hover:text-blue-600 hover:bg-white rounded-full transition-all disabled:opacity-50"
-                                            >
-                                                <Paperclip className="w-5 h-5" />
-                                            </button>
-                                            <input
-                                                type="file"
-                                                ref={fileInputRef}
-                                                onChange={handleFileSelect}
-                                                className="hidden"
-                                                accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx,.txt"
-                                            />
-                                            <textarea
-                                                value={newMessage}
-                                                onChange={e => {
-                                                    setNewMessage(e.target.value)
-                                                    handleTyping()
-                                                }}
-                                                onKeyDown={e => {
-                                                    if (e.key === 'Enter' && !e.shiftKey) {
-                                                        e.preventDefault()
-                                                        sendMessage()
-                                                    } else {
-                                                        handleTyping()
-                                                    }
-                                                }}
-                                                placeholder="Nhập tin nhắn..."
-                                                className="flex-1 bg-transparent border-none outline-none focus:ring-0 text-sm font-bold text-gray-800 placeholder:text-gray-400 py-3 resize-none max-h-32 leading-relaxed"
-                                                rows={1}
-                                            />
-                                            <button
-                                                onClick={sendMessage}
-                                                disabled={uploading || (!newMessage.trim() && !selectedFile)}
-                                                className="p-3 bg-blue-600 text-white rounded-full hover:bg-blue-700 disabled:opacity-50 transition-all shadow-xl shadow-blue-200 active:scale-90"
-                                            >
-                                                {uploading ? (
-                                                    <div className="w-5 h-5 border-2 border-white border-t-transparent animate-spin rounded-full" />
-                                                ) : (
-                                                    <Send className="w-5 h-5" />
-                                                )}
-                                            </button>
-                                        </div>
-                                    </div>
+                                    <ChatInput 
+                                        newMessage={newMessage}
+                                        setNewMessage={setNewMessage}
+                                        selectedFile={selectedFile}
+                                        setSelectedFile={setSelectedFile}
+                                        replyingTo={replyingTo}
+                                        setReplyingTo={setReplyingTo}
+                                        sending={sending}
+                                        uploading={uploading}
+                                        onSendMessage={sendMessage}
+                                        onTyping={handleTyping}
+                                        formatFileSize={(bytes) => {
+                                            if (!bytes) return ''
+                                            if (bytes < 1024) return bytes + ' B'
+                                            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
+                                            return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
+                                        }}
+                                    />
                                 </>
                             ) : (
-                                <div className="flex-1 flex flex-col items-center justify-center text-gray-400 bg-gray-50">
-                                    <div className="bg-white p-6 rounded-full shadow-sm mb-4">
-                                        <MessageCircle className="w-12 h-12 text-blue-100" />
-                                    </div>
-                                    <p className="font-medium text-gray-600">Chọn một cuộc trò chuyện để bắt đầu</p>
-                                    <p className="text-sm">Kết nối trực tiếp giữa nhà thầu và khách hàng</p>
-                                </div>
+                                <ChatEmptyState />
                             )}
                         </div>
                     </div>
