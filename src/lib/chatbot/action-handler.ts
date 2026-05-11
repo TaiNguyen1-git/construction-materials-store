@@ -39,7 +39,7 @@ export async function executeAction(request: ActionRequest): Promise<ActionResul
       error: 'INSUFFICIENT_PERMISSIONS'
     }
   }
-  
+
   // Route to appropriate handler
   switch (request.entityType) {
     case 'product':
@@ -58,6 +58,37 @@ export async function executeAction(request: ActionRequest): Promise<ActionResul
         message: `❌ Entity type "${request.entityType}" không được hỗ trợ.`,
         error: 'UNSUPPORTED_ENTITY'
       }
+  }
+}
+
+// ─── Audit Logging ───────────────────────────────────────────────────────────────
+
+/**
+ * Write a non-blocking audit record to the DB.
+ * Failures are logged but never throw so callers are unaffected.
+ */
+async function auditLog(params: {
+  action: 'ADMIN_OVERRIDE' | 'ORDER_CREATE' | 'ORDER_CANCEL'
+  entityType: string
+  entityId?: string
+  actorRole: string
+  actorId: string
+  details: string
+}): Promise<void> {
+  try {
+    await prisma.auditLog.create({
+      data: {
+        action: params.action as any, // Cast to any because Prisma enum is strict but we want flexibility if possible, or just use the enum
+        entityType: params.entityType,
+        entityId: params.entityId,
+        actorId: params.actorId && params.actorId.length === 24 ? params.actorId : undefined, // MongoDB ObjectId check
+        actorRole: params.actorRole,
+        newValue: { details: params.details },
+      }
+    })
+  } catch (err) {
+    // Non-critical — never block the main flow
+    console.warn('[AuditLog] Failed to write audit record:', err)
   }
 }
 
@@ -118,6 +149,7 @@ async function handleProductAction(request: ActionRequest): Promise<ActionResult
           }
         })
         
+        auditLog({ action: 'ADMIN_OVERRIDE', entityType: 'product', entityId: product.id, actorRole: request.userRole, actorId: request.userId, details: `Chatbot: tạo sản phẩm "${product.name}" (SKU: ${product.sku})` }).catch(() => {})
         return {
           success: true,
           message: `✅ Đã tạo sản phẩm **${product.name}**\n\n` +
@@ -172,6 +204,7 @@ async function handleProductAction(request: ActionRequest): Promise<ActionResult
           data: updateData
         })
         
+        auditLog({ action: 'ADMIN_OVERRIDE', entityType: 'product', entityId: product.id, actorRole: request.userRole, actorId: request.userId, details: `Chatbot: cập nhật "${updated.name}" → ${JSON.stringify(updateData)}` }).catch(() => {})
         return {
           success: true,
           message: `✅ Đã cập nhật **${updated.name}**\n\n` +
@@ -213,6 +246,7 @@ async function handleProductAction(request: ActionRequest): Promise<ActionResult
           data: { isActive: false }
         })
         
+        auditLog({ action: 'ADMIN_OVERRIDE', entityType: 'product', entityId: product.id, actorRole: request.userRole, actorId: request.userId, details: `Chatbot: vô hiệu hóa sản phẩm "${product.name}"` }).catch(() => {})
         return {
           success: true,
           message: `🗑️ Đã xóa sản phẩm **${product.name}**\n\n` +
@@ -287,6 +321,7 @@ async function handleOrderAction(request: ActionRequest): Promise<ActionResult> 
           data: { status: newStatus }
         })
         
+        auditLog({ action: 'ADMIN_OVERRIDE', entityType: 'order', entityId: order.id, actorRole: request.userRole, actorId: request.userId, details: `Chatbot: đổi trạng thái đơn ${orderNumber} từ ${order.status} → ${newStatus}` }).catch(() => {})
         return {
           success: true,
           message: `✅ Đã cập nhật đơn hàng **${orderNumber}**\n\n` +

@@ -73,7 +73,17 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { message, image, customerId, sessionId, context, isAdmin, userRole } = validation.data
+    const { message, image, customerId, sessionId, context, isAdmin: clientIsAdmin, userRole } = validation.data
+
+    // ── Security: derive isAdmin from server-side header, NOT client body ────────
+    // Middleware decodes the JWT and injects x-user-role for protected routes.
+    // For public/optional-auth routes the header may be absent; fall back to the
+    // client-supplied flag ONLY when no server header is present (guest flows).
+    const serverRole = request.headers.get('x-user-role')
+    const isAdmin = serverRole
+      ? (serverRole === 'ADMIN' || serverRole === 'MANAGER')
+      : (clientIsAdmin === true)   // allow guest/customer chatbot usage
+
     const isGuest = !userRole || userRole === 'CUSTOMER' || !customerId || customerId.startsWith('guest_')
 
     // ── Rate Limiting ──────────────────────────────────────────────────────────
@@ -127,6 +137,9 @@ export async function POST(request: NextRequest) {
     }
 
     // ── File/Media Flows (Image & Audio) ───────────────────────────────────────
+    // Load conversation history early — needed for audio path and AI fallback
+    const conversationHistory = await getConversationHistory(sessionId)
+
     if (image) {
       const isAudioFile = image.startsWith('data:audio/');
       if (isAudioFile) {
@@ -134,7 +147,6 @@ export async function POST(request: NextRequest) {
         const data = image.split(',')[1];
         const fileData = { mimeType, data };
         
-        const conversationHistory = await getConversationHistory(sessionId);
         const botResponse = await generateChatbotResponse(message || '', context, conversationHistory, !!isAdmin, fileData);
         
         const finalSuggestions = [...(botResponse.suggestions || [])]
@@ -161,7 +173,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(createErrorResponse('Message is required', 'VALIDATION_ERROR'), { status: 400 })
     }
 
-    const conversationHistory = await getConversationHistory(sessionId)
+    // ── Load conversation history once (used by audio + AI fallback) ────────────
+    // (already loaded above)
 
     // ── Active Flow Continuation ───────────────────────────────────────────────
     const currentState = await getConversationState(sessionId)
@@ -175,7 +188,7 @@ export async function POST(request: NextRequest) {
         }
         if (flowResponse.isConfirmed) return await handleOrderCreation(sessionId, customerId, currentState)
         if (flowResponse.isCancelled) {
-          clearConversationState(sessionId)
+          await clearConversationState(sessionId)
           return NextResponse.json(createSuccessResponse({ message: '❌ Đã hủy đặt hàng.\n\n💡 Bạn có thể đặt hàng lại bất cứ lúc nào.', suggestions: ['Tìm sản phẩm', 'Tính vật liệu', 'Giá cả'], confidence: 1.0, sessionId, timestamp: new Date().toISOString() }))
         }
 
@@ -260,7 +273,7 @@ export async function POST(request: NextRequest) {
         if (flowResponse.isConfirmed && currentState.flow === 'OCR_INVOICE') return await handleOCRInvoiceSave(sessionId, currentState)
         if (flowResponse.isConfirmed && currentState.flow === 'CRUD_CONFIRMATION') return await handleCRUDExecution(sessionId, currentState, userRole || '')
         if (flowResponse.isCancelled) {
-          clearConversationState(sessionId)
+          await clearConversationState(sessionId)
           return NextResponse.json(createSuccessResponse({ message: '❌ Đã hủy thao tác.', suggestions: ['Bắt đầu lại', 'Trợ giúp'], confidence: 1.0, sessionId, timestamp: new Date().toISOString() }))
         }
         if (flowResponse.nextPrompt) {

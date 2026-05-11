@@ -231,7 +231,7 @@ export async function handleOCRInvoiceSave(sessionId: string, state: Conversatio
             return { invoice: newInvoice, itemsCreated, inventorySynced }
         })
 
-        clearConversationState(sessionId)
+        await clearConversationState(sessionId)
 
         return NextResponse.json(createSuccessResponse({
             message: `✅ Đã lưu hóa đơn **${invoice.invoice.invoiceNumber}**\n\n` +

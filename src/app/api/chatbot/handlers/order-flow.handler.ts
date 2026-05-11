@@ -123,7 +123,7 @@ export async function handleOrderCreateIntent(
 
             const initialItems = [...enrichedItems, ...itemsToClarify.map(x => ({ productName: x.item.productName, quantity: x.item.quantity || 1, unit: x.item.unit || 'cái' }))]
             const guestInfo = sanitizeGuestInfo({ name: aiOrderRequest.customerName || '', phone: aiOrderRequest.phone || '', address: aiOrderRequest.deliveryAddress || '' })
-            startOrderCreationFlow(sessionId, initialItems, !!customerId, guestInfo)
+            await startOrderCreationFlow(sessionId, initialItems, !!customerId, guestInfo)
             await updateFlowData(sessionId, {
                 pendingProductSelection: itemsToClarify.filter(({ products }) => products.length > 0),
                 vatInfo: aiOrderRequest.vatInfo
@@ -137,7 +137,7 @@ export async function handleOrderCreateIntent(
 
         if (enrichedItems.length > 0) {
             const guestInfoFromAI = sanitizeGuestInfo({ name: aiOrderRequest.customerName || '', phone: aiOrderRequest.phone || '', address: aiOrderRequest.deliveryAddress || '' })
-            startOrderCreationFlow(sessionId, enrichedItems, !!customerId, guestInfoFromAI)
+            await startOrderCreationFlow(sessionId, enrichedItems, !!customerId, guestInfoFromAI)
             if (aiOrderRequest.vatInfo) await updateFlowData(sessionId, { vatInfo: aiOrderRequest.vatInfo })
 
             const hasGuestInfo = aiOrderRequest.customerName && aiOrderRequest.phone && aiOrderRequest.deliveryAddress
@@ -220,7 +220,7 @@ export async function handleOrderCreateIntent(
 
         if (foundProduct) {
             const defaultUnit = foundProduct.unit || 'bao'
-            startOrderCreationFlow(sessionId, [{ productName: foundProduct.name, quantity: 1, unit: defaultUnit, productId: foundProduct.id }], !!customerId)
+            await startOrderCreationFlow(sessionId, [{ productName: foundProduct.name, quantity: 1, unit: defaultUnit, productId: foundProduct.id }], !!customerId)
             const needsInfo = !customerId
             return NextResponse.json(createSuccessResponse({
                 message: '🛒 **Xác nhận đặt hàng**\n\n' +
@@ -260,7 +260,7 @@ export async function handleOrderCreateIntent(
             )
 
             if (clarificationMessages.length > 0) {
-                startOrderCreationFlow(sessionId, parsedItems, !!customerId)
+                await startOrderCreationFlow(sessionId, parsedItems, !!customerId)
                 await updateFlowData(sessionId, { pendingProductSelection: itemsToClarify.filter(({ products }) => products.length > 0) })
                 return NextResponse.json(createSuccessResponse({
                     message: clarificationMessages.join('\n\n'),
@@ -270,7 +270,7 @@ export async function handleOrderCreateIntent(
             }
         }
 
-        startOrderCreationFlow(sessionId, parsedItems, !!customerId)
+        await startOrderCreationFlow(sessionId, parsedItems, !!customerId)
         const needsInfo = !customerId
         return NextResponse.json(createSuccessResponse({
             message: '🛒 **Xác nhận đặt hàng**\n\nDanh sách sản phẩm:\n' +
@@ -287,7 +287,7 @@ export async function handleOrderCreateIntent(
     if (isButtonClick && currentState != null && currentState.data?.lastCalculation?.length > 0) {
         const items = currentState.data.lastCalculation
         const storedGuestInfo = currentState.data.guestInfo
-        startOrderCreationFlow(sessionId, items, !!customerId, storedGuestInfo)
+        await startOrderCreationFlow(sessionId, items, !!customerId, storedGuestInfo)
 
         const hasCompleteGuestInfo = storedGuestInfo?.name && storedGuestInfo?.phone && storedGuestInfo?.address
         let guestInfoDisplay = ''
@@ -312,7 +312,7 @@ export async function handleOrderCreateIntent(
     if (!isButtonClick && currentState?.data?.lastCalculation) await clearConversationState(sessionId)
 
     // 5. Check conversation history for previous material calculations
-    const recentCalc = conversationHistory.reverse().find((h: { role: string; content: string }) =>
+    const recentCalc = [...conversationHistory].reverse().find((h: { role: string; content: string }) =>
         h.role === 'assistant' && (h.content.includes('KẾT QUẢ TÍNH TOÁN') || h.content.includes('DANH SÁCH VẬT LIỆU'))
     )
 
@@ -333,7 +333,7 @@ export async function handleOrderCreateIntent(
         }
 
         if (items.length > 0) {
-            startOrderCreationFlow(sessionId, items)
+            await startOrderCreationFlow(sessionId, items)
             return NextResponse.json(createSuccessResponse({
                 message: '🛒 **Xác nhận đặt hàng**\n\nDanh sách vật liệu từ tính toán:\n' +
                     items.map((item, idx) => `${idx + 1}. ${item.productName}: ${item.quantity} ${item.unit}`).join('\n') +
@@ -442,7 +442,7 @@ export async function handleOrderCreation(
             return { order, itemsMatched, totalItems: items.length }
         }, { timeout: 30000 })
 
-        clearConversationState(sessionId)
+        await clearConversationState(sessionId)
 
         // Async admin notification (fire-and-forget)
         prisma.order.findUnique({
@@ -489,7 +489,7 @@ export async function handleOrderCreation(
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const err = error as any
         console.error('Order creation error:', error)
-        clearConversationState(sessionId)
+        await clearConversationState(sessionId)
         return NextResponse.json(createSuccessResponse({
             message: `❌ Không thể tạo đơn hàng: ${err.message}\n\nVui lòng thử lại hoặc liên hệ hỗ trợ.`,
             suggestions: ['Thử lại', 'Liên hệ hỗ trợ', 'Tiếp tục xem sản phẩm'],
@@ -508,8 +508,15 @@ export async function handleCRUDExecution(
     try {
         const crudData = state.data
         const { executeAction } = await import('@/lib/chatbot/action-handler')
-        const actionResult = await executeAction({ action: crudData.action, entityType: crudData.entityType, entities: {}, rawMessage: '', userId: '', userRole })
-        clearConversationState(sessionId)
+        const actionResult = await executeAction({
+            action: crudData.action,
+            entityType: crudData.entityType,
+            entities: crudData.entityData || {},
+            rawMessage: crudData.previewMessage || '',
+            userId: '',
+            userRole
+        })
+        await clearConversationState(sessionId)
         return NextResponse.json(createSuccessResponse({
             message: actionResult.message,
             suggestions: ['Tiếp tục', 'Quay lại'],

@@ -1,9 +1,10 @@
 'use client'
 
-import React from 'react'
+import React, { useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { ShoppingCart, Package, Zap, Star, TrendingDown } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { ShoppingCart, Package, Zap, Star, TrendingDown, Info, ShieldCheck, Truck } from 'lucide-react'
 import { useCartStore } from '@/stores/cartStore'
 import toast from 'react-hot-toast'
 import WishlistButton from '@/components/WishlistButton'
@@ -29,6 +30,7 @@ interface ProductCardProps {
 }
 
 export default function ProductCard({ product, viewMode = 'grid' }: ProductCardProps) {
+    const [isHovered, setIsHovered] = useState(false)
     const { addItem, openCart } = useCartStore()
     const isOutOfStock = product.inventoryItem?.availableQuantity === 0
     const isLowStock = product.inventoryItem?.availableQuantity !== undefined &&
@@ -161,7 +163,65 @@ export default function ProductCard({ product, viewMode = 'grid' }: ProductCardP
 
     // ───── GRID MODE ─────
     return (
-        <div className="group relative bg-white rounded-2xl border border-neutral-100 hover:border-primary-200 hover:shadow-md transition-all duration-300 overflow-hidden flex flex-col h-full hover:-translate-y-0.5">
+        <div 
+            className="group relative bg-white rounded-2xl border border-neutral-100 hover:border-primary-200 hover:shadow-md transition-all duration-300 overflow-hidden flex flex-col h-full hover:-translate-y-0.5"
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
+        >
+            {/* Premium Tooltip */}
+            <AnimatePresence>
+                {isHovered && (
+                    <motion.div
+                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 5, scale: 0.95 }}
+                        transition={{ duration: 0.2, ease: "easeOut" }}
+                        className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 z-50 pointer-events-none w-[220px]"
+                    >
+                        <div className="bg-neutral-900/80 backdrop-blur-md border border-white/10 rounded-2xl p-4 shadow-2xl overflow-hidden relative">
+                            {/* Glass background accent */}
+                            <div className="absolute -top-12 -right-12 w-24 h-24 bg-primary-500/20 rounded-full blur-2xl" />
+                            
+                            <div className="relative space-y-3">
+                                <div className="flex items-center gap-2">
+                                    <div className="w-8 h-8 bg-primary-500/20 rounded-lg flex items-center justify-center">
+                                        <Info size={14} className="text-primary-400" />
+                                    </div>
+                                    <span className="text-[10px] font-black text-white uppercase tracking-widest">Thông tin nhanh</span>
+                                </div>
+                                
+                                <div className="space-y-2">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-[10px] text-neutral-400 flex items-center gap-1.5"><ShieldCheck size={12} /> Chính hãng</span>
+                                        <span className="text-[10px] font-bold text-green-400">100%</span>
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-[10px] text-neutral-400 flex items-center gap-1.5"><Package size={12} /> Tồn kho</span>
+                                        <span className="text-[10px] font-bold text-white">
+                                            {product.inventoryItem?.availableQuantity || 'Sẵn hàng'}
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-[10px] text-neutral-400 flex items-center gap-1.5"><Truck size={12} /> Giao hàng</span>
+                                        <span className="text-[10px] font-bold text-blue-400">Toàn quốc</span>
+                                    </div>
+                                </div>
+
+                                <div className="pt-2 border-t border-white/5 flex items-center justify-between">
+                                    <div className="flex items-center gap-1">
+                                        {[1, 2, 3, 4, 5].map((s) => (
+                                            <Star key={s} size={8} fill="currentColor" className="text-amber-400" />
+                                        ))}
+                                    </div>
+                                    <span className="text-[9px] text-neutral-400 font-bold">4.9 (120+)</span>
+                                </div>
+                            </div>
+                        </div>
+                        {/* Tooltip Arrow */}
+                        <div className="absolute top-full left-1/2 -translate-x-1/2 w-3 h-3 bg-neutral-900/80 rotate-45 -mt-1.5 border-b border-r border-white/10" />
+                    </motion.div>
+                )}
+            </AnimatePresence>
             {/* Top accent line on hover */}
             <div className="absolute inset-x-0 top-0 h-0.5 bg-primary-600 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 z-10" />
 

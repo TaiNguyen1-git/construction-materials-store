@@ -166,3 +166,50 @@ export async function optimizeLogistics(data: {
         return { routes: [], efficiency: 0, recommendations: ['Không thể tối ưu hóa lộ trình lúc này.'] }
     }
 }
+/** Parse guest info (name, phone, address) from user message using AI */
+export async function parseGuestInfoWithAI(message: string): Promise<{ name?: string, phone?: string, address?: string }> {
+    try {
+        const { client, modelName } = await getWorkingModelConfig()
+        if (!client) throw new Error('Client init failed')
+
+        const prompt = `
+    Trích xuất thông tin khách hàng từ tin nhắn sau. 
+    Tin nhắn: "${message}"
+
+    Trả về định dạng JSON:
+    {
+      "name": "họ tên khách hàng (nếu có)",
+      "phone": "số điện thoại (nếu có, chỉ lấy số)",
+      "address": "địa chỉ giao hàng (nếu có)"
+    }
+
+    QUY TẮC:
+    - Nếu không tìm thấy thông tin nào, hãy để null.
+    - Phone chỉ lấy chữ số (ví dụ: 0901234567).
+    - Không được tự ý bịa đặt thông tin.
+
+    Trả về DUY NHẤT mã JSON.
+    `
+
+        const result = await client.models.generateContent({
+            model: modelName!,
+            contents: [{ role: 'user', parts: [{ text: prompt }] }]
+        })
+
+        const text = (result as GeminiResponse).text || '{}'
+        const parsed = parseGeminiJSON<{ name: string | null, phone: string | null, address: string | null }>(text, {
+            name: null,
+            phone: null,
+            address: null
+        })
+
+        return {
+            name: parsed.name || undefined,
+            phone: parsed.phone?.replace(/[^\d]/g, '') || undefined,
+            address: parsed.address || undefined
+        }
+    } catch (error) {
+        console.error('[OrderService] parseGuestInfoWithAI error:', error)
+        return {}
+    }
+}

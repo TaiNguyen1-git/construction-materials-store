@@ -8,7 +8,7 @@ export type { ChatbotResponse, OCRResponse, AIOrderRequest } from './ai/ai-clien
 import { getQuickResponse, generateChatbotResponse, extractChatbotStructure } from './ai/ai-chatbot.service'
 import { processOCRText, analyzeImage, extractInvoiceData } from './ai/ai-ocr.service'
 import { analyzeSentiment, forecastDemand, analyzeCreditRisk, getProductRecommendations } from './ai/ai-analytics.service'
-import { parseOrderRequest, extractMaterialCalculationParams, optimizeLogistics } from './ai/ai-order.service'
+import { parseOrderRequest, extractMaterialCalculationParams, optimizeLogistics, parseGuestInfoWithAI } from './ai/ai-order.service'
 
 /**
  * AIService — facade that re-exports all domain-specific AI methods
@@ -35,6 +35,7 @@ export class AIService {
   static parseOrderRequest = parseOrderRequest
   static extractMaterialCalculationParams = extractMaterialCalculationParams
   static optimizeLogistics = optimizeLogistics
+  static parseGuestInfoWithAI = parseGuestInfoWithAI
 }
 
 export default AIService

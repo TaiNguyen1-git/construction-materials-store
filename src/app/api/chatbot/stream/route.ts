@@ -86,7 +86,14 @@ export async function POST(request: NextRequest) {
             )
         }
 
-        const { message, customerId, sessionId, isAdmin, userRole, context, conversationHistory } = validation.data
+        const { message, customerId, sessionId, isAdmin: clientIsAdmin, userRole, context, conversationHistory } = validation.data
+
+        // ── Security: derive isAdmin from server-side header, NOT client body ────────
+        const serverRole = request.headers.get('x-user-role')
+        const isAdmin = serverRole
+            ? (serverRole === 'ADMIN' || serverRole === 'MANAGER')
+            : (clientIsAdmin === true)
+
         const isGuest = !userRole || userRole === 'CUSTOMER' || !customerId || customerId.startsWith('guest_')
 
         // ── Rate Limiting ──────────────────────────────────────────────────────────

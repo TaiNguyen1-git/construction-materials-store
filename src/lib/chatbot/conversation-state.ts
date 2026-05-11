@@ -1,4 +1,5 @@
 import { redis, isRedisConfigured } from '../redis'
+import { AIService } from '@/lib/ai-service'
 
 // In-memory conversation state storage (Fallback)
 const conversationCache = new Map<string, ConversationState>()
@@ -403,7 +404,7 @@ async function processOrderCreationResponse(
       // Check for cancellation first
       if (lowerMessage.includes('hủy') || lowerMessage.includes('cancel') ||
         lowerMessage === 'hủy' || lowerMessage === 'cancel') {
-        clearConversationState(sessionId)
+        await clearConversationState(sessionId)
         return {
           shouldContinue: true,
           isCancelled: true
@@ -470,9 +471,18 @@ async function processOrderCreationResponse(
       }
 
     case 'guest_info':
-      // Parse guest info from message
-      // Input format: "Tên, SĐT, Địa chỉ" (plain text, no brackets or quotes)
-      const guestInfo = parseGuestInfo(userMessage)
+      // Parse guest info from message - Using AI for better accuracy
+      let guestInfo = await AIService.parseGuestInfoWithAI(userMessage)
+
+      // Fallback to manual parsing if AI returns nothing useful
+      if (!guestInfo.name || !guestInfo.phone || !guestInfo.address) {
+        const manualInfo = parseGuestInfo(userMessage)
+        guestInfo = {
+          name: guestInfo.name || manualInfo.name,
+          phone: guestInfo.phone || manualInfo.phone,
+          address: guestInfo.address || manualInfo.address
+        }
+      }
 
       // Debug: log parsed info
 
@@ -620,10 +630,30 @@ async function processOCRInvoiceResponse(
   userMessage: string,
   state: ConversationState
 ): Promise<FlowResponseResult> {
-  // Simple confirmation
+  const lower = userMessage.toLowerCase().trim()
+
+  // Cancellation
+  if (
+    lower === 'hủy' || lower === 'cancel' || lower === 'không' || lower === 'no' ||
+    lower.includes('hủy') || lower.includes('không lưu') || lower.includes('thôi')
+  ) {
+    await clearConversationState(sessionId)
+    return { shouldContinue: true, isCancelled: true }
+  }
+
+  // Confirmation: must be explicit
+  if (
+    lower === 'lưu hóa đơn' || lower === 'lưu' || lower === 'xác nhận' ||
+    lower === 'ok' || lower === 'có' || lower === 'yes' || lower === 'confirm' ||
+    lower.includes('lưu') || lower.includes('xác nhận') || lower.includes('đồng ý')
+  ) {
+    return { shouldContinue: true, isConfirmed: true }
+  }
+
+  // Ambiguous — ask again
   return {
     shouldContinue: true,
-    isConfirmed: true
+    nextPrompt: '❓ Bạn có muốn lưu hóa đơn này vào hệ thống không?\n\n- "Lưu hóa đơn" để xác nhận\n- "Hủy" để bỏ qua'
   }
 }
 
@@ -635,10 +665,30 @@ async function processCRUDConfirmationResponse(
   userMessage: string,
   state: ConversationState
 ): Promise<FlowResponseResult> {
-  // Simple confirmation
+  const lower = userMessage.toLowerCase().trim()
+
+  // Cancellation
+  if (
+    lower === 'hủy' || lower === 'cancel' || lower === 'không' || lower === 'no' ||
+    lower.includes('hủy') || lower.includes('thôi') || lower.includes('bỏ qua')
+  ) {
+    await clearConversationState(sessionId)
+    return { shouldContinue: true, isCancelled: true }
+  }
+
+  // Confirmation: must be explicit
+  if (
+    lower === 'xác nhận' || lower === 'ok' || lower === 'có' || lower === 'yes' ||
+    lower === 'confirm' || lower === 'đồng ý' ||
+    lower.includes('xác nhận') || lower.includes('đồng ý')
+  ) {
+    return { shouldContinue: true, isConfirmed: true }
+  }
+
+  // Ambiguous — ask again
   return {
     shouldContinue: true,
-    isConfirmed: true
+    nextPrompt: `❓ ${state.data.previewMessage || 'Bạn có muốn thực hiện thao tác này không?'}\n\n- "Xác nhận" để tiếp tục\n- "Hủy" để hủy bỏ`
   }
 }
 

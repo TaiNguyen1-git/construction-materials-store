@@ -226,13 +226,10 @@ export async function cacheResponse(
 
     // Always store to memory as well (backup + faster reads)
     if (memoryCache.size >= MAX_MEMORY_CACHE) {
-        // Evict oldest entries
-        const oldest = [...memoryCache.entries()]
-            .sort((a, b) => a[1].cachedAt - b[1].cachedAt)
-            .slice(0, 50)
-        for (const [k] of oldest) {
-            memoryCache.delete(k)
-        }
+        // Evict the single oldest entry — Map preserves insertion order, so the
+        // first key returned by .keys() is the oldest one. O(1) vs previous O(n log n).
+        const oldestKey = memoryCache.keys().next().value
+        if (oldestKey !== undefined) memoryCache.delete(oldestKey)
     }
     memoryCache.set(key, entry)
 }
@@ -243,14 +240,21 @@ export async function cacheResponse(
 export function shouldBypassCache(message: string): boolean {
     const lower = message.toLowerCase()
 
-    // Order-related queries are always dynamic
-    if (lower.includes('đơn hàng') && (lower.includes('của tôi') || lower.includes('kiểm tra'))) return true
+    // Order-related personal queries
+    if (lower.includes('đơn hàng') && (lower.includes('của tôi') || lower.includes('kiểm tra') || lower.includes('theo dõi') || lower.includes('tình trạng'))) return true
     // Account-specific queries
-    if (lower.includes('tài khoản') || lower.includes('điểm tích lũy')) return true
+    if (lower.includes('tài khoản') || lower.includes('điểm tích lũy') || lower.includes('thành viên') || lower.includes('thông tin cá nhân')) return true
+    // Basket / wishlist
+    if (lower.includes('giỏ hàng') || lower.includes('yêu thích') || lower.includes('wishlist') || lower.includes('mua gì rồi')) return true
+    // Purchase history
+    if (lower.includes('lịch sử mua') || lower.includes('hóa đơn của tôi') || lower.includes('đã mua')) return true
     // Real-time inventory checks
-    if (lower.includes('còn hàng không') || lower.includes('tồn kho')) return true
+    if (lower.includes('còn hàng không') || lower.includes('tồn kho') || lower.includes('số lượng còn')) return true
     // Calculation requests (unique per user)
-    if (lower.includes('tính') && lower.includes('m²')) return true
+    if (lower.includes('tính') && (lower.includes('m²') || lower.includes('diện tích') || lower.includes('chi phí'))) return true
+    // Anything referencing "tôi", "mình", "em" with a personal context verb is likely personal
+    if ((lower.includes('của tôi') || lower.includes('của mình') || lower.includes('của em')) &&
+        (lower.includes('đơn') || lower.includes('hóa đơn') || lower.includes('thanh toán') || lower.includes('địa chỉ') || lower.includes('sđt'))) return true
 
     return false
 }
