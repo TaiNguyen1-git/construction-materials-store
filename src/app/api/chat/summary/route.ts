@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Missing conversationId' }, { status: 400 })
         }
 
-        const userId = request.headers.get('x-user-id')
+        const userId = request.headers.get('x-user-id') || request.headers.get('x-guest-id')
         if (!userId) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
@@ -164,7 +164,7 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: 'Missing conversationId' }, { status: 400 })
         }
 
-        const userId = request.headers.get('x-user-id')
+        const userId = request.headers.get('x-user-id') || request.headers.get('x-guest-id')
         if (!userId) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }

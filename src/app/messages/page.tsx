@@ -553,8 +553,9 @@ function MessagesClient() {
                                             </div>
                                             <div className="flex-1 min-w-0">
                                                 <div className="flex justify-between items-baseline mb-0.5">
-                                                    <span className="font-black text-gray-900 truncate text-[13px] tracking-tight">
+                                                    <span className="font-black text-gray-900 truncate text-[13px] tracking-tight flex items-center gap-2">
                                                         {conv.otherUserName}
+                                                        <span className="px-1.5 py-0.5 bg-blue-50 text-blue-600 text-[8px] font-black rounded-md border border-blue-100 uppercase tracking-tighter">Nhà thầu</span>
                                                     </span>
                                                     <span className="text-[9px] text-gray-400 font-bold ml-2">
                                                         {conv.lastMessageAt ? formatTime(conv.lastMessageAt) : ''}
@@ -586,8 +587,9 @@ function MessagesClient() {
                                                 {(conversations.find(c => c.id === selectedConv)?.otherUserName || 'U').charAt(0)}
                                             </div>
                                             <div className="min-w-0">
-                                                <h3 className="font-black text-gray-900 truncate tracking-tight text-sm">
+                                                <h3 className="font-black text-gray-900 truncate tracking-tight text-sm flex items-center gap-2">
                                                     {conversations.find(c => c.id === selectedConv)?.otherUserName || 'Cuộc hội thoại'}
+                                                    <span className="px-2 py-0.5 bg-blue-50 text-blue-600 text-[9px] font-black rounded-lg border border-blue-100 uppercase tracking-widest">Nhà thầu</span>
                                                 </h3>
                                                 <div className="flex items-center gap-1.5">
                                                     <div className="w-2 h-2 bg-green-500 rounded-full"></div>
