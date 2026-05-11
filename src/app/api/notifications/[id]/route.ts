@@ -20,6 +20,14 @@ export async function DELETE(
     }
 
     const { id } = await params
+    
+    const isValidObjectId = /^[0-9a-fA-F]{24}$/.test(id)
+    if (!isValidObjectId) {
+      return NextResponse.json(
+        createSuccessResponse({}, 'Notification deleted or not found'),
+        { status: 200 }
+      )
+    }
 
     // Delete notification (only if it belongs to the user)
     await prisma.notification.deleteMany({

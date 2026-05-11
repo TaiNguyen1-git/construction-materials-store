@@ -24,14 +24,29 @@ export async function generateMetadata(
 
   return {
     title: `${product.name} | SmartBuild Materials`,
-    description: (product.description || '').substring(0, 160),
+    description: (product.description || `Mua ${product.name} chính hãng tại SmartBuild. Cam kết chất lượng, giá tốt nhất thị trường, giao hàng nhanh chóng.`).substring(0, 160),
     openGraph: {
+      title: `${product.name} - Vật liệu xây dựng SmartBuild`,
+      description: (product.description || `Giá tốt cho ${product.name} tại SmartBuild.`).substring(0, 160),
+      images: [
+        {
+          url: product.images[0],
+          width: 800,
+          height: 800,
+          alt: product.name,
+        },
+        ...previousImages.map(img => typeof img === 'string' ? { url: img } : img)
+      ],
+      type: 'website',
+      siteName: 'SmartBuild',
+    },
+    twitter: {
+      card: 'summary_large_image',
       title: product.name,
       description: (product.description || '').substring(0, 160),
-      images: [product.images[0], ...previousImages],
-      type: 'article',
+      images: [product.images[0]],
     },
-    keywords: [product.name, (product as any).category?.name || '', 'vật liệu xây dựng', 'SmartBuild'],
+    keywords: [product.name, (product as any).category?.name || '', 'vật liệu xây dựng', 'giá tốt', 'chính hãng', 'SmartBuild'],
   }
 }
 

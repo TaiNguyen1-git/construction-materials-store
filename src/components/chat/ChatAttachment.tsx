@@ -18,6 +18,15 @@ export default function ChatAttachment({
 }: ChatAttachmentProps) {
     const theme = THEME[themeColor]
     const isImg = attachment.fileType?.startsWith('image/')
+    const isAudio = attachment.fileType?.startsWith('audio/') || attachment.fileUrl?.startsWith('data:audio/')
+
+    if (isAudio) {
+        return (
+            <div className={`p-1.5 rounded-xl border ${isMe ? 'bg-black/10 border-white/20' : 'bg-slate-50 border-slate-200'}`}>
+                <audio controls src={attachment.fileUrl} className="h-10 w-full max-w-[220px]" />
+            </div>
+        )
+    }
     
     if (isImg) {
         return (

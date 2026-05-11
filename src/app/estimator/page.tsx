@@ -62,11 +62,13 @@ export default function EstimatorPage() {
     const [reviewStyle, setReviewStyle] = useState<'nhà_cấp_4' | 'nhà_phố' | 'biệt_thự'>('nhà_phố')
     const [reviewRoofType, setReviewRoofType] = useState('bê_tông')
     const [reviewRooms, setReviewRooms] = useState<RoomDimension[]>([])
+    const [reviewTier, setReviewTier] = useState<'economy' | 'standard' | 'premium'>('standard')
 
     // Modals
     const [showDetailedModal, setShowDetailedModal] = useState(false)
     const [showProjectModal, setShowProjectModal] = useState(false)
     const [showLoginModal, setShowLoginModal] = useState(false)
+    const [selectedRoomName, setSelectedRoomName] = useState<string | null>(null)
 
     // Lead Capture
     const [leadName, setLeadName] = useState('')
@@ -167,9 +169,9 @@ export default function EstimatorPage() {
         try {
             let res: EstimatorResult
             if (inputMode === 'image') {
-                res = await analyzeFloorPlanImage(imagesBase64, projectType)
+                res = await analyzeFloorPlanImage(imagesBase64, projectType, 'standard')
             } else {
-                res = await estimateFromText(description, projectType)
+                res = await estimateFromText(description, projectType, 'standard')
             }
 
             if (res.success) {
@@ -201,7 +203,8 @@ export default function EstimatorPage() {
                 reviewRooms,
                 reviewStyle,
                 reviewArea * 1.5, // Default wall perimeter approximation
-                reviewRoofType
+                reviewRoofType,
+                reviewTier
             )
             if (res.success) {
                 setResult(res)
@@ -295,6 +298,22 @@ export default function EstimatorPage() {
                                     placeholder="VD: Nhà anh Nam - Quận 2"
                                     className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none font-medium"
                                 />
+                            </div>
+
+                            <div className="space-y-3">
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.25em] flex items-center gap-2">
+                                    <span className="w-1 h-4 bg-amber-500 rounded-full inline-block"></span>
+                                    Phân khúc vật tư
+                                </p>
+                                <select
+                                    value={reviewTier}
+                                    onChange={(e) => setReviewTier(e.target.value as any)}
+                                    className="w-full px-4 py-3 border-2 border-slate-100 rounded-2xl focus:ring-2 focus:ring-amber-400 focus:border-amber-300 outline-none text-xs font-bold text-slate-700 bg-white transition-all appearance-none"
+                                >
+                                    <option value="economy">💎 Tiết kiệm</option>
+                                    <option value="standard">⭐ Phổ thông</option>
+                                    <option value="premium">✨ Cao cấp</option>
+                                </select>
                             </div>
 
                             {result && (
@@ -424,6 +443,10 @@ export default function EstimatorPage() {
                                 setReviewArea={setReviewArea}
                                 reviewRooms={reviewRooms}
                                 setReviewRooms={setReviewRooms}
+                                reviewTier={reviewTier}
+                                setReviewTier={setReviewTier as any}
+                                selectedRoomName={selectedRoomName}
+                                onRoomSelect={setSelectedRoomName}
                                 onRecalculate={handleFinalRecalculate}
                                 onBack={() => setIsReviewing(false)}
                                 loading={loading}

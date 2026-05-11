@@ -6,7 +6,7 @@ import {
     ChevronDown, Sparkles, Loader2, Paperclip, Send,
     Check, CheckCheck, MessageCircle, ShieldAlert, CheckCircle
 } from 'lucide-react'
-import { ChatMessage } from '@/components/chat/MessengerChatBubbles'
+import { ChatMessage } from '@/components/chat/types'
 import MessengerChatBubbles from '@/components/chat/MessengerChatBubbles'
 import { useState } from 'react'
 import { X } from 'lucide-react'
@@ -208,17 +208,19 @@ export default function DirectChatView({
                     messages={messages.map((msg, idx) => {
                         const isMe = msg.senderId === 'admin_support' || (msg.realSenderId ? String(msg.realSenderId) === String(user?.id) : String(msg.senderId) === String(user?.id))
                         const isAI = msg.senderId === 'smartbuild_bot' || msg.senderRole === 'BOT'
+                        const isSystem = msg.senderRole === 'SYSTEM' || msg.senderId === 'system'
+                        const isImage = msg.fileUrl && (msg.fileType?.startsWith('image/') || msg.fileUrl.startsWith('data:image/') || msg.fileUrl.match(/\.(jpeg|jpg|gif|png|webp|svg)(\?.*)?$/i));
                         
                         return {
                             id: msg.id || `msg-${idx}`,
                             content: msg.content || '',
-                            senderType: isMe ? 'me' : 'other',
+                            senderType: isSystem ? 'system' : (isMe ? 'me' : 'other'),
                             senderName: msg.senderName,
                             createdAt: msg.createdAt,
                             tempId: msg.tempId || (msg.metadata as any)?.tempId,
                             status: msg.id?.startsWith('temp-') ? 'sending' : (msg.isRead ? 'seen' : 'sent'),
-                            imageUrl: msg.fileUrl && msg.fileType?.startsWith('image/') ? msg.fileUrl : undefined,
-                            attachments: msg.fileUrl && !msg.fileType?.startsWith('image/') ? [{
+                            imageUrl: isImage ? msg.fileUrl : undefined,
+                            attachments: msg.fileUrl && !isImage ? [{
                                 fileName: msg.fileName || 'Tệp đính kèm',
                                 fileUrl: msg.fileUrl,
                                 fileType: msg.fileType || ''

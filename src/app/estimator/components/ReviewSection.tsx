@@ -14,6 +14,10 @@ interface ReviewSectionProps {
     setReviewArea: (val: number) => void
     reviewRooms: RoomDimension[]
     setReviewRooms: (val: RoomDimension[]) => void
+    reviewTier: string
+    setReviewTier: (val: string) => void
+    selectedRoomName?: string | null
+    onRoomSelect?: (name: string | null) => void
     onRecalculate: () => void
     onBack: () => void
     loading: boolean
@@ -31,6 +35,8 @@ export default function ReviewSection({
     reviewRoofType, setReviewRoofType,
     reviewArea, setReviewArea,
     reviewRooms, setReviewRooms,
+    reviewTier, setReviewTier,
+    selectedRoomName, onRoomSelect,
     onRecalculate, onBack,
     loading
 }: ReviewSectionProps) {
@@ -98,21 +104,39 @@ export default function ReviewSection({
                 </div>
             </div>
 
-            {/* Roof Type */}
-            <div className="space-y-3">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.25em] flex items-center gap-2">
-                    <span className="w-1 h-4 bg-blue-500 rounded-full inline-block"></span>
-                    Loại mái & Kết cấu
-                </p>
-                <select
-                    value={reviewRoofType}
-                    onChange={(e) => setReviewRoofType(e.target.value)}
-                    className="w-full px-4 py-3 border-2 border-slate-100 rounded-2xl focus:ring-2 focus:ring-indigo-400 focus:border-indigo-300 outline-none text-sm font-bold text-slate-700 bg-white transition-all appearance-none"
-                >
-                    <option value="mái_tôn">Mái tôn (Tiết kiệm)</option>
-                    <option value="bê_tông">Mái bê tông phẳng (Sân thượng)</option>
-                    <option value="mái_thái">Mái Thái / Mái ngói (Sang trọng)</option>
-                </select>
+            {/* Roof Type & Budget Tier */}
+            <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-3">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.25em] flex items-center gap-2">
+                        <span className="w-1 h-4 bg-blue-500 rounded-full inline-block"></span>
+                        Mái & Kết cấu
+                    </p>
+                    <select
+                        value={reviewRoofType}
+                        onChange={(e) => setReviewRoofType(e.target.value)}
+                        className="w-full px-4 py-3 border-2 border-slate-100 rounded-2xl focus:ring-2 focus:ring-indigo-400 focus:border-indigo-300 outline-none text-xs font-bold text-slate-700 bg-white transition-all appearance-none"
+                    >
+                        <option value="mái_tôn">Mái tôn (Tiết kiệm)</option>
+                        <option value="bê_tông">Mái bê tông phẳng</option>
+                        <option value="mái_thái">Mái Thái / Ngói</option>
+                    </select>
+                </div>
+
+                <div className="space-y-3">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.25em] flex items-center gap-2">
+                        <span className="w-1 h-4 bg-amber-500 rounded-full inline-block"></span>
+                        Phân khúc vật tư
+                    </p>
+                    <select
+                        value={reviewTier || 'standard'}
+                        onChange={(e) => setReviewTier?.(e.target.value)}
+                        className="w-full px-4 py-3 border-2 border-slate-100 rounded-2xl focus:ring-2 focus:ring-amber-400 focus:border-amber-300 outline-none text-xs font-bold text-slate-700 bg-white transition-all appearance-none"
+                    >
+                        <option value="economy">💎 Tiết kiệm</option>
+                        <option value="standard">⭐ Phổ thông</option>
+                        <option value="premium">✨ Cao cấp</option>
+                    </select>
+                </div>
             </div>
 
             {/* Rooms List */}
@@ -123,10 +147,22 @@ export default function ReviewSection({
                 </p>
                 <div className="max-h-[220px] overflow-y-auto space-y-2 pr-1">
                     {reviewRooms.map((room, idx) => (
-                        <div key={idx} className="flex items-center gap-3 bg-slate-50 border border-slate-100 px-4 py-3 rounded-xl group hover:border-indigo-200 hover:bg-indigo-50/30 transition-all">
-                            <span className="text-[10px] font-black text-slate-300 w-5 flex-shrink-0">{idx + 1}</span>
+                        <div 
+                            key={idx} 
+                            onClick={() => onRoomSelect?.(room.name)}
+                            className={`flex items-center gap-3 px-4 py-3 rounded-xl group transition-all cursor-pointer ${
+                                selectedRoomName === room.name 
+                                    ? 'bg-indigo-600 border-indigo-700 shadow-lg shadow-indigo-100 ring-2 ring-indigo-200' 
+                                    : 'bg-slate-50 border border-slate-100 hover:border-indigo-200 hover:bg-indigo-50/30'
+                            }`}
+                        >
+                            <span className={`text-[10px] font-black w-5 flex-shrink-0 ${
+                                selectedRoomName === room.name ? 'text-white/50' : 'text-slate-300'
+                            }`}>{idx + 1}</span>
                             <input
-                                className="flex-grow bg-transparent text-sm font-bold text-slate-700 outline-none"
+                                className={`flex-grow bg-transparent text-sm font-bold outline-none ${
+                                    selectedRoomName === room.name ? 'text-white' : 'text-slate-700'
+                                }`}
                                 value={room.name}
                                 onChange={(e) => {
                                     const newRooms = [...reviewRooms]
@@ -137,7 +173,11 @@ export default function ReviewSection({
                             <div className="flex items-center gap-1.5 flex-shrink-0">
                                 <input
                                     type="number"
-                                    className="w-14 bg-white border-2 border-slate-100 rounded-lg px-2 py-1 text-xs font-black text-right outline-none focus:border-indigo-300 focus:ring-1 focus:ring-indigo-200 transition-all"
+                                    className={`w-14 rounded-lg px-2 py-1 text-xs font-black text-right outline-none transition-all ${
+                                        selectedRoomName === room.name 
+                                            ? 'bg-white/20 border-white/20 text-white focus:bg-white focus:text-slate-900' 
+                                            : 'bg-white border-2 border-slate-100 text-slate-900 focus:border-indigo-300'
+                                    }`}
                                     value={room.area}
                                     onChange={(e) => {
                                         const newRooms = [...reviewRooms]
@@ -145,7 +185,9 @@ export default function ReviewSection({
                                         setReviewRooms(newRooms)
                                     }}
                                 />
-                                <span className="text-[9px] font-bold text-slate-400">m²</span>
+                                <span className={`text-[9px] font-bold ${
+                                    selectedRoomName === room.name ? 'text-white/50' : 'text-slate-400'
+                                }`}>m²</span>
                             </div>
                         </div>
                     ))}

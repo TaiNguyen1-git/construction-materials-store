@@ -132,6 +132,16 @@ export async function POST(request: NextRequest) {
     }
 
     // Update single notification
+    // Check if notificationId is a valid MongoDB ObjectId (24 char hex)
+    const isValidObjectId = /^[0-9a-fA-F]{24}$/.test(notificationId)
+    
+    if (!isValidObjectId) {
+      return NextResponse.json(
+        createSuccessResponse({}, 'Notification not found or invalid ID format'),
+        { status: 200 }
+      )
+    }
+
     await prisma.notification.updateMany({
       where: {
         id: notificationId,

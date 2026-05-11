@@ -10,7 +10,7 @@ import toast from 'react-hot-toast'
 
 interface HybridChatManagerProps {
     onNewMessage: (msg: LiveChatMessage) => void;
-    onHistoryLoaded?: (messages: LiveChatMessage[]) => void;
+    onHistoryLoaded?: (messages: LiveChatMessage[], convId: string) => void;
     onModeChange: (mode: ChatMode) => void;
     currentMode: ChatMode;
     customerId?: string;
@@ -73,17 +73,19 @@ export default function useHybridChatManager({
         }
     }, [])
 
-    // Fetch History when conversationId is set
+    // Fetch History when conversationId is set (Smart Loading: Limit to 25)
     useEffect(() => {
         if (!conversationId || !onHistoryLoadedRef.current) return;
-
+ 
         const fetchHistory = async () => {
             const db = getFirebaseDatabase()
-            const { get } = await import('firebase/database')
-            const tempRef = ref(db, `conversations/${conversationId}/messages`);
-
+            const { get, query, limitToLast } = await import('firebase/database')
+            // Using query with limitToLast for smart loading
+            const messagesRef = ref(db, `conversations/${conversationId}/messages`);
+            const recentMessagesQuery = query(messagesRef, limitToLast(25));
+ 
             try {
-                const snapshot = await get(tempRef);
+                const snapshot = await get(recentMessagesQuery);
                 if (snapshot && snapshot.exists()) {
                     const data = snapshot.val();
                     const historyMessages = Object.keys(data).map(key => ({
@@ -91,21 +93,19 @@ export default function useHybridChatManager({
                         id: key,
                         conversationId
                     })) as LiveChatMessage[];
-
-                    // Sort by timestamp and filter out admin-only messages
-                    historyMessages
+ 
+                    // Filter and Sort
+                    const filtered = historyMessages
                         .filter((m: any) => !m.adminOnly)
                         .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
                     
-                    const filtered = historyMessages.filter((m: any) => !m.adminOnly)
-                    filtered.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-                    onHistoryLoadedRef.current?.(filtered);
+                    onHistoryLoadedRef.current?.(filtered, conversationId);
                 }
             } catch (err) {
                 console.error("Error fetching history:", err);
             }
         };
-
+ 
         fetchHistory();
     }, [conversationId])
 
@@ -156,6 +156,9 @@ export default function useHybridChatManager({
 
     const connectToAgent = async (initialMessage?: string) => {
         if (!identity) return false;
+ 
+        // If already have a conversationId, just use it
+        if (conversationId && !initialMessage) return true;
 
         try {
             const res = await fetch('/api/chat/conversations', {
@@ -167,14 +170,14 @@ export default function useHybridChatManager({
                     senderName: identity.name
                 })
             })
-
+ 
             const data = await res.json()
             if (data.success) {
                 const newId = data.data.id;
                 setConversationId(newId)
                 sessionStorage.setItem('active_support_chat', newId)
                 localStorage.setItem(ACTIVE_CONV_KEY, newId)
-
+ 
                 // Explicitly send the initial message to ensure it reaches admin
                 if (initialMessage) {
                     await fetch('/api/chat/messages', {
@@ -188,16 +191,23 @@ export default function useHybridChatManager({
                         })
                     })
                 }
-
+ 
                 return true
             }
             return false
         } catch (error) {
             console.error('Connection failed:', error)
-            toast.error('Không thể kết nối đến máy chủ hỗ trợ')
             return false
         }
     }
+ 
+    // Background Initialization
+    useEffect(() => {
+        if (identity && !conversationId) {
+            // Quietly initialize conversation in background to avoid delay on first message
+            connectToAgent();
+        }
+    }, [identity, conversationId]);
 
     const saveMessageToFirebase = async (content: string, sender: 'USER' | 'AI' | 'SYSTEM', extra?: any) => {
         if (!conversationId || !identity || content === undefined || content === null) {

@@ -14,6 +14,7 @@ import DashboardStatsGrid from './components/dashboard/DashboardStatsGrid'
 import RevenueAnalytics from './components/dashboard/RevenueAnalytics'
 import OperationalLayer from './components/dashboard/OperationalLayer'
 import RegionalSalesAnalytics from './components/dashboard/RegionalSalesAnalytics'
+import RankingsGrid from './components/dashboard/RankingsGrid'
 
 interface DashboardData {
   kpis: {
@@ -23,6 +24,19 @@ interface DashboardData {
     totalRevenue: number
     lowStockItems: number
     pendingOrders: number
+  }
+  supportStats: {
+    pendingTickets: number
+    pendingChats: number
+    totalViews: number
+    totalUsers: number
+    pendingContractors: number
+  }
+  rankings: {
+    topViewedProducts: any[]
+    topPurchasedProducts: any[]
+    topViewedContractors: any[]
+    topProjects: any[]
   }
   revenueTrend: any[]
   salesByCategory: any[]
@@ -88,15 +102,24 @@ export default function AdminDashboard() {
           aiSummaryLoading={aiSummaryLoading}
           onFetchAISummary={() => refetchAISummary()} 
           predictive={dashboardData?.predictive}
+          supportStats={dashboardData?.supportStats}
           formatCurrency={formatCurrency}
+          formatNumber={formatNumber}
         />
         <QuickActionsGrid />
       </div>
+
+      <RankingsGrid 
+        rankings={dashboardData?.rankings || { topViewedProducts: [], topPurchasedProducts: [], topViewedContractors: [], topProjects: [] }}
+        formatCurrency={formatCurrency}
+        formatNumber={formatNumber}
+      />
 
       <DashboardStatsGrid 
         stats={dashboardData?.kpis || { totalProducts: 0, totalOrders: 0, totalCustomers: 0, totalRevenue: 0, lowStockItems: 0, pendingOrders: 0 }}
         formatCurrency={formatCurrency} formatNumber={formatNumber}
       />
+
 
       <RegionalSalesAnalytics formatCurrency={formatCurrency} />
 

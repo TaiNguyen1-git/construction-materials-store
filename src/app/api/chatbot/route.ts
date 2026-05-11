@@ -40,7 +40,8 @@ const chatMessageSchema = z.object({
   message: z.string().max(3000, 'Tin nhắn quá dài (tối đa 3000 ký tự)').optional(),
   image: z.string()
     .max(7 * 1024 * 1024, 'Kích thước ảnh/tệp quá lớn (tối đa 5MB thực tế)')
-    .regex(/^data:(image\/(png|jpeg|webp|jpg)|application\/(pdf|msword|vnd\.openxmlformats-officedocument\.wordprocessingml\.document));base64,/, 'Định dạng tệp không hợp lệ (Chỉ hỗ trợ Ảnh và PDF/Word)')
+    .regex(/^data:(image\/(png|jpeg|webp|jpg)|audio\/(webm|mp3|wav|ogg|m4a|mp4|aac)|application\/(pdf|msword|vnd\.openxmlformats-officedocument\.wordprocessingml\.document));base64,/, 'Định dạng tệp không hợp lệ (Chỉ hỗ trợ Ảnh, PDF/Word và Âm thanh)')
+    .nullable()
     .optional(),
   customerId: z.string().optional(),
   sessionId: z.string().min(1, 'Session ID is required'),
@@ -61,8 +62,11 @@ export async function POST(request: NextRequest) {
       request.headers.get('x-real-ip') || 'unknown'
 
     const body = await request.json()
+    console.log('[Chatbot API] Request Body:', JSON.stringify(body).slice(0, 500))
+    
     const validation = chatMessageSchema.safeParse(body)
     if (!validation.success) {
+      console.warn('[Chatbot API] Validation Failed:', validation.error.format())
       return NextResponse.json(
         createErrorResponse('Invalid input', 'VALIDATION_ERROR', validation.error.issues),
         { status: 400 }
@@ -122,9 +126,36 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // ── Image Flows ────────────────────────────────────────────────────────────
-    if (isAdmin && image) return await handleOCRInvoiceFlow(sessionId, image, message)
-    if (!isAdmin && image) return await handleCustomerImageRecognition(sessionId, image, message, customerId)
+    // ── File/Media Flows (Image & Audio) ───────────────────────────────────────
+    if (image) {
+      const isAudioFile = image.startsWith('data:audio/');
+      if (isAudioFile) {
+        const mimeType = image.split(';')[0].replace('data:', '');
+        const data = image.split(',')[1];
+        const fileData = { mimeType, data };
+        
+        const conversationHistory = await getConversationHistory(sessionId);
+        const botResponse = await generateChatbotResponse(message || '', context, conversationHistory, !!isAdmin, fileData);
+        
+        const finalSuggestions = [...(botResponse.suggestions || [])]
+        if (marketingMessage) {
+           if (!finalSuggestions.includes('Đăng ký ngay')) finalSuggestions.unshift('Đăng ký ngay')
+           if (!finalSuggestions.includes('Đăng nhập')) finalSuggestions.unshift('Đăng nhập')
+        }
+
+        return NextResponse.json(createSuccessResponse({
+          message: botResponse.response + marketingMessage,
+          suggestions: finalSuggestions,
+          productRecommendations: botResponse.productRecommendations,
+          confidence: botResponse.confidence,
+          sessionId, timestamp: new Date().toISOString()
+        }));
+      }
+
+      // If it's an image or document:
+      if (isAdmin) return await handleOCRInvoiceFlow(sessionId, image, message)
+      if (!isAdmin) return await handleCustomerImageRecognition(sessionId, image, message, customerId)
+    }
 
     if (!message) {
       return NextResponse.json(createErrorResponse('Message is required', 'VALIDATION_ERROR'), { status: 400 })
@@ -333,9 +364,15 @@ export async function POST(request: NextRequest) {
       }
     }).catch(err => console.error('Failed to log interaction:', err))
 
+    const finalSuggestions = [...(botResponse.suggestions || [])]
+    if (marketingMessage) {
+       if (!finalSuggestions.includes('Đăng ký ngay')) finalSuggestions.unshift('Đăng ký ngay')
+       if (!finalSuggestions.includes('Đăng nhập')) finalSuggestions.unshift('Đăng nhập')
+    }
+
     return NextResponse.json(createSuccessResponse({
       message: botResponse.response + marketingMessage,
-      suggestions: botResponse.suggestions,
+      suggestions: finalSuggestions,
       productRecommendations: botResponse.productRecommendations,
       confidence: botResponse.confidence,
       sessionId, timestamp: new Date().toISOString()

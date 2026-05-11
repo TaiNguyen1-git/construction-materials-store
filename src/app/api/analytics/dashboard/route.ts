@@ -34,7 +34,12 @@ export async function GET(request: NextRequest) {
       lowStockItems,
       totalOrders,
       pendingOrders,
-      totalRevenue
+      totalRevenue,
+      pendingTickets,
+      totalViews,
+      totalUsers,
+      pendingContractors,
+      pendingChats
     ] = await Promise.all([
       prisma.product.count({ where: { isActive: true } }),
       prisma.customer.count(),
@@ -56,6 +61,26 @@ export async function GET(request: NextRequest) {
           status: { in: activeStatuses }
         },
         _sum: { totalAmount: true }
+      }),
+      prisma.supportTicket.count({
+        where: { status: { in: ['OPEN', 'IN_PROGRESS', 'WAITING_INTERNAL'] as any } }
+      }),
+      prisma.customerInteraction.count({
+        where: { createdAt: { gte: startDate }, interactionType: 'PRODUCT_VIEW' }
+      }),
+      prisma.user.count({
+        where: { isActive: true }
+      }),
+      prisma.contractorProfile.count({
+        where: { onboardingStatus: 'PENDING_REVIEW' }
+      }),
+      prisma.conversation.count({
+        where: {
+          OR: [
+            { unread1: { gt: 0 } },
+            { unread2: { gt: 0 } }
+          ]
+        }
       })
     ])
 
@@ -251,9 +276,96 @@ export async function GET(request: NextRequest) {
         urgency: i.availableQuantity <= i.minStockLevel ? 'CRITICAL' : 'WARNING'
       }))
 
+    // 10. Top 5 Rankings (Views & Purchases)
+    // 10.1 Top 5 Viewed Products
+    const topViewedProductsRaw = await prisma.customerInteraction.groupBy({
+      by: ['productId'],
+      where: {
+        interactionType: 'PRODUCT_VIEW',
+        productId: { not: null },
+        OR: [
+          { query: 'PRODUCT' },
+          { query: null }
+        ],
+        createdAt: { gte: startDate }
+      },
+      _count: { id: true },
+      orderBy: { _count: { id: 'desc' } },
+      take: 5
+    })
+
+    const topViewedProductDetails = topViewedProductsRaw.length > 0 ? await prisma.product.findMany({
+      where: { id: { in: topViewedProductsRaw.map(p => p.productId!) } },
+      select: { id: true, name: true, images: true, price: true }
+    }) : []
+
+    const topViewedProducts = topViewedProductsRaw.map(v => {
+      const p = topViewedProductDetails.find(details => details.id === v.productId)
+      return {
+        id: v.productId,
+        name: p?.name || 'Unknown',
+        image: p?.images?.[0] || '',
+        count: v._count?.id || 0,
+        price: p?.price || 0
+      }
+    })
+
+    // 10.2 Top 5 Viewed Contractors
+    const topViewedContractorsRaw = await prisma.customerInteraction.groupBy({
+      by: ['productId'],
+      where: {
+        interactionType: 'PRODUCT_VIEW',
+        query: 'CONTRACTOR',
+        createdAt: { gte: startDate }
+      },
+      _count: { id: true },
+      orderBy: { _count: { id: 'desc' } },
+      take: 5
+    })
+
+    const topViewedContractorDetails = topViewedContractorsRaw.length > 0 ? await prisma.contractorProfile.findMany({
+      where: { id: { in: topViewedContractorsRaw.map(p => p.productId!) } },
+      include: { 
+        customer: { 
+          include: { 
+            user: true 
+          } 
+        } 
+      }
+    }) : []
+
+    const topViewedContractors = topViewedContractorsRaw.map(v => {
+      const c = topViewedContractorDetails.find(details => details.id === v.productId)
+      return {
+        id: v.productId,
+        name: c?.displayName || c?.companyName || 'Unknown',
+        image: '', // User model doesn't have image field, using empty for now
+        count: v._count?.id || 0
+      }
+    })
+
+    // 10.3 Top 5 Projects by Budget
+    const topProjects = await prisma.project.findMany({
+      take: 5,
+      orderBy: { budget: 'desc' },
+      select: {
+        id: true,
+        name: true,
+        budget: true,
+        status: true,
+        progress: true
+      }
+    })
+
     return NextResponse.json({
       success: true,
       data: {
+        rankings: {
+          topViewedProducts,
+          topPurchasedProducts: topProducts.slice(0, 5), // Already calculated above
+          topViewedContractors,
+          topProjects
+        },
         kpis: {
           totalProducts,
           totalCustomers,
@@ -261,6 +373,13 @@ export async function GET(request: NextRequest) {
           totalOrders,
           pendingOrders,
           totalRevenue: totalRevenue?._sum?.totalAmount || 0
+        },
+        supportStats: {
+          pendingTickets,
+          pendingChats,
+          totalViews,
+          totalUsers,
+          pendingContractors
         },
         revenueTrend: revenueTrend.map(r => ({
           date: r.date.toISOString().split('T')[0],

@@ -18,7 +18,8 @@ export async function handleProductSearch(message: string, sessionId: string) {
     try {
         const cleanedMessage = message.replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '').trim()
         const productKeywords = cleanedMessage.toLowerCase()
-            .replace(/tim|search|co|ban|sell|muon|can|mua|dat|phu hop|san pham/g, '')
+            .replace(/tôi|muốn|tìm|kiếm|sản phẩm|phù hợp|cho|báo giá|giá|giúp|cần|mua|bán|có|không|đâu|nào/g, '')
+            .replace(/\s+/g, ' ')
             .trim()
 
         // Handle generic suggestion clicks like "Tìm sản phẩm phù hợp" or "Xem sản phẩm"
@@ -244,20 +245,23 @@ export async function generateChatbotResponse(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     context?: any,
     conversationHistory?: { role: string; content: string }[],
-    isAdmin: boolean = false
+    isAdmin: boolean = false,
+    fileData?: { mimeType: string, data: string }
 ): Promise<{ response: string; suggestions: string[]; productRecommendations?: unknown[]; confidence: number }> {
-    // 1. Cache hit
-    const cachedResponse = await aiCache.get<{ response: string; suggestions: string[]; productRecommendations?: unknown[]; confidence: number }>(message, { isAdmin, ...context })
-    if (cachedResponse) {
-        console.log('[AI-CACHE] Hit for:', message)
-        return cachedResponse
+    // 1. Cache hit (only if no fileData)
+    if (!fileData) {
+        const cachedResponse = await aiCache.get<{ response: string; suggestions: string[]; productRecommendations?: unknown[]; confidence: number }>(message, { isAdmin, ...context })
+        if (cachedResponse) {
+            console.log('[AI-CACHE] Hit for:', message)
+            return cachedResponse
+        }
     }
 
     // 2. Live AI
     if (isAIEnabled()) {
         try {
-            const response = await AIService.generateChatbotResponse(message, context, conversationHistory, isAdmin)
-            if (response.confidence > 0.7) await aiCache.set(message, response, 30 * 60, { isAdmin, ...context }) // 30 min in seconds
+            const response = await AIService.generateChatbotResponse(message, context, conversationHistory, isAdmin, fileData)
+            if (response.confidence > 0.7 && !fileData) await aiCache.set(message, response, 30 * 60, { isAdmin, ...context }) // 30 min in seconds
             return response
         } catch (error) {
             console.error('AI Service failed, falling back to static response:', error)

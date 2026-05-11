@@ -8,7 +8,7 @@ const ADMIN_SUPPORT_NAME = 'Hỗ trợ SmartBuild'
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json()
-        const { conversationId, content, fileUrl, fileName, fileType, tempId, senderId: bodySenderId, senderName: bodySenderName, replyToId } = body
+        const { conversationId, content, fileUrl, fileName, fileType, tempId, senderId: bodySenderId, senderName: bodySenderName, replyToId, adminOnly } = body
 
         // Get userId from JWT, header, or body
         const { verifyTokenFromRequest } = await import('@/lib/auth')
@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
                 conversationId,
                 senderId,
                 senderName,
-                senderRole: isAdminUser ? userRole : (userId === 'smartbuild_bot' ? 'BOT' : 'CUSTOMER'),
+                senderRole: isAdminUser ? userRole : (userId === 'smartbuild_bot' ? 'BOT' : (userId === 'system' ? 'SYSTEM' : 'CUSTOMER')),
                 realSenderId: userId,
                 content: content || '',
                 fileUrl,
@@ -85,7 +85,8 @@ export async function POST(request: NextRequest) {
                 replyToId: replyToId || undefined,
                 metadata: {
                     ...(isAgreement ? { type: 'AGREEMENT_PROPOSAL' } : {}),
-                    tempId
+                    tempId,
+                    adminOnly
                 }
             },
             include: {
@@ -137,12 +138,14 @@ export async function POST(request: NextRequest) {
                 isDelivered: true,
                 deliveredAt: message.createdAt.toISOString(),
                 replyTo: (message as any).replyTo || null,
-                metadata: message.metadata || null
+                metadata: message.metadata || null,
+                adminOnly: adminOnly || false
             })
 
             // Trigger Web Push and In-App Notifications if sending to Admin Support
             console.log('[CHAT_MSG] Notification check:', { isSupplierConv, isAdminUser, senderId, userId })
-            if (isSupplierConv && !isAdminUser) {
+            const isSupportRequest = senderId === 'system' && content === 'Khách hàng yêu cầu hỗ trợ trực tiếp từ nhân viên.'
+            if (isSupplierConv && !isAdminUser && isSupportRequest) {
                 console.log('[CHAT_MSG] Triggering notifications lookup...')
                 
                 // 1. Fetch all admins with roles MANAGER/EMPLOYEE

@@ -11,56 +11,58 @@ export const geminiClient = AI_CONFIG.GEMINI.API_KEY
 // Function to find a working Gemini model name (cached)
 let workingModelName: string | null = null
 
+export const FALLBACK_MODELS = [
+    'gemini-2.5-flash',
+    'gemini-2.5-pro',
+    'gemini-2.0-flash',
+    'gemini-2.0-flash-lite'
+];
+
 export const getWorkingModelConfig = async () => {
-    if (workingModelName) return { client: geminiClient, modelName: workingModelName }
+    if (!geminiClient) throw new Error('Gemini client not initialized');
+    workingModelName = AI_CONFIG.GEMINI.MODEL || 'gemini-2.5-flash';
+    return { client: geminiClient, modelName: workingModelName };
+};
 
-    if (!geminiClient) {
-        throw new Error('Gemini client not initialized')
-    }
+export async function generateContentWithFallback(requestOptions: any) {
+    if (!geminiClient) throw new Error('Gemini client not initialized');
+    
+    const primaryModel = AI_CONFIG.GEMINI.MODEL || FALLBACK_MODELS[0];
+    const modelsToTry = [primaryModel, ...FALLBACK_MODELS.filter(m => m !== primaryModel)];
 
-    const modelNames = [
-        'gemini-2.5-flash',       // Priority 1
-        'gemini-2.5-flash-lite',  // Priority 2
-        'gemini-2.5-pro',         // Priority 3
-        'gemini-2-flash',         // Priority 4
-        'gemini-2-flash-lite',    // Priority 5
-    ]
-
-    // First try the model specified in the configuration
-    if (AI_CONFIG.GEMINI.MODEL) {
+    let lastError: any;
+    for (const model of modelsToTry) {
         try {
-            await geminiClient.models.generateContent({
-                model: AI_CONFIG.GEMINI.MODEL,
-                contents: [{ role: 'user', parts: [{ text: 'Test' }] }],
-                config: {
-                    temperature: parseFloat(AI_CONFIG.GEMINI.TEMPERATURE.toString())
+            const result = await geminiClient.models.generateContent({
+                ...requestOptions,
+                model
+            });
+            return result;
+        } catch (error: any) {
+            lastError = error;
+            const errorStr = String(error?.message || error?.error?.status || '');
+            
+            // For 503 errors, retry the current model once
+            if (errorStr.includes('503') || errorStr.includes('UNAVAILABLE') || error?.status === 503) {
+                console.warn(`[AIClient] 503 High Demand on ${model}. Retrying once...`);
+                await new Promise(res => setTimeout(res, 1500));
+                try {
+                    const retryResult = await geminiClient.models.generateContent({
+                        ...requestOptions,
+                        model
+                    });
+                    return retryResult;
+                } catch (retryError) {
+                    lastError = retryError;
                 }
-            })
-            workingModelName = AI_CONFIG.GEMINI.MODEL
-            return { client: geminiClient, modelName: workingModelName }
-        } catch {
-            // If configured model fails, try fallbacks
+            }
+            
+            console.warn(`[AIClient] Model ${model} failed, trying next fallback...`);
+            continue;
         }
     }
-
-    // If the configured model fails, try the fallback models
-    for (const modelName of modelNames) {
-        try {
-            await geminiClient.models.generateContent({
-                model: modelName,
-                contents: [{ role: 'user', parts: [{ text: 'Test' }] }],
-                config: {
-                    temperature: parseFloat(AI_CONFIG.GEMINI.TEMPERATURE.toString())
-                }
-            })
-            workingModelName = modelName
-            return { client: geminiClient, modelName }
-        } catch {
-            continue
-        }
-    }
-
-    throw new Error('No working Gemini model found')
+    
+    throw lastError || new Error('All Gemini models failed');
 }
 
 /** Generate text embeddings using text-embedding-004 (High free quota) */

@@ -40,6 +40,8 @@ export interface CachedChatMessage {
     orderData?: Record<string, unknown>
     /** Report data if any */
     data?: Record<string, unknown>
+    /** Mode of the chat */
+    chatMode?: 'AI' | 'HUMAN'
     /** When this record was cached locally */
     cachedAt: number
 }
@@ -168,18 +170,27 @@ export async function cacheMessages(
  */
 export async function loadCachedMessages(
     sessionId: string,
-    limit: number = 30
+    limit: number = 20,
+    offset: number = 0
 ): Promise<CachedChatMessage[]> {
     try {
         const chatDB = getDB()
 
+        // Get all messages for this session sorted by timestamp
         const messages = await chatDB.messages
             .where('sessionId')
             .equals(sessionId)
             .sortBy('timestamp')
 
-        // Return last N messages
-        return messages.slice(-limit)
+        const total = messages.length
+        // Calculate the slice to get messages from the end moving backwards
+        // Offset 0, Limit 20: gets [total-20, total]
+        // Offset 20, Limit 20: gets [total-40, total-20]
+        const end = total - offset
+        const start = Math.max(0, end - limit)
+
+        if (end <= 0) return []
+        return messages.slice(start, end)
     } catch (err) {
         console.warn('[ChatDB] Failed to load cached messages:', err)
         return []

@@ -1,12 +1,14 @@
 // Chatbot Types - Shared type definitions for all chatbot components
 
 export interface ProductRecommendation {
+    id: string;
     name: string;
     price?: number;
     unit?: string;
     description?: string;
     imageUrl?: string;
     slug?: string;
+    sku?: string;
 }
 
 export interface InvoiceItem {
@@ -68,6 +70,7 @@ export interface ChatMessage {
     data?: ReportData;
     requiresConfirmation?: boolean;
     isSystem?: boolean;
+    chatMode?: 'AI' | 'HUMAN';
 }
 
 export interface ChatbotProps {

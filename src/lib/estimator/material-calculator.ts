@@ -17,7 +17,8 @@ export function calculateMaterials(
     rooms: RoomDimension[],
     style: 'nhà_cấp_4' | 'nhà_phố' | 'biệt_thự',
     wallPerimeter: number,
-    roofType: string
+    roofType: string,
+    budgetTier: 'economy' | 'standard' | 'premium' = 'standard'
 ): MaterialEstimate[] {
     const materials: MaterialEstimate[] = []
     const std = (CONSTRUCTION_STANDARDS as Record<string, ConstructionStandard | object>)[style] as ConstructionStandard

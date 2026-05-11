@@ -1,6 +1,6 @@
 // AI Chatbot Service — handles all customer/admin chatbot interactions
 
-import { getWorkingModelConfig, GeminiResponse, ChatbotResponse, parseGeminiJSON, extractTextFromSDKResult } from './ai-client'
+import { getWorkingModelConfig, generateContentWithFallback, GeminiResponse, ChatbotResponse, parseGeminiJSON, extractTextFromSDKResult } from './ai-client'
 import { CHATBOT_SYSTEM_PROMPT } from '../ai-config'
 import { ADMIN_SYSTEM_PROMPT } from '../ai-prompts-admin'
 
@@ -87,11 +87,14 @@ export async function generateChatbotResponse(
     message: string,
     context?: Record<string, unknown>,
     conversationHistory?: { role: string; content: string }[],
-    isAdmin: boolean = false
+    isAdmin: boolean = false,
+    fileData?: { mimeType: string, data: string }
 ): Promise<ChatbotResponse> {
-    // Check for quick response first
-    const quickResponse = getQuickResponse(message)
-    if (quickResponse) return quickResponse
+    // Check for quick response first (only if there is no audio file, audio files always go to AI)
+    if (!fileData) {
+        const quickResponse = getQuickResponse(message)
+        if (quickResponse) return quickResponse
+    }
 
     try {
         const { client, modelName } = await getWorkingModelConfig()
@@ -112,12 +115,32 @@ export async function generateChatbotResponse(
             historyStr = '\n\nConversation history:\n' + recentHistory.map(h => `${h.role}: ${h.content}`).join('\n')
         }
 
-        const fullPrompt = `${systemPrompt}${contextStr}${historyStr}\n\nUser: ${message}\n\nRespond in Vietnamese with a helpful, friendly tone. Return a JSON object with:\n- response: string (your answer)\n- suggestions: string[] (2-4 follow-up options, max 5 words each)\n- productRecommendations: array (if relevant products mentioned)\n- confidence: number (0-1)`
+        let fullPrompt = `${systemPrompt}${contextStr}${historyStr}\n\nUser: ${message || '(Đã gửi tệp âm thanh)'}\n\nRespond in Vietnamese with a helpful, friendly tone. Return a JSON object with:\n- response: string (your answer)\n- suggestions: string[] (2-4 follow-up options, max 5 words each)\n- productRecommendations: array (if relevant products mentioned)\n- confidence: number (0-1)`
 
-        const result = await client.models.generateContent({
-            model: modelName!,
-            contents: [{ role: 'user', parts: [{ text: fullPrompt }] }]
-        })
+        if (fileData && fileData.mimeType.startsWith('audio/')) {
+            fullPrompt += `\n\nNOTE: The user has sent an audio voice message. Please listen to the audio carefully. Transcribe the audio in your mind, figure out what the user is asking or stating, and then respond to them based on that. Do not just transcribe it, respond to the intent in the audio natively.`
+        }
+
+        const parts: any[] = [{ text: fullPrompt }]
+        
+        if (fileData) {
+            parts.push({
+                inlineData: {
+                    mimeType: fileData.mimeType,
+                    data: fileData.data
+                }
+            })
+        }
+
+        let result;
+        try {
+            result = await generateContentWithFallback({
+                contents: [{ role: 'user', parts }]
+            });
+        } catch (apiError: any) {
+            console.error('[ChatbotService] All models failed:', apiError);
+            throw apiError;
+        }
 
         const responseText = extractTextFromSDKResult(result)
         const parsed = parseGeminiJSON<Partial<ChatbotResponse>>(responseText, {})
@@ -165,10 +188,15 @@ export async function extractChatbotStructure(response: string): Promise<Chatbot
     Return only the JSON object, nothing else.
     `
 
-        const result = await client.models.generateContent({
-            model: modelName!,
-            contents: [{ role: 'user', parts: [{ text: prompt }] }]
-        })
+        let result;
+        try {
+            result = await generateContentWithFallback({
+                contents: [{ role: 'user', parts: [{ text: prompt }] }]
+            });
+        } catch (apiError: any) {
+            console.error('[ChatbotService] All models failed in structure extraction:', apiError);
+            throw apiError;
+        }
 
         const structuredText = extractTextFromSDKResult(result) || '{}'
         const structured = parseGeminiJSON<Partial<ChatbotResponse>>(structuredText, {})

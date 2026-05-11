@@ -1,9 +1,10 @@
 'use client'
 
-import { useState, useEffect, use } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { Package, ShoppingCart, Truck, Shield, RotateCcw, Plus, Minus, Star, Sparkles, ChevronLeft, ChevronRight } from 'lucide-react'
+import SocialShareBar from '@/components/SocialShareBar'
 import { Skeleton } from '@/components/ui/skeleton'
 import Header from '@/components/Header'
 import WishlistButton from '@/components/WishlistButton'
@@ -70,6 +71,21 @@ export default function ProductDetailClient({ initialProduct, initialSimilarProd
             const units = getAvailableUnits(product.unit)
             setAvailableUnits(units)
             setSelectedUnit(units[0])
+
+            // Record view interaction
+            fetch('/api/analytics/track', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    interactionType: 'PRODUCT_VIEW',
+                    productId: product.id,
+                    metadata: {
+                        productName: product.name,
+                        category: product.category?.name,
+                        price: product.price
+                    }
+                })
+            }).catch(err => console.error('Failed to track view', err))
         }
     }, [product])
 
@@ -337,6 +353,8 @@ export default function ProductDetailClient({ initialProduct, initialSimilarProd
                                         <span>Thêm vào giỏ</span>
                                     </button>
                                 </div>
+
+                                <SocialShareBar title={product.name} />
                             </div>
                         )}
                     </div>

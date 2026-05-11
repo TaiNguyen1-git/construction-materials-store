@@ -11,7 +11,14 @@ interface AISummarySectionProps {
     trend: 'increasing' | 'decreasing' | 'stable'
     reasoning?: string
   }
+  supportStats?: {
+    pendingTickets: number
+    pendingChats: number
+    totalViews: number
+    pendingContractors: number
+  }
   formatCurrency: (amount: number) => string
+  formatNumber: (val: number) => string
 }
 
 const AISummarySection: React.FC<AISummarySectionProps> = ({
@@ -19,7 +26,9 @@ const AISummarySection: React.FC<AISummarySectionProps> = ({
   aiSummaryLoading,
   onFetchAISummary,
   predictive,
-  formatCurrency
+  supportStats,
+  formatCurrency,
+  formatNumber
 }) => {
   return (
     <div className="lg:col-span-7 bg-white rounded-[40px] p-10 relative overflow-hidden group border border-slate-200 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.05)] h-full">
@@ -62,40 +71,76 @@ const AISummarySection: React.FC<AISummarySectionProps> = ({
           </p>
         </div>
 
-        <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
+        <div className="mt-8 grid grid-cols-2 md:grid-cols-3 gap-6 pt-4 border-t border-slate-100">
           {predictive && (
+            <div className="col-span-2 md:col-span-1 space-y-2">
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Dự báo doanh thu (30d)</span>
+              <div className="flex items-baseline gap-2">
+                <span className="text-xl font-black text-slate-900 tracking-tighter">
+                  {formatCurrency(predictive.next30DaysRevenue)}
+                </span>
+                <div className={`flex items-center text-[10px] font-black ${predictive.trend === 'increasing' ? 'text-emerald-500' : 'text-amber-500'}`}>
+                  {predictive.trend === 'increasing' ? <ArrowUpRight size={12} /> : <TrendingUp size={12} />}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {supportStats && (
             <>
-              <div className="space-y-2">
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-wrap break-words">Dự báo doanh thu (30d)</span>
-                <div className="flex items-baseline gap-2">
-                  <span className="text-2xl font-black text-slate-900 tracking-tighter">
-                    {formatCurrency(predictive.next30DaysRevenue)}
-                  </span>
-                  <div className={`flex items-center text-[10px] font-black ${predictive.trend === 'increasing' ? 'text-emerald-500' : 'text-amber-500'}`}>
-                    {predictive.trend === 'increasing' ? <ArrowUpRight size={12} /> : <TrendingUp size={12} />}
+              <div className="space-y-1">
+                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">Hỗ trợ & Chats</span>
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <div className={`w-1.5 h-1.5 rounded-full ${supportStats.pendingTickets > 0 ? 'bg-orange-500 animate-pulse' : 'bg-slate-200'}`}></div>
+                    <span className="text-lg font-black tracking-tighter text-slate-900">
+                      {formatNumber(supportStats.pendingTickets)}
+                    </span>
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Tickets</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className={`w-1.5 h-1.5 rounded-full ${supportStats.pendingChats > 0 ? 'bg-emerald-500 animate-pulse' : 'bg-slate-200'}`}></div>
+                    <span className="text-lg font-black tracking-tighter text-slate-900">
+                      {formatNumber(supportStats.pendingChats)}
+                    </span>
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Chats mới</span>
                   </div>
                 </div>
               </div>
-              <div className="space-y-3">
-                <div className="flex justify-between items-end">
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-wrap break-words">Chỉ số tin cậy</span>
-                  <span className={`text-xs font-black leading-none ${predictive.confidence >= 0.7 ? 'text-emerald-500' :
-                    predictive.confidence >= 0.5 ? 'text-amber-500' : 'text-rose-500'}`}>
-                    {(predictive.confidence * 100).toFixed(0)}%
+
+              <div className="space-y-1">
+                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">Đối tác chờ duyệt</span>
+                <div className="flex items-baseline gap-1">
+                  <span className={`text-xl font-black tracking-tighter ${supportStats.pendingContractors > 0 ? 'text-rose-500' : 'text-slate-900'}`}>
+                    {formatNumber(supportStats.pendingContractors)}
                   </span>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase">Yêu cầu</span>
                 </div>
-                <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                  <div 
-                    className={`h-full rounded-full transition-all duration-1000 ${predictive.confidence >= 0.7 ? 'bg-emerald-500' :
-                      predictive.confidence >= 0.5 ? 'bg-amber-500' : 'bg-rose-500'}`}
-                    style={{ width: `${predictive.confidence * 100}%` }}
-                  ></div>
+              </div>
+
+              <div className="space-y-1">
+                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">Lượt xem Web</span>
+                <div className="flex items-baseline gap-1">
+                  <span className="text-xl font-black text-slate-900 tracking-tighter">
+                    {formatNumber(supportStats.totalViews)}
+                  </span>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase">Views</span>
                 </div>
-                {predictive.reasoning && (
-                  <p className="text-[8px] text-slate-400 font-bold uppercase tracking-tight truncate hover:whitespace-normal transition-all" title={predictive.reasoning}>
-                    {predictive.reasoning}
-                  </p>
-                )}
+              </div>
+
+              <div className="space-y-1">
+                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">Tin cậy AI</span>
+                <div className="flex items-center gap-2">
+                   <span className="text-xl font-black text-slate-900 tracking-tighter">
+                    {((predictive?.confidence || 0) * 100).toFixed(0)}%
+                  </span>
+                  <div className="flex-1 h-1.5 bg-slate-100 rounded-full max-w-[40px] overflow-hidden">
+                    <div 
+                      className="h-full bg-blue-500 rounded-full"
+                      style={{ width: `${(predictive?.confidence || 0) * 100}%` }}
+                    />
+                  </div>
+                </div>
               </div>
             </>
           )}

@@ -1,13 +1,15 @@
 'use client'
 
 import React from 'react'
-import { ShoppingCart, ExternalLink, Copy, Check } from 'lucide-react'
+import { ShoppingCart, ExternalLink, Copy, Check, ThumbsUp, ThumbsDown } from 'lucide-react'
+import toast from 'react-hot-toast'
 import { ChatMessage, ProductRecommendation } from './types'
 
 interface MessageBubbleProps {
     message: ChatMessage;
     isAdmin: boolean;
     onSuggestionClick: (suggestion: string, message?: ChatMessage) => void;
+    onAddToCart?: (product: ProductRecommendation) => void;
     isLoading: boolean;
     onImageClick?: (url: string) => void; // New prop for lightbox
     isLast?: boolean;
@@ -189,16 +191,44 @@ export default function MessageBubble({
     onSuggestionClick,
     isLoading,
     onImageClick,
+    onAddToCart,
     isLast = false
 }: MessageBubbleProps) {
     const isHelloMessage = message.userMessage === 'hello' || message.userMessage === 'admin_hello'
     
     const [isCopied, setIsCopied] = React.useState(false);
+    const [feedback, setFeedback] = React.useState<'up' | 'down' | null>(null);
+
     const handleCopy = () => {
         if (!message.botMessage) return;
         navigator.clipboard.writeText(message.botMessage);
         setIsCopied(true);
         setTimeout(() => setIsCopied(false), 2000);
+    }
+
+    const handleFeedback = async (type: 'up' | 'down') => {
+        if (feedback === type) return;
+        setFeedback(type);
+        if (type === 'up') {
+            toast.success('Cảm ơn bạn đã đánh giá hữu ích!');
+        } else {
+            toast('Cảm ơn bạn đã góp ý, chúng tôi sẽ cải thiện hơn!', { icon: '💡' });
+        }
+        
+        // Save to DB
+        try {
+            await fetch('/api/chatbot/feedback', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    sessionId: localStorage.getItem('chatbot_session_id') || 'unknown',
+                    botMessage: message.botMessage,
+                    feedback: type
+                })
+            });
+        } catch (err) {
+            console.error('Failed to save feedback:', err);
+        }
     }
 
     return (
@@ -227,7 +257,7 @@ export default function MessageBubble({
                     >
 
                         {message.userImage && (
-                            <div className="relative mb-3">
+                            <div className={`relative ${message.userMessage?.trim() ? 'mb-3' : 'mb-0'}`}>
                                 {message.userImage.startsWith('data:image/') ? (
                                     <div
                                         className="cursor-pointer group rounded-xl overflow-hidden border border-white/20"
@@ -238,6 +268,10 @@ export default function MessageBubble({
                                             alt="Uploaded"
                                             className="max-w-full hover:opacity-90 transition-opacity duration-300"
                                         />
+                                    </div>
+                                ) : message.userImage.startsWith('data:audio/') ? (
+                                    <div className="bg-white/10 p-1.5 rounded-xl border border-white/20 shadow-sm backdrop-blur-sm overflow-hidden flex items-center justify-center">
+                                        <audio controls src={message.userImage} className="h-[40px] w-full min-w-[180px] max-w-[240px] outline-none" />
                                     </div>
                                 ) : (
                                     <a
@@ -340,7 +374,25 @@ export default function MessageBubble({
                                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                                     SmartBuild AI
                                 </span>
-                                <span>{formatTime(message.timestamp)}</span>
+                                <div className="flex items-center gap-3">
+                                    <span>{formatTime(message.timestamp)}</span>
+                                    <div className="flex items-center gap-1">
+                                        <button 
+                                            onClick={() => handleFeedback('up')} 
+                                            className={`p-1.5 rounded-md transition-colors ${feedback === 'up' ? 'text-emerald-600 bg-emerald-50' : 'hover:text-emerald-600 hover:bg-emerald-50'}`}
+                                            title="Câu trả lời hữu ích"
+                                        >
+                                            <ThumbsUp className={`w-3.5 h-3.5 ${feedback === 'up' ? 'fill-current' : ''}`} />
+                                        </button>
+                                        <button 
+                                            onClick={() => handleFeedback('down')} 
+                                            className={`p-1.5 rounded-md transition-colors ${feedback === 'down' ? 'text-red-500 bg-red-50' : 'hover:text-red-500 hover:bg-red-50'}`}
+                                            title="Câu trả lời chưa tốt"
+                                        >
+                                            <ThumbsDown className={`w-3.5 h-3.5 ${feedback === 'down' ? 'fill-current' : ''}`} />
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
@@ -368,7 +420,11 @@ export default function MessageBubble({
                                                         <span className="text-xs font-bold text-gray-500 ml-0.5">đ/{product.unit}</span>
                                                     </div>
                                                 </div>
-                                                <button className="w-full bg-blue-600/90 hover:bg-blue-600 text-white py-2.5 rounded-2xl flex items-center justify-center gap-2 font-bold text-sm shadow-lg shadow-blue-500/20 active:scale-95 transition-all">
+                                                <button 
+                                                    onClick={() => onAddToCart?.(product)}
+                                                    disabled={!product.id}
+                                                    className="w-full bg-blue-600/90 hover:bg-blue-600 text-white py-2.5 rounded-2xl flex items-center justify-center gap-2 font-bold text-sm shadow-lg shadow-blue-500/20 active:scale-95 transition-all disabled:opacity-50"
+                                                >
                                                     <ShoppingCart className="w-4 h-4" />
                                                     Thêm ngay
                                                 </button>

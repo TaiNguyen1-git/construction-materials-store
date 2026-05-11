@@ -1,6 +1,6 @@
 'use client'
 
-import { X, Maximize2, Minimize2 } from 'lucide-react'
+import { X, Maximize2, Minimize2, Folder } from 'lucide-react'
 
 interface ChatHeaderProps {
     isAdmin: boolean;
@@ -9,6 +9,7 @@ interface ChatHeaderProps {
     onToggleExpand: () => void;
     isHuman?: boolean;
     onSwitchToAI?: () => void;
+    onShowGallery?: () => void;
 }
 
 export default function ChatHeader({
@@ -17,7 +18,8 @@ export default function ChatHeader({
     onClose,
     onToggleExpand,
     isHuman,
-    onSwitchToAI
+    onSwitchToAI,
+    onShowGallery
 }: ChatHeaderProps) {
     return (
         <div className={`flex-shrink-0 border-b border-transparent p-4 relative shadow-sm ${isAdmin ? 'bg-indigo-600' : 'bg-blue-600'}`}>
@@ -48,6 +50,16 @@ export default function ChatHeader({
                 </div>
 
                 <div className="flex items-center gap-1.5">
+                    {onShowGallery && (
+                        <button
+                            onClick={onShowGallery}
+                            className="p-1.5 text-white/80 hover:text-white hover:bg-white/20 rounded-lg transition-all"
+                            title="Kho tư liệu"
+                        >
+                            <Folder className="w-4 h-4" />
+                        </button>
+                    )}
+
                     {isHuman && onSwitchToAI && (
                         <button
                             onClick={onSwitchToAI}

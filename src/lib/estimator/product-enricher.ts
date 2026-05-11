@@ -46,7 +46,8 @@ function roundQuantity(quantity: number, unit: string): number {
  * 3. Unit conversion and quantity deduplication
  */
 export async function enrichMaterialsWithProducts(
-    materials: MaterialEstimate[]
+    materials: MaterialEstimate[],
+    budgetTier: 'economy' | 'standard' | 'premium' = 'standard'
 ): Promise<MaterialEstimate[]> {
     const productMap = new Map<string, MaterialEstimate>()
 
@@ -54,13 +55,13 @@ export async function enrichMaterialsWithProducts(
     const enrichedResults = await Promise.all(materials.map(async (m) => {
         const searchName = getSearchName(m.productName)
 
-        // First: specific keyword match
+        // First: specific keyword match with price ordering based on tier
         let product = await prisma.product.findFirst({
             where: {
                 name: { contains: searchName, mode: 'insensitive' },
                 isActive: true,
             },
-            orderBy: { price: 'asc' }
+            orderBy: { price: budgetTier === 'premium' ? 'desc' : (budgetTier === 'economy' ? 'asc' : 'asc') }
         })
 
         // Fallback: first word match
@@ -71,7 +72,7 @@ export async function enrichMaterialsWithProducts(
                     name: { contains: firstWord, mode: 'insensitive' },
                     isActive: true,
                 },
-                orderBy: { price: 'asc' }
+                orderBy: { price: budgetTier === 'premium' ? 'desc' : 'asc' }
             })
         }
 

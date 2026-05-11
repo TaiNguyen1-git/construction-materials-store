@@ -15,6 +15,8 @@ import GlobalAuthModals from '@/components/auth/GlobalAuthModals'
 import OrganizationJsonLd from '@/components/seo/OrganizationJsonLd'
 import ReactQueryProvider from '@/components/ReactQueryProvider'
 import PageTransition from '@/components/PageTransition'
+import SiteTracker from '@/components/analytics/SiteTracker'
+import NotificationSubscription from '@/components/NotificationSubscription'
 
 const inter = Inter({ subsets: ['latin', 'vietnamese'] })
 
@@ -95,6 +97,8 @@ export default function RootLayout({
                 </main>
                 <Footer />
               </div>
+              <SiteTracker />
+              <NotificationSubscription />
               <FloatingWidgetsContainer />
               <RealtimeNotificationWatcher />
               <script

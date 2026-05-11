@@ -20,32 +20,22 @@ self.addEventListener('push', function (event) {
         event.waitUntil(
             clients.matchAll({ type: 'window', includeUncontrolled: true }).then(windowClients => {
                 // Check if any window is already open and focused on the target conversation
-                const isAlreadyFocused = windowClients.some(client => {
+                const isAlreadyVisible = windowClients.some(client => {
+                    // Use visibilityState instead of focused (focused is false if DevTools is open)
+                    if (client.visibilityState !== 'visible') return false;
+                    
                     try {
                         const clientUrl = new URL(client.url);
-                        const notificationUrl = new URL(targetUrl, self.location.origin);
-                        
-                        // 1. Check if the base path matches
-                        const pathMatches = clientUrl.pathname === notificationUrl.pathname;
-                        
-                        // 2. Check if the conversation ID matches
-                        const clientParams = new URLSearchParams(clientUrl.search);
-                        const notificationParams = new URLSearchParams(notificationUrl.search);
-                        
-                        const clientConvId = clientParams.get('id');
-                        const notificationConvId = notificationParams.get('id');
-                        
-                        const idMatches = clientConvId === notificationConvId;
-
-                        // If it's the same path, same conversation ID, and the tab is focused, suppress
-                        return pathMatches && idMatches && client.focused;
+                        // If they are anywhere in /admin/messages, suppress OS notifications
+                        // because they will see the in-app unread badges anyway.
+                        return clientUrl.pathname.includes('/admin/messages');
                     } catch (e) {
-                        return client.url.includes(targetUrl) && client.focused;
+                        return client.url.includes('/admin/messages');
                     }
                 });
 
-                if (isAlreadyFocused) {
-                    console.log('[SW] Notification suppressed: User is already focused on this specific conversation.');
+                if (isAlreadyVisible) {
+                    console.log('[SW] Notification suppressed: User is already viewing the messages page.');
                     return;
                 }
 

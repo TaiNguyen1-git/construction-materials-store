@@ -69,7 +69,8 @@ function parseGeminiEstimatorJSON(responseText: string) {
  */
 export async function analyzeFloorPlanImage(
     base64Images: string | string[],
-    projectType: 'general' | 'flooring' | 'painting' | 'tiling' = 'general'
+    projectType: 'general' | 'flooring' | 'painting' | 'tiling' = 'general',
+    budgetTier: 'economy' | 'standard' | 'premium' = 'standard'
 ): Promise<EstimatorResult> {
     if (!genAI) return errorResult(projectType, 'AI service not configured.')
 
@@ -171,14 +172,15 @@ Note: If the document is a PDF, analyze all pages. Extract quantity of doors/win
             totalArea, projectType, rooms,
             rawData.buildingStyle || 'nhà_cấp_4',
             rawData.wallPerimeter || totalArea * 1.2,
-            rawData.roofType || 'bê_tông'
+            rawData.roofType || 'bê_tông',
+            budgetTier
         )
 
         // ── STEP 2.5: SYMBOL CONVERSION ──
         const symbolMaterials = convertSymbolsToMaterials(rawData.symbols || [])
         materials.push(...symbolMaterials)
 
-        const enriched = await enrichMaterialsWithProducts(materials)
+        const enriched = await enrichMaterialsWithProducts(materials, budgetTier)
         const cost = enriched.reduce((sum, m) => sum + (m.price || 0) * m.quantity, 0)
         const validation = validateAgainstIndustryStandards(totalArea, enriched)
 
@@ -221,7 +223,8 @@ Note: If the document is a PDF, analyze all pages. Extract quantity of doors/win
  */
 export async function estimateFromText(
     description: string,
-    projectType: 'general' | 'flooring' | 'painting' | 'tiling' = 'general'
+    projectType: 'general' | 'flooring' | 'painting' | 'tiling' = 'general',
+    budgetTier: 'economy' | 'standard' | 'premium' = 'standard'
 ): Promise<EstimatorResult> {
     if (!genAI) return errorResult(projectType, 'AI service not configured.')
 
@@ -324,9 +327,10 @@ CHỈ trả về JSON.`
             totalArea, projectType, rooms,
             data.buildingStyle || 'nhà_cấp_4',
             data.wallPerimeter || totalArea * 0.8,
-            data.roofType || 'bê_tông'
+            data.roofType || 'bê_tông',
+            budgetTier
         )
-        const enriched = await enrichMaterialsWithProducts(materials)
+        const enriched = await enrichMaterialsWithProducts(materials, budgetTier)
         const cost = enriched.reduce((sum, m) => sum + (m.price || 0) * m.quantity, 0)
         const validation = validateAgainstIndustryStandards(totalArea, enriched)
 
@@ -371,13 +375,14 @@ export async function recalculateEstimate(
     buildingStyle: 'nhà_cấp_4' | 'nhà_phố' | 'biệt_thự',
     wallPerimeter: number,
     roofType: string,
+    budgetTier: 'economy' | 'standard' | 'premium' = 'standard',
     confidence: number = 1.0,
     notes: string = ''
 ): Promise<EstimatorResult> {
     const materials: MaterialEstimate[] = calculateMaterials(
-        totalArea, projectType, rooms, buildingStyle, wallPerimeter, roofType
+        totalArea, projectType, rooms, buildingStyle, wallPerimeter, roofType, budgetTier
     )
-    const enriched = await enrichMaterialsWithProducts(materials)
+    const enriched = await enrichMaterialsWithProducts(materials, budgetTier)
     const cost = enriched.reduce((sum: number, m: MaterialEstimate) => sum + (m.price || 0) * m.quantity, 0)
     const validation = validateAgainstIndustryStandards(totalArea, enriched)
 

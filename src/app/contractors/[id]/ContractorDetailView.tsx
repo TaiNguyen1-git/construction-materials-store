@@ -20,6 +20,7 @@ import {
 } from 'lucide-react'
 import toast, { Toaster } from 'react-hot-toast'
 import Header from '@/components/Header'
+import SocialShareBar from '@/components/SocialShareBar'
 import LoginIncentiveModal from '@/components/LoginIncentiveModal'
 import { useAuth } from '@/contexts/auth-context'
 
@@ -141,6 +142,23 @@ export default function ContractorDetailView({ params, initialContractor }: { pa
 
     useEffect(() => {
         fetchContractor()
+        
+        // Record contractor view interaction
+        if (id) {
+            fetch('/api/analytics/track', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    interactionType: 'PRODUCT_VIEW',
+                    productId: id,
+                    query: 'CONTRACTOR',
+                    metadata: {
+                        entityType: 'CONTRACTOR',
+                        contractorName: initialContractor?.displayName
+                    }
+                })
+            }).catch(err => console.error('Failed to track contractor view', err))
+        }
     }, [id])
 
     const fetchContractor = async () => {
@@ -497,6 +515,7 @@ export default function ContractorDetailView({ params, initialContractor }: { pa
                                             <p className="font-bold text-gray-900">Thứ 2 - Thứ 7 (8:00 - 18:00)</p>
                                         </div>
                                     </div>
+                                    <SocialShareBar title={contractor.displayName} />
                                 </div>
                             </div>
 

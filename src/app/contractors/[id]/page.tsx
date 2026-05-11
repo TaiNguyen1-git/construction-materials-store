@@ -36,14 +36,25 @@ export async function generateMetadata(
 
     return {
         title: `${contractor.displayName} | Nhà thầu Uy tín SmartBuild`,
-        description: (contractor.bio || `Hồ sơ nhà thầu chuyên nghiệp ${contractor.displayName} trên hệ thống SmartBuild.`).substring(0, 160),
+        description: (contractor.bio || `Hồ sơ nhà thầu chuyên nghiệp ${contractor.displayName} trên hệ thống SmartBuild. Kết nối ngay để nhận báo giá thi công tốt nhất.`).substring(0, 160),
         openGraph: {
-            title: contractor.displayName,
+            title: `${contractor.displayName} - Chuyên gia Xây dựng SmartBuild`,
             description: contractor.bio?.substring(0, 160),
             images: previousImages,
             type: 'profile',
+            siteName: 'SmartBuild',
         },
-        keywords: [contractor.displayName, 'nhà thầu xây dựng', 'thi công', 'SmartBuild'],
+        twitter: {
+            card: 'summary',
+            title: contractor.displayName,
+            description: contractor.bio?.substring(0, 160),
+            images: previousImages.map(img => {
+                if (typeof img === 'string') return img;
+                if (img instanceof URL) return img.toString();
+                return (img as any).url || '';
+            }).filter(Boolean),
+        },
+        keywords: [contractor.displayName, 'nhà thầu xây dựng', 'thi công', 'uy tín', 'xây nhà trọn gói', 'SmartBuild'],
     }
 }
 
