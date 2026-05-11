@@ -65,7 +65,9 @@ export default async function ProductsPage({
             </p>
             
             <div className="max-w-xl mx-auto md:mx-0 shadow-2xl rounded-2xl overflow-hidden ring-4 ring-white/10">
-              <SearchBar />
+              <Suspense fallback={<div className="h-16 bg-white animate-pulse rounded-2xl" />}>
+                <SearchBar />
+              </Suspense>
             </div>
           </div>
         </div>
@@ -75,7 +77,9 @@ export default async function ProductsPage({
             {/* Filters Sidebar - Renders Instantly */}
             <div className="w-full lg:w-80 flex-shrink-0">
               <div className="sticky top-24">
-                <ProductFilters categories={categories} />
+                <Suspense fallback={<div className="h-96 bg-white animate-pulse rounded-3xl" />}>
+                  <ProductFilters categories={categories} />
+                </Suspense>
               </div>
             </div>
   

@@ -51,7 +51,9 @@ export default async function BlogListPage({
             </div>
 
             {/* Filter Bar - Renders Instantly */}
-            <BlogFilters categories={categories} />
+            <Suspense fallback={<div className="max-w-7xl mx-auto px-6 -mt-12 h-20 bg-white/50 animate-pulse rounded-[2rem]" />}>
+                <BlogFilters categories={categories} />
+            </Suspense>
 
             <Suspense key={`${page}-${categoryId}-${sortBy}-${search}`} fallback={<BlogContentSkeleton />}>
                 <BlogContent 

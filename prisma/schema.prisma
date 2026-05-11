@@ -733,6 +733,7 @@ model Product {
   purchaseReturnItems  PurchaseReturnItem[]
   customerReturnItems  CustomerReturnItem[]
   inventoryBatches     InventoryBatch[]
+  purchaseRequests     PurchaseRequest[]
 
 
   @@index([categoryId])
@@ -1759,7 +1760,8 @@ model SupplierProduct {
 model PurchaseRequest {
   id              String                @id @default(auto()) @map("_id") @db.ObjectId
   requestNumber   String                @unique
-  productId       String
+  productId       String                @db.ObjectId
+  product         Product               @relation(fields: [productId], references: [id])
   supplierId      String? // NCC được đề xuất
   requestedQty    Float // Số lượng đề xuất nhập
   currentStock    Float // Tồn kho hiện tại lúc tạo

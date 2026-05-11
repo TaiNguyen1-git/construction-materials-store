@@ -1,3 +1,4 @@
+import React, { Suspense } from 'react'
 import './globals.css'
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
@@ -97,10 +98,12 @@ export default function RootLayout({
                 </main>
                 <Footer />
               </div>
-              <SiteTracker />
-              <NotificationSubscription />
-              <FloatingWidgetsContainer />
-              <RealtimeNotificationWatcher />
+              <Suspense fallback={null}>
+                <SiteTracker />
+                <NotificationSubscription />
+                <FloatingWidgetsContainer />
+                <RealtimeNotificationWatcher />
+              </Suspense>
               <script
                 dangerouslySetInnerHTML={{
                   __html: `

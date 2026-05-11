@@ -1,3 +1,9 @@
+import { 
+  PurchaseRequestSource, 
+  PurchaseRequestStatus, 
+  PurchaseOrderStatus,
+  Prisma
+} from '@prisma/client'
 import { prisma } from './prisma'
 
 export class ProcurementService {
@@ -56,8 +62,8 @@ export class ProcurementService {
           data: {
             orderNumber: poNumber,
             supplierId: supplierId,
-            parentOrderId: order.id as any,
-            status: 'DRAFT',
+            parentOrderId: order.id,
+            status: PurchaseOrderStatus.DRAFT,
             totalAmount: subtotal,
             taxAmount: taxAmount,
             netAmount: netAmount,
@@ -67,7 +73,7 @@ export class ProcurementService {
               create: items.map(item => ({
                 productId: item.productId,
                 quantity: item.quantity,
-                unitPrice: item.unitPrice, // Usually we'd use supplier's cost price here, but using order unit price as fallback
+                unitPrice: item.unitPrice,
                 totalPrice: item.unitPrice * item.quantity,
                 notes: item.notes
               }))
@@ -85,4 +91,190 @@ export class ProcurementService {
       throw error
     }
   }
+
+  // ─── Instance Methods (used by /api/procurement route) ───────────────────────
+
+  async generatePurchaseSuggestions() {
+    try {
+      const allLowStock = await prisma.inventoryItem.findMany({
+        where: { availableQuantity: { lte: 10 } },
+        include: { product: { select: { id: true, name: true, sku: true, supplierId: true } } },
+        take: 50
+      })
+
+      return allLowStock.map(item => ({
+        productId: item.productId,
+        productName: item.product?.name,
+        productSku: item.product?.sku,
+        currentStock: item.availableQuantity,
+        suggestedQty: Math.max(50 - (item.availableQuantity ?? 0), 10),
+        supplierId: item.product?.supplierId
+      }))
+    } catch (error) {
+      console.error('[ProcurementService] generatePurchaseSuggestions error:', error)
+      return []
+    }
+  }
+
+  async compareSuppliers(productId: string, quantity: number) {
+    try {
+      const supplierProducts = await prisma.supplierProduct.findMany({
+        where: { productId, isActive: true },
+        include: { supplier: { select: { id: true, name: true, email: true } } },
+        orderBy: { unitPrice: 'asc' }
+      })
+
+      return supplierProducts.map(sp => ({
+        supplierId: sp.supplierId,
+        supplierName: sp.supplier?.name,
+        unitPrice: sp.unitPrice,
+        totalCost: sp.unitPrice * quantity,
+        leadTimeDays: sp.leadTimeDays,
+        minOrderQty: sp.minOrderQty,
+        isPreferred: sp.isPreferred
+      }))
+    } catch (error) {
+      console.error('[ProcurementService] compareSuppliers error:', error)
+      return []
+    }
+  }
+
+  async createPurchaseRequest(
+    productId: string,
+    requestedQty: number,
+    supplierId?: string,
+    source: PurchaseRequestSource = PurchaseRequestSource.MANUAL,
+    notes?: string
+  ) {
+    const [product, inventory] = await Promise.all([
+      prisma.product.findUnique({ where: { id: productId } }),
+      prisma.inventoryItem.findUnique({ where: { productId } })
+    ])
+
+    const estimatedCost = (product?.costPrice || product?.price || 0) * requestedQty
+    const requestNumber = `PR-${Date.now()}-${Math.floor(Math.random() * 1000)}`
+
+    return prisma.purchaseRequest.create({
+      data: {
+        requestNumber,
+        productId,
+        requestedQty,
+        supplierId: supplierId || null,
+        currentStock: inventory?.availableQuantity || 0,
+        reorderPoint: inventory?.reorderPoint || 0,
+        source: source,
+        notes: notes || null,
+        estimatedCost,
+        status: PurchaseRequestStatus.PENDING
+      }
+    })
+  }
+
+  async autoGeneratePurchaseRequests() {
+    try {
+      const lowStockItems = await prisma.inventoryItem.findMany({
+        where: { availableQuantity: { lte: 5 } },
+        include: { product: true },
+        take: 20
+      })
+
+      let created = 0
+      for (const item of lowStockItems) {
+        const existing = await prisma.purchaseRequest.findFirst({
+          where: { productId: item.productId, status: { in: [PurchaseRequestStatus.PENDING, PurchaseRequestStatus.APPROVED] } }
+        })
+        if (!existing) {
+          await this.createPurchaseRequest(item.productId, 50, undefined, PurchaseRequestSource.SYSTEM)
+          created++
+        }
+      }
+      return created
+    } catch (error) {
+      console.error('[ProcurementService] autoGeneratePurchaseRequests error:', error)
+      return 0
+    }
+  }
+
+  async approveRequest(requestId: string, approvedBy: string) {
+    return prisma.purchaseRequest.update({
+      where: { id: requestId },
+      data: { status: PurchaseRequestStatus.APPROVED, approvedBy, approvedAt: new Date() }
+    })
+  }
+
+  async convertToPurchaseOrder(requestId: string, createdBy: string) {
+    // Define a type that includes the product relation
+    type PurchaseRequestWithProduct = Prisma.PurchaseRequestGetPayload<{
+      include: { product: true }
+    }>
+
+    const request = await prisma.purchaseRequest.findUnique({
+      where: { id: requestId },
+      include: { product: true }
+    }) as PurchaseRequestWithProduct | null
+
+    if (!request) throw new Error('Purchase request not found')
+    if (!request.supplierId) throw new Error('Supplier not assigned to request')
+
+    const orderCount = await prisma.purchaseOrder.count()
+    const poNumber = `PO-${String(orderCount + 1).padStart(6, '0')}`
+
+    const unitPrice = request.estimatedCost
+      ? request.estimatedCost / request.requestedQty
+      : (request.product?.costPrice || request.product?.price || 0)
+
+    const subtotal = unitPrice * request.requestedQty
+    const taxAmount = subtotal * 0.1
+    const netAmount = subtotal + taxAmount
+
+    const po = await prisma.purchaseOrder.create({
+      data: {
+        orderNumber: poNumber,
+        supplierId: request.supplierId,
+        status: PurchaseOrderStatus.DRAFT,
+        totalAmount: subtotal,
+        taxAmount,
+        netAmount,
+        createdBy,
+        purchaseItems: {
+          create: [{
+            productId: request.productId,
+            quantity: request.requestedQty,
+            unitPrice,
+            totalPrice: subtotal
+          }]
+        }
+      }
+    })
+
+    await prisma.purchaseRequest.update({
+      where: { id: requestId },
+      data: { status: PurchaseRequestStatus.CONVERTED }
+    })
+
+    return po
+  }
+
+  async updateAllReorderPoints() {
+    try {
+      const items = await prisma.inventoryItem.findMany({ take: 500 })
+      let updated = 0
+
+      for (const item of items) {
+        const newReorderPoint = Math.max(Math.ceil((item.quantity ?? 50) * 0.1), 5)
+        await prisma.inventoryItem.update({
+          where: { id: item.id },
+          data: { reorderPoint: newReorderPoint }
+        })
+        updated++
+      }
+      return updated
+    } catch (error) {
+      console.error('[ProcurementService] updateAllReorderPoints error:', error)
+      return 0
+    }
+  }
 }
+
+// Singleton instance for use in API routes
+export const procurementService = new ProcurementService()

@@ -24,7 +24,7 @@ const formatCurrency = (val: number) =>
 
 const CART_STORAGE_KEY = 'contractor-quick-order-cart'
 
-export default function QuickOrderPage() {
+function QuickOrderPageContent() {
     const { user } = useAuth()
     const router = useRouter()
     const searchParams = useSearchParams()
@@ -553,3 +553,19 @@ export default function QuickOrderPage() {
         </div>
     )
 }
+
+import { Suspense } from 'react'
+
+export default function QuickOrderPage() {
+    return (
+        <Suspense fallback={
+            <div className="flex flex-col h-[calc(100vh-140px)] bg-white rounded-[2rem] border border-slate-100 items-center justify-center">
+                <Loader2 className="w-12 h-12 text-indigo-600 animate-spin mb-4" />
+                <p className="text-slate-400 font-bold uppercase tracking-widest text-xs animate-pulse">Đang tải hệ thống POS...</p>
+            </div>
+        }>
+            <QuickOrderPageContent />
+        </Suspense>
+    )
+}
+
