@@ -8,6 +8,8 @@ export interface ProductKnowledge {
   brand?: string
   supplier?: string
   description: string
+  imageUrl?: string // Real DB image URL
+  sku?: string      // Real DB SKU
   specifications: {
     [key: string]: string | number
   }
@@ -34,10 +36,11 @@ export const KNOWLEDGE_BASE: ProductKnowledge[] = [
   {
     id: 'cement_insee_pc40',
     category: 'Xi măng',
-    name: 'Xi măng INSEE PC40',
+    name: 'Xi Măng INSEE Đa Dụng PC40',
     brand: 'INSEE',
     supplier: 'INSEE Việt Nam',
     description: 'Xi măng Portland hỗn hợp PCB40 của INSEE, chất lượng cao, độ bền tốt, phù hợp cho các công trình dân dụng và công nghiệp.',
+    sku: 'XM-INSEE-001',
     specifications: {
       strength: 'PC40 (Mác 400)',
       weight: '50kg',
@@ -127,10 +130,11 @@ export const KNOWLEDGE_BASE: ProductKnowledge[] = [
   {
     id: 'cement_hatien_pcb40',
     category: 'Xi măng',
-    name: 'Xi măng Hà Tiên PCB40',
+    name: 'Xi Măng Hà Tiên PCB40',
     brand: 'Hà Tiên',
     supplier: 'Xi măng Hà Tiên',
     description: 'Xi măng Portland hỗn hợp PCB40 của Hà Tiên, thương hiệu Việt Nam uy tín, giá cạnh tranh.',
+    sku: 'XM-HATIEN-001',
     specifications: {
       strength: 'PCB40 (Mác 400)',
       weight: '50kg',
@@ -155,7 +159,7 @@ export const KNOWLEDGE_BASE: ProductKnowledge[] = [
     ],
     quality: 'Cao - Thương hiệu Việt Nam uy tín, giá tốt hơn INSEE',
     commonCombinations: [
-      'Cát xây dựng',
+      'Cát Vàng Xây Dựng',
       'Đá 1x2',
       'Thép xây dựng',
       'Phụ gia'
@@ -198,7 +202,7 @@ export const KNOWLEDGE_BASE: ProductKnowledge[] = [
     ],
     quality: 'Tiêu chuẩn - Giá rẻ nhất trong các loại xi măng',
     commonCombinations: [
-      'Cát vàng',
+      'Cát Vàng Xây Dựng',
       'Gạch các loại'
     ],
     tips: [
@@ -214,9 +218,10 @@ export const KNOWLEDGE_BASE: ProductKnowledge[] = [
   {
     id: 'brick_dinh_standard',
     category: 'Gạch',
-    name: 'Gạch Đinh 8x8x18cm',
+    name: 'Gạch Đinh 8x8x18',
     supplier: 'Tùy nhà cung cấp',
     description: 'Gạch đinh (gạch 4 lỗ) kích thước 8x8x18cm, dùng phổ biến cho xây tường ngăn, tường bao, không chịu lực.',
+    sku: 'GACH-DINH-001',
     specifications: {
       size: '8cm x 8cm x 18cm',
       holes: 4,
@@ -242,7 +247,7 @@ export const KNOWLEDGE_BASE: ProductKnowledge[] = [
     quality: 'Phụ thuộc nhà cung cấp - Có 3 cấp: Loại 1 (tốt nhất), Loại 2 (trung bình), Loại 3 (giá rẻ)',
     commonCombinations: [
       'Xi măng PC30',
-      'Cát vàng',
+      'Cát Vàng Xây Dựng',
       'Vữa trát'
     ],
     tips: [
@@ -261,9 +266,10 @@ export const KNOWLEDGE_BASE: ProductKnowledge[] = [
   {
     id: 'brick_ong_standard',
     category: 'Gạch',
-    name: 'Gạch Ống đỏ 6x10x20cm',
+    name: 'Gạch Ống 6x10x20',
     supplier: 'Tùy nhà cung cấp',
     description: 'Gạch ống đỏ truyền thống, có lỗ rỗng bên trong, thông thoáng, cách nhiệt tốt.',
+    sku: 'GACH-ONG-001',
     specifications: {
       size: '6cm x 10cm x 20cm',
       type: 'Ống rỗng',
@@ -288,7 +294,7 @@ export const KNOWLEDGE_BASE: ProductKnowledge[] = [
     quality: 'Phụ thuộc nhà cung cấp - Gạch càng đỏ, nung kỹ càng bền',
     commonCombinations: [
       'Xi măng PC30-PC40',
-      'Cát xây dựng',
+      'Cát Vàng Xây Dựng',
       'Vữa trát'
     ],
     tips: [
@@ -310,9 +316,10 @@ export const KNOWLEDGE_BASE: ProductKnowledge[] = [
   {
     id: 'stone_1x2',
     category: 'Đá',
-    name: 'Đá 1x2 (Đá xây dựng)',
+    name: 'Đá 1x2 Xây Dựng',
     supplier: 'Tùy nhà cung cấp',
     description: 'Đá dăm cỡ 1x2 (10-20mm), dùng để trộn bê tông cho móng, cột, dầm, sàn.',
+    sku: 'DA-1X2-001',
     specifications: {
       size: '10-20mm',
       type: 'Đá dăm',
@@ -336,7 +343,7 @@ export const KNOWLEDGE_BASE: ProductKnowledge[] = [
     quality: 'Phụ thuộc nguồn gốc - Đá núi tốt hơn đá sông',
     commonCombinations: [
       'Xi măng PC40/PCB40',
-      'Cát xây dựng loại I',
+      'Cát Xây Tô Loại 1',
       'Nước sạch'
     ],
     tips: [
@@ -354,9 +361,10 @@ export const KNOWLEDGE_BASE: ProductKnowledge[] = [
   {
     id: 'stone_mi',
     category: 'Đá',
-    name: 'Đá mi (Đá 5-7mm)',
+    name: 'Đá Mi Sàng',
     supplier: 'Tùy nhà cung cấp',
     description: 'Đá dăm cỡ nhỏ 5-7mm, dùng trộn bê tông mác thấp, vữa lót nền, lót đường.',
+    sku: 'DA-MI-001',
     specifications: {
       size: '5-7mm',
       type: 'Đá dăm nhỏ',
@@ -397,9 +405,10 @@ export const KNOWLEDGE_BASE: ProductKnowledge[] = [
   {
     id: 'sand_construction',
     category: 'Cát',
-    name: 'Cát xây dựng loại I',
+    name: 'Cát Xây Tô Loại 1',
     supplier: 'Tùy nhà cung cấp',
-    description: 'Cát xây dựng sạch, hạt to đều, dùng để trộn bê tông móng, cột, dầm, sàn.',
+    description: 'Cát xây dựng sạch, hạt to đều, đã qua sàng lọc, không lẫn tạp chất, chuyên dùng cho bê tông và xây tô cao cấp.',
+    sku: 'CAT-XD-I-001',
     specifications: {
       type: 'Cát hạt to',
       size: '0.5-5mm',
@@ -439,9 +448,10 @@ export const KNOWLEDGE_BASE: ProductKnowledge[] = [
   {
     id: 'sand_yellow',
     category: 'Cát',
-    name: 'Cát vàng',
+    name: 'Cát Vàng Xây Dựng',
     supplier: 'Tùy nhà cung cấp',
     description: 'Cát vàng hạt mịn, dùng để xây gạch, trát tường, hoàn thiện.',
+    sku: 'CAT-VANG-001',
     specifications: {
       type: 'Cát hạt mịn',
       size: '0.2-2mm',
@@ -479,6 +489,120 @@ export const KNOWLEDGE_BASE: ProductKnowledge[] = [
   // ========================================
   // THÉP XÂY DỰNG
   // ========================================
+  {
+    id: 'steel_hoaphat_d10',
+    category: 'Thép',
+    name: 'Thép Hòa Phát D10',
+    brand: 'Hòa Phát',
+    supplier: 'Thép Hòa Phát',
+    description: 'Thép cuộn vằn D10 Hòa Phát, thương hiệu thép quốc dân Việt Nam, chất lượng ổn định, giá thành kinh tế.',
+    specifications: {
+      diameter: '10mm',
+      length: '11.7m/cây',
+      standard: 'TCVN 1651-2:2018',
+      grade: 'CB300-V'
+    },
+    pricing: {
+      basePrice: 17800,
+      unit: 'kg',
+      bulkDiscount: [
+        { minQuantity: 500, discountPercent: 2 },
+        { minQuantity: 1000, discountPercent: 4 }
+      ]
+    },
+    usage: ['Làm móng nhà dân dụng', 'Thép đai cột dầm', 'Nhà cấp 4, nhà phố'],
+    quality: 'Tiêu chuẩn - Thương hiệu phổ biến nhất',
+    commonCombinations: ['Xi măng Hà Tiên', 'Cát xây dựng', 'Đá 1x2'],
+    tips: ['Phù hợp cho công trình cần tối ưu chi phí', 'Chất lượng đủ đáp ứng mọi tiêu chuẩn nhà phố'],
+    alternatives: ['Thép Pomina D10', 'Thép Việt Nhật D10']
+  },
+  {
+    id: 'steel_vietnhat_d10',
+    category: 'Thép',
+    name: 'Thép Việt Nhật D10 (Vinakyoei)',
+    brand: 'Việt Nhật',
+    supplier: 'Vinakyoei',
+    description: 'Thép vằn D10 Việt Nhật, tiêu chuẩn Nhật Bản, độ bền và giới hạn chảy cực kỳ ổn định, tốt nhất cho kết cấu chịu lực.',
+    specifications: {
+      diameter: '10mm',
+      length: '11.7m/cây',
+      standard: 'JIS G3112 (Nhật Bản)',
+      grade: 'CB300/CB400'
+    },
+    pricing: {
+      basePrice: 19200,
+      unit: 'kg',
+      bulkDiscount: [
+        { minQuantity: 500, discountPercent: 2 },
+        { minQuantity: 1000, discountPercent: 5 }
+      ]
+    },
+    usage: ['Móng nhà cao tầng', 'Cột dầm chịu lực lớn', 'Biệt thự, nhà phố cao cấp'],
+    quality: 'Cao cấp - Tiêu chuẩn Nhật Bản, ổn định nhất thị trường',
+    commonCombinations: ['Xi măng INSEE PC40', 'Cát vàng loại I', 'Đá 1x2 núi'],
+    tips: ['Khuyên dùng cho móng và cột nhà từ 3 tầng trở lên', 'Độ bền kéo vượt trội'],
+    alternatives: ['Thép Hòa Phát D10', 'Thép Pomina D10']
+  },
+  {
+    id: 'steel_hoaphat_d12',
+    category: 'Thép',
+    name: 'Thép Hòa Phát D12',
+    brand: 'Hòa Phát',
+    supplier: 'Thép Hòa Phát',
+    description: 'Thép vằn D12 Hòa Phát, chịu lực tốt, chuyên dùng cho dầm, sàn, cột nhà dân dụng.',
+    specifications: { diameter: '12mm', length: '11.7m/cây', grade: 'CB300-V' },
+    pricing: { basePrice: 17600, unit: 'kg' },
+    usage: ['Dầm, sàn nhà 2-3 tầng', 'Cột chịu lực trung bình'],
+    quality: 'Tiêu chuẩn',
+    commonCombinations: ['Xi măng PC40', 'Đá 1x2'],
+    tips: ['Phổ biến nhất cho nhà phố'],
+    alternatives: ['Thép Việt Nhật D12']
+  },
+  {
+    id: 'steel_hoaphat_d16',
+    category: 'Thép',
+    name: 'Thép Hòa Phát D16',
+    brand: 'Hòa Phát',
+    supplier: 'Thép Hòa Phát',
+    description: 'Thép vằn D16 Hòa Phát, độ bền cao, dùng cho móng băng, móng bè, dầm chính.',
+    specifications: { diameter: '16mm', length: '11.7m/cây', grade: 'CB400-V' },
+    pricing: { basePrice: 17400, unit: 'kg' },
+    usage: ['Móng băng, móng bè', 'Dầm chính chịu lực lớn'],
+    quality: 'Tiêu chuẩn',
+    commonCombinations: ['Xi măng PC40', 'Đá 1x2'],
+    tips: ['Dùng cho các vị trí chịu lực trọng yếu'],
+    alternatives: ['Thép Việt Nhật D16']
+  },
+  {
+    id: 'steel_vietnhat_d12',
+    category: 'Thép',
+    name: 'Thép Việt Nhật D12',
+    brand: 'Việt Nhật',
+    supplier: 'Vinakyoei',
+    description: 'Thép vằn D12 Việt Nhật, tiêu chuẩn Nhật Bản, dẻo dai, bền bỉ.',
+    specifications: { diameter: '12mm', length: '11.7m/cây', grade: 'CB300/CB400' },
+    pricing: { basePrice: 19000, unit: 'kg' },
+    usage: ['Dầm, cột nhà cao tầng', 'Biệt thự'],
+    quality: 'Cao cấp',
+    commonCombinations: ['Xi măng INSEE PC40'],
+    tips: ['Tốt nhất cho kết cấu dầm sàn'],
+    alternatives: ['Thép Hòa Phát D12']
+  },
+  {
+    id: 'steel_vietnhat_d16',
+    category: 'Thép',
+    name: 'Thép Việt Nhật D16',
+    brand: 'Việt Nhật',
+    supplier: 'Vinakyoei',
+    description: 'Thép vằn D16 Việt Nhật, chịu lực cực tốt, dùng cho các vị trí xung yếu.',
+    specifications: { diameter: '16mm', length: '11.7m/cây', grade: 'CB400' },
+    pricing: { basePrice: 18800, unit: 'kg' },
+    usage: ['Móng, cột chịu lực lớn', 'Công trình cao tầng'],
+    quality: 'Cao cấp',
+    commonCombinations: ['Xi măng INSEE PC40'],
+    tips: ['Khuyên dùng cho móng nhà phố từ 3 tầng'],
+    alternatives: ['Thép Hòa Phát D16']
+  },
   {
     id: 'steel_d10',
     category: 'Thép',

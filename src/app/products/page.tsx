@@ -207,7 +207,7 @@ export default async function ProductsPage({
         <div className={`grid gap-6 ${viewMode === 'grid'
             ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'
             : 'grid-cols-1'}`}>
-            {[1, 2, 3, 4, 5, 1, 7, 8].map(i => (
+            {Array.from({ length: 8 }).map((_, i) => (
                 <div key={i} className="bg-white rounded-3xl h-80 border border-neutral-100"></div>
             ))}
         </div>

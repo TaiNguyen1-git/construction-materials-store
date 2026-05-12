@@ -30,7 +30,7 @@ import { handleOCRInvoiceFlow, handleOCRInvoiceSave, handleCustomerImageRecognit
 import { handleOrderCreateIntent, handleOrderCreation, handleCRUDExecution } from './handlers/order-flow.handler'
 import {
   handleProductSearch, handlePriceInquiry, handleMaterialCalculation,
-  handleComparisonQuery, handleRuleBasedPriceLookup,
+  handleContractorQuery, handleComparisonQuery, handleRuleBasedPriceLookup,
   generateChatbotResponse, getConversationHistory
 } from './handlers/customer.handler'
 
@@ -64,7 +64,11 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     console.log('[Chatbot API] Request Body:', JSON.stringify(body).slice(0, 500))
     
-    const validation = chatMessageSchema.safeParse(body)
+    // 0. Message Validation
+    const rawMsg = body.message
+    const validatedMsg = typeof rawMsg === 'string' ? rawMsg : String(rawMsg || '')
+    
+    const validation = chatMessageSchema.safeParse({ ...body, message: validatedMsg })
     if (!validation.success) {
       console.warn('[Chatbot API] Validation Failed:', validation.error.format())
       return NextResponse.json(
@@ -326,9 +330,46 @@ export async function POST(request: NextRequest) {
     }
 
     // ── Customer Intent Dispatch ───────────────────────────────────────────────
+    if (intentResult.intent === 'ORDER_QUERY') {
+      // For now, redirect to a helpful message about order tracking
+      return NextResponse.json(createSuccessResponse({
+        message: '🔍 **Bạn muốn kiểm tra đơn hàng?**\n\n' +
+                (customerId 
+                  ? 'Vui lòng cho mình biết **Mã đơn hàng** cụ thể, hoặc mình có thể hiển thị danh sách đơn gần đây của bạn!'
+                  : 'Để kiểm tra đơn hàng, bạn vui lòng cung cấp **Mã đơn hàng** kèm theo **Số điện thoại** đã dùng khi đặt hàng nhé!'),
+        suggestions: ['Đơn hàng mới nhất', 'Liên hệ hỗ trợ', 'Tìm sản phẩm'],
+        confidence: 0.9, sessionId, timestamp: new Date().toISOString()
+      }))
+    }
+
+    if (intentResult.intent === 'ORDER_MANAGE') {
+      return NextResponse.json(createSuccessResponse({
+        message: '💡 **Bạn muốn thay đổi hoặc hủy đơn hàng?**\n\n' +
+                (customerId 
+                  ? 'Vui lòng truy cập **Lịch sử đơn hàng** của bạn để yêu cầu thay đổi, hoặc cho mình biết **Mã đơn hàng** cụ thể để mình hỗ trợ ngay nhé!'
+                  : 'Vì bạn chưa đăng nhập, vui lòng cung cấp **Mã đơn hàng** và **Số điện thoại** đặt hàng để mình kiểm tra và hỗ trợ thay đổi nhé!'),
+        suggestions: ['Kiểm tra đơn hàng', 'Liên hệ hỗ trợ', 'Hủy đơn hàng'],
+        confidence: 0.95, sessionId, timestamp: new Date().toISOString()
+      }))
+    }
+
+    if (intentResult.intent === 'PAYMENT_INQUIRY') {
+      return NextResponse.json(createSuccessResponse({
+        message: '💳 **Thông tin thanh toán**\n\n' +
+                'Tại SmartBuild, chúng mình hỗ trợ các hình thức thanh toán linh hoạt:\n' +
+                '1. **Chuyển khoản ngân hàng**: (Vietcombank, Techcombank, BIDV)\n' +
+                '2. **Thanh toán khi nhận hàng (COD)**: Dành cho đơn hàng dưới 20 triệu VNĐ\n' +
+                '3. **Ví điện tử**: MoMo, ZaloPay\n' +
+                '4. **Trả góp**: Qua thẻ tín dụng (liên hệ hotline để biết thêm chi tiết)\n\n' +
+                '💡 Bạn muốn mình gửi thông tin số tài khoản hay hướng dẫn cụ thể cho hình thức nào?',
+        suggestions: ['Số tài khoản ngân hàng', 'Thanh toán COD là gì?', 'Liên hệ hỗ trợ'],
+        confidence: 0.95, sessionId, timestamp: new Date().toISOString()
+      }))
+    }
+
     if (intentResult.intent === 'ORDER_CREATE') return await handleOrderCreateIntent(message, sessionId, customerId, conversationHistory)
     if (intentResult.intent === 'PRODUCT_SEARCH') {
-      const result = await handleProductSearch(message, sessionId)
+      const result = await handleProductSearch(message, sessionId, entities)
       if (result) return result
     }
     if (intentResult.intent === 'MATERIAL_CALCULATE') {
@@ -337,6 +378,10 @@ export async function POST(request: NextRequest) {
     }
     if (intentResult.intent === 'PRICE_INQUIRY') {
       const result = await handlePriceInquiry(message, sessionId)
+      if (result) return result
+    }
+    if (intentResult.intent === 'CONTRACTOR_QUERY') {
+      const result = await handleContractorQuery(message, sessionId)
       if (result) return result
     }
 
@@ -377,16 +422,34 @@ export async function POST(request: NextRequest) {
       }
     }).catch(err => console.error('Failed to log interaction:', err))
 
-    const finalSuggestions = [...(botResponse.suggestions || [])]
+    let finalMessage = botResponse.response
+    let finalSuggestions = [...(botResponse.suggestions || [])]
+    let finalRecommendations = botResponse.productRecommendations
+
+    // Robust JSON handling: extract if AI wrapped it in markdown
+    if (finalMessage.includes('```json')) {
+      const match = finalMessage.match(/```json\s*([\s\S]*?)\s*```/)
+      if (match && match[1]) {
+        try {
+          const parsed = JSON.parse(match[1])
+          finalMessage = parsed.response || parsed.content || finalMessage
+          if (parsed.suggestions) finalSuggestions = parsed.suggestions
+          if (parsed.productRecommendations) finalRecommendations = parsed.productRecommendations
+        } catch (e) {
+          console.error('Failed to parse inner JSON in botResponse:', e)
+        }
+      }
+    }
+
     if (marketingMessage) {
        if (!finalSuggestions.includes('Đăng ký ngay')) finalSuggestions.unshift('Đăng ký ngay')
        if (!finalSuggestions.includes('Đăng nhập')) finalSuggestions.unshift('Đăng nhập')
     }
 
     return NextResponse.json(createSuccessResponse({
-      message: botResponse.response + marketingMessage,
+      message: finalMessage + marketingMessage,
       suggestions: finalSuggestions,
-      productRecommendations: botResponse.productRecommendations,
+      productRecommendations: finalRecommendations,
       confidence: botResponse.confidence,
       sessionId, timestamp: new Date().toISOString()
     }))

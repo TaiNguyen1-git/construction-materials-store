@@ -4,6 +4,7 @@ import React, { useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
+import * as HoverCard from '@radix-ui/react-hover-card'
 import { ShoppingCart, Package, Zap, Star, TrendingDown, Info, ShieldCheck, Truck } from 'lucide-react'
 import { useCartStore } from '@/stores/cartStore'
 import toast from 'react-hot-toast'
@@ -163,165 +164,170 @@ export default function ProductCard({ product, viewMode = 'grid' }: ProductCardP
 
     // ───── GRID MODE ─────
     return (
-        <div 
-            className="group relative bg-white rounded-2xl border border-neutral-100 hover:border-primary-200 hover:shadow-md transition-all duration-300 overflow-hidden flex flex-col h-full hover:-translate-y-0.5"
-            onMouseEnter={() => setIsHovered(true)}
-            onMouseLeave={() => setIsHovered(false)}
-        >
-            {/* Premium Tooltip */}
-            <AnimatePresence>
-                {isHovered && (
+        <HoverCard.Root openDelay={200} closeDelay={100}>
+            <HoverCard.Trigger asChild>
+                <div 
+                    className="group relative bg-white rounded-2xl border border-neutral-100 hover:border-primary-200 hover:shadow-md transition-all duration-300 overflow-hidden flex flex-col h-full hover:-translate-y-0.5 cursor-pointer"
+                >
+                    {/* Top accent line on hover */}
+                    <div className="absolute inset-x-0 top-0 h-0.5 bg-primary-600 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 z-10" />
+
+                    {/* Image area */}
+                    <div className="relative aspect-square overflow-hidden bg-neutral-50">
+                        <Link href={`/products/${product.id}`} className="block w-full h-full">
+                            {product.images?.[0] ? (
+                                <Image
+                                    src={product.images[0]}
+                                    alt={product.name}
+                                    fill
+                                    className="object-contain p-8 group-hover:scale-105 transition-transform duration-500 ease-out"
+                                />
+                            ) : (
+                                <div className="w-full h-full flex items-center justify-center">
+                                    <Package className="h-12 w-12 text-neutral-200" />
+                                </div>
+                            )}
+                        </Link>
+
+                        {/* Action Buttons (Wishlist & Comparison) */}
+                        <div className="absolute top-3 right-3 z-20 flex flex-col gap-1.5 opacity-0 group-hover:opacity-100 translate-y-1 group-hover:translate-y-0 transition-all duration-200">
+                            <div className="bg-white rounded-full p-0.5 shadow-sm border border-neutral-100">
+                                <WishlistButton product={product as any} size="sm" />
+                            </div>
+                            <div className="bg-white rounded-full p-0.5 shadow-sm border border-neutral-100">
+                                <ComparisonButton product={product as any} size="sm" />
+                            </div>
+                        </div>
+
+                        {/* Badges */}
+                        <div className="absolute top-3 left-3 z-20 flex flex-col items-start gap-1 pointer-events-none">
+                            {isLowStock && (
+                                <span className="bg-amber-500 text-white text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded flex items-center gap-1">
+                                    <Zap size={8} /> Sắp hết
+                                </span>
+                            )}
+                            {isOutOfStock && (
+                                <span className="bg-neutral-500 text-white text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded">
+                                    Hết hàng
+                                </span>
+                            )}
+                            {hasWholesale && !isOutOfStock && (
+                                <span className="bg-green-600 text-white text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded">
+                                    Có giá sỉ
+                                </span>
+                            )}
+                            {product.isFeatured && (
+                                <span className="bg-primary-600 text-white text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded flex items-center gap-1">
+                                    <Star size={8} fill="currentColor" /> Nổi bật
+                                </span>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Content */}
+                    <div className="p-5 flex-1 flex flex-col">
+                        {/* Category chip */}
+                        <span className="inline-block text-[10px] font-bold text-primary-600 uppercase tracking-wider bg-primary-50 px-2 py-0.5 rounded mb-3 self-start border border-primary-100">
+                            {product.category?.name || 'Vật liệu'}
+                        </span>
+
+                        <Link href={`/products/${product.id}`} className="flex-1">
+                            <h3 className="text-sm font-bold text-neutral-900 leading-snug line-clamp-2 min-h-[2.6rem] group-hover:text-primary-600 transition-colors mb-1">
+                                {product.name}
+                            </h3>
+                        </Link>
+                        <p className="text-[10px] font-medium text-neutral-300 uppercase tracking-wider mb-4">
+                            SKU: {product.sku || '---'}
+                        </p>
+
+                        {/* Price & Cart button */}
+                        <div className="mt-auto flex items-end justify-between gap-2 pt-4 border-t border-neutral-50">
+                            <div>
+                                {hasWholesale && (
+                                    <p className="text-[10px] font-bold text-green-600 flex items-center gap-1 mb-0.5">
+                                        <TrendingDown size={10} /> Sỉ từ {formatNumber(product.wholesalePrice!)}đ
+                                    </p>
+                                )}
+                                <div className="flex items-baseline gap-1">
+                                    <span className="text-lg font-bold text-neutral-900 leading-none">
+                                        {formatNumber(product.price)}
+                                    </span>
+                                    <span className="text-[10px] font-bold uppercase text-neutral-400 leading-none">VND</span>
+                                </div>
+                            </div>
+
+                            <button
+                                onClick={handleAddToCart}
+                                disabled={isOutOfStock}
+                                title={isOutOfStock ? 'Hết hàng' : 'Thêm vào giỏ'}
+                                className={`relative w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-200 border shrink-0 ${isOutOfStock
+                                    ? 'bg-neutral-50 border-neutral-100 text-neutral-300 cursor-not-allowed'
+                                    : 'bg-white border-neutral-200 text-neutral-600 hover:bg-primary-600 hover:border-primary-600 hover:text-white active:scale-90'
+                                    }`}
+                            >
+                                <ShoppingCart size={16} />
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </HoverCard.Trigger>
+
+            <HoverCard.Portal>
+                <HoverCard.Content side="top" sideOffset={12} align="center" asChild>
                     <motion.div
                         initial={{ opacity: 0, y: 10, scale: 0.95 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: 5, scale: 0.95 }}
                         transition={{ duration: 0.2, ease: "easeOut" }}
-                        className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 z-50 pointer-events-none w-[220px]"
+                        className="z-[100] w-[240px] pointer-events-none"
                     >
-                        <div className="bg-neutral-900/80 backdrop-blur-md border border-white/10 rounded-2xl p-4 shadow-2xl overflow-hidden relative">
-                            {/* Glass background accent */}
-                            <div className="absolute -top-12 -right-12 w-24 h-24 bg-primary-500/20 rounded-full blur-2xl" />
+                        <div className="bg-white/95 backdrop-blur-xl border border-neutral-200 rounded-2xl p-5 shadow-[0_20px_50px_rgba(0,0,0,0.15)] overflow-hidden relative">
+                            {/* Decorative background accent */}
+                            <div className="absolute -top-12 -right-12 w-24 h-24 bg-primary-100/50 rounded-full blur-2xl" />
                             
-                            <div className="relative space-y-3">
-                                <div className="flex items-center gap-2">
-                                    <div className="w-8 h-8 bg-primary-500/20 rounded-lg flex items-center justify-center">
-                                        <Info size={14} className="text-primary-400" />
+                            <div className="relative space-y-4">
+                                <div className="flex items-center gap-2.5">
+                                    <div className="w-9 h-9 bg-primary-50 rounded-xl flex items-center justify-center border border-primary-100">
+                                        <Info size={16} className="text-primary-600" />
                                     </div>
-                                    <span className="text-[10px] font-black text-white uppercase tracking-widest">Thông tin nhanh</span>
+                                    <div>
+                                        <span className="text-[10px] font-black text-neutral-800 uppercase tracking-widest block leading-none mb-1">Thông tin nhanh</span>
+                                        <div className="flex items-center gap-1">
+                                            {[1, 2, 3, 4, 5].map((s) => (
+                                                <Star key={s} size={8} fill="currentColor" className="text-amber-500" />
+                                            ))}
+                                            <span className="text-[9px] text-neutral-500 font-bold ml-1">4.9</span>
+                                        </div>
+                                    </div>
                                 </div>
                                 
-                                <div className="space-y-2">
+                                <div className="space-y-2.5 bg-neutral-50 p-3 rounded-xl border border-neutral-100">
                                     <div className="flex items-center justify-between">
-                                        <span className="text-[10px] text-neutral-400 flex items-center gap-1.5"><ShieldCheck size={12} /> Chính hãng</span>
-                                        <span className="text-[10px] font-bold text-green-400">100%</span>
+                                        <span className="text-[10px] text-neutral-500 flex items-center gap-2 font-medium"><ShieldCheck size={14} className="text-primary-600" /> Cam kết</span>
+                                        <span className="text-[10px] font-bold text-emerald-600">Chính hãng</span>
                                     </div>
                                     <div className="flex items-center justify-between">
-                                        <span className="text-[10px] text-neutral-400 flex items-center gap-1.5"><Package size={12} /> Tồn kho</span>
-                                        <span className="text-[10px] font-bold text-white">
-                                            {product.inventoryItem?.availableQuantity || 'Sẵn hàng'}
+                                        <span className="text-[10px] text-neutral-500 flex items-center gap-2 font-medium"><Package size={14} className="text-amber-600" /> Trạng thái</span>
+                                        <span className={`text-[10px] font-bold ${isOutOfStock ? 'text-red-600' : 'text-neutral-900'}`}>
+                                            {isOutOfStock ? 'Hết hàng' : (product.inventoryItem?.availableQuantity ? `${product.inventoryItem.availableQuantity} ${product.unit || 'đv'}` : 'Sẵn hàng')}
                                         </span>
                                     </div>
                                     <div className="flex items-center justify-between">
-                                        <span className="text-[10px] text-neutral-400 flex items-center gap-1.5"><Truck size={12} /> Giao hàng</span>
-                                        <span className="text-[10px] font-bold text-blue-400">Toàn quốc</span>
+                                        <span className="text-[10px] text-neutral-500 flex items-center gap-2 font-medium"><Truck size={14} className="text-blue-600" /> Vận chuyển</span>
+                                        <span className="text-[10px] font-bold text-neutral-900">Toàn quốc</span>
                                     </div>
                                 </div>
 
-                                <div className="pt-2 border-t border-white/5 flex items-center justify-between">
-                                    <div className="flex items-center gap-1">
-                                        {[1, 2, 3, 4, 5].map((s) => (
-                                            <Star key={s} size={8} fill="currentColor" className="text-amber-400" />
-                                        ))}
-                                    </div>
-                                    <span className="text-[9px] text-neutral-400 font-bold">4.9 (120+)</span>
-                                </div>
+                                <p className="text-[9px] text-neutral-400 font-bold text-center uppercase tracking-tighter italic">
+                                    Nhấn để xem chi tiết thông số kỹ thuật
+                                </p>
                             </div>
                         </div>
                         {/* Tooltip Arrow */}
-                        <div className="absolute top-full left-1/2 -translate-x-1/2 w-3 h-3 bg-neutral-900/80 rotate-45 -mt-1.5 border-b border-r border-white/10" />
+                        <HoverCard.Arrow className="fill-white" width={16} height={8} />
                     </motion.div>
-                )}
-            </AnimatePresence>
-            {/* Top accent line on hover */}
-            <div className="absolute inset-x-0 top-0 h-0.5 bg-primary-600 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 z-10" />
-
-            {/* Image area */}
-            <div className="relative aspect-square overflow-hidden bg-neutral-50">
-                <Link href={`/products/${product.id}`} className="block w-full h-full">
-                    {product.images?.[0] ? (
-                        <Image
-                            src={product.images[0]}
-                            alt={product.name}
-                            fill
-                            className="object-contain p-8 group-hover:scale-105 transition-transform duration-500 ease-out"
-                        />
-                    ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                            <Package className="h-12 w-12 text-neutral-200" />
-                        </div>
-                    )}
-                </Link>
-
-                {/* Action Buttons (Wishlist & Comparison) */}
-                <div className="absolute top-3 right-3 z-20 flex flex-col gap-1.5 opacity-0 group-hover:opacity-100 translate-y-1 group-hover:translate-y-0 transition-all duration-200">
-                    <div className="bg-white rounded-full p-0.5 shadow-sm border border-neutral-100">
-                        <WishlistButton product={product as any} size="sm" />
-                    </div>
-                    <div className="bg-white rounded-full p-0.5 shadow-sm border border-neutral-100">
-                        <ComparisonButton product={product as any} size="sm" />
-                    </div>
-                </div>
-
-                {/* Badges */}
-                <div className="absolute top-3 left-3 z-20 flex flex-col items-start gap-1 pointer-events-none">
-                    {isLowStock && (
-                        <span className="bg-amber-500 text-white text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded flex items-center gap-1">
-                            <Zap size={8} /> Sắp hết
-                        </span>
-                    )}
-                    {isOutOfStock && (
-                        <span className="bg-neutral-500 text-white text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded">
-                            Hết hàng
-                        </span>
-                    )}
-                    {hasWholesale && !isOutOfStock && (
-                        <span className="bg-green-600 text-white text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded">
-                            Có giá sỉ
-                        </span>
-                    )}
-                    {product.isFeatured && (
-                        <span className="bg-primary-600 text-white text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded flex items-center gap-1">
-                            <Star size={8} fill="currentColor" /> Nổi bật
-                        </span>
-                    )}
-                </div>
-            </div>
-
-            {/* Content */}
-            <div className="p-5 flex-1 flex flex-col">
-                {/* Category chip */}
-                <span className="inline-block text-[10px] font-bold text-primary-600 uppercase tracking-wider bg-primary-50 px-2 py-0.5 rounded mb-3 self-start border border-primary-100">
-                    {product.category?.name || 'Vật liệu'}
-                </span>
-
-                <Link href={`/products/${product.id}`} className="flex-1">
-                    <h3 className="text-sm font-bold text-neutral-900 leading-snug line-clamp-2 min-h-[2.6rem] group-hover:text-primary-600 transition-colors mb-1">
-                        {product.name}
-                    </h3>
-                </Link>
-                <p className="text-[10px] font-medium text-neutral-300 uppercase tracking-wider mb-4">
-                    SKU: {product.sku || '---'}
-                </p>
-
-                {/* Price & Cart button */}
-                <div className="mt-auto flex items-end justify-between gap-2 pt-4 border-t border-neutral-50">
-                    <div>
-                        {hasWholesale && (
-                            <p className="text-[10px] font-bold text-green-600 flex items-center gap-1 mb-0.5">
-                                <TrendingDown size={10} /> Sỉ từ {formatNumber(product.wholesalePrice!)}đ
-                            </p>
-                        )}
-                        <div className="flex items-baseline gap-1">
-                            <span className="text-lg font-bold text-neutral-900 leading-none">
-                                {formatNumber(product.price)}
-                            </span>
-                            <span className="text-[10px] font-bold uppercase text-neutral-400 leading-none">VND</span>
-                        </div>
-                    </div>
-
-                    <button
-                        onClick={handleAddToCart}
-                        disabled={isOutOfStock}
-                        title={isOutOfStock ? 'Hết hàng' : 'Thêm vào giỏ'}
-                        className={`relative w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-200 border shrink-0 ${isOutOfStock
-                            ? 'bg-neutral-50 border-neutral-100 text-neutral-300 cursor-not-allowed'
-                            : 'bg-white border-neutral-200 text-neutral-600 hover:bg-primary-600 hover:border-primary-600 hover:text-white active:scale-90'
-                            }`}
-                    >
-                        <ShoppingCart size={16} />
-                    </button>
-                </div>
-            </div>
-        </div>
+                </HoverCard.Content>
+            </HoverCard.Portal>
+        </HoverCard.Root>
     )
 }

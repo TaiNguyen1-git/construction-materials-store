@@ -20,6 +20,16 @@ export default function FloatingWidgetsContainer() {
     const [showProactiveBubble, setShowProactiveBubble] = useState(false)
     const [proactiveMessage, setProactiveMessage] = useState('')
 
+    // Listen for close event from other widgets
+    useEffect(() => {
+        const handleCloseAll = () => {
+            setIsExpanded(false)
+            setActivePanel('none')
+        }
+        window.addEventListener('close-all-floating-widgets', handleCloseAll)
+        return () => window.removeEventListener('close-all-floating-widgets', handleCloseAll)
+    }, [])
+
     // Fetch admin status
     useEffect(() => {
         const checkStatus = async () => {
@@ -218,7 +228,13 @@ export default function FloatingWidgetsContainer() {
 
                         {/* Main Pulse FAB */}
                         <button
-                            onClick={() => setIsExpanded(!isExpanded)}
+                            onClick={() => {
+                                const nextState = !isExpanded
+                                if (nextState) {
+                                    window.dispatchEvent(new CustomEvent('close-all-floating-widgets'))
+                                }
+                                setIsExpanded(nextState)
+                            }}
                             onMouseEnter={() => setIsHovered(true)}
                             onMouseLeave={() => setIsHovered(false)}
                             className={`

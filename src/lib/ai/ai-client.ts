@@ -5,7 +5,10 @@ import { AI_CONFIG } from '../ai-config'
 
 // Initialize Gemini client (if API key is provided)
 export const geminiClient = AI_CONFIG.GEMINI.API_KEY
-    ? new GoogleGenAI({ apiKey: AI_CONFIG.GEMINI.API_KEY })
+    ? new GoogleGenAI({ 
+        apiKey: AI_CONFIG.GEMINI.API_KEY,
+        apiVersion: 'v1' // Force stable v1 to avoid 404 on embeddings
+    })
     : null
 
 // Function to find a working Gemini model name (cached)
@@ -17,6 +20,9 @@ export const FALLBACK_MODELS = [
     'gemini-2.0-flash',
     'gemini-2.0-flash-lite'
 ];
+
+export const DEFAULT_EMBEDDING_MODEL = 'text-embedding-004'
+const API_VERSION = 'v1'
 
 export const getWorkingModelConfig = async () => {
     if (!geminiClient) throw new Error('Gemini client not initialized');
@@ -65,15 +71,20 @@ export async function generateContentWithFallback(requestOptions: any) {
     throw lastError || new Error('All Gemini models failed');
 }
 
-/** Generate text embeddings using text-embedding-004 (High free quota) */
+/** Generate text embeddings using text-embedding-004 */
 export const getEmbedding = async (text: string) => {
     if (!geminiClient) throw new Error('Gemini client not initialized')
     try {
-        const result = await (geminiClient as any).models.embedContent({
-            model: 'text-embedding-004',
+        const result = await geminiClient.models.embedContent({
+            model: DEFAULT_EMBEDDING_MODEL,
             contents: [{ parts: [{ text }] }]
         })
-        return result.embedding.values as number[]
+        
+        if (!result.embeddings || result.embeddings.length === 0) {
+            return null
+        }
+        
+        return result.embeddings[0].values as number[]
     } catch (error) {
         console.error('[AIClient] getEmbedding error:', error)
         return null
@@ -144,7 +155,13 @@ export interface AIOrderRequest {
 /** Parse a JSON string returned by Gemini, handling markdown code blocks */
 export function parseGeminiJSON<T = Record<string, unknown>>(text: string, fallback: T): T {
     try {
-        const cleaned = text.replace(/```json\s*|\s*```/g, '').trim()
+        let cleaned = text
+        // Handle markdown code blocks explicitly
+        if (cleaned.includes('```json')) {
+            const match = cleaned.match(/```json\s*([\s\S]*?)\s*```/)
+            if (match && match[1]) cleaned = match[1]
+        }
+        cleaned = cleaned.replace(/```json\s*|\s*```/g, '').trim()
         return JSON.parse(cleaned) as T
     } catch {
         const match = text.match(/\{[\s\S]*\}/)

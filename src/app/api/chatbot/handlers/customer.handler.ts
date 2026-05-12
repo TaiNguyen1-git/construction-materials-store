@@ -14,13 +14,21 @@ import { generateChatbotFallbackResponse } from '@/app/api/chatbot/fallback-resp
 
 // ─── Product Search ────────────────────────────────────────────────────────────
 
-export async function handleProductSearch(message: string, sessionId: string) {
+export async function handleProductSearch(message: string, sessionId: string, entities?: any) {
     try {
         const cleanedMessage = message.replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '').trim()
-        const productKeywords = cleanedMessage.toLowerCase()
-            .replace(/tôi|muốn|tìm|kiếm|sản phẩm|phù hợp|cho|báo giá|giá|giúp|cần|mua|bán|có|không|đâu|nào/g, '')
-            .replace(/\s+/g, ' ')
-            .trim()
+        
+        // 1. Try to use extracted entities first for better precision
+        let productKeywords = ''
+        if (entities?.productName) {
+            productKeywords = entities.productName.toLowerCase()
+        } else {
+            // 2. Enhanced cleaning for natural language
+            productKeywords = cleanedMessage.toLowerCase()
+                .replace(/tôi|muốn|tìm|kiếm|sản phẩm|phù hợp|cho|báo giá|giá|giúp|cần|mua|bán|có|không|đâu|nào|shop|còn|gửi|link|xem|với|tại|ở|đây|cho|hỏi|về|loại|mẫu/g, '')
+                .replace(/\s+/g, ' ')
+                .trim()
+        }
 
         // Handle generic suggestion clicks like "Tìm sản phẩm phù hợp" or "Xem sản phẩm"
         if (!productKeywords || productKeywords.length < 2) {
@@ -61,16 +69,13 @@ export async function handleProductSearch(message: string, sessionId: string) {
             return NextResponse.json(createSuccessResponse({
                 message: `🔍 **Tìm thấy ${products.length} sản phẩm:**\n\n${productList}\n\n💡 Nhấn "Xem chi tiết" để xem thêm thông tin hoặc "Đặt hàng" để mua ngay!`,
                 suggestions: ['Xem chi tiết', 'Đặt hàng', 'So sánh giá'],
-                productRecommendations: products.map(p => ({ id: p.id, name: p.name, price: p.price, unit: p.unit, image: p.images[0] || '/placeholder.png', inStock: p.inventoryItem ? p.inventoryItem.availableQuantity > 0 : false })),
+                productRecommendations: products.map(p => ({ id: p.id, name: p.name, price: p.price, unit: p.unit, imageUrl: p.images[0] || '/placeholder.png', inStock: p.inventoryItem ? p.inventoryItem.availableQuantity > 0 : false })),
                 confidence: 0.90, sessionId, timestamp: new Date().toISOString()
             }))
         }
 
-        return NextResponse.json(createSuccessResponse({
-            message: `❌ Không tìm thấy sản phẩm **"${productKeywords}"**\n\n💡 **Gợi ý:**\n- Thử tìm với từ khóa khác (vd: "xi măng", "gạch ống")\n- Xem danh mục sản phẩm\n- Liên hệ tư vấn: 1900-xxxx`,
-            suggestions: ['Xem tất cả sản phẩm', 'Tư vấn', 'Tìm khác'],
-            confidence: 0.80, sessionId, timestamp: new Date().toISOString()
-        }))
+        // If no direct DB match, return null to let RAG/AI handle it naturally
+        return null 
     } catch (error) {
         console.error('Product search error:', error)
         return null // Fall through to RAG
@@ -159,16 +164,82 @@ export async function handleMaterialCalculation(
             }))
         }
 
-        return NextResponse.json(createSuccessResponse({
-            message: `🏗️ **Tính toán vật liệu xây dựng**\n\nVui lòng cho tôi biết thêm thông tin:\n- Diện tích cần xây: bao nhiêu m²?\n- Loại công trình: nhà, tường, sàn,...?\n- Số tầng (nếu có)\n\n📝 **Ví dụ:**\n- "Tính vật liệu cho nhà 100m² x 3 tầng"\n- "Tính xi măng cho sàn 50m²"\n- "Cần bao nhiêu gạch cho tường 30m²"`,
-            suggestions: ['Ví dụ', 'Tư vấn'],
-            confidence: 0.70, sessionId, timestamp: new Date().toISOString()
-        }))
-    } catch (error) {
-        console.error('Calculation error:', error)
-        return null
+            return NextResponse.json(createSuccessResponse({
+                message: `🏗️ **Tính toán vật liệu xây dựng**\n\nVui lòng cho tôi biết thêm thông tin:\n- Diện tích cần xây: bao nhiêu m²?\n- Loại công trình: nhà, tường, sàn,...?\n- Số tầng (nếu có)\n\n📝 **Ví dụ:**\n- "Tính vật liệu cho nhà 100m² x 3 tầng"\n- "Tính xi măng cho sàn 50m²"\n- "Cần bao nhiêu gạch cho tường 30m²"`,
+                suggestions: ['Ví dụ', 'Tư vấn'],
+                confidence: 0.70, sessionId, timestamp: new Date().toISOString()
+            }))
+        } catch (error) {
+            console.error('Calculation error:', error)
+            return null
+        }
     }
-}
+    
+    // ─── Contractor Query ──────────────────────────────────────────────────────────
+    
+    export async function handleContractorQuery(
+        message: string,
+        sessionId: string
+    ) {
+        const lower = message.toLowerCase()
+        let city = 'Đà Nẵng' // Default for this context
+        
+        if (lower.includes('hồ chí minh') || lower.includes('hcm') || lower.includes('sài gòn')) city = 'Hồ Chí Minh'
+        if (lower.includes('hà nội')) city = 'Hà Nội'
+        if (lower.includes('biên hòa')) city = 'Biên Hòa'
+        if (lower.includes('bình dương')) city = 'Bình Dương'
+
+        try {
+            // Fetch real contractors in the area
+            const contractors = await prisma.contractorProfile.findMany({
+                where: { 
+                    city: { contains: city, mode: 'insensitive' },
+                    isAvailable: true 
+                },
+                take: 3,
+                orderBy: { avgRating: 'desc' }
+            })
+
+            let response = `🏗️ **Kết nối Nhà thầu & Dịch vụ thi công tại ${city}**\n\n`
+            response += `Chào bạn! SmartBuild có mạng lưới đối tác **nhà thầu, đội thi công uy tín tại ${city}** đã được xác minh năng lực.\n\n`
+
+            if (contractors.length > 0) {
+                response += `🏠 **NHÀ THẦU TIÊU BIỂU TẠI KHU VỰC:**\n`
+                contractors.forEach((c, idx) => {
+                    const stars = '⭐'.repeat(Math.round(c.avgRating || 5))
+                    const exp = c.experienceYears ? ` (${c.experienceYears} năm kinh nghiệm)` : ''
+                    const skills = c.skills && c.skills.length > 0 ? `\n   📍 Chuyên môn: ${c.skills.slice(0, 3).join(', ')}` : ''
+                    response += `${idx + 1}. **${c.displayName}** ${stars}${exp}${skills}\n   🔗 [Xem hồ sơ & đánh giá →](/contractors/${c.id})\n\n`
+                })
+            }
+
+            response += `Chúng tôi có thể giúp bạn kết nối thêm với:\n`
+            response += `- 🏠 **Nhà thầu xây thô & Hoàn thiện**: Chuyên biệt thự, nhà phố.\n`
+            response += `- 🧱 **Đội thợ xây trát, ốp lát**: Tay nghề cao, báo giá theo m².\n`
+            response += `- 🎨 **Đội thi công sơn nước, thạch cao**: Chuyên nghiệp, nhanh chóng.\n`
+            response += `- ⚡ **Đội điện nước, chống thấm**: Xử lý triệt để các vấn đề kỹ thuật.\n\n`
+            
+            response += `💡 **Lợi ích khi chọn nhà thầu qua SmartBuild:**\n`
+            response += `- Được kiểm chứng năng lực qua các công trình thực tế.\n`
+            response += `- Đảm bảo nguồn vật tư chất lượng, giá gốc từ kho.\n`
+            response += `- Hỗ trợ giám sát kỹ thuật và tiến độ thi công.\n\n`
+            
+            response += `Bạn đang cần tìm thợ cho hạng mục nào ạ? Hãy để lại thông tin hoặc nhấn "Liên hệ nhân viên" để mình kết nối bạn với chuyên viên tư vấn trực tiếp nhé!`
+
+            return NextResponse.json(createSuccessResponse({
+                message: response,
+                suggestions: [`Tìm thêm thợ tại ${city}`, 'Báo giá thi công', 'Liên hệ nhân viên'],
+                confidence: 1.0, sessionId, timestamp: new Date().toISOString()
+            }))
+        } catch (error) {
+            console.error('Contractor query error:', error)
+            return NextResponse.json(createSuccessResponse({
+                message: `🏗️ **Kết nối Nhà thầu tại ${city}**\n\nHiện tại hệ thống đang kết nối với các đối tác tại khu vực này. Bạn vui lòng để lại số điện thoại hoặc nhu cầu cụ thể (xây mới, sửa chữa...), nhân viên điều phối của SmartBuild sẽ gọi lại tư vấn và giới thiệu nhà thầu phù hợp nhất cho bạn trong vòng 2h làm việc nhé!`,
+                suggestions: ['Để lại thông tin', 'Báo giá thi công', 'Liên hệ nhân viên'],
+                confidence: 1.0, sessionId, timestamp: new Date().toISOString()
+            }))
+        }
+    }
 
 // ─── Rule-Based Comparison (with RAG enrichment) ───────────────────────────────
 

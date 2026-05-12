@@ -38,6 +38,12 @@ export interface ExtractedEntities {
   // Numeric entities
   amount?: number
   percentage?: number
+
+  // Construction Context (NEW)
+  constructionType?: 'townhouse' | 'single_story' | 'villa' | 'renovation' | 'other'
+  constructionPart?: 'foundation' | 'wall' | 'floor' | 'roof' | 'column' | 'beam'
+  floors?: number
+  area?: number
 }
 
 // Helper to strip icons for better matching
@@ -171,6 +177,46 @@ export function extractEntities(message: string, intent?: string): ExtractedEnti
     entities.entityType = 'invoice'
   } else if (lower.includes('khách hàng') || lower.includes('customer')) {
     entities.entityType = 'customer'
+  }
+
+  // --- Construction Context Extraction (NEW) ---
+  
+  // House Types
+  if (lower.includes('nhà phố') || lower.includes('townhouse')) {
+    entities.constructionType = 'townhouse'
+  } else if (lower.includes('cấp 4') || lower.includes('nhà cấp 4')) {
+    entities.constructionType = 'single_story'
+  } else if (lower.includes('biệt thự') || lower.includes('villa')) {
+    entities.constructionType = 'villa'
+  } else if (lower.includes('cải tạo') || lower.includes('sửa chữa') || lower.includes('renovate')) {
+    entities.constructionType = 'renovation'
+  }
+
+  // Construction Parts
+  if (lower.includes('móng') || lower.includes('foundation')) {
+    entities.constructionPart = 'foundation'
+  } else if (lower.includes('tường') || lower.includes('vách') || lower.includes('wall')) {
+    entities.constructionPart = 'wall'
+  } else if (lower.includes('sàn') || lower.includes('floor')) {
+    entities.constructionPart = 'floor'
+  } else if (lower.includes('mái') || lower.includes('lợp') || lower.includes('roof')) {
+    entities.constructionPart = 'roof'
+  } else if (lower.includes('cột') || lower.includes('column')) {
+    entities.constructionPart = 'column'
+  } else if (lower.includes('dầm') || lower.includes('đà') || lower.includes('beam')) {
+    entities.constructionPart = 'beam'
+  }
+
+  // Floor count
+  const floorMatch = lower.match(/(\d+)\s*tầng/)
+  if (floorMatch) {
+    entities.floors = parseInt(floorMatch[1])
+  }
+
+  // Area (m2)
+  const areaMatch = lower.match(/(\d+(?:\.\d+)?)\s*(?:m2|m²|mét vuông|met vuong)/)
+  if (areaMatch) {
+    entities.area = parseFloat(areaMatch[1])
   }
 
   return entities

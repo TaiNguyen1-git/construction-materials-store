@@ -20,6 +20,7 @@ export default function SmartNudge({ pageType, contextData }: SmartNudgeProps) {
     const [nudgeAction, setNudgeAction] = useState<{ label: string; href: string } | null>(null)
     const dwellTimeRef = useRef(0)
     const scrollDepthRef = useRef(0)
+    const chatbotIsOpenRef = useRef(false)
     const timerRef = useRef<NodeJS.Timeout | null>(null)
 
     useEffect(() => {
@@ -30,12 +31,24 @@ export default function SmartNudge({ pageType, contextData }: SmartNudgeProps) {
             return
         }
 
+        // Listen for chatbot state to avoid overlap
+        const handleChatbotChange = (e: any) => {
+            const isOpen = !!e.detail?.isOpen
+            chatbotIsOpenRef.current = isOpen
+            if (isOpen) {
+                setIsVisible(false)
+            }
+        }
+        window.addEventListener('chatbot-state-change', handleChatbotChange)
+
         // Track time spent on page
         timerRef.current = setInterval(() => {
             dwellTimeRef.current += 1
 
             // Trigger nudge after 45 seconds of browsing
             if (dwellTimeRef.current >= 45 && !isDismissed && !isVisible) {
+                // Double check chatbot state before showing
+                const chatIsOpen = (window as any).__CHATBOT_IS_OPEN__; // We can use a global flag too
                 triggerNudge()
             }
         }, 1000)
@@ -57,10 +70,14 @@ export default function SmartNudge({ pageType, contextData }: SmartNudgeProps) {
         return () => {
             if (timerRef.current) clearInterval(timerRef.current)
             window.removeEventListener('scroll', handleScroll)
+            window.removeEventListener('chatbot-state-change', handleChatbotChange)
         }
     }, [isDismissed, isVisible])
 
     const triggerNudge = () => {
+        // Don't trigger if chatbot is open
+        if (chatbotIsOpenRef.current) return
+
         // Generate contextual message based on page type
         switch (pageType) {
             case 'contractors':
@@ -103,7 +120,7 @@ export default function SmartNudge({ pageType, contextData }: SmartNudgeProps) {
     if (!isVisible || isDismissed) return null
 
     return (
-        <div className="fixed bottom-32 right-6 z-[60] max-w-sm animate-in slide-in-from-bottom-4 duration-500 pointer-events-none">
+        <div className="fixed bottom-32 right-6 z-[100] max-w-sm animate-in slide-in-from-bottom-4 duration-500 pointer-events-none">
             <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden pointer-events-auto">
                 {/* Header */}
                 <div className="bg-gradient-to-r from-indigo-600 to-purple-600 px-4 py-3 flex items-center justify-between">

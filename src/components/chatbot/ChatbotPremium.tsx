@@ -31,6 +31,13 @@ export default function ChatbotPremium({ isOpen: propIsOpen, onClose }: { isOpen
 
     // UI State
     const [isOpen, setIsOpen] = useState(propIsOpen || false)
+    
+    // Notify other components about chatbot state
+    useEffect(() => {
+        const event = new CustomEvent('chatbot-state-change', { detail: { isOpen } });
+        window.dispatchEvent(event);
+    }, [isOpen]);
+
     const [isExpanded, setIsExpanded] = useState(false)
     const [chatMode, setChatMode] = useState<ChatMode>('AI')
     const [isLoading, setIsLoading] = useState(false)
@@ -86,18 +93,30 @@ export default function ChatbotPremium({ isOpen: propIsOpen, onClose }: { isOpen
 
     const { addItem } = useCartStore()
     const handleAddToCart = useCallback((product: import('./types').ProductRecommendation) => {
-        if (!product.id) return
-        addItem({
-            productId: product.id,
-            id: product.id,
-            name: product.name,
-            price: product.price || 0,
-            image: product.imageUrl || '',
-            quantity: 1,
-            unit: product.unit || 'cái',
-            sku: product.sku || 'N/A'
-        })
-        toast.success(`Đã thêm ${product.name} vào giỏ hàng`)
+        console.log('[Chatbot] Adding to cart:', product)
+        
+        if (!product.id) {
+            console.warn('[Chatbot] Missing product ID for:', product.name)
+            toast.error('Sản phẩm này hiện đang được cập nhật, vui lòng liên hệ nhân viên.')
+            return
+        }
+
+        try {
+            addItem({
+                productId: product.id,
+                id: product.id,
+                name: product.name,
+                price: product.price || 0,
+                image: product.imageUrl || (product as any).image || '/placeholder.png',
+                quantity: 1,
+                unit: product.unit || 'cái',
+                sku: product.sku || 'N/A'
+            })
+            toast.success(`Đã thêm ${product.name} vào giỏ hàng`)
+        } catch (err) {
+            console.error('[Chatbot] Cart error:', err)
+            toast.error('Không thể thêm vào giỏ hàng. Vui lòng thử lại.')
+        }
     }, [addItem])
 
     // Hybrid Manager

@@ -11,10 +11,13 @@ export type UserIntent =
   // ===== CUSTOMER INTENTS =====
   // Chỉ dành cho khách hàng thông thường
   | 'ORDER_CREATE'           // Muốn đặt hàng (customer tạo đơn mới)
-  | 'ORDER_QUERY'            // Hỏi về đơn hàng của chính họ (tracking)
+  | 'ORDER_QUERY'            // Hỏi về đơn hàng (tracking)
+  | 'ORDER_MANAGE'           // Thay đổi/Hủy đơn hàng
+  | 'PAYMENT_INQUIRY'        // Hỏi về thanh toán, phương thức trả tiền
   | 'PRODUCT_SEARCH'         // Tìm sản phẩm để mua
   | 'PRICE_INQUIRY'          // Hỏi giá sản phẩm
   | 'MATERIAL_CALCULATE'     // Tính toán vật liệu cần thiết
+  | 'CONTRACTOR_QUERY'       // Hỏi về nhà thầu, thợ xây
   | 'GENERAL_INQUIRY'        // Hỏi chung chung về sản phẩm/dịch vụ
 
   // ===== ADMIN INTENTS =====
@@ -265,19 +268,30 @@ export function detectIntent(
 
   // ===== CUSTOMER INTENTS =====
 
-  // Comparison/Advisory (check early to avoid false PRODUCT_SEARCH)
+  // Comparison/Advisory (check early to avoid false PRODUCT_SEARCH/CALCULATION)
   if (
-    (lower.includes('hay') && (lower.includes('tốt hơn') || lower.includes('better'))) ||
+    (lower.includes('hay') && (lower.includes('tốt hơn') || lower.includes('better') || lower.includes('phù hợp hơn'))) ||
     lower.includes('so sánh') ||
     lower.includes('compare') ||
     lower.includes('khác nhau') ||
+    lower.includes('khác gì') ||
     lower.includes('difference') ||
     lower.includes('nên dùng') ||
-    lower.includes('nên chọn')
+    lower.includes('nên chọn') ||
+    lower.includes('loại nào') ||
+    lower.includes('loại gì') ||
+    lower.includes('gạch gì') ||
+    lower.includes('thép gì') ||
+    lower.includes('xi măng gì') ||
+    lower.includes('cách âm') ||
+    lower.includes('cách nhiệt') ||
+    lower.includes('chống thấm') ||
+    lower.includes('tốt hơn') ||
+    lower.includes('phù hợp hơn')
   ) {
     return {
       intent: 'GENERAL_INQUIRY',
-      confidence: 0.85
+      confidence: 0.95
     }
   }
 
@@ -295,6 +309,22 @@ export function detectIntent(
     return {
       intent: 'PRICE_INQUIRY',
       confidence: 0.85
+    }
+  }
+
+  // Contractor query (check BEFORE material calculation to avoid false positives)
+  if (
+    lower.includes('nhà thầu') || 
+    lower.includes('thợ xây') || 
+    lower.includes('thợ hồ') ||
+    lower.includes('đội thi công') ||
+    lower.includes('contractor') ||
+    (lower.includes('tìm') && (lower.includes('thợ') || lower.includes('thầu'))) ||
+    (lower.includes('kết nối') && (lower.includes('thợ') || lower.includes('thầu')))
+  ) {
+    return {
+      intent: 'CONTRACTOR_QUERY',
+      confidence: 0.95
     }
   }
 
@@ -317,6 +347,11 @@ export function detectIntent(
     }
   }
 
+  // Payment Inquiry
+  if (lower.includes('thanh toán') || lower.includes('trả tiền') || lower.includes('chuyển khoản') || lower.includes('tiền mặt') || lower.includes('payment')) {
+    return { intent: 'PAYMENT_INQUIRY', confidence: 0.92 }
+  }
+
   // Order query (Customer-specific: tracking their own orders)
   if (
     ((lower.includes('đơn hàng') || lower.includes('order')) &&
@@ -329,10 +364,19 @@ export function detectIntent(
     // Customer asking about order status
     (lower.includes('đơn') && (lower.includes('của tôi') || lower.includes('đến đâu') || lower.includes('status')))
   ) {
+    // Sub-intent: Change/Cancel
+    if (lower.includes('thay đổi') || lower.includes('hủy') || lower.includes('sửa') || lower.includes('cập nhật')) {
+        return { intent: 'ORDER_MANAGE', confidence: 0.95 }
+    }
     return {
       intent: 'ORDER_QUERY',
       confidence: 0.88
     }
+  }
+
+  // Explicit Order Management match (if order query didn't catch it)
+  if ((lower.includes('thay đổi') || lower.includes('hủy') || lower.includes('sửa')) && lower.includes('đơn hàng')) {
+    return { intent: 'ORDER_MANAGE', confidence: 0.95 }
   }
 
   // Order creation - Enhanced detection
@@ -462,9 +506,12 @@ export function getSuggestedActions(intent: UserIntent): string[] {
   const suggestions: Record<UserIntent, string[]> = {
     'ORDER_CREATE': ['Xác nhận đặt hàng', 'Chỉnh sửa', 'Hủy'],
     'ORDER_QUERY': ['Xem chi tiết', 'Theo dõi vận chuyển', 'Liên hệ hỗ trợ'],
+    'ORDER_MANAGE': ['Thay đổi đơn hàng', 'Hủy đơn hàng', 'Liên hệ hỗ trợ'],
+    'PAYMENT_INQUIRY': ['Số tài khoản', 'Hướng dẫn thanh toán', 'Hỏi phí vận chuyển'],
     'PRODUCT_SEARCH': ['Xem sản phẩm', 'So sánh giá', 'Thêm vào giỏ'],
     'PRICE_INQUIRY': ['Báo giá chi tiết', 'Giảm giá số lượng lớn', 'So sánh sản phẩm'],
     'MATERIAL_CALCULATE': ['Xem danh sách', 'Đặt hàng', 'Điều chỉnh tính toán'],
+    'CONTRACTOR_QUERY': ['Tìm nhà thầu Đà Nẵng', 'Báo giá thi công', 'Tư vấn kỹ thuật'],
     'GENERAL_INQUIRY': ['Tìm sản phẩm', 'Tính vật liệu', 'Liên hệ'],
 
     'ADMIN_ANALYTICS': ['Chi tiết hơn', 'Xuất báo cáo', 'So sánh kỳ trước'],

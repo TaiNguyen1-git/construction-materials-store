@@ -167,6 +167,7 @@ export interface QuickCalculationResult {
   totalEstimatedCost: number
   summary: string
   tips: string[]
+  isComboRequested?: boolean
 }
 
 export class MaterialCalculatorService {
@@ -626,11 +627,16 @@ export class MaterialCalculatorService {
     // Add note about price source
     tips.unshift(`💰 Giá được cập nhật từ hệ thống cửa hàng`)
 
+    // Check if combo requested in customQuery
+    const queryToAnalyze = input.customQuery?.toLowerCase() || ''
+    const isComboRequested = queryToAnalyze.includes('combo') || queryToAnalyze.includes('ưu đãi') || queryToAnalyze.includes('uu dai') || queryToAnalyze.includes('trọn gói')
+
     return {
       materials,
       totalEstimatedCost: newTotalCost,
       summary: updatedSummary,
-      tips
+      tips,
+      isComboRequested
     }
   }
 
@@ -797,6 +803,34 @@ export class MaterialCalculatorService {
     const contingency10 = Math.round(result.totalEstimatedCost * 0.1)
     const contingency15 = Math.round(result.totalEstimatedCost * 0.15)
     response += `🔸 Dự phòng (10-15%): ${this.formatCurrency(contingency10)} - ${this.formatCurrency(contingency15)}\n\n`
+
+    // Combo / Promotional Section
+    if (result.totalEstimatedCost > 50000000 || result.isComboRequested) {
+        response += `━━━━━━━━━━━━━━━━━━━━━━\n`
+        response += `🎁 **COMBO ƯU ĐÃI ĐẶC BIỆT**\n`
+        response += `━━━━━━━━━━━━━━━━━━━━━━\n\n`
+        
+        if (result.totalEstimatedCost > 200000000) {
+            response += `🏆 **GÓI PLATINUM (Cho đơn hàng lớn)**\n`
+            response += `✅ **Chiết khấu trực tiếp 5%** trên tổng hóa đơn.\n`
+            response += `✅ Miễn phí vận chuyển trong bán kính 30km.\n`
+            response += `✅ Tặng kèm 20 bao xi măng PC40 cao cấp.\n`
+            response += `✅ Ưu tiên giao hàng trong vòng 24h.\n\n`
+        } else if (result.totalEstimatedCost > 100000000) {
+            response += `🥇 **GÓI GOLD (Xây thô trọn gói)**\n`
+            response += `✅ **Chiết khấu trực tiếp 3%** tổng đơn hàng.\n`
+            response += `✅ Miễn phí vận chuyển trong bán kính 15km.\n`
+            response += `✅ Tặng kèm bộ dụng cụ xây dựng (bay, bàn xoa, dây nhợ).\n`
+            response += `✅ Hỗ trợ đổi trả vật liệu thừa lên đến 5%.\n\n`
+        } else {
+            response += `✨ **GÓI KHỞI TẠO**\n`
+            response += `✅ Giảm ngay 1.000.000đ cho đơn hàng đầu tiên.\n`
+            response += `✅ Miễn phí vận chuyển đơn hàng trên 50 triệu.\n`
+            response += `✅ Tư vấn kỹ thuật tại công trình miễn phí.\n\n`
+        }
+        
+        response += `💡 *Lưu ý: Ưu đãi áp dụng khi mua trọn gói các danh mục vật liệu trên.*\n\n`
+    }
 
     // Tips section
     response += `━━━━━━━━━━━━━━━━━━━━━━\n`

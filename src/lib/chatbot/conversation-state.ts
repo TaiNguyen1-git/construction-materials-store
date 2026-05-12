@@ -1,5 +1,5 @@
 import { redis, isRedisConfigured } from '../redis'
-import { AIService } from '@/lib/ai-service'
+import { parseGuestInfoWithAI } from '@/lib/ai/ai-order.service'
 
 // In-memory conversation state storage (Fallback)
 const conversationCache = new Map<string, ConversationState>()
@@ -472,7 +472,7 @@ async function processOrderCreationResponse(
 
     case 'guest_info':
       // Parse guest info from message - Using AI for better accuracy
-      let guestInfo = await AIService.parseGuestInfoWithAI(userMessage)
+      let guestInfo = await parseGuestInfoWithAI(userMessage)
 
       // Fallback to manual parsing if AI returns nothing useful
       if (!guestInfo.name || !guestInfo.phone || !guestInfo.address) {

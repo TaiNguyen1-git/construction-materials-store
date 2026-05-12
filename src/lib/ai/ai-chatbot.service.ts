@@ -3,6 +3,7 @@
 import { getWorkingModelConfig, generateContentWithFallback, GeminiResponse, ChatbotResponse, parseGeminiJSON, extractTextFromSDKResult } from './ai-client'
 import { CHATBOT_SYSTEM_PROMPT } from '../ai-config'
 import { ADMIN_SYSTEM_PROMPT } from '../ai-prompts-admin'
+import { prisma } from '../prisma'
 
 // Basic normalization: lowercase, remove diacritics, keep letters/numbers
 function normalizeText(text: string): string {
@@ -145,14 +146,74 @@ export async function generateChatbotResponse(
         const responseText = extractTextFromSDKResult(result)
         const parsed = parseGeminiJSON<Partial<ChatbotResponse>>(responseText, {})
 
+        // --- HYDRATION: Match AI suggestions with real DB products ---
+        let productRecommendations = parsed.productRecommendations || []
+        if (productRecommendations.length > 0) {
+            try {
+                const hydratedProducts = await Promise.all(
+                    productRecommendations.slice(0, 4).map(async (p: any) => {
+                        // 1. Try exact match first
+                        let realProduct = await prisma.product.findFirst({
+                            where: { 
+                                name: { equals: p.name, mode: 'insensitive' },
+                                isActive: true 
+                            }
+                        })
+
+                        // 2. Try contains if exact fails
+                        if (!realProduct) {
+                            realProduct = await prisma.product.findFirst({
+                                where: { 
+                                    name: { contains: p.name || '', mode: 'insensitive' },
+                                    isActive: true 
+                                }
+                            })
+                        }
+
+                        // 3. Try splitting keywords if still fails (e.g., "Xi măng INSEE" -> "Xi" and "măng" and "INSEE")
+                        if (!realProduct && p.name) {
+                            const keywords = p.name.split(' ').filter((k: string) => k.length > 2)
+                            if (keywords.length > 0) {
+                                realProduct = await prisma.product.findFirst({
+                                    where: {
+                                        AND: keywords.map((k: string) => ({
+                                            name: { contains: k, mode: 'insensitive' }
+                                        })),
+                                        isActive: true
+                                    }
+                                })
+                            }
+                        }
+                        
+                        if (realProduct) {
+                            return {
+                                id: realProduct.id,
+                                name: realProduct.name,
+                                price: Number(realProduct.price),
+                                unit: realProduct.unit,
+                                imageUrl: realProduct.images[0] || '/placeholder.png',
+                                sku: realProduct.sku || 'N/A'
+                            }
+                        }
+                        return p // Fallback
+                    })
+                )
+                productRecommendations = hydratedProducts
+            } catch (err) {
+                console.error('[ChatbotService] Hydration error:', err)
+            }
+        }
+
         return {
             response: parsed.response || responseText || 'Xin lỗi, mình không thể xử lý yêu cầu này lúc này.',
             suggestions: parsed.suggestions || ['Hỏi thêm', 'Xem sản phẩm', 'Liên hệ hỗ trợ'],
-            productRecommendations: parsed.productRecommendations || [],
+            productRecommendations,
             confidence: parsed.confidence || 0.8
         }
-    } catch (error) {
-        console.error('[ChatbotService] generateChatbotResponse error:', error)
+    } catch (error: any) {
+        console.error('[ChatbotService] generateChatbotResponse CRITICAL ERROR:', error)
+        if (error.stack) console.error(error.stack)
+        
         return {
             response: 'Xin lỗi, hệ thống đang bận. Vui lòng thử lại sau hoặc liên hệ hotline 1900-xxxx.',
             suggestions: ['Thử lại', 'Liên hệ hỗ trợ'],

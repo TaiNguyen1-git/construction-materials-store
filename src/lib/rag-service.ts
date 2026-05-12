@@ -139,7 +139,7 @@ class GeminiVectorStore {
 
   constructor() {
     if (gemini) {
-      this.model = gemini.getGenerativeModel({ model: "text-embedding-004" })
+      this.model = gemini.getGenerativeModel({ model: "text-embedding-004" }, { apiVersion: 'v1' })
     }
   }
 
@@ -232,6 +232,8 @@ class GeminiVectorStore {
       return []
     }
   }
+
+
 
   private cosineSimilarity(a: number[], b: number[]): number {
     const dotProduct = a.reduce((sum, val, i) => sum + val * b[i], 0)
@@ -338,6 +340,9 @@ async function initializeVectorStore() {
     return
   }
 
+  // FORCE RE-INIT for Knowledge Base changes (one-time fix)
+  console.log('[RAG] Forcing refresh for Knowledge Base synchronization...')
+
   isInitializing = true
   vectorStore.clear()
 
@@ -439,8 +444,9 @@ export class RAGService {
 
   // Generate augmented prompt with retrieved context
   static async generateAugmentedPrompt(userQuery: string, conversationHistory?: unknown[]): Promise<string> {
-    // Expand short use-case queries to include product category
-    let expandedQuery = userQuery
+    try {
+      // Expand short use-case queries to include product category
+      let expandedQuery = userQuery
     const normalizedQuery = normalizeVietnamese(userQuery.toLowerCase())
 
     // Check if query is a use-case without product mention
@@ -659,19 +665,98 @@ Trả lời: "Chào bạn! Để trát tường, bạn nên dùng xi măng PC30:
 2. **Xi măng INSEE PC30** - 120.000đ/bao - Chất lượng cao hơn một chút
 
 💡 Để trát tường, bạn cũng cần cát mịn. Bạn có muốn tư vấn thêm về cát không ạ?"
-    `
+      `
+    } catch (err) {
+      console.error('[RAGService] generateAugmentedPrompt CRITICAL ERROR:', err)
+      return userQuery
+    }
   }
 
   // Get product recommendations based on query with related items
   static async getProductRecommendations(query: string, limit: number = 5): Promise<ProductKnowledge[]> {
     await initializeVectorStore()
 
-    // 1. Find primary products (increased from 2 to 4 to show more options)
-    const primaryProducts = await this.retrieveContext(query, 4)
+    // 1. Find primary products
+    let primaryProducts = await RAGService.retrieveContext(query, 6) // Fetch more to allow filtering
     if (primaryProducts.length === 0) return []
 
-    const recommendations: ProductKnowledge[] = [...primaryProducts]
-    const seenIds = new Set(primaryProducts.map(p => p.id))
+    // --- Strict Category Filtering (NEW) ---
+    const lowerQuery = query.toLowerCase()
+    let categoryFilter: string | null = null
+    if (lowerQuery.includes('gạch') || lowerQuery.includes('brick')) categoryFilter = 'gạch'
+    else if (lowerQuery.includes('xi măng') || lowerQuery.includes('cement')) categoryFilter = 'xi măng'
+    else if (lowerQuery.includes('thép') || lowerQuery.includes('sắt') || lowerQuery.includes('steel')) categoryFilter = 'thép'
+    else if (lowerQuery.includes('cát') || lowerQuery.includes('sand')) categoryFilter = 'cát'
+    else if (lowerQuery.includes('đá') || lowerQuery.includes('stone')) categoryFilter = 'đá'
+    else if (lowerQuery.includes('sơn') || lowerQuery.includes('paint')) categoryFilter = 'sơn'
+
+    if (categoryFilter) {
+      const filtered = primaryProducts.filter((p: ProductKnowledge) => 
+        p.category.toLowerCase().includes(categoryFilter!) || 
+        p.name.toLowerCase().includes(categoryFilter!)
+      )
+      if (filtered.length > 0) primaryProducts = filtered
+    }
+
+    // --- DB ID Mapping (NEW) ---
+    // For each recommendation, try to find a matching product in the actual DB
+    // to get the real UUID for cart functionality.
+    const mappedRecommendations: ProductKnowledge[] = []
+    for (const p of primaryProducts.slice(0, limit)) {
+      try {
+        // 1. Try exact/contains match first
+        if (!p.name) continue; // Skip if AI returned empty name
+
+        let dbProduct = await prisma.product.findFirst({
+          where: {
+            name: { contains: p.name, mode: 'insensitive' },
+            isActive: true
+          },
+          select: { id: true, images: true, sku: true }
+        })
+
+        // 2. If not found, split name into keywords for more flexible matching
+        if (!dbProduct) {
+          const keywords = p.name.split(' ').filter(k => k.length > 1).slice(0, 3)
+          if (keywords.length > 0) {
+            dbProduct = await prisma.product.findFirst({
+              where: {
+                AND: keywords.map(k => ({
+                  name: { contains: k, mode: 'insensitive' }
+                })),
+                isActive: true
+              },
+              select: { id: true, images: true, sku: true }
+            })
+          }
+        }
+
+        // 3. Last resort: Try matching by SKU if the ID in knowledge base looks like a SKU
+        if (!dbProduct && p.sku) {
+           dbProduct = await prisma.product.findFirst({
+             where: { sku: p.sku, isActive: true },
+             select: { id: true, images: true, sku: true }
+           })
+        }
+
+        if (dbProduct) {
+          // If found in DB, we use the real DB ID!
+          mappedRecommendations.push({
+            ...p,
+            id: String(dbProduct.id), // Ensure it's a string for frontend
+            imageUrl: dbProduct.images?.[0] || undefined,
+            sku: dbProduct.sku || p.id
+          })
+        } else {
+          mappedRecommendations.push(p)
+        }
+      } catch (err) {
+        mappedRecommendations.push(p)
+      }
+    }
+
+    const recommendations: ProductKnowledge[] = mappedRecommendations
+    const seenIds = new Set(recommendations.map((p: ProductKnowledge) => p.id))
 
     // 2. Find related products based on common combinations of the top result
     const topProduct = primaryProducts[0]
