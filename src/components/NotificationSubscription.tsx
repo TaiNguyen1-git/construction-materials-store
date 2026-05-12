@@ -11,17 +11,14 @@ const NotificationSubscription: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false)
   const [isSubscribed, setIsSubscribed] = useState(false)
   const [permission, setPermission] = useState<NotificationPermission>('default')
+  const [showGuide, setShowGuide] = useState(false)
 
-  // Don't show on auth, admin or supplier pages
-  if (
-    pathname?.startsWith('/admin') || 
-    pathname?.startsWith('/supplier') || 
+  const shouldHide =
+    pathname?.startsWith('/admin') ||
+    pathname?.startsWith('/supplier') ||
     pathname?.startsWith('/employee') ||
     pathname?.startsWith('/login') ||
     pathname?.startsWith('/register')
-  ) {
-    return null
-  }
 
   useEffect(() => {
     if (typeof window !== 'undefined' && 'Notification' in window) {
@@ -45,8 +42,6 @@ const NotificationSubscription: React.FC = () => {
     }
     setIsOpen(nextState)
   }
-
-  const [showGuide, setShowGuide] = useState(false)
 
   const handleSubscribe = async () => {
     if (!('Notification' in window)) {
@@ -74,6 +69,9 @@ const NotificationSubscription: React.FC = () => {
     if (permission === 'denied') return 'Bị chặn bởi trình duyệt'
     return 'Đăng ký ngay'
   }
+
+  // Don't show on auth, admin or supplier pages — AFTER all hooks
+  if (shouldHide) return null
 
   return (
     <div className="fixed bottom-8 left-8 z-[60]">

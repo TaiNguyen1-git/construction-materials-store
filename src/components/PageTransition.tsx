@@ -1,30 +1,28 @@
 'use client'
 
-import { motion, AnimatePresence } from 'framer-motion'
 import { usePathname } from 'next/navigation'
-
-const variants = {
-    hidden: { opacity: 0, x: 0, y: 20 },
-    enter: { opacity: 1, x: 0, y: 0 },
-    exit: { opacity: 0, x: 0, y: -20 },
-}
+import { useEffect, useRef } from 'react'
 
 export default function PageTransition({ children }: { children: React.ReactNode }) {
     const pathname = usePathname()
+    const ref = useRef<HTMLDivElement>(null)
+
+    useEffect(() => {
+        const el = ref.current
+        if (!el) return
+        el.style.opacity = '0'
+        el.style.transform = 'translateY(12px)'
+        const frame = requestAnimationFrame(() => {
+            el.style.transition = 'opacity 0.25s ease, transform 0.25s ease'
+            el.style.opacity = '1'
+            el.style.transform = 'translateY(0)'
+        })
+        return () => cancelAnimationFrame(frame)
+    }, [pathname])
 
     return (
-        <AnimatePresence mode="sync">
-            <motion.div
-                key={pathname}
-                initial="hidden"
-                animate="enter"
-                exit="exit"
-                variants={variants}
-                transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-                className="w-full"
-            >
-                {children}
-            </motion.div>
-        </AnimatePresence>
+        <div ref={ref} className="w-full">
+            {children}
+        </div>
     )
 }
