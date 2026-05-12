@@ -72,6 +72,7 @@ export async function middleware(request: NextRequest) {
     '/api/contractors/public',
     '/api/supplier/auth',
     '/api/supplier/auth/2fa/verify',
+    '/api/analytics/track',
   ]
 
   // ===== PUBLIC PAGES (no auth required) =====

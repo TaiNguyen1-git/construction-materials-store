@@ -357,14 +357,40 @@ export async function GET(request: NextRequest) {
       }
     })
 
+    // 10.4 Top 5 Searches
+    const topSearchesRaw = await prisma.customerInteraction.groupBy({
+      by: ['query'],
+      where: {
+        interactionType: 'PRODUCT_SEARCH',
+        query: { not: null, notIn: ['PRODUCT', 'CONTRACTOR'] },
+        createdAt: { gte: startDate }
+      },
+      _count: { id: true },
+      orderBy: { _count: { id: 'desc' } },
+      take: 5
+    })
+
+    const topSearches = topSearchesRaw.map(s => ({
+      term: s.query,
+      count: s._count.id
+    }))
+
     return NextResponse.json({
       success: true,
       data: {
         rankings: {
           topViewedProducts,
-          topPurchasedProducts: topProducts.slice(0, 5), // Already calculated above
+          topPurchasedProducts: topProducts.slice(0, 5),
           topViewedContractors,
-          topProjects
+          topProjects,
+          topSearches,
+          topInteractions: await prisma.customerInteraction.groupBy({
+            by: ['interactionType'],
+            where: { createdAt: { gte: startDate } },
+            _count: { id: true },
+            orderBy: { _count: { id: 'desc' } },
+            take: 5
+          }).then(res => res.map(i => ({ type: i.interactionType, count: i._count.id })))
         },
         kpis: {
           totalProducts,

@@ -8,6 +8,8 @@ interface RankingsGridProps {
     topPurchasedProducts: any[]
     topViewedContractors: any[]
     topProjects: any[]
+    topSearches?: any[]
+    topInteractions?: any[]
   }
   formatCurrency: (amount: number) => string
   formatNumber: (val: number) => string
@@ -109,6 +111,42 @@ const RankingsGrid: React.FC<RankingsGridProps> = ({ rankings, formatCurrency, f
               </div>
               <span className="text-[9px] font-bold text-slate-400">{item.progress}%</span>
             </div>
+          </div>
+        )}
+      />
+
+      {/* Top Searches */}
+      <RankingCard 
+        title="Xu hướng tìm kiếm" 
+        icon={<Eye size={18} className="text-orange-500" />} 
+        items={rankings.topSearches || []}
+        renderItem={(item) => (
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-bold text-slate-700 truncate flex-1">"{item.term}"</p>
+            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-orange-50 text-orange-600 border border-orange-100">
+              <span className="text-[10px] font-black">{item.count}</span>
+            </div>
+          </div>
+        )}
+      />
+
+      {/* Feature Usage */}
+      <RankingCard 
+        title="Tính năng phổ biến" 
+        icon={<Trophy size={18} className="text-purple-500" />} 
+        items={rankings.topInteractions || []}
+        renderItem={(item) => (
+          <div className="flex items-center justify-between">
+            <div className="flex-1">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-tighter mb-0.5">{item.type}</p>
+              <div className="h-1.5 w-full bg-slate-50 rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-purple-500 rounded-full" 
+                  style={{ width: `${Math.min(100, (item.count / (rankings.topInteractions?.[0]?.count || 1)) * 100)}%` }}
+                />
+              </div>
+            </div>
+            <span className="ml-4 text-[10px] font-black text-purple-600">{formatNumber(item.count)}</span>
           </div>
         )}
       />

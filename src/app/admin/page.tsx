@@ -37,6 +37,8 @@ interface DashboardData {
     topPurchasedProducts: any[]
     topViewedContractors: any[]
     topProjects: any[]
+    topSearches?: any[]
+    topInteractions?: any[]
   }
   revenueTrend: any[]
   salesByCategory: any[]

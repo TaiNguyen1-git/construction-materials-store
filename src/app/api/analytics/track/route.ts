@@ -32,9 +32,9 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    return createSuccessResponse(interaction, 'Interaction recorded')
+    return NextResponse.json(createSuccessResponse(interaction, 'Interaction recorded'))
   } catch (error) {
     console.error('Track interaction error:', error)
-    return createErrorResponse('Failed to record interaction')
+    return NextResponse.json(createErrorResponse('Failed to record interaction'), { status: 500 })
   }
 }
