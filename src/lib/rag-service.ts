@@ -702,57 +702,44 @@ Trả lời: "Chào bạn! Để trát tường, bạn nên dùng xi măng PC30:
     // For each recommendation, try to find a matching product in the actual DB
     // to get the real UUID for cart functionality.
     const mappedRecommendations: ProductKnowledge[] = []
-    for (const p of primaryProducts.slice(0, limit)) {
-      try {
-        // 1. Try exact/contains match first
-        if (!p.name) continue; // Skip if AI returned empty name
-
-        let dbProduct = await prisma.product.findFirst({
-          where: {
-            name: { contains: p.name, mode: 'insensitive' },
-            isActive: true
-          },
-          select: { id: true, images: true, sku: true }
-        })
-
-        // 2. If not found, split name into keywords for more flexible matching
-        if (!dbProduct) {
-          const keywords = p.name.split(' ').filter(k => k.length > 1).slice(0, 3)
-          if (keywords.length > 0) {
-            dbProduct = await prisma.product.findFirst({
-              where: {
-                AND: keywords.map(k => ({
-                  name: { contains: k, mode: 'insensitive' }
-                })),
-                isActive: true
-              },
-              select: { id: true, images: true, sku: true }
-            })
-          }
+    // --- DB ID Mapping (Optimized Bulk Lookup) ---
+    const productsToMap = primaryProducts.slice(0, limit)
+    const orConditions: any[] = []
+    
+    productsToMap.forEach(p => {
+        if (p.name) {
+            orConditions.push({ name: { contains: p.name, mode: 'insensitive' } })
+            const keywords = p.name.split(' ').filter(k => k.length > 1).slice(0, 3)
+            if (keywords.length > 0) {
+                orConditions.push({ AND: keywords.map(k => ({ name: { contains: k, mode: 'insensitive' } })) })
+            }
         }
+        if (p.sku) orConditions.push({ sku: p.sku })
+    })
 
-        // 3. Last resort: Try matching by SKU if the ID in knowledge base looks like a SKU
-        if (!dbProduct && p.sku) {
-           dbProduct = await prisma.product.findFirst({
-             where: { sku: p.sku, isActive: true },
-             select: { id: true, images: true, sku: true }
-           })
-        }
+    const dbProducts = orConditions.length > 0 
+        ? await prisma.product.findMany({
+            where: { OR: orConditions, isActive: true },
+            select: { id: true, name: true, images: true, sku: true }
+          })
+        : []
+
+    for (const p of productsToMap) {
+        const dbProduct = dbProducts.find(dbP => 
+            (p.name && dbP.name.toLowerCase().includes(p.name.toLowerCase())) ||
+            (p.sku && dbP.sku === p.sku)
+        )
 
         if (dbProduct) {
-          // If found in DB, we use the real DB ID!
-          mappedRecommendations.push({
-            ...p,
-            id: String(dbProduct.id), // Ensure it's a string for frontend
-            imageUrl: dbProduct.images?.[0] || undefined,
-            sku: dbProduct.sku || p.id
-          })
+            mappedRecommendations.push({
+                ...p,
+                id: String(dbProduct.id),
+                imageUrl: dbProduct.images?.[0] || undefined,
+                sku: dbProduct.sku || p.id
+            })
         } else {
-          mappedRecommendations.push(p)
+            mappedRecommendations.push(p)
         }
-      } catch (err) {
-        mappedRecommendations.push(p)
-      }
     }
 
     const recommendations: ProductKnowledge[] = mappedRecommendations

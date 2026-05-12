@@ -17,6 +17,41 @@ import {
     updateFlowData
 } from '@/lib/chatbot/conversation-state'
 
+// ─── Interfaces ───────────────────────────────────────────────────────────────
+
+interface ChatMessage {
+    role: 'user' | 'assistant' | 'system'
+    content: string
+}
+
+interface EnrichedOrderItem {
+    productName: string
+    productId: string
+    quantity: number
+    unit: string
+    selectedProduct: {
+        id: string
+        name: string
+        price: number
+        unit: string
+        sku: string
+    }
+}
+
+interface CustomerInfo {
+    name: string
+    phone: string
+    email: string
+    address: string
+}
+
+interface OrderEntities {
+    orderNumber?: string
+    phone?: string
+    phoneNumber?: string
+    rawMessage?: string
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const PLACEHOLDER_NAMES = [
@@ -82,31 +117,53 @@ export async function handleOrderCreateIntent(
     message: string,
     sessionId: string,
     customerId: string | undefined,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    conversationHistory: any[]
+    conversationHistory: ChatMessage[]
 ) {
     // 1. Try AI-smart order parsing first
     const aiOrderRequest = await AIService.parseOrderRequest(message)
 
     if (aiOrderRequest && aiOrderRequest.items && aiOrderRequest.items.length > 0) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const enrichedItems: any[] = []
+        const enrichedItems: EnrichedOrderItem[] = []
         const itemsToClarify: Array<{ item: typeof aiOrderRequest.items[0]; products: { id: string; name: string; price: number; unit: string; sku: string }[] }> = []
 
-        for (const item of aiOrderRequest.items) {
-            const keywords = extractProductKeywords(item.productName)
-            const orConditions = keywords.flatMap(kw => [
+        // Collect all keywords for all items to fetch in one query
+        const itemsWithKeywords = aiOrderRequest.items.map(item => ({
+            item,
+            keywords: extractProductKeywords(item.productName)
+        }))
+
+        const allORConditions = itemsWithKeywords.flatMap(({ keywords }: { keywords: string[] }) => 
+            keywords.flatMap((kw: string) => [
                 { name: { contains: kw, mode: 'insensitive' as const } },
                 { description: { contains: kw, mode: 'insensitive' as const } }
             ])
-            const matchingProducts = await prisma.product.findMany({
-                where: { OR: orConditions, isActive: true },
+        )
+
+        const allMatchingProducts = allORConditions.length > 0 
+            ? await prisma.product.findMany({
+                where: { OR: allORConditions, isActive: true },
                 select: { id: true, name: true, price: true, unit: true, sku: true },
-                take: 5
+                take: 50 // Fetch a reasonable batch
             })
+            : []
+
+        for (const { item, keywords } of itemsWithKeywords) {
+            // Find products from the batch that match this specific item's keywords
+            const matchingProducts = allMatchingProducts.filter(p => 
+                keywords.some(kw => 
+                    p.name.toLowerCase().includes(kw.toLowerCase()) || 
+                    (p.sku && p.sku.toLowerCase().includes(kw.toLowerCase()))
+                )
+            ).slice(0, 5)
 
             if (matchingProducts.length === 1) {
-                enrichedItems.push({ productName: matchingProducts[0].name, productId: matchingProducts[0].id, quantity: item.quantity || 1, unit: matchingProducts[0].unit, selectedProduct: matchingProducts[0] })
+                enrichedItems.push({ 
+                    productName: matchingProducts[0].name, 
+                    productId: matchingProducts[0].id, 
+                    quantity: item.quantity || 1, 
+                    unit: matchingProducts[0].unit, 
+                    selectedProduct: matchingProducts[0] 
+                })
             } else {
                 itemsToClarify.push({ item, products: matchingProducts })
             }
@@ -173,9 +230,8 @@ export async function handleOrderCreateIntent(
 
     if ((lowerMessage === 'đặt hàng' || lowerMessage === 'order' || lowerMessage.includes('đặt hàng')) && !lowerMessage.match(/\d+/)) {
         // Try to infer product from conversation history
-        const recentProductMessages = conversationHistory.filter((h: { role: string }) => h.role === 'assistant').reverse().slice(0, 5)
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        let foundProduct: any = null
+        const recentProductMessages = conversationHistory.filter(h => h.role === 'assistant').reverse().slice(0, 5)
+        let foundProduct: { id: string; name: string; price: number; unit: string; sku: string } | null = null
 
         const currentState = await getConversationState(sessionId)
         if (currentState && currentState.data?.lastSearchedProduct) foundProduct = currentState.data.lastSearchedProduct
@@ -300,8 +356,7 @@ export async function handleOrderCreateIntent(
 
         return NextResponse.json(createSuccessResponse({
             message: '🛒 **Xác nhận đặt hàng**\n\nDanh sách vật liệu từ tính toán:\n' +
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                items.map((item: any, idx: number) => `${idx + 1}. ${item.productName}: ${item.quantity} ${item.unit}`).join('\n') +
+                items.map((item: { productName: string; quantity: number; unit: string }, idx: number) => `${idx + 1}. ${item.productName}: ${item.quantity} ${item.unit}`).join('\n') +
                 guestInfoDisplay + '\n\n✅ Xác nhận đặt hàng?' +
                 (hasCompleteGuestInfo ? '' : '\n\n⚠️ *Bạn chưa đăng nhập. Chúng tôi sẽ hỏi thông tin giao hàng sau khi xác nhận.*'),
             suggestions: ['Xác nhận', 'Đăng nhập', 'Hủy'],
@@ -362,8 +417,7 @@ export async function handleOrderCreation(
     try {
         const flowData = state.data
         const isGuest = !customerId
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        let customerInfo: any
+        let customerInfo: CustomerInfo
 
         if (isGuest) {
             if (!flowData.guestInfo) {
@@ -391,17 +445,36 @@ export async function handleOrderCreation(
         const result = await prisma.$transaction(async (tx) => {
             const items = flowData.items || []
             let subtotal = 0
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const orderItems: any[] = []
+            const orderItems: { productId: string; quantity: number; unitPrice: number; totalPrice: number; discount: number }[] = []
             let itemsMatched = 0
 
-            for (const item of items) {
-                const keywords = extractProductKeywords(item.productName)
+            // 1. Bulk lookup all potential products to avoid N+1 queries in transaction
+            const itemsWithKeywords = items.map((item: { productName: string; quantity?: number }) => ({
+                item,
+                keywords: extractProductKeywords(item.productName)
+            }))
+
+            const allORConditions = itemsWithKeywords.flatMap(({ keywords }: { keywords: string[] }) => 
+                keywords.flatMap((kw: string) => [
+                    { name: { contains: kw, mode: 'insensitive' as const } },
+                    { tags: { hasSome: [kw.toLowerCase()] } }
+                ])
+            )
+
+            const allMatchingProducts = allORConditions.length > 0 
+                ? await tx.product.findMany({
+                    where: { OR: allORConditions, isActive: true },
+                    select: { id: true, name: true, price: true, unit: true, sku: true }
+                })
+                : []
+
+            for (const { item, keywords } of itemsWithKeywords) {
+                // Find first product that matches any of the keywords
                 let product = null
                 for (const keyword of keywords) {
-                    product = await tx.product.findFirst({
-                        where: { OR: [{ name: { contains: keyword, mode: 'insensitive' } }, { tags: { hasSome: [keyword.toLowerCase()] } }], isActive: true }
-                    })
+                    product = allMatchingProducts.find(p => 
+                        p.name.toLowerCase().includes(keyword.toLowerCase())
+                    )
                     if (product) break
                 }
                 if (product) {
@@ -486,12 +559,11 @@ export async function handleOrderCreation(
             orderData: { orderNumber: result.order.orderNumber, orderId: result.order.id, status: result.order.status, depositAmount: result.order.depositAmount, totalAmount: result.order.netAmount, isGuest, trackingUrl: `/order-tracking?orderNumber=${encodeURIComponent(result.order.orderNumber)}` }
         }))
     } catch (error: unknown) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const err = error as any
+        const errorMessage = error instanceof Error ? error.message : String(error)
         console.error('Order creation error:', error)
         await clearConversationState(sessionId)
         return NextResponse.json(createSuccessResponse({
-            message: `❌ Không thể tạo đơn hàng: ${err.message}\n\nVui lòng thử lại hoặc liên hệ hỗ trợ.`,
+            message: `❌ Không thể tạo đơn hàng: ${errorMessage}\n\nVui lòng thử lại hoặc liên hệ hỗ trợ.`,
             suggestions: ['Thử lại', 'Liên hệ hỗ trợ', 'Tiếp tục xem sản phẩm'],
             confidence: 0.5, sessionId, timestamp: new Date().toISOString()
         }))
@@ -505,7 +577,7 @@ export async function handleOrderCreation(
  */
 export async function handleOrderQueryIntent(
     sessionId: string,
-    entities: any,
+    entities: OrderEntities,
     customerId: string | undefined
 ) {
     let orderNumber = entities.orderNumber
@@ -609,7 +681,7 @@ export async function handleOrderQueryIntent(
  */
 export async function handleOrderManageIntent(
     sessionId: string,
-    entities: any,
+    entities: OrderEntities,
     customerId: string | undefined
 ) {
     let orderNumber = entities.orderNumber
@@ -723,10 +795,9 @@ export async function handleCRUDExecution(
             confidence: actionResult.success ? 0.9 : 0.5, sessionId, timestamp: new Date().toISOString()
         }))
     } catch (error: unknown) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const err = error as any
+        const errorMessage = error instanceof Error ? error.message : String(error)
         console.error('CRUD execution error:', error)
-        return NextResponse.json(createErrorResponse(`Failed to execute action: ${err.message}`, 'EXECUTION_ERROR'), { status: 500 })
+        return NextResponse.json(createErrorResponse(`Failed to execute action: ${errorMessage}`, 'EXECUTION_ERROR'), { status: 500 })
     }
 }
 

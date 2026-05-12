@@ -55,10 +55,13 @@ export async function GET(req: NextRequest) {
   const from = searchParams.get('from') // ISO date
   const to = searchParams.get('to')
 
-  const where: Record<string, unknown> = { userId: token.userId }
-  if (status) where['status'] = status
+  const where: any = {
+    customer: { userId: token.userId }
+  }
+  
+  if (status) where.status = status
   if (from || to) {
-    where['createdAt'] = {
+    where.createdAt = {
       ...(from ? { gte: new Date(from) } : {}),
       ...(to ? { lte: new Date(to) } : {}),
     }
@@ -66,7 +69,7 @@ export async function GET(req: NextRequest) {
 
   const [orders, total] = await Promise.all([
     prisma.order.findMany({
-      where: { customerId: token.userId },
+      where,
       select: {
         id: true,
         orderNumber: true,
@@ -90,7 +93,7 @@ export async function GET(req: NextRequest) {
       skip: (page - 1) * limit,
       orderBy: { createdAt: 'desc' },
     }),
-    prisma.order.count({ where: { customerId: token.userId } }),
+    prisma.order.count({ where }),
   ])
 
   return NextResponse.json({

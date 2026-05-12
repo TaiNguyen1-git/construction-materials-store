@@ -36,19 +36,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
             )
         }
 
-        // Check if inventory item exists
-        const existingItem = await prisma.inventoryItem.findUnique({
-            where: { productId }
-        })
-
-        if (!existingItem) {
-            return NextResponse.json(
-                createErrorResponse('Inventory item not found', 'INVENTORY_NOT_FOUND'),
-                { status: 404 }
-            )
-        }
-
-        // Update inventory settings
+        // Update inventory settings directly
         const updatedItem = await prisma.inventoryItem.update({
             where: { productId },
             data: validation.data
@@ -59,7 +47,13 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
             { status: 200 }
         )
 
-    } catch (error) {
+    } catch (error: any) {
+        if (error.code === 'P2025') {
+            return NextResponse.json(
+                createErrorResponse('Inventory item not found', 'INVENTORY_NOT_FOUND'),
+                { status: 404 }
+            )
+        }
         console.error('Update inventory settings error:', error)
         return NextResponse.json(
             createErrorResponse('Internal server error', 'INTERNAL_ERROR'),

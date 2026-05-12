@@ -117,9 +117,10 @@ export async function setConversationState(
  */
 export async function updateConversationState(
   sessionId: string,
-  updates: Partial<ConversationState>
+  updates: Partial<ConversationState>,
+  existingState?: ConversationState | null
 ): Promise<ConversationState | null> {
-  const current = await getConversationState(sessionId)
+  const current = existingState || await getConversationState(sessionId)
   if (!current) return null
 
   const updated: ConversationState = {
@@ -182,8 +183,11 @@ export async function getCurrentFlow(sessionId: string): Promise<ConversationFlo
 /**
  * Advance to next step
  */
-export async function advanceStep(sessionId: string): Promise<ConversationState | null> {
-  const state = await getConversationState(sessionId)
+export async function advanceStep(
+  sessionId: string,
+  existingState?: ConversationState | null
+): Promise<ConversationState | null> {
+  const state = existingState || await getConversationState(sessionId)
 
   if (!state) {
     return null
@@ -191,7 +195,7 @@ export async function advanceStep(sessionId: string): Promise<ConversationState 
 
   return await updateConversationState(sessionId, {
     step: state.step + 1
-  })
+  }, state)
 }
 
 /**
@@ -207,9 +211,10 @@ export async function getFlowData(sessionId: string): Promise<Record<string, any
  */
 export async function updateFlowData(
   sessionId: string,
-  data: Record<string, any>
+  data: Record<string, any>,
+  existingState?: ConversationState | null
 ): Promise<ConversationState | null> {
-  const state = await getConversationState(sessionId)
+  const state = existingState || await getConversationState(sessionId)
 
   if (!state) {
     return null
@@ -220,7 +225,7 @@ export async function updateFlowData(
       ...state.data,
       ...data
     }
-  })
+  }, state)
 }
 
 /**
@@ -318,9 +323,10 @@ export async function startCRUDConfirmationFlow(
  */
 export async function processFlowResponse(
   sessionId: string,
-  userMessage: string
+  userMessage: string,
+  initialState?: ConversationState | null
 ): Promise<FlowResponseResult> {
-  const state = await getConversationState(sessionId)
+  const state = initialState || await getConversationState(sessionId)
 
   if (!state) {
     return { shouldContinue: false }
