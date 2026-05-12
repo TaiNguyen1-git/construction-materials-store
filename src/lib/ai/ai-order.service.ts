@@ -101,6 +101,57 @@ export async function parseOrderRequest(message: string): Promise<AIOrderRequest
     }
 }
 
+/**
+ * Modify an existing list of order items based on user's natural language command.
+ * Used for "Edit Order" flow in chatbot.
+ */
+export async function modifyOrderRequest(
+    currentItems: Array<{ productName: string, quantity: number, unit: string }>,
+    message: string
+): Promise<Array<{ productName: string, quantity: number, unit: string }>> {
+    try {
+        const { client, modelName } = await getWorkingModelConfig()
+        if (!client) throw new Error('Client init failed')
+
+        const prompt = `
+    You are an assistant helping a customer edit their construction material order.
+    
+    CURRENT ORDER ITEMS:
+    ${JSON.stringify(currentItems, null, 2)}
+    
+    USER COMMAND: "${message}"
+    
+    TASK:
+    Update the current order items based on the user command. 
+    Handle actions like:
+    - "Thêm X": Add a new item or increase quantity of existing one.
+    - "Bớt X" / "Xóa X": Decrease quantity or remove an item.
+    - "Đổi X thành Y": Replace an item.
+    - "Sửa X thành N": Update the quantity of X to N.
+    
+    RULES:
+    - Return the COMPLETE list of updated items.
+    - Keep the same structure: { productName, quantity (number), unit }.
+    - Map colloquial units (xe, khối, bao, thiên, viên).
+    - If quantity becomes 0 or negative, remove the item.
+    - Use Vietnamese for productName and unit.
+    
+    Return ONLY a JSON array of items, no markdown.
+    `
+
+        const result = await client.models.generateContent({
+            model: modelName!,
+            contents: [{ role: 'user', parts: [{ text: prompt }] }]
+        })
+
+        const text = (result as GeminiResponse).text || '[]'
+        return parseGeminiJSON<Array<{ productName: string, quantity: number, unit: string }>>(text, currentItems)
+    } catch (error) {
+        console.error('[OrderService] modifyOrderRequest error:', error)
+        return currentItems
+    }
+}
+
 /** Optimize logistics (delivery routing, load balancing) */
 export async function optimizeLogistics(data: {
     orders: Array<{
@@ -166,6 +217,7 @@ export async function optimizeLogistics(data: {
         return { routes: [], efficiency: 0, recommendations: ['Không thể tối ưu hóa lộ trình lúc này.'] }
     }
 }
+
 /** Parse guest info (name, phone, address) from user message using AI */
 export async function parseGuestInfoWithAI(message: string): Promise<{ name?: string, phone?: string, address?: string }> {
     try {
