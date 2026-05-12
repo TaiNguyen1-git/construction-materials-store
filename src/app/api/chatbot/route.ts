@@ -277,7 +277,7 @@ export async function POST(request: NextRequest) {
     }
 
     // OCR / CRUD confirmation flows
-    if (currentState && currentState.flow !== 'ORDER_CREATION') {
+    if (currentState && currentState.flow !== 'NONE' && currentState.flow !== 'ORDER_CREATION') {
       const flowResponse = await processFlowResponse(sessionId, message)
       if (flowResponse.shouldContinue) {
         if (flowResponse.isConfirmed && currentState.flow === 'OCR_INVOICE') return await handleOCRInvoiceSave(sessionId, currentState)

@@ -643,7 +643,48 @@ export async function handleOrderManageIntent(
         return queryResponse
     }
 
-    // If verified, offer management options
+    // If verified, check for specific actions
+    const lowerMessage = entities.rawMessage?.toLowerCase() || ''
+    
+    // ACTION: Cancel Order
+    if (lowerMessage.includes('hủy đơn') || lowerMessage === 'hủy' || lowerMessage === 'hủy đơn hàng') {
+        // Start a confirmation flow
+        await setConversationState(sessionId, 'CRUD_CONFIRMATION', 1, {
+            action: 'update',
+            entityType: 'order',
+            entityData: { orderNumber, status: 'CANCELLED' },
+            previewMessage: `Bạn có chắc chắn muốn **Hủy đơn hàng ${orderNumber}** không?`
+        })
+
+        return NextResponse.json(createSuccessResponse({
+            message: `⚠️ **Xác nhận hủy đơn hàng**\n\nBạn có chắc chắn muốn hủy đơn hàng **${orderNumber}** không?\n\n*Lưu ý: Thao tác này không thể hoàn tác sau khi xác nhận.*`,
+            suggestions: ['Xác nhận hủy', 'Quay lại', 'Hủy bỏ'],
+            confidence: 1.0, sessionId, timestamp: new Date().toISOString()
+        }))
+    }
+
+    // ACTION: Change Address
+    if (lowerMessage.includes('đổi địa chỉ') || lowerMessage.includes('thay đổi địa chỉ')) {
+        return NextResponse.json(createSuccessResponse({
+            message: `📍 **Thay đổi địa chỉ giao hàng**\n\nĐể đảm bảo hàng hóa được giao đúng hẹn, vui lòng cung cấp địa chỉ mới cho đơn hàng **${orderNumber}**.\n\nHoặc bạn có thể liên hệ hotline **1900-xxxx** để nhân viên cập nhật nhanh nhất!`,
+            suggestions: ['Nhập địa chỉ mới', 'Liên hệ hỗ trợ'],
+            confidence: 1.0, sessionId, timestamp: new Date().toISOString()
+        }))
+    }
+
+    // ACTION: Support
+    if (lowerMessage.includes('liên hệ hỗ trợ') || lowerMessage.includes('hỗ trợ')) {
+        return NextResponse.json(createSuccessResponse({
+            message: `📞 **Hỗ trợ đơn hàng ${orderNumber}**\n\nBạn có thể liên hệ với chúng tôi qua các kênh sau để được hỗ trợ nhanh nhất cho đơn hàng này:\n\n` +
+                `- **Hotline:** 1900-xxxx (Nhấn phím 1)\n` +
+                `- **Zalo:** 090xxxxxxx\n\n` +
+                `💡 Nhân viên hỗ trợ sẽ cần bạn cung cấp mã đơn hàng: **${orderNumber}**.`,
+            suggestions: ['Quay lại đơn hàng', 'Trang chủ'],
+            confidence: 1.0, sessionId, timestamp: new Date().toISOString()
+        }))
+    }
+
+    // Default: offer management options
     return NextResponse.json(createSuccessResponse({
         message: `🛠️ **Quản lý đơn hàng: ${orderNumber}**\n\n` +
             `Bạn có thể thực hiện các thao tác sau:\n` +

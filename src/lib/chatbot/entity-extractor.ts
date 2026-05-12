@@ -44,6 +44,7 @@ export interface ExtractedEntities {
   constructionPart?: 'foundation' | 'wall' | 'floor' | 'roof' | 'column' | 'beam'
   floors?: number
   area?: number
+  rawMessage?: string
 }
 
 // Helper to strip icons for better matching
@@ -58,6 +59,7 @@ export function extractEntities(message: string, intent?: string): ExtractedEnti
   const entities: ExtractedEntities = {}
   const cleanedMessage = stripIcons(message)
   const lower = cleanedMessage.toLowerCase()
+  entities.rawMessage = message
 
   // Extract quantity + unit
   const quantityMatch = lower.match(/(\d+(?:\.\d+)?)\s*(bao|m³|m2|m²|tấn|kg|tan|viên|cây|cuộn|thùng|bags?|tons?|pieces?)/i)
