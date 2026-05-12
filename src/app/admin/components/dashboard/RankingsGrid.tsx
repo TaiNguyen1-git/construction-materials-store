@@ -118,8 +118,9 @@ const RankingsGrid: React.FC<RankingsGridProps> = ({ rankings, formatCurrency, f
       {/* Top Searches */}
       <RankingCard 
         title="Xu hướng tìm kiếm" 
-        icon={<Eye size={18} className="text-orange-500" />} 
+        icon={<Eye size={18} className="text-orange-500 group-hover:text-white transition-colors duration-500" />} 
         items={rankings.topSearches || []}
+        hoverColor="group-hover:bg-orange-600"
         renderItem={(item) => (
           <div className="flex items-center justify-between">
             <p className="text-xs font-bold text-slate-700 truncate flex-1">"{item.term}"</p>
@@ -133,8 +134,9 @@ const RankingsGrid: React.FC<RankingsGridProps> = ({ rankings, formatCurrency, f
       {/* Feature Usage */}
       <RankingCard 
         title="Tính năng phổ biến" 
-        icon={<Trophy size={18} className="text-purple-500" />} 
+        icon={<Trophy size={18} className="text-purple-500 group-hover:text-white transition-colors duration-500" />} 
         items={rankings.topInteractions || []}
+        hoverColor="group-hover:bg-purple-600"
         renderItem={(item) => (
           <div className="flex items-center justify-between">
             <div className="flex-1">
@@ -159,12 +161,13 @@ interface RankingCardProps {
   icon: React.ReactNode
   items: any[]
   renderItem: (item: any) => React.ReactNode
+  hoverColor?: string
 }
 
-const RankingCard: React.FC<RankingCardProps> = ({ title, icon, items, renderItem }) => (
+const RankingCard: React.FC<RankingCardProps> = ({ title, icon, items, renderItem, hoverColor = 'group-hover:bg-blue-600' }) => (
   <div className="bg-white rounded-[32px] p-6 border border-slate-200 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.04)] hover:shadow-[0_20px_40px_-10px_rgba(0,0,0,0.08)] transition-all duration-500 group">
     <div className="flex items-center gap-2.5 mb-6">
-      <div className="p-2 rounded-xl bg-slate-50 text-slate-500 group-hover:bg-blue-600 group-hover:text-white transition-all duration-500 shadow-sm">
+      <div className={`p-2 rounded-xl bg-slate-50 text-slate-500 ${hoverColor} group-hover:text-white transition-all duration-500 shadow-sm`}>
         {icon}
       </div>
       <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest">{title}</h3>

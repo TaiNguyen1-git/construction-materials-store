@@ -195,7 +195,7 @@ function AdminLayoutContent({
   }
 
   return (
-    <div className="min-h-screen bg-[#F0F2F5] text-slate-900 font-sans">
+    <div className="flex h-screen bg-[#F0F2F5] text-slate-900 font-sans overflow-hidden">
       {/* Mobile sidebar */}
       {sidebarOpen && (
         <div className="fixed inset-0 z-40 md:hidden">
@@ -265,7 +265,7 @@ function AdminLayoutContent({
         </div>
       )}
 
-      <div className={`hidden md:flex md:flex-col md:fixed md:inset-y-0 transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] z-30 ${isCollapsed ? 'md:w-20 px-2' : 'md:w-72 px-4'}`}>
+      <div className={`hidden md:flex md:flex-col transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] z-30 ${isCollapsed ? 'md:w-20 px-2' : 'md:w-72 px-4'}`}>
         <div className="flex-1 flex flex-col min-h-0 border-r border-slate-200/60 bg-white/80 backdrop-blur-2xl shadow-[x-20px_50px_rgba(0,0,0,0.05)] my-4 rounded-[32px] overflow-hidden">
           <div className="flex-1 flex flex-col pt-8 pb-4 overflow-y-auto overflow-x-hidden custom-scrollbar">
             {/* Logo Section */}
@@ -362,7 +362,7 @@ function AdminLayoutContent({
       </div>
 
       {/* Main content */}
-      <div className={`flex flex-col flex-1 transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] ${isCollapsed ? 'md:pl-20' : 'md:pl-72'}`}>
+      <div className="flex flex-col flex-1 h-full overflow-y-auto transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]">
         {/* Top Header */}
         <header className="sticky top-0 z-50 flex flex-shrink-0 h-20 bg-white/60 backdrop-blur-xl border-b border-white/20 px-8 items-center justify-between">
           <div className="flex items-center md:hidden">
