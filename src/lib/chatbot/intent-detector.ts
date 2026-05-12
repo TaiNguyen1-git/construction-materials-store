@@ -473,6 +473,39 @@ export function detectIntent(
     }
   }
 
+  // Order query/tracking
+  if (
+    lower.includes('đơn hàng') || 
+    lower.includes('order') || 
+    lower.includes('kiểm tra') || 
+    lower.includes('check') || 
+    lower.includes('theo dõi') || 
+    lower.includes('tracking') ||
+    /ORD-\d+/i.test(message)
+  ) {
+    if (lower.includes('hủy') || lower.includes('cancel') || lower.includes('đổi') || lower.includes('thay')) {
+      return {
+        intent: 'ORDER_MANAGE',
+        confidence: 0.90
+      }
+    }
+    
+    // If it's just an order number, it's very likely an order query
+    if (/^#?ORD-\d+/.test(message.trim()) || (/ORD-\d+/.test(message) && message.length < 30)) {
+      return {
+        intent: 'ORDER_QUERY',
+        confidence: 0.95
+      }
+    }
+
+    if (lower.includes('đâu') || lower.includes('tình trạng') || lower.includes('thế nào') || lower.includes('kiểm tra')) {
+      return {
+        intent: 'ORDER_QUERY',
+        confidence: 0.85
+      }
+    }
+  }
+
   // Default
   return {
     intent: 'GENERAL_INQUIRY',

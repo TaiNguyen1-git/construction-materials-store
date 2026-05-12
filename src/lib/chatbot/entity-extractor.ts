@@ -83,9 +83,9 @@ export function extractEntities(message: string, intent?: string): ExtractedEnti
   }
 
   // Extract order number
-  const orderMatch = lower.match(/#?ord[-_]?\d{8}[-_]?\d{4}|#?\d{4,}/i)
+  const orderMatch = lower.match(/#?ord[-_]?\d+[-_]?\d*|#?\d{4,}/i)
   if (orderMatch) {
-    entities.orderNumber = orderMatch[0].replace('#', '')
+    entities.orderNumber = orderMatch[0].replace('#', '').toUpperCase()
   }
 
   // Extract time frame

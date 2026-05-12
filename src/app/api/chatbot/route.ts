@@ -27,7 +27,13 @@ import { getCachedResponse, cacheResponse, shouldBypassCache } from '@/lib/chatb
 // ── Handlers ──────────────────────────────────────────────────────────────────
 import { handleAdminOrderManagement, handleAdminInventoryCheck, handleAdminCRUD, handleAdminAnalytics } from './handlers/admin.handler'
 import { handleOCRInvoiceFlow, handleOCRInvoiceSave, handleCustomerImageRecognition } from './handlers/image.handler'
-import { handleOrderCreateIntent, handleOrderCreation, handleCRUDExecution } from './handlers/order-flow.handler'
+import { 
+  handleOrderCreateIntent, 
+  handleOrderCreation, 
+  handleOrderQueryIntent,
+  handleOrderManageIntent,
+  handleCRUDExecution 
+} from './handlers/order-flow.handler'
 import {
   handleProductSearch, handlePriceInquiry, handleMaterialCalculation,
   handleContractorQuery, handleComparisonQuery, handleRuleBasedPriceLookup,
@@ -331,26 +337,11 @@ export async function POST(request: NextRequest) {
 
     // ── Customer Intent Dispatch ───────────────────────────────────────────────
     if (intentResult.intent === 'ORDER_QUERY') {
-      // For now, redirect to a helpful message about order tracking
-      return NextResponse.json(createSuccessResponse({
-        message: '🔍 **Bạn muốn kiểm tra đơn hàng?**\n\n' +
-                (customerId 
-                  ? 'Vui lòng cho mình biết **Mã đơn hàng** cụ thể, hoặc mình có thể hiển thị danh sách đơn gần đây của bạn!'
-                  : 'Để kiểm tra đơn hàng, bạn vui lòng cung cấp **Mã đơn hàng** kèm theo **Số điện thoại** đã dùng khi đặt hàng nhé!'),
-        suggestions: ['Đơn hàng mới nhất', 'Liên hệ hỗ trợ', 'Tìm sản phẩm'],
-        confidence: 0.9, sessionId, timestamp: new Date().toISOString()
-      }))
+      return await handleOrderQueryIntent(sessionId, entities, customerId)
     }
 
     if (intentResult.intent === 'ORDER_MANAGE') {
-      return NextResponse.json(createSuccessResponse({
-        message: '💡 **Bạn muốn thay đổi hoặc hủy đơn hàng?**\n\n' +
-                (customerId 
-                  ? 'Vui lòng truy cập **Lịch sử đơn hàng** của bạn để yêu cầu thay đổi, hoặc cho mình biết **Mã đơn hàng** cụ thể để mình hỗ trợ ngay nhé!'
-                  : 'Vì bạn chưa đăng nhập, vui lòng cung cấp **Mã đơn hàng** và **Số điện thoại** đặt hàng để mình kiểm tra và hỗ trợ thay đổi nhé!'),
-        suggestions: ['Kiểm tra đơn hàng', 'Liên hệ hỗ trợ', 'Hủy đơn hàng'],
-        confidence: 0.95, sessionId, timestamp: new Date().toISOString()
-      }))
+      return await handleOrderManageIntent(sessionId, entities, customerId)
     }
 
     if (intentResult.intent === 'PAYMENT_INQUIRY') {
