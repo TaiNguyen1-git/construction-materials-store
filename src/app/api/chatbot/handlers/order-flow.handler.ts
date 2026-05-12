@@ -508,8 +508,17 @@ export async function handleOrderQueryIntent(
     entities: any,
     customerId: string | undefined
 ) {
-    const orderNumber = entities.orderNumber
+    let orderNumber = entities.orderNumber
     const phone = entities.phone || entities.phoneNumber
+
+    // CONTEXT AWARENESS: If order number is missing, try to get it from session state
+    if (!orderNumber) {
+        const state = await getConversationState(sessionId)
+        if (state && state.data.lastOrderNumber) {
+            orderNumber = state.data.lastOrderNumber
+            entities.orderNumber = orderNumber
+        }
+    }
 
     if (!orderNumber) {
         return NextResponse.json(createSuccessResponse({
@@ -574,6 +583,9 @@ export async function handleOrderQueryIntent(
 
         const latestUpdate = order.orderTracking[0]?.description || statusLabels[order.status] || order.status
 
+        // SAVE TO CONTEXT: Remember this order number for subsequent "Change Order" or "Cancel" requests
+        await setConversationState(sessionId, 'NONE', 0, { lastOrderNumber: order.orderNumber, lastOrderId: order.id })
+
         return NextResponse.json(createSuccessResponse({
             message: `📦 **Thông tin đơn hàng: ${orderNumber}**\n\n` +
                 `- **Trạng thái:** ${statusLabels[order.status] || order.status}\n` +
@@ -600,8 +612,17 @@ export async function handleOrderManageIntent(
     entities: any,
     customerId: string | undefined
 ) {
-    const orderNumber = entities.orderNumber
+    let orderNumber = entities.orderNumber
     const phone = entities.phone || entities.phoneNumber
+
+    // CONTEXT AWARENESS: If order number is missing, try to get it from session state
+    if (!orderNumber) {
+        const state = await getConversationState(sessionId)
+        if (state && state.data.lastOrderNumber) {
+            orderNumber = state.data.lastOrderNumber
+            entities.orderNumber = orderNumber // Update entities for handleOrderQueryIntent to work
+        }
+    }
 
     if (!orderNumber) {
         return NextResponse.json(createSuccessResponse({

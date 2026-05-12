@@ -100,6 +100,9 @@ export function detectIntent(
     if (lower === 'so sanh gia' || lower === 'bao gia') {
       return { intent: 'PRICE_INQUIRY', confidence: 1.0 }
     }
+    if (lower === 'thay đổi đơn hàng' || lower === 'hủy đơn hàng' || lower === 'huy don hang' || lower === 'thay doi don hang') {
+      return { intent: 'ORDER_MANAGE', confidence: 1.0 }
+    }
   }
 
   // ===== ADMIN INTENTS =====
