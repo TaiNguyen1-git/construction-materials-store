@@ -96,20 +96,58 @@ export class ProcurementService {
 
   async generatePurchaseSuggestions() {
     try {
+      // 1. Tìm các sản phẩm sắp hết hàng
       const allLowStock = await prisma.inventoryItem.findMany({
-        where: { availableQuantity: { lte: 10 } },
-        include: { product: { select: { id: true, name: true, sku: true, supplierId: true } } },
+        where: { availableQuantity: { lte: 20 } }, // Tăng ngưỡng lên 20 để ví dụ rõ hơn
+        include: { 
+          product: { 
+            select: { 
+              id: true, 
+              name: true, 
+              sku: true, 
+              supplierId: true,
+              category: { select: { name: true } }
+            } 
+          } 
+        },
         take: 50
       })
 
-      return allLowStock.map(item => ({
-        productId: item.productId,
-        productName: item.product?.name,
-        productSku: item.product?.sku,
-        currentStock: item.availableQuantity,
-        suggestedQty: Math.max(50 - (item.availableQuantity ?? 0), 10),
-        supplierId: item.product?.supplierId
-      }))
+      // 2. Lấy danh sách ProductId đang có đơn hàng hoặc yêu cầu chờ xử lý
+      const [pendingRequests, pendingOrders] = await Promise.all([
+        prisma.purchaseRequest.findMany({
+          where: { status: { in: ['PENDING', 'APPROVED'] } },
+          select: { productId: true }
+        }),
+        prisma.purchaseItem.findMany({
+          where: { 
+            purchaseOrder: { status: { in: ['DRAFT', 'SENT'] } } 
+          },
+          select: { productId: true }
+        })
+      ])
+
+      const busyProductIds = new Set([
+        ...pendingRequests.map(r => r.productId),
+        ...pendingOrders.map(o => o.productId)
+      ])
+
+      // 3. Lọc bỏ các sản phẩm đã được xử lý (đang đợi duyệt hoặc đợi giao)
+      const suggestions = allLowStock
+        .filter(item => !busyProductIds.has(item.productId))
+        .map(item => ({
+          productId: item.productId,
+          productName: item.product?.name,
+          productSku: item.product?.sku,
+          categoryName: (item.product as any)?.category?.name || 'Vật liệu',
+          currentStock: item.availableQuantity,
+          reorderPoint: item.reorderPoint || 10,
+          suggestedQty: Math.max(50 - (item.availableQuantity ?? 0), 10),
+          priority: (item.availableQuantity ?? 0) <= 5 ? 'URGENT' : 'HIGH',
+          estimatedCost: 0 // Sẽ được tính ở frontend hoặc API so sánh NCC
+        }))
+
+      return suggestions
     } catch (error) {
       console.error('[ProcurementService] generatePurchaseSuggestions error:', error)
       return []
@@ -273,6 +311,49 @@ export class ProcurementService {
       console.error('[ProcurementService] updateAllReorderPoints error:', error)
       return 0
     }
+  }
+
+  async createPurchaseOrder(
+    supplierId: string, 
+    items: { productId: string; quantity: number; unitPrice: number }[],
+    createdBy: string = 'SYSTEM',
+    notes?: string
+  ) {
+    const orderCount = await prisma.purchaseOrder.count()
+    const poNumber = `PO-${String(orderCount + 1).padStart(6, '0')}`
+
+    const subtotal = items.reduce((sum, item) => sum + (item.unitPrice * item.quantity), 0)
+    const taxAmount = subtotal * 0.1
+    const netAmount = subtotal + taxAmount
+
+    return prisma.purchaseOrder.create({
+      data: {
+        orderNumber: poNumber,
+        supplierId,
+        status: PurchaseOrderStatus.DRAFT,
+        totalAmount: subtotal,
+        taxAmount,
+        netAmount,
+        createdBy,
+        notes: notes || null,
+        purchaseItems: {
+          create: items.map(item => ({
+            productId: item.productId,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            totalPrice: item.unitPrice * item.quantity
+          }))
+        }
+      },
+      include: {
+        purchaseItems: {
+          include: {
+            product: true
+          }
+        },
+        supplier: true
+      }
+    })
   }
 }
 

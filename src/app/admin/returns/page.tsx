@@ -300,7 +300,7 @@ export default function AdminReturnsPage() {
             {/* Header */}
             <div className="flex justify-between items-center mb-8">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Quản lý Hoàn trả (Purchase Returns)</h1>
+                    <h1 className="text-2xl font-bold text-gray-900">Quản lý Hoàn trả</h1>
                     <p className="text-gray-500">Tạo và theo dõi các yêu cầu trả hàng cho nhà cung cấp</p>
                 </div>
                 <button

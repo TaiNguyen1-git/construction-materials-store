@@ -38,7 +38,21 @@ export async function GET(request: NextRequest) {
     }
 
     if (type) {
-      where.customerType = type as CustomerType
+      const typeList = type.split(',')
+      const validTypes = Object.values(CustomerType) as string[]
+      const requestedTypes = typeList.filter(t => validTypes.includes(t))
+
+      if (requestedTypes.length > 0) {
+        where.customerType = { in: requestedTypes as CustomerType[] }
+      } else {
+        return NextResponse.json(
+          createSuccessResponse({
+            data: [],
+            pagination: { total: 0, page, limit, pages: 0 }
+          }, 'No valid customer types requested'),
+          { status: 200 }
+        )
+      }
     }
 
     const [customers, total] = await Promise.all([

@@ -62,9 +62,29 @@ export async function GET(request: NextRequest) {
             take: limit * 2 // Get more to filter later
         })
 
-        // Filter to products that actually need reorder
+        // 2. Filter out products that already have pending orders or requests
+        const [pendingRequests, pendingOrders] = await Promise.all([
+            prisma.purchaseRequest.findMany({
+                where: { status: { in: ['PENDING', 'APPROVED'] } },
+                select: { productId: true }
+            }),
+            prisma.purchaseItem.findMany({
+                where: { 
+                    purchaseOrder: { status: { in: ['DRAFT', 'SENT'] } } 
+                },
+                select: { productId: true }
+            })
+        ])
+
+        const busyProductIds = new Set([
+            ...pendingRequests.map(r => r.productId),
+            ...pendingOrders.map(o => o.productId)
+        ])
+
+        // Filter to products that actually need reorder AND aren't already being ordered
         const needsReorder = inventoryItems.filter(
-            item => item.availableQuantity <= item.reorderPoint || item.quantity <= item.minStockLevel
+            item => (item.availableQuantity <= item.reorderPoint || item.quantity <= item.minStockLevel) &&
+                    !busyProductIds.has(item.productId)
         )
 
         // Get supplier products for these items

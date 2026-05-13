@@ -150,6 +150,7 @@ export default function ReorderWizard() {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
+                        action: 'create-po',
                         supplierId,
                         items: orderData.items,
                         source: 'WIZARD'
@@ -162,7 +163,7 @@ export default function ReorderWizard() {
             }
 
             if (results.length > 0) {
-                toast.success(`Đã tạo ${results.length} đơn đặt hàng!`)
+                toast.success(`Đã tạo ${results.length} đơn đặt hàng! Xem lại tại tab Đơn đặt hàng.`)
                 setSelectedItems(new Set())
                 fetchData()
             } else {

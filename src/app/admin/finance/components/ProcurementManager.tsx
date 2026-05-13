@@ -40,8 +40,47 @@ interface PurchaseRequest {
     createdAt: string
 }
 
+function SendPOButton({ poId, onSent }: { poId: string, onSent: () => void }) {
+    const [isSending, setIsSending] = useState(false);
+
+    const handleSend = async () => {
+        setIsSending(true);
+        try {
+            const res = await fetch('/api/procurement', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'send-po', poId })
+            });
+            if (res.ok) {
+                toast.success('Đã gửi đơn hàng đến nhà cung cấp');
+                onSent();
+            } else {
+                toast.error('Gửi đơn thất bại');
+            }
+        } catch (e) {
+            toast.error('Có lỗi xảy ra khi gửi đơn');
+        } finally {
+            setIsSending(false);
+        }
+    };
+
+    return (
+        <button 
+            onClick={handleSend}
+            disabled={isSending}
+            className="p-2 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-600 hover:text-white transition-all flex items-center gap-2 ml-auto disabled:opacity-50"
+            title="Gửi đơn hàng"
+        >
+            <span className="text-[10px] font-black uppercase tracking-widest px-1">
+                {isSending ? 'Đang gửi...' : 'Gửi đơn'}
+            </span>
+            {isSending ? <RefreshCw size={14} className="animate-spin" /> : <ArrowRight size={14} />}
+        </button>
+    );
+}
+
 export default function ProcurementManager() {
-    const [activeTab, setActiveTab] = useState<'suggestions' | 'requests'>('suggestions')
+    const [activeTab, setActiveTab] = useState<'suggestions' | 'requests' | 'orders'>('suggestions')
     const [searchTerm, setSearchTerm] = useState('')
     const queryClient = useQueryClient()
 
@@ -58,6 +97,14 @@ export default function ProcurementManager() {
         queryFn: async () => {
             const res = await fetch('/api/procurement?type=requests')
             return res.json() as Promise<PurchaseRequest[]>
+        }
+    })
+
+    const { data: orders = [], isLoading: loadingOrders, refetch: refetchOrders } = useQuery({
+        queryKey: ['procurement', 'orders'],
+        queryFn: async () => {
+            const res = await fetch('/api/procurement?type=orders')
+            return res.json()
         }
     })
 
@@ -94,13 +141,20 @@ export default function ProcurementManager() {
         onSuccess: () => { toast.success('Đã phê duyệt'); queryClient.invalidateQueries({ queryKey: ['procurement', 'requests'] }) }
     })
 
+    const [isAutoGenerating, setIsAutoGenerating] = useState(false)
+
     const handleAutoGenerate = async () => {
+        setIsAutoGenerating(true)
         try {
             const res = await fetch('/api/procurement', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'auto-generate' }) })
             const data = await res.json()
             toast.success(data.message || 'Đã phân tích xong lô hàng AI')
             queryClient.invalidateQueries({ queryKey: ['procurement'] })
-        } catch (error) { toast.error('Tiến trình AI gặp sự cố') }
+        } catch (error) { 
+            toast.error('Tiến trình AI gặp sự cố') 
+        } finally {
+            setIsAutoGenerating(false)
+        }
     }
 
     const formatCurrency = (amount: number | undefined | null) => {
@@ -122,7 +176,35 @@ export default function ProcurementManager() {
             case 'PENDING': return 'bg-amber-50 text-amber-600 border-amber-100'
             case 'APPROVED': return 'bg-emerald-50 text-emerald-600 border-emerald-100'
             case 'CONVERTED': return 'bg-blue-50 text-blue-600 border-blue-100'
+            case 'DRAFT': return 'bg-slate-100 text-slate-600 border-slate-200'
+            case 'SENT': return 'bg-blue-50 text-blue-600 border-blue-100'
+            case 'RECEIVED': return 'bg-emerald-50 text-emerald-600 border-emerald-100'
             default: return 'bg-slate-50 text-slate-500 border-slate-100'
+        }
+    }
+
+    const getStatusLabel = (status: string) => {
+        switch (status) {
+            case 'PENDING': return 'Chờ duyệt'
+            case 'APPROVED': return 'Đã duyệt'
+            case 'CONVERTED': return 'Đã lên đơn'
+            case 'REJECTED': return 'Bị từ chối'
+            case 'DRAFT': return 'Bản nháp'
+            case 'SENT': return 'Đã gửi'
+            case 'RECEIVED': return 'Đã nhận'
+            case 'PARTIALLY_RECEIVED': return 'Nhận 1 phần'
+            case 'CANCELLED': return 'Đã hủy'
+            default: return status
+        }
+    }
+
+    const getPriorityLabel = (priority: string) => {
+        switch (priority) {
+            case 'URGENT': return 'Khẩn cấp'
+            case 'HIGH': return 'Ưu tiên cao'
+            case 'MEDIUM': return 'Trung bình'
+            case 'LOW': return 'Thấp'
+            default: return priority
         }
     }
 
@@ -131,16 +213,41 @@ export default function ProcurementManager() {
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="flex bg-slate-100 p-1 rounded-2xl w-max border border-slate-200/50">
                     <button onClick={() => setActiveTab('suggestions')} className={`flex items-center gap-2 px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'suggestions' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>
-                        <BarChart3 size={14} /> Gợi ý AI tối ưu tồn kho
+                        <BarChart3 size={14} /> Gợi ý AI
                     </button>
                     <button onClick={() => setActiveTab('requests')} className={`flex items-center gap-2 px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'requests' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>
-                        <FileText size={14} /> Lịch sử yêu cầu
+                        <FileText size={14} /> Yêu cầu
+                    </button>
+                    <button onClick={() => setActiveTab('orders')} className={`flex items-center gap-2 px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'orders' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>
+                        <ShoppingCart size={14} /> Đơn đặt hàng
                     </button>
                 </div>
                 <div className="flex gap-2">
-                    <button onClick={() => window.location.href = '/admin/procurement-management/wizard'} className="bg-white text-blue-600 px-5 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest border border-blue-100 hover:bg-blue-50 transition-all flex items-center gap-2"><Sparkles size={14} className="text-blue-500" /> Wizard</button>
-                    <button onClick={handleAutoGenerate} className="bg-slate-900 text-white px-5 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-800 shadow-lg shadow-slate-200 transition-all flex items-center gap-2"><Zap size={14} className="text-amber-400 fill-amber-400" /> AI Auto-Generate</button>
-                    <button onClick={() => { refetchSuggestions(); refetchRequests(); }} className="bg-white text-slate-400 px-3 py-2.5 rounded-xl border border-slate-100 hover:bg-slate-50 transition-all"><RefreshCw size={14} className={loadingSuggestions || loadingRequests ? 'animate-spin' : ''} /></button>
+                    <button 
+                        onClick={() => window.location.href = '/admin/procurement-management/wizard'} 
+                        className="bg-white text-blue-600 px-5 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest border border-blue-100 hover:bg-blue-50 transition-all flex items-center gap-2"
+                    >
+                        <Sparkles size={14} className="text-blue-500" /> Trợ lý nhập hàng
+                    </button>
+                    <button 
+                        onClick={handleAutoGenerate} 
+                        disabled={isAutoGenerating}
+                        className="bg-amber-50 text-amber-700 border border-amber-200 px-5 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-amber-100 shadow-sm transition-all flex items-center gap-2 disabled:opacity-50"
+                    >
+                        {isAutoGenerating ? <RefreshCw size={14} className="animate-spin" /> : <Zap size={14} className="text-amber-500 fill-amber-500" />}
+                        AI Tự động tạo
+                    </button>
+                    <button 
+                        onClick={() => { 
+                            toast.loading('Đang đồng bộ dữ liệu...', { duration: 1000 });
+                            refetchSuggestions(); 
+                            refetchRequests(); 
+                            refetchOrders(); 
+                        }} 
+                        className="bg-white text-slate-400 px-3 py-2.5 rounded-xl border border-slate-100 hover:bg-slate-50 transition-all"
+                    >
+                        <RefreshCw size={14} className={loadingSuggestions || loadingRequests || loadingOrders ? 'animate-spin' : ''} />
+                    </button>
                 </div>
             </div>
 
@@ -148,7 +255,7 @@ export default function ProcurementManager() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {loadingSuggestions ? <div className="col-span-full py-12 text-center text-[10px] font-black text-slate-300 uppercase tracking-widest animate-pulse">Đang phân tích dữ liệu kho AI...</div> : suggestions.length === 0 ? <div className="col-span-full py-12 bg-slate-50 rounded-3xl border border-dashed border-slate-200 text-center text-[10px] font-black text-slate-400 uppercase">Tồn kho hiện tại đang ở mức an toàn</div> : suggestions.map(s => (
                         <div key={s.productId} className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm hover:shadow-xl transition-all group relative overflow-hidden">
-                            <div className={`absolute top-4 right-4 px-2 py-0.5 rounded-md text-[8px] font-black uppercase border ${getPriorityStyle(s.priority)}`}>{s.priority}</div>
+                            <div className={`absolute top-4 right-4 px-2 py-0.5 rounded-md text-[8px] font-black uppercase border ${getPriorityStyle(s.priority)}`}>{getPriorityLabel(s.priority)}</div>
                             <div className="mb-4">
                                 <div className="text-[9px] font-black text-slate-300 uppercase tracking-widest">{s.categoryName}</div>
                                 <h3 className="text-sm font-black text-slate-900 mt-1 uppercase line-clamp-1">{s.productName}</h3>
@@ -160,18 +267,73 @@ export default function ProcurementManager() {
                             </div>
                             <div className="h-1.5 w-full bg-slate-50 rounded-full overflow-hidden mb-4"><div className={`h-full rounded-full ${s.currentStock <= s.reorderPoint ? 'bg-red-500' : 'bg-blue-500'}`} style={{ width: `${Math.min(100, (s.currentStock / s.reorderPoint) * 50)}%` }}></div></div>
                             <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex justify-between items-center mb-4"><span className="text-[9px] font-black text-slate-400 uppercase">Ước tính chi phí:</span><span className="text-[11px] font-black text-slate-900">{formatCurrency(s.estimatedCost)}</span></div>
-                            <button onClick={() => createRequestMutation.mutate(s)} className="w-full py-3 bg-blue-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-700 shadow-lg shadow-blue-500/20 transition-all flex items-center justify-center gap-2"><Plus size={14} /> Khởi tạo yêu cầu nhập</button>
+                            <button 
+                                onClick={() => createRequestMutation.mutate(s)} 
+                                disabled={createRequestMutation.isPending}
+                                className="w-full py-3 bg-blue-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-700 shadow-lg shadow-blue-500/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                            >
+                                {createRequestMutation.isPending ? <RefreshCw size={14} className="animate-spin" /> : <Plus size={14} />} 
+                                Khởi tạo yêu cầu nhập
+                            </button>
                         </div>
                     ))}
                 </div>
-            ) : (
+            ) : activeTab === 'requests' ? (
                 <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
                     <div className="overflow-x-auto"><table className="min-w-full divide-y divide-slate-100">
                         <thead className="bg-slate-50/50 text-[9px] font-black text-slate-400 uppercase tracking-widest"><tr><th className="px-6 py-4 text-left">Yêu cầu</th><th className="px-6 py-4 text-left">Sản phẩm</th><th className="px-6 py-4 text-left">Nhà cung cấp</th><th className="px-4 py-4 text-right">Số lượng</th><th className="px-4 py-4 text-center">Trạng thái</th><th className="px-6 py-4 text-right">Thao tác</th></tr></thead>
-                        <tbody className="divide-y divide-slate-50">{loadingRequests ? <tr><td colSpan={6} className="py-12 text-center text-[10px] font-black text-slate-300 uppercase animate-pulse">Đang tải lịch sử...</td></tr> : requests.length === 0 ? <tr><td colSpan={6} className="py-12 text-center text-[10px] font-black text-slate-300 uppercase italic">Chưa có bản ghi nào</td></tr> : requests.map(r => (
-                            <tr key={r.id} className="hover:bg-slate-50/50 group"><td className="px-6 py-4"><div className="text-xs font-black text-slate-900 uppercase tracking-tight">{r.requestNumber}</div><div className="text-[8px] text-slate-400 font-bold uppercase mt-1">{new Date(r.createdAt).toLocaleDateString('vi-VN')}</div></td><td className="px-6 py-4"><div className="text-xs font-black text-slate-900 line-clamp-1">{r.productName}</div></td><td className="px-6 py-4 min-w-[200px]">{r.supplierName ? <span className="text-xs font-bold text-slate-600">{r.supplierName}</span> : <SupplierAutocomplete value="" placeholder="Chỉ định NCC..." className="w-full bg-slate-50 border-none rounded-xl px-2 py-1.5 text-[9px] font-black uppercase" onChange={(sid) => sid && assignSupplierMutation.mutate({ requestId: r.id, supplierId: sid })} />}</td><td className="px-4 py-4 text-right text-xs font-black text-slate-900">{r.requestedQty}</td><td className="px-4 py-4 text-center"><span className={`px-2 py-0.5 rounded-md text-[8px] font-black uppercase border ${getStatusStyle(r.status)}`}>{r.status}</span></td><td className="px-6 py-4 text-right">{r.status === 'PENDING' && <button onClick={() => approveRequestMutation.mutate(r.id)} className="p-2 bg-emerald-50 text-emerald-600 rounded-xl hover:bg-emerald-600 hover:text-white transition-all"><CheckCircle size={14} /></button>}</td></tr>
+                        <tbody className="divide-y divide-slate-50">{loadingRequests ? <tr><td colSpan={6} className="py-12 text-center text-[10px] font-black text-slate-300 uppercase animate-pulse">Đang tải lịch sử...</td></tr> : requests.length === 0 ? <tr><td colSpan={6} className="py-12 text-center text-[10px] font-black text-slate-300 uppercase italic">Chưa có bản ghi nào</td></tr> : requests.map((r: any) => (
+                            <tr key={r.id} className="hover:bg-slate-50/50 group"><td className="px-6 py-4"><div className="text-xs font-black text-slate-900 uppercase tracking-tight">{r.requestNumber}</div><div className="text-[8px] text-slate-400 font-bold uppercase mt-1">{new Date(r.createdAt).toLocaleDateString('vi-VN')}</div></td><td className="px-6 py-4"><div className="text-xs font-black text-slate-900 line-clamp-1">{r.productName}</div></td><td className="px-6 py-4 min-w-[200px]">{r.supplierName ? <span className="text-xs font-bold text-slate-600">{r.supplierName}</span> : <SupplierAutocomplete value="" placeholder="Chỉ định NCC..." className="w-full bg-slate-50 border-none rounded-xl px-2 py-1.5 text-[9px] font-black uppercase" onChange={(sid) => sid && assignSupplierMutation.mutate({ requestId: r.id, supplierId: sid })} />}</td><td className="px-4 py-4 text-right text-xs font-black text-slate-900">{r.requestedQty}</td><td className="px-4 py-4 text-center"><span className={`px-2 py-0.5 rounded-md text-[8px] font-black uppercase border ${getStatusStyle(r.status)}`}>{getStatusLabel(r.status)}</span></td><td className="px-6 py-4 text-right">{r.status === 'PENDING' && <button onClick={() => approveRequestMutation.mutate(r.id)} disabled={approveRequestMutation.isPending} className="p-2 bg-emerald-50 text-emerald-600 rounded-xl hover:bg-emerald-600 hover:text-white transition-all disabled:opacity-50">{approveRequestMutation.isPending ? <RefreshCw size={14} className="animate-spin" /> : <CheckCircle size={14} />}</button>}</td></tr>
                         ))}</tbody>
                     </table></div>
+                </div>
+            ) : (
+                <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+                    <div className="overflow-x-auto">
+                        <table className="min-w-full divide-y divide-slate-100">
+                            <thead className="bg-slate-50/50 text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                                <tr>
+                                    <th className="px-6 py-4 text-left">Đơn hàng</th>
+                                    <th className="px-6 py-4 text-left">Nhà cung cấp</th>
+                                    <th className="px-4 py-4 text-right">Tổng tiền</th>
+                                    <th className="px-4 py-4 text-center">Trạng thái</th>
+                                    <th className="px-6 py-4 text-right">Thao tác</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-50">
+                                {loadingOrders ? (
+                                    <tr><td colSpan={5} className="py-12 text-center text-[10px] font-black text-slate-300 uppercase animate-pulse">Đang tải đơn hàng...</td></tr>
+                                ) : orders.length === 0 ? (
+                                    <tr><td colSpan={5} className="py-12 text-center text-[10px] font-black text-slate-300 uppercase italic">Chưa có đơn đặt hàng nào</td></tr>
+                                ) : orders.map((o: any) => (
+                                    <tr key={o.id} className="hover:bg-slate-50/50 group">
+                                        <td className="px-6 py-4">
+                                            <div className="text-xs font-black text-slate-900 uppercase tracking-tight">{o.orderNumber}</div>
+                                            <div className="text-[8px] text-slate-400 font-bold uppercase mt-1">
+                                                {new Date(o.createdAt).toLocaleDateString('vi-VN')}
+                                                {o.purchaseItems && ` • ${o.purchaseItems.length} mặt hàng`}
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <div className="text-xs font-bold text-slate-600">{o.supplier?.name}</div>
+                                            <div className="text-[9px] text-slate-400">{o.supplier?.email}</div>
+                                        </td>
+                                        <td className="px-4 py-4 text-right text-xs font-black text-slate-900">
+                                            {formatCurrency(o.netAmount)}
+                                        </td>
+                                        <td className="px-4 py-4 text-center">
+                                            <span className={`px-2 py-0.5 rounded-md text-[8px] font-black uppercase border ${getStatusStyle(o.status)}`}>
+                                                {getStatusLabel(o.status)}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4 text-right">
+                                            <SendPOButton poId={o.id} onSent={refetchOrders} />
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             )}
         </div>

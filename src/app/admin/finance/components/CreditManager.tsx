@@ -157,17 +157,32 @@ export default function CreditManager() {
             )}
 
             {activeTab === 'approvals' && (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {pendingApprovals.map(app => (
-                        <div key={app.id} className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm">
-                            <h3 className="text-sm font-black text-slate-900 uppercase">{app.customer.user.name}</h3>
-                            <p className="text-[10px] text-slate-400 font-bold mt-1 uppercase italic line-clamp-2">"{app.reason}"</p>
-                            <div className="mt-4 pt-4 border-t border-slate-50 flex justify-between items-end">
-                                <div><span className="text-[8px] font-black text-slate-400 uppercase block">Yêu cầu</span><span className="text-xs font-black text-emerald-600">{formatCurrency(app.requestedAmount)}</span></div>
-                                <div className="flex gap-2"><button onClick={() => handleApproval(app.id, true)} className="p-2 bg-emerald-50 text-emerald-600 rounded-xl hover:bg-emerald-600 hover:text-white transition-all"><CheckCircle size={14} /></button><button onClick={() => handleApproval(app.id, false)} className="p-2 bg-red-50 text-red-500 rounded-xl hover:bg-red-600 hover:text-white transition-all"><XCircle size={14} /></button></div>
-                            </div>
+                <div className="min-h-[400px] flex flex-col items-center justify-center space-y-4">
+                    {pendingApprovals.length > 0 ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 w-full">
+                            {pendingApprovals.map(app => (
+                                <div key={app.id} className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm">
+                                    <h3 className="text-sm font-black text-slate-900 uppercase">{app.customer.user.name}</h3>
+                                    <p className="text-[10px] text-slate-400 font-bold mt-1 uppercase italic line-clamp-2">"{app.reason}"</p>
+                                    <div className="mt-4 pt-4 border-t border-slate-50 flex justify-between items-end">
+                                        <div><span className="text-[8px] font-black text-slate-400 uppercase block">Yêu cầu</span><span className="text-xs font-black text-emerald-600">{formatCurrency(app.requestedAmount)}</span></div>
+                                        <div className="flex gap-2">
+                                            <button onClick={() => handleApproval(app.id, true)} className="p-2 bg-emerald-50 text-emerald-600 rounded-xl hover:bg-emerald-600 hover:text-white transition-all"><CheckCircle size={14} /></button>
+                                            <button onClick={() => handleApproval(app.id, false)} className="p-2 bg-red-50 text-red-500 rounded-xl hover:bg-red-600 hover:text-white transition-all"><XCircle size={14} /></button>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
                         </div>
-                    ))}
+                    ) : (
+                        <div className="text-center py-12">
+                            <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center text-slate-300 mx-auto mb-4">
+                                <CheckCircle size={32} />
+                            </div>
+                            <h3 className="text-sm font-black text-slate-900 uppercase">Không có yêu cầu chờ duyệt</h3>
+                            <p className="text-[10px] text-slate-400 font-bold uppercase mt-1">Hệ thống hiện tại chưa có yêu cầu nâng hạn mức hoặc duyệt ngoại lệ nào.</p>
+                        </div>
+                    )}
                 </div>
             )}
 
