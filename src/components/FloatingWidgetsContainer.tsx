@@ -366,7 +366,7 @@ function SupportPanel({ onClose }: { onClose: () => void }) {
 
                         <div className="space-y-3">
                             <div className="group">
-                                <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block px-1">Họ và tên</label>
+                                <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">Họ và tên</label>
                                 <div className="relative">
                                     <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-indigo-500 transition-colors" />
                                     <input
@@ -377,7 +377,7 @@ function SupportPanel({ onClose }: { onClose: () => void }) {
                                 </div>
                             </div>
                             <div className="group">
-                                <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block px-1">Số điện thoại</label>
+                                <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">Số điện thoại</label>
                                 <div className="relative">
                                     <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-indigo-500 transition-colors" />
                                     <input
@@ -405,7 +405,7 @@ function SupportPanel({ onClose }: { onClose: () => void }) {
                             <div className="h-1 flex-1 bg-indigo-600 rounded-full" />
                         </div>
                         <div>
-                            <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block px-1">Nội dung cần hỗ trợ</label>
+                            <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">Nội dung cần hỗ trợ</label>
                             <textarea
                                 rows={4} value={form.message} onChange={e => setForm({ ...form, message: e.target.value })}
                                 className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-2xl text-sm outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all font-medium resize-none shadow-inner"
@@ -417,7 +417,7 @@ function SupportPanel({ onClose }: { onClose: () => void }) {
                             <button type="button" onClick={() => setStep(1)} className="flex-1 py-4 text-sm font-bold text-gray-500 hover:text-gray-900 transition-colors">Quay lại</button>
                             <button
                                 type="submit" disabled={loading}
-                                className="flex-[2] bg-indigo-600 text-white py-4 rounded-3xl font-bold text-sm hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-100 disabled:opacity-50 flex items-center justify-center gap-2"
+                                className="flex-1 bg-indigo-600 text-white py-4 rounded-3xl font-bold text-sm hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-100 disabled:opacity-50 flex items-center justify-center gap-2"
                             >
                                 {loading ? <div className="w-5 h-5 border-2 border-white/30 border-t-white animate-spin rounded-full" /> : 'Gửi yêu cầu'}
                             </button>

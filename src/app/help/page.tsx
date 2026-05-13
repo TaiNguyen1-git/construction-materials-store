@@ -396,14 +396,31 @@ const FAQ_ITEMS = [
     }
 ]
 
+interface HelpArticle {
+    id: string
+    title: string
+    content: string
+    category?: string
+    categoryTitle?: string
+    categoryId?: string
+}
+
+interface HelpCategory {
+    id: string
+    title: string
+    icon: any
+    color: string
+    articles: HelpArticle[]
+}
+
 export default function HelpCenterPage() {
     const router = useRouter()
     const { user } = useAuth()
     const [searchQuery, setSearchQuery] = useState('')
     const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
-    const [selectedArticle, setSelectedArticle] = useState<any | null>(null)
+    const [selectedArticle, setSelectedArticle] = useState<HelpArticle | null>(null)
     const [expandedFaq, setExpandedFaq] = useState<number | null>(null)
-    const [dbArticles, setDbArticles] = useState<any[]>([])
+    const [dbArticles, setDbArticles] = useState<HelpArticle[]>([])
     const [showGuestModal, setShowGuestModal] = useState(false)
     const [feedbackStatus, setFeedbackStatus] = useState<Record<string, 'useful' | 'not-useful'>>({})
 
@@ -500,13 +517,13 @@ export default function HelpCenterPage() {
 
     // Merge DB articles into categories
     const mergedCategories = useMemo(() => {
-        const categories = [...HELP_CATEGORIES]
+        const categories = [...HELP_CATEGORIES] as HelpCategory[]
 
-        dbArticles.forEach((article: any) => {
-            const catIndex = categories.findIndex((c: any) => c.title === article.category)
+        dbArticles.forEach((article: HelpArticle) => {
+            const catIndex = categories.findIndex((c: HelpCategory) => c.title === article.category)
             if (catIndex > -1) {
                 // Add to existing category
-                if (!categories[catIndex].articles.find((a: any) => a.id === article.id)) {
+                if (!categories[catIndex].articles.find((a: HelpArticle) => a.id === article.id)) {
                     categories[catIndex].articles.push({
                         id: article.id,
                         title: article.title,
@@ -516,8 +533,8 @@ export default function HelpCenterPage() {
             } else {
                 // Create new category
                 categories.push({
-                    id: `db-${article.category.toLowerCase().replace(/\s+/g, '-')}`,
-                    title: article.category,
+                    id: `db-${article.category?.toLowerCase().replace(/\s+/g, '-')}`,
+                    title: article.category || 'Chưa phân loại',
                     icon: BookOpen,
                     color: 'from-slate-500 to-slate-700',
                     articles: [{
@@ -536,10 +553,10 @@ export default function HelpCenterPage() {
         if (!searchQuery.trim()) return []
 
         const query = searchQuery.toLowerCase()
-        const results: any[] = []
+        const results: HelpArticle[] = []
 
-        mergedCategories.forEach((cat: any) => {
-            cat.articles.forEach((article: any) => {
+        mergedCategories.forEach((cat: HelpCategory) => {
+            cat.articles.forEach((article: HelpArticle) => {
                 if (
                     article.title.toLowerCase().includes(query) ||
                     article.content.toLowerCase().includes(query)
@@ -613,7 +630,7 @@ export default function HelpCenterPage() {
                                     <button
                                         key={idx}
                                         onClick={() => {
-                                            setSelectedCategory(result.categoryId)
+                                            setSelectedCategory(result.categoryId || null)
                                             setSelectedArticle(result)
                                             setSearchQuery('')
                                         }}
@@ -763,33 +780,120 @@ export default function HelpCenterPage() {
                             </h1>
 
                             {/* Markdown-like content rendering */}
+                            {/* Enhanced Content Rendering */}
                             <div className="prose prose-slate max-w-none prose-headings:font-black prose-a:text-indigo-600 prose-strong:text-slate-900 prose-table:text-sm">
-                                {selectedArticle.content.split('\n').map((line: string, idx: number) => {
-                                    const trimmed = line.trim()
-                                    if (!trimmed) return <br key={idx} />
+                                {(() => {
+                                    const lines = selectedArticle.content.split('\n');
+                                    const elements: React.ReactNode[] = [];
+                                    let currentTable: string[][] = [];
 
-                                    // Headers
-                                    if (trimmed.startsWith('**') && trimmed.endsWith('**')) {
-                                        return <h3 key={idx} className="text-lg font-black text-slate-900 mt-6 mb-3">{trimmed.slice(2, -2)}</h3>
-                                    }
+                                    const flushTable = (key: number) => {
+                                        if (currentTable.length === 0) return;
+                                        
+                                        // Filter out the separator row (e.g., |---|---|)
+                                        const rows = currentTable.filter(row => !row.every(cell => cell.includes('---')));
+                                        if (rows.length === 0) {
+                                            currentTable = [];
+                                            return;
+                                        }
 
-                                    // List items
-                                    if (trimmed.startsWith('- ') || trimmed.startsWith('✅') || trimmed.startsWith('❌')) {
-                                        return <li key={idx} className="ml-4 mb-1 text-slate-700">{trimmed.replace(/^- /, '')}</li>
-                                    }
+                                        const headers = rows[0];
+                                        const data = rows.slice(1);
 
-                                    // Numbered list
-                                    if (/^\d+\./.test(trimmed)) {
-                                        return <li key={idx} className="ml-4 mb-2 text-slate-700 list-decimal">{trimmed.replace(/^\d+\.\s*/, '')}</li>
-                                    }
+                                        elements.push(
+                                            <div key={`table-${key}`} className="my-8 overflow-hidden rounded-2xl border border-slate-200 shadow-sm bg-white overflow-x-auto">
+                                                <table className="w-full text-left border-collapse">
+                                                    <thead>
+                                                        <tr className="bg-slate-50 border-b border-slate-200">
+                                                            {headers.map((h, i) => (
+                                                                <th key={i} className="px-6 py-4 text-[11px] font-black uppercase tracking-widest text-slate-500 whitespace-nowrap">
+                                                                    {h.trim()}
+                                                                </th>
+                                                            ))}
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody className="divide-y divide-slate-100">
+                                                        {data.map((row, ri) => (
+                                                            <tr key={ri} className="hover:bg-slate-50/50 transition-colors">
+                                                                {row.map((cell, ci) => {
+                                                                    const text = cell.trim();
+                                                                    let badgeClass = "";
+                                                                    
+                                                                    if (text === 'Mới') badgeClass = "bg-slate-100 text-slate-600";
+                                                                    else if (text === 'Bạc') badgeClass = "bg-blue-50 text-blue-600 border border-blue-100";
+                                                                    else if (text === 'Vàng') badgeClass = "bg-amber-50 text-amber-600 border border-amber-100";
+                                                                    else if (text === 'Bạch Kim') badgeClass = "bg-indigo-50 text-indigo-600 border border-indigo-100";
+                                                                    else if (text === 'Kim Cương') badgeClass = "bg-purple-50 text-purple-600 border border-purple-100";
 
-                                    // Table detection (simple)
-                                    if (trimmed.startsWith('|')) {
-                                        return <code key={idx} className="block text-xs bg-slate-50 px-3 py-1 rounded font-mono">{trimmed}</code>
-                                    }
+                                                                    return (
+                                                                        <td key={ci} className="px-6 py-4 text-[13px] font-bold text-slate-700">
+                                                                            {badgeClass ? (
+                                                                                <span className={`px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-wider ${badgeClass}`}>
+                                                                                    {text}
+                                                                                </span>
+                                                                            ) : text}
+                                                                        </td>
+                                                                    );
+                                                                })}
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        );
+                                        currentTable = [];
+                                    };
 
-                                    return <p key={idx} className="text-slate-700 mb-2 leading-relaxed">{trimmed}</p>
-                                })}
+                                    lines.forEach((line: string, idx: number) => {
+                                        const trimmed = line.trim();
+                                        
+                                        // Table logic
+                                        if (trimmed.startsWith('|')) {
+                                            const cells = trimmed.split('|').filter((_: string, i: number, arr: string[]) => i > 0 && i < arr.length - 1);
+                                            currentTable.push(cells);
+                                            return;
+                                        } else {
+                                            flushTable(idx);
+                                        }
+
+                                        if (!trimmed) {
+                                            elements.push(<br key={idx} />);
+                                            return;
+                                        }
+
+                                        // Headers
+                                        if (trimmed.startsWith('**') && trimmed.endsWith('**')) {
+                                            elements.push(<h3 key={idx} className="text-lg font-black text-slate-900 mt-8 mb-4 flex items-center gap-2">
+                                                <span className="w-1.5 h-6 bg-indigo-600 rounded-full" />
+                                                {trimmed.slice(2, -2)}
+                                            </h3>);
+                                        }
+                                        // List items
+                                        else if (trimmed.startsWith('- ') || trimmed.startsWith('✅') || trimmed.startsWith('❌')) {
+                                            elements.push(<div key={idx} className="flex items-start gap-3 mb-2 ml-1">
+                                                <span className="text-indigo-500 mt-1">
+                                                    {trimmed.startsWith('- ') ? '•' : trimmed.slice(0, 2)}
+                                                </span>
+                                                <span className="text-slate-700 text-[14px] font-medium leading-relaxed">
+                                                    {trimmed.startsWith('- ') ? trimmed.slice(2) : trimmed.slice(2)}
+                                                </span>
+                                            </div>);
+                                        }
+                                        // Numbered list
+                                        else if (/^\d+\./.test(trimmed)) {
+                                            elements.push(<div key={idx} className="flex items-start gap-3 mb-3 ml-1">
+                                                <span className="font-black text-indigo-600 text-sm mt-0.5">{trimmed.match(/^\d+\./)?.[0]}</span>
+                                                <span className="text-slate-700 text-[14px] font-medium leading-relaxed">{trimmed.replace(/^\d+\.\s*/, '')}</span>
+                                            </div>);
+                                        }
+                                        else {
+                                            elements.push(<p key={idx} className="text-slate-700 mb-3 text-[14px] font-medium leading-relaxed">{trimmed}</p>);
+                                        }
+                                    });
+
+                                    flushTable(lines.length);
+                                    return elements;
+                                })()}
                             </div>
 
                             {/* Helpful? */}
