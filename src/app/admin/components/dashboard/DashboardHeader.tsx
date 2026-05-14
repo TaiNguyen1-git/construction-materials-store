@@ -40,7 +40,7 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
             ? <RefreshCw className="animate-spin text-blue-600" size={16} /> 
             : <FileText className="text-blue-600 group-hover:scale-110 transition-transform" size={16} />
           }
-          Xuất Báo Cáo
+          {isSendingReport ? 'Đang gửi...' : 'Xuất Báo Cáo'}
         </button>
         <button
           onClick={onRefresh}

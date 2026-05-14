@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo } from 'react'
 import {
-    Clock, CheckCircle, GripVertical, Truck, Search, User, Eye, Edit, Share2, Phone
+    Clock, CheckCircle, GripVertical, Truck, Search, User, Eye, Edit, Share2, Phone, Loader2
 } from 'lucide-react'
 import {
     DndContext, DragOverlay, closestCorners,
@@ -174,12 +174,14 @@ const UnassignedColumn = ({ orders, onViewDetail, onEditOrder }: {
 }
 
 // ─── DriverDropZone ─────────────────────────────────────────────────────────
-const DriverDropZone = ({ driver, orders, onStartTrip, onViewDetail, onEditOrder }: {
+const DriverDropZone = ({ driver, orders, onStartTrip, onViewDetail, onEditOrder, onCall, callingRecipientId }: {
     driver: Driver
     orders: DispatchOrder[]
     onStartTrip: (id: string) => void
     onViewDetail: (id: string) => void
     onEditOrder: (id: string) => void
+    onCall: (recipientId: string, recipientName: string, type: 'audio' | 'video') => void
+    callingRecipientId: string | null
 }) => {
     const { setNodeRef, isOver } = useDroppable({ id: driver.id })
     return (
@@ -210,11 +212,18 @@ const DriverDropZone = ({ driver, orders, onStartTrip, onViewDetail, onEditOrder
 
                     {driver.user.phone && (
                         <button
-                            onClick={() => window.location.href = `tel:${driver.user.phone}`}
-                            className="p-2 bg-green-50 text-green-600 rounded-xl hover:bg-green-100 transition-colors shadow-sm"
+                            onClick={() => onCall(driver.user.id, driver.user.name, 'audio')}
+                            disabled={callingRecipientId === driver.user.id}
+                            className={`p-2 rounded-xl transition-all shadow-sm ${callingRecipientId === driver.user.id 
+                                ? 'bg-slate-100 text-slate-400' 
+                                : 'bg-green-50 text-green-600 hover:bg-green-100'}`}
                             title={`Gọi ${driver.user.name}`}
                         >
-                            <Phone className="w-4 h-4" />
+                            {callingRecipientId === driver.user.id ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                                <Phone className="w-4 h-4" />
+                            )}
                         </button>
                     )}
 
@@ -266,13 +275,16 @@ interface DispatchTabProps {
     onStartTrip: (driverId: string) => void
     onViewDetail: (id: string) => void
     onEditOrder: (id: string) => void
+    onCall: (recipientId: string, recipientName: string, type: 'audio' | 'video') => void
+    callingRecipientId: string | null
     activeOrder: DispatchOrder | null
 }
 
 export default function DispatchTab({
     orders, drivers,
     onDragStart, onDragOver, onDragEnd,
-    onStartTrip, onViewDetail, onEditOrder,
+    onStartTrip, onViewDetail, onEditOrder, onCall,
+    callingRecipientId,
     activeOrder,
 }: DispatchTabProps) {
     const sensors = useSensors(
@@ -315,6 +327,8 @@ export default function DispatchTab({
                                 onStartTrip={onStartTrip}
                                 onViewDetail={onViewDetail}
                                 onEditOrder={onEditOrder}
+                                onCall={onCall}
+                                callingRecipientId={callingRecipientId}
                             />
                         ))}
                         {drivers.length === 0 && (

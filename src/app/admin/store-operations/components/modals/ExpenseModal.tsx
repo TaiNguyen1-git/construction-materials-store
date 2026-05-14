@@ -1,5 +1,5 @@
 import React from 'react'
-import { Coins } from 'lucide-react'
+import { Coins, RefreshCw } from 'lucide-react'
 import FormattedNumberInput from '@/components/FormattedNumberInput'
 
 interface ExpenseModalProps {
@@ -12,6 +12,8 @@ interface ExpenseModalProps {
     }
     setExpenseForm: (form: any) => void
     onSubmit: (e: React.FormEvent) => void
+    isEditing?: boolean
+    isSubmitting?: boolean
 }
 
 const ExpenseModal: React.FC<ExpenseModalProps> = ({
@@ -19,14 +21,19 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({
     onClose,
     expenseForm,
     setExpenseForm,
-    onSubmit
+    onSubmit,
+    isEditing,
+    isSubmitting
 }) => {
     if (!isOpen) return null
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md">
             <div className="bg-white w-full max-w-lg rounded-[40px] shadow-2xl overflow-hidden p-8 animate-in zoom-in-95 duration-300">
-                <h2 className="text-2xl font-black text-slate-900 mb-6 flex items-center gap-2"><Coins className="text-red-500" /> Ghi Chi Phí</h2>
+                <h2 className="text-2xl font-black text-slate-900 mb-6 flex items-center gap-2">
+                    <Coins className="text-red-500" /> 
+                    {isEditing ? 'Cập Nhật Chi Phí' : 'Ghi Chi Phí'}
+                </h2>
                 <form onSubmit={onSubmit} className="space-y-4">
                     <select 
                         value={expenseForm.category} 
@@ -36,6 +43,8 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({
                         <option value="FUEL">Xăng dầu</option>
                         <option value="MAINTENANCE">Sửa chữa xe</option>
                         <option value="MEALS">Cơm nước/Bốc xếp</option>
+                        <option value="UTILITIES">Điện nước</option>
+                        <option value="SUPPLIES">Vật dụng</option>
                         <option value="OTHERS">Khác</option>
                     </select>
                     <FormattedNumberInput 
@@ -53,7 +62,20 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({
                     />
                     <div className="flex gap-3">
                         <button type="button" onClick={onClose} className="flex-1 py-4 bg-slate-100 text-slate-500 rounded-2xl font-bold">Hủy</button>
-                        <button type="submit" className="flex-[2] py-4 bg-red-500 text-white rounded-2xl font-black shadow-lg shadow-red-200">Xác Nhận Chi</button>
+                        <button 
+                            type="submit" 
+                            disabled={isSubmitting}
+                            className="flex-[2] py-4 bg-red-500 text-white rounded-2xl font-black shadow-lg shadow-red-200 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                        >
+                            {isSubmitting ? (
+                                <>
+                                    <RefreshCw className="w-5 h-5 animate-spin" />
+                                    <span>Đang xử lý...</span>
+                                </>
+                            ) : (
+                                'Xác Nhận Chi'
+                            )}
+                        </button>
                     </div>
                 </form>
             </div>

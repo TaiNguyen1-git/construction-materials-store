@@ -45,6 +45,7 @@ export interface Expense {
 export interface Driver {
     id: string
     user: {
+        id: string
         name: string
         phone?: string
     }

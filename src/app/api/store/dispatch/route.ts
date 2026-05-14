@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
                 ]
             },
             include: {
-                user: { select: { name: true, email: true, phone: true } },
+                user: { select: { id: true, name: true, email: true, phone: true } },
                 assignedOrders: {
                     where: {
                         status: 'SHIPPED'

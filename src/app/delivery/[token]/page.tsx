@@ -4,8 +4,11 @@ import { useState, useEffect } from 'react'
 import { Truck, MapPin, Phone, Package, Send, CheckCircle2, Loader2, Camera, Navigation, AlertCircle } from 'lucide-react'
 import { useParams } from 'next/navigation'
 import toast from 'react-hot-toast'
+import { useAuth } from '@/contexts/auth-context'
+import ChatCallManager from '@/components/ChatCallManager'
 
 export default function DriverDeliveryPage() {
+    const { user } = useAuth()
     const params = useParams()
     const token = params.token as string
 
@@ -298,6 +301,14 @@ export default function DriverDeliveryPage() {
                 <span>Hỗ trợ kỹ thuật: 0123.456.789</span>
                 <span>SmartBuild Driver Portal</span>
             </div>
+
+            {user && (
+                <ChatCallManager 
+                    userId={user.id} 
+                    userName={user.name || 'Tài xế'} 
+                    listenAdminSupport={false} 
+                />
+            )}
         </div>
     )
 }

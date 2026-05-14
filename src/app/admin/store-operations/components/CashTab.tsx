@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react'
-import { CheckCircle, Search, ChevronLeft, ChevronRight } from 'lucide-react'
+import { CheckCircle, Search, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react'
 import { CashItem, formatCurrency } from '../types'
 
 interface CashTabProps {
@@ -14,6 +14,8 @@ interface CashTabProps {
     cashHistoryPage: number
     setCashHistoryPage: React.Dispatch<React.SetStateAction<number>>
     onConfirmCash: (id: string) => void
+    isConfirmingCash?: boolean
+    confirmingCashId?: string | null
     ITEMS_PER_PAGE: number
 }
 
@@ -36,6 +38,8 @@ export default function CashTab({
     cashPage, setCashPage,
     cashHistoryPage, setCashHistoryPage,
     onConfirmCash,
+    isConfirmingCash,
+    confirmingCashId,
     ITEMS_PER_PAGE,
 }: CashTabProps) {
     const filteredPending = cashItems.filter(item =>
@@ -127,10 +131,15 @@ export default function CashTab({
                                             <td className="px-8 py-6 text-center">
                                                 <button
                                                     onClick={() => onConfirmCash(item.id)}
-                                                    className="bg-emerald-600 text-white px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-emerald-500/20 hover:bg-emerald-700 hover:-translate-y-0.5 transition-all flex items-center gap-2 mx-auto ring-1 ring-white/20"
+                                                    disabled={isConfirmingCash && confirmingCashId === item.id}
+                                                    className="bg-emerald-600 text-white px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-emerald-500/20 hover:bg-emerald-700 hover:-translate-y-0.5 transition-all flex items-center gap-2 mx-auto ring-1 ring-white/20 disabled:opacity-50 disabled:translate-y-0"
                                                 >
-                                                    <CheckCircle className="w-4 h-4" />
-                                                    <span>Xác nhận nộp tiền</span>
+                                                    {isConfirmingCash && confirmingCashId === item.id ? (
+                                                        <RefreshCw className="w-4 h-4 animate-spin" />
+                                                    ) : (
+                                                        <CheckCircle className="w-4 h-4" />
+                                                    )}
+                                                    <span>{isConfirmingCash && confirmingCashId === item.id ? 'Đang xử lý...' : 'Xác nhận nộp tiền'}</span>
                                                 </button>
                                             </td>
                                         </tr>

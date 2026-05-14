@@ -6,9 +6,22 @@ import { Expense, formatCurrency } from '../types'
 
 interface ExpensesTabProps {
     expenses: Expense[]
+    onEditExpense?: (expense: Expense) => void
+    onDeleteExpense?: (id: string) => void
+    onConfirmExpenses?: () => void
 }
 
-export default function ExpensesTab({ expenses }: ExpensesTabProps) {
+const CATEGORY_MAP: Record<string, string> = {
+    'FUEL': 'Xăng dầu',
+    'MAINTENANCE': 'Bảo trì xe',
+    'MEALS': 'Ăn uống',
+    'UTILITIES': 'Điện nước',
+    'SUPPLIES': 'Vật dụng',
+    'OTHERS': 'Khác',
+    'OTHER': 'Khác'
+}
+
+export default function ExpensesTab({ expenses, onEditExpense, onDeleteExpense, onConfirmExpenses }: ExpensesTabProps) {
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-10">
             <div className="flex items-center justify-between px-2">
@@ -33,7 +46,7 @@ export default function ExpensesTab({ expenses }: ExpensesTabProps) {
                             <tr key={ex.id} className="group hover:bg-red-50/20 transition-all">
                                 <td className="px-8 py-6">
                                     <span className="px-4 py-1.5 bg-red-50 text-red-600 rounded-xl text-[10px] font-black uppercase tracking-widest ring-1 ring-red-100 shadow-sm shadow-red-500/5">
-                                        {ex.category}
+                                        {CATEGORY_MAP[ex.category] || ex.category}
                                     </span>
                                 </td>
                                 <td className="px-8 py-6 text-sm font-bold text-slate-600">{ex.description}</td>
@@ -42,10 +55,18 @@ export default function ExpensesTab({ expenses }: ExpensesTabProps) {
                                 </td>
                                 <td className="px-8 py-6">
                                     <div className="flex justify-center gap-2 opacity-0 group-hover:opacity-100 transition-all translate-x-2 group-hover:translate-x-0">
-                                        <button className="p-3 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-2xl transition-all shadow-sm bg-white border border-slate-100" title="Chỉnh sửa">
+                                        <button 
+                                            onClick={() => onEditExpense?.(ex)}
+                                            className="p-3 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-2xl transition-all shadow-sm bg-white border border-slate-100" 
+                                            title="Chỉnh sửa"
+                                        >
                                             <Edit className="w-4.5 h-4.5" />
                                         </button>
-                                        <button className="p-3 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-2xl transition-all shadow-sm bg-white border border-slate-100" title="Xóa bỏ">
+                                        <button 
+                                            onClick={() => { if(confirm('Xóa chi phí này?')) onDeleteExpense?.(ex.id) }}
+                                            className="p-3 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-2xl transition-all shadow-sm bg-white border border-slate-100" 
+                                            title="Xóa bỏ"
+                                        >
                                             <Trash2 className="w-4.5 h-4.5" />
                                         </button>
                                     </div>
@@ -75,9 +96,13 @@ export default function ExpensesTab({ expenses }: ExpensesTabProps) {
                         {formatCurrency(expenses.reduce((a, b) => a + b.amount, 0))}
                     </p>
                 </div>
-                <div className="p-4 bg-white rounded-2xl shadow-sm border border-blue-50">
-                    <CheckCircle className="w-8 h-8 text-blue-600 opacity-20" />
-                </div>
+                <button 
+                    onClick={onConfirmExpenses}
+                    className="p-4 bg-white hover:bg-blue-50 rounded-2xl shadow-sm border border-blue-100 transition-all active:scale-90 group"
+                    title="Chốt sổ chi phí"
+                >
+                    <CheckCircle className="w-8 h-8 text-blue-600 group-hover:scale-110 transition-transform" />
+                </button>
             </div>
         </div>
     )

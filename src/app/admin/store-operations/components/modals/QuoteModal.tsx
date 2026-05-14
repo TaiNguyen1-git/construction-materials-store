@@ -1,5 +1,5 @@
 import React from 'react'
-import { PlusCircle } from 'lucide-react'
+import { PlusCircle, RefreshCw } from 'lucide-react'
 import FormattedNumberInput from '@/components/FormattedNumberInput'
 
 interface QuoteModalProps {
@@ -13,6 +13,7 @@ interface QuoteModalProps {
     }
     setQuoteForm: (form: any) => void
     onSubmit: (e: React.FormEvent) => void
+    isSubmitting?: boolean
 }
 
 const QuoteModal: React.FC<QuoteModalProps> = ({
@@ -20,7 +21,8 @@ const QuoteModal: React.FC<QuoteModalProps> = ({
     onClose,
     quoteForm,
     setQuoteForm,
-    onSubmit
+    onSubmit,
+    isSubmitting
 }) => {
     if (!isOpen) return null
 
@@ -58,7 +60,20 @@ const QuoteModal: React.FC<QuoteModalProps> = ({
                     />
                     <div className="flex gap-3">
                         <button type="button" onClick={onClose} className="flex-1 py-4 bg-slate-100 text-slate-500 rounded-2xl font-bold">Hủy</button>
-                        <button type="submit" className="flex-[2] py-4 bg-blue-600 text-white rounded-2xl font-black shadow-lg shadow-blue-200">Lưu &amp; Gửi</button>
+                        <button 
+                            type="submit" 
+                            disabled={isSubmitting}
+                            className="flex-[2] py-4 bg-blue-600 text-white rounded-2xl font-black shadow-lg shadow-blue-200 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                        >
+                            {isSubmitting ? (
+                                <>
+                                    <RefreshCw className="w-5 h-5 animate-spin" />
+                                    <span>Đang xử lý...</span>
+                                </>
+                            ) : (
+                                'Lưu & Gửi'
+                            )}
+                        </button>
                     </div>
                 </form>
             </div>

@@ -8,6 +8,11 @@ import { CacheService } from '@/lib/cache'
 export async function GET(request: NextRequest) {
   try {
     const userId = await getUserIdFromRequest(request)
+    console.log('[Notifications API] GET request:', { 
+      userId, 
+      url: request.url,
+      searchParams: Object.fromEntries(new URL(request.url).searchParams) 
+    })
 
     if (!userId) {
       // For guests or unauthenticated users, return empty list instead of 401
@@ -32,16 +37,23 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '10')
+    const unreadOnly = searchParams.get('unreadOnly') === 'true'
     const skip = (page - 1) * limit
+
+    // Build where clause
+    const where: any = { userId }
+    if (unreadOnly) {
+      where.read = false
+    }
 
     // Get total count for pagination
     const totalCount = await prisma.notification.count({
-      where: { userId }
+      where
     })
 
     // Get from database with pagination
     const dbNotifications = await prisma.notification.findMany({
-      where: { userId },
+      where,
       orderBy: [
         { createdAt: 'desc' }
       ],

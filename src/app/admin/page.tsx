@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { fetchWithAuth } from '@/lib/api-client'
 import toast from 'react-hot-toast'
@@ -49,6 +50,7 @@ interface DashboardData {
 
 export default function AdminDashboard() {
   const queryClient = useQueryClient()
+  const [isSendingReport, setIsSendingReport] = useState(false)
 
   // Fetch Dashboard Data with TanStack Query
   const { data: dashboardData, isLoading: dashboardLoading } = useQuery({
@@ -76,6 +78,7 @@ export default function AdminDashboard() {
   })
 
   const handleSendReport = async () => {
+    setIsSendingReport(true)
     try {
       const res = await fetchWithAuth('/api/admin/reports/trigger?type=DAILY')
       if (res.ok) {
@@ -85,6 +88,8 @@ export default function AdminDashboard() {
       }
     } catch (e) {
       toast.error('❌ Hệ thống đang bận, vui lòng thử lại sau.')
+    } finally {
+      setIsSendingReport(false)
     }
   }
 
@@ -95,7 +100,7 @@ export default function AdminDashboard() {
       <DashboardHeader 
         onSendReport={handleSendReport} 
         onRefresh={() => queryClient.invalidateQueries({ queryKey: ['admin-dashboard'] })}
-        isSendingReport={false} 
+        isSendingReport={isSendingReport} 
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">

@@ -6,7 +6,7 @@ const quickActions = [
   { name: 'Thêm Sản Phẩm', href: '/admin/products', icon: Package, color: 'text-blue-600 bg-blue-50' },
   { name: 'Xem Đơn Hàng', href: '/admin/orders', icon: ShoppingCart, color: 'text-emerald-600 bg-emerald-50' },
   { name: 'Quản Lý Kho', href: '/admin/inventory', icon: Boxes, color: 'text-amber-600 bg-amber-50' },
-  { name: 'Bảng Lương', href: '/admin/payroll', icon: Target, color: 'text-purple-600 bg-purple-50' },
+  { name: 'Bảng Lương', href: '/admin/hr?tab=payroll', icon: Target, color: 'text-purple-600 bg-purple-50' },
 ]
 
 const QuickActionsGrid: React.FC = () => {

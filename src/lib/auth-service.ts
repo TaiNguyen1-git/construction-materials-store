@@ -354,9 +354,12 @@ class EnhancedAuthService {
       }
     }
 
-    // Clear legacy auth data to avoid conflicts
-    localStorage.removeItem('user')
-    localStorage.removeItem('access_token')
+    // Keep legacy auth data for api-client compatibility
+    if (token) {
+      localStorage.setItem('access_token', token)
+    }
+    // localStorage.removeItem('user')
+    // localStorage.removeItem('access_token')
   }
 
   /**

@@ -1,11 +1,13 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useCallback } from 'react'
 import { GanttChart, PlusCircle, Coins } from 'lucide-react'
 import { DragStartEvent, DragOverEvent, DragEndEvent } from '@dnd-kit/core'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { fetchWithAuth } from '@/lib/api-client'
 import { toast } from 'react-hot-toast'
+import { useAuth } from '@/contexts/auth-context'
+import ChatCallManager from '@/components/ChatCallManager'
 
 // Types & Helpers
 import {
@@ -28,6 +30,7 @@ const OrderActionModal = dynamic(() => import('./components/modals/OrderActionMo
 const QuoteDetailModal = dynamic(() => import('./components/modals/QuoteDetailModal'))
 
 export default function StoreOperationsPage() {
+    const { user } = useAuth()
     const queryClient = useQueryClient()
     const [activeTab, setActiveTab] = useState<'quotes' | 'dispatch' | 'cash' | 'expenses'>('dispatch')
 
@@ -45,8 +48,55 @@ export default function StoreOperationsPage() {
     const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false)
     const [selectedOrder, setSelectedOrder] = useState<DispatchOrder | null>(null)
     const [selectedQuote, setSelectedQuote] = useState<QuickQuote | null>(null)
+    const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null)
     const [isQuoteDetailModalOpen, setIsQuoteDetailModalOpen] = useState(false)
     const [orderModalMode, setOrderModalMode] = useState<'view' | 'edit'>('view')
+    const [callingRecipientId, setCallingRecipientId] = useState<string | null>(null)
+    
+    // Communication Handlers
+    const initiateCall = useCallback(async (recipientId: string, recipientName: string, type: 'audio' | 'video') => {
+        if (!navigator.onLine) {
+            toast.error('Không có kết nối mạng. Vui lòng kiểm tra lại internet.')
+            return
+        }
+
+        if (!user) {
+            toast.error('Bạn cần đăng nhập để thực hiện cuộc gọi')
+            return
+        }
+
+        if (callingRecipientId) return // Prevent spam
+
+        setCallingRecipientId(recipientId)
+        try {
+            // First, ensure a conversation exists to log the call
+            const res = await fetchWithAuth('/api/chat/conversations', {
+                method: 'POST',
+                body: JSON.stringify({
+                    recipientId: recipientId,
+                    recipientName: recipientName
+                })
+            })
+
+            const data = await res.json()
+            const conversationId = data.success ? data.data.id : 'dispatch_call'
+
+            if ((window as any).__startCall) {
+                (window as any).__startCall(recipientId, recipientName, conversationId, type)
+            } else {
+                toast.error('Hệ thống gọi chưa sẵn sàng. Vui lòng thử lại sau.')
+            }
+        } catch (error) {
+            console.error('Call initialization error:', error)
+            // Still try to call even if conversation creation fails
+            if ((window as any).__startCall) {
+                (window as any).__startCall(recipientId, recipientName, 'dispatch_call', type)
+            }
+        } finally {
+            // Small delay to prevent immediate re-click
+            setTimeout(() => setCallingRecipientId(null), 1000)
+        }
+    }, [user, callingRecipientId])
 
     // ─── React Query: Fetching ───────────────────────────────────────────
     
@@ -191,16 +241,19 @@ export default function StoreOperationsPage() {
     })
 
     const expenseMutation = useMutation({
-        mutationFn: async (payload: any) => {
-            const res = await fetchWithAuth('/api/store/expenses', {
-                method: 'POST', body: JSON.stringify(payload),
+        mutationFn: async ({ payload, id, method = 'POST' }: { payload?: any, id?: string, method?: string }) => {
+            const url = id ? `/api/store/expenses/${id}` : '/api/store/expenses'
+            const res = await fetchWithAuth(url, {
+                method, body: payload ? JSON.stringify(payload) : undefined,
             })
             if (!res.ok) throw new Error('Expense failed')
         },
-        onSuccess: () => {
-            toast.success('Đã ghi chi phí')
+        onSuccess: (_, variables) => {
+            const action = variables.method === 'DELETE' ? 'Đã xóa' : (variables.id ? 'Đã cập nhật' : 'Đã ghi')
+            toast.success(`${action} chi phí thành công`)
             setIsExpenseModalOpen(false)
             setExpenseForm({ category: 'FUEL', amount: 0, description: '' })
+            setSelectedExpense(null)
             queryClient.invalidateQueries({ queryKey: ['store-expenses'] })
         }
     })
@@ -228,6 +281,8 @@ export default function StoreOperationsPage() {
             assignMutation.mutate({ orderId: active.id as string, driverId: targetDriverId })
         }
     }
+
+
 
     if (dispatchLoading || quotesLoading || cashLoading || expensesLoading) return <StoreOperationsSkeleton />
 
@@ -289,15 +344,24 @@ export default function StoreOperationsPage() {
                                 onStartTrip={(id: string) => tripMutation.mutate(id)} 
                                 onViewDetail={(id: string) => { const o = orders.find((x: DispatchOrder)=>x.id===id); if(o){ setSelectedOrder(o); setOrderModalMode('view') } }}
                                 onEditOrder={(id: string) => { const o = orders.find((x: DispatchOrder)=>x.id===id); if(o){ setSelectedOrder(o); setOrderModalMode('edit') } }}
+                                onCall={initiateCall}
+                                callingRecipientId={callingRecipientId}
                             />
                         )}
                         {activeTab === 'cash' && (
-                            <CashTab 
-                                cashItems={cashItems} cashHistoryItems={cashHistoryItems} 
-                                cashSearchTerm={cashSearchTerm} setCashSearchTerm={setCashSearchTerm}
-                                cashPage={cashPage} setCashPage={setCashPage}
-                                cashHistoryPage={cashHistoryPage} setCashHistoryPage={setCashHistoryPage}
-                                onConfirmCash={(id) => cashMutation.mutate(id)} ITEMS_PER_PAGE={ITEMS_PER_PAGE}
+                            <CashTab
+                                cashItems={cashItems}
+                                cashHistoryItems={cashHistoryItems}
+                                cashSearchTerm={cashSearchTerm}
+                                setCashSearchTerm={setCashSearchTerm}
+                                cashPage={cashPage}
+                                setCashPage={setCashPage}
+                                cashHistoryPage={cashHistoryPage}
+                                setCashHistoryPage={setCashHistoryPage}
+                                onConfirmCash={(id) => cashMutation.mutate(id)}
+                                isConfirmingCash={cashMutation.isPending}
+                                confirmingCashId={cashMutation.variables}
+                                ITEMS_PER_PAGE={ITEMS_PER_PAGE}
                             />
                         )}
                         {activeTab === 'quotes' && (
@@ -308,7 +372,14 @@ export default function StoreOperationsPage() {
                                 onViewDetail={(q) => { setSelectedQuote(q); setIsQuoteDetailModalOpen(true) }}
                             />
                         )}
-                        {activeTab === 'expenses' && <ExpensesTab expenses={expenses} />}
+                        {activeTab === 'expenses' && (
+                            <ExpensesTab 
+                                expenses={expenses} 
+                                onEditExpense={(ex) => { setSelectedExpense(ex); setExpenseForm({ category: ex.category as any, amount: ex.amount, description: ex.description }); setIsExpenseModalOpen(true) }}
+                                onDeleteExpense={(id) => expenseMutation.mutate({ id, method: 'DELETE' })}
+                                onConfirmExpenses={() => toast.success('Đã chốt sổ chi phí ngày hôm nay!')}
+                            />
+                        )}
                     </div>
                 </div>
             </div>
@@ -317,11 +388,21 @@ export default function StoreOperationsPage() {
                 isOpen={isQuoteModalOpen} onClose={() => setIsQuoteModalOpen(false)}
                 quoteForm={quoteForm} setQuoteForm={setQuoteForm} 
                 onSubmit={(e) => {e.preventDefault(); quoteSubmitMutation.mutate({...quoteForm, items: []})}}
+                isSubmitting={quoteSubmitMutation.isPending}
             />
             <ExpenseModal 
-                isOpen={isExpenseModalOpen} onClose={() => setIsExpenseModalOpen(false)}
-                expenseForm={expenseForm} setExpenseForm={setExpenseForm} 
-                onSubmit={(e) => {e.preventDefault(); expenseMutation.mutate({...expenseForm, date: new Date().toISOString()})}}
+                isOpen={isExpenseModalOpen} onClose={() => { setIsExpenseModalOpen(false); setSelectedExpense(null); setExpenseForm({ category: 'FUEL', amount: 0, description: '' }) }}
+                expenseForm={expenseForm} setExpenseForm={setExpenseForm}
+                onSubmit={(e) => {
+                    e.preventDefault()
+                    expenseMutation.mutate({ 
+                        payload: expenseForm, 
+                        id: selectedExpense?.id, 
+                        method: selectedExpense ? 'PUT' : 'POST' 
+                    })
+                }}
+                isEditing={!!selectedExpense}
+                isSubmitting={expenseMutation.isPending}
             />
             <OrderActionModal 
                 order={selectedOrder} mode={orderModalMode} setMode={setOrderModalMode}
@@ -333,6 +414,14 @@ export default function StoreOperationsPage() {
                 onClose={() => setIsQuoteDetailModalOpen(false)} 
                 onAccept={(id) => quoteActionMutation.mutate({ id, status: 'ACCEPTED', method: 'PUT' })}
             />
+
+            {user && (
+                <ChatCallManager 
+                    userId={user.id} 
+                    userName={user.name || 'Admin'} 
+                    listenAdminSupport={true} 
+                />
+            )}
         </div>
     )
 }
