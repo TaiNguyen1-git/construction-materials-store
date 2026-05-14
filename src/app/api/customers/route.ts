@@ -8,6 +8,7 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const search = searchParams.get('search')
+    const userId = searchParams.get('userId')
     const status = searchParams.get('status')
     const type = searchParams.get('type')
     const page = parseInt(searchParams.get('page') || '1')
@@ -16,6 +17,7 @@ export async function GET(request: NextRequest) {
 
     // Build filter object
     const where: Prisma.CustomerWhereInput = {}
+    if (userId) where.userId = userId
 
     // Initialize user filter if needed
     const userFilter: Prisma.UserWhereInput = {}
