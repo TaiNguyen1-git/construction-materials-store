@@ -193,10 +193,34 @@ export default function ContractorContractsPage() {
 
                                     <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
                                         {[
-                                            { label: 'Ngày hiệu lực', value: contract.validFrom, icon: Calendar, color: 'bg-slate-50 text-slate-500', border: 'border-slate-100' },
-                                            { label: 'Ngày đáo hạn', value: contract.validTo, icon: Calendar, color: isExpired ? 'bg-rose-50 text-rose-500' : 'bg-slate-50 text-slate-500', border: isExpired ? 'border-rose-100' : 'border-slate-100' },
-                                            { label: 'Chiết khấu B2B', value: `${contract.discountPercent}%`, icon: TrendingDown, color: isExpired ? 'bg-slate-50 text-slate-300' : 'bg-emerald-50 text-emerald-600', border: isExpired ? 'border-slate-100' : 'border-emerald-100' },
-                                            { label: 'Hạn mức tín dụng', value: formatCurrency(contract.creditLimit), icon: Zap, color: isExpired ? 'bg-slate-50 text-slate-300' : 'bg-blue-50 text-blue-600', border: isExpired ? 'border-slate-100' : 'border-blue-100' }
+                                            { 
+                                                label: 'Ngày hiệu lực', 
+                                                value: new Date(contract.validFrom).toLocaleDateString('vi-VN'), 
+                                                icon: Calendar, 
+                                                color: 'bg-slate-50 text-slate-500', 
+                                                border: 'border-slate-100' 
+                                            },
+                                            { 
+                                                label: 'Ngày đáo hạn', 
+                                                value: new Date(contract.validTo).toLocaleDateString('vi-VN'), 
+                                                icon: Calendar, 
+                                                color: isExpired ? 'bg-rose-50 text-rose-500' : 'bg-slate-50 text-slate-500', 
+                                                border: isExpired ? 'border-rose-100' : 'border-slate-100' 
+                                            },
+                                            { 
+                                                label: 'Chiết khấu B2B', 
+                                                value: `${(contract as any).discountPercent || (contract as any).products?.[0]?.discountPercent || 0}%`, 
+                                                icon: TrendingDown, 
+                                                color: isExpired ? 'bg-slate-50 text-slate-300' : 'bg-emerald-50 text-emerald-600', 
+                                                border: isExpired ? 'border-slate-100' : 'border-emerald-100' 
+                                            },
+                                            { 
+                                                label: 'Hạn mức tín dụng', 
+                                                value: formatCurrency((contract as any).creditLimit || (contract as any).specialCreditLimit || 0), 
+                                                icon: Zap, 
+                                                color: isExpired ? 'bg-slate-50 text-slate-300' : 'bg-blue-50 text-blue-600', 
+                                                border: isExpired ? 'border-slate-100' : 'border-blue-100' 
+                                            }
                                         ].map((stat, i) => (
                                             <div key={i} className={`${stat.color.split(' ')[0]} rounded-2xl p-6 border ${stat.border} flex flex-col justify-between h-32 ${isExpired && i >= 2 ? 'grayscale opacity-60' : ''}`}>
                                                 <div className="flex items-center gap-2 text-[9px] font-bold uppercase tracking-widest opacity-60">
