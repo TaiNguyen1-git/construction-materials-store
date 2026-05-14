@@ -50,12 +50,12 @@ const OrdersTable: React.FC<OrdersTableProps> = ({
                 className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
               />
             </th>
-            <th className="px-4 py-3 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-50">Đơn Hàng</th>
-            <th className="px-4 py-3 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-50">Khách Hàng</th>
-            <th className="px-4 py-3 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-50">Sản Phẩm</th>
-            <th className="px-4 py-3 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-50">Tổng Tiền</th>
-            <th className="px-4 py-3 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-50">Trạng Thái</th>
-            <th className="px-4 py-3 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-50">Ngày</th>
+            <th className="px-4 py-3 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-50 w-[150px]">Đơn Hàng</th>
+            <th className="px-4 py-3 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-50 w-[220px]">Khách Hàng</th>
+            <th className="px-4 py-3 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-50 w-[120px]">Sản Phẩm</th>
+            <th className="px-4 py-3 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-50 w-[140px]">Tổng Tiền</th>
+            <th className="px-4 py-3 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-50 w-[150px]">Trạng Thái</th>
+            <th className="px-4 py-3 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-50 w-[120px]">Ngày</th>
             <th className="px-4 py-3 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[200px] bg-slate-50">Hành Động</th>
           </tr>
         )}
@@ -92,10 +92,10 @@ const OrdersTable: React.FC<OrdersTableProps> = ({
                 <div className="text-[11px] text-slate-400 truncate font-medium">
                   {order.customerEmail || order.customer?.email || order.guestEmail || 'N/A'}
                 </div>
-                {order.guestPhone && (
-                  <div className="text-[11px] text-blue-500 font-bold mt-1 inline-flex items-center gap-1 bg-blue-50 px-1.5 py-0.5 rounded">
-                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
-                    {order.guestPhone}
+                {(order.customerPhone || order.customer?.phone || order.guestPhone) && (
+                  <div className="text-[11px] text-blue-500 font-bold mt-1 inline-flex items-center gap-1 bg-blue-50 px-1.5 py-0.5 rounded w-fit">
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
+                    {order.customerPhone || order.customer?.phone || order.guestPhone}
                   </div>
                 )}
               </div>

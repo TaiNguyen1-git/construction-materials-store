@@ -2,11 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 
 /**
  * Middleware to handle authentication routing
- * 
- * Strategy:
- * 1. Public routes: Pass through without token
- * 2. Optional auth routes: Pass through (with or without token)
- * 3. Protected routes: Require token, pass to API route for verification
  */
 
 export async function middleware(request: NextRequest) {
@@ -15,7 +10,6 @@ export async function middleware(request: NextRequest) {
   // ===== IP & GUEST BAN ENFORCEMENT =====
   const clientIp = request.headers.get('x-forwarded-for')?.split(',')[0] || '127.0.0.1'
   
-  // Bỏ qua kiểm tra cho trang /restricted và các file tĩnh để tránh loop
   const isRestrictedPage = pathname.startsWith('/restricted')
   const isIntegrityAPI = pathname.startsWith('/api/integrity')
   const isApiRoute = pathname.startsWith('/api/')
@@ -49,7 +43,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
-  // ===== CRON JOB SECURITY (Vercel Cron) =====
+  // ===== CRON JOB SECURITY =====
   if (pathname === '/api/admin/reports/trigger') {
     const authHeader = request.headers.get('authorization')
     const cronSecret = process.env.CRON_SECRET
@@ -65,139 +59,35 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
-  // ===== PUBLIC ROUTES (no auth required) =====
-  const publicRoutes = [
-    '/api/reviews',
-    '/api/notifications',
-    '/api/contractors/public',
-    '/api/supplier/auth',
-    '/api/supplier/auth/2fa/verify',
-    '/api/analytics/track',
-  ]
-
-  // ===== PUBLIC PAGES (no auth required) =====
-  const publicPages = [
-    '/',
-    '/login',
-    '/register',
-    '/forgot-password',
-    '/products',
-    '/categories',
-    '/cart',
-    '/checkout',
-    '/order-tracking',
-    '/about',
-    '/contact',
-    '/privacy',
-    '/terms',
-    '/contractors',
-    '/projects',
-    '/estimator',
-    '/market',
-  ]
-
-  const publicPartnerPages = [
-    '/contractor',
-    '/contractor/login',
-    '/contractor/register',
-    '/supplier',
-    '/supplier/login',
-    '/supplier/register',
-    '/supplier/register/success',
-    '/supplier/terms',
-  ]
-
-  const isPublicPage = publicPages.some(page =>
-    pathname === page ||
-    (page !== '/' && pathname.startsWith(page + '/'))
-  )
-
-  const isPublicPartnerPage = publicPartnerPages.some(page => pathname === page)
-
-  if (isPublicPage || isPublicPartnerPage) {
-    return NextResponse.next()
-  }
-
-  if (publicRoutes.some(route => pathname === route || pathname.startsWith(route + '/'))) {
-    return NextResponse.next()
-  }
-
-  if (
-    pathname.startsWith('/api/recommendations') &&
-    !pathname.includes('/purchase')
-  ) {
-    return NextResponse.next()
-  }
-
-  // ===== ROUTES WITH OPTIONAL AUTH =====
-  const optionalAuthRoutes = ['/api/orders', '/api/invoices', '/api/products', '/api/customers', '/api/categories', '/api/chat']
-
-  if (optionalAuthRoutes.some(route => pathname === route || pathname.startsWith(route + '/'))) {
-    const token = extractToken(request)
-    if (token) {
-      const requestHeaders = new Headers(request.headers)
-      requestHeaders.set('x-token', token)
-
-      try {
-        const parts = token.split('.')
-        if (parts.length === 3) {
-          const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString('utf-8'))
-          if (payload.userId) requestHeaders.set('x-user-id', payload.userId)
-          if (payload.role) requestHeaders.set('x-user-role', payload.role)
-          if (payload.email) requestHeaders.set('x-user-email', payload.email)
-        }
-      } catch { }
-
-      return NextResponse.next({ request: { headers: requestHeaders } })
-    }
-    return NextResponse.next()
-  }
-
-  // ===== PROTECTED ROUTES Patterns =====
-  const protectedAPIPatterns = [
-    '/api/admin', '/api/employee', '/api/inventory', '/api/payroll',
-    '/api/employee-tasks', '/api/work-shifts', '/api/attendance',
-    '/api/ocr', '/api/predictions', '/api/notifications',
-    '/api/analytics', '/api/supplier-orders', '/api/contractor', '/api/contractors',
-  ]
-
-  const protectedPagePatterns = [
-    '/admin', '/account', '/contractor', '/supplier',
-  ]
-
-  const isProtectedAPI = protectedAPIPatterns.some(
-    pattern => pathname === pattern || pathname.startsWith(pattern + '/')
-  )
-
-  const isProtectedPage = protectedPagePatterns.some(
-    pattern => pathname === pattern || pathname.startsWith(pattern + '/')
-  )
-
-  // Skip further check if not protected
-  if (!isProtectedAPI && !isProtectedPage) {
-    return NextResponse.next()
-  }
-
-  // ===== PROTECTED AUTH CHECK & REFRESH =====
+  // ===== TOKEN EXTRACTION & REFRESH =====
   let token = extractToken(request)
   const refreshToken = request.cookies.get('refresh_token')?.value
   let isExpired = false
+  let payload: any = null
 
   if (token) {
     try {
       const parts = token.split('.')
       if (parts.length === 3) {
-        const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString('utf-8'))
+        payload = JSON.parse(Buffer.from(parts[1], 'base64').toString('utf-8'))
         const now = Math.floor(Date.now() / 1000)
-        if (payload.exp && payload.exp < now) isExpired = true
+        if (payload.exp && payload.exp < now) {
+          isExpired = true
+          payload = null
+        }
       }
     } catch {
       isExpired = true
+      payload = null
     }
   }
 
-  // SILENT REFRESH
-  if ((!token || isExpired) && refreshToken) {
+  // Silent Refresh if expired or missing but refresh token exists
+  // Only attempt refresh for protected or optional auth routes to avoid overhead on every public asset
+  const isRefreshNeeded = (isExpired || !token) && refreshToken
+  const isAuthRequiredPath = pathname.startsWith('/admin') || pathname.startsWith('/api/') || pathname.startsWith('/account') || pathname.startsWith('/contractor') || pathname.startsWith('/supplier')
+
+  if (isRefreshNeeded && isAuthRequiredPath) {
     try {
       const refreshResponse = await fetch(new URL('/api/auth/refresh', request.url), {
         method: 'POST',
@@ -208,32 +98,43 @@ export async function middleware(request: NextRequest) {
         const data = await refreshResponse.json()
         if (data.success) {
           const setCookieHeader = refreshResponse.headers.get('set-cookie')
-          const nextResponse = NextResponse.next()
-
           if (setCookieHeader) {
             const cookies = setCookieHeader.split(',').map(c => c.trim())
-            cookies.forEach(cookieStr => {
-              const [nameValue] = cookieStr.split(';')
-              const [name, value] = nameValue.split('=')
-              if (name.includes('_token')) token = value
-
-              nextResponse.cookies.set(name, value, {
-                httpOnly: cookieStr.includes('HttpOnly'),
-                secure: cookieStr.includes('Secure'),
-                sameSite: 'lax',
-                path: '/',
-              })
+            let newToken = ''
+            cookies.forEach(c => {
+              const [nv] = c.split(';')
+              const [n, v] = nv.split('=')
+              if (n.includes('_token')) newToken = v
             })
-          }
 
-          if (token) {
-            const parts = token.split('.')
-            const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString('utf-8'))
-            nextResponse.headers.set('x-token', token)
-            nextResponse.headers.set('authorization', `Bearer ${token}`)
-            if (payload.userId) nextResponse.headers.set('x-user-id', payload.userId)
-            if (payload.role) nextResponse.headers.set('x-user-role', payload.role)
-            return nextResponse
+            if (newToken) {
+              token = newToken
+              const parts = token.split('.')
+              payload = JSON.parse(Buffer.from(parts[1], 'base64').toString('utf-8'))
+              
+              // Prepare the response with updated request headers
+              const requestHeaders = new Headers(request.headers)
+              requestHeaders.set('x-token', token)
+              requestHeaders.set('authorization', `Bearer ${token}`)
+              if (payload.userId) requestHeaders.set('x-user-id', payload.userId)
+              if (payload.role) requestHeaders.set('x-user-role', payload.role)
+              if (payload.email) requestHeaders.set('x-user-email', payload.email)
+
+              const nextResponse = NextResponse.next({ request: { headers: requestHeaders } })
+              
+              // Set new cookies on the response
+              cookies.forEach(c => {
+                const [nv] = c.split(';')
+                const [n, v] = nv.split('=')
+                nextResponse.cookies.set(n, v, {
+                  httpOnly: c.includes('HttpOnly'),
+                  secure: c.includes('Secure'),
+                  sameSite: 'lax',
+                  path: '/',
+                })
+              })
+              return nextResponse
+            }
           }
         }
       }
@@ -242,105 +143,89 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  if (!token || isExpired) {
-    if (isProtectedPage && !pathname.includes('/login') && !pathname.includes('/register')) {
-      let loginPath = '/login'
-      if (pathname.startsWith('/contractor')) loginPath = '/contractor/login'
-      else if (pathname.startsWith('/supplier')) loginPath = '/supplier/login'
-
-      const loginUrl = new URL(loginPath, request.url)
-      loginUrl.searchParams.set('callbackUrl', pathname)
-
-      const clearResponse = NextResponse.redirect(loginUrl)
-      if (isExpired) {
-        ['auth_token', 'admin_token', 'contractor_token', 'supplier_token'].forEach(c => {
-          clearResponse.cookies.set(c, '', { maxAge: 0 })
-        })
-      }
-      return clearResponse
-    }
-
-    if (isProtectedAPI) {
-      return NextResponse.json(
-        { success: false, error: { code: 'UNAUTHORIZED', message: isExpired ? 'Token expired' : 'Access token required' } },
-        { status: 401 }
-      )
-    }
-  }
-
-  // Token is valid - inject headers
+  // Inject headers for valid tokens
   const requestHeaders = new Headers(request.headers)
-  if (token) {
+  if (token && !isExpired) {
     requestHeaders.set('x-token', token)
     if (!request.headers.get('authorization')) {
       requestHeaders.set('authorization', `Bearer ${token}`)
     }
-    try {
-      const parts = token.split('.')
-      if (parts.length === 3) {
-        const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString('utf-8'))
-        if (payload.userId) requestHeaders.set('x-user-id', payload.userId)
-        if (payload.role) requestHeaders.set('x-user-role', payload.role)
-        if (payload.email) requestHeaders.set('x-user-email', payload.email)
+    if (payload) {
+      if (payload.userId) requestHeaders.set('x-user-id', payload.userId)
+      if (payload.role) requestHeaders.set('x-user-role', payload.role)
+      if (payload.email) requestHeaders.set('x-user-email', payload.email)
+    }
+  }
+
+  // ===== PROTECTION CHECK =====
+  const publicRoutes = ['/api/reviews', '/api/notifications', '/api/contractors/public', '/api/supplier/auth', '/api/analytics/track']
+  const publicPages = ['/', '/login', '/register', '/forgot-password', '/products', '/categories', '/cart', '/checkout', '/order-tracking', '/about', '/contact', '/privacy', '/terms', '/contractors', '/projects', '/estimator', '/market']
+  const publicPartnerPages = ['/contractor', '/contractor/login', '/contractor/register', '/supplier', '/supplier/login', '/supplier/register']
+
+  const isPublicPage = publicPages.some(p => pathname === p || (p !== '/' && pathname.startsWith(p + '/')))
+  const isPublicPartnerPage = publicPartnerPages.some(p => pathname === p)
+  const isPublicRoute = publicRoutes.some(r => pathname === r || pathname.startsWith(r + '/'))
+  
+  if (isPublicPage || isPublicPartnerPage || isPublicRoute) {
+    return NextResponse.next({ request: { headers: requestHeaders } })
+  }
+
+  // Protected patterns
+  const protectedAPIPatterns = ['/api/admin', '/api/employee', '/api/inventory', '/api/payroll', '/api/employee-tasks', '/api/work-shifts', '/api/attendance', '/api/ocr', '/api/predictions', '/api/analytics', '/api/supplier-orders', '/api/contractor', '/api/contractors', '/api/employees', '/api/projects', '/api/tasks', '/api/materials']
+  const protectedPagePatterns = ['/admin', '/account', '/contractor', '/supplier']
+
+  const isProtectedAPI = protectedAPIPatterns.some(p => pathname === p || pathname.startsWith(p + '/'))
+  const isProtectedPage = protectedPagePatterns.some(p => pathname === p || pathname.startsWith(p + '/'))
+
+  if (isProtectedAPI || isProtectedPage) {
+    if (!token || isExpired) {
+      if (isProtectedAPI) {
+        return NextResponse.json(
+          { success: false, error: { code: 'UNAUTHORIZED', message: isExpired ? 'Token expired' : 'Access token required' } },
+          { status: 401 }
+        )
       }
-    } catch { }
+      
+      let loginPath = '/login'
+      if (pathname.startsWith('/contractor')) loginPath = '/contractor/login'
+      else if (pathname.startsWith('/supplier')) loginPath = '/supplier/login'
+      
+      const loginUrl = new URL(loginPath, request.url)
+      loginUrl.searchParams.set('callbackUrl', pathname)
+      const clearResponse = NextResponse.redirect(loginUrl)
+      if (isExpired) {
+        ['auth_token', 'admin_token', 'contractor_token', 'supplier_token'].forEach(c => clearResponse.cookies.set(c, '', { maxAge: 0 }))
+      }
+      return clearResponse
+    }
   }
 
-  const response = NextResponse.next({ request: { headers: requestHeaders } })
-
-  // Security Headers (simplified for this edit)
-  if (process.env.NODE_ENV === 'production') {
-    response.headers.set('X-Frame-Options', 'SAMEORIGIN')
-    response.headers.set('X-Content-Type-Options', 'nosniff')
-  }
-
-  return response
+  return NextResponse.next({ request: { headers: requestHeaders } })
 }
 
 function extractToken(request: NextRequest): string | null {
   const { pathname } = request.nextUrl
-
-  // Check Authorization header first, but VALIDATE the token
   const authHeader = request.headers.get('authorization')
   if (authHeader?.startsWith('Bearer ')) {
     const headerToken = authHeader.slice(7)
-    // 🛡️ SECURITY: Skip invalid token strings from client malfunctions
     if (headerToken && headerToken !== 'null' && headerToken !== 'undefined' && headerToken !== '[object Object]') {
       return headerToken
     }
-    // Invalid header token - fall through to cookie extraction
   }
 
   const sharedAPIs = ['/api/chat']
   if (sharedAPIs.some(api => pathname.startsWith(api))) {
-    return request.cookies.get('admin_token')?.value ||
-      request.cookies.get('supplier_token')?.value ||
-      request.cookies.get('contractor_token')?.value ||
-      request.cookies.get('auth_token')?.value || null
+    return request.cookies.get('admin_token')?.value || request.cookies.get('supplier_token')?.value || request.cookies.get('contractor_token')?.value || request.cookies.get('auth_token')?.value || null
   }
 
   let cookieName = 'auth_token'
-  const isAdminPath = pathname.startsWith('/admin') ||
-    pathname.startsWith('/api/admin') ||
-    pathname.startsWith('/api/inventory') ||
-    pathname.startsWith('/api/predictions')
-
+  const isAdminPath = pathname.startsWith('/admin') || pathname.startsWith('/api/admin') || pathname.startsWith('/api/inventory') || pathname.startsWith('/api/predictions') || pathname.startsWith('/api/employees') || pathname.startsWith('/api/projects')
+  
   if (isAdminPath) cookieName = 'admin_token'
   else if (pathname.startsWith('/supplier') || pathname.startsWith('/api/supplier')) cookieName = 'supplier_token'
   else if (pathname.startsWith('/contractor') || pathname.startsWith('/api/contractor')) cookieName = 'contractor_token'
 
-  const token = request.cookies.get(cookieName)?.value ||
-    request.cookies.get('admin_token')?.value ||
-    request.cookies.get('supplier_token')?.value ||
-    request.cookies.get('contractor_token')?.value ||
-    request.cookies.get('auth_token')?.value ||
-    null
-
-  if (!token || token === 'null' || token === 'undefined' || token === '[object Object]') {
-    return null
-  }
-
-  return token
+  return request.cookies.get(cookieName)?.value || request.cookies.get('admin_token')?.value || request.cookies.get('supplier_token')?.value || request.cookies.get('contractor_token')?.value || request.cookies.get('auth_token')?.value || null
 }
 
 export const config = {
