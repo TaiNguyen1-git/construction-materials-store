@@ -62,20 +62,27 @@ export default function ContractorContractsPage() {
     const [submitting, setSubmitting] = useState(false)
 
     useEffect(() => {
-        setContracts([
-            {
-                id: '1',
-                contractNumber: 'HD-CONTRACTOR-001',
-                name: 'Hợp đồng Cung ứng Hạ tầng Chiến lược 2025',
-                type: 'DISCOUNT',
-                status: 'ACTIVE',
-                validFrom: '2025-01-01',
-                validTo: '2025-12-31',
-                creditLimit: 150000000,
-                discountPercent: 15
-            },
-        ])
-    }, [])
+        const loadContracts = async () => {
+            if (!user?.id) return;
+            try {
+                // Lấy thông tin customerId của user hiện tại
+                const customerRes = await fetchWithAuth(`/api/customers?userId=${user.id}`);
+                const customerData = await customerRes.json();
+                const customerId = customerData.data?.data?.[0]?.id || customerData.data?.[0]?.id;
+
+                if (customerId) {
+                    const res = await fetchWithAuth(`/api/contracts?customerId=${customerId}`);
+                    if (res.ok) {
+                        const data = await res.json();
+                        setContracts(data);
+                    }
+                }
+            } catch (error) {
+                console.error('Lỗi tải hợp đồng:', error);
+            }
+        };
+        loadContracts();
+    }, [user?.id])
 
     const getStatusStyle = (status: string) => {
         switch (status) {
