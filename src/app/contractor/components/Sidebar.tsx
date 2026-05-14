@@ -108,7 +108,6 @@ export default function Sidebar({ isOpen, onClose, onToggle, isCollapsed, setIsC
             {/* Sidebar */}
             <aside className={`
                 hidden lg:flex flex-col
-                fixed left-0 top-0 bottom-0 z-50
                 transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]
                 ${isOpen ? (isCollapsed ? 'w-24 px-2' : 'w-72 px-4') : 'w-0 overflow-hidden px-0'}
             `}>

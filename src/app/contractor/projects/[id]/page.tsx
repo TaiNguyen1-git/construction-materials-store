@@ -207,8 +207,9 @@ export default function ContractorProjectDetailPage() {
         </div>
     )
 
-    // Only show management dashboard if the contractor has an ACCEPTED bid
-    const isListing = !project.userBid || project.userBid.status !== 'ACCEPTED'
+    // Show management dashboard if project is underway/completed OR if the contractor has an ACCEPTED bid
+    const isManagementView = project.status === 'IN_PROGRESS' || project.status === 'COMPLETED' || (project.userBid && project.userBid.status === 'ACCEPTED')
+    const isListing = !isManagementView
 
     return (
         <div className="space-y-8 pb-20 max-w-7xl mx-auto px-4 sm:px-0">

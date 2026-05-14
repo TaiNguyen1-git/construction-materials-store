@@ -324,12 +324,21 @@ export default function ContractorFinancialHub() {
                                 </div>
 
                                 <div className="pt-6 flex gap-2 mt-auto">
-                                    <Link
-                                        href={`/contractor/projects/${project.id}`}
-                                        className="flex-1 py-2.5 bg-slate-50 text-slate-500 hover:bg-slate-100 rounded-xl text-[11px] font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all active:scale-95 border border-slate-200"
-                                    >
-                                        Chi tiết
-                                    </Link>
+                                    {project.id === 'uncategorized' ? (
+                                        <Link
+                                            href="/contractor/invoices"
+                                            className="flex-1 py-2.5 bg-slate-50 text-slate-500 hover:bg-slate-100 rounded-xl text-[11px] font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all active:scale-95 border border-slate-200"
+                                        >
+                                            Xem hóa đơn
+                                        </Link>
+                                    ) : (
+                                        <Link
+                                            href={`/contractor/projects/${project.id}`}
+                                            className="flex-1 py-2.5 bg-slate-50 text-slate-500 hover:bg-slate-100 rounded-xl text-[11px] font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all active:scale-95 border border-slate-200"
+                                        >
+                                            Chi tiết
+                                        </Link>
+                                    )}
                                     <button
                                         onClick={() => {
                                             setSelectedInvoice({ amount: project.debtAmount, invoiceNumber: `PAY-PROJ-${project.id}` })
@@ -422,10 +431,13 @@ export default function ContractorFinancialHub() {
                             <div className="space-y-2">
                                 <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest px-1">Số tiền mong muốn (VNĐ)</label>
                                 <input
-                                    type="number"
+                                    type="text"
                                     required
-                                    value={creditRequestAmount}
-                                    onChange={(e) => setCreditRequestAmount(e.target.value)}
+                                    value={creditRequestAmount ? Number(creditRequestAmount.replace(/\./g, '')).toLocaleString('vi-VN') : ''}
+                                    onChange={(e) => {
+                                        const val = e.target.value.replace(/\./g, '').replace(/[^0-9]/g, '');
+                                        setCreditRequestAmount(val);
+                                    }}
                                     className="w-full px-5 py-4 bg-slate-50 border-none rounded-xl text-2xl font-bold focus:ring-2 focus:ring-primary/10 outline-none transition-all placeholder:text-slate-200"
                                     placeholder="50.000.000"
                                 />
@@ -457,30 +469,26 @@ export default function ContractorFinancialHub() {
             {showPaymentModal && selectedInvoice && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
                     <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm animate-in fade-in" onClick={() => setShowPaymentModal(false)}></div>
-                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-300 relative z-10 flex flex-col">
-                        <div className="bg-blue-600 p-6 text-white flex justify-between items-center">
-                            <h2 className="text-lg font-bold uppercase tracking-tight flex items-center gap-2">
-                                <Zap className="w-5 h-5 text-amber-500" />
+                    <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-300 relative z-10 flex flex-col border border-slate-100">
+                        <div className="bg-blue-600 p-8 text-white flex justify-between items-center relative overflow-hidden">
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl"></div>
+                            <h2 className="relative z-10 text-xl font-bold uppercase tracking-tight flex items-center gap-3">
+                                <Zap className="w-6 h-6 text-amber-400 fill-amber-400" />
                                 Thanh toán nhanh
                             </h2>
-                            <button onClick={() => setShowPaymentModal(false)} className="text-white/60 hover:text-white transition-all"><X size={20} /></button>
+                            <button onClick={() => setShowPaymentModal(false)} className="relative z-10 w-10 h-10 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 text-white transition-all"><X size={20} /></button>
                         </div>
 
-                        <div className="p-6 space-y-6">
-                            <div className="text-center space-y-1">
-                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Số tiền thanh toán</p>
-                                <p className="text-3xl font-bold text-slate-900">{formatCurrency(selectedInvoice.amount)}</p>
-                            </div>
-                            <div className="flex justify-center p-2 bg-white rounded-xl border border-slate-100 shadow-inner">
-                                <QRPayment
-                                    amount={selectedInvoice.amount}
-                                    orderId={selectedInvoice.invoiceNumber}
-                                    description={`Tra no invoice ${selectedInvoice.invoiceNumber}`}
-                                />
-                            </div>
-                            <div className="flex items-center gap-2 justify-center py-2 opacity-60">
-                                <RefreshCw className="w-4 h-4 text-emerald-500 animate-spin" />
-                                <p className="text-[10px] font-bold text-slate-400 uppercase">Đang chờ xác nhận từ ngân hàng...</p>
+                        <div className="p-8 bg-slate-50/50">
+                            <QRPayment
+                                amount={selectedInvoice.amount}
+                                orderId={selectedInvoice.invoiceNumber}
+                                description={`Tra no invoice ${selectedInvoice.invoiceNumber}`}
+                            />
+                            
+                            <div className="mt-8 flex items-center gap-3 justify-center py-3 bg-white rounded-2xl border border-slate-100 shadow-sm border-dashed">
+                                <div className="w-2 h-2 bg-emerald-500 rounded-full animate-ping"></div>
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Đang chờ tín hiệu từ ngân hàng...</p>
                             </div>
                         </div>
                     </div>

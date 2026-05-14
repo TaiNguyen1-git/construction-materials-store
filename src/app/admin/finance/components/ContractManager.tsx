@@ -127,6 +127,12 @@ export default function ContractManager() {
         setLoading(false)
     }
 
+    const getContractStatus = (contract: Contract) => {
+        const isExpired = new Date(contract.validTo) < new Date()
+        if (contract.status === 'ACTIVE' && isExpired) return 'EXPIRED'
+        return contract.status
+    }
+
     const getStatusStyle = (status: string) => {
         switch (status) {
             case 'ACTIVE': return 'bg-emerald-50 text-emerald-600 border-emerald-100'
@@ -144,6 +150,40 @@ export default function ContractManager() {
             case 'CANCELLED': return 'Đã hủy'
             default: return status
         }
+    }
+
+    const handleRenewContract = async (contract: Contract) => {
+        const newValidTo = new Date()
+        newValidTo.setFullYear(newValidTo.getFullYear() + 1) // Default to +1 year
+        
+        const confirmRenew = confirm(`Bạn có chắc chắn muốn gia hạn hợp đồng ${contract.contractNumber} thêm 1 năm (đến ${newValidTo.toLocaleDateString('vi-VN')})?`)
+        if (!confirmRenew) return
+
+        setLoading(true)
+        try {
+            const res = await fetch('/api/contracts', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'update',
+                    contractId: contract.id,
+                    data: {
+                        validTo: newValidTo.toISOString().split('T')[0],
+                        status: 'ACTIVE'
+                    }
+                })
+            })
+
+            if (res.ok) {
+                toast.success('Đã gia hạn hợp đồng thành công!')
+                loadData()
+            } else {
+                toast.error('Lỗi khi gia hạn hợp đồng')
+            }
+        } catch (e) {
+            toast.error('Lỗi kết nối')
+        }
+        setLoading(false)
     }
 
     const handleDeleteContract = async (id: string) => {
@@ -191,7 +231,17 @@ export default function ContractManager() {
                         <div className="overflow-x-auto"><table className="min-w-full divide-y divide-slate-100">
                             <thead className="bg-slate-50/50 text-[9px] font-black text-slate-400 uppercase tracking-widest"><tr><th className="px-6 py-4 text-left">Hợp đồng</th><th className="px-6 py-4 text-left">Đối tác</th><th className="px-4 py-4 text-center">Hiệu lực</th><th className="px-4 py-4 text-center">Sản phẩm</th><th className="px-4 py-4 text-center">Trạng thái</th><th className="px-6 py-4 text-right">Thao tác</th></tr></thead>
                             <tbody className="divide-y divide-slate-50">{loading ? <tr><td colSpan={6} className="py-12 text-center text-[10px] font-black text-slate-300 uppercase animate-pulse">Đang tải danh sách...</td></tr> : filteredContracts.length === 0 ? <tr><td colSpan={6} className="py-12 text-center text-[10px] font-black text-slate-300 uppercase italic">Không tìm thấy dữ liệu</td></tr> : filteredContracts.map(c => (
-                                <tr key={c.id} className="hover:bg-slate-50/50 group"><td className="px-6 py-4"><div className="flex items-center gap-3"><div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-blue-600 group-hover:text-white transition-all"><FileText size={14} /></div><div><div className="text-xs font-black text-slate-900 uppercase tracking-tight">{c.name}</div><div className="text-[8px] font-mono font-bold text-slate-400 mt-0.5">#{c.contractNumber}</div></div></div></td><td className="px-6 py-4"><div className="flex items-center gap-2"><Users size={12} className="text-blue-400" /><span className="text-xs font-bold text-slate-600">{c.customer?.user?.name || 'N/A'}</span></div></td><td className="px-4 py-4 text-center"><div className="text-[10px] font-bold text-slate-600">{new Date(c.validFrom).toLocaleDateString('vi-VN')} - {new Date(c.validTo).toLocaleDateString('vi-VN')}</div></td><td className="px-4 py-4 text-center"><div className="inline-flex items-center gap-1 px-2 py-0.5 bg-slate-50 rounded-md text-[10px] font-bold text-slate-500"><List size={10} />{c._count.contractPrices}</div></td><td className="px-4 py-4 text-center"><span className={`px-2 py-0.5 rounded-md text-[8px] font-black uppercase border ${getStatusStyle(c.status)}`}>{getStatusLabel(c.status)}</span></td><td className="px-6 py-4 text-right opacity-0 group-hover:opacity-100 transition-opacity"><div className="flex justify-end gap-1"><button onClick={() => handleViewContract(c)} className="p-1.5 text-slate-400 hover:text-blue-600 transition-all"><Eye size={14} /></button><button onClick={() => handleDeleteContract(c.id)} className="p-1.5 text-slate-400 hover:text-red-500 transition-all"><Trash2 size={14} /></button></div></td></tr>
+                                <tr key={c.id} className="hover:bg-slate-50/50 group"><td className="px-6 py-4"><div className="flex items-center gap-3"><div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-blue-600 group-hover:text-white transition-all"><FileText size={14} /></div><div><div className="text-xs font-black text-slate-900 uppercase tracking-tight">{c.name}</div><div className="text-[8px] font-mono font-bold text-slate-400 mt-0.5">#{c.contractNumber}</div></div></div></td><td className="px-6 py-4"><div className="flex items-center gap-2"><Users size={12} className="text-blue-400" /><span className="text-xs font-bold text-slate-600">{c.customer?.user?.name || 'N/A'}</span></div></td><td className="px-4 py-4 text-center"><div className="text-[10px] font-bold text-slate-600">{new Date(c.validFrom).toLocaleDateString('vi-VN')} - {new Date(c.validTo).toLocaleDateString('vi-VN')}</div></td><td className="px-4 py-4 text-center"><div className="inline-flex items-center gap-1 px-2 py-0.5 bg-slate-50 rounded-md text-[10px] font-bold text-slate-500"><List size={10} />{c._count.contractPrices}</div></td><td className="px-4 py-4 text-center"><span className={`px-2 py-0.5 rounded-md text-[8px] font-black uppercase border ${getStatusStyle(getContractStatus(c))}`}>{getStatusLabel(getContractStatus(c))}</span></td><td className="px-6 py-4 text-right opacity-0 group-hover:opacity-100 transition-opacity"><div className="flex justify-end gap-1">
+                                            <button 
+                                                onClick={() => handleRenewContract(c)} 
+                                                title="Gia hạn nhanh (1 năm)"
+                                                className="p-1.5 text-slate-400 hover:text-emerald-600 transition-all"
+                                            >
+                                                <RefreshCw size={14} />
+                                            </button>
+                                            <button onClick={() => handleViewContract(c)} className="p-1.5 text-slate-400 hover:text-blue-600 transition-all"><Eye size={14} /></button>
+                                            <button onClick={() => handleDeleteContract(c.id)} className="p-1.5 text-slate-400 hover:text-red-500 transition-all"><Trash2 size={14} /></button>
+                                        </div></td></tr>
                             ))}</tbody>
                         </table></div>
                     </div>
@@ -258,7 +308,7 @@ export default function ContractManager() {
                     <div className="bg-white w-full max-w-2xl max-h-[90vh] flex flex-col rounded-[32px] shadow-2xl p-0 overflow-hidden">
                         <div className="p-6 bg-slate-50 border-b border-slate-100 flex justify-between items-center shrink-0">
                             <div>
-                                <span className={`px-2 py-0.5 rounded-md text-[8px] font-black uppercase border ${getStatusStyle(selectedContract.status)}`}>{getStatusLabel(selectedContract.status)}</span>
+                                <span className={`px-2 py-0.5 rounded-md text-[8px] font-black uppercase border ${getStatusStyle(getContractStatus(selectedContract))}`}>{getStatusLabel(getContractStatus(selectedContract))}</span>
                                 <h3 className="text-xl font-black text-slate-900 uppercase mt-2">{selectedContract.name}</h3>
                                 <p className="text-[10px] font-mono text-slate-400">#{selectedContract.contractNumber}</p>
                             </div>
@@ -304,6 +354,12 @@ export default function ContractManager() {
                         </div>
                         <div className="p-6 bg-slate-50 border-t border-slate-100 flex gap-3 shrink-0">
                             <button className="flex-1 py-3 bg-white text-slate-900 border border-slate-200 rounded-xl font-black text-[10px] uppercase hover:bg-slate-100 transition-all flex items-center justify-center gap-2"><FileText size={14} /> Xuất PDF</button>
+                            <button 
+                                onClick={() => { handleRenewContract(selectedContract); setIsDetailModalOpen(false); }}
+                                className="flex-1 py-3 bg-white text-emerald-600 border border-emerald-100 rounded-xl font-black text-[10px] uppercase hover:bg-emerald-50 transition-all flex items-center justify-center gap-2"
+                            >
+                                <RefreshCw size={14} /> Gia hạn 1 năm
+                            </button>
                             <button className="flex-1 py-3 bg-emerald-600 text-white rounded-xl font-black text-[10px] uppercase shadow-lg shadow-emerald-500/20 hover:bg-emerald-700 transition-all">Kích hoạt hiệu lực</button>
                         </div>
                     </div>

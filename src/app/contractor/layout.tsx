@@ -47,34 +47,31 @@ export default function ContractorLayout({
     }
 
     return (
-        <div className="min-h-screen bg-[#F0F2F5] flex flex-col selection:bg-primary-100 selection:text-primary-700">
+        <div className="flex h-screen bg-[#F0F2F5] text-slate-900 font-sans overflow-hidden selection:bg-primary-100 selection:text-primary-700">
             {/* Ambient Background Glows */}
             <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
                 <div className="absolute top-[-10%] right-[-10%] w-[40%] h-[40%] bg-primary-100/30 rounded-full blur-[120px] animate-pulse"></div>
                 <div className="absolute bottom-[-10%] left-[-10%] w-[40%] h-[40%] bg-indigo-100/30 rounded-full blur-[120px] animate-pulse delay-1000"></div>
             </div>
 
-            <ContractorHeader 
-                sidebarOpen={sidebarOpen} 
-                setSidebarOpen={setSidebarOpen} 
+            <Sidebar 
+                isOpen={sidebarOpen} 
+                onClose={() => setSidebarOpen(false)} 
+                onToggle={() => setSidebarOpen(!sidebarOpen)}
+                isCollapsed={isCollapsed}
+                setIsCollapsed={setIsCollapsed}
             />
 
-            <div className="flex relative min-h-screen z-10">
-                <Sidebar 
-                    isOpen={sidebarOpen} 
-                    onClose={() => setSidebarOpen(false)} 
-                    onToggle={() => setSidebarOpen(!sidebarOpen)}
+            {/* Main Content Area */}
+            <div className="flex flex-col flex-1 h-full overflow-hidden relative z-10">
+                <ContractorHeader 
+                    sidebarOpen={sidebarOpen} 
+                    setSidebarOpen={setSidebarOpen} 
                     isCollapsed={isCollapsed}
-                    setIsCollapsed={setIsCollapsed}
                 />
 
-                {/* Main Content Area with sidebar offset */}
-                <main 
-                    className={`flex-1 transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] min-h-screen ${
-                        sidebarOpen ? (isCollapsed ? 'lg:pl-24' : 'lg:pl-72') : 'pl-0'
-                    }`}
-                >
-                    <div className="p-4 lg:p-10 pt-20 lg:pt-24 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                <main className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar">
+                    <div className="p-4 lg:p-10 animate-in fade-in slide-in-from-bottom-2 duration-500">
                         <div className="max-w-[1600px] mx-auto">
                             {children}
                         </div>

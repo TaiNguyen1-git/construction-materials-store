@@ -23,10 +23,11 @@ import { useAuth } from '@/contexts/auth-context'
 interface ContractorHeaderProps {
     sidebarOpen: boolean
     setSidebarOpen: (open: boolean) => void
-    user: any
+    isCollapsed: boolean
+    user?: any
 }
 
-export default function ContractorHeader({ sidebarOpen, setSidebarOpen }: Omit<ContractorHeaderProps, 'user'>) {
+export default function ContractorHeader({ sidebarOpen, setSidebarOpen, isCollapsed }: Omit<ContractorHeaderProps, 'user'>) {
     const { user, logout } = useAuth()
     const router = useRouter()
     const [profileDropdownOpen, setProfileDropdownOpen] = useState(false)
@@ -80,12 +81,9 @@ export default function ContractorHeader({ sidebarOpen, setSidebarOpen }: Omit<C
     const handleLogout = async () => {
         try {
             await logout()
-            // Clear contractor-specific cookie
             document.cookie = 'contractor_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT'
-            // Success: AuthContext will handle redirect to /
         } catch (error) {
             console.error('Logout failed:', error)
-            // Fallback: Force clear and redirect if global logout fails
             localStorage.removeItem('access_token')
             localStorage.removeItem('user')
             document.cookie = 'contractor_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT'
@@ -110,191 +108,134 @@ export default function ContractorHeader({ sidebarOpen, setSidebarOpen }: Omit<C
     )
 
     return (
-        <nav className="fixed top-0 left-0 right-0 z-30 bg-white/95 backdrop-blur-sm border-b border-gray-100 shadow-sm">
-            <div className="px-4 py-3">
-                <div className="flex items-center justify-between gap-4 h-10">
-                    {/* Left: Logo & Sidebar Toggle */}
-                    <div className="flex items-center gap-3 flex-shrink-0">
-                        <button
-                            onClick={() => setSidebarOpen(!sidebarOpen)}
-                            className="p-1.5 text-gray-500 hover:bg-gray-50 hover:text-primary-600 rounded-lg transition-colors border border-transparent hover:border-gray-100"
-                        >
-                            <Menu className="w-5 h-5" />
-                        </button>
-                        <Link href="/contractor/dashboard" className="flex items-center gap-2.5">
-                            <div className="w-9 h-9 bg-gradient-to-br from-primary-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-primary-100">
-                                <Building2 className="w-5 h-5 text-white" />
-                            </div>
-                            <div className="hidden sm:block">
-                                <span className="text-lg font-black text-gray-900 leading-none block">SmartBuild</span>
-                                <span className="text-[10px] font-black text-primary-600 uppercase tracking-widest leading-none block">PRO CONTRACTOR</span>
-                            </div>
-                        </Link>
+        <nav className="sticky top-0 z-30 bg-white/60 backdrop-blur-xl border-b border-gray-100/60 px-8 flex items-center justify-between gap-8 h-20 flex-shrink-0 transition-all duration-500">
+            {/* Left: Mobile Toggle & Brand */}
+            <div className={`flex items-center gap-4 flex-shrink-0 ${sidebarOpen ? 'lg:hidden' : 'flex'}`}>
+                <button
+                    onClick={() => setSidebarOpen(!sidebarOpen)}
+                    className="p-2 text-slate-500 hover:bg-slate-50 hover:text-primary-600 rounded-xl transition-all border border-transparent hover:border-gray-100"
+                >
+                    <Menu className="w-5 h-5" />
+                </button>
+                <Link href="/contractor/dashboard" className="flex items-center gap-3 group">
+                    <div className="w-9 h-9 bg-gradient-to-br from-primary-600 to-indigo-700 rounded-xl flex items-center justify-center shadow-lg shadow-primary-500/20 group-hover:scale-105 transition-transform">
+                        <Package className="w-5 h-5 text-white" />
                     </div>
+                    <div className="hidden sm:flex flex-col">
+                        <span className="font-bold text-slate-900 text-sm tracking-tight leading-none">SmartBuild</span>
+                        <span className="text-[9px] font-bold text-primary-500 uppercase tracking-widest mt-0.5 opacity-80">Pro Contractor</span>
+                    </div>
+                </Link>
+            </div>
 
-                    {/* Middle: Enhanced Live Search */}
-                    <div className="hidden md:flex flex-1 max-w-lg mx-auto relative" ref={searchRef}>
-                        <div className="relative w-full group z-50">
-                            <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 transition-colors ${searchFocused ? 'text-primary-600' : 'text-gray-400'}`} />
-                            <input
-                                type="text"
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                onFocus={() => setSearchFocused(true)}
-                                onKeyDown={(e) => {
-                                    if (e.key === 'Enter') {
-                                        router.push(`/projects?search=${encodeURIComponent(searchQuery)}`)
-                                        setSearchFocused(false)
-                                    }
-                                }}
-                                placeholder="Tìm dự án, đơn hàng, vật tư..."
-                                className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-9 pr-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 outline-none focus:ring-2 focus:ring-primary-100 focus:border-primary-500 focus:bg-white transition-all shadow-sm"
-                            />
-                            {/* Spinner */}
-                            {searchLoading && (
-                                <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                                    <div className="w-4 h-4 border-2 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
+            {/* Middle: Enhanced Live Search */}
+            <div className="hidden md:flex flex-1 max-w-2xl relative" ref={searchRef}>
+                <div className="relative w-full group">
+                    <Search className={`absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 transition-colors ${searchFocused ? 'text-primary-600' : 'text-gray-400'}`} />
+                    <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        onFocus={() => setSearchFocused(true)}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                                router.push(`/projects?search=${encodeURIComponent(searchQuery)}`)
+                                setSearchFocused(false)
+                            }
+                        }}
+                        placeholder="Tìm dự án, đơn hàng, vật tư..."
+                        className="w-full bg-slate-100/50 border border-transparent rounded-2xl pl-10 pr-4 py-2.5 text-sm text-gray-900 placeholder-slate-400 outline-none focus:ring-4 focus:ring-primary-500/10 focus:border-primary-500 focus:bg-white transition-all"
+                    />
+                    {searchLoading && (
+                        <div className="absolute right-3.5 top-1/2 -translate-y-1/2">
+                            <div className="w-3.5 h-3.5 border-2 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
+                        </div>
+                    )}
+                </div>
+
+                {/* Search Dropdown */}
+                {searchFocused && searchQuery.length >= 2 && searchResults && (
+                    <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                        <div className="max-h-[60vh] overflow-y-auto py-2">
+                            {(!searchResults.projects.length && !searchResults.orders.length && !searchResults.products.length) && (
+                                <div className="p-8 text-center text-gray-500 text-xs italic">
+                                    Không tìm thấy kết quả nào cho "{searchQuery}"
+                                </div>
+                            )}
+
+                            {searchResults.projects.length > 0 && (
+                                <div className="mb-2">
+                                    <h3 className="px-5 py-2 text-[10px] font-bold text-gray-400 uppercase tracking-widest bg-gray-50/50">Dự án</h3>
+                                    {searchResults.projects.map((item: any) => (
+                                        <SearchResultItem key={item.id} item={item} icon={Building2} />
+                                    ))}
+                                </div>
+                            )}
+
+                            {searchResults.orders.length > 0 && (
+                                <div className="mb-2 border-t border-gray-50">
+                                    <h3 className="px-5 py-2 text-[10px] font-bold text-gray-400 uppercase tracking-widest bg-gray-50/50">Đơn hàng</h3>
+                                    {searchResults.orders.map((item: any) => (
+                                        <SearchResultItem key={item.id} item={item} icon={ShoppingBag} />
+                                    ))}
                                 </div>
                             )}
                         </div>
+                    </div>
+                )}
+            </div>
 
-                        {/* Search Dropdown Results */}
-                        {searchFocused && searchQuery.length >= 2 && searchResults && (
-                            <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-                                <div className="max-h-[60vh] overflow-y-auto py-2">
-                                    {(!searchResults.projects.length && !searchResults.orders.length && !searchResults.products.length) && (
-                                        <div className="p-8 text-center text-gray-500 text-xs">
-                                            Không tìm thấy kết quả nào cho <span className="font-bold text-gray-900">"{searchQuery}"</span>
-                                        </div>
-                                    )}
+            {/* Right: Actions & Profile */}
+            <div className="flex items-center gap-2 flex-shrink-0">
+                <div className="flex items-center gap-1.5 p-1 bg-slate-100/50 rounded-2xl border border-slate-200/50">
+                    <MessagingDropdown />
+                    <div className="w-px h-6 bg-slate-200/60 mx-1"></div>
+                    <NotificationBell />
+                    
+                    <div className="w-px h-6 bg-slate-200/60 mx-1 hidden sm:block"></div>
+                    
+                    {/* Profile Dropdown */}
+                    <div className="relative" ref={dropdownRef}>
+                        <button
+                            onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
+                            className="flex items-center gap-3 pl-2 pr-4 py-1.5 rounded-xl hover:bg-white transition-all group"
+                        >
+                            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-primary-600 to-indigo-600 flex items-center justify-center shadow-lg shadow-primary-500/20 group-hover:scale-105 transition-transform">
+                                <User className="h-4 w-4 text-white" />
+                            </div>
+                            <div className="hidden sm:flex flex-col items-start leading-tight">
+                                <span className="text-sm font-black text-slate-700">{user?.name || 'Nhà thầu'}</span>
+                                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Tài khoản Pro</span>
+                            </div>
+                            <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-300 ${profileDropdownOpen ? 'rotate-180' : ''}`} />
+                        </button>
 
-                                    {/* Projects */}
-                                    {searchResults.projects.length > 0 && (
-                                        <div className="mb-2">
-                                            <h3 className="px-4 py-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider bg-gray-50/50">Dự án Marketplace</h3>
-                                            {searchResults.projects.map((item: any) => (
-                                                <div key={item.id} className="px-2 pt-1">
-                                                    <SearchResultItem item={item} icon={Building2} />
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-
-                                    {/* Orders */}
-                                    {searchResults.orders.length > 0 && (
-                                        <div className="mb-2">
-                                            <h3 className="px-4 py-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider bg-gray-50/50 border-t border-gray-100">Đơn hàng của tôi</h3>
-                                            {searchResults.orders.map((item: any) => (
-                                                <div key={item.id} className="px-2 pt-1">
-                                                    <SearchResultItem item={item} icon={ShoppingBag} />
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-
-                                    {/* Products */}
-                                    {searchResults.products.length > 0 && (
-                                        <div className="mb-2">
-                                            <h3 className="px-4 py-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider bg-gray-50/50 border-t border-gray-100">Vật tư</h3>
-                                            {searchResults.products.map((item: any) => (
-                                                <div key={item.id} className="px-2 pt-1">
-                                                    <SearchResultItem item={item} icon={Package} />
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
+                        {profileDropdownOpen && (
+                            <div className="absolute right-0 mt-3 w-64 bg-white rounded-2xl shadow-2xl border border-gray-100 py-2 z-50 animate-in fade-in zoom-in-95 duration-200">
+                                <div className="px-5 py-4 border-b border-gray-50 mb-1">
+                                    <p className="text-sm font-black text-slate-900 truncate">{user?.name || 'Nhà thầu'}</p>
+                                    <p className="text-[10px] font-bold text-primary-500 uppercase tracking-widest mt-1">Đối tác chiến lược</p>
                                 </div>
-                                <div className="bg-gray-50 px-4 py-3 text-center border-t border-gray-100">
+                                
+                                <div className="p-2 space-y-1">
+                                    <Link href="/contractor/profile" className="flex items-center gap-3 px-3 py-2.5 text-[13px] font-semibold text-slate-600 hover:bg-slate-50 hover:text-primary-700 rounded-xl transition-all">
+                                        <Settings className="w-4 h-4 text-slate-400" />
+                                        Cài đặt tài khoản
+                                    </Link>
+                                    <Link href="/contractor/change-password" className="flex items-center gap-3 px-3 py-2.5 text-[13px] font-semibold text-slate-600 hover:bg-slate-50 hover:text-primary-700 rounded-xl transition-all">
+                                        <KeyRound className="w-4 h-4 text-slate-400" />
+                                        Đổi mật khẩu
+                                    </Link>
                                     <button
-                                        onClick={() => {
-                                            router.push(`/projects?search=${encodeURIComponent(searchQuery)}`)
-                                            setSearchFocused(false)
-                                        }}
-                                        className="text-xs font-bold text-primary-600 hover:text-primary-700 w-full flex items-center justify-center gap-1"
+                                        onClick={handleLogout}
+                                        className="flex items-center gap-3 w-full px-3 py-2.5 text-[13px] font-bold text-red-500 hover:bg-red-50 rounded-xl transition-all mt-1 pt-3 border-t border-gray-50"
                                     >
-                                        <Search className="w-3 h-3" />
-                                        Xem tất cả kết quả
+                                        <LogOut className="w-4 h-4" />
+                                        Đăng xuất
                                     </button>
                                 </div>
                             </div>
                         )}
-                    </div>
-
-                    {/* Right: Actions */}
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                        <MessagingDropdown />
-                        <NotificationBell />
-
-                        <div className="h-6 w-[1px] bg-gray-100 mx-2 hidden sm:block" />
-
-                        {/* Profile Dropdown */}
-                        <div className="relative" ref={dropdownRef}>
-                            <button
-                                onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
-                                className="hidden sm:flex items-center gap-2.5 pl-1 pr-3 py-1 bg-white hover:bg-gray-50 border border-gray-100 hover:border-gray-200 rounded-full transition-all group"
-                            >
-                                <div className="w-7 h-7 bg-primary-50 rounded-full flex items-center justify-center ring-2 ring-white">
-                                    <User className="w-4 h-4 text-primary-600" />
-                                </div>
-                                <span className="font-bold text-xs text-gray-700 max-w-[100px] truncate group-hover:text-primary-700 transition-colors">{user?.name || 'Đối tác'}</span>
-                                <ChevronDown className={`w-3.5 h-3.5 text-gray-400 transition-transform duration-200 ${profileDropdownOpen ? 'rotate-180' : ''}`} />
-                            </button>
-
-                            {/* Dropdown Menu - Standardized */}
-                            {profileDropdownOpen && (
-                                <div className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-2xl border border-gray-100 py-2 z-50 animate-in fade-in zoom-in-95 duration-200">
-                                    <div className="px-5 py-3 border-b border-gray-50 bg-gray-50/50">
-                                        <p className="text-sm font-black text-gray-900 truncate">{user?.name || 'Đối tác'}</p>
-                                        <p className="text-[11px] font-medium text-gray-500 truncate mt-0.5">{user?.email || ''}</p>
-                                    </div>
-
-                                    <div className="p-2 space-y-1">
-                                        <Link
-                                            href="/contractor/profile"
-                                            onClick={() => setProfileDropdownOpen(false)}
-                                            className="flex items-center gap-3 px-3 py-2 text-xs font-bold text-gray-700 hover:bg-primary-50 hover:text-primary-700 rounded-lg transition-colors"
-                                        >
-                                            <Settings className="w-4 h-4" />
-                                            Hồ sơ doanh nghiệp
-                                        </Link>
-                                        <Link
-                                            href="/contractor/change-password"
-                                            onClick={() => setProfileDropdownOpen(false)}
-                                            className="flex items-center gap-3 px-3 py-2 text-xs font-bold text-gray-700 hover:bg-primary-50 hover:text-primary-700 rounded-lg transition-colors"
-                                        >
-                                            <KeyRound className="w-4 h-4" />
-                                            Đổi mật khẩu
-                                        </Link>
-                                        <Link
-                                            href="/contractor/help"
-                                            onClick={() => setProfileDropdownOpen(false)}
-                                            className="flex items-center gap-3 px-3 py-2 text-xs font-bold text-gray-700 hover:bg-primary-50 hover:text-primary-700 rounded-lg transition-colors"
-                                        >
-                                            <LifeBuoy className="w-4 h-4" />
-                                            Hỗ trợ & Khiếu nại
-                                        </Link>
-                                    </div>
-
-                                    <div className="border-t border-gray-100 mt-1 p-2">
-                                        <button
-                                            onClick={handleLogout}
-                                            className="flex items-center gap-3 w-full px-3 py-2 text-xs font-bold text-red-600 hover:bg-red-50 to-red-600 rounded-lg transition-colors"
-                                        >
-                                            <LogOut className="w-4 h-4" />
-                                            Đăng xuất
-                                        </button>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Mobile Logout (Visible only on small screens) */}
-                        <button
-                            onClick={handleLogout}
-                            className="sm:hidden p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                        >
-                            <LogOut className="w-5 h-5" />
-                        </button>
                     </div>
                 </div>
             </div>

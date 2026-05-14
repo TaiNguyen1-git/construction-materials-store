@@ -3994,6 +3994,7 @@ enum SupportTicketCategory {
   TECHNICAL // Technical support
   COMPLAINT // Complaints
   WARRANTY // Warranty claims
+  CONTRACT // Contract-related requests (Renewal, Amendment)
 }
 
 enum SupportTicketPriority {

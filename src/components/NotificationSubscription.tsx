@@ -16,9 +16,12 @@ const NotificationSubscription: React.FC = () => {
   const shouldHide =
     pathname?.startsWith('/admin') ||
     pathname?.startsWith('/supplier') ||
+    pathname?.startsWith('/ncc') ||
+    pathname?.startsWith('/contractor') ||
     pathname?.startsWith('/employee') ||
     pathname?.startsWith('/login') ||
-    pathname?.startsWith('/register')
+    pathname?.startsWith('/register') ||
+    pathname?.startsWith('/onboarding')
 
   useEffect(() => {
     if (typeof window !== 'undefined' && 'Notification' in window) {

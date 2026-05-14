@@ -69,87 +69,84 @@ export default function QRPayment({ amount, orderId, description, expiresAt }: Q
   }
 
   return (
-    <div className="flex flex-col items-center">
-
-      {/* QR Code Section */}
-      <div className="relative mb-8 group">
-        <div className="absolute -inset-1 bg-gradient-to-tr from-blue-600 to-purple-600 rounded-2xl blur opacity-20 group-hover:opacity-40 transition-opacity"></div>
-        <div className="relative bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+    <div className="flex flex-col items-center w-full max-w-lg mx-auto">
+      {/* QR Code Section - More integrated */}
+      <div className="relative mb-6 group">
+        <div className="absolute -inset-1 bg-gradient-to-tr from-blue-600/20 to-indigo-600/20 rounded-[2rem] blur-xl opacity-50"></div>
+        <div className="relative bg-white p-3 rounded-3xl border border-slate-100 shadow-sm transition-transform duration-500 group-hover:scale-[1.02]">
           {qrUrl ? (
             <img
               src={qrUrl}
               alt="QR Payment"
-              width={220}
-              height={220}
-              className="rounded-lg"
+              width={180}
+              height={180}
+              className="rounded-2xl"
             />
           ) : (
-            <div className="w-[220px] h-[220px] bg-slate-100 rounded-lg flex items-center justify-center text-slate-400 text-xs">
+            <div className="w-[180px] h-[180px] bg-slate-50 rounded-2xl flex items-center justify-center text-slate-400 text-[10px] font-bold uppercase tracking-wider">
               Lỗi tạo mã
             </div>
           )}
-
-          {/* Bank Logos Badge - Removed as they are already in the QR template */}
         </div>
       </div>
 
-      <div className="w-full space-y-4">
-        <h3 className="text-center text-sm font-bold text-slate-500 uppercase tracking-widest mb-2">Hoặc chuyển khoản thủ công</h3>
-
-        {/* Account Number Card */}
-        <div className="bg-slate-50 rounded-xl p-4 border border-slate-100 flex justify-between items-center group hover:bg-white hover:border-blue-200 hover:shadow-md transition-all">
-          <div>
-            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Số tài khoản</p>
-            <p className="text-lg font-black text-slate-800 font-mono tracking-tight">{bankInfo.accountNo}</p>
-          </div>
-          <button
-            onClick={() => copyToClipboard(bankInfo.accountNo, 'account')}
-            className="p-2 bg-white rounded-lg border border-slate-200 text-slate-400 hover:text-blue-600 hover:border-blue-200 transition-all"
-          >
-            {copiedState === 'account' ? <Check size={16} /> : <Copy size={16} />}
-          </button>
+      <div className="w-full space-y-3">
+        <div className="flex items-center gap-3 px-1 mb-1">
+            <div className="h-px bg-slate-200 flex-1"></div>
+            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Chuyển khoản thủ công</h3>
+            <div className="h-px bg-slate-200 flex-1"></div>
         </div>
 
-        {/* Account Name & Bank */}
-        <div className="bg-slate-50 rounded-xl p-4 border border-slate-100 grid grid-cols-1 gap-1 group hover:bg-white hover:border-blue-200 hover:shadow-md transition-all">
-          <div>
-            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Chủ tài khoản</p>
-            <p className="text-sm font-black text-slate-800">{bankInfo.accountName}</p>
-          </div>
-          <div className="pt-2 mt-2 border-t border-slate-200/50">
-            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Ngân hàng</p>
-            <p className="text-sm font-bold text-slate-700">TPBank (Ngân hàng Tiên Phong)</p>
-          </div>
+        {/* Info Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {/* Account Info Group */}
+            <div className="sm:col-span-2 bg-slate-50/80 rounded-2xl p-4 border border-slate-100/50 flex justify-between items-center group/item hover:bg-white hover:border-blue-200 hover:shadow-sm transition-all">
+                <div className="space-y-1">
+                    <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider leading-none">Số tài khoản & Ngân hàng</p>
+                    <p className="text-base font-black text-slate-800 font-mono tracking-tight">{bankInfo.accountNo}</p>
+                    <p className="text-[11px] font-bold text-slate-500">TPBank • {bankInfo.accountName}</p>
+                </div>
+                <button
+                    onClick={() => copyToClipboard(bankInfo.accountNo, 'account')}
+                    className="p-2.5 bg-white rounded-xl border border-slate-200 text-slate-400 hover:text-blue-600 hover:border-blue-200 shadow-sm transition-all active:scale-90"
+                >
+                    {copiedState === 'account' ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
+                </button>
+            </div>
+
+            {/* Amount Card */}
+            <div className="bg-emerald-50/40 rounded-2xl p-4 border border-emerald-100/50 flex justify-between items-center group/item hover:bg-white hover:border-emerald-200 hover:shadow-sm transition-all">
+                <div className="space-y-1">
+                    <p className="text-[9px] text-emerald-600 font-bold uppercase tracking-wider leading-none">Số tiền</p>
+                    <p className="text-base font-black text-emerald-700">{sanitizedAmount.toLocaleString()}đ</p>
+                </div>
+                <button
+                    onClick={() => copyToClipboard(sanitizedAmount.toString(), 'amount')}
+                    className="p-2 bg-white rounded-lg border border-emerald-100 text-emerald-400 hover:text-emerald-600 transition-all active:scale-90"
+                >
+                    {copiedState === 'amount' ? <Check size={12} className="text-emerald-500" /> : <Copy size={12} />}
+                </button>
+            </div>
+
+            {/* Content Card */}
+            <div className="bg-blue-50/40 rounded-2xl p-4 border border-blue-100/50 flex justify-between items-center group/item hover:bg-white hover:border-blue-200 hover:shadow-sm transition-all">
+                <div className="space-y-1 overflow-hidden">
+                    <p className="text-[9px] text-blue-600 font-bold uppercase tracking-wider leading-none">Nội dung</p>
+                    <p className="text-xs font-black text-blue-700 truncate">{transferContent}</p>
+                </div>
+                <button
+                    onClick={() => copyToClipboard(transferContent, 'content')}
+                    className="p-2 bg-white rounded-lg border border-blue-100 text-blue-400 hover:text-blue-600 transition-all active:scale-90"
+                >
+                    {copiedState === 'content' ? <Check size={12} className="text-emerald-500" /> : <Copy size={12} />}
+                </button>
+            </div>
         </div>
 
-        {/* Amount Card */}
-        <div className="bg-emerald-50/50 rounded-xl p-4 border border-emerald-100 flex justify-between items-center group hover:bg-emerald-50 hover:border-emerald-200 hover:shadow-md transition-all">
-          <div>
-            <p className="text-[10px] text-emerald-600 font-bold uppercase tracking-wider mb-1">Số tiền cần chuyển</p>
-            <p className="text-xl font-black text-emerald-700">{sanitizedAmount.toLocaleString()}đ</p>
-          </div>
-          <button
-            onClick={() => copyToClipboard(sanitizedAmount.toString(), 'amount')}
-            className="p-2 bg-white rounded-lg border border-emerald-200 text-emerald-500 hover:text-emerald-700 hover:bg-emerald-100 transition-all"
-          >
-            {copiedState === 'amount' ? <Check size={16} /> : <Copy size={16} />}
-          </button>
+        <div className="flex items-center gap-2 justify-center pt-4 opacity-50">
+            <Clock className="w-3 h-3 text-slate-400" />
+            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Tự động xác nhận sau 1-3 phút</p>
         </div>
-
-        {/* Content Card */}
-        <div className="bg-slate-50 rounded-xl p-4 border border-slate-100 flex justify-between items-center group hover:bg-white hover:border-blue-200 hover:shadow-md transition-all">
-          <div className="overflow-hidden">
-            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Nội dung chuyển khoản</p>
-            <p className="text-sm font-bold text-slate-800 break-all">{transferContent}</p>
-          </div>
-          <button
-            onClick={() => copyToClipboard(transferContent, 'content')}
-            className="p-2 bg-white rounded-lg border border-slate-200 text-slate-400 hover:text-blue-600 hover:border-blue-200 transition-all shrink-0 ml-3"
-          >
-            {copiedState === 'content' ? <Check size={16} /> : <Copy size={16} />}
-          </button>
-        </div>
-
       </div>
     </div>
   )

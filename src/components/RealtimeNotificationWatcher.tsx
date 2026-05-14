@@ -89,7 +89,12 @@ export default function RealtimeNotificationWatcher() {
                     }
                 })
             } catch (error) {
-                console.error('Polling error', error)
+                // Quietly handle fetch errors to prevent console spam during server restarts
+                if (error instanceof TypeError && error.message === 'Failed to fetch') {
+                    // Ignore network errors
+                } else {
+                    console.error('Notification polling error:', error)
+                }
             }
         }
 

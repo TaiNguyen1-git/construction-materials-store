@@ -11,6 +11,7 @@ import { usePathname } from 'next/navigation'
 import FormModal from '@/components/FormModal'
 import { Toaster, toast } from 'react-hot-toast'
 import { useAuth } from '@/contexts/auth-context'
+import { fetchWithAuth } from '@/lib/api-client'
 import {
     Building2,
     Package,
@@ -95,8 +96,10 @@ export default function ContractorContractsPage() {
     }
 
     return (
-        <div className="space-y-10 animate-in fade-in duration-500 pb-20 max-w-7xl mx-auto">
-            {/* Page Header */}
+        <>
+            <Toaster position="top-right" reverseOrder={false} gutter={8} toastOptions={{ duration: 5000, style: { zIndex: 9999 } }} />
+            <div className="space-y-10 animate-in fade-in duration-500 pb-20 max-w-7xl mx-auto">
+                {/* Page Header */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 px-1">
                 <div className="space-y-1">
                     <h1 className="text-3xl font-bold text-slate-900 tracking-tight flex items-center gap-3">
@@ -153,66 +156,87 @@ export default function ContractorContractsPage() {
                         </Link>
                     </div>
                 ) : (
-                    contracts.map((contract) => (
-                        <div key={contract.id} className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden group hover:shadow-xl hover:shadow-slate-200/40 transition-all duration-500 flex flex-col">
-                            <div className="p-8 md:p-10">
-                                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-8 mb-10">
-                                    <div className="flex items-start gap-6">
-                                        <div className="w-16 h-16 bg-slate-50 group-hover:bg-blue-50 group-hover:text-blue-600 rounded-2xl flex items-center justify-center flex-shrink-0 transition-all duration-500">
-                                            <Briefcase size={28} />
-                                        </div>
-                                        <div className="space-y-1">
-                                            <h3 className="text-xl font-bold text-slate-900 tracking-tight group-hover:text-blue-600 transition-colors">{contract.name}</h3>
-                                            <p className="text-slate-400 font-bold tracking-widest text-[9px] uppercase">Số hợp đồng: <span className="text-slate-900">{contract.contractNumber}</span></p>
-                                        </div>
-                                    </div>
-                                    <span className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-[9px] font-bold uppercase tracking-widest shadow-sm transition-all duration-500 ${getStatusStyle(contract.status)}`}>
-                                        {contract.status === 'ACTIVE' && <CheckCircle className="w-3 h-3" />}
-                                        {contract.status === 'PENDING' && <Clock className="w-3 h-3" />}
-                                        {getStatusText(contract.status)}
-                                    </span>
-                                </div>
+                    contracts.map((contract) => {
+                        const isExpired = new Date(contract.validTo) < new Date();
+                        const currentStatus = isExpired ? 'EXPIRED' : contract.status;
 
-                                <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
-                                    {[
-                                        { label: 'Ngày hiệu lực', value: contract.validFrom, icon: Calendar, color: 'bg-slate-50 text-slate-500', border: 'border-slate-100' },
-                                        { label: 'Ngày đáo hạn', value: contract.validTo, icon: Calendar, color: 'bg-slate-50 text-slate-500', border: 'border-slate-100' },
-                                        { label: 'Chiết khấu B2B', value: `${contract.discountPercent}%`, icon: TrendingDown, color: 'bg-emerald-50 text-emerald-600', border: 'border-emerald-100' },
-                                        { label: 'Hạn mức tín dụng', value: formatCurrency(contract.creditLimit), icon: Zap, color: 'bg-blue-50 text-blue-600', border: 'border-blue-100' }
-                                    ].map((stat, i) => (
-                                        <div key={i} className={`${stat.color.split(' ')[0]} rounded-2xl p-6 border ${stat.border} flex flex-col justify-between h-32 group/stat hover:scale-105 transition-all duration-500`}>
-                                            <div className="flex items-center gap-2 text-[9px] font-bold uppercase tracking-widest opacity-60">
-                                                <stat.icon size={12} />
-                                                {stat.label}
+                        return (
+                            <div key={contract.id} className={`bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden flex flex-col ${isExpired ? 'opacity-90' : ''}`}>
+                                <div className="p-8 md:p-10">
+                                    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-8 mb-10">
+                                        <div className="flex items-start gap-6">
+                                            <div className={`w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center flex-shrink-0 ${isExpired ? 'text-rose-600' : 'text-slate-400'}`}>
+                                                <Briefcase size={28} />
                                             </div>
-                                            <p className={`font-bold text-xl tracking-tight uppercase tabular-nums ${stat.color.split(' ')[1]}`}>{stat.value}</p>
+                                            <div className="space-y-1">
+                                                <h3 className={`text-xl font-bold text-slate-900 tracking-tight ${isExpired ? 'text-rose-600' : ''}`}>{contract.name}</h3>
+                                                <p className="text-slate-400 font-bold tracking-widest text-[9px] uppercase">Số hợp đồng: <span className="text-slate-900">{contract.contractNumber}</span></p>
+                                            </div>
                                         </div>
-                                    ))}
-                                </div>
-                            </div>
+                                        <span className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-[9px] font-bold uppercase tracking-widest shadow-sm ${isExpired ? 'bg-rose-50 text-rose-600 border border-rose-100' : getStatusStyle(currentStatus)}`}>
+                                            {isExpired ? <AlertCircle className="w-3 h-3" /> : (
+                                                <>
+                                                    {currentStatus === 'ACTIVE' && <CheckCircle className="w-3 h-3" />}
+                                                    {currentStatus === 'PENDING' && <Clock className="w-3 h-3" />}
+                                                </>
+                                            )}
+                                            {isExpired ? 'Hợp đồng đã hết hạn' : getStatusText(currentStatus)}
+                                        </span>
+                                    </div>
 
-                            <div className="bg-slate-50/50 px-8 py-6 border-t border-slate-100 flex flex-col md:flex-row items-center justify-between gap-6">
-                                <div className="flex items-center gap-3 text-slate-400 font-bold text-[9px] uppercase tracking-widest group-hover:text-slate-600 transition-colors">
-                                    <ShieldCheck size={16} className="text-emerald-500" />
-                                    Hợp đồng được bảo mật bởi giao thức SSL-256
+                                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+                                        {[
+                                            { label: 'Ngày hiệu lực', value: contract.validFrom, icon: Calendar, color: 'bg-slate-50 text-slate-500', border: 'border-slate-100' },
+                                            { label: 'Ngày đáo hạn', value: contract.validTo, icon: Calendar, color: isExpired ? 'bg-rose-50 text-rose-500' : 'bg-slate-50 text-slate-500', border: isExpired ? 'border-rose-100' : 'border-slate-100' },
+                                            { label: 'Chiết khấu B2B', value: `${contract.discountPercent}%`, icon: TrendingDown, color: isExpired ? 'bg-slate-50 text-slate-300' : 'bg-emerald-50 text-emerald-600', border: isExpired ? 'border-slate-100' : 'border-emerald-100' },
+                                            { label: 'Hạn mức tín dụng', value: formatCurrency(contract.creditLimit), icon: Zap, color: isExpired ? 'bg-slate-50 text-slate-300' : 'bg-blue-50 text-blue-600', border: isExpired ? 'border-slate-100' : 'border-blue-100' }
+                                        ].map((stat, i) => (
+                                            <div key={i} className={`${stat.color.split(' ')[0]} rounded-2xl p-6 border ${stat.border} flex flex-col justify-between h-32 ${isExpired && i >= 2 ? 'grayscale opacity-60' : ''}`}>
+                                                <div className="flex items-center gap-2 text-[9px] font-bold uppercase tracking-widest opacity-60">
+                                                    <stat.icon size={12} />
+                                                    {stat.label}
+                                                </div>
+                                                <p className={`font-bold text-xl tracking-tight uppercase tabular-nums ${stat.color.split(' ')[1]}`}>{stat.value}</p>
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
-                                <div className="flex items-center gap-3 w-full md:w-auto">
-                                    <button
-                                        onClick={() => setSelectedContract(contract)}
-                                        className="flex-1 md:flex-none flex items-center justify-center gap-3 bg-blue-50 text-blue-600 px-6 py-3.5 rounded-xl font-bold text-[10px] uppercase tracking-widest border border-blue-100 hover:bg-blue-100 transition-all shadow-sm active:scale-95"
-                                    >
-                                        <Eye size={16} /> Xem chi tiết
-                                    </button>
-                                    <button
-                                        onClick={() => window.print()}
-                                        className="flex-1 md:flex-none flex items-center justify-center gap-3 bg-blue-600 text-white px-6 py-3.5 rounded-xl font-bold text-[10px] uppercase tracking-widest hover:bg-blue-700 transition-all shadow-md shadow-blue-500/10 no-print active:scale-95"
-                                    >
-                                        <Download size={16} /> Xuất file hợp đồng
-                                    </button>
+
+                                <div className="bg-slate-50/50 px-8 py-6 border-t border-slate-100 flex flex-col md:flex-row items-center justify-between gap-6">
+                                    <div className={`flex items-center gap-3 font-bold text-[9px] uppercase tracking-widest ${isExpired ? 'text-rose-500' : 'text-slate-400'}`}>
+                                        {isExpired ? <AlertCircle size={16} /> : <ShieldCheck size={16} className="text-emerald-500" />}
+                                        {isExpired ? 'Vui lòng gia hạn để tiếp tục nhận các ưu đãi B2B' : 'Hợp đồng được bảo mật bởi giao thức SSL-256'}
+                                    </div>
+                                    <div className="flex items-center gap-3 w-full md:w-auto">
+                                        <button
+                                            onClick={() => setSelectedContract(contract)}
+                                            className="flex-1 md:flex-none flex items-center justify-center gap-3 bg-white text-slate-500 px-6 py-3.5 rounded-xl font-bold text-[10px] uppercase tracking-widest border border-slate-200 hover:bg-slate-50 transition-all shadow-sm active:scale-95"
+                                        >
+                                            <Eye size={16} /> Xem chi tiết
+                                        </button>
+                                        {isExpired ? (
+                                            <button
+                                                onClick={() => {
+                                                    setAmendmentReason('Tôi muốn yêu cầu gia hạn hợp đồng ' + contract.contractNumber);
+                                                    setShowAmendmentModal(true);
+                                                }}
+                                                className="flex-1 md:flex-none flex items-center justify-center gap-3 bg-rose-600 text-white px-8 py-3.5 rounded-xl font-bold text-[10px] uppercase tracking-widest hover:bg-rose-700 shadow-lg shadow-rose-500/20 no-print active:scale-95"
+                                            >
+                                                <Zap size={16} /> Gia hạn ngay
+                                            </button>
+                                        ) : (
+                                            <button
+                                                onClick={() => window.print()}
+                                                className="flex-1 md:flex-none flex items-center justify-center gap-3 bg-blue-600 text-white px-6 py-3.5 rounded-xl font-bold text-[10px] uppercase tracking-widest hover:bg-blue-700 shadow-md shadow-blue-500/10 no-print active:scale-95"
+                                            >
+                                                <Download size={16} /> Xuất file hợp đồng
+                                            </button>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    ))
+                        )
+                    })
                 )}
             </div>
 
@@ -353,14 +377,32 @@ export default function ContractorContractsPage() {
                             Hủy bỏ
                         </button>
                         <button 
-                            onClick={() => {
+                            onClick={async () => {
+                                if (submitting || !amendmentReason) return;
                                 setSubmitting(true);
-                                setTimeout(() => {
+                                try {
+                                    const res = await fetchWithAuth('/api/contractor/contracts/request-amendment', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({
+                                            contractId: contracts[0]?.id || '1',
+                                            type: 'Gia hạn / Điều chỉnh',
+                                            reason: amendmentReason
+                                        })
+                                    });
+
+                                    if (res.ok) {
+                                        toast.success('Yêu cầu điều chỉnh đã được gửi tới hệ thống!');
+                                        setShowAmendmentModal(false);
+                                        setAmendmentReason('');
+                                    } else {
+                                        toast.error('Có lỗi xảy ra khi gửi yêu cầu.');
+                                    }
+                                } catch (error) {
+                                    toast.error('Lỗi kết nối máy chủ.');
+                                } finally {
                                     setSubmitting(false);
-                                    setShowAmendmentModal(false);
-                                    setAmendmentReason('');
-                                    toast.success('Yêu cầu điều chỉnh đã được gửi thành công!');
-                                }, 1500);
+                                }
                             }}
                             disabled={submitting || !amendmentReason}
                             className="flex-[2] py-3 bg-blue-600 text-white rounded-xl font-bold text-[10px] uppercase tracking-widest shadow-lg hover:bg-blue-700 active:scale-95 transition-all flex items-center justify-center gap-2"
@@ -371,5 +413,6 @@ export default function ContractorContractsPage() {
                 </div>
             </FormModal>
         </div>
+        </>
     )
 }
