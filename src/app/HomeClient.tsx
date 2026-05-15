@@ -19,6 +19,7 @@ import FeaturedProducts from '@/components/home/FeaturedProducts'
 import FeaturedBrands from '@/components/home/FeaturedBrands'
 import ContractorReviewCarousel from '@/components/home/ContractorReviewCarousel'
 import EcosystemSection from '@/components/home/EcosystemSection'
+import MarketHighlights from '@/components/home/MarketHighlights'
 
 // Hooks & Store
 import { useAuth } from '@/contexts/auth-context'
@@ -253,6 +254,11 @@ export default function HomeClient({
           loading={featuredLoading}
         />
 
+        <MarketHighlights />
+        <ContractorReviewCarousel />
+
+        <FeaturedBrands partners={PARTNERS} />
+
         {/* Tools & AI Section */}
         <section className="py-24 bg-slate-900 overflow-hidden relative">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_30%,#1e1b4b_0%,transparent_50%)]"></div>
@@ -346,12 +352,7 @@ export default function HomeClient({
           </div>
         </section>
 
-        <ContractorReviewCarousel />
-
-        <FeaturedBrands partners={PARTNERS} />
-
         <EcosystemSection />
-
         {/* Member Incentive */}
         {!isAuthenticated && (
           <section className="pb-32 bg-white">
