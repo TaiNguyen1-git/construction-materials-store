@@ -420,6 +420,28 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
+/* Custom Scrollbar Premium */
+.scrollbar-premium::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.scrollbar-premium::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-premium::-webkit-scrollbar-thumb {
+  background: rgba(203, 213, 225, 0.4);
+  border-radius: 20px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+.scrollbar-premium::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.8);
+  background-clip: content-box;
+}
+
 /* Print Utilities */
 @media print {
   .no-print {

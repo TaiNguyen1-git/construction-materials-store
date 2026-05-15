@@ -49,11 +49,22 @@ export default function SupplierHeader({
     }, [])
 
     const handleLogout = () => {
+        // Clear all possible tokens and identifiers
         localStorage.removeItem('supplier_token')
         localStorage.removeItem('supplier_id')
         localStorage.removeItem('supplier_name')
-        document.cookie = 'supplier_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT'
-        router.push('/supplier/login')
+        localStorage.removeItem('auth_active')
+        localStorage.removeItem('user_hint')
+        
+        // Clear cookies with all possible variations
+        const cookies = ['supplier_token', 'auth_token', 'admin_token', 'contractor_token', 'refresh_token']
+        cookies.forEach(name => {
+            document.cookie = `${name}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax`
+            document.cookie = `${name}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT`
+        })
+
+        // Force a full page reload to the login page to clear all memory states
+        window.location.href = '/supplier/login'
     }
 
     return (

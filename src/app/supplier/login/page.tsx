@@ -137,19 +137,16 @@ export default function SupplierLoginPage() {
             <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-indigo-400/10 rounded-full blur-[120px] animate-pulse" />
 
             <div className="relative w-full max-w-lg">
-                {/* Back Button */}
-                <button
-                    onClick={handleGoBack}
-                    className="group absolute -top-16 left-0 flex items-center gap-3 text-slate-400 hover:text-blue-600 transition-all font-bold uppercase tracking-widest text-[10px]"
-                >
-                    <div className="w-8 h-8 rounded-full border border-slate-200 flex items-center justify-center group-hover:border-blue-200 group-hover:bg-blue-50 transition-all">
-                        <ArrowLeft className="w-4 h-4" />
-                    </div>
-                    Quay lại trang chủ
-                </button>
-
                 {/* Login Card */}
-                <div className="bg-white/80 backdrop-blur-2xl rounded-[3rem] shadow-2xl shadow-slate-200/50 border border-white p-10 lg:p-14">
+                <div className="bg-white/80 backdrop-blur-2xl rounded-[3rem] shadow-2xl shadow-slate-200/50 border border-white p-10 lg:p-14 relative overflow-hidden">
+                    {/* Back to Home Button - Integrated into card */}
+                    <button
+                        onClick={handleGoBack}
+                        className="absolute top-8 left-10 flex items-center gap-2 text-slate-400 hover:text-blue-600 transition-all group z-10"
+                    >
+                        <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+                        <span className="text-[9px] font-black uppercase tracking-widest">Trở về</span>
+                    </button>
                     {/* Header */}
                     <div className="text-center mb-12">
                         <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-[2rem] shadow-xl shadow-blue-200 mb-8 rotate-3 hover:rotate-0 transition-transform duration-500">

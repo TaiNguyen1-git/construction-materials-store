@@ -97,11 +97,22 @@ export default function SupplierLayout({ children }: { children: React.ReactNode
     }
 
     const handleLogout = () => {
+        // Clear all possible tokens and identifiers
         localStorage.removeItem('supplier_token')
         localStorage.removeItem('supplier_id')
         localStorage.removeItem('supplier_name')
-        document.cookie = 'supplier_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT'
-        router.push('/supplier/login')
+        localStorage.removeItem('auth_active')
+        localStorage.removeItem('user_hint')
+        
+        // Clear cookies with all possible variations
+        const cookies = ['supplier_token', 'auth_token', 'admin_token', 'contractor_token', 'refresh_token']
+        cookies.forEach(name => {
+            document.cookie = `${name}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax`
+            document.cookie = `${name}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT`
+        })
+
+        // Force a full page reload to the login page to clear all memory states
+        window.location.href = '/supplier/login'
     }
 
     if (isPublicPage) {
@@ -226,7 +237,18 @@ export default function SupplierLayout({ children }: { children: React.ReactNode
                     </div>
 
                     {/* Sidebar Footer */}
-                    <div className="p-4 border-t border-slate-100/60 bg-slate-50/50">
+                    <div className="p-4 border-t border-slate-100/60 bg-slate-50/50 space-y-2">
+                        <button
+                            onClick={handleLogout}
+                            className={`
+                                w-full flex items-center h-11 rounded-xl transition-all group
+                                ${isCollapsed ? 'justify-center bg-rose-50 text-rose-500 hover:bg-rose-100' : 'px-4 bg-white border border-slate-100 text-slate-500 hover:text-rose-600 hover:border-rose-100 hover:bg-rose-50/50'}
+                            `}
+                        >
+                            <LogOut className={`h-5 w-5 ${isCollapsed ? '' : 'mr-3'} transition-transform group-hover:-translate-x-1`} />
+                            {!isCollapsed && <span className="text-[10px] font-black uppercase tracking-widest">Đăng xuất</span>}
+                        </button>
+
                         <button
                             onClick={() => setIsCollapsed(!isCollapsed)}
                             className="w-full flex items-center justify-center h-10 rounded-xl bg-white border border-slate-100 text-slate-400 hover:text-indigo-600 hover:border-indigo-100 hover:shadow-sm transition-all group"

@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react'
 import {
     Zap, Package, TrendingDown, Clock, Search,
     ArrowRight, CheckCircle2, AlertCircle,
-    Wallet, BarChart3, Filter, MapPin, Calendar, FileText, CheckCircle
+    Wallet, BarChart3, Filter, MapPin, Calendar, FileText, CheckCircle, X
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
@@ -265,10 +265,13 @@ export default function SupplierOpportunities() {
                 <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
                     {currentList.map((op) => {
                         const myBid = op.bids?.find(b => b.supplierId === supplierId)
-                        const isClosingSoon = new Date(op.deadline!) < new Date(Date.now() + 2 * 24 * 60 * 60 * 1000)
+                        const now = new Date()
+                        const deadline = new Date(op.deadline!)
+                        const isExpired = deadline < now
+                        const isClosingSoon = !isExpired && deadline < new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000)
 
                         return (
-                            <div key={op.id} className="bg-white rounded-[2.5rem] p-7 border border-slate-100 shadow-sm hover:shadow-xl transition-all group flex flex-col">
+                            <div key={op.id} className={`bg-white rounded-[2.5rem] p-7 border border-slate-100 shadow-sm hover:shadow-xl transition-all group flex flex-col ${isExpired ? 'opacity-75' : ''}`}>
                                 {/* Badges */}
                                 <div className="flex justify-between items-start mb-5">
                                     <span className="px-3 py-1.5 bg-slate-100 text-slate-500 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5">
@@ -287,10 +290,11 @@ export default function SupplierOpportunities() {
                                             {myBid.status === 'ACCEPTED' ? 'Đã Trúng Thầu' : myBid.status === 'REJECTED' ? 'Rớt Thầu' : 'Đang Xét Duyệt'}
                                         </div>
                                     ) : (
-                                        <div className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest ${
-                                            op.priority === 'URGENT' ? 'bg-rose-50 text-rose-600 animate-pulse' : 'bg-blue-50 text-blue-600'
+                                        <div className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border ${
+                                            isExpired ? 'bg-rose-100 text-rose-700 border-rose-200' :
+                                            op.priority === 'URGENT' ? 'bg-rose-50 text-rose-600 border-rose-100' : 'bg-blue-50 text-blue-600 border-blue-100'
                                         }`}>
-                                            {op.priority === 'URGENT' ? '🚨 Cần gấp' : 'Tiêu chuẩn'}
+                                            {isExpired ? '⛔ Hết hạn' : op.priority === 'URGENT' ? '🚨 Cần gấp' : 'Tiêu chuẩn'}
                                         </div>
                                     )}
                                 </div>
@@ -311,12 +315,13 @@ export default function SupplierOpportunities() {
                                             </div>
                                         </div>
                                         <div className="flex items-start gap-3">
-                                            <Calendar size={16} className={`shrink-0 mt-0.5 ${isClosingSoon ? 'text-rose-500' : 'text-slate-400'}`} />
+                                            <Calendar size={16} className={`shrink-0 mt-0.5 ${isExpired ? 'text-rose-400' : isClosingSoon ? 'text-rose-500' : 'text-slate-400'}`} />
                                             <div>
                                                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Thời hạn chốt thầu</p>
-                                                <p className={`text-sm font-bold mt-1 ${isClosingSoon ? 'text-rose-600' : 'text-slate-700'}`}>
+                                                <p className={`text-sm font-bold mt-1 ${isExpired ? 'text-rose-600 line-through' : isClosingSoon ? 'text-rose-600' : 'text-slate-700'}`}>
                                                     {new Date(op.deadline!).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}
                                                     {isClosingSoon && activeTab === 'MARKET' && <span className="ml-2 text-[10px] bg-rose-100 text-rose-700 px-2 py-0.5 rounded-full">Sắp đóng</span>}
+                                                    {isExpired && activeTab === 'MARKET' && <span className="ml-2 text-[10px] bg-rose-600 text-white px-2 py-0.5 rounded-full shadow-sm">ĐÃ KẾT THÚC</span>}
                                                 </p>
                                             </div>
                                         </div>
@@ -346,10 +351,15 @@ export default function SupplierOpportunities() {
                                     {activeTab === 'MARKET' ? (
                                         <button
                                             onClick={() => setSelectedRequest(op)}
-                                            className="h-12 px-6 bg-sky-500 text-white rounded-xl font-black text-[11px] uppercase tracking-widest hover:bg-sky-400 transition-all flex items-center gap-2 shadow-lg shadow-sky-200 shrink-0"
+                                            disabled={isExpired}
+                                            className={`h-12 px-6 rounded-xl font-black text-[11px] uppercase tracking-widest transition-all flex items-center gap-2 shadow-lg shrink-0 ${
+                                                isExpired 
+                                                ? 'bg-rose-50 text-rose-400 shadow-none cursor-not-allowed border border-rose-100' 
+                                                : 'bg-sky-500 text-white hover:bg-sky-400 shadow-sky-200'
+                                            }`}
                                         >
-                                            Tham gia
-                                            <ArrowRight size={16} />
+                                            {isExpired ? 'Đã đóng thầu' : 'Tham gia'}
+                                            {!isExpired && <ArrowRight size={16} />}
                                         </button>
                                     ) : (
                                         <button 
@@ -369,88 +379,92 @@ export default function SupplierOpportunities() {
             {/* Bid Modal */}
             {selectedRequest && (
                 <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
-                    <div className="bg-white w-full max-w-lg rounded-[3rem] p-8 md:p-10 shadow-2xl animate-in zoom-in-95 duration-300 overflow-y-auto max-h-[95vh]">
-                        <div className="flex justify-between items-start mb-8">
-                            <div>
-                                <h2 className="text-2xl font-black text-slate-900 tracking-tight leading-tight">Gửi báo giá thầu</h2>
-                                <p className="text-xs font-bold text-slate-500 mt-2 line-clamp-1">{selectedRequest.product?.name}</p>
-                                <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest mt-1">Cần giao: {new Intl.NumberFormat('vi-VN').format(selectedRequest.requestedQty)} đơn vị</p>
-                            </div>
-                            <button onClick={() => setSelectedRequest(null)} className="p-2 bg-slate-100 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-full transition-colors shrink-0">
-                                <Filter className="rotate-45 w-5 h-5" />
-                            </button>
-                        </div>
-
-                        <div className="p-4 bg-blue-50 border border-blue-100 rounded-2xl mb-6">
-                            <p className="text-xs font-bold text-blue-800 leading-relaxed">
-                                💡 Nhập Đơn giá tính cho <span className="font-black">1 đơn vị</span> sản phẩm. Tổng thầu sẽ được tự động tính toán cho {selectedRequest.requestedQty} cái.
-                            </p>
-                        </div>
-
-                        <div className="space-y-6">
-                            <div>
-                                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Đơn giá cung ứng (VNĐ)</label>
-                                <div className="relative">
-                                    <Wallet className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                                    <input
-                                        type="number"
-                                        className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl font-black text-lg focus:bg-white focus:ring-2 focus:ring-sky-500/20 focus:border-sky-400 outline-none transition-all"
-                                        placeholder="0"
-                                        value={bidPrice || ''}
-                                        onChange={(e) => setBidPrice(Number(e.target.value))}
-                                    />
+                    <div className="bg-white w-full max-w-lg rounded-[3rem] shadow-2xl animate-in zoom-in-95 duration-300 overflow-hidden flex flex-col max-h-[95vh]">
+                        <div className="overflow-y-auto scrollbar-premium flex-1">
+                            <div className="p-8 md:p-10">
+                                <div className="flex justify-between items-start mb-8">
+                                    <div>
+                                        <h2 className="text-2xl font-black text-slate-900 tracking-tight leading-tight">Gửi báo giá thầu</h2>
+                                        <p className="text-xs font-bold text-slate-500 mt-2 line-clamp-1">{selectedRequest.product?.name}</p>
+                                        <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest mt-1">Cần giao: {new Intl.NumberFormat('vi-VN').format(selectedRequest.requestedQty)} đơn vị</p>
+                                    </div>
+                                    <button onClick={() => setSelectedRequest(null)} className="p-2 bg-slate-100 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-full transition-colors shrink-0">
+                                        <X className="w-5 h-5" />
+                                    </button>
                                 </div>
-                                <div className="mt-3 flex items-center justify-between p-3 bg-blue-500 text-white rounded-xl shadow-inner">
-                                    <span className="text-[10px] font-black uppercase tracking-widest text-blue-100">Tổng thu dự kiến</span>
-                                    <span className="text-lg font-black text-white">{formatCurrency(bidPrice * selectedRequest.requestedQty)}</span>
-                                </div>
-                            </div>
 
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="col-span-2 sm:col-span-1">
-                                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Ngày giao (số ngày)</label>
-                                    <div className="relative">
-                                        <Clock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                                        <input
-                                            type="number"
-                                            className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl font-black text-lg focus:bg-white focus:ring-2 focus:ring-sky-500/20 focus:border-sky-400 outline-none transition-all"
-                                            value={deliveryDays}
-                                            onChange={(e) => setDeliveryDays(Number(e.target.value))}
+                                <div className="p-4 bg-blue-50 border border-blue-100 rounded-2xl mb-6">
+                                    <p className="text-xs font-bold text-blue-800 leading-relaxed">
+                                        💡 Nhập Đơn giá tính cho <span className="font-black">1 đơn vị</span> sản phẩm. Tổng thầu sẽ được tự động tính toán cho {selectedRequest.requestedQty} cái.
+                                    </p>
+                                </div>
+
+                                <div className="space-y-6">
+                                    <div>
+                                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Đơn giá cung ứng (VNĐ)</label>
+                                        <div className="relative">
+                                            <Wallet className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                                            <input
+                                                type="number"
+                                                className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl font-black text-lg focus:bg-white focus:ring-2 focus:ring-sky-500/20 focus:border-sky-400 outline-none transition-all"
+                                                placeholder="0"
+                                                value={bidPrice || ''}
+                                                onChange={(e) => setBidPrice(Number(e.target.value))}
+                                            />
+                                        </div>
+                                        <div className="mt-3 flex items-center justify-between p-3 bg-blue-500 text-white rounded-xl shadow-inner">
+                                            <span className="text-[10px] font-black uppercase tracking-widest text-blue-100">Tổng thu dự kiến</span>
+                                            <span className="text-lg font-black text-white">{formatCurrency(bidPrice * selectedRequest.requestedQty)}</span>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="col-span-2 sm:col-span-1">
+                                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Ngày giao (số ngày)</label>
+                                            <div className="relative">
+                                                <Clock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                                                <input
+                                                    type="number"
+                                                    className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl font-black text-lg focus:bg-white focus:ring-2 focus:ring-sky-500/20 focus:border-sky-400 outline-none transition-all"
+                                                    value={deliveryDays}
+                                                    onChange={(e) => setDeliveryDays(Number(e.target.value))}
+                                                />
+                                            </div>
+                                        </div>
+                                        <div className="col-span-2 sm:col-span-1 flex items-end">
+                                            <p className="text-[10px] font-bold text-slate-400 leading-tight italic pb-2">
+                                                * Giao hàng nhanh tăng tỷ lệ trúng thầu thêm 30%.
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Yêu cầu tiêu chuẩn & Ghi chú (Tùy chọn)</label>
+                                        <textarea
+                                            className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl font-medium text-sm focus:bg-white focus:ring-2 focus:ring-sky-500/20 focus:border-sky-400 outline-none transition-all h-24 resize-none"
+                                            placeholder="Cam kết chất lượng vật tư, hỗ trợ vận chuyển..."
+                                            value={notes}
+                                            onChange={(e) => setNotes(e.target.value)}
                                         />
                                     </div>
                                 </div>
-                                <div className="col-span-2 sm:col-span-1 flex items-end">
-                                    <p className="text-[10px] font-bold text-slate-400 leading-tight italic pb-2">
-                                        * Giao hàng nhanh tăng tỷ lệ trúng thầu thêm 30%.
-                                    </p>
+
+                                <div className="flex gap-4 mt-8 pt-6 border-t border-slate-100">
+                                    <button
+                                        onClick={() => setSelectedRequest(null)}
+                                        className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black text-[11px] uppercase tracking-widest hover:bg-slate-200 transition-all"
+                                    >
+                                        Hủy bỏ
+                                    </button>
+                                    <button
+                                        onClick={handleSubmitBid}
+                                        disabled={submitting || bidPrice <= 0}
+                                        className="flex-[2] py-4 bg-sky-500 text-white rounded-2xl font-black text-[11px] uppercase tracking-widest hover:bg-sky-400 shadow-xl shadow-sky-200 transition-all disabled:opacity-50 disabled:shadow-none"
+                                    >
+                                        {submitting ? 'Đang nộp...' : 'Nộp Báo Giá'}
+                                    </button>
                                 </div>
                             </div>
-
-                            <div>
-                                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Yêu cầu tiêu chuẩn & Ghi chú (Tùy chọn)</label>
-                                <textarea
-                                    className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl font-medium text-sm focus:bg-white focus:ring-2 focus:ring-sky-500/20 focus:border-sky-400 outline-none transition-all h-24 resize-none"
-                                    placeholder="Cam kết chất lượng vật tư, hỗ trợ vận chuyển..."
-                                    value={notes}
-                                    onChange={(e) => setNotes(e.target.value)}
-                                />
-                            </div>
-                        </div>
-
-                        <div className="flex gap-4 mt-8 pt-6 border-t border-slate-100">
-                            <button
-                                onClick={() => setSelectedRequest(null)}
-                                className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black text-[11px] uppercase tracking-widest hover:bg-slate-200 transition-all"
-                            >
-                                Hủy bỏ
-                            </button>
-                            <button
-                                onClick={handleSubmitBid}
-                                disabled={submitting || bidPrice <= 0}
-                                className="flex-[2] py-4 bg-sky-500 text-white rounded-2xl font-black text-[11px] uppercase tracking-widest hover:bg-sky-400 shadow-xl shadow-sky-200 transition-all disabled:opacity-50 disabled:shadow-none"
-                            >
-                                {submitting ? 'Đang nộp...' : 'Nộp Báo Giá'}
-                            </button>
                         </div>
                     </div>
                 </div>

@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import {
     Building2, Search, MoreHorizontal, CheckCircle, XCircle,
     Plus, Mail, Phone, MapPin, Shield, AlertCircle,
-    Package, ShoppingCart, MessageSquare, RefreshCw
+    Package, ShoppingCart, MessageSquare, RefreshCw, Wallet
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'react-hot-toast'
@@ -209,6 +209,10 @@ export default function SupplierList() {
                     <button onClick={fetchSuppliers} disabled={loading}
                         className="p-3 bg-white text-slate-400 rounded-2xl hover:bg-blue-50 hover:text-blue-600 transition-all border border-slate-100 shadow-sm" title="Tải lại">
                         <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+                    </button>
+                    <button onClick={() => router.push('/admin/payments')}
+                        className="flex items-center gap-2 px-5 py-3 bg-white text-slate-700 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-50 border border-slate-200 shadow-sm transition-all active:scale-95">
+                        <Wallet size={14} className="text-blue-600" /> Thanh toán
                     </button>
                     <button onClick={() => setShowCreateModal(true)}
                         className="flex items-center gap-2 px-5 py-3 bg-blue-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-700 shadow-xl shadow-blue-500/20 transition-all active:scale-95">

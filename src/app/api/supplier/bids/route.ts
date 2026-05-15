@@ -3,20 +3,28 @@ import { prisma } from '@/lib/prisma'
 
 export async function GET(request: NextRequest) {
     try {
-        // Fetch all PENDING purchase requests that suppliers can bid on
+        // 1. Fetch PENDING purchase requests (from SmartBuild admin)
         const requests = await prisma.purchaseRequest.findMany({
-            where: {
-                status: 'PENDING'
-            },
-            include: {
-                bids: true
-            },
-            orderBy: {
-                createdAt: 'desc'
-            }
+            where: { status: 'PENDING' },
+            include: { bids: true },
+            orderBy: { createdAt: 'desc' }
         })
 
-        // Enhance with product names (simulated since productId is a string)
+        // 2. Fetch APPROVED & PUBLIC projects (from Contractors)
+        const publicProjects = await prisma.project.findMany({
+            where: {
+                AND: [
+                    { moderationStatus: 'APPROVED' },
+                    { isPublic: true }
+                ]
+            },
+            include: {
+                bids: true // This is ProjectBid, not SupplierBid, but we'll adapt
+            },
+            orderBy: { createdAt: 'desc' }
+        })
+
+        // Enhance purchase requests with product names
         const products = await prisma.product.findMany({
             where: {
                 id: { in: requests.map(r => r.productId) }
@@ -24,12 +32,42 @@ export async function GET(request: NextRequest) {
             select: { id: true, name: true, sku: true }
         })
 
-        const data = requests.map(req => ({
-            ...req,
-            product: products.find(p => p.id === req.productId)
+        const mappedRequests = requests.map(req => ({
+            id: req.id,
+            requestNumber: req.requestNumber,
+            productId: req.productId,
+            requestedQty: req.requestedQty,
+            priority: req.priority,
+            createdAt: req.createdAt,
+            status: req.status,
+            deliveryAddress: 'Kho Tổng SmartBuild',
+            product: products.find(p => p.id === req.productId),
+            bids: req.bids,
+            type: 'PURCHASE_REQUEST'
         }))
 
-        return NextResponse.json({ success: true, data })
+        const mappedProjects = publicProjects.map(proj => ({
+            id: proj.id,
+            requestNumber: `PRJ-${proj.id.slice(-6).toUpperCase()}`,
+            productId: 'MARKET_PROJECT',
+            requestedQty: 1, // Project bid is usually for the whole package
+            priority: proj.priority,
+            createdAt: proj.createdAt,
+            status: proj.status,
+            deadline: proj.endDate,
+            deliveryAddress: proj.location || 'Địa điểm dự án',
+            product: {
+                name: proj.name,
+                sku: proj.category || 'Dự án'
+            },
+            bids: [], // Map project bids if needed
+            type: 'PROJECT_OPPORTUNITY'
+        }))
+
+        return NextResponse.json({ 
+            success: true, 
+            data: [...mappedRequests, ...mappedProjects] 
+        })
     } catch (error: any) {
         return NextResponse.json({ error: error.message }, { status: 500 })
     }

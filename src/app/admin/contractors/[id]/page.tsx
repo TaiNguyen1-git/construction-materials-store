@@ -262,7 +262,7 @@ export default function AdminContractorDetail({ params }: { params: Promise<{ id
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
 
                     {/* Left Column: Profile Card */}
-                    <div className="lg:col-span-4 space-y-8">
+                    <div className="lg:col-span-4 space-y-8 lg:sticky lg:top-28 self-start">
                         <div className="bg-white rounded-[40px] border border-slate-200 shadow-xl shadow-slate-200/50 overflow-hidden">
                             <div className="bg-gradient-to-br from-blue-600 to-indigo-700 p-10 text-white text-center">
                                 {profile.avatarUrl ? (

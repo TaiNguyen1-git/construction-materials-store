@@ -18,15 +18,34 @@ export async function PATCH(request: NextRequest) {
         const validStatuses = ['CONFIRMED', 'RECEIVED', 'CANCELLED'] // Simplify for now
         // But the schema has: DRAFT, SENT, CONFIRMED, RECEIVED, CANCELLED
 
-        const order = await (prisma.purchaseOrder as any).update({
-            where: { id },
-            data: {
-                status,
-                notes: notes ? notes : undefined,
-                receivedDate: status === 'RECEIVED' ? new Date() : undefined
-            },
-            include: { supplier: true }
+        const updatedData = await prisma.$transaction(async (tx) => {
+            // 1. Update the order status
+            const order = await (tx.purchaseOrder as any).update({
+                where: { id },
+                data: {
+                    status,
+                    notes: notes ? notes : undefined,
+                    receivedDate: status === 'RECEIVED' ? new Date() : undefined
+                },
+                include: { supplier: true }
+            })
+
+            // 2. If status is CONFIRMED (Reconciled), add totalAmount to supplier's balance
+            if (status === 'CONFIRMED' && order.supplierId) {
+                await tx.supplier.update({
+                    where: { id: order.supplierId },
+                    data: {
+                        currentBalance: {
+                            increment: order.totalAmount
+                        }
+                    }
+                })
+            }
+
+            return order
         })
+
+        const order = updatedData;
 
         // Notify Admin via Email
         try {

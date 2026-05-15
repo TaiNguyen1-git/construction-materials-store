@@ -17,19 +17,34 @@ export async function middleware(request: NextRequest) {
   
   if (!isRestrictedPage && !isIntegrityAPI && !isApiRoute && !isRSC && !pathname.startsWith('/_next') && !pathname.includes('.')) {
     try {
-      const checkResponse = await fetch(new URL(`/api/integrity/check-ip?ip=${clientIp}`, request.url))
-      const { restricted, reason, type, endDate } = await checkResponse.json()
+      // Thêm AbortController để giới hạn thời gian chờ (tránh treo trang)
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 2000)
+
+      const checkResponse = await fetch(new URL(`/api/integrity/check-ip?ip=${clientIp}`, request.url), {
+        signal: controller.signal
+      })
       
-      if (restricted) {
-        const url = new URL('/restricted', request.url)
-        url.searchParams.set('reason', reason || '')
-        url.searchParams.set('type', type || 'IP_BAN')
-        if (endDate) url.searchParams.set('until', endDate)
+      clearTimeout(timeoutId)
+
+      if (checkResponse.ok) {
+        const data = await checkResponse.json()
+        const { restricted, reason, type, endDate } = data
         
-        return NextResponse.redirect(url)
+        if (restricted) {
+          const url = new URL('/restricted', request.url)
+          url.searchParams.set('reason', reason || '')
+          url.searchParams.set('type', type || 'IP_BAN')
+          if (endDate) url.searchParams.set('until', endDate)
+          
+          return NextResponse.redirect(url)
+        }
       }
     } catch (e) {
-      console.error('Middleware IP Check failed:', e)
+      // Chỉ log lỗi nếu không phải là do timeout chủ động
+      if ((e as any).name !== 'AbortError') {
+        console.error('Middleware IP Check skipped (API unreachable):', clientIp)
+      }
     }
   }
 
@@ -82,10 +97,20 @@ export async function middleware(request: NextRequest) {
     }
   }
 
+  // ===== PROTECTION CHECK (Moved up for refresh logic) =====
+  const publicRoutes = ['/api/reviews', '/api/notifications', '/api/contractors/public', '/api/supplier/auth', '/api/analytics/track', '/api/auth/refresh']
+  const publicPages = ['/', '/login', '/register', '/forgot-password', '/products', '/categories', '/cart', '/checkout', '/order-tracking', '/about', '/contact', '/privacy', '/terms', '/contractors', '/projects', '/estimator', '/market']
+  const publicPartnerPages = ['/contractor', '/contractor/login', '/contractor/register', '/supplier', '/supplier/login', '/supplier/register']
+
+  const isPublicPage = publicPages.some(p => pathname === p || (p !== '/' && pathname.startsWith(p + '/')))
+  const isPublicPartnerPage = publicPartnerPages.some(p => pathname === p)
+  const isPublicRoute = publicRoutes.some(r => pathname === r || pathname.startsWith(r + '/'))
+  const isPublic = isPublicPage || isPublicPartnerPage || isPublicRoute
+
   // Silent Refresh if expired or missing but refresh token exists
   // Only attempt refresh for protected or optional auth routes to avoid overhead on every public asset
-  const isRefreshNeeded = (isExpired || !token) && refreshToken
-  const isAuthRequiredPath = pathname.startsWith('/admin') || pathname.startsWith('/api/') || pathname.startsWith('/account') || pathname.startsWith('/contractor') || pathname.startsWith('/supplier')
+  const isRefreshNeeded = (isExpired || !token) && refreshToken && !isPublic
+  const isAuthRequiredPath = (pathname.startsWith('/admin') || pathname.startsWith('/api/') || pathname.startsWith('/account') || pathname.startsWith('/contractor') || pathname.startsWith('/supplier')) && !isPublic
 
   if (isRefreshNeeded && isAuthRequiredPath) {
     try {
@@ -157,16 +182,7 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // ===== PROTECTION CHECK =====
-  const publicRoutes = ['/api/reviews', '/api/notifications', '/api/contractors/public', '/api/supplier/auth', '/api/analytics/track']
-  const publicPages = ['/', '/login', '/register', '/forgot-password', '/products', '/categories', '/cart', '/checkout', '/order-tracking', '/about', '/contact', '/privacy', '/terms', '/contractors', '/projects', '/estimator', '/market']
-  const publicPartnerPages = ['/contractor', '/contractor/login', '/contractor/register', '/supplier', '/supplier/login', '/supplier/register']
-
-  const isPublicPage = publicPages.some(p => pathname === p || (p !== '/' && pathname.startsWith(p + '/')))
-  const isPublicPartnerPage = publicPartnerPages.some(p => pathname === p)
-  const isPublicRoute = publicRoutes.some(r => pathname === r || pathname.startsWith(r + '/'))
-  
-  if (isPublicPage || isPublicPartnerPage || isPublicRoute) {
+  if (isPublic) {
     return NextResponse.next({ request: { headers: requestHeaders } })
   }
 

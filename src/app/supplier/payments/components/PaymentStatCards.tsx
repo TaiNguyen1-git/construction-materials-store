@@ -1,4 +1,4 @@
-import { Wallet, TrendingUp, CreditCard, Clock } from 'lucide-react'
+import { Wallet, TrendingUp, CreditCard, Clock, Banknote } from 'lucide-react'
 
 interface PaymentStatCardsProps {
     summary: any
@@ -9,7 +9,7 @@ interface PaymentStatCardsProps {
 export default function PaymentStatCards({ summary, hasPending, formatCurrency }: PaymentStatCardsProps) {
     if (!summary) return null
     return (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
             {/* Dư nợ card (Doanh thu chờ thu hồi) */}
             <div className="group relative bg-[#F0FDF4] border border-emerald-100 rounded-[2.5rem] p-8 overflow-hidden shadow-xl shadow-emerald-100/30 transition-all duration-500 hover:-translate-y-2">
                 <div className="absolute top-0 right-0 w-40 h-40 bg-emerald-500/5 rounded-full blur-3xl -mr-20 -mt-20" />
@@ -27,7 +27,7 @@ export default function PaymentStatCards({ summary, hasPending, formatCurrency }
                     </div>
                     <div>
                         <p className="text-emerald-500 font-bold uppercase tracking-widest text-[10px] mb-2">Doanh thu chờ quyết toán</p>
-                        <h3 className="text-3xl lg:text-4xl font-black tracking-tighter text-emerald-600 truncate">
+                        <h3 className="text-2xl lg:text-3xl font-black tracking-tighter text-emerald-600 truncate">
                             {formatCurrency(summary.currentBalance)}
                         </h3>
                         {hasPending && (
@@ -40,7 +40,29 @@ export default function PaymentStatCards({ summary, hasPending, formatCurrency }
                 </div>
             </div>
 
-            {/* Hạn mức card & Khả dụng card (Keep as is) */}
+            {/* Tiền đặt cọc card */}
+            <div className="group relative bg-[#FFF7ED] border border-orange-100 rounded-[2.5rem] p-8 overflow-hidden shadow-xl shadow-orange-100/30 transition-all duration-500 hover:-translate-y-2">
+                <div className="absolute top-0 right-0 w-40 h-40 bg-orange-500/5 rounded-full blur-3xl -mr-20 -mt-20" />
+                <div className="flex flex-col h-full min-h-[160px] justify-between relative z-10">
+                    <div className="flex justify-between items-start">
+                        <div className="w-14 h-14 bg-orange-100/50 rounded-2xl flex items-center justify-center shadow-lg shadow-orange-100 border border-orange-200">
+                            <Banknote className="w-7 h-7 text-orange-600" />
+                        </div>
+                        <div className="text-right">
+                            <span className="text-[10px] uppercase font-black tracking-widest text-orange-400">Tài sản treo</span>
+                        </div>
+                    </div>
+                    <div>
+                        <p className="text-orange-500 font-bold uppercase tracking-widest text-[10px] mb-2">Tiền đặt cọc/Ký quỹ</p>
+                        <h3 className="text-2xl lg:text-3xl font-black tracking-tighter text-orange-600 truncate">
+                            {formatCurrency(summary.depositBalance || 0)}
+                        </h3>
+                        <p className="mt-2 text-[10px] font-bold text-orange-400 uppercase tracking-widest">Đã chốt giữ hàng</p>
+                    </div>
+                </div>
+            </div>
+
+            {/* Hạn mức card & Khả dụng card */}
             <div className="group relative bg-white rounded-[2.5rem] p-8 overflow-hidden shadow-xl shadow-slate-200/40 border border-slate-100 transition-all duration-500 hover:-translate-y-2">
                 <div className="absolute top-0 right-0 w-40 h-40 bg-blue-500/5 rounded-full blur-3xl -mr-20 -mt-20" />
                 <div className="flex flex-col h-full min-h-[160px] justify-between relative z-10">
@@ -55,13 +77,13 @@ export default function PaymentStatCards({ summary, hasPending, formatCurrency }
                     </div>
                     <div>
                         <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px] mb-2">Hạn mức cung ứng tối đa</p>
-                        <h3 className="text-3xl lg:text-4xl font-black tracking-tighter text-slate-900 truncate">
+                        <h3 className="text-2xl lg:text-3xl font-black tracking-tighter text-slate-900 truncate">
                             {formatCurrency(summary.creditLimit)}
                         </h3>
-                        <div className="mt-6 h-2 bg-slate-100 rounded-full overflow-hidden">
+                        <div className="mt-4 h-2 bg-slate-100 rounded-full overflow-hidden">
                             <div
                                 className="h-full bg-blue-600 rounded-full shadow-lg shadow-blue-200 transition-all duration-1000"
-                                style={{ width: `${Math.min((summary.currentBalance / summary.creditLimit) * 100, 100) || 0}%` }}
+                                style={{ width: `${Math.min((summary.currentBalance / (summary.creditLimit || 1)) * 100, 100) || 0}%` }}
                             />
                         </div>
                     </div>
@@ -85,8 +107,8 @@ export default function PaymentStatCards({ summary, hasPending, formatCurrency }
                     </div>
                     <div>
                         <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px] mb-2">Khả năng cung ứng</p>
-                        <h3 className="text-3xl lg:text-4xl font-black tracking-tighter text-blue-600 truncate">
-                            {formatCurrency((summary.creditLimit || 0) - (summary.currentBalance || 0))}
+                        <h3 className="text-2xl lg:text-3xl font-black tracking-tighter text-blue-600 truncate">
+                            {formatCurrency(Math.max(0, (summary.creditLimit || 0) - (summary.currentBalance || 0)))}
                         </h3>
                     </div>
                 </div>

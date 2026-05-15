@@ -262,7 +262,7 @@ export default function ContractorFinancialHub() {
                     <div className="flex-1 bg-blue-600 rounded-2xl p-6 text-white flex flex-col justify-between shadow-md">
                         <div className="flex justify-between items-start">
                             <div className="space-y-1">
-                                <p className="text-[10px] font-bold text-blue-100 uppercase tracking-wider">Tiền ký quỹ (Escrow)</p>
+                                <p className="text-[10px] font-bold text-blue-100 uppercase tracking-wider">Tiền ký quỹ</p>
                                 <h3 className="text-2xl font-bold text-white tabular-nums">{formatCurrency(summary.escrowBalance)}</h3>
                             </div>
                             <div className="p-3 bg-white/10 text-white rounded-xl border border-white/10">
@@ -302,7 +302,7 @@ export default function ContractorFinancialHub() {
                                             </div>
                                         </div>
                                         {project.hasOverdue && (
-                                            <Badge className="bg-rose-50 text-rose-600 text-[9px] font-bold uppercase border-rose-100 shadow-none px-2 py-0.5">Overdue</Badge>
+                                            <Badge className="bg-rose-50 text-rose-600 text-[9px] font-bold uppercase border-rose-100 shadow-none px-2 py-0.5">QUÁ HẠN</Badge>
                                         )}
                                     </div>
 

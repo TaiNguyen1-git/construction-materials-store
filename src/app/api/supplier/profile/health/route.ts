@@ -14,10 +14,21 @@ export async function GET(req: NextRequest) {
             }
         }
 
-        const supplierId = (decoded as any).supplierId || decoded?.userId
+        const supplierId = (decoded as any).supplierId
+        const userId = decoded?.userId
 
-        const supplier = await prisma.supplier.findUnique({
-            where: { id: supplierId },
+        // Xây dựng điều kiện tìm kiếm hợp lệ
+        const where: any = {}
+        if (supplierId && supplierId.length === 24) {
+            where.id = supplierId
+        } else if (userId && userId.length === 24) {
+            where.userId = userId
+        } else {
+            return NextResponse.json(createErrorResponse('Invalid session', 'UNAUTHORIZED'), { status: 401 })
+        }
+
+        const supplier = await prisma.supplier.findFirst({
+            where,
             include: {
                 _count: {
                     select: { products: true }
@@ -43,17 +54,15 @@ export async function GET(req: NextRequest) {
 
         const isComplete = missingFields.length === 0 && hasProducts
 
-        // Update profileComplete status in background if it changed
-        const currentStatus = (supplier as any).profileComplete
-        if (currentStatus !== isComplete) {
+        // Cập nhật trạng thái profileComplete nếu có thay đổi
+        if (supplier.profileComplete !== isComplete) {
             try {
-                await (prisma.supplier as any).update({
-                    where: { id: supplierId },
+                await prisma.supplier.update({
+                    where: { id: supplier.id },
                     data: { profileComplete: isComplete }
                 })
             } catch (updateError) {
                 console.error('[SUPPLIER_PROFILE_HEALTH] Failed to update status:', updateError)
-                // We don't throw here to allow the GET request to return the calculated health
             }
         }
 

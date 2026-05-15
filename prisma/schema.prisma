@@ -998,6 +998,7 @@ model Supplier {
   paymentTerms   String?
   creditLimit    Float   @default(0)
   currentBalance Float   @default(0)
+  depositBalance Float   @default(0)
   rating         Int?    @default(0)
   isActive       Boolean @default(true)
   notes          String?
@@ -3589,6 +3590,7 @@ model PurchaseReturn {
   totalRefundAmount Float                @default(0)
   evidenceUrls      String[]
   processingMethod  String? // REFUND, DEBT_DEDUCTION, REPLACEMENT
+  supplierNote      String? // Ghi chú từ NCC (Lý do hủy, ...)
   items             PurchaseReturnItem[]
   createdAt         DateTime             @default(now())
   updatedAt         DateTime             @updatedAt

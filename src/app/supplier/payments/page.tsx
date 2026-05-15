@@ -100,9 +100,21 @@ export default function SupplierPaymentsPage() {
         }
     }
 
+    const [withdrawAmount, setWithdrawAmount] = useState(0)
+
     const processWithdrawRequest = async () => {
         const supplierId = localStorage.getItem('supplier_id')
         if (!supplierId || !data?.summary?.currentBalance) return;
+
+        // Validation
+        if (withdrawAmount <= 0) {
+            toast.error('Số tiền rút phải lớn hơn 0')
+            return
+        }
+        if (withdrawAmount > data.summary.currentBalance) {
+            toast.error('Số tiền rút vượt quá số dư khả dụng')
+            return
+        }
 
         // Validation: Check for bank account configuration
         if (!data?.summary?.bankAccountNumber || !data?.summary?.bankName) {
@@ -122,7 +134,7 @@ export default function SupplierPaymentsPage() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     supplierId,
-                    amount: data.summary.currentBalance
+                    amount: withdrawAmount
                 })
             })
 
@@ -180,6 +192,8 @@ export default function SupplierPaymentsPage() {
                 summary={summary}
                 hasBankConfig={hasBankConfig}
                 lastPaymentId={lastPaymentId}
+                amount={withdrawAmount}
+                setAmount={setWithdrawAmount}
                 formatCurrency={formatCurrency}
                 onClose={closeWithdrawModal}
                 onProcess={processWithdrawRequest}
@@ -204,6 +218,7 @@ export default function SupplierPaymentsPage() {
                             if (hasPending) {
                                 toast.error('Bạn đang có yêu cầu rút tiền chờ duyệt. Vui lòng đợi.')
                             } else if (summary.currentBalance > 0) {
+                                setWithdrawAmount(summary.currentBalance)
                                 setShowWithdrawModal(true)
                             } else {
                                 toast.success('Bạn không có doanh thu chờ quyết toán')

@@ -294,41 +294,46 @@ export default function ContractorContractsPage() {
                         {/* Detailed Metrics */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                             <div className="space-y-6">
-                                <h4 className="text-[10px] font-bold text-slate-900 uppercase tracking-widest border-b-4 border-blue-600 inline-block pb-1">Thông tin pháp lý</h4>
-                                <div className="space-y-3">
+                                <h4 className="text-[10px] font-bold text-blue-600 uppercase tracking-[0.2em] border-b-2 border-blue-600 w-fit pb-2 mb-8">Thông tin pháp lý</h4>
+                                <div className="space-y-4">
                                     {[
-                                        { label: 'Ngày kích hoạt', value: selectedContract.validFrom },
-                                        { label: 'Thời hạn đáo hạn', value: selectedContract.validTo },
+                                        { label: 'Ngày kích hoạt', value: new Date(selectedContract.validFrom).toLocaleDateString('vi-VN') },
+                                        { label: 'Thời hạn đáo hạn', value: new Date(selectedContract.validTo).toLocaleDateString('vi-VN') },
                                         { label: 'Quản lý tài khoản', value: 'Quản trị viên chiến lược' }
-                                    ].map((field, i) => (
-                                        <div key={i} className="flex justify-between items-center p-4 bg-slate-50 rounded-xl border border-slate-100">
-                                            <span className="text-slate-400 font-bold uppercase text-[9px] tracking-widest">{field.label}</span>
-                                            <span className="font-bold text-slate-900 uppercase tracking-tight text-xs">{field.value}</span>
+                                    ].map((info, i) => (
+                                        <div key={i} className="flex items-center justify-between p-4 bg-slate-50/50 rounded-xl border border-slate-100/50">
+                                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{info.label}</span>
+                                            <span className="text-[11px] font-bold text-slate-900 uppercase tracking-wider">{info.value}</span>
                                         </div>
                                     ))}
                                 </div>
                             </div>
 
                             <div className="space-y-6">
-                                <h4 className="text-[10px] font-bold text-slate-900 uppercase tracking-widest border-b-4 border-emerald-500 inline-block pb-1">Quyền lợi thương mại</h4>
+                                <h4 className="text-[10px] font-bold text-emerald-600 uppercase tracking-[0.2em] border-b-2 border-emerald-600 w-fit pb-2 mb-8">Quyền lợi thương mại</h4>
                                 <div className="space-y-4">
-                                    <div className="bg-emerald-50 p-6 rounded-2xl border border-emerald-100 group hover:shadow-md transition-all duration-300">
-                                        <div className="flex justify-between items-center mb-2">
-                                            <span className="text-emerald-800 font-bold uppercase text-[9px] tracking-widest">Tỷ lệ chiết khấu B2B</span>
-                                            <span className="text-3xl font-bold text-emerald-600 tracking-tight tabular-nums">{selectedContract.discountPercent}%</span>
+                                    <div className="bg-emerald-50/50 p-8 rounded-3xl border border-emerald-100/50 relative overflow-hidden group">
+                                        <div className="relative z-10">
+                                            <div className="flex items-center justify-between mb-4">
+                                                <span className="text-[9px] font-bold text-emerald-600 uppercase tracking-[0.2em]">Tỷ lệ chiết khấu B2B</span>
+                                                <span className="text-4xl font-black text-emerald-600">{(selectedContract as any).discountPercent || (selectedContract as any).products?.[0]?.discountPercent || 0}%</span>
+                                            </div>
+                                            <p className="text-[10px] text-emerald-600/60 font-medium italic leading-relaxed uppercase tracking-wider">
+                                                Giá ưu đãi áp dụng cho tất cả giao dịch mua sắm trực tuyến.
+                                            </p>
                                         </div>
-                                        <p className="text-[9px] text-emerald-700 font-bold uppercase tracking-widest opacity-60 leading-relaxed italic">
-                                            Giá ưu đãi áp dụng cho tất cả giao dịch mua sắm trực tuyến.
-                                        </p>
                                     </div>
-                                    <div className="bg-blue-50 p-6 rounded-2xl border border-blue-100 group hover:shadow-md transition-all duration-300">
-                                        <div className="flex justify-between items-center mb-2">
-                                            <span className="text-blue-800 font-bold uppercase text-[9px] tracking-widest">Hạn mức tín dụng</span>
-                                            <span className="text-2xl font-bold text-blue-600 tracking-tight tabular-nums">{formatCurrency(selectedContract.creditLimit)}</span>
+
+                                    <div className="bg-blue-50/50 p-8 rounded-3xl border border-blue-100/50 relative overflow-hidden group">
+                                        <div className="relative z-10">
+                                            <div className="flex items-center justify-between mb-4">
+                                                <span className="text-[9px] font-bold text-blue-600 uppercase tracking-[0.2em]">Hạn mức tín dụng</span>
+                                                <span className="text-3xl font-black text-blue-600 underline decoration-4 decoration-blue-200 underline-offset-8 uppercase">{formatCurrency((selectedContract as any).creditLimit || (selectedContract as any).specialCreditLimit || 0)}</span>
+                                            </div>
+                                            <p className="text-[10px] text-blue-600/60 font-medium italic leading-relaxed uppercase tracking-wider">
+                                                Hạn mức tín dụng xoay vòng cho mua sắm hạ tầng tần suất cao.
+                                            </p>
                                         </div>
-                                        <p className="text-[9px] text-blue-700 font-bold uppercase tracking-widest opacity-60 leading-relaxed italic">
-                                            Hạn mức tín dụng xoay vòng cho mua sắm hạ tầng tần suất cao.
-                                        </p>
                                     </div>
                                 </div>
                             </div>
