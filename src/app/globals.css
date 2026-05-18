@@ -466,3 +466,8 @@ body {
     display: none !important;
   }
 }
+
+/* Hide footer dynamically when root loader is active */
+body:has(.root-loading-active) footer {
+  display: none !important;
+}

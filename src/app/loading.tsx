@@ -2,7 +2,7 @@ import React from 'react'
 
 export default function RootLoading() {
   return (
-    <div className="w-full min-h-[75vh] flex flex-col items-center justify-center py-16 bg-neutral-50/50">
+    <div className="root-loading-active w-full min-h-[75vh] flex flex-col items-center justify-center py-16 bg-neutral-50/50">
       <div className="flex flex-col items-center space-y-6 p-10 bg-white border border-neutral-100 rounded-[2rem] shadow-sm max-w-sm w-full mx-4 animate-in fade-in zoom-in-95 duration-300">
         {/* Animated concentric loader rings */}
         <div className="relative w-14 h-14">
