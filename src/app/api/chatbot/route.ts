@@ -194,7 +194,7 @@ export async function POST(request: NextRequest) {
 
       if (flowResponse.shouldContinue) {
         if (flowResponse.nextPrompt) {
-          return NextResponse.json(createSuccessResponse({ message: flowResponse.nextPrompt, suggestions: ['Tiếp tục', 'Hủy'], confidence: 1.0, sessionId, timestamp: new Date().toISOString() }))
+          return NextResponse.json(createSuccessResponse({ message: flowResponse.nextPrompt, suggestions: flowResponse.suggestions || ['Tiếp tục', 'Hủy'], confidence: 1.0, sessionId, timestamp: new Date().toISOString() }))
         }
         if (flowResponse.isConfirmed) return await handleOrderCreation(sessionId, customerId, currentState)
         if (flowResponse.isCancelled) {
@@ -287,7 +287,7 @@ export async function POST(request: NextRequest) {
           return NextResponse.json(createSuccessResponse({ message: '❌ Đã hủy thao tác.', suggestions: ['Bắt đầu lại', 'Trợ giúp'], confidence: 1.0, sessionId, timestamp: new Date().toISOString() }))
         }
         if (flowResponse.nextPrompt) {
-          return NextResponse.json(createSuccessResponse({ message: flowResponse.nextPrompt, suggestions: ['Xác nhận', 'Hủy'], confidence: 1.0, sessionId, timestamp: new Date().toISOString() }))
+          return NextResponse.json(createSuccessResponse({ message: flowResponse.nextPrompt, suggestions: flowResponse.suggestions || ['Xác nhận', 'Hủy'], confidence: 1.0, sessionId, timestamp: new Date().toISOString() }))
         }
       }
     }
@@ -358,7 +358,7 @@ export async function POST(request: NextRequest) {
       }))
     }
 
-    if (intentResult.intent === 'ORDER_CREATE') return await handleOrderCreateIntent(message, sessionId, customerId, conversationHistory)
+    if (intentResult.intent === 'ORDER_CREATE') return await handleOrderCreateIntent(message, sessionId, customerId, conversationHistory as any)
     if (intentResult.intent === 'PRODUCT_SEARCH') {
       const result = await handleProductSearch(message, sessionId, entities)
       if (result) return result

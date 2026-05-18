@@ -26,14 +26,31 @@ function convertUnit(quantity: number, fromUnit: string | undefined, toUnit: str
     const f = fromUnit?.toLowerCase()
     const t = toUnit?.toLowerCase()
     if (!f || !t || f === t) return quantity
+
+    // Steel conversions (tấn <-> kg, cây)
     if (f === 'tấn' && t === 'kg') return quantity * 1000
     if (f === 'kg' && t === 'tấn') return quantity / 1000
+    if (f === 'tấn' && t === 'cây') return quantity * 135  // 1 ton has ~135 steel bars (Phi 10/12 average)
+    if (f === 'cây' && t === 'tấn') return quantity / 135
+    if (f === 'kg' && t === 'cây') return quantity / 7.2    // 1 Phi 10 bar weighs ~7.2kg
+    if (f === 'cây' && t === 'kg') return quantity * 7.2
+
+    // Sand conversions (m³ <-> kg, bao)
+    if (f === 'm³' && t === 'kg') return quantity * 1500   // 1 m3 dry sand weighs ~1500kg
+    if (f === 'kg' && t === 'm³') return quantity / 1500
+    if (f === 'm³' && t === 'bao') return quantity * 30    // 1 m3 of sand = ~30 bags of 50kg
+    if (f === 'bao' && t === 'm³') return quantity / 30
+
+    // Cement conversions (bao <-> kg)
+    if (f === 'bao' && t === 'kg') return quantity * 50    // 1 bag = 50kg
+    if (f === 'kg' && t === 'bao') return quantity / 50
+
     return quantity
 }
 
 /** Round quantities based on unit type */
 function roundQuantity(quantity: number, unit: string): number {
-    if (['viên', 'bao', 'máy', 'bộ', 'mét', 'kg'].includes(unit)) {
+    if (['viên', 'bao', 'máy', 'bộ', 'mét', 'kg', 'cây'].includes(unit.toLowerCase())) {
         return Math.ceil(quantity)
     }
     return Math.round(quantity * 10) / 10 // m³, tấn → 1 decimal
@@ -87,6 +104,21 @@ export async function enrichMaterialsWithProducts(
             ? convertUnit(m.quantity, m.unit, product.unit)
             : m.quantity
 
+        // Pre-calculate market fallback price just in case DB price is missing or 0
+        let fallbackPrice = 0
+        const lowerName = m.productName.toLowerCase()
+        const sortedMarketKeys = Object.keys(MARKET_PRICES).sort((a, b) => b.length - a.length)
+        
+        for (const key of sortedMarketKeys) {
+            const fallback = MARKET_PRICES[key]
+            if (lowerName.includes(key)) {
+                const targetUnit = product ? product.unit : m.unit
+                const conversionFactor = convertUnit(1, fallback.unit, targetUnit)
+                fallbackPrice = fallback.price / (conversionFactor || 1)
+                break
+            }
+        }
+
         if (existing) {
             existing.quantity += finalQty
             const newReason = m.reason.split('(')[0].trim()
@@ -102,28 +134,11 @@ export async function enrichMaterialsWithProducts(
                     sku: product.sku,
                     originalName: m.productName,
                     quantity: finalQty,
-                    price: product.price,
+                    price: product.price || fallbackPrice || 0, // Fallback to market price if product has 0 or null price
                     unit: product.unit,
                     isInStore: true,
                 })
             } else {
-                // Market price fallback
-                let fallbackPrice = 0
-                const lowerName = m.productName.toLowerCase()
-                
-                // Sort keys by length descending to match most specific terms first (e.g. 'sắt hộp' before 'sắt')
-                const sortedMarketKeys = Object.keys(MARKET_PRICES).sort((a, b) => b.length - a.length)
-                
-                for (const key of sortedMarketKeys) {
-                    const fallback = MARKET_PRICES[key]
-                    if (lowerName.includes(key)) {
-                        // If material unit differs from fallback unit, adjust the price
-                        // Example: Material in kg, Fallback in tấn (18,500,000 / 1000 = 18,500)
-                        const conversionFactor = convertUnit(1, fallback.unit, m.unit)
-                        fallbackPrice = fallback.price / conversionFactor
-                        break
-                    }
-                }
                 productMap.set(key, {
                     ...m,
                     originalName: m.productName,

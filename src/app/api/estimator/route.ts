@@ -13,6 +13,7 @@ const estimatorSchema = z.object({
     images: z.array(z.string()).optional(),
     description: z.string().optional(),
     projectType: z.enum(['flooring', 'painting', 'tiling', 'general']).optional().default('flooring'),
+    budgetTier: z.enum(['economy', 'standard', 'premium']).optional().default('standard'),
     birthYear: z.string().optional(),
     houseDirection: z.string().optional(),
     sessionId: z.string().optional(),
@@ -52,7 +53,7 @@ export async function POST(request: NextRequest) {
         }
 
         const {
-            image, images, description, projectType, birthYear, houseDirection,
+            image, images, description, projectType, budgetTier, birthYear, houseDirection,
             isRecalculation, totalArea, rooms, buildingStyle, wallPerimeter, roofType, fengShuiAdvice
         } = validation.data
 
@@ -67,14 +68,16 @@ export async function POST(request: NextRequest) {
                 buildingStyle as any,
                 wallPerimeter || (totalArea * 0.8),
                 roofType || 'bê_tông',
-                fengShuiAdvice
+                budgetTier,
+                1.0,
+                fengShuiAdvice || ''
             )
         } else if (image || (images && images.length > 0)) {
             // Analyze floor plan image(s)
-            result = await analyzeFloorPlanImage(images || [image!], projectType, birthYear, houseDirection)
+            result = await analyzeFloorPlanImage(images || [image!], projectType, budgetTier)
         } else if (description) {
             // Estimate from text description
-            result = await estimateFromText(description, projectType, birthYear, houseDirection)
+            result = await estimateFromText(description, projectType, budgetTier)
         } else {
             return NextResponse.json(
                 { success: false, error: 'No input provided' },

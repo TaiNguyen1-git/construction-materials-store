@@ -73,6 +73,19 @@ export default function ResultDisplay({
                     </div>
                 </div>
 
+            {/* AI Notes and Calibrations (Premium Friendly Alert) */}
+            {result.notes && (
+                <div className="bg-gradient-to-r from-amber-50/50 to-orange-50/50 border border-amber-100 rounded-3xl p-5 shadow-sm text-slate-800 animate-in slide-in-from-top-2 duration-300">
+                    <p className="text-[10px] font-black text-amber-700 uppercase tracking-[0.2em] mb-1.5 flex items-center gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5 animate-pulse text-amber-600" />
+                        Ghi chú phân tích từ AI
+                    </p>
+                    <p className="text-xs font-semibold leading-relaxed text-slate-600">
+                        {result.notes}
+                    </p>
+                </div>
+            )}
+
             {/* Bento Grid: Stats + Chart */}
             <div className="grid grid-cols-12 gap-4">
                 {/* Total Area */}

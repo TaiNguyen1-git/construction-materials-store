@@ -25,6 +25,7 @@ export interface FlowResponseResult {
   isConfirmed?: boolean
   isCancelled?: boolean
   nextPrompt?: string
+  suggestions?: string[]
 }
 
 /**
@@ -392,7 +393,8 @@ async function processOrderCreationResponse(
           '- Họ tên\n' +
           '- Số điện thoại\n' +
           '- Địa chỉ nhận hàng\n\n' +
-          '💡 *Ví dụ: Nguyễn Văn A, 0901234567, 123 Nguyễn Huệ, Q1, HCM*'
+          '💡 *Ví dụ: Nguyễn Văn A, 0901234567, 123 Nguyễn Huệ, Q1, HCM*',
+        suggestions: ['Hủy']
       }
     } else {
       // Has all info - confirm order
@@ -443,7 +445,8 @@ async function processOrderCreationResponse(
               '- Họ tên\n' +
               '- Số điện thoại\n' +
               '- Địa chỉ nhận hàng\n\n' +
-              '💡 *Ví dụ: Nguyễn Văn A, 0901234567, 123 Nguyễn Huệ, Q1, HCM*'
+              '💡 *Ví dụ: Nguyễn Văn A, 0901234567, 123 Nguyễn Huệ, Q1, HCM*',
+            suggestions: ['Hủy']
           }
         } else {
           // User logged in - create order immediately
@@ -473,7 +476,8 @@ async function processOrderCreationResponse(
         nextPrompt: '💡 Bạn có muốn xác nhận đặt hàng không? Hoặc bạn có thể hủy bỏ.\n\n' +
           'Vui lòng chọn:\n' +
           '- "Xác nhận" để tiếp tục\n' +
-          '- "Hủy" để hủy đơn hàng'
+          '- "Hủy" để hủy đơn hàng',
+        suggestions: ['Xác nhận đặt hàng', 'Hủy']
       }
 
     case 'guest_info':
@@ -508,7 +512,8 @@ async function processOrderCreationResponse(
             `- Tên: ${guestInfo.name || '(chưa có)'}\n` +
             `- SĐT: ${guestInfo.phone || '(chưa có)'}\n` +
             `- Địa chỉ: ${guestInfo.address || '(chưa có)'}\n\n` +
-            '💡 Ví dụ: Nguyễn Văn A, 0901234567, 123 Nguyễn Huệ, Q1, HCM'
+            '💡 Ví dụ: Nguyễn Văn A, 0901234567, 123 Nguyễn Huệ, Q1, HCM',
+          suggestions: ['Hủy']
         }
       }
 
@@ -516,26 +521,23 @@ async function processOrderCreationResponse(
 
       await updateFlowData(sessionId, { guestInfo })
 
-      // Verify it was saved
-      const verifyData = await getFlowData(sessionId)
-
       // Proceed to payment method selection
       await setOrderCreationStep(sessionId, 'payment_method')
       await advanceStep(sessionId)
 
       return {
         shouldContinue: true,
-        nextPrompt: '💳 **Chọn phương thức thanh toán:**\n\n1. Chuyển khoản 100%\n2. Cọc 50%\n\n💡 *Gõ "1" hoặc "2" để chọn*'
+        nextPrompt: '💳 **Chọn phương thức thanh toán:**\n\n1. Chuyển khoản 100%\n2. Cọc 50%\n\n💡 *Bấm nút hoặc gõ "1" hoặc "2" để chọn*',
+        suggestions: ['Chuyển khoản 100%', 'Cọc 50%', 'Hủy']
       }
 
     case 'customer_info':
-      // Extract customer info from message
-      // (simplified - in production, use better parsing)
       await setOrderCreationStep(sessionId, 'payment_method')
       await advanceStep(sessionId)
       return {
         shouldContinue: true,
-        nextPrompt: '💳 **Chọn phương thức thanh toán:**\n\n1. Chuyển khoản 100%\n2. Cọc 50%\n\n💡 *Gõ "1" hoặc "2" để chọn*'
+        nextPrompt: '💳 **Chọn phương thức thanh toán:**\n\n1. Chuyển khoản 100%\n2. Cọc 50%\n\n💡 *Bấm nút hoặc gõ "1" hoặc "2" để chọn*',
+        suggestions: ['Chuyển khoản 100%', 'Cọc 50%', 'Hủy']
       }
 
     case 'payment_method':
@@ -556,7 +558,8 @@ async function processOrderCreationResponse(
         // Invalid selection - prompt again
         return {
           shouldContinue: true,
-          nextPrompt: '❌ Lựa chọn không hợp lệ. Vui lòng chọn:\n\n1. Chuyển khoản 100%\n2. Cọc 50%\n\n💡 *Gõ "1" hoặc "2" để chọn*'
+          nextPrompt: '❌ Lựa chọn không hợp lệ. Vui lòng chọn:\n\n1. Chuyển khoản 100%\n2. Cọc 50%\n\n💡 *Bấm nút hoặc gõ "1" hoặc "2" để chọn*',
+          suggestions: ['Chuyển khoản 100%', 'Cọc 50%', 'Hủy']
         }
       }
 
@@ -566,14 +569,13 @@ async function processOrderCreationResponse(
 
       return {
         shouldContinue: true,
-        nextPrompt: 'Bạn có muốn xuất hóa đơn VAT không?\n\n' +
-          '1. Có (Cung cấp thông tin công ty)\n' +
-          '2. Không (Bỏ qua)'
+        nextPrompt: 'Bạn có muốn xuất hóa đơn VAT không?\n\n1. Có (Cung cấp thông tin công ty)\n2. Không (Bỏ qua)',
+        suggestions: ['Có xuất VAT', 'Không cần VAT', 'Hủy']
       }
 
     case 'vat_question':
       const vatAnswer = userMessage.toLowerCase()
-      if (vatAnswer.includes('có') || vatAnswer.includes('yes') || vatAnswer === '1') {
+      if (vatAnswer.includes('có') || vatAnswer.includes('yes') || vatAnswer === '1' || vatAnswer.includes('xuất vat')) {
         await setOrderCreationStep(sessionId, 'vat_info')
         await advanceStep(sessionId)
         return {
@@ -581,27 +583,44 @@ async function processOrderCreationResponse(
           nextPrompt: '📝 **Thông tin xuất hóa đơn VAT**\n\n' +
             'Vui lòng cung cấp theo định dạng:\n' +
             '**Mã số thuế, Tên công ty, Địa chỉ công ty**\n\n' +
-            '💡 *Ví dụ: 0312345678, Công ty ABC, 123 Nguyễn Huệ, Q1, HCM*'
+            '💡 *Ví dụ: 0312345678, Công ty ABC, 123 Nguyễn Huệ, Q1, HCM*',
+          suggestions: ['Bỏ qua xuất VAT', 'Hủy']
         }
       } else {
         // Skip VAT info
         await setOrderCreationStep(sessionId, 'final_confirmation')
         await advanceStep(sessionId)
         const currentPaymentMethod = state.data.paymentMethod || 'CASH'
+        const pMethodText = currentPaymentMethod === 'BANK_TRANSFER' ? (state.data.paymentType === 'DEPOSIT' ? 'Cọc 50%' : 'Chuyển khoản 100%') : currentPaymentMethod
         return {
           shouldContinue: true,
-          nextPrompt: `Xác nhận tạo đơn hàng với phương thức ${currentPaymentMethod}?`
+          nextPrompt: `Xác nhận tạo đơn hàng với phương thức ${pMethodText}?`,
+          suggestions: ['Xác nhận đặt hàng', 'Hủy']
         }
       }
 
     case 'vat_info':
+      // Handle local bypass if user clicks "Bỏ qua xuất VAT"
+      if (lowerMessage.includes('bỏ qua') || lowerMessage.includes('skip')) {
+        await setOrderCreationStep(sessionId, 'final_confirmation')
+        await advanceStep(sessionId)
+        const currentPaymentMethod = state.data.paymentMethod || 'CASH'
+        const pMethodText = currentPaymentMethod === 'BANK_TRANSFER' ? (state.data.paymentType === 'DEPOSIT' ? 'Cọc 50%' : 'Chuyển khoản 100%') : currentPaymentMethod
+        return {
+          shouldContinue: true,
+          nextPrompt: `Xác nhận tạo đơn hàng với phương thức ${pMethodText}?`,
+          suggestions: ['Xác nhận đặt hàng', 'Hủy']
+        }
+      }
+
       // Parse VAT info
       const vatParts = userMessage.split(',').map(p => p.trim())
       if (vatParts.length < 3) {
         return {
           shouldContinue: true,
           nextPrompt: '❌ Thông tin chưa đầy đủ. Vui lòng cung cấp đủ 3 thông tin cách nhau bởi dấu phẩy:\n' +
-            '**Mã số thuế, Tên công ty, Địa chỉ công ty**'
+            '**Mã số thuế, Tên công ty, Địa chỉ công ty**',
+          suggestions: ['Bỏ qua xuất VAT', 'Hủy']
         }
       }
 
@@ -616,9 +635,11 @@ async function processOrderCreationResponse(
       await advanceStep(sessionId)
 
       const finalPaymentMethod = state.data.paymentMethod || 'CASH'
+      const finalpMethodText = finalPaymentMethod === 'BANK_TRANSFER' ? (state.data.paymentType === 'DEPOSIT' ? 'Cọc 50%' : 'Chuyển khoản 100%') : finalPaymentMethod
       return {
         shouldContinue: true,
-        nextPrompt: `Xác nhận tạo đơn hàng với phương thức ${finalPaymentMethod} và xuất hóa đơn VAT?`
+        nextPrompt: `Xác nhận tạo đơn hàng với phương thức ${finalpMethodText} và xuất hóa đơn VAT?`,
+        suggestions: ['Xác nhận đặt hàng', 'Hủy']
       }
 
     case 'final_confirmation':
@@ -664,7 +685,8 @@ async function processOCRInvoiceResponse(
   // Ambiguous — ask again
   return {
     shouldContinue: true,
-    nextPrompt: '❓ Bạn có muốn lưu hóa đơn này vào hệ thống không?\n\n- "Lưu hóa đơn" để xác nhận\n- "Hủy" để bỏ qua'
+    nextPrompt: '❓ Bạn có muốn lưu hóa đơn này vào hệ thống không?\n\n- "Lưu hóa đơn" để xác nhận\n- "Hủy" để bỏ qua',
+    suggestions: ['Lưu hóa đơn', 'Hủy']
   }
 }
 
@@ -699,7 +721,8 @@ async function processCRUDConfirmationResponse(
   // Ambiguous — ask again
   return {
     shouldContinue: true,
-    nextPrompt: `❓ ${state.data.previewMessage || 'Bạn có muốn thực hiện thao tác này không?'}\n\n- "Xác nhận" để tiếp tục\n- "Hủy" để hủy bỏ`
+    nextPrompt: `❓ ${state.data.previewMessage || 'Bạn có muốn thực hiện thao tác này không?'}\n\n- "Xác nhận" để tiếp tục\n- "Hủy" để hủy bỏ`,
+    suggestions: ['Xác nhận', 'Hủy']
   }
 }
 

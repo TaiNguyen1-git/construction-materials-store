@@ -22,11 +22,33 @@ export function calculateMaterials(
 ): MaterialEstimate[] {
     const materials: MaterialEstimate[] = []
     const std = (CONSTRUCTION_STANDARDS as Record<string, ConstructionStandard | object>)[style] as ConstructionStandard
-        || CONSTRUCTION_STANDARDS.nhà_cấp_4
+        || CONSTRUCTION_STANDARDS    // Dữ liệu số tầng: tự động trích xuất từ cấu trúc các phòng (floor)
+    let numFloors = 1
+    if (style === 'nhà_cấp_4') {
+        numFloors = 1
+    } else {
+        const floorValues = rooms.map(r => r.floor ?? 0).filter(f => f >= 0)
+        const maxFloor = floorValues.length > 0 ? Math.max(...floorValues) : 0
+        numFloors = maxFloor + 1
+        if (numFloors === 1) {
+            numFloors = 2 // Mặc định là nhà 2 tầng cho nhà phố/biệt thự nếu không có thông số phòng chi tiết
+        }
+    }
 
-    // wallPerimeter and rooms kept for future use / caller compatibility
+    // Diện tích đáy móng và diện tích mái (footprint) tỷ lệ nghịch với số tầng
+    const footprintArea = area / numFloors
+
+    // Hệ số gia tải chịu lực và kết cấu thép cột/dầm theo chiều cao tầng
+    let heightFactor = 1.0
+    if (numFloors === 2) heightFactor = 1.1
+    if (numFloors === 3) heightFactor = 1.2
+    if (numFloors >= 4) heightFactor = 1.3
+
+    const adjustedSteel = std.steel * heightFactor
+    const adjustedCement = std.cement * heightFactor
+
+    // wallPerimeter kept for compatibility
     void wallPerimeter
-    void rooms
 
     if (type === 'general') {
         // ── Bricks ─────────────────────────────────────────────────────────────
@@ -35,7 +57,7 @@ export function calculateMaterials(
             productName: 'Gạch ống 8×8×18cm (Xây tường)',
             quantity: Math.ceil(totalBricks * 0.8),
             unit: 'viên',
-            reason: `Dự toán xây tường gạch ống (~80% tổng gạch cho ${style})`
+            reason: `Dự toán xây tường gạch ống (~80% tổng gạch cho ${style}, quy mô ${numFloors} tầng)`
         })
         materials.push({
             productName: 'Gạch đinh 4×8×18cm (Gia cố chân tường/bể)',
@@ -45,12 +67,12 @@ export function calculateMaterials(
         })
 
         // ── Cement ─────────────────────────────────────────────────────────────
-        const totalCementKg = area * std.cement
+        const totalCementKg = area * adjustedCement
         materials.push({
             productName: 'Xi măng bê tông (Portland)',
             quantity: Math.ceil((totalCementKg * 0.4) / 50),
             unit: 'bao',
-            reason: `Hạng mục đổ bê tông móng, cột, dầm, sàn (40%)`
+            reason: `Hạng mục đổ bê tông móng, cột, dầm, sàn (40% tổng xi măng, hệ số tầng ${heightFactor})`
         })
         materials.push({
             productName: 'Xi măng xây tô (Loại 1)',
@@ -60,7 +82,7 @@ export function calculateMaterials(
         })
 
         // ── Steel ──────────────────────────────────────────────────────────────
-        const totalSteelTons = (area * std.steel) / 1000
+        const totalSteelTons = (area * adjustedSteel) / 1000
         materials.push({
             productName: 'Thép cuộn Phi 6-8 (Làm đai/Sàn)',
             quantity: Number((totalSteelTons * 0.35).toFixed(2)),
@@ -71,7 +93,7 @@ export function calculateMaterials(
             productName: 'Thép thanh vằn Phi 10-25 (Cột/Dầm)',
             quantity: Number((totalSteelTons * 0.65).toFixed(2)),
             unit: 'tấn',
-            reason: `Thép cây chịu lực chính cho khung nhà`
+            reason: `Thép cây chịu lực chính cho khung chịu lực (${numFloors} tầng, hệ số gia tải ${heightFactor})`
         })
 
         // ── Sand ───────────────────────────────────────────────────────────────
@@ -90,9 +112,9 @@ export function calculateMaterials(
         })
         materials.push({
             productName: 'Cát san lấp (Nền móng)',
-            quantity: Number((area * std.sand_fill).toFixed(1)),
+            quantity: Number((footprintArea * std.sand_fill).toFixed(1)),
             unit: 'm³',
-            reason: `Dùng cho tôn nền và đệm móng chống lún`
+            reason: `Dùng cho tôn nền và đệm móng diện tích đáy ${footprintArea.toFixed(1)}m² (${numFloors} tầng)`
         })
 
         // ── Stone ──────────────────────────────────────────────────────────────
@@ -104,9 +126,9 @@ export function calculateMaterials(
         })
         materials.push({
             productName: 'Đá 4×6 (Bê tông lót)',
-            quantity: Number((area * std.stone_4x6).toFixed(1)),
+            quantity: Number((footprintArea * std.stone_4x6).toFixed(1)),
             unit: 'm³',
-            reason: `Lớp bê tông lót móng và chống úng`
+            reason: `Lớp bê tông lót móng diện tích đáy ${footprintArea.toFixed(1)}m²`
         })
 
         // ── Essential hardware ─────────────────────────────────────────────────
@@ -189,19 +211,19 @@ export function calculateMaterials(
             reason: `Dùng cho khu vực ban công, sân thượng và toilet`
         })
 
-        // ── Roofing system ─────────────────────────────────────────────────────
+        // ── Roofing system (scaled dynamically to footprint!) ──────────────────
         if (roofType === 'mái_thái') {
             materials.push({
                 productName: 'Ngói lợp (Mái thái)',
-                quantity: Math.ceil(area * 10),
+                quantity: Math.ceil(footprintArea * 1.15 * 10), // overhang factored
                 unit: 'viên',
-                reason: `Ước tính số lượng ngói dựa trên diện tích sàn (10 viên/m2)`
+                reason: `Ước tính số lượng ngói dựa trên diện tích mái thực tế ${footprintArea.toFixed(1)}m² (10 viên/m²)`
             })
             materials.push({
                 productName: 'Sắt hộp mạ kẽm (Xà gồ mái)',
-                quantity: Math.ceil(area * 4.5),
+                quantity: Math.ceil(footprintArea * 1.15 * 4.5),
                 unit: 'kg',
-                reason: `Hệ khung kèo, xà gồ thép cho mái lợp ngói`
+                reason: `Hệ khung kèo, xà gồ thép cho diện tích mái ${footprintArea.toFixed(1)}m²`
             })
             materials.push({
                 productName: 'Vít bắn ngói/tôn',
@@ -212,15 +234,15 @@ export function calculateMaterials(
         } else if (roofType === 'mái_tôn') {
             materials.push({
                 productName: 'Tôn lạnh màu (Mái tôn)',
-                quantity: Math.ceil(area * 1.2),
+                quantity: Math.ceil(footprintArea * 1.15 * 1.2),
                 unit: 'm',
-                reason: `Tôn lợp mái và máng xối`
+                reason: `Tôn lợp mái và máng xối cho diện tích mái ${footprintArea.toFixed(1)}m²`
             })
             materials.push({
                 productName: 'Sắt hộp mạ kẽm (Xà gồ mái)',
-                quantity: Math.ceil(area * 3.5),
+                quantity: Math.ceil(footprintArea * 1.15 * 3.5),
                 unit: 'kg',
-                reason: `Hệ xà gồ thép chịu lực cho mái tôn`
+                reason: `Hệ xà gồ thép chịu lực cho diện tích mái ${footprintArea.toFixed(1)}m²`
             })
             materials.push({
                 productName: 'Vít bắn tôn (Ron cao su)',
@@ -229,8 +251,7 @@ export function calculateMaterials(
                 reason: `Vít bắn tôn chống dột`
             })
         }
-
-    } else if (type === 'flooring') {
+        } else if (type === 'flooring') {
         const floorStd = CONSTRUCTION_STANDARDS.flooring
         materials.push({
             productName: 'Gạch lát nền 60×60cm',

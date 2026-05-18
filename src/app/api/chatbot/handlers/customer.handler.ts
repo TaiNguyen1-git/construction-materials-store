@@ -182,26 +182,146 @@ export async function handleMaterialCalculation(
         sessionId: string
     ) {
         const lower = message.toLowerCase()
-        let city = 'Đà Nẵng' // Default for this context
+        let queryCity = 'Đà Nẵng'
+        let displayCity = 'TP. Đà Nẵng'
         
-        if (lower.includes('hồ chí minh') || lower.includes('hcm') || lower.includes('sài gòn')) city = 'Hồ Chí Minh'
-        if (lower.includes('hà nội')) city = 'Hà Nội'
-        if (lower.includes('biên hòa')) city = 'Biên Hòa'
-        if (lower.includes('bình dương')) city = 'Bình Dương'
+        // Comprehensive list of all Vietnam locations (old and new to match user intent)
+        const LOCATION_KEYWORDS = [
+            'hà nội', 'hồ chí minh', 'sài gòn', 'hcm', 'đà nẵng', 'hải phòng', 'cần thơ', 'huế',
+            'bình dương', 'đồng nai', 'biên hòa', 'bà rịa vũng tàu', 'bà rịa - vũng tàu', 'vũng tàu',
+            'nha trang', 'khánh hòa', 'đà lạt', 'lâm đồng', 'quảng nam', 'hội an', 'quảng ngãi',
+            'quy nhơn', 'bình định', 'tuy hòa', 'phú yên', 'phan thiết', 'bình thuận', 'ninh thuận',
+            'gia lai', 'buôn ma thuột', 'đắk lắk', 'đắk nông', 'kon tum', 'an giang', 'kiên giang',
+            'rạch giá', 'cà mau', 'bạc liêu', 'sóc trăng', 'hậu giang', 'trà vinh', 'bến tre',
+            'vĩnh long', 'đồng tháp', 'tiền giang', 'long an', 'tây ninh', 'thanh hóa', 'nghệ an',
+            'vinh', 'hà tĩnh', 'quảng bình', 'quảng trị', 'thái bình', 'nam định', 'ninh bình',
+            'hà nam', 'hưng yên', 'hải dương', 'bắc ninh', 'bắc giang', 'vĩnh phúc', 'thái nguyên',
+            'bắc kạn', 'tuyên quang', 'hà giang', 'yên bái', 'lào cai', 'hòa bình', 'sơn la',
+            'điện biên', 'lai châu', 'cao bằng', 'lạng sơn', 'hạ long', 'quảng ninh', 'bình phước'
+        ];
+
+        // Mapping of old provinces/cities to the new 34 administrative units (2026 Update)
+        const MERGED_PROVINCES_MAP: Record<string, string> = {
+            'hà giang': 'Tuyên Quang',
+            'tuyên quang': 'Tuyên Quang',
+            'yên bái': 'Lào Cai',
+            'lào cai': 'Lào Cai',
+            'bắc kạn': 'Thái Nguyên',
+            'thái nguyên': 'Thái Nguyên',
+            'vĩnh phúc': 'Phú Thọ',
+            'hòa bình': 'Phú Thọ',
+            'phú thọ': 'Phú Thọ',
+            'bắc giang': 'Bắc Ninh',
+            'bắc ninh': 'Bắc Ninh',
+            'thái bình': 'Hưng Yên',
+            'hưng yên': 'Hưng Yên',
+            'hải dương': 'TP. Hải Phòng',
+            'hải phòng': 'TP. Hải Phòng',
+            'hà nam': 'Ninh Bình',
+            'nam định': 'Ninh Bình',
+            'ninh bình': 'Ninh Bình',
+            'quảng bình': 'Quảng Trị',
+            'quảng trị': 'Quảng Trị',
+            'quảng nam': 'TP. Đà Nẵng',
+            'đà nẵng': 'TP. Đà Nẵng',
+            'kon tum': 'Quảng Ngãi',
+            'quảng ngãi': 'Quảng Ngãi',
+            'bình định': 'Gia Lai',
+            'gia lai': 'Gia Lai',
+            'ninh thuận': 'Khánh Hòa',
+            'khánh hòa': 'Khánh Hòa',
+            'đắk nông': 'Lâm Đồng',
+            'bình thuận': 'Lâm Đồng',
+            'lâm đồng': 'Lâm Đồng',
+            'phú yên': 'Đắk Lắk',
+            'đắk lắk': 'Đắk Lắk',
+            'bà rịa vũng tàu': 'TP. Hồ Chí Minh',
+            'bà rịa - vũng tàu': 'TP. Hồ Chí Minh',
+            'vũng tàu': 'TP. Hồ Chí Minh',
+            'bình dương': 'TP. Hồ Chí Minh',
+            'hcm': 'TP. Hồ Chí Minh',
+            'hồ chí minh': 'TP. Hồ Chí Minh',
+            'sài gòn': 'TP. Hồ Chí Minh',
+            'bình phước': 'Đồng Nai',
+            'đồng nai': 'Đồng Nai',
+            'biên hòa': 'Đồng Nai',
+            'long an': 'Tây Ninh',
+            'tây ninh': 'Tây Ninh',
+            'sóc trăng': 'TP. Cần Thơ',
+            'hậu giang': 'TP. Cần Thơ',
+            'cần thơ': 'TP. Cần Thơ',
+            'bến tre': 'Vĩnh Long',
+            'trà vinh': 'Vĩnh Long',
+            'vĩnh long': 'Vĩnh Long',
+            'tiền giang': 'Đồng Tháp',
+            'đồng tháp': 'Đồng Tháp',
+            'bạc liêu': 'Cà Mau',
+            'cà mau': 'Cà Mau',
+            'kiên giang': 'An Giang',
+            'an giang': 'An Giang'
+        };
+
+        let queryDistrict = ''
+        const matched = LOCATION_KEYWORDS.find(k => lower.includes(k))
+        if (matched) {
+            if (MERGED_PROVINCES_MAP[matched]) {
+                const newUnit = MERGED_PROVINCES_MAP[matched]
+                queryCity = newUnit.replace('TP. ', '')
+                if (matched !== newUnit.toLowerCase() && matched !== 'hcm' && matched !== 'sài gòn' && matched !== 'vũng tàu') {
+                    const oldNameFormatted = matched.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+                    displayCity = `${newUnit} (bao gồm ${oldNameFormatted} cũ)`
+                    queryDistrict = oldNameFormatted // Focus logistics query on former area
+                } else {
+                    displayCity = newUnit
+                }
+            } else {
+                // Kept original
+                if (matched === 'hà nội') {
+                    queryCity = 'Hà Nội'
+                    displayCity = 'TP. Hà Nội'
+                } else if (matched === 'huế') {
+                    queryCity = 'Huế'
+                    displayCity = 'TP. Huế'
+                } else {
+                    const capitalized = matched.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+                    queryCity = capitalized
+                    displayCity = capitalized
+                }
+            }
+        }
 
         try {
-            // Fetch real contractors in the area
-            const contractors = await prisma.contractorProfile.findMany({
-                where: { 
-                    city: { contains: city, mode: 'insensitive' },
-                    isAvailable: true 
-                },
-                take: 3,
-                orderBy: { avgRating: 'desc' }
-            })
+            // 1. Try to fetch contractors within the specific district/former region first (Logistics optimization)
+            let contractors: any[] = []
+            if (queryDistrict) {
+                contractors = await prisma.contractorProfile.findMany({
+                    where: { 
+                        city: { contains: queryCity, mode: 'insensitive' },
+                        OR: [
+                            { district: { contains: queryDistrict, mode: 'insensitive' } },
+                            { address: { contains: queryDistrict, mode: 'insensitive' } }
+                        ],
+                        isAvailable: true 
+                    },
+                    take: 3,
+                    orderBy: { avgRating: 'desc' }
+                })
+            }
 
-            let response = `🏗️ **Kết nối Nhà thầu & Dịch vụ thi công tại ${city}**\n\n`
-            response += `Chào bạn! SmartBuild có mạng lưới đối tác **nhà thầu, đội thi công uy tín tại ${city}** đã được xác minh năng lực.\n\n`
+            // 2. If no district-specific contractors found, fallback to the entire merged city
+            if (contractors.length === 0) {
+                contractors = await prisma.contractorProfile.findMany({
+                    where: { 
+                        city: { contains: queryCity, mode: 'insensitive' },
+                        isAvailable: true 
+                    },
+                    take: 3,
+                    orderBy: { avgRating: 'desc' }
+                })
+            }
+
+            let response = `🏗️ **Kết nối Nhà thầu & Dịch vụ thi công tại ${displayCity}**\n\n`
+            response += `Chào bạn! SmartBuild có mạng lưới đối tác **nhà thầu, đội thi công uy tín tại ${displayCity}** đã được xác minh năng lực.\n\n`
 
             if (contractors.length > 0) {
                 response += `🏠 **NHÀ THẦU TIÊU BIỂU TẠI KHU VỰC:**\n`
@@ -209,7 +329,16 @@ export async function handleMaterialCalculation(
                     const stars = '⭐'.repeat(Math.round(c.avgRating || 5))
                     const exp = c.experienceYears ? ` (${c.experienceYears} năm kinh nghiệm)` : ''
                     const skills = c.skills && c.skills.length > 0 ? `\n   📍 Chuyên môn: ${c.skills.slice(0, 3).join(', ')}` : ''
-                    response += `${idx + 1}. **${c.displayName}** ${stars}${exp}${skills}\n   🔗 [Xem hồ sơ & đánh giá →](/contractors/${c.id})\n\n`
+                    
+                    // Display exact district/address so they can easily estimate distance
+                    let locationDetail = ''
+                    if (c.district && c.city) {
+                        locationDetail = `\n   📍 Khu vực: ${c.district}, ${c.city}`
+                    } else if (c.address) {
+                        locationDetail = `\n   📍 Địa chỉ: ${c.address}`
+                    }
+
+                    response += `${idx + 1}. **${c.displayName}** ${stars}${exp}${locationDetail}${skills}\n   🔗 [Xem hồ sơ & đánh giá →](/contractors/${c.id})\n\n`
                 })
             }
 
@@ -228,13 +357,13 @@ export async function handleMaterialCalculation(
 
             return NextResponse.json(createSuccessResponse({
                 message: response,
-                suggestions: [`Tìm thêm thợ tại ${city}`, 'Báo giá thi công', 'Liên hệ nhân viên'],
+                suggestions: [`Tìm thêm thợ tại ${displayCity}`, 'Báo giá thi công', 'Liên hệ nhân viên'],
                 confidence: 1.0, sessionId, timestamp: new Date().toISOString()
             }))
         } catch (error) {
             console.error('Contractor query error:', error)
             return NextResponse.json(createSuccessResponse({
-                message: `🏗️ **Kết nối Nhà thầu tại ${city}**\n\nHiện tại hệ thống đang kết nối với các đối tác tại khu vực này. Bạn vui lòng để lại số điện thoại hoặc nhu cầu cụ thể (xây mới, sửa chữa...), nhân viên điều phối của SmartBuild sẽ gọi lại tư vấn và giới thiệu nhà thầu phù hợp nhất cho bạn trong vòng 2h làm việc nhé!`,
+                message: `🏗️ **Kết nối Nhà thầu tại ${displayCity}**\n\nHiện tại hệ thống đang kết nối với các đối tác tại khu vực này. Bạn vui lòng để lại số điện thoại hoặc nhu cầu cụ thể (xây mới, sửa chữa...), nhân viên điều phối của SmartBuild sẽ gọi lại tư vấn và giới thiệu nhà thầu phù hợp nhất cho bạn trong vòng 2h làm việc nhé!`,
                 suggestions: ['Để lại thông tin', 'Báo giá thi công', 'Liên hệ nhân viên'],
                 confidence: 1.0, sessionId, timestamp: new Date().toISOString()
             }))

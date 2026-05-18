@@ -100,20 +100,26 @@ export async function analyzeFloorPlanImage(
         })
 
         const aiPrompt = `
-You are a senior construction engineer. Analyze the provided floor plan with high precision:
+You are a senior construction engineer and expert architect. Analyze the provided floor plan image with high precision:
 
-1. DIMENSION EXTRACTION (CRITICAL): 
-   - Look for text labels with numbers (e.g., "3000", "4500", "15500", "20000"). These are millimeters. Convert to meters (divide by 1000).
-   - Identify the "Total Land Width" vs "Total Land Length" from the outermost dimension lines.
-   - Identify "Built Area" length by excluding yards (Sân trước, Sân sau).
+1. DIMENSION EXTRACTION (CRITICAL FAIL-SAFE):
+   - Look closely for text labels with numbers (e.g., "3000", "4500", "15500", "20000"). These are millimeters. Convert to meters (divide by 1000).
+   - If NO explicit dimensions are readable, use PROPORTIONAL REFERENCE OBJECT SCALING:
+     * Locate standard architectural symbols to deduce dimensions: a double bed is roughly 1.6m x 2.0m, a single bedroom door is 0.9m wide, a double entrance door is 1.6m wide, and a standard toilet is 0.7m x 0.8m.
+     * Estimate lengths and widths proportionally based on these reference scales.
+   - If NO reference symbols or numbers are present, apply STANDARD VIETNAMESE RESIDENTIAL TYPOLOGIES:
+     * Bedroom (Phòng ngủ): ~12m2 to 15m2 (e.g., 4m x 3m or 4m x 3.5m)
+     * Living Room (Phòng khách): ~18m2 to 20m2 (e.g., 5m x 4m)
+     * Kitchen & Dining (Phòng bếp): ~12m2 to 15m2 (e.g., 4m x 3m)
+     * Toilet/Bathroom (WC): ~4m2 (e.g., 2m x 2m)
+     * Hallway/Entrance (Sảnh/Hành lang): ~6m2 to 8m2
 
-2. ROOM SPATIAL MAPPING (GENERIC FOR ALL STYLES):
+2. ROOM SPATIAL MAPPING:
    - MULTI-FLOOR DETECTION: Identify if the drawing contains multiple levels (Tầng trệt, Lầu 1, Tầng hầm).
    - For EACH ROOM:
      - "floor": 0 (Ground), 1 (Floor 1), 2 (Floor 2), -1 (Basement).
      - "x_pct", "z_pct" (0-100): Position relative to the building's bounding box on that specific floor.
    - For "nhà_phố": Ensure floors align vertically.
-   - For Basements: Ensure they are marked with floor: -1.
 
 Return ONLY JSON:
 {
@@ -125,7 +131,7 @@ Return ONLY JSON:
     { "type": "material_area", "material": "tiles" | "paint", "area": float, "label": "string" }
   ],
   "totalArea": float,
-  "notes": "string"
+  "notes": "A friendly Vietnamese message explaining if dimensions were parsed exactly, estimated using reference objects (e.g., beds/doors), or calculated using standard room norms because dimensions were missing. Encourage them to verify/adjust below."
 }
 Note: If the document is a PDF, analyze all pages. Extract quantity of doors/windows if visible.`
 
@@ -231,7 +237,7 @@ export async function estimateFromText(
 
     try {
         // ── STEP 1: CALCULATE HASH FOR DETERMINISM ──
-        const inputHash = crypto.createHash('sha256').update(description + projectType + "v3").digest('hex')
+        const inputHash = crypto.createHash('sha256').update(description + projectType + "v4_dynamic_nlp").digest('hex')
 
         // ── STEP 2: CHECK CACHE ──
         const cached = await prisma.aiEstimateCache.findUnique({
@@ -240,31 +246,43 @@ export async function estimateFromText(
         if (cached) return cached.result as any
 
         const aiPrompt = `
-Bạn là một kiến trúc sư chuyên nghiệp. Hãy phân tích bản vẽ mặt bằng và trích xuất thông tin BIM:
+Bạn là một kỹ sư xây dựng và kiến trúc sư chuyên nghiệp. Hãy phân tích mô tả yêu cầu công trình dưới đây và trích xuất thông tin BIM dưới định dạng JSON để bóc tách khối lượng vật tư.
 
-1. Phân tích các phòng: Tên, Chiều dài (L), Chiều rộng (W).
-2. TỌA ĐỘ (CỰC KỲ QUAN TRỌNG): 
-   - Xác định vị trí (x, z) của TÂM mỗi phòng so với tâm tổng thể của ngôi nhà (đơn vị mét).
-   - Nếu bản vẽ có nhiều phòng cạnh nhau theo chiều ngang, chúng phải có tọa độ X khác nhau.
-   - Nếu bản vẽ có nhiều phòng xếp theo chiều dọc, chúng phải có tọa độ Z khác nhau.
-   - KHÔNG xếp tất cả phòng thành 1 hàng dọc nếu bản vẽ là biệt thự/nhà vườn.
-3. Xác định loại kiến trúc: "nhà_cấp_4", "nhà_phố" hoặc "biệt_thự".
-4. Xác định loại mái: "bê_tông", "mái_thái" hoặc "mái_tôn".
+MÔ TẢ YÊU CẦU CỦA NGƯỜI DÙNG:
+"${description}"
 
-Định dạng JSON:
+HẠNG MỤC BAN ĐẦU ĐƯỢC CHỌN (Chỉ mang tính chất tham khảo):
+"${projectType}"
+
+Yêu cầu phân tích:
+1. ĐỌC KỸ mô tả của người dùng và TRÍCH XUẤT ĐỘNG:
+   - Các phòng, chiều dài (length), chiều rộng (width) được nêu trong mô tả. 
+   - Tên phòng phải khớp với mô tả của người dùng (ví dụ: "Phòng ngủ", "Phòng khách", "Nhà bếp", "Sân thượng").
+   - Tính toán tổng diện tích sàn (totalArea) chính xác bằng tổng diện tích các phòng (length * width). KHÔNG được trả về diện tích mặc định hay cố định. Nếu người dùng nhập "phòng ngủ 5x4m", totalArea phải là 20. Nếu người dùng nhập "phòng khách 6x5m và bếp 4x3m", totalArea phải là 30 + 12 = 42.
+2. TỰ ĐỘNG PHÂN LOẠI HẠNG MỤC THỰC TẾ (detectedProjectType):
+   - Phân tích từ mô tả của người dùng để chọn phân mục phù hợp nhất:
+     * "painting" (Sơn nhà / Phòng): nếu người dùng chỉ đề cập đến sơn, quét vôi, bả trét.
+     * "flooring" (Lát nền): nếu người dùng chỉ đề cập đến lát gạch nền, lót sàn gỗ, cán nền.
+     * "tiling" (Ốp lát tường): nếu người dùng đề cập đến ốp gạch tường, ốp đá.
+     * "general" (Xây thô / Tổng thể): nếu người dùng muốn xây dựng mới, sửa nhà thô, đổ bê tông, làm mái, v.v., hoặc mô tả chung chung.
+3. Xác định loại kiến trúc ("buildingStyle"): "nhà_cấp_4", "nhà_phố" hoặc "biệt_thự" dựa trên quy mô được mô tả.
+4. Xác định loại mái ("roofType"): "bê_tông", "mái_thái" hoặc "mái_tôn" nếu có đề cập.
+5. TỌA ĐỘ (x, z): Xác định vị trí tương đối của tâm phòng trong mặt bằng tổng thể (đơn vị mét). Nếu chỉ có 1 phòng duy nhất, đặt x = 0, z = 0.
+6. Chỉ trả về một chuỗi JSON hợp lệ duy nhất, tuyệt đối không thêm lời thoại hay văn bản giải thích ngoài JSON.
+
+Định dạng JSON yêu cầu trả về:
 {
-  "buildingStyle": "biệt_thự",
-  "roofType": "mái_thái",
+  "buildingStyle": "nhà_cấp_4" | "nhà_phố" | "biệt_thự",
+  "roofType": "bê_tông" | "mái_thái" | "mái_tôn",
+  "detectedProjectType": "general" | "flooring" | "painting" | "tiling",
   "rooms": [
-    { "name": "Sảnh chính", "length": 3, "width": 6, "x": -2, "z": 8 },
-    { "name": "Phòng khách", "length": 6, "width": 6, "x": -2, "z": 4 },
-    { "name": "Phòng thờ", "length": 4, "width": 4, "x": 3, "z": 4 }
+    { "name": "Tên phòng", "length": số, "width": số, "x": số, "z": số }
   ],
-  "totalArea": 120,
-  "confidence": 0.95
+  "totalArea": số,
+  "confidence": số,
+  "notes": "Lời giải thích ngắn gọn bằng tiếng Việt về việc hệ thống đã tự động nhận diện hạng mục gì và diện tích bao nhiêu từ mô tả của họ"
 }
-
-CHỈ trả về JSON.`
+`
 
         let responseText: string
         try {
@@ -276,6 +294,7 @@ CHỈ trả về JSON.`
         let data: {
             buildingStyle?: 'nhà_cấp_4' | 'nhà_phố' | 'biệt_thự'
             roofType?: string
+            detectedProjectType?: 'general' | 'flooring' | 'painting' | 'tiling'
             rooms?: { name: string; length: number; width: number }[]
             totalArea?: number
             wallPerimeter?: number
@@ -299,14 +318,27 @@ CHỈ trả về JSON.`
                     width: parseFloat(match[2].replace(',', '.')),
                 }))
                 const totalArea = rooms.reduce((sum, r) => sum + r.length * r.width, 0)
+                
+                // Trích xuất từ khoá đơn giản cho regex fallback
+                let fallbackType: 'general' | 'flooring' | 'painting' | 'tiling' = 'general'
+                const lowerDesc = description.toLowerCase()
+                if (lowerDesc.includes('sơn') || lowerDesc.includes('bả') || lowerDesc.includes('quét')) {
+                    fallbackType = 'painting'
+                } else if (lowerDesc.includes('lát') || lowerDesc.includes('nền') || lowerDesc.includes('gỗ')) {
+                    fallbackType = 'flooring'
+                } else if (lowerDesc.includes('ốp')) {
+                    fallbackType = 'tiling'
+                }
+
                 data = {
                     buildingStyle: 'nhà_cấp_4',
                     roofType: 'bê_tông',
+                    detectedProjectType: fallbackType,
                     rooms,
                     totalArea,
                     wallPerimeter: Math.sqrt(totalArea) * 4,
                     confidence: 0.6,
-                    notes: 'Phân tích từ regex (AI không trả về JSON hợp lệ)'
+                    notes: `Phân tích từ biểu thức chính quy regex. Hệ thống nhận diện hạng mục: ${fallbackType}.`
                 }
             } else {
                 throw new Error('Không thể xác định kích thước từ mô tả. Vui lòng nhập rõ hơn, ví dụ: "phòng 5x4m"')
@@ -324,8 +356,11 @@ CHỈ trả về JSON.`
             return errorResult(projectType, 'Không thể xác định diện tích. Vui lòng mô tả rõ hơn (VD: "sân 6x8m").')
         }
 
+        // Tự động sử dụng hạng mục thực tế được phát hiện bởi AI, nếu không có thì fallback về ban đầu
+        const finalProjectType = data.detectedProjectType || projectType
+
         const materials = calculateMaterials(
-            totalArea, projectType, rooms,
+            totalArea, finalProjectType, rooms,
             data.buildingStyle || 'nhà_cấp_4',
             data.wallPerimeter || totalArea * 0.8,
             data.roofType || 'bê_tông',
@@ -337,8 +372,8 @@ CHỈ trả về JSON.`
 
         const finalResult: EstimatorResult = {
             success: true,
-            projectType,
-            buildingStyle: data.buildingStyle,
+            projectType: finalProjectType,
+            buildingStyle: data.buildingStyle || 'nhà_cấp_4',
             rooms,
             totalArea,
             materials: enriched,
