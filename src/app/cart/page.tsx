@@ -57,11 +57,93 @@ export default function CartPage() {
   const [voucherCode, setVoucherCode] = useState('')
   const [isApplyingVoucher, setIsApplyingVoucher] = useState(false)
   const { voucher, setVoucher } = useCartStore()
+  
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   const totalPrice = getTotalPrice()
   const shippingFee = (items.length > 0 && totalPrice < 5000000) ? 50000 : 0
   const discountAmount = voucher ? voucher.discountAmount : 0
   const finalTotal = Math.max(0, totalPrice + shippingFee - discountAmount)
+
+  if (!mounted) {
+    return (
+      <div className="min-h-screen bg-neutral-50 animate-pulse">
+        <Header />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 pb-24">
+          {/* Breadcrumb */}
+          <div className="h-4 bg-slate-200 rounded w-48 mb-8" />
+
+          {/* Header */}
+          <div className="flex items-center justify-between mb-10 pb-6 border-b border-neutral-200">
+            <div className="space-y-2">
+              <div className="h-8 bg-slate-200 rounded w-32" />
+              <div className="h-4 bg-slate-200 rounded w-64" />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
+            {/* Left Column (Items) */}
+            <div className="lg:col-span-2 space-y-4">
+              {[1, 2].map((i) => (
+                <div key={i} className="bg-white rounded-2xl p-5 flex gap-6 border border-neutral-200">
+                  <div className="w-28 h-28 bg-slate-100 rounded-xl shrink-0" />
+                  <div className="flex-1 flex flex-col justify-between py-1">
+                    <div className="space-y-2">
+                      <div className="h-6 bg-slate-200 rounded w-2/3" />
+                      <div className="h-3 bg-slate-200 rounded w-16" />
+                    </div>
+                    <div className="flex justify-between items-end">
+                      <div className="h-10 w-32 bg-slate-100 rounded-lg" />
+                      <div className="h-6 bg-slate-200 rounded w-24" />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Right Column (Summary) */}
+            <div className="lg:col-span-1">
+              <div className="bg-white rounded-2xl border border-neutral-200 p-8 space-y-6">
+                <div className="h-6 bg-slate-200 rounded w-1/2 pb-2 border-b border-neutral-100" />
+                
+                {/* Voucher */}
+                <div className="space-y-3">
+                  <div className="h-4 bg-slate-200 rounded w-24" />
+                  <div className="flex gap-2">
+                    <div className="h-12 bg-slate-100 rounded-xl flex-grow" />
+                    <div className="h-12 w-24 bg-slate-100 rounded-xl" />
+                  </div>
+                </div>
+
+                {/* Price list */}
+                <div className="space-y-4 pt-4 border-t border-neutral-100">
+                  <div className="flex justify-between">
+                    <div className="h-4 bg-slate-200 rounded w-24" />
+                    <div className="h-4 bg-slate-200 rounded w-16" />
+                  </div>
+                  <div className="flex justify-between">
+                    <div className="h-4 bg-slate-200 rounded w-28" />
+                    <div className="h-4 bg-slate-200 rounded w-12" />
+                  </div>
+                  <div className="flex justify-between pt-4 border-t border-neutral-100">
+                    <div className="h-5 bg-slate-200 rounded w-20" />
+                    <div className="h-7 bg-slate-200 rounded w-28" />
+                  </div>
+                </div>
+
+                {/* Button */}
+                <div className="h-14 bg-slate-200 rounded-xl w-full" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   const handleApplyVoucher = async () => {
     if (!voucherCode) return

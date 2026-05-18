@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { Package, ShoppingCart, Truck, Shield, RotateCcw, Plus, Minus, Star, Sparkles, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Package, ShoppingCart, Truck, Shield, RotateCcw, Plus, Minus, Star, Sparkles, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
 import SocialShareBar from '@/components/SocialShareBar'
 import { Skeleton } from '@/components/ui/skeleton'
 import Header from '@/components/Header'
@@ -58,6 +58,7 @@ export default function ProductDetailClient({ initialProduct, initialSimilarProd
 
     const [product] = useState<Product>(initialProduct)
     const [loading] = useState(false)
+    const [isAdding, setIsAdding] = useState(false)
     const [selectedImageIndex, setSelectedImageIndex] = useState(0)
     const [quantity, setQuantity] = useState(1)
     const [availableUnits, setAvailableUnits] = useState<UnitConversion[]>([])
@@ -113,21 +114,25 @@ export default function ProductDetailClient({ initialProduct, initialSimilarProd
             return
         }
 
-        addItem({
-            id: product.id,
-            productId: product.id,
-            name: product.name,
-            price: product.price,
-            sku: product.sku,
-            unit: product.unit || 'pcs',
-            image: product.images?.[0],
-            maxStock: product.inventoryItem?.availableQuantity,
-            quantity: baseQuantity,
-            selectedUnit: selectedUnit.label,
-            conversionFactor: selectedUnit.factor
-        })
+        setIsAdding(true)
+        setTimeout(() => {
+            addItem({
+                id: product.id,
+                productId: product.id,
+                name: product.name,
+                price: product.price,
+                sku: product.sku,
+                unit: product.unit || 'pcs',
+                image: product.images?.[0],
+                maxStock: product.inventoryItem?.availableQuantity,
+                quantity: baseQuantity,
+                selectedUnit: selectedUnit.label,
+                conversionFactor: selectedUnit.factor
+            })
 
-        toast.success(`Đã thêm ${quantity} ${selectedUnit.label} vào giỏ hàng!`)
+            toast.success(`Đã thêm ${quantity} ${selectedUnit.label} vào giỏ hàng!`)
+            setIsAdding(false)
+        }, 400)
     }
 
     if (loading) {
@@ -347,10 +352,15 @@ export default function ProductDetailClient({ initialProduct, initialSimilarProd
 
                                     <button
                                         onClick={handleAddToCart}
-                                        className="flex-1 min-w-[200px] h-12 bg-primary-600 hover:bg-primary-700 text-white rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 shadow-sm shadow-primary-200 active:scale-95 uppercase tracking-wide"
+                                        disabled={isAdding}
+                                        className="flex-1 min-w-[200px] h-12 bg-primary-600 hover:bg-primary-700 disabled:bg-primary-400 disabled:cursor-not-allowed text-white rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 shadow-sm shadow-primary-200 active:scale-95 uppercase tracking-wide"
                                     >
-                                        <ShoppingCart size={18} />
-                                        <span>Thêm vào giỏ</span>
+                                        {isAdding ? (
+                                            <Loader2 size={18} className="animate-spin" />
+                                        ) : (
+                                            <ShoppingCart size={18} />
+                                        )}
+                                        <span>{isAdding ? 'Đang thêm...' : 'Thêm vào giỏ'}</span>
                                     </button>
                                 </div>
 

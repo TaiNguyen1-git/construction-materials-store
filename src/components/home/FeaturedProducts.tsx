@@ -47,7 +47,29 @@ export default function FeaturedProducts({ products, loading }: FeaturedProducts
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
                     {loading ? (
                         [...Array(10)].map((_, i) => (
-                            <div key={i} className="bg-white rounded-[2rem] shadow-sm h-[380px] animate-pulse border border-slate-100"></div>
+                            <div key={i} className="bg-white rounded-[2rem] p-5 border border-slate-100 shadow-sm h-[380px] flex flex-col justify-between animate-pulse">
+                                <div className="space-y-4">
+                                    {/* Image area */}
+                                    <div className="aspect-square bg-slate-100 rounded-2xl w-full" />
+                                    {/* Category chip */}
+                                    <div className="h-4 bg-slate-50 rounded-lg w-1/3 border border-slate-100" />
+                                    {/* Title lines */}
+                                    <div className="space-y-2">
+                                        <div className="h-4 bg-slate-100 rounded w-5/6" />
+                                        <div className="h-4 bg-slate-100 rounded w-2/3" />
+                                    </div>
+                                    {/* SKU */}
+                                    <div className="h-3 bg-slate-100 rounded w-1/2" />
+                                </div>
+                                {/* Footer price + button */}
+                                <div className="flex justify-between items-center pt-4 border-t border-slate-50">
+                                    <div className="space-y-2">
+                                        <div className="h-3 bg-slate-100 rounded w-12" />
+                                        <div className="h-5 bg-slate-100 rounded w-20" />
+                                    </div>
+                                    <div className="h-10 w-10 bg-slate-100 rounded-xl" />
+                                </div>
+                            </div>
                         ))
                     ) : products.length > 0 ? (
                         products.map((product) => (

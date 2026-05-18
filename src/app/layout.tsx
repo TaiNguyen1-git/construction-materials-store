@@ -18,6 +18,7 @@ import ReactQueryProvider from '@/components/ReactQueryProvider'
 import PageTransition from '@/components/PageTransition'
 import SiteTracker from '@/components/analytics/SiteTracker'
 import NotificationSubscription from '@/components/NotificationSubscription'
+import NextTopLoader from 'nextjs-toploader'
 
 const inter = Inter({ subsets: ['latin', 'vietnamese'] })
 
@@ -81,6 +82,17 @@ export default function RootLayout({
   return (
     <html lang="vi" suppressHydrationWarning>
       <body className={inter.className}>
+        <NextTopLoader
+          color="#6366f1"
+          initialPosition={0.08}
+          crawlSpeed={200}
+          height={3}
+          crawl={true}
+          showSpinner={false}
+          easing="ease"
+          speed={200}
+          shadow="0 0 10px #6366f1,0 0 5px #6366f1"
+        />
         <OrganizationJsonLd />
         <ReactQueryProvider>
           <GoogleProvider>
