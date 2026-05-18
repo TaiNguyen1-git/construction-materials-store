@@ -8,7 +8,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { getWorkingModelConfig, parseGeminiJSON } from '@/lib/ai/ai-client'
+import { generateContentWithFallback, parseGeminiJSON } from '@/lib/ai/ai-client'
 import { prisma } from '@/lib/prisma'
 import { verifyTokenFromRequest } from '@/lib/auth'
 
@@ -115,13 +115,6 @@ export async function POST(request: NextRequest) {
             : ''
 
         // Generate smart replies with AI
-        const { client, modelName } = await getWorkingModelConfig()
-        if (!client) {
-            return NextResponse.json({
-                success: true,
-                data: { replies: getDefaultReplies(customerMessage), context: 'fallback' }
-            })
-        }
 
         const prompt = `Bạn là nhân viên hỗ trợ CSKH chuyên nghiệp của cửa hàng vật liệu xây dựng SmartBuild.
 ${customerContext}
@@ -142,8 +135,7 @@ Tất cả phải bằng tiếng Việt, xưng "em/mình", gọi khách "anh/ch�
 Trả về JSON mảng 3 string:
 ["câu 1", "câu 2", "câu 3"]`
 
-        const result = await client.models.generateContent({
-            model: modelName!,
+        const result = await generateContentWithFallback({
             contents: [{ role: 'user', parts: [{ text: prompt }] }]
         })
 

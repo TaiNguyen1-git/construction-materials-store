@@ -1,13 +1,10 @@
 // AI Order Service — parse and validate natural-language order requests
 
-import { getWorkingModelConfig, GeminiResponse, AIOrderRequest, parseGeminiJSON } from './ai-client'
+import { getWorkingModelConfig, generateContentWithFallback, GeminiResponse, AIOrderRequest, parseGeminiJSON } from './ai-client'
 
 /** Extract material calculation parameters from a user query */
 export async function extractMaterialCalculationParams(query: string): Promise<Record<string, unknown> | null> {
     try {
-        const { client, modelName } = await getWorkingModelConfig()
-        if (!client) throw new Error('Client init failed')
-
         const prompt = `
     Extract construction material calculation parameters from the user's query.
     
@@ -34,8 +31,7 @@ export async function extractMaterialCalculationParams(query: string): Promise<R
     Return ONLY a JSON object, no markdown.
     `
 
-        const result = await client.models.generateContent({
-            model: modelName!,
+        const result = await generateContentWithFallback({
             contents: [{ role: 'user', parts: [{ text: prompt }] }]
         })
 
@@ -50,9 +46,6 @@ export async function extractMaterialCalculationParams(query: string): Promise<R
 /** Parse a Vietnamese natural-language order request into structured AIOrderRequest */
 export async function parseOrderRequest(message: string): Promise<AIOrderRequest | null> {
     try {
-        const { client, modelName } = await getWorkingModelConfig()
-        if (!client) throw new Error('Client init failed')
-
         const prompt = `
     Extract order details from this natural Vietnamese text.
     Handle colloquialisms like "1 xe" (truck), "1 thiên" (1000 bricks), "chục" (10), "bao" (bag), "khối" (m3).
@@ -82,8 +75,7 @@ export async function parseOrderRequest(message: string): Promise<AIOrderRequest
     Return only the JSON object.
     `
 
-        const result = await client.models.generateContent({
-            model: modelName!,
+        const result = await generateContentWithFallback({
             contents: [{ role: 'user', parts: [{ text: prompt }] }]
         })
 
@@ -110,9 +102,6 @@ export async function modifyOrderRequest(
     message: string
 ): Promise<Array<{ productName: string, quantity: number, unit: string }>> {
     try {
-        const { client, modelName } = await getWorkingModelConfig()
-        if (!client) throw new Error('Client init failed')
-
         const prompt = `
     You are an assistant helping a customer edit their construction material order.
     
@@ -139,8 +128,7 @@ export async function modifyOrderRequest(
     Return ONLY a JSON array of items, no markdown.
     `
 
-        const result = await client.models.generateContent({
-            model: modelName!,
+        const result = await generateContentWithFallback({
             contents: [{ role: 'user', parts: [{ text: prompt }] }]
         })
 
@@ -177,9 +165,6 @@ export async function optimizeLogistics(data: {
     recommendations: string[]
 }> {
     try {
-        const { client, modelName } = await getWorkingModelConfig()
-        if (!client) throw new Error('Client init failed')
-
         const prompt = `
     Optimize delivery logistics for the following orders and vehicles.
     
@@ -199,8 +184,7 @@ export async function optimizeLogistics(data: {
     Return ONLY a JSON object.
     `
 
-        const result = await client.models.generateContent({
-            model: modelName!,
+        const result = await generateContentWithFallback({
             contents: [{ role: 'user', parts: [{ text: prompt }] }]
         })
 
@@ -221,8 +205,6 @@ export async function optimizeLogistics(data: {
 /** Parse guest info (name, phone, address) from user message using AI */
 export async function parseGuestInfoWithAI(message: string): Promise<{ name?: string, phone?: string, address?: string }> {
     try {
-        const { client, modelName } = await getWorkingModelConfig()
-        if (!client) throw new Error('Client init failed')
 
         const prompt = `
     Trích xuất thông tin khách hàng từ tin nhắn sau. 
@@ -243,8 +225,7 @@ export async function parseGuestInfoWithAI(message: string): Promise<{ name?: st
     Trả về DUY NHẤT mã JSON.
     `
 
-        const result = await client.models.generateContent({
-            model: modelName!,
+        const result = await generateContentWithFallback({
             contents: [{ role: 'user', parts: [{ text: prompt }] }]
         })
 

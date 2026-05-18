@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Use the same model fallback chain as ai-vision-estimator
-        const models = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-1.5-flash']
+        const models = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.5-pro', 'gemini-2-flash', 'gemini-2-flash-lite', 'gemini-1.5-flash']
         let lastError: any = null
         let responseText = ''
 

@@ -28,11 +28,12 @@ const genAI = process.env.GEMINI_API_KEY
     : null
 
 const MODEL_FALLBACKS = [
-    'gemini-2.5-flash', 
-    'gemini-2.5-flash-lite', 
+    'gemini-2.5-flash',
+    'gemini-2.5-flash-lite',
     'gemini-2.5-pro',
     'gemini-2-flash',
-    'gemini-2-flash-lite'
+    'gemini-2-flash-lite',
+    'gemini-1.5-flash'
 ]
 
 /** Call Gemini with a fallback chain and retry logic */

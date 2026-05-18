@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
             .join('\n')
 
         // Generate summary using AI with fallback logic
-        const models = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-1.5-flash']
+        const models = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.5-pro', 'gemini-2-flash', 'gemini-2-flash-lite', 'gemini-1.5-flash']
         let responseText = ''
         let lastError: any = null
 

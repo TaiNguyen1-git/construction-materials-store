@@ -477,16 +477,21 @@ async function processOrderCreationResponse(
       }
 
     case 'guest_info':
-      // Parse guest info from message - Using AI for better accuracy
-      let guestInfo = await parseGuestInfoWithAI(userMessage)
+      // Try local deterministic parsing first (Fast & Free)
+      const manualInfo = parseGuestInfo(userMessage)
+      let guestInfo: { name?: string; phone?: string; address?: string } = {}
 
-      // Fallback to manual parsing if AI returns nothing useful
-      if (!guestInfo.name || !guestInfo.phone || !guestInfo.address) {
-        const manualInfo = parseGuestInfo(userMessage)
+      if (manualInfo.name && manualInfo.phone && manualInfo.address) {
+        console.log('[ConvState] Guest info fully matched locally! Skipping Gemini call.')
+        guestInfo = manualInfo
+      } else {
+        // Fallback to Gemini only for complex or incomplete natural language
+        console.log('[ConvState] Guest info incomplete locally. Calling Gemini to parse.')
+        const aiInfo = await parseGuestInfoWithAI(userMessage)
         guestInfo = {
-          name: guestInfo.name || manualInfo.name,
-          phone: guestInfo.phone || manualInfo.phone,
-          address: guestInfo.address || manualInfo.address
+          name: aiInfo.name || manualInfo.name,
+          phone: aiInfo.phone || manualInfo.phone,
+          address: aiInfo.address || manualInfo.address
         }
       }
 

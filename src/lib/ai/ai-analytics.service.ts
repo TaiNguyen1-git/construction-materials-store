@@ -1,12 +1,10 @@
 // AI Analytics Service — sentiment analysis, demand forecasting, and credit risk
 
-import { getWorkingModelConfig, GeminiResponse, parseGeminiJSON } from './ai-client'
+import { getWorkingModelConfig, generateContentWithFallback, GeminiResponse, parseGeminiJSON } from './ai-client'
 
 /** Analyze customer message sentiment */
 export async function analyzeSentiment(message: string): Promise<{ sentiment: string; confidence: number }> {
     try {
-        const { client, modelName } = await getWorkingModelConfig()
-        if (!client) throw new Error('Client init failed')
 
         const prompt = `
     Analyze the sentiment of the following customer message.
@@ -21,8 +19,7 @@ export async function analyzeSentiment(message: string): Promise<{ sentiment: st
     Return only the JSON object, nothing else.
     `
 
-        const result = await client.models.generateContent({
-            model: modelName!,
+        const result = await generateContentWithFallback({
             contents: [{ role: 'user', parts: [{ text: prompt }] }]
         })
 
@@ -54,8 +51,6 @@ export async function forecastDemand(data: {
     reasoning: string
 }> {
     try {
-        const { client, modelName } = await getWorkingModelConfig()
-        if (!client) throw new Error('Client init failed')
 
         const prompt = `
     You are an inventory management AI. Analyze the following sales data for "${data.productName}" 
@@ -78,8 +73,7 @@ export async function forecastDemand(data: {
     Return ONLY a JSON object with these exact fields.
     `
 
-        const result = await client.models.generateContent({
-            model: modelName!,
+        const result = await generateContentWithFallback({
             contents: [{ role: 'user', parts: [{ text: prompt }] }]
         })
 
@@ -120,8 +114,6 @@ export async function analyzeCreditRisk(data: {
     suggestedCreditLimit: number
 }> {
     try {
-        const { client, modelName } = await getWorkingModelConfig()
-        if (!client) throw new Error('Client init failed')
 
         const prompt = `
     Analyze the credit risk for B2B customer "${data.customerName}".
@@ -141,8 +133,7 @@ export async function analyzeCreditRisk(data: {
     Return ONLY a JSON object with these exact fields.
     `
 
-        const result = await client.models.generateContent({
-            model: modelName!,
+        const result = await generateContentWithFallback({
             contents: [{ role: 'user', parts: [{ text: prompt }] }]
         })
 

@@ -48,12 +48,25 @@ async function handleEnrichedOrderItems(
         : []
 
     for (const { item, keywords } of itemsWithKeywords) {
-        const matchingProducts = allMatchingProducts.filter(p => 
-            keywords.some(kw => 
+        // Try strict matching first (must contain ALL keywords, e.g. both 'xi măng' and 'INSEE')
+        let matchingProducts = allMatchingProducts.filter(p => 
+            keywords.every(kw => 
                 p.name.toLowerCase().includes(kw.toLowerCase()) || 
                 (p.sku && p.sku.toLowerCase().includes(kw.toLowerCase()))
             )
-        ).slice(0, 5)
+        )
+
+        // Fallback to fuzzy matching only if no products match all keywords
+        if (matchingProducts.length === 0) {
+            matchingProducts = allMatchingProducts.filter(p => 
+                keywords.some(kw => 
+                    p.name.toLowerCase().includes(kw.toLowerCase()) || 
+                    (p.sku && p.sku.toLowerCase().includes(kw.toLowerCase()))
+                )
+            )
+        }
+
+        matchingProducts = matchingProducts.slice(0, 5)
 
         if (matchingProducts.length === 1) {
             enrichedItems.push({ 

@@ -1,14 +1,12 @@
 // AI OCR Service — handles invoice extraction and image analysis
 
-import { getWorkingModelConfig, GeminiResponse, OCRResponse, parseGeminiJSON, extractTextFromSDKResult } from './ai-client'
+import { getWorkingModelConfig, generateContentWithFallback, GeminiResponse, OCRResponse, parseGeminiJSON, extractTextFromSDKResult } from './ai-client'
 import { OCR_SYSTEM_PROMPT } from '../ai-config'
 import { InvoiceData, InvoiceDataSchema } from '../validation'
 
 /** Process raw OCR text with Gemini to extract structured invoice data */
 export async function processOCRText(extractedText: string): Promise<OCRResponse> {
     try {
-        const { client, modelName } = await getWorkingModelConfig()
-        if (!client) throw new Error('Client init failed')
 
         const prompt = `
     ${OCR_SYSTEM_PROMPT}
@@ -20,8 +18,7 @@ export async function processOCRText(extractedText: string): Promise<OCRResponse
     Return only the JSON object, nothing else.
     `
 
-        const result = await client.models.generateContent({
-            model: modelName!,
+        const result = await generateContentWithFallback({
             contents: [{ role: 'user', parts: [{ text: prompt }] }]
         })
 
@@ -38,8 +35,6 @@ export async function processOCRText(extractedText: string): Promise<OCRResponse
 /** Analyze any image using Gemini Vision with a custom prompt */
 export async function analyzeImage(imageData: string, promptText: string): Promise<string> {
     try {
-        const { client, modelName } = await getWorkingModelConfig()
-        if (!client) throw new Error('Client init failed')
 
         const match = imageData.match(/^data:([^;]+);base64,(.+)$/)
         const mimeType = match ? match[1] : 'image/jpeg'
@@ -47,8 +42,7 @@ export async function analyzeImage(imageData: string, promptText: string): Promi
 
         const imagePart = { inlineData: { data, mimeType } }
 
-        const result = await client.models.generateContent({
-            model: modelName!,
+        const result = await generateContentWithFallback({
             contents: [{ role: 'user', parts: [{ text: promptText }, imagePart] }]
         })
 
@@ -66,8 +60,6 @@ export async function analyzeImage(imageData: string, promptText: string): Promi
 /** Extract structured invoice data directly from an image using Gemini Vision */
 export async function extractInvoiceData(imageData: string): Promise<InvoiceData | null> {
     try {
-        const { client, modelName } = await getWorkingModelConfig()
-        if (!client) throw new Error('Client init failed')
 
         const match = imageData.match(/^data:([^;]+);base64,(.+)$/)
         const mimeType = match ? match[1] : 'image/jpeg'
@@ -109,8 +101,7 @@ export async function extractInvoiceData(imageData: string): Promise<InvoiceData
     - Return ONLY valid JSON.
     `
 
-        const result = await client.models.generateContent({
-            model: modelName!,
+        const result = await generateContentWithFallback({
             contents: [{
                 role: 'user',
                 parts: [{ text: prompt }, { inlineData: { data, mimeType } }]
