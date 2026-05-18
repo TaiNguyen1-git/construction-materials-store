@@ -71,7 +71,8 @@ function parseGeminiEstimatorJSON(responseText: string) {
 export async function analyzeFloorPlanImage(
     base64Images: string | string[],
     projectType: 'general' | 'flooring' | 'painting' | 'tiling' = 'general',
-    budgetTier: 'economy' | 'standard' | 'premium' = 'standard'
+    budgetTier: 'economy' | 'standard' | 'premium' = 'standard',
+    fileName?: string
 ): Promise<EstimatorResult> {
     if (!genAI) return errorResult(projectType, 'AI service not configured.')
 
@@ -80,8 +81,8 @@ export async function analyzeFloorPlanImage(
         
         // ── STEP 1: CALCULATE HASH FOR DETERMINISM ──
         const combinedBase64 = images.join('|')
-        const promptVersion = "v5_percentage_mapping_multi_floor"
-        const inputHash = crypto.createHash('sha256').update(combinedBase64 + projectType + promptVersion).digest('hex')
+        const promptVersion = "v6_filename_meta_multi_floor"
+        const inputHash = crypto.createHash('sha256').update(combinedBase64 + projectType + promptVersion + (fileName || '')).digest('hex')
 
         // ── STEP 2: CHECK CACHE ──
         const cached = await prisma.aiEstimateCache.findUnique({
@@ -99,9 +100,16 @@ export async function analyzeFloorPlanImage(
             }
         })
 
+        let metaCues = ""
+        if (fileName) {
+            metaCues = `\nCRITICAL CONTEXT FROM UPLOADED FILENAME:
+   - The user uploaded a file named: "${fileName}"
+   - Use any cues from the filename (such as "nhacap4", "200m2", "3tang", "5x20", "nha_pho") to guide and override your visual classification. For instance, if the filename says "3tang", the building style is likely "nhà_phố" with 3 floors. If the filename says "5x20", the footprint is likely 100m² and the dimensions of the overall bounding box are 5m x 20m. Combine these filename text cues with the visual plan drawing for maximum accuracy!\n`
+        }
+
         const aiPrompt = `
 You are a senior construction engineer and expert architect. Analyze the provided floor plan image with high precision:
-
+${metaCues}
 1. DIMENSION EXTRACTION (CRITICAL FAIL-SAFE):
    - Look closely for text labels with numbers (e.g., "3000", "4500", "15500", "20000"). These are millimeters. Convert to meters (divide by 1000).
    - If NO explicit dimensions are readable, use PROPORTIONAL REFERENCE OBJECT SCALING:

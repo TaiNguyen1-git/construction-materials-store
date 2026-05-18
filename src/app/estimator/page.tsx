@@ -47,6 +47,7 @@ export default function EstimatorPage() {
     const [description, setDescription] = useState('')
     const [imagesPreview, setImagesPreview] = useState<string[]>([])
     const [imagesBase64, setImagesBase64] = useState<string[]>([])
+    const [imageFileNames, setImageFileNames] = useState<string[]>([])
 
     const [loading, setLoading] = useState(false)
     const [loadingPhase, setLoadingPhase] = useState(0)
@@ -141,6 +142,7 @@ export default function EstimatorPage() {
         const files = e.target.files
         if (!files) return
         Array.from(files).forEach(file => {
+            setImageFileNames(prev => [...prev, file.name])
             const reader = new FileReader()
             reader.onload = (event) => {
                 const base64 = event.target?.result as string
@@ -169,7 +171,8 @@ export default function EstimatorPage() {
         try {
             let res: EstimatorResult
             if (inputMode === 'image') {
-                res = await analyzeFloorPlanImage(imagesBase64, projectType, 'standard')
+                const mainFileName = imageFileNames.length > 0 ? imageFileNames[0] : undefined
+                res = await analyzeFloorPlanImage(imagesBase64, projectType, 'standard', mainFileName)
             } else {
                 res = await estimateFromText(description, projectType, 'standard')
             }
@@ -421,6 +424,7 @@ export default function EstimatorPage() {
                                 onRemoveImage={(idx) => {
                                     setImagesPreview(prev => prev.filter((_, i) => i !== idx))
                                     setImagesBase64(prev => prev.filter((_, i) => i !== idx))
+                                    setImageFileNames(prev => prev.filter((_, i) => i !== idx))
                                 }}
                                 onEstimate={handleEstimate}
                                 loading={loading}

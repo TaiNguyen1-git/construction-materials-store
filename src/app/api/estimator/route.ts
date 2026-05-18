@@ -11,6 +11,7 @@ import { z } from 'zod'
 const estimatorSchema = z.object({
     image: z.string().optional(),
     images: z.array(z.string()).optional(),
+    fileName: z.string().optional(),
     description: z.string().optional(),
     projectType: z.enum(['flooring', 'painting', 'tiling', 'general']).optional().default('flooring'),
     budgetTier: z.enum(['economy', 'standard', 'premium']).optional().default('standard'),
@@ -53,7 +54,7 @@ export async function POST(request: NextRequest) {
         }
 
         const {
-            image, images, description, projectType, budgetTier, birthYear, houseDirection,
+            image, images, fileName, description, projectType, budgetTier, birthYear, houseDirection,
             isRecalculation, totalArea, rooms, buildingStyle, wallPerimeter, roofType, fengShuiAdvice
         } = validation.data
 
@@ -74,7 +75,7 @@ export async function POST(request: NextRequest) {
             )
         } else if (image || (images && images.length > 0)) {
             // Analyze floor plan image(s)
-            result = await analyzeFloorPlanImage(images || [image!], projectType, budgetTier)
+            result = await analyzeFloorPlanImage(images || [image!], projectType, budgetTier, fileName)
         } else if (description) {
             // Estimate from text description
             result = await estimateFromText(description, projectType, budgetTier)
