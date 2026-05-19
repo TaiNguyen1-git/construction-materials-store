@@ -22,8 +22,8 @@ export default function ChatAttachment({
 
     if (isAudio) {
         return (
-            <div className={`p-1.5 rounded-xl border ${isMe ? 'bg-black/10 border-white/20' : 'bg-slate-50 border-slate-200'}`}>
-                <audio controls src={attachment.fileUrl} className="h-10 w-full max-w-[220px]" />
+            <div className={`p-1.5 rounded-xl border ${isMe ? 'bg-black/10 border-white/20' : 'bg-slate-50 border-slate-200'} min-w-[220px]`}>
+                <audio controls src={attachment.fileUrl} className="h-9 w-full outline-none block" />
             </div>
         )
     }
