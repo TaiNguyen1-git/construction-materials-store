@@ -153,30 +153,46 @@ export default function AIEstimatorPage() {
                                     </div>
 
                                     <div className="space-y-4">
-                                        {results.recommendations.map((item: any, idx: number) => (
+                                        {results.recommendations.map((item: any, idx: number) => {
+                                            const isSelected = selectedItems.find(i => i.productId === item.productId);
+                                            const isAvailable = item.isAvailable !== false; // handle true/undefined vs false
+                                            
+                                            return (
                                             <div
                                                 key={idx}
-                                                onClick={() => toggleItem(item)}
-                                                className={`p-6 rounded-3xl border-2 transition-all cursor-pointer flex items-center justify-between ${selectedItems.find(i => i.productId === item.productId)
-                                                    ? 'bg-purple-50/50 border-purple-500 shadow-lg shadow-purple-50'
-                                                    : 'bg-white border-slate-50 hover:border-slate-200'
+                                                onClick={() => isAvailable && toggleItem(item)}
+                                                className={`p-6 rounded-3xl border-2 transition-all flex items-center justify-between ${
+                                                    !isAvailable 
+                                                        ? 'bg-slate-50 border-slate-100 opacity-70 grayscale cursor-not-allowed'
+                                                        : isSelected
+                                                            ? 'bg-purple-50/50 border-purple-500 shadow-lg shadow-purple-50 cursor-pointer'
+                                                            : 'bg-white border-slate-50 hover:border-slate-200 cursor-pointer'
                                                     }`}
                                             >
                                                 <div className="flex items-center gap-4">
-                                                    <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-400">
+                                                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${!isAvailable ? 'bg-slate-200 text-slate-400' : 'bg-slate-50 text-slate-400'}`}>
                                                         <Box className="w-6 h-6" />
                                                     </div>
                                                     <div>
-                                                        <h4 className="font-bold text-slate-900">{item.name}</h4>
-                                                        <p className="text-xs text-slate-500 font-medium">{item.category} • Tin cậy: {(item.confidence * 100).toFixed(0)}%</p>
+                                                        <div className="flex items-center gap-2">
+                                                            <h4 className={`font-bold ${!isAvailable ? 'text-slate-500 line-through decoration-slate-300' : 'text-slate-900'}`}>{item.name}</h4>
+                                                            {!isAvailable && (
+                                                                <span className="px-2 py-0.5 bg-orange-100 text-orange-600 rounded text-[10px] font-bold">KHÔNG CÓ SẴN</span>
+                                                            )}
+                                                        </div>
+                                                        <p className="text-xs text-slate-500 font-medium">
+                                                            {item.category} {!isAvailable ? '• Vật tư phụ cần tự trang bị' : `• Tin cậy: ${(item.confidence * 100).toFixed(0)}%`}
+                                                        </p>
                                                     </div>
                                                 </div>
                                                 <div className="text-right">
-                                                    <p className="font-black text-slate-900">{item.recommendedQty} {item.unit}</p>
-                                                    <p className="text-xs text-slate-400 font-bold">{item.price.toLocaleString('vi-VN')}đ/đv</p>
+                                                    <p className={`font-black ${!isAvailable ? 'text-slate-400' : 'text-slate-900'}`}>{item.recommendedQty} {item.unit}</p>
+                                                    {isAvailable && (
+                                                        <p className="text-xs text-slate-400 font-bold">{item.price?.toLocaleString('vi-VN')}đ/đv</p>
+                                                    )}
                                                 </div>
                                             </div>
-                                        ))}
+                                        )})}
                                     </div>
 
                                     {selectedItems.length > 0 && (

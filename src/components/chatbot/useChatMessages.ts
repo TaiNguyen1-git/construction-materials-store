@@ -97,6 +97,16 @@ export function useChatMessages({ sessionId, currentUserId }: UseChatMessagesPro
         setMessages(prev => {
             if (prev.some(m => m.id === msg.id)) return prev;
 
+            // Prevent duplicate of local optimistic messages
+            if (msg.tempId) {
+                const tempIndex = prev.findIndex(m => m.id === msg.tempId);
+                if (tempIndex !== -1) {
+                    const newMessages = [...prev];
+                    newMessages[tempIndex] = { ...newMessages[tempIndex], id: msg.id };
+                    return newMessages;
+                }
+            }
+
             if (msg.senderId === 'smartbuild_bot') {
                 const existingIdx = prev.findIndex(m => m.botMessage === msg.content && !m.id.startsWith('chat_'));
                 if (existingIdx !== -1) {

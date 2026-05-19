@@ -263,12 +263,26 @@ export default function ChatbotPremium({ isOpen: propIsOpen, onClose }: { isOpen
                         stopResponse={() => abortController?.abort()}
                         regenerateResponse={() => {
                             const aiMessages = messages.filter(m => (m.chatMode || 'AI') === 'AI');
-                            const lastUserMsg = [...aiMessages].reverse().find(m => (m.userMessage || m.userImage) && !m.botMessage);
-                            if (lastUserMsg && aiMessages.length > 0) {
-                                const lastBotMsgId = aiMessages[aiMessages.length - 1].id;
-                                setMessages(prev => prev.filter(m => m.id !== lastBotMsgId));
-                                actions.sendMessage(lastUserMsg.userMessage || '', false, '', undefined, lastUserMsg.userImage);
-                            }
+                            if (aiMessages.length === 0) return;
+
+                            // Find the last bot reply (message with botMessage but no userMessage)
+                            const lastBotIdx = [...aiMessages].map((m, i) => ({ m, i }))
+                                .reverse()
+                                .find(({ m }) => m.botMessage && !m.userMessage);
+
+                            if (!lastBotIdx) return;
+
+                            // Find the user message that preceded this bot reply
+                            const precedingUserMsg = aiMessages
+                                .slice(0, lastBotIdx.i)
+                                .reverse()
+                                .find(m => m.userMessage || m.userImage);
+
+                            if (!precedingUserMsg) return;
+
+                            // Remove only the bot reply, keep the user message intact
+                            setMessages(prev => prev.filter(m => m.id !== lastBotIdx.m.id));
+                            actions.sendMessage(precedingUserMsg.userMessage || '', false, '', undefined, precedingUserMsg.userImage);
                         }}
                         retryLastMessage={() => {
                             const aiMessages = messages.filter(m => (m.chatMode || 'AI') === 'AI');

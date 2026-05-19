@@ -36,6 +36,8 @@ export function useChatActions({
 }: UseChatActionsProps) {
     
     const abortControllerRef = useRef<AbortController | null>(null);
+    const streamingBotMsgIdRef = useRef<string | null>(null);
+    const streamingBotContentRef = useRef<string>('');
 
     const sendMessage = useCallback(async (text: string, isFromInput = false, currentMessage = '', setCurrentMessage?: (v: string) => void, selectedImage: string | null = null, setSelectedImage?: (v: string | null) => void) => {
         const messageText = isFromInput ? currentMessage : text;
@@ -136,7 +138,10 @@ export function useChatActions({
             abortControllerRef.current = controller;
             setAbortController(controller);
 
-            const response = await fetch('/api/chatbot', {
+            // Use the streaming endpoint if it's a pure text query. Use old endpoint for image/audio parsing.
+            const endpoint = selectedImage ? '/api/chatbot' : '/api/chatbot/stream';
+
+            const response = await fetch(endpoint, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -156,44 +161,90 @@ export function useChatActions({
                 setIsStreaming(true);
                 const reader = response.body?.getReader();
                 const decoder = new TextDecoder();
-                let botFullContent = '';
+
+                // Reset streaming state using refs so they survive React re-renders
+                streamingBotMsgIdRef.current = null;
+                streamingBotContentRef.current = '';
 
                 while (true) {
                     const { done, value } = await reader!.read();
                     if (done) break;
 
-                    const chunk = decoder.decode(value);
+                    const chunk = decoder.decode(value, { stream: true });
                     const lines = chunk.split('\n');
 
                     for (const line of lines) {
                         if (line.startsWith('data: ')) {
-                            const data = line.slice(6);
+                            const data = line.slice(6).trim();
                             if (data === '[DONE]') break;
+                            if (!data) continue;
 
                             try {
                                 const parsed = JSON.parse(data);
-                                if (parsed.text) {
-                                    botFullContent += parsed.text;
+
+                                if (parsed.escalate) {
+                                    handleConnectSupport();
+                                }
+
+                                if (parsed.autoAddToCart) {
+                                    toast.success(`AI đang tự động thêm ${parsed.autoAddToCart.length} sản phẩm vào giỏ hàng...`, { icon: '🛒' });
+                                    window.dispatchEvent(new CustomEvent('ai_add_to_cart', { detail: parsed.autoAddToCart }));
+                                }
+
+                                if (parsed.text || parsed.suggestions || parsed.productRecommendations) {
+                                    // ── IMPORTANT: mutate refs OUTSIDE setMessages updater ──
+                                    // setMessages updater must be a pure function (React may re-run it).
+                                    // All side-effects on refs must happen here in the normal event loop.
+
+                                    if (!streamingBotMsgIdRef.current) {
+                                        // First chunk: initialise the bot message
+                                        streamingBotMsgIdRef.current = uuidv4();
+                                        streamingBotContentRef.current = parsed.text || '';
+                                    } else if (parsed.text) {
+                                        // Subsequent chunks: accumulate
+                                        streamingBotContentRef.current += parsed.text;
+                                    }
+
+                                    // Snapshot stable values for the pure updater closure
+                                    const botId      = streamingBotMsgIdRef.current!;
+                                    const botContent = streamingBotContentRef.current;
+                                    const parsedSnap = parsed;
+
                                     setMessages(prev => {
-                                        const last = prev[prev.length - 1];
-                                        if (last && last.userMessage === messageText) {
+                                        const msgIndex = prev.findIndex(m => m.id === botId);
+
+                                        if (msgIndex === -1) {
+                                            // Message not in list yet → create it
                                             const newMsg: ChatMessage = {
-                                                id: uuidv4(),
+                                                id: botId,
                                                 userMessage: '',
-                                                botMessage: botFullContent,
-                                                suggestions: parsed.suggestions || [],
-                                                confidence: parsed.confidence || 1,
+                                                botMessage: botContent,
+                                                suggestions: parsedSnap.suggestions || [],
+                                                productRecommendations: parsedSnap.productRecommendations || [],
+                                                confidence: parsedSnap.confidence || 1,
                                                 timestamp: new Date().toISOString(),
-                                                data: parsed.data,
+                                                data: parsedSnap.data,
                                                 chatMode: 'AI'
                                             };
                                             return [...prev, newMsg];
                                         }
-                                        return prev;
+
+                                        // Message already in list → update it
+                                        const updatedMsg = { ...prev[msgIndex], botMessage: botContent };
+                                        if (parsedSnap.suggestions) updatedMsg.suggestions = parsedSnap.suggestions;
+                                        if (parsedSnap.productRecommendations) {
+                                            updatedMsg.productRecommendations = [
+                                                ...(updatedMsg.productRecommendations || []),
+                                                ...parsedSnap.productRecommendations
+                                            ];
+                                        }
+                                        const newArray = [...prev];
+                                        newArray[msgIndex] = updatedMsg;
+                                        return newArray;
                                     });
                                     scrollToBottom();
                                 }
-                            } catch (e) { /* partial chunk */ }
+                            } catch (e) { /* partial / malformed SSE chunk, skip */ }
                         }
                     }
                 }

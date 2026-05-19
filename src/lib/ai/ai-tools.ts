@@ -1,0 +1,495 @@
+import { z } from 'zod';
+import { prisma } from '../prisma';
+
+export const chatbotTools = {
+    searchProducts: {
+        description: `Tìm kiếm và hiển thị sản phẩm vật liệu xây dựng từ kho hàng. 
+GỌI CÔNG CỤ NÀY TRONG CÁC TRƯỜNG HỢP SAU (bắt buộc, không được bỏ qua):
+1. Người dùng hỏi về bất kỳ sản phẩm/vật tư cụ thể nào (gạch, xi măng, sơn, thép, keo, cát, đá, v.v.)
+2. Người dùng hỏi giá cả, tồn kho hoặc so sánh sản phẩm
+3. Sau khi tính toán vật liệu (calculateMaterials) → PHẢI search ngay các sản phẩm đã đề xuất
+4. Khi tư vấn cross-sell (gạch → keo chà ron, sơn → bột trét) → search từng loại
+5. Người dùng đề cập đến tên thương hiệu: Dulux, Jotun, Prime, Hà Tiên, INSEE, Hòa Phát, Việt Nhật, Sika, Kova, Weber
+6. Bất kỳ lúc nào bạn muốn CỤ THỂ HÓA lời tư vấn bằng sản phẩm thực tế có giá
+KHÔNG gọi khi: chỉ hỏi thông tin chung về quy trình/kỹ thuật xây dựng không liên quan đến mua hàng.`,
+        parameters: z.object({
+            query: z.string().describe('Tên sản phẩm, danh mục hoặc từ khóa cần tìm kiếm (VD: "xi măng", "thép", "sơn")'),
+            limit: z.number().optional().describe('Số lượng kết quả tối đa (mặc định 5)')
+        }),
+        execute: async ({ query, limit = 5 }: { query: string; limit?: number }) => {
+            console.log('=== [AI TOOL] searchProducts called with query:', query);
+            try {
+                if (!query) {
+                    return { found: false, message: 'Vui lòng cung cấp từ khóa tìm kiếm cụ thể.' };
+                }
+                const products = await prisma.product.findMany({
+                    where: {
+                        OR: [
+                            { name: { contains: query, mode: 'insensitive' } },
+                            { description: { contains: query, mode: 'insensitive' } }
+                        ],
+                        isActive: true
+                    },
+                    include: { inventoryItem: true },
+                    take: limit
+                });
+
+                if (products.length === 0) {
+                    return { found: false, message: 'Không tìm thấy sản phẩm nào phù hợp.' };
+                }
+
+                return {
+                    found: true,
+                    products: products.map(p => ({
+                        id: p.id,
+                        name: p.name,
+                        price: p.price,
+                        wholesalePrice: p.wholesalePrice,
+                        minWholesaleQty: p.minWholesaleQty,
+                        unit: p.unit,
+                        inStock: p.inventoryItem ? p.inventoryItem.availableQuantity > 0 : false,
+                        stockQuantity: p.inventoryItem?.availableQuantity || 0
+                    }))
+                };
+            } catch (error) {
+                console.error('=== [AI TOOL ERROR] searchProducts failed:', error);
+                return { found: false, message: 'Đã xảy ra lỗi khi truy vấn sản phẩm.' };
+            }
+        }
+    },
+    
+    calculateMaterials: {
+        description: 'Tính toán sơ bộ số lượng vật tư cần thiết cho một số hạng mục cơ bản dựa trên định mức.',
+        parameters: z.object({
+            area: z.number().describe('Diện tích (m2) hoặc thể tích (m3)'),
+            type: z.enum(['tuong_10', 'tuong_20', 'san_betong', 'mai_ton']).describe('Loại hạng mục thi công')
+        }),
+        execute: async ({ area, type }: { area: number; type: 'tuong_10' | 'tuong_20' | 'san_betong' | 'mai_ton' }) => {
+            // Định mức cơ bản (mang tính tham khảo)
+            switch (type) {
+                case 'tuong_10': // Tường 10cm (1m2)
+                    return {
+                        materials: [
+                            { name: 'Gạch ống 8x8x18', quantity: area * 55, unit: 'viên' },
+                            { name: 'Xi măng', quantity: area * 5.4, unit: 'kg' },
+                            { name: 'Cát xây', quantity: area * 0.02, unit: 'm3' },
+                            { name: 'Bay thợ nề', quantity: 1, unit: 'cái', isAuxiliary: true },
+                            { name: 'Thước nivo', quantity: 1, unit: 'cái', isAuxiliary: true }
+                        ],
+                        note: 'Đây là định mức tham khảo cho tường 10cm. Hệ thống đã tự gài thêm dụng cụ phụ (Bay, Thước nivo) để thi công thuận tiện.'
+                    };
+                case 'tuong_20': // Tường 20cm (1m2)
+                    return {
+                        materials: [
+                            { name: 'Gạch ống 8x8x18', quantity: area * 110, unit: 'viên' },
+                            { name: 'Xi măng', quantity: area * 10.8, unit: 'kg' },
+                            { name: 'Cát xây', quantity: area * 0.04, unit: 'm3' },
+                            { name: 'Bay thợ nề', quantity: 1, unit: 'cái', isAuxiliary: true },
+                            { name: 'Thước dọi', quantity: 1, unit: 'cái', isAuxiliary: true }
+                        ],
+                        note: 'Đây là định mức tham khảo cho tường 20cm. Đã bao gồm vật tư phụ (Bay, Thước dọi).'
+                    };
+                case 'san_betong':
+                    return {
+                        materials: [
+                            { name: 'Xi măng PC40', quantity: area * 35, unit: 'kg' },
+                            { name: 'Cát vàng', quantity: area * 0.05, unit: 'm3' },
+                            { name: 'Đá 1x2', quantity: area * 0.09, unit: 'm3' },
+                            { name: 'Bạt ni lông trải sàn', quantity: area * 1.1, unit: 'm2', isAuxiliary: true },
+                            { name: 'Thép buộc', quantity: area * 0.5, unit: 'kg', isAuxiliary: true }
+                        ],
+                        note: 'Định mức đổ sàn 10cm. Đã tự gài thêm bạt ni lông và thép buộc.'
+                    };
+                default:
+                    return { error: 'Chưa hỗ trợ định mức cho hạng mục này' };
+            }
+        }
+    },
+
+    searchKnowledgeBase: {
+        description: 'Tra cứu cơ sở dữ liệu kiến thức (Knowledge Base) để trả lời các câu hỏi về kỹ thuật thi công, hướng dẫn sử dụng, bảo quản vật liệu xây dựng (ví dụ: cách chống thấm, cách trộn vữa, quy trình thi công sơn...).',
+        parameters: z.object({
+            query: z.string().describe('Từ khóa hoặc câu hỏi cần tra cứu (VD: "cách chống thấm tường", "thi công sơn Kova")')
+        }),
+        execute: async ({ query }: { query: string }) => {
+            // Mock Vector DB Search cho Hỗ trợ kỹ thuật
+            const mockKnowledgeDB = [
+                // 1-5: Waterproofing & Dampness
+                {
+                    title: 'Xử lý tường thấm ngược từ nhà bên cạnh',
+                    content: 'B1: Đục lớp vữa cũ sát gạch đỏ. B2: Quét dung dịch chống thấm tinh thể thẩm thấu (VD: Water Seal DPC hoặc quét hồ dầu Sika Latex). B3: Trát vữa mác 75 có trộn phụ gia Latex chống thấm. B4: Chờ khô ráo hoàn toàn rồi bả matit và sơn lót kháng kiềm.',
+                    keywords: ['thấm ngược', 'thấm tường', 'nhà sát bên', 'tường giáp ranh', 'water seal', 'sika latex']
+                },
+                {
+                    title: 'Chống thấm sân thượng lộ thiên',
+                    content: 'B1: Mài nhám sàn bê tông, dọn sạch bụi. B2: Trám trét các vết nứt bằng keo polyurethane Sika Flex. B3: Quét 1 lớp lót và 2 lớp phủ chống thấm polyurethane đàn hồi (VD: Sika Raintite hoặc Kova CT-11A). B4: Kiểm tra ngâm nước 24h trước khi nghiệm thu.',
+                    keywords: ['thấm sân thượng', 'sân thượng', 'lộ thiên', 'sikaflex', 'sika raintite', 'kova ct11a', 'ngâm nước']
+                },
+                {
+                    title: 'Chống thấm nhà vệ sinh, phòng tắm',
+                    content: 'B1: Đục rộng cổ ống xuyên sàn, đổ bù bằng vữa không co ngót SikaGrout 214-11. B2: Bo góc chân tường bằng vữa trộn Sika Latex. B3: Quét 2 lớp màng chống thấm 2 thành phần (VD: Sikatop Seal 107 hoặc Mapelastic). B4: Dán lưới thủy tinh gia cố các góc chân tường.',
+                    keywords: ['thấm nhà vệ sinh', 'toilet', 'cổ ống', 'sikagrout', 'sikatop 107', 'chân tường', 'lưới thủy tinh']
+                },
+                {
+                    title: 'Xử lý thấm dột máng xối sênô bê tông',
+                    content: 'B1: Làm sạch bề mặt sênô. B2: Trét keo Silicon kháng nước hoặc quét Sika Multiseal dọc các khe tiếp giáp dột. B3: Quét phủ sơn chống thấm Acrylic Sika Raintite dầy 2 lớp dọc sênô.',
+                    keywords: ['thấm sênô', 'máng xối', 'dột sênô', 'sika multiseal', 'raintite', 'bê tông nứt']
+                },
+                {
+                    title: 'Chống thấm bể nước ăn, hồ bơi',
+                    content: 'Sử dụng các chất chống thấm không độc hại, đạt chứng chỉ an toàn nguồn nước. Khuyên dùng Sikatop Seal 107 quét 2-3 lớp vuông góc nhau lên bề mặt bê tông sạch. Sau đó tô vữa bảo vệ trước khi lát gạch men.',
+                    keywords: ['bể nước', 'hồ bơi', 'bể cá', 'nước sinh hoạt', 'an toàn', 'sikatop 107']
+                },
+
+                // 6-10: Concrete & Mortar
+                {
+                    title: 'Tỷ lệ trộn vữa xây tô chuẩn (Mác 75)',
+                    content: 'Tỷ lệ tiêu chuẩn cho 1 bao xi măng PC40: Trộn đều với 10-12 thùng cát cát vàng/cát tô (thùng sơn 18L) và khoảng 2 thùng nước sạch. Trộn khô cát và xi măng trước, sau đó đổ nước từ từ tránh vữa bị nhão.',
+                    keywords: ['trộn vữa', 'tỷ lệ', 'mác vữa', 'cát', 'nước', 'trộn xi măng', 'mác 75']
+                },
+                {
+                    title: 'Quy trình bảo dưỡng bê tông mới đổ',
+                    content: 'Bê tông sau khi đổ cần giữ ẩm liên tục. B1: Phủ bao tải ẩm hoặc nilon ngay sau khi bê tông se mặt. B2: Tưới nước nhẹ nhàng định kỳ 3-4 lần/ngày trong 7 ngày đầu. B3: Không dỡ cốp pha sàn trước 21 ngày.',
+                    keywords: ['bảo dưỡng bê tông', 'tưới nước bê tông', 'nứt bê tông', 'cốp pha', 'dỡ cốp pha', 'giữ ẩm']
+                },
+                {
+                    title: 'Xử lý vết nứt chân chim trên bề mặt bê tông',
+                    content: 'Nứt chân chim thường do mất nước nhanh khi bê tông khô ráo. Khắc phục: Vệ sinh vết nứt, quét keo epoxy gốc xi măng mỏng dẹt hoặc sử dụng chất kết nối Sika Latex trát miết chặt vào vết nứt.',
+                    keywords: ['nứt chân chim', 'nứt bê tông', 'bê tông nứt', 'keo epoxy', 'sika latex']
+                },
+                {
+                    title: 'Cách xử lý xi măng bị vón cục tại công trình',
+                    content: 'Nếu xi măng mới vón cục nhẹ (bóp nhẹ ra bột) thì vẫn dùng xây trát được nhưng phải rây bỏ hạt cứng. Nếu cục cứng ngắc như đá thì xi măng đã bị chết (hết hạn sử dụng/ẩm nước), bắt buộc phải loại bỏ, không được dùng đổ bê tông.',
+                    keywords: ['xi măng vón cục', 'xi măng chết', 'xi măng đông cứng', 'hạn sử dụng', 'rây xi măng']
+                },
+                {
+                    title: 'Cách đổ bê tông tươi đạt chuẩn Mác 250',
+                    content: 'Cấp phối chuẩn cho 1m3 bê tông Mác 250 (dùng xi măng PC40): 340kg Xi măng + 0.45m3 Cát + 0.85m3 Đá 1x2 + 185 Lít Nước sạch. Tránh đổ nước thêm tại công trường làm loãng giảm mác bê tông.',
+                    keywords: ['mác 250', 'bê tông tươi', 'cấp phối', 'đá 1x2', 'cát vàng']
+                },
+
+                // 11-15: Painting & Plastering
+                {
+                    title: 'Khắc phục hiện tượng sơn tường bị bong tróc, phồng rộp',
+                    content: 'Nguyên nhân do tường ẩm hoặc không sơn lót kháng kiềm. Khắc phục: B1: Sủi sạch lớp sơn bong tróc. B2: Để tường khô hoàn toàn. B3: Sơn lót kháng kiềm cao cấp. B4: Sơn phủ 2 lớp màu.',
+                    keywords: ['bong tróc', 'phồng rộp', 'lột sơn', 'sơn lót', 'kháng kiềm', 'sủi sơn']
+                },
+                {
+                    title: 'Chọn sơn bóng, bán bóng hay sơn mịn?',
+                    content: 'Sơn bóng dễ lau chùi, phản sáng tốt, phù hợp phòng khách, bếp nhưng dễ lộ khuyết điểm tường trát méo. Sơn mịn giá rẻ, che khuyết điểm tốt nhưng khó lau chùi, hợp cho trần nhà hoặc phòng ngủ ít va chạm.',
+                    keywords: ['sơn bóng', 'sơn mịn', 'lau chùi', 'phòng khách', 'phòng ngủ', 'trần nhà']
+                },
+                {
+                    title: 'Tại sao cần phải sơn lót kháng kiềm?',
+                    content: 'Xi măng có tính kiềm rất cao. Nếu không sơn lót, chất kiềm sẽ phá hủy màng sơn phủ gây phai màu, ố vàng, loang lổ. Sơn lót kháng kiềm hoạt động như lớp màng bảo vệ cô lập chất kiềm này.',
+                    keywords: ['kháng kiềm', 'loang màu', 'ố vàng', 'sơn lót', 'xi măng kiềm']
+                },
+                {
+                    title: 'Quy trình bả matit 2 lớp mượt đẹp',
+                    content: 'Lớp 1 bả lên tường phẳng ẩm nhẹ, chờ khô 2h rồi chà nhám sơ. Lớp 2 bả mỏng hơn để sửa các khuyết điểm lõm góc. Chờ khô 24h, dùng máy chà nhám chà thật phẳng, quét sạch bụi trước khi bắt đầu sơn lót.',
+                    keywords: ['bả matit', 'bột trét tường', 'chà nhám', 'bột bả', 'mượt tường']
+                },
+                {
+                    title: 'Độ ẩm tường bao nhiêu thì có thể sơn được?',
+                    content: 'Tiêu chuẩn sơn tường là độ ẩm phải dưới 16% (đo bằng máy đo ẩm Protimeter) hoặc tường xây xong ít nhất 21-28 ngày trong điều kiện thời tiết khô ráo khô ấm liên tục.',
+                    keywords: ['độ ẩm tường', 'bao lâu thì sơn', 'máy đo ẩm', 'tường khô', 'sơn nhà mới']
+                },
+
+                // 16-20: Iron & Steel
+                {
+                    title: 'Bảo quản sắt thép xây dựng không bị rỉ sét',
+                    content: 'Sắt thép nhập về công trình phải kê cao cách mặt đất tối thiểu 15-20cm, xếp nghiêng nhẹ để nước mưa chảy thoát thoát nhanh. Nếu để lâu ngày ngoài trời, bắt buộc phải che bạt nilon dày để tránh sương muối và nước mưa trực tiếp.',
+                    keywords: ['bảo quản sắt', 'thép rỉ sét', 'kê sắt', 'che bạt', 'rỉ sắt']
+                },
+                {
+                    title: 'Cách làm sạch rỉ sét sắt thép trước khi đổ bê tông',
+                    content: 'Nếu sắt bị rỉ vàng nhẹ thì bê tông vẫn bám dính tốt. Nếu rỉ vảy đen/đỏ dày thì phải dùng bàn chải sắt đánh sạch, hoặc phun chất tẩy rỉ sét chuyên dụng (VD: B700 hoặc Rust Converter) trước khi thi công cốt thép dầm sàn.',
+                    keywords: ['tẩy rỉ sét', 'đánh rỉ', 'b700', 'rust converter', 'bê tông bám dính']
+                },
+                {
+                    title: 'So sánh mác thép xây dựng CB300 và CB400',
+                    content: 'CB300 có giới hạn chảy tối thiểu 300 MPa, thích hợp xây nhà phố thấp tầng, công trình dân dụng nhỏ. CB400 chịu lực kéo cao hơn (400 MPa), khuyên dùng cho nhà cao tầng, móng băng dầm lớn chịu tải trọng cực cao.',
+                    keywords: ['cb300', 'cb400', 'mác thép', 'thép chịu lực', 'dầm móng']
+                },
+                {
+                    title: 'Thép phi 10 là gì, nặng bao nhiêu kg/cây?',
+                    content: 'Thép phi 10 (D10) là thép có đường kính 10mm. Theo tiêu chuẩn bar thép xây dựng Việt Nam, một cây thép phi 10 dài chuẩn 11.7m có khối lượng tịnh khoảng 7.21 kg (tương đương 0.617 kg/mét).',
+                    keywords: ['phi 10', 'd10', 'nặng bao nhiêu', 'khối lượng', '1 cây thép', '11.7m']
+                },
+                {
+                    title: 'Tại sao thép cuộn phi 6, phi 8 hay bị cân thiếu?',
+                    content: 'Thép cuộn thường được mua theo cân ký (kg). Hãy kiểm tra barem nhà sản xuất và đối chiếu khối lượng cân thực tế. Một số cửa hàng gian lận bằng cách trộn thép non tuổi hoặc thép không rõ xuất xứ có đường kính nhỏ hơn chuẩn.',
+                    keywords: ['cân thiếu', 'thép cuộn', 'phi 6', 'phi 8', 'gian lận', 'cân ký']
+                },
+
+                // 21-25: Flooring & Tiles
+                {
+                    title: 'Cách tính số lượng gạch lát nền và hao hụt',
+                    content: 'Diện tích mua gạch = (Dài x Rộng nền sàn) + 5% hao hụt do cắt xén góc. Ví dụ nền 40m2 cần mua 42m2 gạch. Quy đổi gạch 60x60 (1 hộp = 4 viên = 1.44m2) thì bạn cần đặt mua 42 / 1.44 = 29 hoặc 30 hộp gạch.',
+                    keywords: ['tính gạch', 'gạch lát nền', 'hộp gạch', 'hao hụt', '60x60', '80x80']
+                },
+                {
+                    title: 'Keo dán gạch và hồ dầu cát: Loại nào tốt hơn?',
+                    content: 'Hồ dầu dễ co ngót gây ộp và bong tróc gạch kích thước lớn (trên 60x60). Keo dán gạch chuyên dụng có độ bám dính cực cao, không co ngót, chống trượt tốt, bắt buộc phải dùng cho gạch Porcelain, Granite bóng kiếng.',
+                    keywords: ['keo dán gạch', 'hồ dầu', 'ộp gạch', 'porcelain', 'granite', 'bong gạch']
+                },
+                {
+                    title: 'Khoảng cách đường ron gạch men lát nền chuẩn',
+                    content: 'Không nên lát gạch khít khao vì gạch sẽ co giãn nhiệt gây phồng nứt. Khoảng cách ron chuẩn: 1.5mm - 2mm đối với gạch lát phẳng. Sử dụng ke cân bằng nhựa chữ thập để có đường ron thẳng tắp mượt đẹp.',
+                    keywords: ['đường ron', 'ron gạch', 'ke cân bằng', 'phồng gạch', 'giãn nở', 'chữ thập']
+                },
+                {
+                    title: 'Cách xử lý gạch men lát nền bị trầy xước nhẹ',
+                    content: 'Với vết xước mờ nhỏ: Lau sạch nền gạch, bôi kem đánh răng hoặc sáp nến đánh bóng mạnh tay bằng khăn mềm. Với vết xước dầy sâu ở gạch bóng kiếng thì phải dùng máy đánh bóng chuyên dụng hoặc thay viên gạch mới.',
+                    keywords: ['gạch trầy', 'xước gạch', 'bóng kiếng', 'đánh bóng gạch', 'sáp nến']
+                },
+                {
+                    title: 'Tại sao gạch ốp tường nhà tắm bị rơi rụng sau vài tháng?',
+                    content: 'Do thợ thi công dùng hồ dầu thông thường quét lên mặt sau gạch Porcelain ít hút nước. Giải pháp triệt để: Dùng keo dán gạch quét hai mặt (cả mặt nền tường và mặt sau viên gạch) rồi gõ đều búa cao su.',
+                    keywords: ['rụng gạch', 'gạch ốp tường', 'búa cao su', 'rơi gạch', 'nhà tắm', 'porcelain']
+                },
+
+                // 26-30: Bricks & Wall Building
+                {
+                    title: 'Khi nào xây tường 10, khi nào xây tường 20?',
+                    content: 'Tường 10cm nhẹ, tiết kiệm diện tích, hợp cho tường ngăn chia phòng ngủ trong nhà. Tường 20cm chịu lực tốt, cách âm cách nhiệt tốt, chống thấm chịu nước tốt hơn, bắt buộc phải dùng cho tường bao quanh ngoài trời và tường mặt tiền.',
+                    keywords: ['tường 10', 'tường 20', 'xây tường', 'cách âm', 'cách nhiệt', 'chịu lực']
+                },
+                {
+                    title: 'Ưu nhược điểm gạch block không nung và gạch đỏ đất nung',
+                    content: 'Gạch đỏ tuynel cách âm cách nhiệt tốt, dễ thi công khoan treo đồ đạc chắc nịch nhưng đắt hơn. Gạch block không nung kích thước to, xây nhanh, rẻ, thân thiện môi trường nhưng chịu lực va đập kém hơn và dễ nứt nẻ dọc thớ vữa.',
+                    keywords: ['gạch block', 'gạch tuynel', 'gạch đỏ', 'không nung', 'gạch đất nung']
+                },
+                {
+                    title: 'Nguyên nhân nứt tường chữ V tại các mép cửa',
+                    content: 'Nứt chéo chữ V ở góc cửa thường do lanh tô cửa đổ quá ngắn hoặc chịu lực đè nén từ trên đè xuống mà không đúc dầm lanh tô bê tông gia cố. Khắc phục: Đục rộng vết nứt, lắp lưới thép chống nứt mắt cáo rồi trát lại vữa mác cao.',
+                    keywords: ['nứt góc cửa', 'nứt chữ v', 'lanh tô', 'nứt tường', 'lưới mắt cáo']
+                },
+                {
+                    title: 'Tại sao tường xây xong bị nghiêng, không thẳng hàng?',
+                    content: 'Do thợ lười giăng dây nhợ căng mốc thẳng hoặc không thả quả dọi kiểm tra độ đứng khi xây từng hàng. Khắc phục: Phải đập đi xây lại ngay khi vữa còn chưa đông cứng hoàn toàn.',
+                    keywords: ['tường nghiêng', 'xây lệch', 'quả dọi', 'dây nhợ', 'vữa xây']
+                },
+                {
+                    title: 'Sử dụng gạch đờ-mi, gạch thẻ đập vỡ góc khi xây tường',
+                    content: 'Ở các góc tường hoặc chân móng, bắt buộc phải chèn gạch đờ-mi (gạch nửa viên) để so le thớ mạch vữa theo quy tắc mạch dọc không trùng nhau quá 3 hàng gạch liên tiếp, tăng tối đa liên kết khối tường.',
+                    keywords: ['gạch đờ mi', 'mạch vữa', 'trùng mạch', 'góc tường', 'xây gạch']
+                },
+
+                // 31-35: Roofing & Thermal
+                {
+                    title: 'Phân biệt tôn lạnh (mạ nhôm kẽm) và tôn thường',
+                    content: 'Tôn lạnh được mạ hợp kim Nhôm Kẽm chống ăn mòn cực tốt, phản xạ nhiệt tốt giúp mát nhà. Tôn thường chỉ mạ kẽm thông thường, dễ bị rỉ sét mục nát trong thời tiết ẩm ướt biển và giữ nhiệt nóng hầm hập lâu hơn.',
+                    keywords: ['tôn lạnh', 'tôn kẽm', 'mái tôn', 'nhôm kẽm', 'chống rỉ']
+                },
+                {
+                    title: 'Cách chống nóng hiệu quả cao cho mái tôn nhà phố',
+                    content: 'Khuyên dùng tôn cách nhiệt 3 lớp tôn-PU-giấy bạc (Tôn mát). Hoặc bắn bổ sung lớp túi khí cát tường cách nhiệt dưới xà gồ. Quét sơn phủ chống nóng mái tôn cũng giúp giảm 3-5 độ C bề mặt tôn.',
+                    keywords: ['chống nóng', 'tôn mát', 'tấm cách nhiệt', 'túi khí', 'sơn chống nóng', 'mái tôn']
+                },
+                {
+                    title: 'Xử lý thấm dột nước ở mũ đinh vít mái tôn',
+                    content: 'Lâu ngày đệm cao su đinh vít bị lão hóa nứt vỡ rỉ nước dột. Khắc phục: Quét sạch bụi rỉ sét quanh vít dột, bắn keo silicone ngoài trời chuyên dụng chịu nhiệt bao trùm kín đầu vít cũ, hoặc thay đinh vít mũ mới có gioăng cao su.',
+                    keywords: ['dột mái tôn', 'đinh vít', 'silicone', 'gioăng cao su', 'dột đinh', 'thấm tôn']
+                },
+                {
+                    title: 'Chọn máng xối tôn hoa sen chịu lực thoát nước mượt',
+                    content: 'Nên chọn máng xối kẽm dày tối thiểu 0.45mm trở lên của tôn Hoa Sen hoặc tôn Đông Á để chịu được lưu lượng nước mưa xối xả và không bị trũng võng nứt gãy máng.',
+                    keywords: ['máng xối', 'hoa sen', 'đông á', 'thoát nước', 'dày 0.45mm']
+                },
+                {
+                    title: 'Độ dốc mái tôn tiêu chuẩn cho thoát nước mưa nhanh',
+                    content: 'Mái lợp tôn cần độ dốc tối thiểu 10% (độ dốc chênh lệch 10cm trên 1 mét dài) để thoát nước mưa xối xả nhanh chóng, ngăn ngừa dột do tràn nước ngược ở múi nối sóng tôn.',
+                    keywords: ['độ dốc mái', 'mái tôn', 'thoát nước nhanh', 'độ dốc 10%', 'tràn sóng tôn']
+                },
+
+                // 36-40: Electrical & Plumbing
+                {
+                    title: 'Nên dùng ống nước nóng lạnh PPR hay PVC?',
+                    content: 'Ống PVC chỉ chịu được nước lạnh thông thường, dễ vỡ giòn nứt. Ống PPR chịu nhiệt tốt (lên tới 95 độ C), dẻo dai, hàn nhiệt đúc nguyên khối chống rò rỉ rạn nứt vĩnh viễn, bắt buộc dùng cho luồng nước nóng bình năng lượng mặt trời.',
+                    keywords: ['ống ppr', 'ống pvc', 'hàn nhiệt', 'rò rỉ ống', 'ống nước nóng']
+                },
+                {
+                    title: 'Tại sao góc tường nơi đặt hộp kỹ thuật hay bị ẩm mốc?',
+                    content: 'Do rò rỉ khớp nối ren ống thoát nước bên trong trục kỹ thuật hoặc thấm sàn chân hộp gen. Khắc phục: Dùng camera nội soi tìm điểm vỡ ống nước, thay ống dán keo PVC chuẩn, sau đó trát bịt sika chống thấm xung quanh.',
+                    keywords: ['hộp kỹ thuật', 'ẩm mốc', 'hộp gen', 'rò ống nước', 'thấm chân tường']
+                },
+                {
+                    title: 'Cách lựa chọn dây điện Cadivi chính hãng chịu tải ổn',
+                    content: 'Tránh mua dây giả nhái mỏng lõi đồng ít sợi. Dây Cadivi thật có chữ in rõ sắc nét trên vỏ nhựa dẻo khó đứt, lõi đồng đỏ sáng rực mềm dẻo. Nên chọn dây 2.5mm cho ổ cắm thông thường, dây 4.0mm - 6.0mm cho bếp từ và điều hòa trục chính.',
+                    keywords: ['dây điện', 'cadivi', 'chịu tải', 'bếp từ', 'lõi đồng', 'dây 2.5', 'dây 4.0']
+                },
+                {
+                    title: 'Lắp thiết bị chống giật (ELCB) cho bình nóng lạnh an toàn',
+                    content: 'Bắt buộc phải lắp Aptomat chống giật ELCB nhạy bén và nối đất vỏ máy tiếp địa cho bình nóng lạnh nhà tắm để bảo vệ an toàn tính mạng gia đình khỏi rò điện giật nguy hại.',
+                    keywords: ['chống giật', 'elcb', 'bình nóng lạnh', 'rò điện', 'tiếp địa', 'nối đất']
+                },
+                {
+                    title: 'Hiện tượng búa nước trong đường ống nước sinh hoạt',
+                    content: 'Hiện tượng ống kêu kèn kẹt rầm rầm khi ngắt đột ngột vòi nước. Cách khắc phục: Bắt chặt cố định đai kẹp sắt định vị đường ống vào tường bê tông hoặc lắp thêm van giảm áp/bình giãn nở giảm lực xung kích búa nước.',
+                    keywords: ['búa nước', 'ống nước kêu', 'van giảm áp', 'đai kẹp', 'rung ống nước']
+                },
+
+                // 41-45: Doors & Windows
+                {
+                    title: 'Cách chỉnh cửa nhôm Xingfa bị xệ cánh cọ nền',
+                    content: 'Cửa xệ do bản lề 3D bị nới lỏng hoặc xệ góc kính cường lực. Khắc phục: Dùng lục giác 4mm cạy nắp nhựa bản lề 3D, vặn ốc lục giác ngược chiều kim đồng hồ để kéo nâng cánh cửa lên cao thoát cọ nền.',
+                    keywords: ['chỉnh cửa xệ', 'xingfa', 'bản lề 3d', 'lục giác', 'cọ nền', 'cửa nhôm']
+                },
+                {
+                    title: 'Lựa chọn keo Silicone axit hay keo trung tính?',
+                    content: 'Keo axit (VD: Apollo A300) khô cực nhanh, bám dính siêu tốt, hợp dán kính nhưng gây ăn mòn rỉ sắt, nhôm, đá hoa cương. Keo trung tính (VD: Apollo A500) không ăn mòn nhôm kính gỗ, thích hợp trám khe hở ngoài trời bền bỉ.',
+                    keywords: ['keo silicone', 'apollo a300', 'apollo a500', 'keo axit', 'trung tính', 'ăn mòn nhôm']
+                },
+                {
+                    title: 'Kính cường lực bị vỡ tự nhiên không rõ nguyên nhân',
+                    content: 'Có thể do lẫn tạp chất Niken Sunfua (NiS) giãn nở đột ngột gây vỡ phá tự phát, hoặc nẹp kính quá khít chặt không có khe co giãn khi trời nóng bức. Khuyên dùng film an toàn dán kính chống văng mảnh vỡ bảo vệ.',
+                    keywords: ['kính vỡ', 'cường lực', 'vỡ tự phát', 'khe co giãn', 'film an toàn', 'niken sunfua']
+                },
+                {
+                    title: 'Tại sao cửa gỗ tự nhiên bị kẹt cứng vào mùa mưa?',
+                    content: 'Gỗ tự nhiên hút ẩm cao mùa mưa ẩm gây trương nở gỗ cọ khít khuôn cửa. Khắc phục tạm thời: Dùng máy bào bào bớt viền gỗ kẹt nhẹ. Về lâu dài cần quét phủ sơn PU bóng chống thấm ẩm kín lõi gỗ.',
+                    keywords: ['cửa gỗ kẹt', 'trương nở', 'sơn pu', 'hút ẩm', 'mùa mưa', 'máy bào']
+                },
+                {
+                    title: 'Khóa cửa tay gạt bị kẹt rít khóa khó vặn',
+                    content: 'Do khô dầu mỡ hoặc rỉ sét lò xo ổ khóa bên trong. Tránh xịt dầu nhớt xe máy cũ đóng cặn bụi đen. Nên dùng bình xịt chống rỉ RP7 hoặc bôi bột bút chì than mịn vào ổ chìa khóa để trơn tru mượt mà.',
+                    keywords: ['khóa cửa kẹt', 'rp7', 'tay gạt', 'bột bút chì', 'rỉ sét ổ khóa']
+                },
+
+                // 46-50: Site Management & Safety
+                {
+                    title: 'Bảo quản cát đá xây dựng sạch không lẫn tạp chất',
+                    content: 'Cát đá đổ bê tông cần được che chắn nilon quanh bãi tập kết để ngăn chó mèo thải phân bẩn, lá cây mục rữa hoặc bụi đất bẩn trộn lẫn làm giảm cường độ bám dính của vữa bê tông sụt giảm nghiêm trọng.',
+                    keywords: ['bảo quản cát', 'đá bẩn', 'tạp chất', 'rác thải', 'bãi đá', 'cường độ bê tông']
+                },
+                {
+                    title: 'Vệ sinh hút bụi kỹ lưỡng trước khi bả và sơn',
+                    content: 'Tường trát xong chứa nhiều bụi cát li ti. Bắt buộc thợ sơn phải dùng chổi cỏ quét sạch bụi hoặc dùng máy hút bụi thổi bay cát bẩn trước khi lăn sơn để tránh sơn bị cộm hạt sạn hoặc rộp rụng màng sơn.',
+                    keywords: ['vệ sinh tường', 'quét bụi', 'cộm cát', 'thổi bụi', 'lăn sơn sạch']
+                },
+                {
+                    title: 'Quy tắc lắp đặt giàn giáo thi công cao tầng an toàn',
+                    content: 'Chân giáo bắt buộc đặt trên tấm gỗ kê bằng vững chãi chịu lực tốt. Lắp đầy đủ thanh giằng chéo giáo, chốt khóa an toàn chắc chắn. Bắt buộc lắp lưới chống rơi xung quanh giàn giáo thi công sát nhà dân cận kề.',
+                    keywords: ['giàn giáo', 'an toàn lao động', 'thanh giằng', 'chân giáo', 'lưới chống rơi']
+                },
+                {
+                    title: 'Kiểm tra độ thẳng của tường gạch bằng dây quả dọi',
+                    content: 'Trong quá trình xây tường hàng cao, thợ cả cần liên tục thả quả dọi từ trên xà xống để đối chiếu độ đứng của các thớ gạch. Nếu sai lệch quá 5mm trên 3 mét đứng phải gõ chỉnh cân ngay lập tức tránh đổ sập.',
+                    keywords: ['quả dọi', 'độ đứng tường', 'kiểm tra tường', 'thợ cả', 'xây thẳng']
+                },
+                {
+                    title: 'Trám bịt các lỗ giáo tường xây ngoài trời chống thấm dột',
+                    content: 'Khi tháo dỡ giàn giáo, tại các vị trí đầu gỗ cắm giáo đâm xéo tường cũ, phải đục rộng gạch trầy vữa, trát đầy chặt bằng vữa trộn phụ gia kết nối chống thấm Sika Latex để ngăn thấm nước mưa ngấm sâu vào trong nhà.',
+                    keywords: ['lỗ giáo', 'giàn giáo', 'tháo giáo', 'thấm lỗ giáo', 'sika latex', 'trám lỗ']
+                }
+            ];
+
+            const found = mockKnowledgeDB.find(k => k.keywords.some(kw => query.toLowerCase().includes(kw)));
+            
+            if (found) {
+                return { found: true, data: found };
+            }
+            return { found: false, message: 'Không tìm thấy tài liệu kỹ thuật phù hợp trong cơ sở dữ liệu. Hãy khuyên khách hàng liên hệ chuyên gia.' };
+        }
+    },
+
+    escalateToHuman: {
+        description: 'Sử dụng công cụ này NGAY LẬP TỨC nếu khách hàng tỏ ra tức giận, chửi bới, muốn gặp nhân viên thật, HOẶC đang bàn về một đơn hàng số lượng rất lớn (trên 50 triệu VNĐ). Không cần giải thích nhiều, chỉ cần gọi tool này.',
+        parameters: z.object({
+            reason: z.string().describe('Lý do tại sao cần chuyển cho nhân viên (VD: "Khách bực tức", "Đơn hàng 100 tấn thép")')
+        }),
+        execute: async ({ reason }: { reason: string }) => {
+            console.log('[AI Handoff Triggered] Reason:', reason);
+            return { escalated: true, reason };
+        }
+    },
+
+    getMarketTrends: {
+        description: 'Kiểm tra biến động giá cả và dự báo thị trường (Market Trends) của các loại vật liệu xây dựng để tư vấn khách hàng mua sớm (tạo hiệu ứng FOMO). Gọi công cụ này khi khách hỏi về tình hình giá cả chung hoặc phân vân chưa mua.',
+        parameters: z.object({
+            materialType: z.string().describe('Loại vật liệu (VD: "thép", "xi măng", "cát", "gạch")')
+        }),
+        execute: async ({ materialType }: { materialType: string }) => {
+            // Sử dụng Gemini để phân tích biến động giá thực tế nhưng gài hướng sale có lợi
+            const currentMonth = new Date().getMonth() + 1;
+            // Miền Nam VN: mùa mưa từ tháng 5 đến tháng 10
+            const isRainySeason = currentMonth >= 5 && currentMonth <= 10;
+            const seasonLabel = isRainySeason ? 'Mùa mưa' : 'Mùa khô';
+
+            const candidates = [
+                'gemini-2.5-flash-lite',
+                'gemini-2.5-flash',
+                'gemini-2-flash',
+                'gemini-1.5-flash'
+            ];
+
+            const { generateObject } = await import('ai');
+            const { createGoogleGenerativeAI } = await import('@ai-sdk/google');
+            const { AI_CONFIG } = await import('../ai-config');
+
+            const google = createGoogleGenerativeAI({ apiKey: AI_CONFIG.GEMINI.API_KEY });
+
+            const schema = (await import('zod')).z.object({
+                trend: (await import('zod')).z.enum(['UP', 'DOWN', 'STABLE']).describe('Xu hướng giá trong thời gian ngắn tới'),
+                percentage: (await import('zod')).z.number().describe('Phần trăm biến động ước tính (VD: 3.5, 0, 5)'),
+                reason: (await import('zod')).z.string().describe('Lý do biến động thị trường, ngắn gọn, thuyết phục'),
+                recommendation: (await import('zod')).z.string().describe('Lời khuyên thúc giục khách chốt đơn ngay, phù hợp mùa vụ')
+            });
+
+            for (const modelName of candidates) {
+                try {
+                    const { object } = await generateObject({
+                        model: google(modelName),
+                        maxRetries: 0,
+                        system: `Bạn là chuyên gia phân tích thị trường vật liệu xây dựng Việt Nam.
+Nhiệm vụ: đưa ra dự báo xu hướng giá cả cho loại vật tư được yêu cầu.
+QUY TẮC BẮT BUỘC:
+1. Phân tích dựa trên thời điểm HIỆN TẠI là tháng ${currentMonth}/${new Date().getFullYear()} (${seasonLabel} tại miền Nam VN).
+2. Tư vấn phải PHÙ HỢP THỰC TẾ với mùa vụ:
+   - Mùa mưa (T5-T10): KHÔNG khuyên nhập hàng ồ ạt xi măng/cát vì dễ ẩm hỏng. Gợi ý mua gom sỉ giữ giá, shop giao hàng chia đợt nhỏ khi trời ráo.
+   - Mùa khô (T11-T4): Mùa xây dựng cao điểm, có thể khuyên nhập thoải mái số lượng lớn.
+3. KHÉO LÉO tạo hiệu ứng FOMO thúc đẩy chốt đơn, nhưng thông tin phải hợp lý và không mâu thuẫn với mùa vụ.
+4. Trả về JSON chính xác theo schema.`,
+                        prompt: `Phân tích dự báo thị trường cho vật liệu: "${materialType}" trong bối cảnh tháng ${currentMonth} (${seasonLabel}).`,
+                        schema
+                    });
+
+                    console.log(`[getMarketTrends] Model "${modelName}" succeeded.`);
+                    return { data: object, season: seasonLabel, month: currentMonth };
+                } catch (err: any) {
+                    console.warn(`[getMarketTrends] Model "${modelName}" failed:`, err?.message || err);
+                }
+            }
+
+            console.error('[getMarketTrends] All models exhausted, using contextual fallback.');
+            // Fallback phù hợp theo mùa
+            const rainyFallback = isRainySeason
+                ? 'Mùa mưa nên tránh nhập ồ ạt để bảo quản hàng. Hãy chốt hợp đồng sỉ để giữ giá, cửa hàng hỗ trợ giao hàng nhiều đợt nhỏ khi trời ráo.'
+                : 'Mùa xây dựng cao điểm, nhu cầu cao, nên nhập sớm số lượng lớn để đảm bảo tiến độ và hưởng giá tốt.';
+            const mockTrends: Record<string, any> = {
+                'thép': { trend: 'UP', percentage: 3.5, reason: 'quặng sắt thế giới tăng giá, nhu cầu xuất khẩu cao', recommendation: rainyFallback },
+                'xi măng': { trend: 'STABLE', percentage: 0, reason: 'chính sách bình ổn giá trong nước', recommendation: rainyFallback },
+                'cát': { trend: 'UP', percentage: 4.0, reason: 'nguồn cung bị siết chặt do quản lý khai thác', recommendation: rainyFallback },
+                'gạch': { trend: 'DOWN', percentage: 1.5, reason: 'nhà máy tung khuyến mãi xả kho cuối vụ', recommendation: rainyFallback },
+                'sơn': { trend: 'STABLE', percentage: 1.0, reason: 'giá nguyên liệu đầu vào ổn định', recommendation: rainyFallback },
+            };
+            const key = Object.keys(mockTrends).find(k => materialType.toLowerCase().includes(k)) || 'thép';
+            return { data: mockTrends[key], season: seasonLabel, month: currentMonth, fallback: true };
+        }
+    },
+
+    addToCart: {
+        description: 'Sử dụng công cụ này KHI VÀ CHỈ KHI khách hàng yêu cầu cụ thể "Thêm vào giỏ", "Mua món này", "Lấy cho anh..." với số lượng rõ ràng. Trả về kết quả để hệ thống giao diện tự động thao tác.',
+        parameters: z.object({
+            items: z.array(z.object({
+                productId: z.string().describe('ID sản phẩm tìm được qua searchProducts'),
+                quantity: z.number().describe('Số lượng muốn thêm'),
+                name: z.string().describe('Tên sản phẩm')
+            }))
+        }),
+        execute: async ({ items }: { items: any[] }) => {
+            return { success: true, addedItems: items, message: `Đã tự động chuẩn bị thêm ${items.length} mặt hàng vào giỏ.` };
+        }
+    }
+};

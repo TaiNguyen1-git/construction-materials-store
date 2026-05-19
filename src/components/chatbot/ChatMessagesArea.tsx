@@ -68,7 +68,7 @@ export const ChatMessagesArea: React.FC<ChatMessagesAreaProps> = (props) => {
         hasMore, isLoadingMore, loadMore
     } = props;
 
-    const displayMessages = messages.filter(m => (m.chatMode || 'AI') === chatMode);
+    const displayMessages = messages;
 
     return (
         <div

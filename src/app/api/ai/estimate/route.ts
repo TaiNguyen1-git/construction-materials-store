@@ -3,106 +3,126 @@
  * POST /api/ai/estimate
  */
 
-import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { checkRateLimit, getRateLimitIdentifier, RateLimitConfigs } from '@/lib/rate-limiter'
+import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
+import { checkRateLimit, getRateLimitIdentifier, RateLimitConfigs } from '@/lib/rate-limiter';
+import { generateObject } from 'ai';
+import { createGoogleGenerativeAI } from '@ai-sdk/google';
+import { z } from 'zod';
+import { AI_CONFIG } from '@/lib/ai-config';
 
-// Simulated AI logic for matching materials
-// In a real scenario, this would call OpenAI or Gemini via Vercel AI SDK
+const google = createGoogleGenerativeAI({
+    apiKey: AI_CONFIG.GEMINI.API_KEY
+});
+
 export async function POST(request: NextRequest) {
     try {
-        const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || request.headers.get('x-real-ip') || 'unknown'
-        const rateLimitId = getRateLimitIdentifier(ip, undefined, 'ai_estimate')
-        const rateLimitResult = await checkRateLimit(rateLimitId, RateLimitConfigs.AI_API.GUEST)
+        const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || request.headers.get('x-real-ip') || 'unknown';
+        const rateLimitId = getRateLimitIdentifier(ip, undefined, 'ai_estimate');
+        const rateLimitResult = await checkRateLimit(rateLimitId, RateLimitConfigs.AI_API.GUEST);
 
         if (!rateLimitResult.allowed) {
-             return NextResponse.json(
-                 { error: { message: 'Bạn đã vượt quá số lần yêu cầu. Vui lòng thử lại sau.' } },
-                 { status: 429 }
-             )
+            return NextResponse.json(
+                { error: { message: 'Bạn đã vượt quá số lần yêu cầu. Vui lòng thử lại sau.' } },
+                { status: 429 }
+            );
         }
 
-        const body = await request.json()
-        const { description, projectType, area } = body
+        const body = await request.json();
+        const { description, projectType, area } = body;
 
         if (!description) {
-            return NextResponse.json({ error: 'Description is required' }, { status: 400 })
+            return NextResponse.json({ error: 'Description is required' }, { status: 400 });
         }
 
-        // 1. In a real app, we'd send 'description' to AI to get a JSON of materials
-        // Example AI output: [{ name: 'Xi măng', quantity: 50, unit: 'bao' }, { name: 'Cát xây', quantity: 10, unit: 'm3' }]
+        // 1. Dùng Vercel AI SDK và Zod Schema để đảm bảo đầu ra có cấu trúc chuẩn xác
+        const { object } = await generateObject({
+            model: google(AI_CONFIG.GEMINI.MODEL || 'gemini-2.5-flash'),
+            system: 'Bạn là một chuyên gia dự toán vật liệu xây dựng. Hãy phân tích yêu cầu của khách hàng, loại công trình và diện tích để tính toán các vật liệu chính cần thiết. QUAN TRỌNG: Phải luôn tự động bóc tách thêm các "vật tư phụ" (Cross-selling) đi kèm. Ví dụ: xây tường thì phải có xi măng, cát; ốp gạch thì phải có keo chà ron, ke cân bằng; sơn tường phải có rulo, cọ quét, giấy nhám. Trả về kết quả dưới dạng JSON.',
+            prompt: `Phân tích yêu cầu sau:
+            - Yêu cầu: ${description}
+            - Loại công trình: ${projectType || 'Không xác định'}
+            - Diện tích/Quy mô: ${area ? area + ' m2' : 'Không xác định'}`,
+            schema: z.object({
+                summary: z.string().describe('Tóm tắt ngắn gọn về công trình và các hạng mục cần thi công.'),
+                materials: z.array(z.object({
+                    genericName: z.string().describe('Tên chung của vật liệu chính hoặc vật tư phụ (ví dụ: "Xi măng PC40", "Gạch ống 8x8x18", "Keo chà ron", "Rulo lăn sơn")'),
+                    estimatedQuantity: z.number().describe('Số lượng dự toán dựa trên định mức xây dựng'),
+                    unit: z.string().describe('Đơn vị tính (ví dụ: "bao", "viên", "m3", "kg", "cái")'),
+                    reason: z.string().describe('Lý do tại sao cần vật liệu này (đặc biệt là vật tư phụ)')
+                }))
+            })
+        });
 
-        // For demonstration, let's use a keyword matching logic that simulates AI extraction
-        const materialKeywords = [
-            { key: 'xi măng', name: 'Xi măng' },
-            { key: 'gạch', name: 'Gạch' },
-            { key: 'cát', name: 'Cát' },
-            { key: 'đá', name: 'Đá' },
-            { key: 'sắt', name: 'Sắt' },
-            { key: 'thép', name: 'Thép' },
-            { key: 'sơn', name: 'Sơn' },
-            { key: 'điện', name: 'Dây điện' },
-            { key: 'ống', name: 'Ống nước' },
-            { key: 'gỗ', name: 'Gỗ' },
-            { key: 'thạch cao', name: 'Thạch cao' }
-        ]
+        const detectedMaterials = object.materials;
 
-        const detectedMaterials = materialKeywords.filter(m =>
-            description.toLowerCase().includes(m.key)
-        )
-
-        // 2. Match with real products in DB
+        // 2. Match with real products in DB based on AI extraction
         const recommendations = await Promise.all(
             detectedMaterials.map(async (detected) => {
+                // Tách từ khóa để tìm kiếm tốt hơn
+                const searchKeyword = detected.genericName.split(' ')[0]; // Lấy chữ đầu tiên để tìm rộng hơn (vd: Gạch, Xi)
+                
                 const products = await prisma.product.findMany({
                     where: {
                         OR: [
-                            { name: { contains: detected.name, mode: 'insensitive' } },
-                            { description: { contains: detected.name, mode: 'insensitive' } }
+                            { name: { contains: detected.genericName, mode: 'insensitive' } },
+                            { name: { contains: searchKeyword, mode: 'insensitive' } }
                         ],
                         isActive: true
                     },
                     take: 2,
                     include: {
                         category: true
+                    },
+                    orderBy: {
+                        price: 'asc' // Ưu tiên gợi ý loại rẻ/phổ thông
                     }
-                })
+                });
 
                 if (products.length > 0) {
-                    // Calculate an estimated quantity based on area if provided
-                    // This is a dummy multiplier for demo
-                    const baseQty = area ? parseFloat(area) * 0.5 : 10
-
                     return products.map(p => ({
                         productId: p.id,
                         name: p.name,
                         price: p.price,
                         unit: p.unit,
                         category: p.category?.name,
-                        recommendedQty: Math.ceil(baseQty),
-                        confidence: 0.85 + (Math.random() * 0.1), // Simulated AI confidence score
-                        reason: `Dựa trên yêu cầu ${detected.name} cho công trình ${projectType || 'xây dựng'}.`
-                    }))
+                        recommendedQty: Math.ceil(detected.estimatedQuantity),
+                        confidence: 0.95,
+                        reason: detected.reason,
+                        isAvailable: true
+                    }));
                 }
-                return []
+                
+                // Trả về vật tư dưới dạng "Gợi ý tham khảo" nếu không có sẵn trong Cửa hàng
+                return [{
+                    productId: null,
+                    name: detected.genericName,
+                    price: 0,
+                    unit: detected.unit,
+                    category: 'Vật tư phụ',
+                    recommendedQty: Math.ceil(detected.estimatedQuantity),
+                    confidence: 0.5,
+                    reason: detected.reason,
+                    isAvailable: false
+                }];
             })
-        )
+        );
 
-        const flattened = recommendations.flat()
+        const flattened = recommendations.flat();
 
         return NextResponse.json({
             success: true,
             data: {
-                summary: `Hệ thống AI đã phân tích nội dung và tìm thấy ${detectedMaterials.length} nhóm vật tư phù hợp.`,
+                summary: object.summary,
                 recommendations: flattened
             }
-        })
+        });
 
     } catch (error) {
-        console.error('AI Estimation Error:', error)
+        console.error('AI Estimation Error:', error);
         return NextResponse.json(
             { error: { message: 'Lỗi khi xử lý AI' } },
             { status: 500 }
-        )
+        );
     }
 }

@@ -38,6 +38,23 @@ const RenderText = React.memo(({ text }: { text: string }) => {
 
                 const linkMatch = part.match(/\[(.*?)\]\((.*?)\)/);
                 if (linkMatch) {
+                    const isAiEstimator = linkMatch[2] === '/estimator' || linkMatch[2].includes('/estimator');
+                    if (isAiEstimator) {
+                        return (
+                            <div key={i} className="my-3 flex justify-start">
+                                <a
+                                    href={linkMatch[2]}
+                                    className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold px-5 py-3 rounded-2xl shadow-lg shadow-blue-500/20 active:scale-95 transition-all text-[13px] border border-blue-400/20 group"
+                                >
+                                    <svg viewBox="0 0 24 24" className="w-4 h-4 fill-none stroke-current stroke-2 group-hover:rotate-12 transition-transform">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                    </svg>
+                                    {linkMatch[1]}
+                                    <ExternalLink className="w-3.5 h-3.5 opacity-80" />
+                                </a>
+                            </div>
+                        );
+                    }
                     return (
                         <a
                             key={i}
@@ -57,22 +74,6 @@ const RenderText = React.memo(({ text }: { text: string }) => {
     );
 });
 
-const StreamingText = ({ text }: { text: string }) => {
-    const [displayedText, setDisplayedText] = React.useState('')
-    const [currentIndex, setCurrentIndex] = React.useState(0)
-
-    React.useEffect(() => {
-        if (currentIndex < text.length) {
-            const timeout = setTimeout(() => {
-                setDisplayedText(prev => prev + text[currentIndex])
-                setCurrentIndex(prev => prev + 1)
-            }, 5) // Very fast for 2026 feel
-            return () => clearTimeout(timeout)
-        }
-    }, [currentIndex, text])
-
-    return <RenderContent text={displayedText} />
-}
 
 const RenderContent = React.memo(({ text }: { text: string }) => {
     const lines = text.split('\n');
@@ -331,11 +332,7 @@ export default function MessageBubble({
                             </button>
 
                             <div className="text-gray-900 relative z-10 pt-1">
-                                {isLast ? (
-                                    <StreamingText text={message.botMessage} />
-                                ) : (
-                                    <RenderContent text={message.botMessage} />
-                                )}
+                                <RenderContent text={message.botMessage} />
                             </div>
 
                             {message.botImage && (
