@@ -19,6 +19,40 @@ export const PROJECT_TYPES: ProjectType[] = [
     { id: 'general', name: 'Tổng quát', icon: Hammer, color: 'bg-orange-500' },
 ]
 
+export interface BuildingTypeGroup {
+    group: string
+    emoji: string
+    types: string[]
+}
+
+export const BUILDING_TYPES: BuildingTypeGroup[] = [
+    {
+        group: 'Nhà ở dân dụng',
+        emoji: '🏠',
+        types: ['Nhà cấp 4', 'Nhà 1 lầu', 'Nhà 2 lầu', 'Nhà 3 lầu', 'Nhà phố / nhà ống', 'Biệt thự / Villa', 'Chung cư / Căn hộ', 'Nhà sàn', 'Nhà container / tiền chế']
+    },
+    {
+        group: 'Thương mại & Dịch vụ',
+        emoji: '🏢',
+        types: ['Văn phòng', 'Khách sạn / Homestay', 'Nhà hàng / Quán cà phê', 'Siêu thị / Showroom', 'Cửa hàng / Kiot', 'Garage / Xưởng nhỏ']
+    },
+    {
+        group: 'Công nghiệp',
+        emoji: '🏭',
+        types: ['Nhà xưởng sản xuất', 'Kho bãi / Kho lạnh', 'Nhà máy']
+    },
+    {
+        group: 'Công cộng & Hạ tầng',
+        emoji: '🏛️',
+        types: ['Trường học', 'Bệnh viện / Trạm y tế', 'Đình / Chùa / Nhà thờ', 'Công viên / Sân thể thao', 'Hồ bơi', 'Nhà vệ sinh công cộng']
+    },
+    {
+        group: 'Hạng mục lẻ',
+        emoji: '🔧',
+        types: ['Hàng rào / Tường rào', 'Bể nước / Bể phốt', 'Sân bê tông / Đường nội bộ', 'Hầm xe / Tầng hầm', 'Mái che / Sân thượng', 'Bờ kè / Taluy']
+    },
+]
+
 export const LOADING_PHASES = [
     'Đang khởi tạo hệ thống AI...',
     'Đang quét hình ảnh bản vẽ...',

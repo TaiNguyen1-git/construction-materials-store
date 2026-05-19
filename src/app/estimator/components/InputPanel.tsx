@@ -1,12 +1,14 @@
 'use client'
 
 import React from 'react'
-import { Ruler, ImageIcon, Upload, X, Plus, Sparkles, Loader2, Zap } from 'lucide-react'
-import { PROJECT_TYPES } from '../types'
+import { Ruler, ImageIcon, Upload, X, Plus, Sparkles, Loader2, Zap, Building2 } from 'lucide-react'
+import { PROJECT_TYPES, BUILDING_TYPES } from '../types'
 
 interface InputPanelProps {
     projectType: string
     setProjectType: (val: any) => void
+    buildingType: string
+    setBuildingType: (val: string) => void
     inputMode: 'text' | 'image'
     setInputMode: (val: 'text' | 'image') => void
     description: string
@@ -21,19 +23,65 @@ interface InputPanelProps {
 
 export default function InputPanel({
     projectType, setProjectType,
+    buildingType, setBuildingType,
     inputMode, setInputMode,
     description, setDescription,
     imagesPreview, onImageUpload, onRemoveImage,
     onEstimate, loading,
     fileInputRef
 }: InputPanelProps) {
+
     return (
         <div className="space-y-4 animate-in fade-in slide-in-from-left-4 duration-500">
+            {/* Bước 0: Loại công trình */}
+            <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-sm hover:shadow-md transition-shadow">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.25em] mb-4 flex items-center gap-2">
+                    <span className="w-1 h-4 bg-emerald-500 rounded-full inline-block" />
+                    Bước 1 · Loại công trình
+                </p>
+                <div className="relative">
+                    <Building2 className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none z-10" />
+                    <select
+                        value={buildingType}
+                        onChange={(e) => setBuildingType(e.target.value)}
+                        className={`w-full pl-10 pr-4 py-3 rounded-2xl border-2 text-sm font-semibold outline-none transition-all appearance-none bg-white
+                            ${buildingType
+                                ? 'border-emerald-400 text-slate-800 bg-emerald-50/30'
+                                : 'border-slate-200 text-slate-400'
+                            } focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100`}
+                    >
+                        <option value="">-- Chọn loại công trình --</option>
+                        {BUILDING_TYPES.map((group) => (
+                            <optgroup key={group.group} label={`${group.emoji} ${group.group}`}>
+                                {group.types.map((type) => (
+                                    <option key={type} value={type}>{type}</option>
+                                ))}
+                            </optgroup>
+                        ))}
+                    </select>
+                    <div className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none">
+                        <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                    </div>
+                </div>
+                {!buildingType && (
+                    <p className="text-[10px] text-amber-500 font-bold mt-2 flex items-center gap-1">
+                        <span>⚠️</span> Chọn loại công trình để AI tính định mức chính xác hơn
+                    </p>
+                )}
+                {buildingType && (
+                    <p className="text-[10px] text-emerald-600 font-bold mt-2 flex items-center gap-1">
+                        <span>✓</span> AI sẽ áp dụng định mức cho: <span className="underline">{buildingType}</span>
+                    </p>
+                )}
+            </div>
+
             {/* Project Type Selection */}
             <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-sm hover:shadow-md transition-shadow">
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.25em] mb-5 flex items-center gap-2">
                     <span className="w-1 h-4 bg-indigo-500 rounded-full inline-block"></span>
-                    Bước 1 · Loại công việc
+                    Bước 2 · Loại công việc
                 </p>
                 <div className="grid grid-cols-2 gap-3">
                     {PROJECT_TYPES.map((type) => (
@@ -65,8 +113,8 @@ export default function InputPanel({
             {/* Input Mode & Content */}
             <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-sm hover:shadow-md transition-shadow space-y-5">
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.25em] flex items-center gap-2">
-                    <span className="w-1 h-4 bg-indigo-500 rounded-full inline-block"></span>
-                    Bước 2 · Dữ liệu đầu vào
+                    <span className="w-1 h-4 bg-indigo-500 rounded-full inline-block" />
+                    Bước 3 · Dữ liệu đầu vào
                 </p>
 
                 {/* Tab Toggle */}

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { prisma } from '../prisma';
+import { generateContentWithFallback, extractTextFromSDKResult } from './ai-client';
 
 export const chatbotTools = {
     searchProducts: {
@@ -59,12 +60,22 @@ KHÔNG gọi khi: chỉ hỏi thông tin chung về quy trình/kỹ thuật xây
     },
     
     calculateMaterials: {
-        description: 'Tính toán sơ bộ số lượng vật tư cần thiết cho một số hạng mục cơ bản dựa trên định mức.',
+        description: `Tính toán sơ bộ số lượng vật tư cần thiết dựa trên định mức xây dựng Việt Nam.
+GỌI TOOL NÀY NGAY (không hỏi lại) khi khách đề cập:
+- Diện tích/quy mô công trình (100m2, 200m2, nhà 3 tầng...)
+- Số lượng vật tư cho thép cuộn/thép cốt thép xây dựng
+- Hỏi "cần bao nhiêu" vật tư cho công trình
+CÁC TYPE HỖ TRỢ:
+- tuong_10: Xây tường gạch 10cm
+- tuong_20: Xây tường gạch 20cm  
+- san_betong: Đổ sàn bê tông
+- thep_cuon: Thép cuộn/cốt thép cho công trình (dầm, cột, móng, sàn)
+- nha_cap_4: Dự toán tổng hợp nhà cấp 4 (xi măng + thép + gạch + cát đá)`,
         parameters: z.object({
-            area: z.number().describe('Diện tích (m2) hoặc thể tích (m3)'),
-            type: z.enum(['tuong_10', 'tuong_20', 'san_betong', 'mai_ton']).describe('Loại hạng mục thi công')
+            area: z.number().describe('Diện tích (m2) hoặc thể tích (m3). Ví dụ: 200 cho 200m2'),
+            type: z.enum(['tuong_10', 'tuong_20', 'san_betong', 'thep_cuon', 'nha_cap_4']).describe('Loại hạng mục: thep_cuon cho thép xây dựng, nha_cap_4 cho nhà tổng hợp')
         }),
-        execute: async ({ area, type }: { area: number; type: 'tuong_10' | 'tuong_20' | 'san_betong' | 'mai_ton' }) => {
+        execute: async ({ area, type }: { area: number; type: 'tuong_10' | 'tuong_20' | 'san_betong' | 'thep_cuon' | 'nha_cap_4' }) => {
             // Định mức cơ bản (mang tính tham khảo)
             switch (type) {
                 case 'tuong_10': // Tường 10cm (1m2)
@@ -100,9 +111,306 @@ KHÔNG gọi khi: chỉ hỏi thông tin chung về quy trình/kỹ thuật xây
                         ],
                         note: 'Định mức đổ sàn 10cm. Đã tự gài thêm bạt ni lông và thép buộc.'
                     };
+                case 'thep_cuon': {
+                    // Định mức thép cuộn xây dựng tổng hợp (dầm, cột, móng, sàn) cho công trình dân dụng
+                    // Trung bình 80-120kg thép/m2 sàn tuỳ kết cấu
+                    const thepPhi10 = Math.ceil(area * 45); // thép phi 10 cho đan sàn
+                    const thepPhi12 = Math.ceil(area * 30); // thép phi 12 cho dầm phụ
+                    const thepPhi16 = Math.ceil(area * 20); // thép phi 16 cho cột dầm chính
+                    const thepPhi6  = Math.ceil(area * 10); // thép phi 6 cốt đai
+                    const tongThep  = thepPhi10 + thepPhi12 + thepPhi16 + thepPhi6;
+                    return {
+                        materials: [
+                            { name: 'Thép cuộn phi 6 (cốt đai, bẻ móc)', quantity: thepPhi6, unit: 'kg' },
+                            { name: 'Thép cây phi 10 (đan sàn)', quantity: thepPhi10, unit: 'kg' },
+                            { name: 'Thép cây phi 12 (dầm phụ)', quantity: thepPhi12, unit: 'kg' },
+                            { name: 'Thép cây phi 16 (cột, dầm chính)', quantity: thepPhi16, unit: 'kg' },
+                            { name: 'Dây buộc thép (kẽm buộc)', quantity: Math.ceil(tongThep * 0.005), unit: 'kg', isAuxiliary: true },
+                            { name: 'Miếng kê thép (con kê bê tông)', quantity: Math.ceil(area * 4), unit: 'viên', isAuxiliary: true }
+                        ],
+                        totalSteel: `~${tongThep}kg (~${(tongThep / 1000).toFixed(1)} tấn)`,
+                        note: `Định mức tổng hợp cho công trình ${area}m² (dầm + cột + móng + sàn). Tổng thép ước tính: ~${tongThep}kg (~${(tongThep/1000).toFixed(1)} tấn). Đã bao gồm dây buộc và con kê. Có thể điều chỉnh tuỳ kết cấu thực tế.`
+                    };
+                }
+                case 'nha_cap_4': {
+                    // Định mức tổng hợp nhà cấp 4 tiêu chuẩn
+                    return {
+                        materials: [
+                            { name: 'Xi măng đa dụng PC40', quantity: Math.ceil(area * 8), unit: 'bao (50kg)' },
+                            { name: 'Cát xây tô', quantity: Math.ceil(area * 0.3), unit: 'm3' },
+                            { name: 'Đá 1x2 đổ móng/sàn', quantity: Math.ceil(area * 0.15), unit: 'm3' },
+                            { name: 'Gạch ống 8x8x18', quantity: Math.ceil(area * 80), unit: 'viên' },
+                            { name: 'Thép cuộn phi 10 (cốt thép tổng hợp)', quantity: Math.ceil(area * 40), unit: 'kg' },
+                            { name: 'Thép phi 6 (đai cột, móc bẻ)', quantity: Math.ceil(area * 15), unit: 'kg' }
+                        ],
+                        note: `Định mức sơ bộ nhà cấp 4 diện tích ${area}m². Đây là ước tính tổng hợp, cần điều chỉnh theo bản vẽ thiết kế thực tế.`
+                    };
+                }
                 default:
-                    return { error: 'Chưa hỗ trợ định mức cho hạng mục này' };
+                    return { 
+                        error: 'Chưa hỗ trợ hạng mục này.',
+                        supported: ['tuong_10', 'tuong_20', 'san_betong', 'thep_cuon', 'nha_cap_4']
+                    };
             }
+        }
+    },
+
+    compareProducts: {
+        description: `So sánh 2 sản phẩm/vật liệu xây dựng và đưa ra gợi ý phù hợp dựa trên nhiều điều kiện thực tế.
+GỌI TOOL NÀY KHI:
+- Khách hỏi "X hay Y tốt hơn?", "khác nhau gì?", "nên dùng cái nào?", "cái nào phù hợp?"
+- Khách đang phân vân giữa 2 loại vật liệu hoặc 2 thương hiệu
+QUAN TRỌNG: Tool có 3 cấp fallback: (1) Knowledge base nội bộ → (2) Database giá thực tế → (3) Gemini AI có guardrail chống hallucination.
+Trước khi gọi tool, hãy thu thập thêm context: không gian (trong/ngoài nhà), mục đích sử dụng, ngân sách nếu chưa có.
+Sau khi so sánh → gọi searchProducts cho sản phẩm được khuyến nghị.`,
+        parameters: z.object({
+            productA: z.string().describe('Vật liệu/sản phẩm thứ nhất'),
+            productB: z.string().describe('Vật liệu/sản phẩm thứ hai'),
+            space: z.enum(['indoor', 'outdoor', 'both', 'unknown']).optional()
+                .describe('Không gian sử dụng: indoor=trong nhà, outdoor=ngoài trời, both=cả hai, unknown=chưa rõ'),
+            purpose: z.string().optional()
+                .describe('Mục đích cụ thể (VD: "chống thấm", "lát nền bếp", "tô tường phòng ngủ", "xây cột chịu lực")'),
+            budget: z.enum(['economy', 'standard', 'premium', 'unknown']).optional()
+                .describe('Ngân sách: economy=tiết kiệm, standard=phổ thông, premium=cao cấp'),
+            buildingType: z.string().optional()
+                .describe('Loại công trình (VD: "nhà phố", "nhà xưởng", "nhà vệ sinh")')
+        }),
+        execute: async ({ productA, productB, space = 'unknown', purpose, budget = 'unknown', buildingType }: {
+            productA: string; productB: string;
+            space?: 'indoor' | 'outdoor' | 'both' | 'unknown';
+            purpose?: string; budget?: 'economy' | 'standard' | 'premium' | 'unknown';
+            buildingType?: string;
+        }) => {
+            console.log(`=== [AI TOOL] compareProducts: "${productA}" vs "${productB}" | space=${space} purpose=${purpose} budget=${budget}`);
+
+            // Built-in expert knowledge base for common comparisons
+            const knowledgeBase: Record<string, {
+                summary: string;
+                itemA: { pros: string[]; cons: string[]; bestFor: string };
+                itemB: { pros: string[]; cons: string[]; bestFor: string };
+                recommendation: string;
+                priceRange: { a: string; b: string };
+            }> = {
+                'xi_mang_trang_bot_tret': {
+                    summary: 'Xi măng trắng và bột trét đều dùng để hoàn thiện bề mặt tường nhưng khác nhau hoàn toàn về công năng.',
+                    itemA: {
+                        pros: ['Cứng chắc, chống nước tốt hơn', 'Bám dính cao', 'Phù hợp tô trát bề mặt thô', 'Giá rẻ hơn bột trét'],
+                        cons: ['Bề mặt sau khi khô không mịn đẹp', 'Khó sơn phủ trực tiếp', 'Dễ nứt nẻ nếu không bảo dưỡng đúng'],
+                        bestFor: 'Tô trát tường thô, làm lớp nền trước khi bả bột trét, ốp lát'
+                    },
+                    itemB: {
+                        pros: ['Bề mặt siêu mịn phẳng sau khi bả', 'Dễ thi công, bám tường tốt', 'Tiết kiệm sơn phủ', 'Bề mặt đẹp sau khi sơn'],
+                        cons: ['Không chịu nước tốt bằng xi măng', 'Giá cao hơn', 'Không thay thế được lớp tô trát thô'],
+                        bestFor: 'Làm phẳng bề mặt tường trước khi sơn, hoàn thiện nội thất'
+                    },
+                    recommendation: 'Dùng ĐỒng THỜI: xi măng trắng tô trát thô → bột trét bả mịn → sơn phủ. Không thể thay thế lẫn nhau.',
+                    priceRange: { a: '~80.000–120.000đ/bao 25kg', b: '~90.000–150.000đ/bao 20kg' }
+                },
+                'son_noi_that_son_ngoai_that': {
+                    summary: 'Sơn nội thất và ngoại thất khác nhau về thành phần chống UV và chống thấm.',
+                    itemA: {
+                        pros: ['Màu sắc phong phú, đẹp hơn', 'Ít mùi hơn', 'Giá thấp hơn', 'An toàn trong nhà'],
+                        cons: ['Không chịu được mưa nắng', 'Phai màu nhanh nếu dùng ngoài trời', 'Không chống thấm'],
+                        bestFor: 'Tường trong nhà: phòng ngủ, phòng khách, hành lang nội bộ'
+                    },
+                    itemB: {
+                        pros: ['Chống UV, chống mưa nắng', 'Chống thấm tốt', 'Bền màu 5-10 năm ngoài trời', 'Chống rêu mốc'],
+                        cons: ['Màu ít hơn', 'Giá cao hơn 30-50%', 'Mùi nặng hơn khi thi công'],
+                        bestFor: 'Tường ngoài nhà, sân thượng, hàng rào, mái hiên'
+                    },
+                    recommendation: 'Chọn theo VỊ TRÍ: trong nhà → nội thất; ngoài trời/ẩm ướt → ngoại thất. KHÔNG dùng nội thất cho tường ngoài.',
+                    priceRange: { a: '~250.000–450.000đ/thùng 5L', b: '~350.000–650.000đ/thùng 5L' }
+                },
+                'keo_dan_gach_ho_vua': {
+                    summary: 'Keo dán gạch và hồ vữa xi măng đều dùng để ốp/lát gạch nhưng keo cho chất lượng vượt trội.',
+                    itemA: {
+                        pros: ['Bám dính mạnh gấp 3-5 lần hồ thường', 'Chống thấm tốt', 'Độ co ngót thấp, ít nứt', 'Phù hợp gạch lớn 60x60, 80x80'],
+                        cons: ['Giá cao hơn hồ vữa', 'Cần trộn đúng tỷ lệ'],
+                        bestFor: 'Ốp tường cao, lát gạch lớn, nhà vệ sinh, ban công, ngoài trời'
+                    },
+                    itemB: {
+                        pros: ['Giá rẻ hơn nhiều', 'Dễ trộn tại chỗ', 'Phổ biến, quen thuộc'],
+                        cons: ['Bám dính yếu hơn keo', 'Dễ rỗng bọt bên dưới gạch', 'Không phù hợp gạch lớn', 'Dễ thấm nước'],
+                        bestFor: 'Lát gạch nhỏ 20x20-30x30 ở nền trong nhà khô ráo'
+                    },
+                    recommendation: 'Nên dùng KEO DÁN GẠCH cho mọi trường hợp ốp tường và lát gạch lớn. Hồ vữa chỉ dùng cho gạch nhỏ trong nhà khô.',
+                    priceRange: { a: '~120.000–200.000đ/bao 25kg', b: '~30.000–50.000đ tự trộn xi+cát/m2' }
+                },
+                'gach_ceramic_gach_granite': {
+                    summary: 'Gạch ceramic (gạch men) và granite khác nhau về độ cứng, độ bóng và ứng dụng.',
+                    itemA: {
+                        pros: ['Giá rẻ hơn', 'Nhẹ, dễ thi công', 'Nhiều mẫu mã, màu sắc', 'Đủ dùng cho nội thất'],
+                        cons: ['Cứng kém hơn granite', 'Dễ trầy xước', 'Độ hút ẩm cao hơn', 'Không phù hợp ngoài trời'],
+                        bestFor: 'Phòng ngủ, phòng khách, nhà bếp nội thất nhẹ'
+                    },
+                    itemB: {
+                        pros: ['Cực kỳ cứng và bền', 'Chống trầy, chống mài mòn', 'Chịu nước hoàn toàn', 'Sang trọng, bề mặt bóng cao'],
+                        cons: ['Giá cao hơn ceramic 2-5 lần', 'Nặng, khó thi công hơn', 'Cần máy cắt chuyên dụng'],
+                        bestFor: 'Sảnh lớn, nơi đi lại nhiều, nhà vệ sinh cao cấp, ngoài trời'
+                    },
+                    recommendation: 'Tùy ngân sách: bình dân → ceramic; cao cấp/bền lâu → granite. Nhà vệ sinh và ngoài trời nên chọn granite hoặc ceramic chống trơn.',
+                    priceRange: { a: '~150.000–400.000đ/m2', b: '~300.000–1.200.000đ/m2' }
+                },
+                'xi_mang_ha_tien_xi_mang_insee': {
+                    summary: 'Hai thương hiệu xi măng hàng đầu Việt Nam, chất lượng tương đương nhưng có sự khác biệt nhỏ.',
+                    itemA: {
+                        pros: ['Thương hiệu lâu đời, quen thuộc', 'Giá thường rẻ hơn một chút', 'Phổ biến khắp miền Nam'],
+                        cons: ['Phân phối không đều bằng INSEE', 'Một số vùng khan hàng'],
+                        bestFor: 'Xây tô tường, đổ bê tông dân dụng thông thường'
+                    },
+                    itemB: {
+                        pros: ['Chất lượng đồng đều, ổn định', 'Mác xi măng đa dạng (PC30, PC40, PCB40)', 'Hệ thống phân phối rộng toàn quốc', 'Phù hợp công trình lớn'],
+                        cons: ['Giá cao hơn Hà Tiên khoảng 5-10%'],
+                        bestFor: 'Mọi công trình từ dân dụng đến công nghiệp, được khuyến nghị cho công trình cần độ đồng đều cao'
+                    },
+                    recommendation: 'Cả hai đều tốt. Nếu khan hàng một loại → thay thế được hoàn toàn. INSEE được ưa chuộng hơn cho công trình lớn nhờ chất lượng ổn định.',
+                    priceRange: { a: '~90.000–110.000đ/bao 50kg', b: '~95.000–115.000đ/bao 50kg' }
+                },
+                'son_lot_son_phu': {
+                    summary: 'Sơn lót và sơn phủ là 2 lớp bắt buộc trong quy trình sơn hoàn chỉnh, không thể thiếu nhau.',
+                    itemA: {
+                        pros: ['Tạo nền bám dính cho sơn phủ', 'Chống kiềm từ tường', 'Tiết kiệm sơn phủ (giảm 1 lớp)', 'Chống thấm lớp đầu'],
+                        cons: ['Không có màu đẹp', 'Không dùng độc lập được'],
+                        bestFor: 'Bước đầu tiên BẮT BUỘC trước khi sơn phủ, đặc biệt tường mới'
+                    },
+                    itemB: {
+                        pros: ['Màu sắc đẹp, phong phú', 'Bề mặt mịn, bóng hoặc mờ', 'Chống bẩn, dễ lau chùi', 'Lớp hoàn thiện cuối cùng'],
+                        cons: ['Không bám tốt nếu không có sơn lót', 'Tốn nhiều hơn nếu thiếu lót'],
+                        bestFor: 'Lớp hoàn thiện sau khi đã sơn lót, tạo màu và bảo vệ'
+                    },
+                    recommendation: 'PHẢI dùng CẢ HAI: Sơn lót 1 lớp → Sơn phủ 2 lớp. Bỏ qua sơn lót khiến sơn phủ bong tróc nhanh, tốn kém hơn về lâu dài.',
+                    priceRange: { a: '~200.000–350.000đ/thùng 5L', b: '~250.000–650.000đ/thùng 5L' }
+                },
+                'thep_hoa_phat_thep_viet_nhat': {
+                    summary: 'Hai thương hiệu thép xây dựng hàng đầu Việt Nam, đều đạt chuẩn TCVN.',
+                    itemA: {
+                        pros: ['Tập đoàn lớn nhất Việt Nam', 'Giá thường cạnh tranh hơn', 'Chất lượng ổn định, đạt chuẩn', 'Phân phối rộng khắp'],
+                        cons: ['Giá biến động theo thị trường thép', 'Cần kiểm tra tem QR chính hãng'],
+                        bestFor: 'Mọi công trình dân dụng và dân dụng quy mô vừa'
+                    },
+                    itemB: {
+                        pros: ['Liên doanh Việt-Nhật, công nghệ Nhật Bản', 'Chất lượng cao cấp, bề mặt đẹp', 'Được nhiều kỹ sư tin dùng', 'Ít gỉ sét hơn'],
+                        cons: ['Giá thường cao hơn Hòa Phát 3-8%'],
+                        bestFor: 'Công trình cao tầng, yêu cầu chất lượng cao, biệt thự'
+                    },
+                    recommendation: 'Cả hai đều đạt chuẩn TCVN 1651. Ngân sách bình dân → Hòa Phát; công trình cao cấp → Việt Nhật. Kiểm tra tem chống hàng giả!',
+                    priceRange: { a: '~14.000–17.000đ/kg (tuỳ phi)', b: '~15.000–18.000đ/kg (tuỳ phi)' }
+                },
+            };
+
+            // Normalize input to find matching pair
+            const normalize = (s: string) => s.toLowerCase()
+                .replace(/\s+/g, '_')
+                .replace(/xi_măng/g, 'xi_mang')
+                .replace(/bột_trét/g, 'bot_tret')
+                .replace(/nội_thất/g, 'noi_that')
+                .replace(/ngoại_thất/g, 'ngoai_that')
+                .replace(/hồ_vữa|vữa_hồ/g, 'ho_vua')
+                .replace(/keo_dán_gạch|keo_gạch/g, 'keo_dan_gach')
+                .replace(/ceramic|men/g, 'ceramic')
+                .replace(/granite|granit/g, 'granite')
+                .replace(/hà_tiên/g, 'ha_tien')
+                .replace(/insee/g, 'insee')
+                .replace(/lót/g, 'lot')
+                .replace(/phủ/g, 'phu')
+                .replace(/hòa_phát/g, 'hoa_phat')
+                .replace(/việt_nhật/g, 'viet_nhat');
+
+            const keyA = normalize(productA);
+            const keyB = normalize(productB);
+
+            // Try to find matching entry in both directions
+            let matchedComparison = null;
+            for (const [key, val] of Object.entries(knowledgeBase)) {
+                const [k1, k2] = key.split('_vs_').length > 1
+                    ? key.split('_vs_')
+                    : key.split('_').length > 2
+                        ? [key.split('_').slice(0, Math.floor(key.split('_').length / 2)).join('_'), key.split('_').slice(Math.floor(key.split('_').length / 2)).join('_')]
+                        : [key, ''];
+                if (
+                    (keyA.includes(k1) || k1.includes(keyA)) ||
+                    (keyB.includes(k2) || k2.includes(keyB)) ||
+                    key.includes(keyA) || key.includes(keyB)
+                ) {
+                    matchedComparison = { key, ...val };
+                    break;
+                }
+            }
+
+            // Try to get real DB prices for both
+            let dbProductA = null;
+            let dbProductB = null;
+            try {
+                const [resA, resB] = await Promise.all([
+                    prisma.product.findFirst({
+                        where: { name: { contains: productA.split(' ')[0], mode: 'insensitive' }, isActive: true },
+                        include: { inventoryItem: true }
+                    }),
+                    prisma.product.findFirst({
+                        where: { name: { contains: productB.split(' ')[0], mode: 'insensitive' }, isActive: true },
+                        include: { inventoryItem: true }
+                    })
+                ]);
+                dbProductA = resA;
+                dbProductB = resB;
+            } catch (_) { /* DB lookup optional */ }
+
+            // Context summary to pass downstream
+            const contextSummary = [
+                space !== 'unknown' ? `Không gian: ${space === 'indoor' ? 'Trong nhà' : space === 'outdoor' ? 'Ngoài trời' : 'Trong & ngoài nhà'}` : null,
+                purpose ? `Mục đích: ${purpose}` : null,
+                budget !== 'unknown' ? `Ngân sách: ${budget === 'economy' ? 'Tiết kiệm' : budget === 'standard' ? 'Phổ thông' : 'Cao cấp'}` : null,
+                buildingType ? `Loại công trình: ${buildingType}` : null,
+            ].filter(Boolean).join(' | ');
+
+            // --- LEVEL 3 FALLBACK: Gemini AI với guardrail chặt chẽ ---
+            let aiInsight: string | null = null;
+            if (!matchedComparison) {
+                try {
+                    const guardrailPrompt = `Bạn là chuyên gia vật liệu xây dựng Việt Nam. Hãy so sánh NGẮN GỌN "${productA}" và "${productB}" theo các tiêu chí dưới đây.
+
+ĐIỀU KIỆN SỬ DỤNG:
+${contextSummary || 'Chưa xác định điều kiện cụ thể'}
+
+YÊU CẦU TRẢ LỜI (BẮT BUỘC tuân thủ các quy tắc sau):
+1. Chỉ so sánh về: công năng, độ bền, khả năng chịu nước/UV, giá tham khảo thị trường VN, phù hợp với điều kiện đã cho.
+2. TUYỆT ĐỐI KHÔNG bịa đặt số liệu cụ thể (% hiệu quả, tuổi thọ chính xác) nếu không chắc chắn — thay bằng "khoảng" hoặc "thường".
+3. KHÔNG được tư vấn ngoài lĩnh vực vật liệu xây dựng.
+4. Nếu đây không phải vật liệu xây dựng, trả về: {"error": "Ngoài phạm vi tư vấn vật liệu xây dựng"}
+5. Kết thúc PHẢI có câu khuyến nghị rõ ràng phù hợp với điều kiện đã nêu.
+6. Trả lời bằng tiếng Việt, tối đa 150 từ, ngắn gọn như chuyên gia thực địa.
+7. Đánh dấu [DỰ ĐOÁN] nếu thông tin không chắc chắn 100%.
+
+Định dạng trả lời:
+- **${productA}**: [ưu/nhược điểm chính theo điều kiện]  
+- **${productB}**: [ưu/nhược điểm chính theo điều kiện]  
+- **Khuyến nghị**: [chọn loại nào và lý do ngắn gọn]`;
+
+                    const result = await generateContentWithFallback({
+                        contents: [{ role: 'user', parts: [{ text: guardrailPrompt }] }],
+                        generationConfig: { maxOutputTokens: 400, temperature: 0.2 }
+                    });
+                    const raw = extractTextFromSDKResult(result);
+                    if (raw && !raw.includes('"error"')) {
+                        aiInsight = raw;
+                    }
+                } catch (e) {
+                    console.warn('[compareProducts] Gemini fallback failed:', e);
+                }
+            }
+
+            return {
+                comparing: { productA, productB },
+                context: { space, purpose: purpose || null, budget, buildingType: buildingType || null, summary: contextSummary || 'Chưa có điều kiện cụ thể' },
+                expertKnowledge: matchedComparison || null,
+                aiInsight: aiInsight || null,
+                inStock: {
+                    productA: dbProductA ? { name: dbProductA.name, price: dbProductA.price, unit: dbProductA.unit, available: dbProductA.inventoryItem?.availableQuantity ?? 0 } : null,
+                    productB: dbProductB ? { name: dbProductB.name, price: dbProductB.price, unit: dbProductB.unit, available: dbProductB.inventoryItem?.availableQuantity ?? 0 } : null
+                },
+                dataSource: matchedComparison ? 'knowledge_base' : aiInsight ? 'gemini_ai_guardrailed' : 'ai_general',
+                renderNote: 'Trình bày kết quả dạng bảng Markdown 2 cột. Nếu dataSource=gemini_ai_guardrailed, thêm dòng chú thích nhỏ: "ℹ️ Thông tin tổng hợp từ AI, mang tính tham khảo." Kết thúc bằng 1 câu khuyến nghị dứt khoát phù hợp với điều kiện của khách.'
+            };
         }
     },
 

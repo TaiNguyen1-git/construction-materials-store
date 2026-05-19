@@ -1,7 +1,7 @@
 'use client'
 
 import { useRef, useEffect, useState } from 'react'
-import { Send, Image as ImageIcon, X, Headphones, Mic, Trash2, StopCircle } from 'lucide-react'
+import { Send, Image as ImageIcon, X, Headphones, Mic, Trash2, StopCircle, ChevronRight, Paperclip } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 interface ChatInputProps {
@@ -33,6 +33,8 @@ export default function ChatInput({
     const textareaRef = useRef<HTMLTextAreaElement>(null)
     const [isRecording, setIsRecording] = useState(false)
     const [recordingTime, setRecordingTime] = useState(0)
+    const [isFocused, setIsFocused] = useState(false)
+    const [showUtils, setShowUtils] = useState(true)
     const mediaRecorderRef = useRef<MediaRecorder | null>(null)
     const audioChunksRef = useRef<Blob[]>([])
     const timerIntervalRef = useRef<NodeJS.Timeout | null>(null)
@@ -58,12 +60,9 @@ export default function ChatInput({
         }
     }
 
-    const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0]
-        if (!file) return
-
+    const processFile = (file: File) => {
         if (file.size > 10 * 1024 * 1024) { // Allow up to 10MB but we will compress
-            toast.error('Ảnh quá lớn. Hệ thống chỉ xử lý ảnh tối đa 10MB.')
+            toast.error('File quá lớn. Hệ thống chỉ xử lý file tối đa 10MB.')
             return
         }
 
@@ -108,6 +107,28 @@ export default function ChatInput({
             }
         }
         reader.readAsDataURL(file)
+    }
+
+    const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0]
+        if (!file) return
+        processFile(file)
+    }
+
+    const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+        const items = e.clipboardData?.items
+        if (!items) return
+
+        for (let i = 0; i < items.length; i++) {
+            if (items[i].type.indexOf('image') !== -1 || items[i].type.indexOf('application/pdf') !== -1) {
+                const file = items[i].getAsFile()
+                if (file) {
+                    processFile(file)
+                    e.preventDefault() // Prevent pasting the image name/URL as text
+                    break
+                }
+            }
+        }
     }
 
     const startRecording = async () => {
@@ -177,34 +198,6 @@ export default function ChatInput({
 
     return (
         <div className="flex-shrink-0 p-4 border-t border-neutral-200 bg-white">
-            {/* Preview Area */}
-            {selectedImage && (
-                <div className="mb-3 relative inline-block animate-fadeIn">
-                    {selectedImage.startsWith('data:image/') ? (
-                        <img
-                            src={selectedImage}
-                            alt="Preview"
-                            className="h-20 w-20 object-cover rounded-xl border border-neutral-200 shadow-sm"
-                        />
-                    ) : selectedImage.startsWith('data:audio/') ? (
-                        <div className="bg-blue-50 p-2 rounded-xl border border-blue-200 shadow-sm pr-6">
-                            <audio controls src={selectedImage} className="h-10 w-48" />
-                        </div>
-                    ) : (
-                        <div className="h-20 w-20 flex flex-col items-center justify-center bg-blue-50 rounded-xl border border-blue-200 shadow-sm">
-                            <span className="text-xl">📄</span>
-                            <span className="text-[10px] font-bold text-blue-700 mt-1">Tài liệu</span>
-                        </div>
-                    )}
-                    <button
-                        onClick={() => setSelectedImage(null)}
-                        className="absolute -top-3 -right-3 bg-red-600 text-white rounded-full p-1.5 hover:bg-red-700 shadow-md transition-all transform hover:scale-110 z-10"
-                    >
-                        <X className="w-3.5 h-3.5" />
-                    </button>
-                </div>
-            )}
-
             <div className="flex gap-2 items-end">
                 <input
                     ref={fileInputRef}
@@ -214,29 +207,36 @@ export default function ChatInput({
                     onChange={handleFileUpload}
                 />
 
-                <div className="flex gap-1.5 mb-0.5">
-                    {/* Connect to Support Button */}
-                    {!isAdmin && !isHumanMode && onConnectSupport && !isRecording && (
-                        <button
-                            onClick={onConnectSupport}
-                            disabled={isLoading}
-                            className="flex-shrink-0 text-neutral-400 p-2.5 rounded-xl hover:bg-neutral-100 hover:text-neutral-700 transition-all active:scale-95"
-                            title="Gặp nhân viên hỗ trợ"
+                <div className="flex gap-1.5 mb-0.5 items-end">
+                    {/* Toggle Button (appears when utils are hidden) */}
+                    {(!showUtils && !isRecording) && (
+                        <button 
+                            onClick={() => setShowUtils(true)}
+                            className="flex-shrink-0 text-neutral-400 p-1.5 mb-1 rounded-lg hover:bg-neutral-200/60 hover:text-neutral-700 transition-all active:scale-95 animate-fadeIn"
+                            title="Mở rộng công cụ"
                         >
-                            <Headphones className="w-5 h-5" />
+                            <ChevronRight className="w-4 h-4" />
                         </button>
                     )}
 
-                    {!isRecording && (
-                        <button
-                            onClick={() => fileInputRef.current?.click()}
-                            disabled={isLoading}
-                            className="flex-shrink-0 text-neutral-400 p-2.5 rounded-xl hover:bg-neutral-100 hover:text-neutral-700 transition-all active:scale-95 disabled:opacity-50"
-                            title="Đính kèm ảnh"
-                        >
-                            <ImageIcon className="w-5 h-5" />
-                        </button>
-                    )}
+                    <div
+                        className={`flex gap-1.5 overflow-hidden transition-all duration-300 ease-in-out ${
+                            !showUtils && !isRecording
+                                ? 'w-0 opacity-0 pointer-events-none'
+                                : 'w-auto opacity-100'
+                        }`}
+                    >
+                        {/* Connect to Support Button */}
+                        {!isAdmin && !isHumanMode && onConnectSupport && !isRecording && (
+                            <button
+                                onClick={onConnectSupport}
+                                disabled={isLoading}
+                                className="flex-shrink-0 text-neutral-400 p-2.5 rounded-xl hover:bg-neutral-100 hover:text-neutral-700 transition-all active:scale-95"
+                                title="Gặp nhân viên hỗ trợ"
+                            >
+                                <Headphones className="w-5 h-5" />
+                            </button>
+                        )}
 
                     {/* Voice Recording Button */}
                     {!isRecording ? (
@@ -257,11 +257,12 @@ export default function ChatInput({
                             <Trash2 className="w-5 h-5" />
                         </button>
                     )}
+                    </div>
                 </div>
 
                 {isRecording ? (
-                    <div className="flex-1 min-w-0 flex items-center justify-between bg-red-50 rounded-xl px-3 py-2 border border-red-200 shadow-inner">
-                        <div className="flex items-center gap-2 min-w-0">
+                    <div className="flex-1 min-w-0 flex items-center justify-between bg-red-50 rounded-2xl px-4 py-3 border border-red-200 shadow-inner">
+                        <div className="flex items-center gap-3 min-w-0">
                             <div className="relative flex items-center justify-center flex-shrink-0">
                                 <span className="absolute w-3 h-3 bg-red-500 rounded-full animate-ping opacity-75"></span>
                                 <span className="relative w-2.5 h-2.5 bg-red-600 rounded-full"></span>
@@ -271,29 +272,76 @@ export default function ChatInput({
                         </div>
                         <button 
                             onClick={() => stopRecording(false)}
-                            className="flex-shrink-0 p-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors shadow-sm flex items-center gap-1 px-2 ml-2"
+                            className="flex-shrink-0 p-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors shadow-sm flex items-center gap-1 px-3 ml-2"
                         >
                             <StopCircle className="w-4 h-4" />
                             <span className="text-[11px] font-bold uppercase tracking-wider">Xong</span>
                         </button>
                     </div>
                 ) : (
-                    <div className="flex-1 min-w-0">
-                        <textarea
-                            ref={textareaRef}
-                            rows={1}
-                            value={currentMessage}
-                            onChange={(e) => {
-                                setCurrentMessage(e.target.value);
-                                if (onTyping) onTyping();
-                                e.target.style.height = 'auto';
-                                e.target.style.height = `${e.target.scrollHeight}px`;
-                            }}
-                            onKeyDown={handleKeyPress}
-                            disabled={isLoading}
-                            placeholder="Nhập tin nhắn..."
-                            className="w-full bg-neutral-100/50 border border-transparent rounded-xl px-4 py-3 text-sm text-neutral-900 leading-snug focus:bg-white focus:ring-1 focus:ring-slate-900 focus:border-slate-900 outline-none placeholder-neutral-400 transition-all max-h-40 min-h-[46px] resize-none overflow-y-auto"
-                        />
+                    <div className={`flex-1 min-w-0 flex flex-col rounded-2xl transition-all duration-300 ease-out border shadow-sm ${
+                        isFocused 
+                            ? 'bg-white border-blue-400 ring-4 ring-blue-50' 
+                            : 'bg-neutral-100 border-transparent hover:bg-neutral-200/50'
+                    }`}>
+                        {selectedImage && (
+                            <div className="p-3 pb-0 relative animate-fadeIn">
+                                {selectedImage.startsWith('data:image/') ? (
+                                    <div className="relative inline-block group">
+                                        <img src={selectedImage} alt="Preview" className="h-16 w-16 object-cover rounded-xl border border-neutral-200 shadow-sm transition-transform group-hover:scale-105" />
+                                        <button onClick={() => setSelectedImage(null)} className="absolute -top-2 -right-2 bg-neutral-800 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity shadow-md hover:bg-red-600"><X className="w-3.5 h-3.5" /></button>
+                                    </div>
+                                ) : selectedImage.startsWith('data:audio/') ? (
+                                    <div className="bg-blue-50 p-2 rounded-xl border border-blue-200 shadow-sm pr-6 inline-block relative group">
+                                        <audio controls src={selectedImage} className="h-8 w-40" />
+                                        <button onClick={() => setSelectedImage(null)} className="absolute -top-2 -right-2 bg-neutral-800 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity shadow-md hover:bg-red-600"><X className="w-3.5 h-3.5" /></button>
+                                    </div>
+                                ) : (
+                                    <div className="h-16 w-16 flex flex-col items-center justify-center bg-blue-50 rounded-xl border border-blue-200 shadow-sm inline-flex relative group">
+                                        <span className="text-xl">📄</span>
+                                        <button onClick={() => setSelectedImage(null)} className="absolute -top-2 -right-2 bg-neutral-800 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity shadow-md hover:bg-red-600"><X className="w-3.5 h-3.5" /></button>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                        <div className="flex items-end">
+                            <textarea
+                                ref={textareaRef}
+                                rows={1}
+                                value={currentMessage}
+                                onChange={(e) => {
+                                    setCurrentMessage(e.target.value);
+                                    if (onTyping) onTyping();
+                                    e.target.style.height = 'auto';
+                                    e.target.style.height = `${e.target.scrollHeight}px`;
+                                }}
+                                onKeyDown={handleKeyPress}
+                                onPaste={handlePaste}
+                                onFocus={() => {
+                                    setIsFocused(true)
+                                    setShowUtils(false)
+                                }}
+                                onBlur={() => {
+                                    if (!currentMessage.trim() && !selectedImage) {
+                                        setIsFocused(false)
+                                        setShowUtils(true)
+                                    }
+                                }}
+                                disabled={isLoading}
+                                placeholder={selectedImage ? "Thêm chú thích..." : "Nhập tin nhắn..."}
+                                className={`w-full bg-transparent border-none px-4 text-sm text-neutral-900 leading-relaxed focus:ring-0 outline-none placeholder-neutral-400 transition-all max-h-40 min-h-[24px] resize-none overflow-y-auto ${selectedImage ? 'py-2' : 'py-3'}`}
+                            />
+                            {!isRecording && (
+                                <button
+                                    onClick={() => fileInputRef.current?.click()}
+                                    disabled={isLoading}
+                                    className="flex-shrink-0 text-neutral-400 p-2 mb-1.5 mr-1.5 rounded-full hover:bg-neutral-200 hover:text-neutral-700 transition-all active:scale-95 disabled:opacity-50"
+                                    title="Đính kèm ảnh/tài liệu"
+                                >
+                                    <Paperclip className="w-5 h-5" />
+                                </button>
+                            )}
+                        </div>
                     </div>
                 )}
 
@@ -301,10 +349,10 @@ export default function ChatInput({
                     onClick={() => {
                         if (isRecording) {
                             stopRecording(false);
-                            // It will set the file, but user has to click send again to send the audio
-                            // Alternatively we could trigger send, but preview is safer
                         } else {
                             onSendMessage();
+                            setIsFocused(false);
+                            setShowUtils(true);
                         }
                     }}
                     disabled={isLoading || (!currentMessage.trim() && !selectedImage && !isRecording)}

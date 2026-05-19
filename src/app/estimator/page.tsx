@@ -43,6 +43,7 @@ export default function EstimatorPage() {
 
     // --- State ---
     const [projectType, setProjectType] = useState<'general' | 'flooring' | 'painting' | 'tiling'>('general')
+    const [buildingType, setBuildingType] = useState('')
     const [inputMode, setInputMode] = useState<'text' | 'image'>('text')
     const [description, setDescription] = useState('')
     const [imagesPreview, setImagesPreview] = useState<string[]>([])
@@ -174,7 +175,11 @@ export default function EstimatorPage() {
                 const mainFileName = imageFileNames.length > 0 ? imageFileNames[0] : undefined
                 res = await analyzeFloorPlanImage(imagesBase64, projectType, 'standard', mainFileName)
             } else {
-                res = await estimateFromText(description, projectType, 'standard')
+                // Prepend building type context to description so AI can apply correct estimation norms
+                const enrichedDescription = buildingType
+                    ? `[Loại công trình: ${buildingType}] ${description}`
+                    : description
+                res = await estimateFromText(enrichedDescription, projectType, 'standard')
             }
 
             if (res.success) {
@@ -415,6 +420,8 @@ export default function EstimatorPage() {
                             <InputPanel
                                 projectType={projectType}
                                 setProjectType={setProjectType}
+                                buildingType={buildingType}
+                                setBuildingType={setBuildingType}
                                 inputMode={inputMode}
                                 setInputMode={setInputMode}
                                 description={description}
