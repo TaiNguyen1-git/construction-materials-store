@@ -117,7 +117,7 @@ export const ChatMessagesArea: React.FC<ChatMessagesAreaProps> = (props) => {
             ))}
 
             {/* Typing Indicators */}
-            {isLoading && !isStreaming && <TypingIndicator isAdmin={isAdmin} />}
+            {isLoading && !isStreaming && chatMode === 'AI' && <TypingIndicator isAdmin={isAdmin} />}
             {chatMode === 'HUMAN' && conversationId && myIdentity && (
                 <LiveTypingIndicator
                     conversationId={conversationId}

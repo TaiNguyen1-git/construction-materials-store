@@ -204,11 +204,64 @@ export default function MessageBubble({
     const [isCopied, setIsCopied] = React.useState(false);
     const [feedback, setFeedback] = React.useState<'up' | 'down' | null>(null);
 
-    const handleCopy = () => {
-        if (!message.botMessage) return;
-        navigator.clipboard.writeText(message.botMessage);
-        setIsCopied(true);
-        setTimeout(() => setIsCopied(false), 2000);
+    const handleCopy = async () => {
+        try {
+            // If it's an image and there's no text (or even if there is text, try copying the image if possible)
+            // But if it's both, we can only copy one type or the other reliably across all browsers.
+            // Let's copy the image if it's just an image.
+            if (message.botImage && message.botImage.startsWith('data:image/') && !message.botMessage) {
+                try {
+                    const response = await fetch(message.botImage);
+                    const blob = await response.blob();
+                    
+                    let blobToCopy = blob;
+                    if (blob.type !== 'image/png') {
+                        // Many browsers ONLY support image/png for clipboard write
+                        blobToCopy = await new Promise<Blob>((resolve, reject) => {
+                            const img = new Image();
+                            img.onload = () => {
+                                const canvas = document.createElement('canvas');
+                                canvas.width = img.width;
+                                canvas.height = img.height;
+                                const ctx = canvas.getContext('2d');
+                                if (!ctx) return reject(new Error('Canvas ctx not found'));
+                                ctx.drawImage(img, 0, 0);
+                                canvas.toBlob(b => b ? resolve(b) : reject(new Error('Canvas toBlob failed')), 'image/png');
+                            };
+                            img.onerror = reject;
+                            img.src = message.botImage!;
+                        });
+                    }
+
+                    await navigator.clipboard.write([
+                        new ClipboardItem({
+                            [blobToCopy.type]: blobToCopy
+                        })
+                    ]);
+                    setIsCopied(true);
+                    setTimeout(() => setIsCopied(false), 2000);
+                    toast.success('Đã sao chép hình ảnh');
+                    return;
+                } catch (imgError) {
+                    console.warn('Cannot copy image blob, falling back to text URL', imgError);
+                    // Fallback to text below
+                }
+            }
+
+            let contentToCopy = message.botMessage || '';
+            if (message.botImage) {
+                contentToCopy += contentToCopy ? `\n${message.botImage}` : message.botImage;
+            }
+            if (!contentToCopy) return;
+
+            await navigator.clipboard.writeText(contentToCopy);
+            setIsCopied(true);
+            setTimeout(() => setIsCopied(false), 2000);
+            toast.success('Đã sao chép');
+        } catch (error) {
+            console.error('Failed to copy', error);
+            toast.error('Không thể sao chép');
+        }
     }
 
     const handleFeedback = async (type: 'up' | 'down') => {
@@ -236,8 +289,18 @@ export default function MessageBubble({
         }
     }
 
+    const scrollToMessage = (id: string | undefined) => {
+        if (!id) return;
+        const el = document.getElementById(`msg-${id}`);
+        if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            el.classList.add('bg-black/5', 'transition-colors', 'duration-500', 'rounded-xl');
+            setTimeout(() => el.classList.remove('bg-black/5', 'rounded-xl'), 1500);
+        }
+    }
+
     return (
-        <div className="space-y-4 animate-fadeIn group/message">
+        <div id={`msg-${message.id}`} className="space-y-4 animate-fadeIn group/message p-1">
             {/* System Message */}
             {message.isSystem && (
                 <div className="flex justify-center my-4">
@@ -287,7 +350,10 @@ export default function MessageBubble({
                         ) : (
                             <>
                                 {message.replyToContent && (
-                                    <div className="mb-2 pl-2.5 border-l-2 border-white/40 text-xs opacity-80 truncate max-w-[250px]">
+                                    <div 
+                                        onClick={() => scrollToMessage(message.replyToId)}
+                                        className="mb-2 pl-2.5 border-l-2 border-white/40 text-xs opacity-80 truncate max-w-[250px] cursor-pointer hover:opacity-100 transition-opacity"
+                                    >
                                         <span className="font-semibold block mb-0.5 opacity-100 text-[10px] uppercase tracking-wider">Đang trả lời</span>
                                         {message.replyToContent}
                                     </div>
@@ -373,7 +439,10 @@ export default function MessageBubble({
                             ) : (
                                 <>
                                     {message.replyToContent && (
-                                        <div className="mb-2 pl-2.5 border-l-2 border-indigo-400 text-xs opacity-80 truncate max-w-[250px] text-gray-600">
+                                        <div 
+                                            onClick={() => scrollToMessage(message.replyToId)}
+                                            className="mb-2 pl-2.5 border-l-2 border-indigo-400 text-xs opacity-80 truncate max-w-[250px] text-gray-600 cursor-pointer hover:opacity-100 transition-opacity"
+                                        >
                                             <span className="font-semibold block mb-0.5 opacity-100 text-[10px] uppercase tracking-wider text-indigo-600">Đang trả lời</span>
                                             {message.replyToContent}
                                         </div>

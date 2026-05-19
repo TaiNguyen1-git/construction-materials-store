@@ -74,7 +74,9 @@ export function useChatMessages({ sessionId, currentUserId }: UseChatMessagesPro
                 confidence: 1,
                 timestamp: msg.createdAt,
                 requiresConfirmation: false,
-                chatMode: 'HUMAN'
+                chatMode: 'HUMAN',
+                replyToId: msg.replyTo?.id,
+                replyToContent: msg.replyTo ? (msg.replyTo.content || (msg.replyTo.fileUrl ? 'Ảnh/Tài liệu đính kèm' : undefined)) : undefined
             }));
 
             const merged = [...mappedMessages];
@@ -127,10 +129,28 @@ export function useChatMessages({ sessionId, currentUserId }: UseChatMessagesPro
                 timestamp: msg.createdAt,
                 requiresConfirmation: false,
                 isSystem: (msg as any).senderRole === 'SYSTEM' || msg.senderId === 'system',
-                chatMode: 'HUMAN'
+                chatMode: 'HUMAN',
+                replyToId: msg.replyTo?.id,
+                replyToContent: msg.replyTo ? (msg.replyTo.content || (msg.replyTo.fileUrl ? 'Ảnh/Tài liệu đính kèm' : undefined)) : undefined
             };
             return [...prev, newMessage];
         });
+    }, [currentUserId]);
+
+    const handleMessageChanged = useCallback((msg: LiveChatMessage) => {
+        setMessages(prev => prev.map(m => {
+            if (m.id === msg.id) {
+                return {
+                    ...m,
+                    isDeleted: msg.isUnsent,
+                    botMessage: msg.senderId !== currentUserId ? msg.content : m.botMessage,
+                    botImage: msg.senderId !== currentUserId ? msg.fileUrl : m.botImage,
+                    userMessage: msg.senderId === currentUserId ? msg.content : m.userMessage,
+                    userImage: msg.senderId === currentUserId ? msg.fileUrl : m.userImage,
+                };
+            }
+            return m;
+        }));
     }, [currentUserId]);
 
     return {
@@ -140,7 +160,8 @@ export function useChatMessages({ sessionId, currentUserId }: UseChatMessagesPro
         hasMore,
         isLoadingMore,
         handleHistoryLoaded,
-        handleNewMessage
+        handleNewMessage,
+        handleMessageChanged
     };
 }
         

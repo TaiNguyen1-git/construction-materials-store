@@ -10,6 +10,7 @@ import toast from 'react-hot-toast'
 
 interface HybridChatManagerProps {
     onNewMessage: (msg: LiveChatMessage) => void;
+    onMessageChanged?: (msg: LiveChatMessage) => void;
     onHistoryLoaded?: (messages: LiveChatMessage[], convId: string) => void;
     onModeChange: (mode: ChatMode) => void;
     currentMode: ChatMode;
@@ -22,6 +23,7 @@ const ACTIVE_CONV_KEY = 'smartbuild_active_conv'
 
 export default function useHybridChatManager({
     onNewMessage,
+    onMessageChanged,
     onHistoryLoaded,
     onModeChange,
     currentMode,
@@ -35,6 +37,7 @@ export default function useHybridChatManager({
     // Using refs for callbacks to prevent effect re-runs when functions are recreated in parent
     const onHistoryLoadedRef = useRef(onHistoryLoaded)
     const onNewMessageRef = useRef(onNewMessage)
+    const onMessageChangedRef = useRef(onMessageChanged)
 
     useEffect(() => {
         onHistoryLoadedRef.current = onHistoryLoaded
@@ -43,6 +46,10 @@ export default function useHybridChatManager({
     useEffect(() => {
         onNewMessageRef.current = onNewMessage
     }, [onNewMessage])
+
+    useEffect(() => {
+        onMessageChangedRef.current = onMessageChanged
+    }, [onMessageChanged])
 
     // Initialize Identity (Guest or User)
     useEffect(() => {
@@ -135,6 +142,23 @@ export default function useHybridChatManager({
             }
         };
 
+        const handleMessageChanged = (snapshot: any) => {
+            const data = snapshot.val();
+            if (data) {
+                if (data.adminOnly) return;
+                const message: LiveChatMessage = {
+                    ...data,
+                    id: snapshot.key,
+                    conversationId
+                }
+                onMessageChangedRef.current?.(message);
+            }
+        };
+
+        import('firebase/database').then(({ onChildChanged }) => {
+            onChildChanged(messagesRef, handleMessageChanged);
+        });
+
         onChildAdded(messagesRef, handleNewMessage);
  
         // Listen to Admin Presence
@@ -151,6 +175,9 @@ export default function useHybridChatManager({
         return () => {
             off(messagesRef, 'child_added', handleNewMessage);
             off(statusRef, 'value', unsubscribeStatus);
+            import('firebase/database').then(({ off: offChanged }) => {
+                offChanged(messagesRef, 'child_changed');
+            });
         };
     }, [conversationId, identity?.id])
 

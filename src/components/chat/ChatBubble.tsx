@@ -38,8 +38,18 @@ export default function ChatBubble({
     const isSending = msg.status === 'sending'
     const isError = msg.status === 'error'
 
+    const scrollToMessage = (id: string | undefined) => {
+        if (!id) return;
+        const el = document.getElementById(`msg-${id}`);
+        if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            el.classList.add('bg-black/5', 'transition-colors', 'duration-500', 'rounded-xl');
+            setTimeout(() => el.classList.remove('bg-black/5', 'rounded-xl'), 1500);
+        }
+    }
+
     return (
-        <div className={`flex items-end gap-2 mb-0.5 w-full ${isMe ? 'justify-end' : 'justify-start'} ${msg.isFirst ? 'mt-3' : 'mt-0.5'}`}>
+        <div id={`msg-${msg.id}`} className={`flex items-end gap-2 mb-0.5 w-full p-1 ${isMe ? 'justify-end' : 'justify-start'} ${msg.isFirst ? 'mt-3' : 'mt-0.5'}`}>
             {!isMe && (
                 <div className="w-7 h-7 flex-shrink-0 mb-0.5">
                     {msg.isLast ? (
@@ -78,7 +88,13 @@ export default function ChatBubble({
                     `}
                 >
                     {!msg.isUnsent && msg.replyTo && (
-                        <div className={`mb-2 p-2 rounded-lg border-l-4 text-[10px] ${isMe ? 'bg-black/10 border-white/30' : 'bg-slate-50 border-blue-400'}`}>
+                        <div 
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                scrollToMessage(msg.replyTo?.id);
+                            }}
+                            className={`mb-2 p-2 rounded-lg border-l-4 text-[10px] cursor-pointer hover:opacity-80 transition-opacity ${isMe ? 'bg-black/10 border-white/30' : 'bg-slate-50 border-blue-400'}`}
+                        >
                             <p className={`font-black mb-0.5 ${isMe ? 'text-white/80' : 'text-blue-600'}`}>{msg.replyTo.senderName}</p>
                             <p className={`line-clamp-1 italic ${isMe ? 'text-white/70' : 'text-slate-500'}`}>
                                 {msg.replyTo.content || (msg.replyTo.fileUrl ? '📎 Tệp đính kèm' : '...')}

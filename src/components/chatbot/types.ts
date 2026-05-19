@@ -109,7 +109,14 @@ export interface LiveChatMessage {
     createdAt: string;
     isRead: boolean;
     isSending?: boolean;
+    isUnsent?: boolean;
     tempId?: string;
+    replyTo?: {
+        id: string;
+        content?: string;
+        fileUrl?: string;
+        senderName?: string;
+    };
 }
 
 export interface GuestIdentity {

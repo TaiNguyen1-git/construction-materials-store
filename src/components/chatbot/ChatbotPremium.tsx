@@ -85,7 +85,7 @@ export default function ChatbotPremium({ isOpen: propIsOpen, onClose }: { isOpen
     const { 
         messages, setMessages, 
         hasMore, isLoadingMore, loadMore,
-        handleHistoryLoaded, handleNewMessage 
+        handleHistoryLoaded, handleNewMessage, handleMessageChanged
     } = useChatMessages({ 
         sessionId: sessionId, 
         currentUserId 
@@ -126,6 +126,7 @@ export default function ChatbotPremium({ isOpen: propIsOpen, onClose }: { isOpen
         onModeChange: setChatMode,
         customerId,
         onNewMessage: handleNewMessage,
+        onMessageChanged: handleMessageChanged,
         onHistoryLoaded: handleHistoryLoaded
     })
 
@@ -152,12 +153,21 @@ export default function ChatbotPremium({ isOpen: propIsOpen, onClose }: { isOpen
         
         if (chatMode === 'HUMAN' && hybridManager.conversationId) {
             try {
-                // Not implementing real delete API for now, just marking local state
+                const guestToken = localStorage.getItem('guest_token') || '';
+                await fetch(`/api/chat/messages/${messageId}`, {
+                    method: 'PATCH',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'x-guest-token': guestToken,
+                        'x-guest-id': hybridManager.identity?.id || ''
+                    },
+                    body: JSON.stringify({ action: 'unsend' })
+                });
             } catch (err) {
                 console.error("Failed to delete message", err);
             }
         }
-    }, [chatMode, hybridManager.conversationId, setMessages]);
+    }, [chatMode, hybridManager.conversationId, hybridManager.identity, setMessages]);
 
     const handleReplyMessage = useCallback((message: ChatMessage, isUser: boolean) => {
         setReplyingTo({
