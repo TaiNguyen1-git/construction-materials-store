@@ -315,7 +315,16 @@ export default function ChatbotPremium({ isOpen: propIsOpen, onClose }: { isOpen
 
                             // Remove only the bot reply, keep the user message intact
                             setMessages(prev => prev.filter(m => m.id !== lastBotIdx.m.id));
-                            actions.sendMessage(precedingUserMsg.userMessage || '', false, '', undefined, precedingUserMsg.userImage);
+                            actions.sendMessage(
+                                precedingUserMsg.userMessage || '',
+                                false,
+                                '',
+                                undefined,
+                                precedingUserMsg.userImage || null,
+                                undefined,
+                                null,
+                                true
+                            );
                         }}
                         retryLastMessage={() => {
                             const aiMessages = messages.filter(m => (m.chatMode || 'AI') === 'AI');

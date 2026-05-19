@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react'
-import { ShoppingCart, ExternalLink, Copy, Check, ThumbsUp, ThumbsDown, Reply, Trash2 } from 'lucide-react'
+import { ShoppingCart, ExternalLink, Copy, Check, ThumbsUp, ThumbsDown, Reply, Trash2, Package } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { ChatMessage, ProductRecommendation } from './types'
 
@@ -412,176 +412,192 @@ export default function MessageBubble({
 
             {/* Bot Message */}
             {(message.botMessage || message.botImage) && !message.isSystem && (
-                <div className="flex justify-start gap-3 pl-1">
-                    {/* Avatar */}
-                    <div className="flex-shrink-0 w-8 h-8 rounded-full overflow-hidden border border-slate-200 bg-white mt-1">
-                        <img
-                            src="/images/smartbuild_bot.png"
-                            alt="AI"
-                            className="w-full h-full object-cover mix-blend-multiply"
-                        />
-                    </div>
+                <div className="flex flex-col gap-2 pl-1">
+                    {/* Bubble row: avatar + bubble + reply button */}
+                    <div className="flex justify-start gap-3">
+                        {/* Avatar */}
+                        <div className="flex-shrink-0 w-8 h-8 rounded-full overflow-hidden border border-slate-200 bg-white mt-1">
+                            <img
+                                src="/images/smartbuild_bot.png"
+                                alt="AI"
+                                className="w-full h-full object-cover mix-blend-multiply"
+                            />
+                        </div>
 
-                    <div className="max-w-[88%] space-y-3 flex group/botmsg items-center">
-                        <div className="bg-white border border-slate-100 p-4 rounded-2xl rounded-tl-sm shadow-[0_2px_10px_rgba(0,0,0,0.02)] relative group/bubble">
-                            
-                            {/* Copy Button */}
-                            <button
-                                onClick={handleCopy}
-                                className="absolute top-2 right-2 p-1.5 opacity-0 group-hover/bubble:opacity-100 transition-opacity bg-white border border-slate-100 shadow-sm rounded-lg hover:bg-slate-50 text-slate-400 hover:text-slate-600 z-20"
-                                title="Sao chép"
-                            >
-                                {isCopied ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
-                            </button>
+                        <div className="flex group/botmsg items-center gap-2 max-w-[calc(100%-3rem)]">
+                            <div className="bg-white border border-slate-100 p-4 rounded-2xl rounded-tl-sm shadow-[0_2px_10px_rgba(0,0,0,0.02)] relative group/bubble min-w-0">
+                                {/* Copy Button */}
+                                <button
+                                    onClick={handleCopy}
+                                    className="absolute top-2 right-2 p-1.5 opacity-0 group-hover/bubble:opacity-100 transition-opacity bg-white border border-slate-100 shadow-sm rounded-lg hover:bg-slate-50 text-slate-400 hover:text-slate-600 z-20"
+                                    title="Sao chép"
+                                >
+                                    {isCopied ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                                </button>
 
-                            {message.isDeleted ? (
-                                <div className="italic opacity-80 text-[14px] text-gray-500">Tin nhắn đã bị thu hồi</div>
-                            ) : (
-                                <>
-                                    {message.replyToContent && (
-                                        <div 
-                                            onClick={() => scrollToMessage(message.replyToId)}
-                                            className="mb-2 pl-2.5 border-l-2 border-indigo-400 text-xs opacity-80 truncate max-w-[250px] text-gray-600 cursor-pointer hover:opacity-100 transition-opacity"
-                                        >
-                                            <span className="font-semibold block mb-0.5 opacity-100 text-[10px] uppercase tracking-wider text-indigo-600">Đang trả lời</span>
-                                            {message.replyToContent}
-                                        </div>
-                                    )}
-                                    <div className="text-gray-900 relative z-10 pt-1">
-                                        <RenderContent text={message.botMessage} />
-                                    </div>
-
-                            {message.botImage && (
-                                <div className="mt-4 relative">
-                                    {message.botImage.startsWith('data:image/') ? (
-                                        <div
-                                            className="cursor-pointer group rounded-xl overflow-hidden border border-slate-200"
-                                            onClick={() => onImageClick?.(message.botImage!)}
-                                        >
-                                            <img
-                                                src={message.botImage}
-                                                alt="Admin Uploaded"
-                                                className="max-w-full hover:opacity-90 transition-opacity duration-300"
-                                            />
-                                        </div>
-                                    ) : (
-                                        <a
-                                            href={message.botImage}
-                                            download="document"
-                                            className="flex items-center gap-3 p-3 bg-blue-50 hover:bg-blue-100 rounded-xl transition-colors border border-blue-100"
-                                        >
-                                            <div className="bg-blue-100 text-blue-600 p-2 rounded-lg">
-                                                <span className="text-xl">📄</span>
+                                {message.isDeleted ? (
+                                    <div className="italic opacity-80 text-[14px] text-gray-500">Tin nhắn đã bị thu hồi</div>
+                                ) : (
+                                    <>
+                                        {message.replyToContent && (
+                                            <div
+                                                onClick={() => scrollToMessage(message.replyToId)}
+                                                className="mb-2 pl-2.5 border-l-2 border-indigo-400 text-xs opacity-80 truncate max-w-[250px] text-gray-600 cursor-pointer hover:opacity-100 transition-opacity"
+                                            >
+                                                <span className="font-semibold block mb-0.5 opacity-100 text-[10px] uppercase tracking-wider text-indigo-600">Đang trả lời</span>
+                                                {message.replyToContent}
                                             </div>
-                                            <div className="flex-1 min-w-0 pr-2">
-                                                <p className="text-sm font-bold truncate text-gray-900">Tài liệu phản hồi</p>
-                                                <p className="text-[10px] opacity-70 uppercase text-gray-600">Nhấn để tải về</p>
+                                        )}
+                                        <div className="text-gray-900 relative z-10 pt-1">
+                                            <RenderContent text={message.botMessage} />
+                                        </div>
+
+                                        {message.botImage && (
+                                            <div className="mt-4 relative">
+                                                {message.botImage.startsWith('data:image/') ? (
+                                                    <div
+                                                        className="cursor-pointer group rounded-xl overflow-hidden border border-slate-200"
+                                                        onClick={() => onImageClick?.(message.botImage!)}
+                                                    >
+                                                        <img
+                                                            src={message.botImage}
+                                                            alt="Admin Uploaded"
+                                                            className="max-w-full hover:opacity-90 transition-opacity duration-300"
+                                                        />
+                                                    </div>
+                                                ) : (
+                                                    <a
+                                                        href={message.botImage}
+                                                        download="document"
+                                                        className="flex items-center gap-3 p-3 bg-blue-50 hover:bg-blue-100 rounded-xl transition-colors border border-blue-100"
+                                                    >
+                                                        <div className="bg-blue-100 text-blue-600 p-2 rounded-lg">
+                                                            <span className="text-xl">📄</span>
+                                                        </div>
+                                                        <div className="flex-1 min-w-0 pr-2">
+                                                            <p className="text-sm font-bold truncate text-gray-900">Tài liệu phản hồi</p>
+                                                            <p className="text-[10px] opacity-70 uppercase text-gray-600">Nhấn để tải về</p>
+                                                        </div>
+                                                    </a>
+                                                )}
                                             </div>
-                                        </a>
-                                    )}
+                                        )}
+
+                                        <div className="text-[10px] text-slate-400 mt-3 font-medium flex justify-between items-center opacity-80">
+                                            <span className="flex items-center gap-1.5">
+                                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                                                SmartBuild AI
+                                            </span>
+                                            <div className="flex items-center gap-3">
+                                                <span>{formatTime(message.timestamp)}</span>
+                                                <div className="flex items-center gap-1">
+                                                    <button
+                                                        onClick={() => handleFeedback('up')}
+                                                        className={`p-1.5 rounded-md transition-colors ${feedback === 'up' ? 'text-emerald-600 bg-emerald-50' : 'hover:text-emerald-600 hover:bg-emerald-50'}`}
+                                                        title="Câu trả lời hữu ích"
+                                                    >
+                                                        <ThumbsUp className={`w-3.5 h-3.5 ${feedback === 'up' ? 'fill-current' : ''}`} />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleFeedback('down')}
+                                                        className={`p-1.5 rounded-md transition-colors ${feedback === 'down' ? 'text-red-500 bg-red-50' : 'hover:text-red-500 hover:bg-red-50'}`}
+                                                        title="Câu trả lời chưa tốt"
+                                                    >
+                                                        <ThumbsDown className={`w-3.5 h-3.5 ${feedback === 'down' ? 'fill-current' : ''}`} />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+
+                            {/* Reply button */}
+                            {!message.isDeleted && onReply && (
+                                <div className="opacity-0 group-hover/botmsg:opacity-100 transition-opacity flex-shrink-0">
+                                    <button
+                                        onClick={() => onReply(message, false)}
+                                        className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                        title="Trả lời"
+                                    >
+                                        <Reply className="w-4 h-4" />
+                                    </button>
                                 </div>
                             )}
-
-                            <div className="text-[10px] text-slate-400 mt-3 font-medium flex justify-between items-center opacity-80">
-                                <span className="flex items-center gap-1.5">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                                    SmartBuild AI
-                                </span>
-                                <div className="flex items-center gap-3">
-                                    <span>{formatTime(message.timestamp)}</span>
-                                    <div className="flex items-center gap-1">
-                                        <button 
-                                            onClick={() => handleFeedback('up')} 
-                                            className={`p-1.5 rounded-md transition-colors ${feedback === 'up' ? 'text-emerald-600 bg-emerald-50' : 'hover:text-emerald-600 hover:bg-emerald-50'}`}
-                                            title="Câu trả lời hữu ích"
-                                        >
-                                            <ThumbsUp className={`w-3.5 h-3.5 ${feedback === 'up' ? 'fill-current' : ''}`} />
-                                        </button>
-                                        <button 
-                                            onClick={() => handleFeedback('down')} 
-                                            className={`p-1.5 rounded-md transition-colors ${feedback === 'down' ? 'text-red-500 bg-red-50' : 'hover:text-red-500 hover:bg-red-50'}`}
-                                            title="Câu trả lời chưa tốt"
-                                        >
-                                            <ThumbsDown className={`w-3.5 h-3.5 ${feedback === 'down' ? 'fill-current' : ''}`} />
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                            </>
-                        )}
                         </div>
-                        {!message.isDeleted && onReply && (
-                            <div className="flex items-center opacity-0 group-hover/botmsg:opacity-100 transition-opacity ml-2">
-                                <button
-                                    onClick={() => onReply(message, false)}
-                                    className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                                    title="Trả lời"
-                                >
-                                    <Reply className="w-4 h-4" />
-                                </button>
-                            </div>
-                        )}                        {/* Bento-Grid Recommendations */}
-                        {message.productRecommendations && message.productRecommendations.length > 0 && (
-                            <div className="pt-2">
-                                <div className="text-[11px] text-blue-900 font-black uppercase tracking-[0.2em] ml-2 mb-3 flex items-center gap-2">
-                                    <ShoppingCart className="w-3.5 h-3.5" />
-                                    Vật liệu đề xuất
-                                </div>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                    {message.productRecommendations.map((product: ProductRecommendation, index: number) => (
-                                        <div
-                                            key={index}
-                                            className="glass-2026 p-4 rounded-3xl border-2 border-transparent hover:border-blue-400/30 hover:shadow-2xl transition-all cursor-pointer group animate-bento"
-                                            style={{ animationDelay: `${index * 150}ms` }}
-                                        >
-                                            <div className="flex flex-col gap-3">
-                                                <div className="flex-1">
-                                                    <div className="font-bold text-gray-950 text-[15px] leading-tight group-hover:text-blue-700 transition-colors">
-                                                        {product.name}
-                                                    </div>
-                                                    <div className="text-blue-800 font-black text-xl mt-1.5 drop-shadow-sm">
-                                                        {product.price?.toLocaleString('vi-VN')}
-                                                        <span className="text-xs font-bold text-gray-500 ml-0.5">đ/{product.unit}</span>
-                                                    </div>
-                                                </div>
-                                                <button 
-                                                    onClick={() => onAddToCart?.(product)}
-                                                    disabled={!product.id}
-                                                    className="w-full bg-blue-600/90 hover:bg-blue-600 text-white py-2.5 rounded-2xl flex items-center justify-center gap-2 font-bold text-sm shadow-lg shadow-blue-500/20 active:scale-95 transition-all disabled:opacity-50"
-                                                >
-                                                    <ShoppingCart className="w-4 h-4" />
-                                                    Thêm ngay
-                                                </button>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
+                    </div>
 
-                        {/* Suggestions */}
-                        {message.suggestions && message.suggestions.length > 0 && !message.isDeleted && (
-                            <div className="flex flex-wrap gap-2 pt-1 pb-2">
-                                {message.suggestions.map((suggestion: string, index: number) => (
-                                    <button
+                    {/* Product Recommendations — below the bubble */}
+                    {message.productRecommendations && message.productRecommendations.length > 0 && !message.isDeleted && (
+                        <div className="ml-11 mt-3">
+                            <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-2 flex items-center gap-1.5 opacity-90">
+                                <ShoppingCart className="w-3 h-3 text-blue-500" />
+                                Vật liệu đề xuất ({message.productRecommendations.length})
+                            </div>
+                            <div className="flex gap-3 overflow-x-auto pb-3 pt-1 -mx-2 px-2 scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
+                                {message.productRecommendations.map((product: ProductRecommendation, index: number) => (
+                                    <div
                                         key={index}
-                                        onClick={() => onSuggestionClick(suggestion, message)}
-                                        disabled={isLoading}
-                                        className={`
-                                        text-xs px-4 py-2 rounded-xl font-semibold transition-all
-                                        disabled:opacity-50 disabled:cursor-not-allowed
-                                        bg-blue-50 border border-blue-100 text-blue-700 
-                                        hover:bg-blue-600 hover:text-white hover:border-blue-600 shadow-sm
-                                    `}
+                                        className="flex flex-col w-[160px] flex-shrink-0 bg-white border border-slate-100 rounded-2xl overflow-hidden shadow-sm hover:shadow-md hover:border-blue-200 hover:-translate-y-0.5 transition-all duration-300 group"
                                     >
-                                        {suggestion}
-                                    </button>
+                                        <div className="relative h-24 bg-slate-50 flex items-center justify-center overflow-hidden border-b border-slate-50">
+                                            {product.imageUrl ? (
+                                                <img
+                                                    src={product.imageUrl}
+                                                    alt={product.name}
+                                                    className="w-full h-full object-contain p-2 group-hover:scale-105 transition-transform duration-300"
+                                                />
+                                            ) : (
+                                                <div className="flex flex-col items-center justify-center text-slate-300 gap-1 select-none">
+                                                    <Package className="w-8 h-8 stroke-[1.5] group-hover:scale-105 transition-transform duration-300" />
+                                                    <span className="text-[9px] uppercase tracking-wider font-extrabold text-slate-400">Vật tư</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className="p-3 flex-1 flex flex-col justify-between min-h-[110px]">
+                                            <div>
+                                                <p className="text-[11px] font-bold text-gray-800 leading-snug line-clamp-2 min-h-[32px] group-hover:text-blue-700 transition-colors">
+                                                    {product.name}
+                                                </p>
+                                                <p className="text-blue-600 font-extrabold text-[13px] mt-1.5">
+                                                    {product.price?.toLocaleString('vi-VN')}
+                                                    <span className="text-[9px] font-medium text-gray-400 ml-0.5">đ/{product.unit}</span>
+                                                </p>
+                                            </div>
+                                            <button
+                                                onClick={() => onAddToCart?.(product)}
+                                                disabled={!product.id}
+                                                className="mt-3 w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white text-[10px] font-bold py-2 rounded-xl flex items-center justify-center gap-1 transition-all active:scale-95 shadow-sm shadow-blue-500/10"
+                                            >
+                                                <ShoppingCart className="w-3 h-3" />
+                                                Thêm vào giỏ
+                                            </button>
+                                        </div>
+                                    </div>
                                 ))}
                             </div>
-                        )}
-                    </div>
+                        </div>
+                    )}
+
+                    {/* Suggestions */}
+                    {message.suggestions && message.suggestions.length > 0 && !message.isDeleted && (
+                        <div className="ml-11 flex flex-wrap gap-2 pb-1">
+                            {message.suggestions.map((suggestion: string, index: number) => (
+                                <button
+                                    key={index}
+                                    onClick={() => onSuggestionClick(suggestion, message)}
+                                    disabled={isLoading}
+                                    className="text-xs px-4 py-2 rounded-xl font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed bg-blue-50 border border-blue-100 text-blue-700 hover:bg-blue-600 hover:text-white hover:border-blue-600 shadow-sm"
+                                >
+                                    {suggestion}
+                                </button>
+                            ))}
+                        </div>
+                    )}
                 </div>
             )}
         </div>
     )
 }
+
+

@@ -23,7 +23,9 @@ KHÔNG gọi khi: chỉ hỏi thông tin chung về quy trình/kỹ thuật xây
                 if (!query) {
                     return { found: false, message: 'Vui lòng cung cấp từ khóa tìm kiếm cụ thể.' };
                 }
-                const products = await prisma.product.findMany({
+
+                // Query more products to allow diversity selection
+                let products = await prisma.product.findMany({
                     where: {
                         OR: [
                             { name: { contains: query, mode: 'insensitive' } },
@@ -32,22 +34,128 @@ KHÔNG gọi khi: chỉ hỏi thông tin chung về quy trình/kỹ thuật xây
                         isActive: true
                     },
                     include: { inventoryItem: true },
-                    take: limit
+                    take: Math.max(limit * 4, 20)
                 });
 
+                let isFallbackList = false;
                 if (products.length === 0) {
-                    return { found: false, message: 'Không tìm thấy sản phẩm nào phù hợp.' };
+                    isFallbackList = true;
+                    // Try to fetch featured products as a fallback
+                    products = await prisma.product.findMany({
+                        where: {
+                            isActive: true,
+                            isFeatured: true
+                        },
+                        include: { inventoryItem: true },
+                        take: Math.max(limit * 4, 20)
+                    });
+
+                    // If no featured products, fetch any active products
+                    if (products.length === 0) {
+                        products = await prisma.product.findMany({
+                            where: { isActive: true },
+                            include: { inventoryItem: true },
+                            take: Math.max(limit * 4, 20)
+                        });
+                    }
+                }
+
+                // Helper to clean/normalize names for similarity check
+                const removeAccentsAndSpecial = (str: string) => {
+                    return str
+                        .normalize('NFD')
+                        .replace(/[\u0300-\u036f]/g, '')
+                        .toLowerCase()
+                        .replace(/[^a-z0-9\s]/g, '')
+                        .trim();
+                };
+
+                // Group products by categoryId
+                const byCategory: Record<string, any[]> = {};
+                for (const p of products) {
+                    if (!byCategory[p.categoryId]) {
+                        byCategory[p.categoryId] = [];
+                    }
+                    byCategory[p.categoryId].push(p);
+                }
+
+                const categoryIds = Object.keys(byCategory);
+                const selected: any[] = [];
+                const selectedNames = new Set<string>();
+
+                // Round-robin selection across categories
+                let added = true;
+                const categoryIndices: Record<string, number> = {};
+                for (const catId of categoryIds) {
+                    categoryIndices[catId] = 0;
+                }
+
+                while (selected.length < limit && added) {
+                    added = false;
+                    for (const catId of categoryIds) {
+                        if (selected.length >= limit) break;
+
+                        const list = byCategory[catId];
+                        const idx = categoryIndices[catId];
+
+                        let found = false;
+                        for (let i = idx; i < list.length; i++) {
+                            const candidate = list[i];
+                            const cleanName = removeAccentsAndSpecial(candidate.name);
+
+                            // Skip if too similar to already selected products
+                            let isTooSimilar = false;
+                            for (const existingName of selectedNames) {
+                                const words1 = cleanName.split(/\s+/).filter(w => w.length > 1);
+                                const words2 = existingName.split(/\s+/).filter(w => w.length > 1);
+                                const intersection = words1.filter(w => words2.includes(w));
+                                const maxLen = Math.max(words1.length, words2.length);
+                                if (maxLen > 0) {
+                                    const overlap = intersection.length / maxLen;
+                                    if (overlap > 0.75) {
+                                        isTooSimilar = true;
+                                        break;
+                                    }
+                                }
+                            }
+
+                            if (!isTooSimilar) {
+                                selected.push(candidate);
+                                selectedNames.add(cleanName);
+                                categoryIndices[catId] = i + 1;
+                                added = true;
+                                found = true;
+                                break;
+                            }
+                        }
+
+                        if (!found) {
+                            categoryIndices[catId] = idx + 1;
+                        }
+                    }
+                }
+
+                // Fallback: fill remaining space if any
+                if (selected.length < limit && selected.length < products.length) {
+                    for (const p of products) {
+                        if (selected.length >= limit) break;
+                        if (!selected.some(s => s.id === p.id)) {
+                            selected.push(p);
+                        }
+                    }
                 }
 
                 return {
                     found: true,
-                    products: products.map(p => ({
+                    isFallbackList,
+                    products: selected.map(p => ({
                         id: p.id,
                         name: p.name,
                         price: p.price,
                         wholesalePrice: p.wholesalePrice,
                         minWholesaleQty: p.minWholesaleQty,
                         unit: p.unit,
+                        imageUrl: p.images?.[0] || null, // Map specific product image URL
                         inStock: p.inventoryItem ? p.inventoryItem.availableQuantity > 0 : false,
                         stockQuantity: p.inventoryItem?.availableQuantity || 0
                     }))

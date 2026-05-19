@@ -88,6 +88,9 @@ Quy tắc:
 - Nếu khách yêu cầu lấy hàng, thêm hàng, mua luôn: gọi công cụ addToCart ngay lập tức.
 - **TUYỆT ĐỐI KHÔNG LỘ THÔNG TIN KỸ THUẬT NỘI BỘ:** Không được nhắc đến tên tool ("Market Trends", "searchProducts", "getMarketTrends"), không được đề cập các từ kỹ thuật như "STABLE", "UP", "DOWN", "tool", "API", "hệ thống trục trặc". Thay vào đó hãy diễn đạt tự nhiên như người bán hàng thực thụ (VD: thay "xu hướng STABLE" → "giá đang khá ổn định trong thời điểm này").
 - **KHI KHÔNG TÌM THẤY SẢN PHẨM:** Đừng chỉ hỏi lại khách. Hãy: (1) Xin lỗi ngắn gọn vì mặt hàng đang hết/chưa có trong kho, (2) Đề xuất đặt hàng theo yêu cầu: "Anh/chị có thể để lại tên, số điện thoại và thông số cần mua, bên em sẽ liên hệ báo giá và thời gian có hàng sớm nhất ạ!", (3) Gợi ý sản phẩm thay thế tương đương nếu có.
+- **XỬ LÝ KẾT QUẢ TÌM KIẾM:** 
+  * Nếu tool searchProducts trả về kết quả cụ thể → báo giá và hiển thị chúng.
+  * Nếu tool searchProducts trả về 'isFallbackList: true' → Giải thích tự nhiên: "Do chưa tìm thấy sản phẩm đúng tên cụ thể trong kho, SmartBuild AI xin gửi anh/chị tham khảo bảng giá một số vật tư xây dựng phổ biến bán chạy nhất hiện tại nhé:" và liệt kê chúng.
 - **LOGISTICS & ĐỊA ĐIỂM (Cực kỳ quan trọng):** Vì vật liệu xây dựng cồng kềnh/nặng, khi khách chuẩn bị chốt đơn lớn hoặc hỏi phí ship, hãy CHỦ ĐỘNG hỏi địa điểm công trình (Quận/Huyện nào ở TP.HCM hoặc tỉnh nào) để hỗ trợ tính toán phương án vận chuyển (xe tải, xe cẩu) tối ưu nhất.
 - **BẢO MẬT GIÁ & CHỐT SALES AN TOÀN:** Chỉ báo đúng giá lẻ/giá sỉ hiển thị trong database. TUYỆT ĐỐI không tự ý hứa hẹn chiết khấu thêm ngoài khung quy định của hệ thống để tránh bị lừa giá. Nếu khách mua cực lớn và đòi giảm thêm, hãy dùng tool chuyển ngay cho nhân viên (escalate).
 - **CHẤT LƯỢNG CHỐT SALES (CTA):** Luôn kết thúc câu trả lời bằng một câu hỏi mở ngắn gọn thúc đẩy hành động (VD: "Em lên đơn giữ giá sỉ đợt này cho anh luôn nhé?", "Em thêm luôn keo chà ron vào giỏ hàng cho anh tiện thi công nha?").
@@ -173,14 +176,14 @@ Quy tắc:
             }
         };
 
-        // Fallback chain được sắp xếp theo khả năng gọi tool:
-        // gemini-2.5-flash > gemini-2.0-flash > gemini-1.5-flash (tốt nhất về tool) > flash-lite (yếu nhất)
+        // Fallback chain được sắp xếp theo khả năng gọi tool và độ ổn định quota:
+        // gemini-2.5-flash > gemini-flash-latest (1.5 Flash) > gemini-2.0-flash > gemini-2.5-flash-lite > gemini-flash-lite-latest
         const candidates = [
             AI_CONFIG.GEMINI.MODEL || 'gemini-2.5-flash',
+            'gemini-flash-latest',
             'gemini-2.0-flash',
-            'gemini-1.5-flash',
             'gemini-2.5-flash-lite',
-            'gemini-flash-latest'
+            'gemini-flash-lite-latest'
         ];
 
         if (cachedWorkingModel && candidates.includes(cachedWorkingModel)) {
@@ -290,6 +293,7 @@ Quy tắc:
                     controller.close();
                 } catch (err) {
                     console.error('Stream error:', err);
+                    cachedWorkingModel = null; // Invalidate cached working model on mid-stream crash
                     controller.error(err);
                 }
             }

@@ -39,7 +39,7 @@ export function useChatActions({
     const streamingBotMsgIdRef = useRef<string | null>(null);
     const streamingBotContentRef = useRef<string>('');
 
-    const sendMessage = useCallback(async (text: string, isFromInput = false, currentMessage = '', setCurrentMessage?: (v: string) => void, selectedImage: string | null = null, setSelectedImage?: (v: string | null) => void, replyTo?: { id: string; text: string } | null) => {
+    const sendMessage = useCallback(async (text: string, isFromInput = false, currentMessage = '', setCurrentMessage?: (v: string) => void, selectedImage: string | null = null, setSelectedImage?: (v: string | null) => void, replyTo?: { id: string; text: string } | null, skipAddingUserMessage = false) => {
         const messageText = isFromInput ? currentMessage : text;
         if (!messageText.trim() && !selectedImage) return;
 
@@ -58,9 +58,11 @@ export function useChatActions({
             replyToContent: replyTo?.text
         };
 
-        setMessages(prev => [...prev, userMsg]);
-        if (setCurrentMessage) setCurrentMessage('');
-        if (setSelectedImage) setSelectedImage(null);
+        if (!skipAddingUserMessage) {
+            setMessages(prev => [...prev, userMsg]);
+            if (setCurrentMessage) setCurrentMessage('');
+            if (setSelectedImage) setSelectedImage(null);
+        }
         setIsLoading(true);
         setIsError(false);
         scrollToBottom();
