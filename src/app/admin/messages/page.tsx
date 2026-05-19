@@ -430,7 +430,11 @@ function MessagesContent() {
         try {
             const res = await fetch('/api/upload', { method: 'POST', body: formData })
             const data = await res.json()
-            if (data.success) await handleSendMessage(undefined, data)
+            if (data.success) {
+                await handleSendMessage(undefined, data)
+            } else {
+                toast.error(data.error || 'Lỗi upload file không hợp lệ')
+            }
         } catch { toast.error('Lỗi upload') } finally { setUploading(false); if (fileInputRef.current) fileInputRef.current.value = '' }
     }
 

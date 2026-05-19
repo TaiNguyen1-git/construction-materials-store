@@ -15,6 +15,8 @@ interface ChatInputProps {
     onConnectSupport?: () => void;
     isHumanMode?: boolean;
     onTyping?: () => void;
+    replyingTo?: { id: string; text: string; isUser: boolean } | null;
+    onCancelReply?: () => void;
 }
 
 export default function ChatInput({
@@ -27,7 +29,9 @@ export default function ChatInput({
     isAdmin,
     onConnectSupport,
     isHumanMode = false,
-    onTyping
+    onTyping,
+    replyingTo,
+    onCancelReply
 }: ChatInputProps) {
     const fileInputRef = useRef<HTMLInputElement>(null)
     const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -284,6 +288,24 @@ export default function ChatInput({
                             ? 'bg-white border-blue-400 ring-4 ring-blue-50' 
                             : 'bg-neutral-100 border-transparent hover:bg-neutral-200/50'
                     }`}>
+                        {replyingTo && (
+                            <div className="mx-3 mt-3 px-3 py-2 bg-blue-50/50 border-l-2 border-blue-400 rounded-r-lg relative animate-fadeIn flex items-center gap-2">
+                                <div className="flex-1 min-w-0">
+                                    <div className="text-[11px] font-bold text-blue-600 mb-0.5">
+                                        Đang trả lời {replyingTo.isUser ? 'bạn' : 'SmartBuild AI'}
+                                    </div>
+                                    <div className="text-xs text-neutral-600 truncate opacity-80">
+                                        {replyingTo.text}
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={onCancelReply}
+                                    className="p-1 hover:bg-black/5 rounded-full transition-colors text-neutral-500"
+                                >
+                                    <X className="w-3.5 h-3.5" />
+                                </button>
+                            </div>
+                        )}
                         {selectedImage && (
                             <div className="p-3 pb-0 relative animate-fadeIn">
                                 {selectedImage.startsWith('data:image/') ? (

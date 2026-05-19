@@ -71,6 +71,9 @@ export interface ChatMessage {
     requiresConfirmation?: boolean;
     isSystem?: boolean;
     chatMode?: 'AI' | 'HUMAN';
+    isDeleted?: boolean;
+    replyToId?: string;
+    replyToContent?: string;
 }
 
 export interface ChatbotProps {

@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react'
-import { ShoppingCart, ExternalLink, Copy, Check, ThumbsUp, ThumbsDown } from 'lucide-react'
+import { ShoppingCart, ExternalLink, Copy, Check, ThumbsUp, ThumbsDown, Reply, Trash2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { ChatMessage, ProductRecommendation } from './types'
 
@@ -11,7 +11,9 @@ interface MessageBubbleProps {
     onSuggestionClick: (suggestion: string, message?: ChatMessage) => void;
     onAddToCart?: (product: ProductRecommendation) => void;
     isLoading: boolean;
-    onImageClick?: (url: string) => void; // New prop for lightbox
+    onImageClick?: (url: string) => void;
+    onReply?: (message: ChatMessage, isUser: boolean) => void;
+    onDelete?: (messageId: string) => void;
     isLast?: boolean;
     isSystem?: boolean;
 }
@@ -193,6 +195,8 @@ export default function MessageBubble({
     isLoading,
     onImageClick,
     onAddToCart,
+    onReply,
+    onDelete,
     isLast = false
 }: MessageBubbleProps) {
     const isHelloMessage = message.userMessage === 'hello' || message.userMessage === 'admin_hello'
@@ -245,7 +249,29 @@ export default function MessageBubble({
 
             {/* User Message */}
             {(message.userMessage || message.userImage) && !isHelloMessage && !message.isSystem && (
-                <div className="flex justify-end pr-2">
+                <div className="flex justify-end pr-2 group/usermsg items-center">
+                    {!message.isDeleted && (
+                        <div className="flex items-center gap-1 opacity-0 group-hover/usermsg:opacity-100 transition-opacity mr-2">
+                            {onReply && (
+                                <button
+                                    onClick={() => onReply(message, true)}
+                                    className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                    title="Trả lời"
+                                >
+                                    <Reply className="w-4 h-4" />
+                                </button>
+                            )}
+                            {onDelete && (
+                                <button
+                                    onClick={() => onDelete(message.id)}
+                                    className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                    title="Thu hồi"
+                                >
+                                    <Trash2 className="w-4 h-4" />
+                                </button>
+                            )}
+                        </div>
+                    )}
                     <div
                         className={`
                             max-w-[85%] px-5 py-3.5 rounded-2xl rounded-tr-sm shadow-sm
@@ -256,49 +282,60 @@ export default function MessageBubble({
                             relative
                         `}
                     >
-
-                        {message.userImage && (
-                            <div className={`relative ${message.userMessage?.trim() ? 'mb-3' : 'mb-0'}`}>
-                                {message.userImage.startsWith('data:image/') ? (
-                                    <div
-                                        className="cursor-pointer group rounded-xl overflow-hidden border border-white/20"
-                                        onClick={() => onImageClick?.(message.userImage!)}
-                                    >
-                                        <img
-                                            src={message.userImage}
-                                            alt="Uploaded"
-                                            className="max-w-full hover:opacity-90 transition-opacity duration-300"
-                                        />
-                                    </div>
-                                ) : message.userImage.startsWith('data:audio/') ? (
-                                    <div className="bg-white/10 p-1.5 rounded-xl border border-white/20 shadow-sm backdrop-blur-sm overflow-hidden flex items-center justify-center">
-                                        <audio controls src={message.userImage} className="h-[40px] w-full min-w-[180px] max-w-[240px] outline-none" />
-                                    </div>
-                                ) : (
-                                    <a
-                                        href={message.userImage}
-                                        download="document"
-                                        className="flex items-center gap-3 p-3 bg-white/20 hover:bg-white/30 rounded-xl transition-colors border border-white/10"
-                                    >
-                                        <div className="bg-white/20 p-2 rounded-lg">
-                                            <span className="text-xl">📄</span>
-                                        </div>
-                                        <div className="flex-1 min-w-0 pr-2">
-                                            <p className="text-sm font-bold truncate text-white">Tài liệu đính kèm</p>
-                                            <p className="text-[10px] opacity-80 uppercase text-white">Nhấn để tải về</p>
-                                        </div>
-                                    </a>
-                                )}
-
-                                {isLoading && !message.botMessage && (
-                                    <div className="absolute inset-0 bg-black/10 flex items-center justify-center rounded-xl">
-                                        <div className="w-5 h-5 border-2 border-white/30 border-t-white animate-spin rounded-full" />
+                        {message.isDeleted ? (
+                            <div className="italic opacity-80 text-[14px]">Tin nhắn đã bị thu hồi</div>
+                        ) : (
+                            <>
+                                {message.replyToContent && (
+                                    <div className="mb-2 pl-2.5 border-l-2 border-white/40 text-xs opacity-80 truncate max-w-[250px]">
+                                        <span className="font-semibold block mb-0.5 opacity-100 text-[10px] uppercase tracking-wider">Đang trả lời</span>
+                                        {message.replyToContent}
                                     </div>
                                 )}
-                            </div>
-                        )}
-                        {message.userMessage && (
-                            <div className="text-[15.5px] font-medium leading-relaxed relative z-10">{message.userMessage}</div>
+                                {message.userImage && (
+                                    <div className={`relative ${message.userMessage?.trim() ? 'mb-3' : 'mb-0'}`}>
+                                        {message.userImage.startsWith('data:image/') ? (
+                                            <div
+                                                className="cursor-pointer group rounded-xl overflow-hidden border border-white/20"
+                                                onClick={() => onImageClick?.(message.userImage!)}
+                                            >
+                                                <img
+                                                    src={message.userImage}
+                                                    alt="Uploaded"
+                                                    className="max-w-full hover:opacity-90 transition-opacity duration-300"
+                                                />
+                                            </div>
+                                        ) : message.userImage.startsWith('data:audio/') ? (
+                                            <div className="bg-white/10 p-1.5 rounded-xl border border-white/20 shadow-sm backdrop-blur-sm overflow-hidden flex items-center justify-center">
+                                                <audio controls src={message.userImage} className="h-[40px] w-full min-w-[180px] max-w-[240px] outline-none" />
+                                            </div>
+                                        ) : (
+                                            <a
+                                                href={message.userImage}
+                                                download="document"
+                                                className="flex items-center gap-3 p-3 bg-white/20 hover:bg-white/30 rounded-xl transition-colors border border-white/10"
+                                            >
+                                                <div className="bg-white/20 p-2 rounded-lg">
+                                                    <span className="text-xl">📄</span>
+                                                </div>
+                                                <div className="flex-1 min-w-0 pr-2">
+                                                    <p className="text-sm font-bold truncate text-white">Tài liệu đính kèm</p>
+                                                    <p className="text-[10px] opacity-80 uppercase text-white">Nhấn để tải về</p>
+                                                </div>
+                                            </a>
+                                        )}
+
+                                        {isLoading && !message.botMessage && (
+                                            <div className="absolute inset-0 bg-black/10 flex items-center justify-center rounded-xl">
+                                                <div className="w-5 h-5 border-2 border-white/30 border-t-white animate-spin rounded-full" />
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                                {message.userMessage && (
+                                    <div className="text-[15.5px] font-medium leading-relaxed relative z-10">{message.userMessage}</div>
+                                )}
+                            </>
                         )}
                         <div className="text-[10px] opacity-60 mt-1.5 text-right font-medium relative z-10">
                             {formatTime(message.timestamp)}
@@ -308,7 +345,7 @@ export default function MessageBubble({
             )}
 
             {/* Bot Message */}
-            {message.botMessage && !message.isSystem && (
+            {(message.botMessage || message.botImage) && !message.isSystem && (
                 <div className="flex justify-start gap-3 pl-1">
                     {/* Avatar */}
                     <div className="flex-shrink-0 w-8 h-8 rounded-full overflow-hidden border border-slate-200 bg-white mt-1">
@@ -319,7 +356,7 @@ export default function MessageBubble({
                         />
                     </div>
 
-                    <div className="max-w-[88%] space-y-3">
+                    <div className="max-w-[88%] space-y-3 flex group/botmsg items-center">
                         <div className="bg-white border border-slate-100 p-4 rounded-2xl rounded-tl-sm shadow-[0_2px_10px_rgba(0,0,0,0.02)] relative group/bubble">
                             
                             {/* Copy Button */}
@@ -331,9 +368,19 @@ export default function MessageBubble({
                                 {isCopied ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
                             </button>
 
-                            <div className="text-gray-900 relative z-10 pt-1">
-                                <RenderContent text={message.botMessage} />
-                            </div>
+                            {message.isDeleted ? (
+                                <div className="italic opacity-80 text-[14px] text-gray-500">Tin nhắn đã bị thu hồi</div>
+                            ) : (
+                                <>
+                                    {message.replyToContent && (
+                                        <div className="mb-2 pl-2.5 border-l-2 border-indigo-400 text-xs opacity-80 truncate max-w-[250px] text-gray-600">
+                                            <span className="font-semibold block mb-0.5 opacity-100 text-[10px] uppercase tracking-wider text-indigo-600">Đang trả lời</span>
+                                            {message.replyToContent}
+                                        </div>
+                                    )}
+                                    <div className="text-gray-900 relative z-10 pt-1">
+                                        <RenderContent text={message.botMessage} />
+                                    </div>
 
                             {message.botImage && (
                                 <div className="mt-4 relative">
@@ -391,9 +438,20 @@ export default function MessageBubble({
                                     </div>
                                 </div>
                             </div>
+                            </>
+                        )}
                         </div>
-
-                        {/* Bento-Grid Recommendations */}
+                        {!message.isDeleted && onReply && (
+                            <div className="flex items-center opacity-0 group-hover/botmsg:opacity-100 transition-opacity ml-2">
+                                <button
+                                    onClick={() => onReply(message, false)}
+                                    className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                    title="Trả lời"
+                                >
+                                    <Reply className="w-4 h-4" />
+                                </button>
+                            </div>
+                        )}                        {/* Bento-Grid Recommendations */}
                         {message.productRecommendations && message.productRecommendations.length > 0 && (
                             <div className="pt-2">
                                 <div className="text-[11px] text-blue-900 font-black uppercase tracking-[0.2em] ml-2 mb-3 flex items-center gap-2">
@@ -433,7 +491,7 @@ export default function MessageBubble({
                         )}
 
                         {/* Suggestions */}
-                        {message.suggestions && message.suggestions.length > 0 && (
+                        {message.suggestions && message.suggestions.length > 0 && !message.isDeleted && (
                             <div className="flex flex-wrap gap-2 pt-1 pb-2">
                                 {message.suggestions.map((suggestion: string, index: number) => (
                                     <button

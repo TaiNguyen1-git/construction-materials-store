@@ -48,6 +48,7 @@ export default function ChatbotPremium({ isOpen: propIsOpen, onClose }: { isOpen
     const [selectedImage, setSelectedImage] = useState<string | null>(null)
     const [lightboxImage, setLightboxImage] = useState<string | null>(null)
     const [abortController, setAbortController] = useState<AbortController | null>(null)
+    const [replyingTo, setReplyingTo] = useState<{ id: string; text: string; isUser: boolean } | null>(null)
 
     // Functional State (Modals)
     const [showOCRPreview, setShowOCRPreview] = useState<boolean>(false)
@@ -145,6 +146,26 @@ export default function ChatbotPremium({ isOpen: propIsOpen, onClose }: { isOpen
             });
         }
     }, [hybridManager.conversationId, hybridManager.identity])
+
+    const handleDeleteMessage = useCallback(async (messageId: string) => {
+        setMessages(prev => prev.map(m => m.id === messageId ? { ...m, isDeleted: true } : m));
+        
+        if (chatMode === 'HUMAN' && hybridManager.conversationId) {
+            try {
+                // Not implementing real delete API for now, just marking local state
+            } catch (err) {
+                console.error("Failed to delete message", err);
+            }
+        }
+    }, [chatMode, hybridManager.conversationId, setMessages]);
+
+    const handleReplyMessage = useCallback((message: ChatMessage, isUser: boolean) => {
+        setReplyingTo({
+            id: message.id,
+            text: isUser ? message.userMessage : (message.botMessage || 'Ảnh/Tài liệu đính kèm'),
+            isUser
+        });
+    }, []);
 
     // Actions Hook (Uses hybridManager.conversationId which might be undefined initially)
     const actions = useChatActions({
@@ -260,6 +281,8 @@ export default function ChatbotPremium({ isOpen: propIsOpen, onClose }: { isOpen
                         sendMessage={actions.sendMessage}
                         handleSuggestionClick={actions.handleSuggestionClick}
                         onAddToCart={handleAddToCart}
+                        onDeleteMessage={handleDeleteMessage}
+                        onReplyMessage={handleReplyMessage}
                         stopResponse={() => abortController?.abort()}
                         regenerateResponse={() => {
                             const aiMessages = messages.filter(m => (m.chatMode || 'AI') === 'AI');
@@ -306,11 +329,16 @@ export default function ChatbotPremium({ isOpen: propIsOpen, onClose }: { isOpen
                         selectedImage={selectedImage} 
                         setSelectedImage={setSelectedImage} 
                         isLoading={isLoading} 
-                        onSendMessage={handleSendMessage} 
+                        onSendMessage={() => {
+                            actions.sendMessage(currentMessage, true, currentMessage, setCurrentMessage, selectedImage, setSelectedImage, replyingTo);
+                            setReplyingTo(null);
+                        }} 
                         isAdmin={isAdmin} 
                         onConnectSupport={handleConnectSupport} 
                         isHumanMode={chatMode === 'HUMAN'} 
                         onTyping={() => {}} 
+                        replyingTo={replyingTo}
+                        onCancelReply={() => setReplyingTo(null)}
                     />
                 </div>
             )}

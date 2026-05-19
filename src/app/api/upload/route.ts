@@ -23,6 +23,10 @@ const ALLOWED_MIME_TYPES: Record<string, string[]> = {
     'application/acad': ['.dwg'],
     // Octet-stream is loosely used for CAD/Archives sometimes
     'application/octet-stream': ['.dwg', '.dxf', '.zip', '.rar', '.7z'],
+    // Text files
+    'text/plain': ['.txt'],
+    'text/html': ['.html', '.htm'],
+    'text/csv': ['.csv'],
 }
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB

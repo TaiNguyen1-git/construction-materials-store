@@ -36,6 +36,8 @@ interface ChatMessagesAreaProps {
     regenerateResponse: () => void;
     retryLastMessage: () => void;
     onAddToCart?: (product: import('./types').ProductRecommendation) => void;
+    onDeleteMessage?: (messageId: string) => void;
+    onReplyMessage?: (message: ChatMessage, isUser: boolean) => void;
     
     // Feature specific
     showOCRPreview: boolean;
@@ -62,6 +64,7 @@ export const ChatMessagesArea: React.FC<ChatMessagesAreaProps> = (props) => {
         chatContainerRef, messagesEndRef, handleScroll, handleConnectSupport,
         sendMessage, handleSuggestionClick, setLightboxImage,
         stopResponse, regenerateResponse, retryLastMessage, onAddToCart,
+        onDeleteMessage, onReplyMessage,
         showOCRPreview, setShowOCRPreview, pendingOCRData, setPendingOCRData,
         showOrderSummary, setShowOrderSummary, pendingOrderData, setPendingOrderData,
         showConfirmDialog, setShowConfirmDialog, confirmDialogData, setConfirmDialogData,
@@ -107,6 +110,8 @@ export const ChatMessagesArea: React.FC<ChatMessagesAreaProps> = (props) => {
                     onAddToCart={onAddToCart}
                     isLoading={isLoading}
                     onImageClick={setLightboxImage}
+                    onReply={onReplyMessage}
+                    onDelete={onDeleteMessage}
                     isLast={index === displayMessages.length - 1}
                 />
             ))}

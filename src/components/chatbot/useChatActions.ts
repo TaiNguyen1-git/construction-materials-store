@@ -39,7 +39,7 @@ export function useChatActions({
     const streamingBotMsgIdRef = useRef<string | null>(null);
     const streamingBotContentRef = useRef<string>('');
 
-    const sendMessage = useCallback(async (text: string, isFromInput = false, currentMessage = '', setCurrentMessage?: (v: string) => void, selectedImage: string | null = null, setSelectedImage?: (v: string | null) => void) => {
+    const sendMessage = useCallback(async (text: string, isFromInput = false, currentMessage = '', setCurrentMessage?: (v: string) => void, selectedImage: string | null = null, setSelectedImage?: (v: string | null) => void, replyTo?: { id: string; text: string } | null) => {
         const messageText = isFromInput ? currentMessage : text;
         if (!messageText.trim() && !selectedImage) return;
 
@@ -53,7 +53,9 @@ export function useChatActions({
             confidence: 1,
             timestamp: new Date().toISOString(),
             requiresConfirmation: false,
-            chatMode: chatMode
+            chatMode: chatMode,
+            replyToId: replyTo?.id,
+            replyToContent: replyTo?.text
         };
 
         setMessages(prev => [...prev, userMsg]);
@@ -91,7 +93,9 @@ export function useChatActions({
                 fileName: inferredFileName || null,
                 createdAt: new Date().toISOString(),
                 status: 'sent',
-                isRead: false
+                isRead: false,
+                replyToId: replyTo?.id || null,
+                replyToContent: replyTo?.text || null
             });
         }
 
@@ -121,7 +125,9 @@ export function useChatActions({
                             fileUrl: selectedImage || null,
                             fileType: inferredFileType,
                             fileName: inferredFileName,
-                            tempId: tempId
+                            tempId: tempId,
+                            replyToId: replyTo?.id || null,
+                            replyToContent: replyTo?.text || null
                         })
                     });
                 } catch (err) {
