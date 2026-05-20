@@ -40,7 +40,8 @@ async function getOptimizedHistory(sessionId: string): Promise<LocalCoreMessage[
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
-        const { message, sessionId, context } = body;
+        const { message: rawMessage, sessionId, context } = body;
+        const message = typeof rawMessage === 'string' ? rawMessage.trim() : '';
 
         if (!message || !sessionId) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
@@ -64,10 +65,16 @@ Quy tắc:
   * TUYỆT ĐỐI KHÔNG được xưng là "em", "tôi", "chúng tôi". Luôn tự xưng là "SmartBuild AI".
   * TUYỆT ĐỐI KHÔNG gọi khách là "bạn" hoặc "quý khách". Hãy gọi là "anh", "chị", "cô", "dì", "chú", "bác" để tạo sự tôn trọng, gần gũi và đúng văn hóa Việt Nam.
   * Tận dụng thông tin từ bối cảnh người dùng (nếu có tên riêng, hãy chào bằng tên kèm danh xưng, ví dụ: "SmartBuild AI chào anh Nam...", "SmartBuild AI chào cô Hoa...").
-- **ĐỘ DÀI PHẢN HỒI:** Trả lời NGẮN GỌN, súc tích. Mỗi câu trả lời tối đa 3-5 câu hoặc 3-4 bullet points. KHÔNG viết đoạn dài lê thê. KHÔNG lặp lại ý đã nói. KHÔNG dùng các câu mở đầu thừa như "Dạ, em rất vui được hỗ trợ anh..." hay "Để em kiểm tra và tư vấn cho anh nhé!". Đi thẳng vào vấn đề. Chỉ nói thêm khi khách hỏi chi tiết hơn.
+- **ĐỘ DÀI PHẢN HỒI (SIÊU NGẮN - BẮT BUỘC):**
+  * Mặc định chỉ trả lời trong **1-2 câu ngắn** HOẶC tối đa **3 bullet points ngắn**.
+  * Mục tiêu độ dài: khoảng **35-70 từ** cho mỗi phản hồi.
+  * Ưu tiên cấu trúc: **(1) trả lời trực tiếp** → **(2) 1 khuyến nghị ngắn** → **(3) 1 câu hỏi chốt rất ngắn**.
+  * Tuyệt đối không viết đoạn văn dài, không giải thích lan man, không lặp ý cũ.
+  * Nếu khách muốn chi tiết hơn, mới mở rộng ở tin nhắn tiếp theo.
 - Khi gọi bất kỳ công cụ (tool) nào, BẮT BUỘC phải điền đầy đủ và chính xác các tham số được yêu cầu. Ví dụ: khi dùng searchProducts, tham số 'query' bắt buộc phải là chuỗi từ khóa hoặc tên sản phẩm cần tìm kiếm (không bao giờ được để trống hoặc bỏ qua).
 - **QUY TẮC VÀNG VỀ calculateMaterials:** Khi khách đề cập đến diện tích/quy mô công trình, xử lý theo 2 trường hợp:
-  * **TRƯỜNG HỢP 1 — ĐÃ BIẾT LOẠI CÔNG TRÌNH:** Gọi calculateMaterials NGAY, không hỏi lại. Quy tắc map type: (thép cuộn/cốt thép → thep_cuon) | (đổ sàn bê tông → san_betong) | (xây tường 10cm → tuong_10) | (xây tường 20cm → tuong_20) | (nhà cấp 4, nhà 1 tầng mái tôn → nha_cap_4).
+  * **TRƯỜNG HỢP 1 — ĐÃ BIẾT LOẠI CÔNG TRÌNH:** Gọi calculateMaterials NGAY, không hỏi lại. Quy tắc map type: (thép cuộn/cốt thép → thep_cuon) | (đổ sàn bê tông → san_betong) | (xây tường 10cm → tuong_10) | (xây tường 20cm → tuong_20) | (xây tường dày khác 10/20cm → tuong_tuy_chinh + truyền thicknessCm) | (nhà cấp 4, nhà 1 tầng mái tôn → nha_cap_4).
+  * **NGOẠI LỆ CHO BÀI TOÁN XÂY TƯỜNG:** Nếu khách đã nói diện tích xây tường nhưng CHƯA nêu độ dày (10/12/15/20/22cm...), bắt buộc hỏi ĐÚNG 1 câu xin độ dày rồi mới gọi calculateMaterials. Không tự mặc định độ dày.
   * **TRƯỜNG HỢP 2 — CHƯA BIẾT LOẠI CÔNG TRÌNH:** Hỏi ĐÚNG 1 CÂU ngắn gọn để xác định loại, ví dụ: "Anh/chị cho SmartBuild AI biết thêm loại công trình để tính định mức chính xác nhé — ví dụ: nhà cấp 4, nhà 1-2-3 lầu, nhà phố, biệt thự, nhà xưởng, văn phòng, hay công trình khác (hàng rào, bể nước, sân, hồ bơi...)?" — SAU ĐÓ mới gọi tool.
   * **DANH MỤC LOẠI CÔNG TRÌNH để nhận diện** (dùng để phân loại khi khách đề cập):
     - Nhà ở dân dụng: nhà cấp 4, nhà 1 lầu, nhà 2 lầu, nhà 3 lầu, nhà phố, nhà ống, biệt thự, villa, chung cư, căn hộ, nhà sàn, nhà gỗ, nhà mái vòm, nhà container, nhà tiền chế
@@ -75,7 +82,10 @@ Quy tắc:
     - Công nghiệp: nhà xưởng, kho bãi, nhà máy, xưởng sản xuất, kho lạnh
     - Công cộng/hạ tầng: trường học, bệnh viện, trạm y tế, đình chùa, nhà thờ, công viên, nhà vệ sinh công cộng, trạm bơm, sân thể thao, hồ bơi, sân bóng
     - Hạng mục lẻ: hàng rào, bể nước, bể phốt, sân/đường bê tông, hầm xe, mái che, sân thượng, ban công, bờ kè
-- **QUY TẮC VÀNG VỀ searchProducts:** Bất cứ khi nào bạn đề cập đến TÊN SẢN PHẨM CỤ THỂ hoặc THƯƠNG HIỆU (gạch Prime, xi măng Hà Tiên, sơn Dulux, thép Hòa Phát, keo Weber, v.v.), bạn PHẢI gọi searchProducts NGAY LẬP TỨC để kiểm tra tồn kho và giá thực tế. Không được tư vấn giá "ước tính" hay "ví dụ" khi chưa query hệ thống. Sau calculateMaterials → luôn gọi searchProducts cho từng loại vật liệu kết quả.
+- **PHÂN LOẠI Ý ĐỊNH TRƯỚC KHI GỌI TOOL (RẤT QUAN TRỌNG):**
+  * **TECHNICAL INTENT** (hỏi kiến thức/kỹ thuật: "là gì", "chất lượng ra sao", "thi công thế nào", "ưu nhược điểm", "so với loại khác" nhưng chưa hỏi giá/mua): ƯU TIÊN trả lời kỹ thuật trước. Chỉ gọi searchKnowledgeBase và/hoặc compareProducts. KHÔNG tự động đi kiểm tra kho.
+  * **COMMERCIAL INTENT** (hỏi giá, tồn kho, mua, đặt đơn, báo số lượng): mới gọi searchProducts/addToCart/escalate theo nhu cầu.
+- **QUY TẮC VÀNG VỀ searchProducts:** Chỉ gọi searchProducts ngay khi có tín hiệu thương mại rõ ràng (giá, tồn kho, mua, báo đơn, số lượng). Sau calculateMaterials, nếu khách đang ở ngữ cảnh mua hàng thì gọi searchProducts cho từng vật liệu để chốt đơn.
 - **QUY TẮC VÀNG VỀ compareProducts:** Khi khách hỏi so sánh 2 vật liệu/thương hiệu (từ khóa: "hay", "hoặc", "khác nhau", "nên chọn", "loại nào tốt hơn", "dùng cái nào"):
   * **Nếu đã biết đủ context** (không gian trong/ngoài nhà, mục đích, loại công trình) → gọi compareProducts NGAY với đầy đủ các trường space/purpose/budget/buildingType.
   * **Nếu thiếu context quan trọng** → hỏi ĐÚNG 1 câu gộp: "Anh/chị cho SmartBuild AI biết thêm: (1) dùng trong nhà hay ngoài trời? (2) mục đích cụ thể là gì (lát nền, ốp tường, chống thấm...)? để SmartBuild AI tư vấn chính xác nhất nhé!"
@@ -91,6 +101,8 @@ Quy tắc:
 - **XỬ LÝ KẾT QUẢ TÌM KIẾM:** 
   * Nếu tool searchProducts trả về kết quả cụ thể → báo giá và hiển thị chúng.
   * Nếu tool searchProducts trả về 'isFallbackList: true' → Giải thích tự nhiên: "Do chưa tìm thấy sản phẩm đúng tên cụ thể trong kho, SmartBuild AI xin gửi anh/chị tham khảo bảng giá một số vật tư xây dựng phổ biến bán chạy nhất hiện tại nhé:" và liệt kê chúng.
+- **KHI KB KỸ THUẬT KHÔNG CÓ DỮ LIỆU CHÍNH XÁC:** Nếu searchKnowledgeBase không có kết quả đúng (NO_INTERNAL_MATCH), bắt buộc dùng kiến thức chuyên môn tổng hợp từ Gemini để trả lời kỹ thuật thực dụng cho khách. TUYỆT ĐỐI không nói kiểu "không có trong cơ sở dữ liệu", "hệ thống chưa tìm thấy", "không có thông tin chi tiết".
+- **TRÁNH CÂU DẪN CỨNG GÂY CỤT MẠCH:** Không dùng các câu như "SmartBuild AI sẽ kiểm tra xem kho còn loại này không nhé", "SmartBuild AI đã kiểm tra... hiện chưa có". Hãy chuyển mượt theo ngữ cảnh: nếu khách hỏi kỹ thuật thì trả lời kỹ thuật ngay; nếu khách bắt đầu hỏi mua thì mới chuyển sang báo giá/tồn kho tự nhiên.
 - **LOGISTICS & ĐỊA ĐIỂM (Cực kỳ quan trọng):** Vì vật liệu xây dựng cồng kềnh/nặng, khi khách chuẩn bị chốt đơn lớn hoặc hỏi phí ship, hãy CHỦ ĐỘNG hỏi địa điểm công trình (Quận/Huyện nào ở TP.HCM hoặc tỉnh nào) để hỗ trợ tính toán phương án vận chuyển (xe tải, xe cẩu) tối ưu nhất.
 - **BẢO MẬT GIÁ & CHỐT SALES AN TOÀN:** Chỉ báo đúng giá lẻ/giá sỉ hiển thị trong database. TUYỆT ĐỐI không tự ý hứa hẹn chiết khấu thêm ngoài khung quy định của hệ thống để tránh bị lừa giá. Nếu khách mua cực lớn và đòi giảm thêm, hãy dùng tool chuyển ngay cho nhân viên (escalate).
 - **CHẤT LƯỢNG CHỐT SALES (CTA):** Luôn kết thúc câu trả lời bằng một câu hỏi mở ngắn gọn thúc đẩy hành động (VD: "Em lên đơn giữ giá sỉ đợt này cho anh luôn nhé?", "Em thêm luôn keo chà ron vào giỏ hàng cho anh tiện thi công nha?").
@@ -269,9 +281,11 @@ Quy tắc:
         const customStream = new ReadableStream({
             async start(controller) {
                 try {
+                    let emittedAnyText = false;
                     for await (const part of finalStream) {
                         console.log(`=== [STREAM PART (${activeModelUsed})] ===`, part.type, JSON.stringify(part).slice(0, 300));
                         if (part.type === 'text-delta') {
+                            emittedAnyText = emittedAnyText || Boolean(part.text?.trim());
                             const payload = JSON.stringify({ text: part.text });
                             controller.enqueue(encoder.encode(`data: ${payload}\n\n`));
                         } else if (part.type === 'tool-result') {
@@ -289,6 +303,56 @@ Quy tắc:
                             }
                         }
                     }
+
+                    // Một số lần Gemini có thể kết thúc stream với 0 output tokens.
+                    // Bơm fallback ngắn để UI luôn có nội dung hiển thị.
+                    if (!emittedAnyText) {
+                        const lowerMessage = message.toLowerCase();
+                        const latestUserMessage = [...history]
+                            .reverse()
+                            .find((m) => m.role === 'user')?.content?.toLowerCase() || '';
+                        const latestAssistantMessage = [...history]
+                            .reverse()
+                            .find((m) => m.role === 'assistant')?.content?.toLowerCase() || '';
+
+                        const hasWallIntent =
+                            lowerMessage.includes('xây tường') ||
+                            lowerMessage.includes('tuong') ||
+                            lowerMessage.includes('tường');
+                        const hasAreaIntent =
+                            /\b\d+(\.\d+)?\s*(m2|m²)\b/.test(lowerMessage) ||
+                            lowerMessage.includes('diện tích');
+                        const hasBrickContext =
+                            lowerMessage.includes('gạch') ||
+                            latestUserMessage.includes('gạch') ||
+                            latestAssistantMessage.includes('gạch');
+
+                        let fallbackText =
+                            'SmartBuild AI gửi anh/chị bảng giá nhanh theo nhóm vật liệu: xi măng, gạch, thép, cát đá và sơn. Anh/chị muốn xem nhóm nào trước để SmartBuild AI báo giá gọn nhất ạ?';
+
+                        if (hasWallIntent && hasAreaIntent) {
+                            fallbackText =
+                                'Với tường khoảng 20m2, SmartBuild AI có thể tính nhanh định mức gạch, xi măng và cát xây cho anh/chị ngay. Anh/chị xác nhận giúp SmartBuild AI là mình xây tường 10 hay tường 20 để chốt số lượng chuẩn nhé?';
+                        } else if (hasBrickContext) {
+                            fallbackText =
+                                'SmartBuild AI gửi nhanh bảng giá nhóm gạch phổ biến: gạch đinh, gạch ống và gạch men. Anh/chị muốn xem giá loại gạch xây hay gạch lát để SmartBuild AI báo đúng nhu cầu ạ?';
+                        } else if (lowerMessage.includes('xi măng') || lowerMessage.includes('ximang')) {
+                            fallbackText =
+                                'SmartBuild AI có bảng giá xi măng theo bao 50kg (INSEE, Hà Tiên, Nghi Sơn). Anh/chị muốn xem giá lẻ hay giá sỉ để SmartBuild AI báo gọn ngay ạ?';
+                        } else if (lowerMessage.includes('thép') || lowerMessage.includes('sat')) {
+                            fallbackText =
+                                'SmartBuild AI có bảng giá thép theo phi và kg (phi 6, 8, 10, 12...). Anh/chị muốn xem theo thương hiệu hay theo đường kính để SmartBuild AI gửi đúng bảng giá ạ?';
+                        } else if (lowerMessage.includes('sơn')) {
+                            fallbackText =
+                                'SmartBuild AI có bảng giá sơn nội thất, ngoại thất và chống thấm. Anh/chị muốn xem nhóm nào trước để SmartBuild AI gửi bảng giá ngắn gọn ạ?';
+                        }
+
+                        const payload = JSON.stringify({
+                            text: fallbackText
+                        });
+                        controller.enqueue(encoder.encode(`data: ${payload}\n\n`));
+                    }
+
                     controller.enqueue(encoder.encode('data: [DONE]\n\n'));
                     controller.close();
                 } catch (err) {

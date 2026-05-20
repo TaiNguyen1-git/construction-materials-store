@@ -64,11 +64,14 @@ export default function CheckoutPage() {
 
   const [promoCode, setPromoCode] = useState('')
   const [isApplyingPromo, setIsApplyingPromo] = useState(false)
+  const [promoError, setPromoError] = useState<string | null>(null)
   const [appliedPromotion, setAppliedPromotion] = useState<{ id: string, code: string, discountAmount: number } | null>(null)
 
   const handleApplyPromo = async () => {
     if (!promoCode.trim()) return
+    if (isApplyingPromo) return // prevent spam
     setIsApplyingPromo(true)
+    setPromoError(null)
     try {
       const res = await fetch('/api/promotions/validate', {
         method: 'POST',
@@ -78,12 +81,17 @@ export default function CheckoutPage() {
       const data = await res.json()
       if (data.success) {
         setAppliedPromotion(data.data)
+        setPromoError(null)
         toast.success(`Áp dụng mã ${data.data.code} thành công!`)
       } else {
-        toast.error(data.message)
+        const msg = data.error?.message || data.message || 'Mã không hợp lệ'
+        setPromoError(msg)
+        toast.error(msg)
       }
     } catch (err) {
-      toast.error('Lỗi khi áp dụng mã')
+      const msg = 'Lỗi khi áp dụng mã, vui lòng thử lại'
+      setPromoError(msg)
+      toast.error(msg)
     } finally {
       setIsApplyingPromo(false)
     }
@@ -479,22 +487,32 @@ export default function CheckoutPage() {
                     <span className="text-xs font-bold text-neutral-900 uppercase tracking-wider">Mã giảm giá</span>
                   </div>
                   {!appliedPromotion ? (
-                    <div className="flex gap-2">
-                       <input 
-                         type="text" 
-                         value={promoCode}
-                         onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
-                         placeholder="Nhập mã ưu đãi..."
-                         className="flex-1 bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-2.5 text-xs outline-none focus:border-primary-500 font-bold"
-                       />
-                       <button 
-                         type="button"
-                         onClick={handleApplyPromo}
-                         disabled={isApplyingPromo || !promoCode}
-                         className="bg-neutral-900 text-white px-4 py-2.5 rounded-xl text-xs font-bold hover:bg-black transition-all disabled:opacity-50"
-                       >
-                         {isApplyingPromo ? <Loader2 size={16} className="animate-spin" /> : 'Áp dụng'}
-                       </button>
+                    <div className="space-y-1.5">
+                      <div className="flex gap-2">
+                         <input 
+                           type="text" 
+                           value={promoCode}
+                           onChange={(e) => { setPromoCode(e.target.value.toUpperCase()); setPromoError(null) }}
+                           onKeyDown={(e) => e.key === 'Enter' && handleApplyPromo()}
+                           placeholder="Nhập mã ưu đãi..."
+                           className={`flex-1 bg-neutral-50 border rounded-xl px-4 py-2.5 text-xs outline-none font-bold transition-all ${
+                             promoError ? 'border-red-400 focus:border-red-500 bg-red-50' : 'border-neutral-200 focus:border-primary-500'
+                           }`}
+                         />
+                         <button 
+                           type="button"
+                           onClick={handleApplyPromo}
+                           disabled={isApplyingPromo || !promoCode.trim()}
+                           className="bg-neutral-900 text-white px-4 py-2.5 rounded-xl text-xs font-bold hover:bg-black transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                         >
+                           {isApplyingPromo ? <Loader2 size={16} className="animate-spin" /> : 'Áp dụng'}
+                         </button>
+                      </div>
+                      {promoError && (
+                        <p className="text-red-500 text-[10px] font-bold flex items-center gap-1 px-1">
+                          <X size={10} /> {promoError}
+                        </p>
+                      )}
                     </div>
                   ) : (
                     <div className="flex items-center justify-between bg-primary-50 border border-primary-200 rounded-xl p-3">

@@ -56,13 +56,42 @@ export default function CartPage() {
 
   const [voucherCode, setVoucherCode] = useState('')
   const [isApplyingVoucher, setIsApplyingVoucher] = useState(false)
+  const [voucherError, setVoucherError] = useState<string | null>(null)
   const { voucher, setVoucher } = useCartStore()
   
   const [mounted, setMounted] = useState(false)
 
+  const fetchRecommendations = async () => {
+    try {
+      setLoadingRecommendations(true)
+      const productIds = items.map(item => item.productId)
+      const response = await fetch('/api/recommendations/cart', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ productIds, limit: 8 })
+      })
+      if (response.ok) {
+        const data = await response.json()
+        setRecommendations(data.data.recommendations || [])
+      }
+    } catch (error) {
+      console.error('Failed to fetch recommendations:', error)
+    } finally {
+      setLoadingRecommendations(false)
+    }
+  }
+
   useEffect(() => {
     setMounted(true)
   }, [])
+
+  useEffect(() => {
+    if (items.length > 0) {
+      fetchRecommendations()
+    } else {
+      setRecommendations([])
+    }
+  }, [items.length])
 
   const totalPrice = getTotalPrice()
   const shippingFee = (items.length > 0 && totalPrice < 5000000) ? 50000 : 0
@@ -147,7 +176,9 @@ export default function CartPage() {
 
   const handleApplyVoucher = async () => {
     if (!voucherCode) return
+    if (isApplyingVoucher) return // prevent spam
     setIsApplyingVoucher(true)
+    setVoucherError(null)
     try {
       const res = await fetch('/api/promotions/validate', {
         method: 'POST',
@@ -157,13 +188,18 @@ export default function CartPage() {
       const data = await res.json()
       if (data.success) {
         setVoucher(data.data)
+        setVoucherError(null)
         toast.success(`Đã áp dụng mã ${data.data.code}`)
         setVoucherCode('')
       } else {
-        toast.error(data.error?.message || 'Mã không hợp lệ')
+        const msg = data.error?.message || data.message || 'Mã không hợp lệ'
+        setVoucherError(msg)
+        toast.error(msg)
       }
     } catch (err) {
-      toast.error('Lỗi khi kiểm tra mã')
+      const msg = 'Lỗi khi kiểm tra mã, vui lòng thử lại'
+      setVoucherError(msg)
+      toast.error(msg)
     } finally {
       setIsApplyingVoucher(false)
     }
@@ -172,34 +208,6 @@ export default function CartPage() {
   const handleRemoveVoucher = () => {
     setVoucher(null)
     toast.success('Đã gỡ mã giảm giá')
-  }
-
-  useEffect(() => {
-    if (items.length > 0) {
-      fetchRecommendations()
-    } else {
-      setRecommendations([])
-    }
-  }, [items.length])
-
-  const fetchRecommendations = async () => {
-    try {
-      setLoadingRecommendations(true)
-      const productIds = items.map(item => item.productId)
-      const response = await fetch('/api/recommendations/cart', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ productIds, limit: 8 })
-      })
-      if (response.ok) {
-        const data = await response.json()
-        setRecommendations(data.data.recommendations || [])
-      }
-    } catch (error) {
-      console.error('Failed to fetch recommendations:', error)
-    } finally {
-      setLoadingRecommendations(false)
-    }
   }
 
   const handleAddToCart = (product: Recommendation) => {
@@ -411,21 +419,31 @@ export default function CartPage() {
                     <span className="text-sm font-bold text-neutral-800">Mã giảm giá</span>
                   </div>
                   {!voucher ? (
-                    <div className="flex gap-2">
-                      <input 
-                        type="text"
-                        placeholder="Nhập mã (Vd: SMART10)..."
-                        value={voucherCode}
-                        onChange={(e) => setVoucherCode(e.target.value)}
-                        className="flex-1 px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl text-sm font-medium focus:bg-white focus:border-primary-500 outline-none transition-all uppercase"
-                      />
-                      <button 
-                        onClick={handleApplyVoucher}
-                        disabled={isApplyingVoucher || !voucherCode}
-                        className="px-6 py-3 bg-neutral-900 text-white rounded-xl text-xs font-bold hover:bg-neutral-800 disabled:opacity-50 transition-all active:scale-95"
-                      >
-                        {isApplyingVoucher ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Áp dụng'}
-                      </button>
+                    <div className="space-y-1.5">
+                      <div className="flex gap-2">
+                        <input 
+                          type="text"
+                          placeholder="Nhập mã (Vd: SMART10)..."
+                          value={voucherCode}
+                          onChange={(e) => { setVoucherCode(e.target.value); setVoucherError(null) }}
+                          onKeyDown={(e) => e.key === 'Enter' && handleApplyVoucher()}
+                          className={`flex-1 px-4 py-3 bg-neutral-50 border rounded-xl text-sm font-medium outline-none transition-all uppercase ${
+                            voucherError ? 'border-red-400 focus:border-red-500 bg-red-50' : 'focus:bg-white focus:border-primary-500 border-neutral-200'
+                          }`}
+                        />
+                        <button 
+                          onClick={handleApplyVoucher}
+                          disabled={isApplyingVoucher || !voucherCode}
+                          className="px-6 py-3 bg-neutral-900 text-white rounded-xl text-xs font-bold hover:bg-neutral-800 disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-95"
+                        >
+                          {isApplyingVoucher ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Áp dụng'}
+                        </button>
+                      </div>
+                      {voucherError && (
+                        <p className="text-red-500 text-[10px] font-bold flex items-center gap-1 px-1">
+                          ✕ {voucherError}
+                        </p>
+                      )}
                     </div>
                   ) : (
                     <div className="flex items-center justify-between p-4 bg-primary-50 border border-primary-200 rounded-xl animate-in zoom-in-95 duration-200">

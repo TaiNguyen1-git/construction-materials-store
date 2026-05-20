@@ -176,20 +176,39 @@ GỌI TOOL NÀY NGAY (không hỏi lại) khi khách đề cập:
 CÁC TYPE HỖ TRỢ:
 - tuong_10: Xây tường gạch 10cm
 - tuong_20: Xây tường gạch 20cm  
+- tuong_tuy_chinh: Xây tường độ dày bất kỳ (12, 15, 18, 22cm...) theo thicknessCm
 - san_betong: Đổ sàn bê tông
 - thep_cuon: Thép cuộn/cốt thép cho công trình (dầm, cột, móng, sàn)
-- nha_cap_4: Dự toán tổng hợp nhà cấp 4 (xi măng + thép + gạch + cát đá)`,
+- nha_cap_4: Dự toán tổng hợp nhà cấp 4 (xi măng + thép + gạch + cát đá)
+QUAN TRỌNG: Nếu là bài toán xây tường nhưng chưa có độ dày cụ thể, cần hỏi lại 1 câu trước khi tính (không tự mặc định).`,
         parameters: z.object({
             area: z.number().describe('Diện tích (m2) hoặc thể tích (m3). Ví dụ: 200 cho 200m2'),
-            type: z.enum(['tuong_10', 'tuong_20', 'san_betong', 'thep_cuon', 'nha_cap_4']).describe('Loại hạng mục: thep_cuon cho thép xây dựng, nha_cap_4 cho nhà tổng hợp')
+            type: z.enum(['tuong_10', 'tuong_20', 'tuong_tuy_chinh', 'san_betong', 'thep_cuon', 'nha_cap_4']).describe('Loại hạng mục: tuong_tuy_chinh dùng cho tường không phải 10/20cm'),
+            thicknessCm: z.number().optional().describe('Độ dày tường (cm), bắt buộc khi type=tuong_tuy_chinh. Ví dụ: 12, 15, 18, 22'),
+            brickType: z.string().optional().describe('Loại gạch mong muốn (ví dụ: gạch tuynel, gạch block, gạch AAC). Nếu bỏ trống sẽ dùng gạch tuynel chuẩn.')
         }),
-        execute: async ({ area, type }: { area: number; type: 'tuong_10' | 'tuong_20' | 'san_betong' | 'thep_cuon' | 'nha_cap_4' }) => {
+        execute: async ({ area, type, thicknessCm, brickType }: {
+            area: number;
+            type: 'tuong_10' | 'tuong_20' | 'tuong_tuy_chinh' | 'san_betong' | 'thep_cuon' | 'nha_cap_4';
+            thicknessCm?: number;
+            brickType?: string;
+        }) => {
             // Định mức cơ bản (mang tính tham khảo)
+            const normalize = (v: string) => v.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+            const normalizedBrickType = brickType ? normalize(brickType) : '';
+            const wallBrickName = normalizedBrickType.includes('block')
+                ? 'Gạch block'
+                : normalizedBrickType.includes('aac') || normalizedBrickType.includes('be tong khi')
+                    ? 'Gạch AAC (bê tông khí chưng áp)'
+                    : normalizedBrickType.includes('dinh')
+                        ? 'Gạch đinh'
+                        : 'Gạch tuynel (gạch ống 8x8x18)';
+
             switch (type) {
                 case 'tuong_10': // Tường 10cm (1m2)
                     return {
                         materials: [
-                            { name: 'Gạch ống 8x8x18', quantity: area * 55, unit: 'viên' },
+                            { name: wallBrickName, quantity: area * 55, unit: 'viên' },
                             { name: 'Xi măng', quantity: area * 5.4, unit: 'kg' },
                             { name: 'Cát xây', quantity: area * 0.02, unit: 'm3' },
                             { name: 'Bay thợ nề', quantity: 1, unit: 'cái', isAuxiliary: true },
@@ -200,7 +219,7 @@ CÁC TYPE HỖ TRỢ:
                 case 'tuong_20': // Tường 20cm (1m2)
                     return {
                         materials: [
-                            { name: 'Gạch ống 8x8x18', quantity: area * 110, unit: 'viên' },
+                            { name: wallBrickName, quantity: area * 110, unit: 'viên' },
                             { name: 'Xi măng', quantity: area * 10.8, unit: 'kg' },
                             { name: 'Cát xây', quantity: area * 0.04, unit: 'm3' },
                             { name: 'Bay thợ nề', quantity: 1, unit: 'cái', isAuxiliary: true },
@@ -208,6 +227,28 @@ CÁC TYPE HỖ TRỢ:
                         ],
                         note: 'Đây là định mức tham khảo cho tường 20cm. Đã bao gồm vật tư phụ (Bay, Thước dọi).'
                     };
+                case 'tuong_tuy_chinh': {
+                    if (!thicknessCm || Number.isNaN(thicknessCm)) {
+                        return {
+                            error: 'Thiếu độ dày tường (thicknessCm) cho type=tuong_tuy_chinh.',
+                            requiredField: 'thicknessCm',
+                            suggestedQuestion: 'Anh/chị cho SmartBuild AI xin độ dày tường (cm) để tính chính xác nhé, ví dụ: 10, 12, 15, 20 hoặc 22cm?'
+                        };
+                    }
+
+                    const thickness = Math.max(8, Math.min(thicknessCm, 30));
+                    const ratio = thickness / 10;
+                    return {
+                        materials: [
+                            { name: wallBrickName, quantity: Math.ceil(area * 55 * ratio), unit: 'viên' },
+                            { name: 'Xi măng', quantity: Number((area * 5.4 * ratio).toFixed(1)), unit: 'kg' },
+                            { name: 'Cát xây', quantity: Number((area * 0.02 * ratio).toFixed(3)), unit: 'm3' },
+                            { name: 'Bay thợ nề', quantity: 1, unit: 'cái', isAuxiliary: true },
+                            { name: 'Thước dọi', quantity: 1, unit: 'cái', isAuxiliary: true }
+                        ],
+                        note: `Định mức tham khảo cho tường dày ${thickness}cm. Công thức nội suy từ mốc 10cm/20cm, cần hiệu chỉnh theo loại gạch và bản vẽ thực tế.`
+                    };
+                }
                 case 'san_betong':
                     return {
                         materials: [
@@ -257,7 +298,7 @@ CÁC TYPE HỖ TRỢ:
                 default:
                     return { 
                         error: 'Chưa hỗ trợ hạng mục này.',
-                        supported: ['tuong_10', 'tuong_20', 'san_betong', 'thep_cuon', 'nha_cap_4']
+                        supported: ['tuong_10', 'tuong_20', 'tuong_tuy_chinh', 'san_betong', 'thep_cuon', 'nha_cap_4']
                     };
             }
         }
@@ -523,7 +564,7 @@ YÊU CẦU TRẢ LỜI (BẮT BUỘC tuân thủ các quy tắc sau):
     },
 
     searchKnowledgeBase: {
-        description: 'Tra cứu cơ sở dữ liệu kiến thức (Knowledge Base) để trả lời các câu hỏi về kỹ thuật thi công, hướng dẫn sử dụng, bảo quản vật liệu xây dựng (ví dụ: cách chống thấm, cách trộn vữa, quy trình thi công sơn...).',
+        description: 'Tra cứu cơ sở dữ liệu kiến thức (Knowledge Base) cho câu hỏi kỹ thuật thi công, hướng dẫn sử dụng, bảo quản vật liệu xây dựng. Nếu không có kết quả nội bộ khớp chính xác, trả về cờ để AI tổng hợp kiến thức Gemini và vẫn tư vấn kỹ thuật thực dụng cho khách (không trả lời kiểu xin lỗi thiếu dữ liệu).',
         parameters: z.object({
             query: z.string().describe('Từ khóa hoặc câu hỏi cần tra cứu (VD: "cách chống thấm tường", "thi công sơn Kova")')
         }),
@@ -806,7 +847,12 @@ YÊU CẦU TRẢ LỜI (BẮT BUỘC tuân thủ các quy tắc sau):
             if (found) {
                 return { found: true, data: found };
             }
-            return { found: false, message: 'Không tìm thấy tài liệu kỹ thuật phù hợp trong cơ sở dữ liệu. Hãy khuyên khách hàng liên hệ chuyên gia.' };
+            return {
+                found: false,
+                reason: 'NO_INTERNAL_MATCH',
+                allowGeminiSynthesis: true,
+                guidance: 'Không có tài liệu nội bộ khớp trực tiếp. Hãy tổng hợp bằng kiến thức Gemini theo ngữ cảnh Việt Nam và đưa khuyến nghị kỹ thuật an toàn.'
+            };
         }
     },
 
