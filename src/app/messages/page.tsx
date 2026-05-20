@@ -516,6 +516,10 @@ function MessagesClient() {
                             ) : (
                                 <ChatEmptyState />
                             )}
+                        </div>
+                    </div>
+                </div>
+            </div>
             {showGroupModal && (
                 (() => {
                     const sharedMedia = messages
