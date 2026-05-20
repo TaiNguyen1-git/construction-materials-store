@@ -1,4 +1,4 @@
-import { ElementType } from 'react'
+import { ComponentType } from 'react'
 
 export interface TicketMessage {
     id: string
@@ -41,10 +41,11 @@ export type ActiveTab = 'chat' | 'tickets'
 export interface StatusConfig {
     label: string
     color: string
-    icon: ElementType
+    icon: ComponentType<{ className?: string }>
 }
 
 export interface PriorityConfig {
     label: string
     color: string
 }
+

@@ -15,6 +15,7 @@ export async function GET(request: NextRequest) {
         const status = searchParams.get('status')
         const category = searchParams.get('category')
         const priority = searchParams.get('priority')
+        const assigned = searchParams.get('assigned')
         const search = searchParams.get('search')
 
         const skip = (page - 1) * limit
@@ -23,7 +24,7 @@ export async function GET(request: NextRequest) {
         const where: Record<string, unknown> = {}
 
         // Non-admin users can only see their own tickets
-        if (!auth || auth.role !== 'MANAGER') {
+        if (!auth || (auth.role !== 'MANAGER' && auth.role !== 'EMPLOYEE')) {
             if (auth?.userId) {
                 // Get customer ID from user
                 const customer = await prisma.customer.findUnique({
@@ -49,6 +50,12 @@ export async function GET(request: NextRequest) {
         if (status) where.status = status
         if (category) where.category = category
         if (priority) where.priority = priority
+        
+        if (assigned === 'me' && auth?.userId) {
+            where.assignedTo = auth.userId
+        } else if (assigned === 'unassigned') {
+            where.assignedTo = null
+        }
 
         if (search) {
             where.OR = [

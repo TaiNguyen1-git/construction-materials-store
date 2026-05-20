@@ -37,11 +37,27 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
             try {
                 const conv = await prisma.conversation.findUnique({ where: { id: conversationId } })
                 if (conv) {
-                    const isP1 = conv.participant1Id === userId
-                    if (isP1 && conv.unread1 > 0) {
-                        await prisma.conversation.update({ where: { id: conversationId }, data: { unread1: 0 } })
-                    } else if (!isP1 && conv.participant2Id === userId && conv.unread2 > 0) {
-                        await prisma.conversation.update({ where: { id: conversationId }, data: { unread2: 0 } })
+                    if (conv.isGroup) {
+                        const unreadMap = (conv.unreadByUser && typeof conv.unreadByUser === 'object')
+                            ? { ...(conv.unreadByUser as any) }
+                            : {}
+                        if (unreadMap[userId] && unreadMap[userId] > 0) {
+                            unreadMap[userId] = 0
+                            await prisma.conversation.update({
+                                where: { id: conversationId },
+                                data: { unreadByUser: unreadMap }
+                            })
+                        }
+                    } else {
+                        const isAdminUser = decoded?.role === 'MANAGER' || decoded?.role === 'EMPLOYEE' || request.headers.get('x-user-role') === 'MANAGER' || request.headers.get('x-user-role') === 'EMPLOYEE'
+                        const isP1 = conv.participant1Id === userId || (isAdminUser && conv.participant1Id === 'admin_support')
+                        const isP2 = conv.participant2Id === userId || (isAdminUser && conv.participant2Id === 'admin_support')
+                        
+                        if (isP1 && conv.unread1 > 0) {
+                            await prisma.conversation.update({ where: { id: conversationId }, data: { unread1: 0 } })
+                        } else if (isP2 && conv.unread2 > 0) {
+                            await prisma.conversation.update({ where: { id: conversationId }, data: { unread2: 0 } })
+                        }
                     }
                 }
             } catch (err) {

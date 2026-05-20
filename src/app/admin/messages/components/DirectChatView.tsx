@@ -90,6 +90,49 @@ export default function DirectChatView({
     isRestricted = false
 }: DirectChatViewProps) {
     const [replyingTo, setReplyingTo] = useState<ChatMessage | null>(null)
+    const [projects, setProjects] = useState<any[]>([])
+    const [projectLoading, setProjectLoading] = useState(false)
+
+    useEffect(() => {
+        const fetchProjects = async () => {
+            try {
+                setProjectLoading(true)
+                const res = await fetch('/api/projects?limit=100')
+                if (res.ok) {
+                    const json = await res.json()
+                    setProjects(json.data || [])
+                }
+            } catch (err) {
+                console.error('Fetch projects error:', err)
+            } finally {
+                setProjectLoading(false)
+            }
+        }
+        fetchProjects()
+    }, [])
+
+    const handleAssignProject = async (projectId: string | null) => {
+        try {
+            const project = projects.find(p => p.id === projectId)
+            const projectTitle = project ? project.name : null
+
+            const res = await fetch(`/api/chat/conversations/${selectedConv.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ projectId, projectTitle })
+            })
+
+            if (res.ok) {
+                toast.success('Đã cập nhật dự án cho hội thoại')
+                fetchConversations()
+            } else {
+                toast.error('Không thể cập nhật dự án')
+            }
+        } catch (err) {
+            console.error('Assign project error:', err)
+            toast.error('Lỗi khi phân dự án')
+        }
+    }
 
     const handleUnsend = async (msgId: string) => {
         try {
@@ -158,18 +201,50 @@ export default function DirectChatView({
             {/* Chat Header */}
             <div className="sticky top-0 px-6 py-4 bg-white/95 backdrop-blur-sm border-b border-gray-100 flex items-center justify-between z-20">
                 <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold shadow-sm">
-                        {displayName.charAt(0)}
-                    </div>
-                    <div>
-                        <h3 className="font-bold text-gray-900 text-sm">{displayName}</h3>
-                        <div className="flex items-center gap-1.5">
-                            <div className="w-1.5 h-1.5 bg-green-500 rounded-full" />
-                            <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">Đang xem yêu cầu</p>
+                    {selectedConv.isGroup ? (
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-400 to-blue-600 flex items-center justify-center text-white font-bold shadow-sm">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                         </div>
+                    ) : (
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold shadow-sm">
+                            {displayName.charAt(0)}
+                        </div>
+                    )}
+                    <div>
+                        <div className="flex items-center gap-2">
+                            <h3 className="font-bold text-gray-900 text-sm">{displayName}</h3>
+                            {selectedConv.isGroup && (
+                                <span className="text-[8px] font-black uppercase tracking-wider text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full border border-emerald-100">Nhóm</span>
+                            )}
+                        </div>
+                        {selectedConv.isGroup ? (
+                            <p className="text-[10px] text-gray-400 font-medium mt-0.5 truncate max-w-[250px]">
+                                {(selectedConv.participantNames || []).join(', ')}
+                            </p>
+                        ) : (
+                            <div className="flex items-center gap-1.5">
+                                <div className="w-1.5 h-1.5 bg-green-500 rounded-full" />
+                                <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">Đang xem yêu cầu</p>
+                            </div>
+                        )}
                     </div>
                 </div>
-                <div className="flex gap-1" ref={menuRef}>
+                <div className="flex items-center gap-1" ref={menuRef}>
+                    {/* Bộ chọn Dự án / Phân nhóm */}
+                    <div className="mr-2">
+                        <select
+                            value={selectedConv.projectId || ''}
+                            onChange={(e) => handleAssignProject(e.target.value || null)}
+                            className="bg-gray-100 border-none rounded-xl text-xs font-bold text-gray-600 py-1.5 px-3 focus:ring-2 focus:ring-indigo-500 cursor-pointer max-w-[180px]"
+                        >
+                            <option value="">📁 Chưa phân dự án</option>
+                            {projects.map((proj) => (
+                                <option key={proj.id} value={proj.id}>
+                                    🏗️ {proj.name}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
                     <button onClick={() => handleCall('audio')} className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-full transition-all" title="Gọi thoại">
                         <Phone className="w-5 h-5" />
                     </button>
@@ -182,16 +257,20 @@ export default function DirectChatView({
                     {showMenu && (
                         <div className="absolute right-6 top-[60px] w-56 bg-white rounded-2xl shadow-2xl border border-gray-100 py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
                             <button onClick={() => handleMenuAction('info')} className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-3 font-medium">
-                                <User className="w-4 h-4 text-gray-400" /> {showCustomerPanel ? 'Ẩn thông tin KH' : 'Xem thông tin KH'}
+                                <User className="w-4 h-4 text-gray-400" /> {selectedConv.isGroup ? (showCustomerPanel ? 'Ẩn thông tin nhóm' : 'Xem thông tin nhóm') : (showCustomerPanel ? 'Ẩn thông tin KH' : 'Xem thông tin KH')}
                             </button>
-                            {isRestricted ? (
-                                <button onClick={() => handleMenuAction('unban')} className="w-full text-left px-4 py-2.5 text-sm text-green-600 hover:bg-green-50 flex items-center gap-3 font-bold">
-                                    <CheckCircle className="w-4 h-4" /> Gỡ khóa tài khoản
-                                </button>
-                            ) : (
-                                <button onClick={() => handleMenuAction('ban')} className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-3 font-bold">
-                                    <ShieldAlert className="w-4 h-4" /> Khóa tài khoản
-                                </button>
+                            {!selectedConv.isGroup && (
+                                <>
+                                    {isRestricted ? (
+                                        <button onClick={() => handleMenuAction('unban')} className="w-full text-left px-4 py-2.5 text-sm text-green-600 hover:bg-green-50 flex items-center gap-3 font-bold">
+                                            <CheckCircle className="w-4 h-4" /> Gỡ khóa tài khoản
+                                        </button>
+                                    ) : (
+                                        <button onClick={() => handleMenuAction('ban')} className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-3 font-bold">
+                                            <ShieldAlert className="w-4 h-4" /> Khóa tài khoản
+                                        </button>
+                                    )}
+                                </>
                             )}
                             <div className="h-px bg-gray-50 my-2 mx-2" />
                             <button onClick={() => handleMenuAction('delete')} className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-3 font-bold">
@@ -232,6 +311,7 @@ export default function DirectChatView({
                         } as ChatMessage
                     })}
                     themeColor="blue"
+                    showSenderNames={!!selectedConv?.isGroup}
                     onImageClick={(url) => window.open(url, '_blank')}
                     onReply={(msg) => setReplyingTo(msg)}
                     onUnsend={handleUnsend}

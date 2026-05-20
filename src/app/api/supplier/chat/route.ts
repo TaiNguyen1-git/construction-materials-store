@@ -44,7 +44,9 @@ export async function GET(request: NextRequest) {
                     participant1Id: supplierId,
                     participant1Name: supplier?.name || 'Nhà cung cấp',
                     participant2Id: ADMIN_SUPPORT_ID,
-                    participant2Name: ADMIN_SUPPORT_NAME
+                    participant2Name: ADMIN_SUPPORT_NAME,
+                    lastMessage: 'Bắt đầu trò chuyện',
+                    lastMessageAt: new Date()
                 }
             })
         }
@@ -127,7 +129,9 @@ export async function POST(request: NextRequest) {
                     participant1Id: supplierId,
                     participant1Name: supplierName,
                     participant2Id: ADMIN_SUPPORT_ID,
-                    participant2Name: ADMIN_SUPPORT_NAME
+                    participant2Name: ADMIN_SUPPORT_NAME,
+                    lastMessage: 'Bắt đầu trò chuyện',
+                    lastMessageAt: new Date()
                 }
             })
         }

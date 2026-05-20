@@ -1,7 +1,7 @@
 export interface ChatMessage {
     id: string
     tempId?: string
-    senderId: string
+    senderId?: string
     senderName: string
     senderType?: 'me' | 'other' | 'system'
     senderAvatar?: string
@@ -44,6 +44,10 @@ export interface Conversation {
     unreadCount: number
     lastMessageAt: string | null
     createdAt: string
+    isGroup?: boolean
+    groupTitle?: string | null
+    participantIds?: string[]
+    participantNames?: string[]
 }
 
 export type ChatThemeColor = 'indigo' | 'blue' | 'green' | 'amber'

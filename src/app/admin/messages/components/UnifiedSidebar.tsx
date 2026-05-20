@@ -1,7 +1,100 @@
 'use client'
 
-import { Search, MessageCircle, Ticket, X, Loader2, RefreshCw, Clock } from 'lucide-react'
+import { Search, MessageCircle, Ticket, X, Loader2, RefreshCw, Clock, MoreVertical, Archive, EyeOff, Trash2, Users, Plus } from 'lucide-react'
+import { useState, useRef, useEffect } from 'react'
 import { ActiveTab, SupportTicket, StatusConfig, PriorityConfig } from '../types'
+import CreateGroupModal from './CreateGroupModal'
+
+function ConversationMenu({
+    conv,
+    onArchive,
+    onDelete,
+    onHide,
+    isArchived
+}: {
+    conv: any
+    onArchive: (id: string) => void
+    onDelete: (id: string) => void
+    onHide: (id: string) => void
+    isArchived: boolean
+}) {
+    const [isOpen, setIsOpen] = useState(false)
+    const menuRef = useRef<HTMLDivElement>(null)
+
+    useEffect(() => {
+        function handleClickOutside(event: MouseEvent) {
+            if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+                setIsOpen(false)
+            }
+        }
+        if (isOpen) {
+            document.addEventListener('mousedown', handleClickOutside)
+        }
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside)
+        }
+    }, [isOpen])
+
+    return (
+        <div 
+            className={`absolute right-3 top-1/2 -translate-y-1/2 bg-white rounded-full p-0.5 shadow-sm transition-all ${
+                isOpen 
+                    ? 'opacity-100 z-30 ring-2 ring-indigo-500/20' 
+                    : 'opacity-0 group-hover/item:opacity-100 z-20 hover:bg-gray-50/90'
+            }`} 
+            ref={menuRef}
+        >
+            <button
+                onClick={(e) => {
+                    e.stopPropagation()
+                    setIsOpen(!isOpen)
+                }}
+                className="p-1.5 hover:bg-gray-200 rounded-full text-gray-500 hover:text-gray-800 transition-colors"
+            >
+                <MoreVertical className="w-4 h-4" />
+            </button>
+            {isOpen && (
+                <div className="absolute right-0 mt-1 w-36 bg-white border border-gray-100 rounded-xl shadow-lg z-50 py-1 overflow-hidden">
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation()
+                            setIsOpen(false)
+                            onArchive(conv.id)
+                        }}
+                        className="w-full px-3 py-2 text-left text-xs font-semibold text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-2"
+                    >
+                        <Archive className="w-3.5 h-3.5 text-gray-400" />
+                        {isArchived ? 'Bỏ lưu trữ' : 'Lưu trữ'}
+                    </button>
+                    {!isArchived && (
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation()
+                                setIsOpen(false)
+                                onHide(conv.id)
+                            }}
+                            className="w-full px-3 py-2 text-left text-xs font-semibold text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-2"
+                        >
+                            <EyeOff className="w-3.5 h-3.5 text-gray-400" />
+                            Ẩn cuộc chat
+                        </button>
+                    )}
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation()
+                            setIsOpen(false)
+                            onDelete(conv.id)
+                        }}
+                        className="w-full px-3 py-2 text-left text-xs font-bold text-red-600 hover:bg-red-50 transition-colors flex items-center gap-2"
+                    >
+                        <Trash2 className="w-3.5 h-3.5 text-red-400" />
+                        Xóa chat
+                    </button>
+                </div>
+            )}
+        </div>
+    )
+}
 
 interface UnifiedSidebarProps {
     activeTab: ActiveTab
@@ -19,6 +112,13 @@ interface UnifiedSidebarProps {
     handleSearch: (val: string) => void
     formatLastMessage: (content: string) => string
     user: any
+    chatTab: 'active' | 'archived'
+    setChatTab: (tab: 'active' | 'archived') => void
+    onArchiveConversation: (id: string, action: 'archive' | 'unarchive') => void
+    onHideConversation: (id: string) => void
+    onDeleteConversation: (id: string) => void
+    hasMoreConversations: boolean
+    onLoadMoreConversations: () => void
     // Ticket Props
     ticketSearch: string
     setTicketSearch: (q: string) => void
@@ -26,6 +126,8 @@ interface UnifiedSidebarProps {
     setStatusFilter: (s: string) => void
     priorityFilter: string
     setPriorityFilter: (p: string) => void
+    assignedFilter: string
+    setAssignedFilter: (a: string) => void
     tickets: SupportTicket[]
     ticketsLoading: boolean
     selectedTicketId: string | undefined
@@ -34,6 +136,7 @@ interface UnifiedSidebarProps {
     statusConfig: Record<string, StatusConfig>
     priorityConfig: Record<string, PriorityConfig>
     isSlaBreached: (ticket: SupportTicket) => boolean
+    onGroupCreated?: (newConv: any) => void
 }
 
 export default function UnifiedSidebar({
@@ -51,12 +154,21 @@ export default function UnifiedSidebar({
     handleSearch,
     formatLastMessage,
     user,
+    chatTab,
+    setChatTab,
+    onArchiveConversation,
+    onHideConversation,
+    onDeleteConversation,
+    hasMoreConversations,
+    onLoadMoreConversations,
     ticketSearch,
     setTicketSearch,
     statusFilter,
     setStatusFilter,
     priorityFilter,
     setPriorityFilter,
+    assignedFilter,
+    setAssignedFilter,
     tickets,
     ticketsLoading,
     selectedTicketId,
@@ -64,9 +176,105 @@ export default function UnifiedSidebar({
     fetchTickets,
     statusConfig,
     priorityConfig,
-    isSlaBreached
+    isSlaBreached,
+    onGroupCreated
 }: UnifiedSidebarProps) {
+    const [chatGroupFilter, setChatGroupFilter] = useState<'all' | 'project' | 'support' | 'direct' | 'group'>('all')
+    const [showCreateGroup, setShowCreateGroup] = useState(false)
+
+    const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+        const target = e.currentTarget
+        if (target.scrollHeight - target.scrollTop <= target.clientHeight + 50) {
+            onLoadMoreConversations()
+        }
+    }
+
+    // Apply filters to conversations
+    let filteredConversations = conversations
+    if (chatGroupFilter === 'support') {
+        filteredConversations = conversations.filter(conv => conv.participant1Id === 'admin_support' || conv.participant2Id === 'admin_support')
+    } else if (chatGroupFilter === 'direct') {
+        filteredConversations = conversations.filter(conv => !conv.isGroup && conv.participant1Id !== 'admin_support' && conv.participant2Id !== 'admin_support')
+    } else if (chatGroupFilter === 'group') {
+        filteredConversations = conversations.filter(conv => conv.isGroup === true)
+    }
+
+    // Grouping by project
+    const groupedConvs: Record<string, any[]> = {}
+    filteredConversations.forEach(conv => {
+        const key = conv.projectTitle || 'Hội thoại chung & Hỗ trợ'
+        if (!groupedConvs[key]) groupedConvs[key] = []
+        groupedConvs[key].push(conv)
+    })
+
+    const hasConversations = filteredConversations.length > 0
+
+    // Helper function to render a single conversation item
+    const renderConvItem = (conv: any) => {
+        const isGroupConv = conv.isGroup === true
+        const displayName = isGroupConv
+            ? (conv.groupTitle || 'Trò chuyện nhóm')
+            : (user?.id === conv.participant1Id ? conv.participant2Name : conv.participant1Name)
+        const avatarLetter = (displayName || '?').charAt(0).toUpperCase()
+        const unreadCount = isGroupConv
+            ? ((conv.unreadByUser && typeof conv.unreadByUser === 'object') ? (conv.unreadByUser as any)[user?.id] || 0 : 0)
+            : (conv.unreadCount || 0)
+
+        return (
+            <div key={conv.id} className="relative group/item">
+                <button onClick={() => setSelectedId(conv.id)}
+                    className={`w-full p-4 pr-12 flex items-center gap-3 hover:bg-gray-50 transition-colors border-r-4 ${selectedId === conv.id ? 'bg-indigo-50/50 border-indigo-600' : 'border-transparent'}`}>
+                    <div className="relative flex-shrink-0">
+                        {isGroupConv ? (
+                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-400 to-blue-600 flex items-center justify-center text-white font-bold text-sm shadow-sm">
+                                <Users className="w-5 h-5" />
+                            </div>
+                        ) : (
+                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-sm shadow-sm">
+                                {avatarLetter}
+                            </div>
+                        )}
+                        {!isGroupConv && <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full" />}
+                    </div>
+                    <div className="flex-1 text-left min-w-0">
+                        <div className="flex justify-between items-baseline mb-0.5">
+                            <div className="flex items-center gap-1.5 min-w-0">
+                                <h4 className="font-bold text-gray-900 truncate text-[13px]">{displayName}</h4>
+                                {isGroupConv && (
+                                    <span className="flex-shrink-0 text-[8px] font-black uppercase tracking-wider text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full border border-emerald-100">
+                                        Nhóm
+                                    </span>
+                                )}
+                            </div>
+                            <span className="text-[9px] text-gray-400 whitespace-nowrap ml-2">
+                                {conv.lastMessageAt ? new Date(conv.lastMessageAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : ''}
+                            </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                            <p className={`text-[11px] truncate ${unreadCount > 0 ? 'font-bold text-indigo-900' : 'text-gray-500'}`}>
+                                {formatLastMessage(conv.lastMessage)}
+                            </p>
+                            {unreadCount > 0 && (
+                                <span className="ml-2 flex-shrink-0 w-5 h-5 bg-indigo-500 text-white text-[9px] font-black rounded-full flex items-center justify-center">
+                                    {unreadCount > 9 ? '9+' : unreadCount}
+                                </span>
+                            )}
+                        </div>
+                    </div>
+                </button>
+                <ConversationMenu
+                    conv={conv}
+                    onArchive={(id) => onArchiveConversation(id, chatTab === 'archived' ? 'unarchive' : 'archive')}
+                    onHide={onHideConversation}
+                    onDelete={onDeleteConversation}
+                    isArchived={chatTab === 'archived'}
+                />
+            </div>
+        )
+    }
+
     return (
+        <>
         <div className="w-80 border-r border-gray-100 flex flex-col bg-white overflow-hidden">
             {/* Tab switcher */}
             <div className="p-3 border-b border-gray-100">
@@ -98,6 +306,30 @@ export default function UnifiedSidebar({
                     <div className="p-4 border-b border-gray-50">
                         <div className="flex items-center justify-between mb-4">
                             <h2 className="text-xl font-black text-gray-900">Hội thoại</h2>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => setShowCreateGroup(true)}
+                                    title="Tạo nhóm chat đa bên"
+                                    className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white text-[10px] font-black uppercase tracking-wider rounded-xl hover:bg-blue-700 transition-all shadow-sm shadow-blue-500/20"
+                                >
+                                    <Plus className="w-3 h-3" />
+                                    Nhóm
+                                </button>
+                                <div className="flex bg-gray-100 p-0.5 rounded-lg text-[10px]">
+                                    <button
+                                        onClick={() => setChatTab('active')}
+                                        className={`px-2 py-1 rounded-md font-bold uppercase tracking-wider transition-colors ${chatTab === 'active' ? 'bg-white text-indigo-600 shadow-xs' : 'text-gray-500 hover:text-gray-700'}`}
+                                    >
+                                        Hoạt động
+                                    </button>
+                                    <button
+                                        onClick={() => setChatTab('archived')}
+                                        className={`px-2 py-1 rounded-md font-bold uppercase tracking-wider transition-colors ${chatTab === 'archived' ? 'bg-white text-indigo-600 shadow-xs' : 'text-gray-500 hover:text-gray-700'}`}
+                                    >
+                                        Lưu trữ
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                         <div className="relative">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -111,8 +343,19 @@ export default function UnifiedSidebar({
                                 </button>
                             )}
                         </div>
+                        {/* Selector Phân nhóm */}
+                        <div className="mt-2">
+                            <select value={chatGroupFilter} onChange={e => setChatGroupFilter(e.target.value as any)}
+                                className="w-full px-2 py-1.5 bg-gray-100 border-none rounded-xl text-xs font-bold text-gray-600 focus:ring-2 focus:ring-indigo-500 cursor-pointer">
+                                <option value="all">📂 Tất cả</option>
+                                <option value="group">👥 Chat nhóm</option>
+                                <option value="project">🏗️ Theo Dự án</option>
+                                <option value="support">💬 Hỗ trợ chung</option>
+                                <option value="direct">👤 Chat trực tiếp</option>
+                            </select>
+                        </div>
                     </div>
-                    <div className="flex-1 overflow-y-auto custom-scrollbar">
+                    <div className="flex-1 overflow-y-auto custom-scrollbar" onScroll={handleScroll}>
                         {searchQuery.length >= 2 ? (
                             <div className="flex flex-col">
                                 <div className="px-4 py-2 bg-gray-50 text-[10px] font-black uppercase tracking-widest text-gray-400">
@@ -136,31 +379,36 @@ export default function UnifiedSidebar({
                             </div>
                         ) : conversations.length === 0 ? (
                             <div className="p-8 text-center text-gray-400 text-sm italic">Chưa có hội thoại nào</div>
+                        ) : !hasConversations ? (
+                            <div className="p-8 text-center text-gray-400 text-sm italic">Không tìm thấy hội thoại phù hợp</div>
+                        ) : chatGroupFilter === 'project' ? (
+                            <>
+                                {Object.entries(groupedConvs).map(([projectTitle, items]) => (
+                                    <div key={projectTitle} className="mb-2">
+                                        <div className="sticky top-0 bg-slate-50/90 backdrop-blur-xs px-4 py-1.5 text-[10px] font-black text-indigo-600 uppercase tracking-widest flex items-center gap-1.5 border-y border-slate-100/80 z-10">
+                                            <span>🏗️ {projectTitle}</span>
+                                            <span className="ml-auto bg-indigo-100/60 text-indigo-700 px-2 py-0.2 rounded-full text-[9px] font-bold">{items.length}</span>
+                                        </div>
+                                        <div>
+                                            {items.map(conv => renderConvItem(conv))}
+                                        </div>
+                                    </div>
+                                ))}
+                                {hasMoreConversations && (
+                                    <div className="flex items-center justify-center p-4">
+                                        <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
+                                    </div>
+                                )}
+                            </>
                         ) : (
-                            conversations.map(conv => (
-                                <button key={conv.id} onClick={() => setSelectedId(conv.id)}
-                                    className={`w-full p-4 flex items-center gap-3 hover:bg-gray-50 transition-colors border-r-4 ${selectedId === conv.id ? 'bg-indigo-50/50 border-indigo-600' : 'border-transparent'}`}>
-                                    <div className="relative flex-shrink-0">
-                                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-sm shadow-sm">
-                                            {(user?.id === conv.participant1Id ? conv.participant2Name : conv.participant1Name).charAt(0)}
-                                        </div>
-                                        <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full" />
+                            <>
+                                {filteredConversations.map(conv => renderConvItem(conv))}
+                                {hasMoreConversations && (
+                                    <div className="flex items-center justify-center p-4">
+                                        <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
                                     </div>
-                                    <div className="flex-1 text-left min-w-0">
-                                        <div className="flex justify-between items-baseline mb-0.5">
-                                            <h4 className="font-bold text-gray-900 truncate text-[13px]">
-                                                {user?.id === conv.participant1Id ? conv.participant2Name : conv.participant1Name}
-                                            </h4>
-                                            <span className="text-[9px] text-gray-400 whitespace-nowrap ml-2">
-                                                {conv.lastMessageAt ? new Date(conv.lastMessageAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : ''}
-                                            </span>
-                                        </div>
-                                        <p className={`text-[11px] truncate ${conv.unread1 > 0 || conv.unread2 > 0 ? 'font-bold text-indigo-900' : 'text-gray-500'}`}>
-                                            {formatLastMessage(conv.lastMessage)}
-                                        </p>
-                                    </div>
-                                </button>
-                            ))
+                                )}
+                            </>
                         )}
                     </div>
                 </>
@@ -176,17 +424,23 @@ export default function UnifiedSidebar({
                                 value={ticketSearch} onChange={e => setTicketSearch(e.target.value)}
                                 className="w-full pl-8 pr-3 py-2 bg-gray-100 border-none rounded-xl text-xs focus:ring-2 focus:ring-indigo-500" />
                         </div>
-                        <div className="flex gap-2">
+                        <div className="grid grid-cols-3 gap-1">
+                            <select value={assignedFilter} onChange={e => setAssignedFilter(e.target.value)}
+                                className="px-1.5 py-1.5 bg-gray-100 border-none rounded-lg text-[10px] font-bold focus:ring-2 focus:ring-indigo-500">
+                                <option value="">Phân công</option>
+                                <option value="me">Của tôi</option>
+                                <option value="unassigned">Chưa nhận</option>
+                            </select>
                             <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
-                                className="flex-1 px-2 py-1.5 bg-gray-100 border-none rounded-lg text-[11px] font-medium focus:ring-2 focus:ring-indigo-500">
-                                <option value="">Tất cả trạng thái</option>
+                                className="px-1.5 py-1.5 bg-gray-100 border-none rounded-lg text-[10px] font-bold focus:ring-2 focus:ring-indigo-500">
+                                <option value="">Trạng thái</option>
                                 {Object.entries(statusConfig).map(([key, val]) => (
                                     <option key={key} value={key}>{val.label}</option>
                                 ))}
                             </select>
                             <select value={priorityFilter} onChange={e => setPriorityFilter(e.target.value)}
-                                className="flex-1 px-2 py-1.5 bg-gray-100 border-none rounded-lg text-[11px] font-medium focus:ring-2 focus:ring-indigo-500">
-                                <option value="">Tất cả độ ưu tiên</option>
+                                className="px-1.5 py-1.5 bg-gray-100 border-none rounded-lg text-[10px] font-bold focus:ring-2 focus:ring-indigo-500">
+                                <option value="">Độ ưu tiên</option>
                                 {Object.entries(priorityConfig).map(([key, val]) => (
                                     <option key={key} value={key}>{val.label}</option>
                                 ))}
@@ -241,5 +495,19 @@ export default function UnifiedSidebar({
                 </>
             )}
         </div>
+
+        {/* Create Group Chat Modal */}
+        {onGroupCreated && (
+            <CreateGroupModal
+                isOpen={showCreateGroup}
+                onClose={() => setShowCreateGroup(false)}
+                onGroupCreated={(newConv) => {
+                    onGroupCreated(newConv)
+                    setShowCreateGroup(false)
+                }}
+                currentUserId={user?.id || ''}
+            />
+        )}
+    </>
     )
 }

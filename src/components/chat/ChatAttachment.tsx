@@ -2,6 +2,12 @@ import { useState, useEffect, useRef } from 'react'
 import { Paperclip, Play, Pause, Volume2, VolumeX } from 'lucide-react'
 import { ChatThemeColor, THEME } from './types'
 
+const WAVEFORM_PEAKS = [
+    10, 18, 14, 8, 22, 16, 12, 20, 26, 18, 
+    10, 14, 22, 14, 8, 16, 24, 18, 12, 20, 
+    14, 10, 22, 16, 12, 18, 24, 14, 8, 12
+]
+
 function CustomAudioPlayer({ src, isMe, themeColor }: { src: string; isMe: boolean; themeColor: ChatThemeColor }) {
     const theme = THEME[themeColor]
     const [isPlaying, setIsPlaying] = useState(false)
@@ -61,11 +67,13 @@ function CustomAudioPlayer({ src, isMe, themeColor }: { src: string; isMe: boole
         }
     }
 
-    const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (!audioRef.current) return
-        const val = parseFloat(e.target.value)
-        audioRef.current.currentTime = val
-        setCurrentTime(val)
+    const handleWaveformClick = (e: React.MouseEvent<HTMLDivElement>) => {
+        if (!audioRef.current || duration === 0) return
+        const rect = e.currentTarget.getBoundingClientRect()
+        const clickX = e.clientX - rect.left
+        const clickFraction = Math.max(0, Math.min(1, clickX / rect.width))
+        audioRef.current.currentTime = clickFraction * duration
+        setCurrentTime(clickFraction * duration)
     }
 
     const formatTime = (time: number) => {
@@ -84,6 +92,9 @@ function CustomAudioPlayer({ src, isMe, themeColor }: { src: string; isMe: boole
     }
     const btnColor = isMe ? 'bg-white/20 hover:bg-white/30 text-white' : (btnColorMap[themeColor] || btnColorMap.indigo)
 
+    const barColorActive = isMe ? 'bg-white' : 'bg-indigo-500'
+    const barColorInactive = isMe ? 'bg-white/30' : 'bg-slate-200 dark:bg-slate-700'
+
     const accentColorMap = {
         indigo: 'accent-indigo-600',
         blue: 'accent-blue-600',
@@ -92,46 +103,62 @@ function CustomAudioPlayer({ src, isMe, themeColor }: { src: string; isMe: boole
     }
     const accentColor = accentColorMap[themeColor] || accentColorMap.indigo
 
+    // Compute progress ratio (0 to peaks length)
+    const progressIdx = duration > 0 ? (currentTime / duration) * WAVEFORM_PEAKS.length : 0
+
     return (
-        <div className="flex items-center gap-3 py-1 px-1.5 w-[240px] select-none">
+        <div className="flex items-center gap-3 p-1 w-[260px] select-none">
+            {/* Play Button */}
             <button 
                 onClick={togglePlay} 
-                className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 transition-all shadow-sm active:scale-95 ${btnColor}`}
+                className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 transition-all shadow-sm active:scale-95 ${btnColor}`}
             >
                 {isPlaying ? (
-                    <Pause size={13} fill="currentColor" />
+                    <Pause size={16} fill="currentColor" />
                 ) : (
-                    <Play size={13} fill="currentColor" className="ml-0.5" />
+                    <Play size={16} fill="currentColor" className="ml-0.5" />
                 )}
             </button>
-            
-            <div className="flex-1 flex flex-col gap-1">
-                <input 
-                    type="range"
-                    min={0}
-                    max={duration || 100}
-                    value={currentTime}
-                    onChange={handleSeek}
-                    className={`w-full h-1 rounded-lg appearance-none cursor-pointer ${accentColor} bg-slate-200/60 dark:bg-slate-700/50`}
-                    style={{ outline: 'none' }}
-                />
-                <div className={`flex justify-between items-center text-[9px] font-semibold ${isMe ? 'text-white/70' : 'text-slate-400'}`}>
-                    <span>{formatTime(currentTime)} / {formatTime(duration)}</span>
-                    
-                    {/* Hover Volume Controls */}
-                    <div className="flex items-center gap-0.5 group/volume relative">
+
+            {/* Content Column */}
+            <div className="flex-1 flex flex-col gap-1.5 min-w-0">
+                {/* Waveform Wrapper */}
+                <div 
+                    onClick={handleWaveformClick}
+                    className="h-7 flex items-center gap-[2.5px] cursor-pointer w-full"
+                >
+                    {WAVEFORM_PEAKS.map((peak, i) => {
+                        const isActive = i <= progressIdx
+                        return (
+                            <div 
+                                key={i}
+                                className={`w-[3px] rounded-full transition-colors duration-100 ${isActive ? barColorActive : barColorInactive}`}
+                                style={{ height: `${peak}px` }}
+                            />
+                        )
+                    })}
+                </div>
+
+                {/* Sub Row: Timers & Volume controls */}
+                <div className="flex justify-between items-center h-4">
+                    <span className={`text-[9px] font-bold ${isMe ? 'text-white/70' : 'text-slate-400'}`}>
+                        {formatTime(currentTime)} / {formatTime(duration)}
+                    </span>
+
+                    {/* Volume Controls */}
+                    <div className="flex items-center gap-1">
                         <button 
                             onClick={() => setIsMuted(!isMuted)} 
                             className={`w-5 h-5 rounded-full flex items-center justify-center transition-all ${
                                 isMe 
                                 ? 'hover:bg-white/10 text-white/80 hover:text-white' 
-                                : 'hover:bg-slate-100 text-slate-500 hover:text-slate-700'
+                                : 'hover:bg-slate-100 text-slate-400 hover:text-slate-600'
                             }`}
                         >
                             {isMuted || volume === 0 ? (
-                                <VolumeX size={11} />
+                                <VolumeX size={12} />
                             ) : (
-                                <Volume2 size={11} />
+                                <Volume2 size={12} />
                             )}
                         </button>
                         
@@ -146,7 +173,7 @@ function CustomAudioPlayer({ src, isMe, themeColor }: { src: string; isMe: boole
                                 setVolume(val)
                                 if (val > 0) setIsMuted(false)
                             }}
-                            className={`w-0 opacity-0 group-hover/volume:w-10 group-hover/volume:opacity-100 transition-all duration-200 h-0.5 rounded-lg appearance-none cursor-pointer ${accentColor} bg-slate-300 dark:bg-slate-600`}
+                            className={`w-12 h-0.5 rounded-lg appearance-none cursor-pointer ${accentColor} bg-slate-300 dark:bg-slate-600`}
                             style={{ outline: 'none' }}
                         />
                     </div>

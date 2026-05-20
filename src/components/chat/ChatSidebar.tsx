@@ -42,7 +42,10 @@ export default function ChatSidebar({
                         <p className="text-gray-400 text-xs font-bold uppercase tracking-widest">Chưa có tin nhắn</p>
                     </div>
                 ) : (
-                    conversations.map(conv => (
+                    conversations.map(conv => {
+                        const isGroupConv = !!(conv as any).isGroup
+                        const displayName = isGroupConv ? ((conv as any).groupTitle || 'Trò chuyện nhóm') : conv.otherUserName
+                        return (
                         <button
                             key={conv.id}
                             onClick={() => onSelect(conv.id)}
@@ -52,16 +55,26 @@ export default function ChatSidebar({
                                 }`}
                         >
                             <div className="relative flex-shrink-0">
-                                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center text-white font-black text-sm shadow-md">
-                                    {conv.otherUserName.charAt(0)}
-                                </div>
-                                <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>
+                                {isGroupConv ? (
+                                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-emerald-400 to-blue-600 flex items-center justify-center text-white font-black text-sm shadow-md">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                                    </div>
+                                ) : (
+                                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center text-white font-black text-sm shadow-md">
+                                        {displayName.charAt(0)}
+                                    </div>
+                                )}
+                                {!isGroupConv && <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>}
                             </div>
                             <div className="flex-1 min-w-0">
                                 <div className="flex justify-between items-baseline mb-0.5">
                                     <span className="font-black text-gray-900 truncate text-[13px] tracking-tight flex items-center gap-2">
-                                        {conv.otherUserName}
-                                        <span className="px-1.5 py-0.5 bg-blue-50 text-blue-600 text-[8px] font-black rounded-md border border-blue-100 uppercase tracking-tighter">Nhà thầu</span>
+                                        {displayName}
+                                        {isGroupConv ? (
+                                            <span className="px-1.5 py-0.5 bg-emerald-50 text-emerald-600 text-[8px] font-black rounded-md border border-emerald-100 uppercase tracking-tighter">Nhóm</span>
+                                        ) : (
+                                            <span className="px-1.5 py-0.5 bg-blue-50 text-blue-600 text-[8px] font-black rounded-md border border-blue-100 uppercase tracking-tighter">Hỗ trợ</span>
+                                        )}
                                     </span>
                                     <span className="text-[9px] text-gray-400 font-bold ml-2">
                                         {conv.lastMessageAt ? formatTime(conv.lastMessageAt) : ''}
@@ -77,7 +90,8 @@ export default function ChatSidebar({
                                 </div>
                             )}
                         </button>
-                    ))
+                        )
+                    })
                 )}
             </div>
         </div>

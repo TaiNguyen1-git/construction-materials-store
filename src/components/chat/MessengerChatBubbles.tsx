@@ -2,6 +2,7 @@
 
 import { useState, useRef } from 'react'
 import { ChatMessage, ChatThemeColor } from './types'
+export type { ChatMessage, ChatThemeColor }
 import ChatBubble from './ChatBubble'
 import ChatTyping from './ChatTyping'
 import ChatConfirmModal from './ChatConfirmModal'

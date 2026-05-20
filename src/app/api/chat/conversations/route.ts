@@ -30,10 +30,13 @@ export async function GET(req: NextRequest) {
             return NextResponse.json({ message: 'Unauthorized' }, { status: 401 })
         }
 
-        // Build query conditions
-        const conditions = [
+        // Build raw MongoDB filter
+        const filter: any = {}
+
+        const conditions: any[] = [
             { participant1Id: userId },
-            { participant2Id: userId }
+            { participant2Id: userId },
+            { participantIds: userId }
         ]
 
         // For MANAGER/EMPLOYEE, also include admin_support conversations (supplier chats)
@@ -44,26 +47,63 @@ export async function GET(req: NextRequest) {
             )
         }
 
-        // Find conversations where the user is either participant 1 or 2
-        const conversations = await prisma.conversation.findMany({
-            where: {
-                OR: conditions
-            },
-            orderBy: {
-                lastMessageAt: 'desc'
+        filter.$or = conditions
+
+        // Exclude deleted conversations for this user
+        filter.deletedByIds = { $nin: [userId] }
+
+        const archived = searchParams.get('archived') === 'true'
+        const cursor = searchParams.get('cursor') || undefined
+        const limit = parseInt(searchParams.get('limit') || '50', 10)
+
+        if (archived) {
+            filter.archivedByIds = { $in: [userId] }
+        } else {
+            filter.archivedByIds = { $nin: [userId] }
+            filter.hiddenByIds = { $nin: [userId] }
+        }
+
+        // Handle cursor pagination
+        if (cursor) {
+            const cursorConv = await prisma.conversation.findUnique({
+                where: { id: cursor },
+                select: { lastMessageAt: true }
+            })
+            if (cursorConv && cursorConv.lastMessageAt) {
+                filter.lastMessageAt = { $lt: { $date: cursorConv.lastMessageAt.toISOString() } }
             }
-        })
+        }
+
+        // Find conversations via findRaw to bypass Prisma's array NOT has bug
+        const rawConversations = await prisma.conversation.findRaw({
+            filter,
+            options: {
+                limit: limit + 1,
+                sort: { lastMessageAt: -1 }
+            }
+        }) as unknown as any[]
+
+        const hasNextPage = rawConversations.length > limit
+        const items = hasNextPage ? rawConversations.slice(0, limit) : rawConversations
+        const nextCursor = hasNextPage ? (items[items.length - 1]._id?.$oid || items[items.length - 1].id) : null
 
         // Format for frontend - identify other participant
-        const formattedConversations = conversations.map(conv => {
+        const formattedConversations = items.map(conv => {
+            const convId = conv._id?.$oid || conv.id
             const isMyConv = conv.participant1Id === userId || conv.participant2Id === userId
             const isAdminSupport = conv.participant1Id === ADMIN_SUPPORT_ID || conv.participant2Id === ADMIN_SUPPORT_ID
+            const isGroup = conv.isGroup === true || conv.isGroup === 'true'
 
             let otherParticipantId: string
             let otherParticipantName: string
             let unreadCount: number
 
-            if (isMyConv) {
+            if (isGroup) {
+                otherParticipantId = ''
+                otherParticipantName = conv.groupTitle || 'Trò chuyện nhóm'
+                const unreadMap = (conv.unreadByUser && typeof conv.unreadByUser === 'object') ? conv.unreadByUser : {}
+                unreadCount = (unreadMap as any)[userId as string] || 0
+            } else if (isMyConv) {
                 const isP1 = conv.participant1Id === userId
                 otherParticipantId = isP1 ? conv.participant2Id : conv.participant1Id
                 otherParticipantName = isP1 ? (conv.participant2Name || 'Người dùng') : (conv.participant1Name || 'Người dùng')
@@ -83,17 +123,39 @@ export async function GET(req: NextRequest) {
             }
 
             return {
-                ...conv,
+                id: convId,
+                participant1Id: conv.participant1Id || '',
+                participant1Name: conv.participant1Name || '',
+                participant2Id: conv.participant2Id || '',
+                participant2Name: conv.participant2Name || '',
+                projectId: conv.projectId?.$oid || conv.projectId || null,
+                projectTitle: conv.projectTitle || null,
+                lastMessage: conv.lastMessage || null,
+                lastMessageAt: conv.lastMessageAt?.$date ? new Date(conv.lastMessageAt.$date) : (conv.lastMessageAt ? new Date(conv.lastMessageAt) : null),
+                unread1: conv.unread1 || 0,
+                unread2: conv.unread2 || 0,
+                createdAt: conv.createdAt?.$date ? new Date(conv.createdAt.$date) : (conv.createdAt ? new Date(conv.createdAt) : new Date()),
+                updatedAt: conv.updatedAt?.$date ? new Date(conv.updatedAt.$date) : (conv.updatedAt ? new Date(conv.updatedAt) : new Date()),
+                hiddenByIds: conv.hiddenByIds || [],
+                deletedByIds: conv.deletedByIds || [],
+                archivedByIds: conv.archivedByIds || [],
                 otherUserId: otherParticipantId,
                 otherUserName: otherParticipantName,
                 unreadCount,
-                isSupplierChat: isAdminSupport && !isMyConv
+                isSupplierChat: isAdminSupport && !isMyConv,
+                isGroup,
+                groupTitle: conv.groupTitle || null,
+                groupAvatar: conv.groupAvatar || null,
+                participantIds: conv.participantIds || [],
+                participantNames: conv.participantNames || [],
+                unreadByUser: conv.unreadByUser || null
             }
         })
 
         return NextResponse.json({
             success: true,
-            data: formattedConversations
+            data: formattedConversations,
+            nextCursor
         })
 
     } catch (error: any) {
@@ -107,7 +169,7 @@ export async function POST(req: NextRequest) {
     try {
         const decoded = await verifyTokenFromRequest(req)
         const body = await req.json()
-        const { recipientId, recipientName, projectId, projectTitle, senderId: guestId, senderName: guestName } = body
+        const { recipientId, recipientName, projectId, projectTitle, senderId: guestId, senderName: guestName, isGroup, groupTitle, participantIds: reqParticipantIds } = body
 
         // Determine current user ID and name
         let userId = decoded?.userId
@@ -121,6 +183,97 @@ export async function POST(req: NextRequest) {
             } else {
                 return NextResponse.json({ message: 'Unauthorized' }, { status: 401 })
             }
+        }
+
+        if (isGroup) {
+            if (!groupTitle) {
+                return NextResponse.json({ message: 'Group title is required' }, { status: 400 })
+            }
+            if (!reqParticipantIds || !Array.isArray(reqParticipantIds) || reqParticipantIds.length === 0) {
+                return NextResponse.json({ message: 'Participants are required for group chat' }, { status: 400 })
+            }
+
+            const allParticipantIds = Array.from(new Set([userId as string, ...reqParticipantIds]))
+            
+            const resolvedParticipants = await Promise.all(
+                allParticipantIds.map(async (pid) => {
+                    let name = 'Người dùng'
+                    if (isValidObjectId(pid)) {
+                        const user = await prisma.user.findUnique({ where: { id: pid }, select: { name: true } })
+                        if (user?.name) {
+                            name = user.name
+                        } else {
+                            const supplier = await prisma.supplier.findUnique({ where: { id: pid }, select: { name: true } })
+                            if (supplier?.name) {
+                                name = supplier.name
+                            }
+                        }
+                    } else if (pid === 'admin_support') {
+                        name = 'Hỗ trợ SmartBuild'
+                    } else if (pid.startsWith('guest_')) {
+                        name = 'Khách'
+                    }
+                    return { id: pid, name }
+                })
+            )
+
+            const participantIds = resolvedParticipants.map(rp => rp.id)
+            const participantNames = resolvedParticipants.map(rp => rp.name)
+
+            const unreadByUser: any = {}
+            participantIds.forEach(pid => {
+                unreadByUser[pid] = 0
+            })
+
+            const conversation = await prisma.conversation.create({
+                data: {
+                    participant1Id: 'group',
+                    participant1Name: 'Group Chat',
+                    participant2Id: 'group',
+                    participant2Name: 'Group Chat',
+                    isGroup: true,
+                    groupTitle,
+                    participantIds,
+                    participantNames,
+                    unreadByUser,
+                    projectId: projectId || null,
+                    projectTitle: projectTitle || null,
+                    lastMessage: 'Đã tạo nhóm',
+                    lastMessageAt: new Date()
+                }
+            })
+
+            return NextResponse.json({
+                success: true,
+                data: {
+                    id: conversation.id,
+                    participant1Id: 'group',
+                    participant1Name: 'Group Chat',
+                    participant2Id: 'group',
+                    participant2Name: 'Group Chat',
+                    projectId: conversation.projectId,
+                    projectTitle: conversation.projectTitle,
+                    lastMessage: conversation.lastMessage,
+                    lastMessageAt: conversation.lastMessageAt,
+                    unread1: 0,
+                    unread2: 0,
+                    createdAt: conversation.createdAt,
+                    updatedAt: conversation.updatedAt,
+                    hiddenByIds: [],
+                    deletedByIds: [],
+                    archivedByIds: [],
+                    otherUserId: '',
+                    otherUserName: groupTitle,
+                    unreadCount: 0,
+                    isSupplierChat: false,
+                    isGroup: true,
+                    groupTitle,
+                    groupAvatar: null,
+                    participantIds,
+                    participantNames,
+                    unreadByUser
+                }
+            })
         }
 
         if (!recipientId) {
@@ -182,7 +335,9 @@ export async function POST(req: NextRequest) {
                     participant2Id: decodedRecipientId,
                     participant2Name: user2Name,
                     projectId: projectId || null,
-                    projectTitle: projectTitle || null
+                    projectTitle: projectTitle || null,
+                    lastMessage: 'Bắt đầu trò chuyện',
+                    lastMessageAt: new Date()
                 }
             });
             

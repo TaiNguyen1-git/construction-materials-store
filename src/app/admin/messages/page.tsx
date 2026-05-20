@@ -12,6 +12,7 @@ import { subscribeToTicketMessages } from '@/lib/firebase-notifications'
 import toast, { Toaster } from 'react-hot-toast'
 import ChatCallManager from '@/components/ChatCallManager'
 import CustomerContextPanel from '@/components/chatbot/CustomerContextPanel'
+import GroupMembersPanel from '@/components/chat/GroupMembersPanel'
 import { useAuth } from '@/contexts/auth-context'
 
 // Local Components
@@ -69,6 +70,10 @@ function MessagesContent() {
         activeTab === 'chat' ? searchParams.get('id') : null
     )
     const [chatLoading, setChatLoading] = useState(true)
+    const [chatTab, setChatTab] = useState<'active' | 'archived'>('active')
+    const [chatCursor, setChatCursor] = useState<string | null>(null)
+    const [hasMoreConversations, setHasMoreConversations] = useState(false)
+    const [isLoadingMoreConversations, setIsLoadingMoreConversations] = useState(false)
     const [messages, setMessages] = useState<any[]>([])
     const [newMessage, setNewMessage] = useState('')
     const [sending, setSending] = useState(false)
@@ -117,7 +122,10 @@ function MessagesContent() {
     const [dismissGuestWarning, setDismissGuestWarning] = useState(false)
     const [statusFilter, setStatusFilter] = useState('')
     const [priorityFilter, setPriorityFilter] = useState('')
+    const [assignedFilter, setAssignedFilter] = useState('')
     const [ticketSearch, setTicketSearch] = useState('')
+    const [employees, setEmployees] = useState<any[]>([]) // deprecated
+    const [managers, setManagers] = useState<any[]>([])
     const [ticketPage, setTicketPage] = useState(1)
     const [ticketTotalPages, setTicketTotalPages] = useState(1)
     const ticketFileInputRef = useRef<HTMLInputElement>(null)
@@ -167,7 +175,7 @@ function MessagesContent() {
     }
 
     // Load Chat Data
-    useEffect(() => { if (user) fetchConversations() }, [user])
+    useEffect(() => { if (user) fetchConversations(true) }, [user, chatTab])
 
     // Sync state to URL for Service Worker notification suppression
     useEffect(() => {
@@ -188,6 +196,27 @@ function MessagesContent() {
         const messagesRef = ref(db, `conversations/${selectedId}/messages`)
         const recentMessagesQuery = query(messagesRef, limitToLast(20))
         fetchMessages(selectedId)
+
+        // Reset unread count locally in frontend state immediately
+        setConversations(prev => prev.map(c => {
+            if (c.id === selectedId) {
+                const next = { ...c }
+                if (next.isGroup) {
+                    if (next.unreadByUser && typeof next.unreadByUser === 'object') {
+                        next.unreadByUser = { ...next.unreadByUser, [user?.id || '']: 0 }
+                    }
+                } else {
+                    const isAdminUser = user?.role === 'MANAGER' || user?.role === 'EMPLOYEE'
+                    const isP1 = next.participant1Id === user?.id || (isAdminUser && next.participant1Id === 'admin_support')
+                    const isP2 = next.participant2Id === user?.id || (isAdminUser && next.participant2Id === 'admin_support')
+                    if (isP1) next.unread1 = 0
+                    if (isP2) next.unread2 = 0
+                    next.unreadCount = 0
+                }
+                return next
+            }
+            return c
+        }))
         const unsub = onChildAdded(recentMessagesQuery, (snapshot) => {
             const newMsg = snapshot.val()
             if (newMsg) {
@@ -283,6 +312,7 @@ function MessagesContent() {
             params.set('limit', '20')
             if (statusFilter) params.set('status', statusFilter)
             if (priorityFilter) params.set('priority', priorityFilter)
+            if (assignedFilter) params.set('assigned', assignedFilter)
             if (ticketSearch) params.set('search', ticketSearch)
             const res = await fetchWithAuth(`/api/support/tickets?${params}`)
             if (res.ok) {
@@ -291,9 +321,29 @@ function MessagesContent() {
                 setTicketTotalPages(data.totalPages || 1)
             }
         } catch { toast.error('Không thể tải danh sách ticket') } finally { setTicketsLoading(false) }
-    }, [ticketPage, statusFilter, priorityFilter, ticketSearch])
+    }, [ticketPage, statusFilter, priorityFilter, assignedFilter, ticketSearch])
 
     useEffect(() => { if (activeTab === 'tickets') fetchTickets() }, [fetchTickets, activeTab])
+
+    const fetchManagers = useCallback(async () => {
+        try {
+            const res = await fetchWithAuth('/api/support/managers')
+            if (res.ok) {
+                const json = await res.json()
+                if (json.success && json.managers) {
+                    setManagers(json.managers)
+                }
+            }
+        } catch (err) {
+            console.error('Error fetching managers:', err)
+        }
+    }, [])
+
+    useEffect(() => {
+        if (activeTab === 'tickets') {
+            fetchManagers()
+        }
+    }, [activeTab, fetchManagers])
 
     useEffect(() => {
         if (!selectedTicket) return
@@ -311,21 +361,103 @@ function MessagesContent() {
             })
         })
     }, [selectedTicket])
-
     // Direct Chat Logic
-    const fetchConversations = async () => {
+    const fetchConversations = async (reset = true) => {
         try {
-            const res = await fetch('/api/chat/conversations', { headers: getAuthHeaders() })
+            if (reset) {
+                setChatLoading(true)
+                setChatCursor(null)
+                setConversations([])
+            } else {
+                setIsLoadingMoreConversations(true)
+            }
+
+            const currentCursor = reset ? null : chatCursor
+            const params = new URLSearchParams()
+            params.set('limit', '30')
+            if (chatTab === 'archived') params.set('archived', 'true')
+            if (currentCursor) params.set('cursor', currentCursor)
+
+            const res = await fetch(`/api/chat/conversations?${params.toString()}`, { headers: getAuthHeaders() })
             if (res.ok) {
                 const json = await res.json()
-                setConversations(json.data)
+                const newItems = json.data || []
+                
+                setConversations(prev => reset ? newItems : [...prev, ...newItems])
+                setChatCursor(json.nextCursor || null)
+                setHasMoreConversations(!!json.nextCursor)
+
                 const urlId = searchParams.get('id')
                 const tab = searchParams.get('tab')
-                if (!selectedId && !urlId && json.data.length > 0 && tab !== 'tickets') setSelectedId(json.data[0].id)
+                
+                // If it's a reset load and we don't have selected ID, auto-select the first one if applicable
+                if (reset && !selectedId && !urlId && newItems.length > 0 && tab !== 'tickets') {
+                    setSelectedId(newItems[0].id)
+                }
             }
-        } catch (err) { console.error('Fetch error:', err) } finally { setChatLoading(false) }
+        } catch (err) { 
+            console.error('Fetch error:', err) 
+        } finally { 
+            setChatLoading(false)
+            setIsLoadingMoreConversations(false)
+        }
     }
 
+    const onLoadMoreConversations = () => {
+        if (hasMoreConversations && !isLoadingMoreConversations) {
+            fetchConversations(false)
+        }
+    }
+
+    const handleArchiveConversation = async (convId: string, action: 'archive' | 'unarchive') => {
+        try {
+            const res = await fetch(`/api/chat/conversations/${convId}/status`, {
+                method: 'PATCH',
+                headers: {
+                    ...getAuthHeaders(),
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ action })
+            })
+            if (res.ok) {
+                toast.success(action === 'archive' ? 'Đã lưu trữ cuộc hội thoại' : 'Đã bỏ lưu trữ cuộc hội thoại')
+                setConversations(prev => prev.filter(c => c.id !== convId))
+                if (selectedId === convId) {
+                    setSelectedId(null)
+                }
+            } else {
+                toast.error('Lỗi khi cập nhật trạng thái cuộc hội thoại')
+            }
+        } catch (err) {
+            console.error('Archive error:', err)
+            toast.error('Lỗi khi cập nhật trạng thái cuộc hội thoại')
+        }
+    }
+
+    const handleHideConversation = async (convId: string) => {
+        try {
+            const res = await fetch(`/api/chat/conversations/${convId}/status`, {
+                method: 'PATCH',
+                headers: {
+                    ...getAuthHeaders(),
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ action: 'hide' })
+            })
+            if (res.ok) {
+                toast.success('Đã ẩn cuộc hội thoại')
+                setConversations(prev => prev.filter(c => c.id !== convId))
+                if (selectedId === convId) {
+                    setSelectedId(null)
+                }
+            } else {
+                toast.error('Lỗi khi ẩn cuộc hội thoại')
+            }
+        } catch (err) {
+            console.error('Hide error:', err)
+            toast.error('Lỗi khi ẩn cuộc hội thoại')
+        }
+    }
     const fetchMessages = async (convId: string, quiet = false) => {
         try {
             const res = await fetch(`/api/chat/conversations/${convId}/messages`, { headers: getAuthHeaders() })
@@ -485,6 +617,55 @@ function MessagesContent() {
             const res = await fetchWithAuth(`/api/support/tickets/${ticketId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status }) })
             if (res.ok) { toast.success('Đã cập nhật'); fetchTickets(); if (selectedTicket?.id === ticketId) fetchTicketDetails(ticketId) }
         } catch { toast.error('Lỗi cập nhật') }
+    }
+
+    const updateTicketAssignment = async (ticketId: string, assignedTo: string | null) => {
+        try {
+            const res = await fetchWithAuth(`/api/support/tickets/${ticketId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ assignedTo })
+            })
+            if (res.ok) {
+                toast.success(assignedTo ? 'Đã nhận hỗ trợ ticket' : 'Đã hủy nhận hỗ trợ ticket')
+                fetchTickets()
+                if (selectedTicket?.id === ticketId) fetchTicketDetails(ticketId)
+            }
+        } catch { toast.error('Lỗi phân công ticket') }
+    }
+
+    const handleStartDirectChat = async (userId: string, userName: string) => {
+        if (!user) return
+        if (userId === user.id) {
+            toast.error('Không thể nhắn tin cho chính mình')
+            return
+        }
+        
+        try {
+            const res = await fetch('/api/chat/conversations', {
+                method: 'POST',
+                headers: getAuthHeaders(),
+                body: JSON.stringify({ recipientId: userId, recipientName: userName })
+            })
+            if (res.ok) {
+                const json = await res.json()
+                if (json.success && json.data) {
+                    const newConv = json.data
+                    setConversations(prev => {
+                        if (prev.some(c => c.id === newConv.id)) return prev
+                        return [newConv, ...prev]
+                    })
+                    setSelectedId(newConv.id)
+                    setActiveTab('chat')
+                    setShowCustomerPanel(false)
+                }
+            } else {
+                toast.error('Không thể bắt đầu chat riêng')
+            }
+        } catch (err) {
+            console.error('Start direct chat error:', err)
+            toast.error('Lỗi khi bắt đầu chat riêng')
+        }
     }
 
     const deleteConversation = async (convId: string) => {
@@ -684,10 +865,21 @@ function MessagesContent() {
                 isSearching={isSearching} searchResults={searchResults} chatLoading={chatLoading} conversations={conversations}
                 selectedId={selectedId} setSelectedId={setSelectedId} jumpToMessage={(cid, mid) => { setSelectedId(cid); setHighlightId(mid) }}
                 handleSearch={handleSearch} formatLastMessage={c => c || 'Bắt đầu trò chuyện'} user={user}
+                chatTab={chatTab} setChatTab={setChatTab}
+                onArchiveConversation={handleArchiveConversation}
+                onHideConversation={handleHideConversation}
+                onDeleteConversation={deleteConversation}
+                hasMoreConversations={hasMoreConversations}
+                onLoadMoreConversations={onLoadMoreConversations}
                 ticketSearch={ticketSearch} setTicketSearch={setTicketSearch} statusFilter={statusFilter} setStatusFilter={setStatusFilter}
-                priorityFilter={priorityFilter} setPriorityFilter={setPriorityFilter} tickets={tickets} ticketsLoading={ticketsLoading}
+                priorityFilter={priorityFilter} setPriorityFilter={setPriorityFilter} assignedFilter={assignedFilter} setAssignedFilter={setAssignedFilter} tickets={tickets} ticketsLoading={ticketsLoading}
                 selectedTicketId={selectedTicket?.id} onSelectTicket={t => { setSelectedTicket(t); fetchTicketDetails(t.id) }} 
                 fetchTickets={fetchTickets} statusConfig={STATUS_CONFIG} priorityConfig={PRIORITY_CONFIG} isSlaBreached={isSlaBreached}
+                onGroupCreated={(newConv) => {
+                    setConversations(prev => [newConv, ...prev])
+                    setSelectedId(newConv.id)
+                    setActiveTab('chat')
+                }}
             />
 
             {activeTab === 'chat' ? (
@@ -723,11 +915,24 @@ function MessagesContent() {
                     updateTicketStatus={updateTicketStatus} sendTicketMessage={sendTicketMessage} handleTicketFileUpload={handleTicketFileUpload}
                     isSlaBreached={isSlaBreached} formatDate={formatDate} mapTicketsToChatMessages={mapTicketsToChatMessages}
                     statusConfig={STATUS_CONFIG} categoryLabels={CATEGORY_LABELS} ticketFileInputRef={ticketFileInputRef}
+                    user={user} updateTicketAssignment={updateTicketAssignment} employees={managers}
                 />
             )}
 
-            {activeTab === 'chat' && selectedConv && showCustomerPanel && otherParticipantId && (
-                <CustomerContextPanel customerId={otherParticipantId} isGuest={!!otherParticipantId.startsWith('guest_')} onClose={() => setShowCustomerPanel(false)} />
+            {activeTab === 'chat' && selectedConv && showCustomerPanel && (
+                selectedConv.isGroup ? (
+                    <GroupMembersPanel 
+                        conversation={selectedConv} 
+                        onClose={() => setShowCustomerPanel(false)} 
+                        onStartDirectChat={handleStartDirectChat}
+                    />
+                ) : otherParticipantId ? (
+                    <CustomerContextPanel 
+                        customerId={otherParticipantId} 
+                        isGuest={!!otherParticipantId.startsWith('guest_')} 
+                        onClose={() => setShowCustomerPanel(false)} 
+                    />
+                ) : null
             )}
 
             {/* Delete Confirmation Modal */}

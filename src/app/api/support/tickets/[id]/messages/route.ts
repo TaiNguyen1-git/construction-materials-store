@@ -26,7 +26,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         }
 
         // Check access permission
-        if (auth?.role !== 'MANAGER') {
+        if (auth?.role !== 'MANAGER' && auth?.role !== 'EMPLOYEE') {
             if (ticket.customerId && auth?.userId) {
                 const customer = await prisma.customer.findUnique({
                     where: { userId: auth.userId }
@@ -44,7 +44,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         const messages = await prisma.supportTicketMessage.findMany({
             where: {
                 ticketId: id,
-                ...(auth?.role !== 'MANAGER' ? { isInternal: false } : {})
+                ...((auth?.role !== 'MANAGER' && auth?.role !== 'EMPLOYEE') ? { isInternal: false } : {})
             },
             orderBy: { createdAt: 'asc' }
         })
@@ -87,7 +87,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         }
 
         // Check access permission
-        const isAdmin = auth?.role === 'MANAGER'
+        const isAdmin = auth?.role === 'MANAGER' || auth?.role === 'EMPLOYEE'
         let isOwner = false
 
         if (auth?.userId && ticket.customerId) {

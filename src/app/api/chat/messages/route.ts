@@ -103,16 +103,39 @@ export async function POST(request: NextRequest) {
         })
 
         // Update conversation last message and unread counts
-        const isP1 = conv.participant1Id === senderId
-        await prisma.conversation.update({
-            where: { id: conversationId },
-            data: {
-                lastMessage: content || (fileUrl ? 'Đã gửi một tệp đính kèm' : ''),
-                lastMessageAt: new Date(),
-                unread1: isP1 ? conv.unread1 : conv.unread1 + 1,
-                unread2: isP1 ? conv.unread2 + 1 : conv.unread2
-            }
-        })
+        if (conv.isGroup) {
+            const unreadMap = (conv.unreadByUser && typeof conv.unreadByUser === 'object')
+                ? { ...(conv.unreadByUser as any) }
+                : {}
+            
+            // Increment unread count for all other participants in the group
+            const participantIds = conv.participantIds || []
+            participantIds.forEach((pid: string) => {
+                if (pid !== userId) {
+                    unreadMap[pid] = (unreadMap[pid] || 0) + 1
+                }
+            })
+
+            await prisma.conversation.update({
+                where: { id: conversationId },
+                data: {
+                    lastMessage: content || (fileUrl ? 'Đã gửi một tệp đính kèm' : ''),
+                    lastMessageAt: new Date(),
+                    unreadByUser: unreadMap
+                }
+            })
+        } else {
+            const isP1 = conv.participant1Id === senderId
+            await prisma.conversation.update({
+                where: { id: conversationId },
+                data: {
+                    lastMessage: content || (fileUrl ? 'Đã gửi một tệp đính kèm' : ''),
+                    lastMessageAt: new Date(),
+                    unread1: isP1 ? conv.unread1 : conv.unread1 + 1,
+                    unread2: isP1 ? conv.unread2 + 1 : conv.unread2
+                }
+            })
+        }
 
         // Push to Firebase Realtime Database for Instant Sync
         try {

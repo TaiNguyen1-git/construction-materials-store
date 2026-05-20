@@ -196,3 +196,85 @@ export async function POST(
     }
 }
 
+// DELETE /api/messages/[id] - Soft delete a conversation
+export async function DELETE(
+    request: NextRequest,
+    { params }: { params: Promise<{ id: string }> }
+) {
+    try {
+        const { id } = await params
+        const userId = request.headers.get('x-user-id')
+
+        if (!userId) {
+            return NextResponse.json(
+                createErrorResponse('User ID required', 'UNAUTHORIZED'),
+                { status: 401 }
+            )
+        }
+
+        const conversation = await prisma.conversation.findUnique({
+            where: { id }
+        })
+
+        if (!conversation) {
+            return NextResponse.json(
+                createErrorResponse('Conversation not found', 'NOT_FOUND'),
+                { status: 404 }
+            )
+        }
+
+        // Add userId to deletedByIds array if not already present
+        const currentDeleted = conversation.deletedByIds || []
+        const updatedDeleted = Array.from(new Set([...currentDeleted, userId]))
+
+        // Check if both participants deleted it
+        const isParticipant1 = conversation.participant1Id === userId
+        const otherParticipantId = isParticipant1 ? conversation.participant2Id : conversation.participant1Id
+
+        const bothDeleted = updatedDeleted.includes(otherParticipantId)
+
+        if (bothDeleted) {
+            // Delete messages and conversation
+            await prisma.message.deleteMany({
+                where: { conversationId: id }
+            })
+            await prisma.conversation.delete({
+                where: { id }
+            })
+
+            // Clean up Firebase node
+            try {
+                const db = getFirebaseDatabase()
+                const messagesRef = ref(db, `conversations/${id}`)
+                await set(messagesRef, null)
+            } catch (firebaseError) {
+                console.error('Firebase delete failed:', firebaseError)
+            }
+
+            return NextResponse.json(
+                createSuccessResponse(null, 'Conversation deleted permanently'),
+                { status: 200 }
+            )
+        } else {
+            // Update deletedByIds
+            await prisma.conversation.update({
+                where: { id },
+                data: {
+                    deletedByIds: updatedDeleted
+                }
+            })
+
+            return NextResponse.json(
+                createSuccessResponse(null, 'Conversation hidden for user'),
+                { status: 200 }
+            )
+        }
+    } catch (error) {
+        console.error('Delete conversation error:', error)
+        return NextResponse.json(
+            createErrorResponse('Failed to delete conversation', 'SERVER_ERROR'),
+            { status: 500 }
+        )
+    }
+}
+

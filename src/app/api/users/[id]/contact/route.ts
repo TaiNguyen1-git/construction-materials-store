@@ -102,7 +102,28 @@ export async function GET(
         })
 
         if (!user) {
-            return NextResponse.json({ message: 'User not found' }, { status: 404 })
+            const supplier = await prisma.supplier.findUnique({
+                where: { id: userId },
+                select: {
+                    id: true,
+                    name: true,
+                    email: true,
+                    phone: true,
+                    createdAt: true
+                }
+            })
+
+            if (supplier) {
+                return NextResponse.json({
+                    success: true,
+                    data: {
+                        ...supplier,
+                        role: 'SUPPLIER'
+                    }
+                })
+            }
+
+            return NextResponse.json({ message: 'User/Supplier not found' }, { status: 404 })
         }
 
         return NextResponse.json({

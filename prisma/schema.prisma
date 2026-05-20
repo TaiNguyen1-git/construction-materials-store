@@ -2533,10 +2533,24 @@ model Conversation {
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
+  hiddenByIds      String[]
+  deletedByIds     String[]
+  archivedByIds    String[]
+
+  // Group chat support
+  isGroup          Boolean   @default(false)
+  groupTitle       String?
+  groupAvatar      String?
+  participantIds   String[]
+  participantNames String[]
+  unreadByUser     Json?
+
   messages Message[]
 
   @@index([participant1Id])
   @@index([participant2Id])
+  @@index([hiddenByIds])
+  @@index([deletedByIds])
   @@map("conversations")
 }
 

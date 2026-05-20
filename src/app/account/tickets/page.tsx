@@ -63,7 +63,7 @@ interface TicketMessage {
     createdAt: string
 }
 
-const STATUS_CONFIG: Record<string, { label: string; color: string; bgColor: string; icon: React.ElementType }> = {
+const STATUS_CONFIG: Record<string, { label: string; color: string; bgColor: string; icon: React.ComponentType<{ className?: string }> }> = {
     OPEN: { label: 'Mới gửi', color: 'text-blue-700', bgColor: 'bg-blue-50 border-blue-200', icon: AlertCircle },
     IN_PROGRESS: { label: 'Đang xử lý', color: 'text-amber-700', bgColor: 'bg-amber-50 border-amber-200', icon: RefreshCw },
     WAITING_CUSTOMER: { label: 'Chờ phản hồi', color: 'text-purple-700', bgColor: 'bg-purple-50 border-purple-200', icon: Clock },
@@ -80,7 +80,7 @@ const PRIORITY_CONFIG: Record<string, { label: string; color: string }> = {
     URGENT: { label: 'Khẩn cấp', color: 'bg-red-100 text-red-700' }
 }
 
-const CATEGORY_CONFIG: Record<string, { label: string; icon: React.ElementType }> = {
+const CATEGORY_CONFIG: Record<string, { label: string; icon: React.ComponentType<{ className?: string }> }> = {
     GENERAL: { label: 'Hỏi đáp chung', icon: HelpCircle },
     ORDER: { label: 'Đơn hàng', icon: Package },
     SHIPPING: { label: 'Vận chuyển', icon: Truck },

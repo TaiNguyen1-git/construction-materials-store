@@ -18,19 +18,42 @@ export async function GET(request: NextRequest) {
             )
         }
 
+        const archived = request.nextUrl.searchParams.get('archived') === 'true'
+        const cursor = request.nextUrl.searchParams.get('cursor') || undefined
+        const limit = parseInt(request.nextUrl.searchParams.get('limit') || '50', 10)
+
+        const whereCondition: any = {
+            OR: [
+                { participant1Id: userId },
+                { participant2Id: userId }
+            ],
+            NOT: [
+                { deletedByIds: { has: userId } }
+            ]
+        }
+
+        if (archived) {
+            whereCondition.archivedByIds = { has: userId }
+        } else {
+            whereCondition.NOT.push({ archivedByIds: { has: userId } })
+            whereCondition.NOT.push({ hiddenByIds: { has: userId } })
+        }
+
         const conversations = await prisma.conversation.findMany({
-            where: {
-                OR: [
-                    { participant1Id: userId },
-                    { participant2Id: userId }
-                ]
-            },
-            orderBy: { lastMessageAt: 'desc' }
+            where: whereCondition,
+            orderBy: { lastMessageAt: 'desc' },
+            take: limit + 1,
+            cursor: cursor ? { id: cursor } : undefined,
+            skip: cursor ? 1 : 0
         })
+
+        const hasNextPage = conversations.length > limit
+        const items = hasNextPage ? conversations.slice(0, limit) : conversations
+        const nextCursor = hasNextPage ? items[items.length - 1].id : null
 
         // Pre-fetch missing user and profile names
         const userIdsToRepair = new Set<string>()
-        conversations.forEach(c => {
+        items.forEach(c => {
             const isParticipant1 = c.participant1Id === userId
             const otherUserName = isParticipant1 ? c.participant2Name : c.participant1Name
             const otherUserId = isParticipant1 ? c.participant2Id : c.participant1Id
@@ -62,7 +85,7 @@ export async function GET(request: NextRequest) {
         const updates: Promise<any>[] = []
 
         // Format for frontend
-        const formatted = conversations.map((c) => {
+        const formatted = items.map((c) => {
             const isParticipant1 = c.participant1Id === userId
             let otherUserName = isParticipant1 ? c.participant2Name : c.participant1Name
             const otherUserId = isParticipant1 ? c.participant2Id : c.participant1Id
@@ -107,7 +130,7 @@ export async function GET(request: NextRequest) {
         }
 
         return NextResponse.json(
-            createSuccessResponse({ conversations: formatted }, 'Conversations loaded'),
+            createSuccessResponse({ conversations: formatted, nextCursor }, 'Conversations loaded'),
             { status: 200 }
         )
     } catch (error) {
@@ -186,7 +209,9 @@ export async function POST(request: NextRequest) {
                     participant2Id: recipientId,
                     participant2Name: rName,
                     projectId: projectId || null,
-                    projectTitle: projectTitle || null
+                    projectTitle: projectTitle || null,
+                    lastMessage: 'Bắt đầu trò chuyện',
+                    lastMessageAt: new Date()
                 }
             })
         }

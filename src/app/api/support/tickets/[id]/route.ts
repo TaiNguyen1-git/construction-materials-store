@@ -17,7 +17,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
             include: {
                 messages: {
                     orderBy: { createdAt: 'asc' },
-                    where: auth?.role === 'MANAGER' ? {} : { isInternal: false }
+                    where: (auth?.role === 'MANAGER' || auth?.role === 'EMPLOYEE') ? {} : { isInternal: false }
                 }
             }
         })
@@ -30,7 +30,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         }
 
         // Check access permission
-        if (auth?.role !== 'MANAGER') {
+        if (auth?.role !== 'MANAGER' && auth?.role !== 'EMPLOYEE') {
             if (ticket.customerId) {
                 // Get customer ID from user to check ownership
                 const customer = await prisma.customer.findUnique({
@@ -74,7 +74,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         }
 
         // Check if user is admin or owner
-        const isAdmin = auth?.role === 'MANAGER'
+        const isAdmin = auth?.role === 'MANAGER' || auth?.role === 'EMPLOYEE'
         let isOwner = false
 
         if (auth?.userId && ticket.customerId) {
@@ -110,9 +110,9 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
             }
             if (body.priority) updateData.priority = body.priority
             if (body.category) updateData.category = body.category
-            if (body.assignedTo) {
+            if (body.assignedTo !== undefined) {
                 updateData.assignedTo = body.assignedTo
-                updateData.assignedAt = new Date()
+                updateData.assignedAt = body.assignedTo ? new Date() : null
             }
             if (body.resolution) updateData.resolution = body.resolution
             if (body.internalNotes) updateData.internalNotes = body.internalNotes
@@ -144,7 +144,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
         const { id } = await params
         const auth = verifyTokenFromRequest(request)
 
-        if (auth?.role !== 'MANAGER') {
+        if (auth?.role !== 'MANAGER' && auth?.role !== 'EMPLOYEE') {
             return NextResponse.json(
                 { error: 'Admin access required' },
                 { status: 403 }

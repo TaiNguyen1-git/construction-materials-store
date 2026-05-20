@@ -7,7 +7,7 @@ import {
     Search, User, MoreVertical,
     Phone, ArrowLeft, Loader2,
     Trash2, Flag, Info, Check, CheckCheck,
-    Image as ImageIcon, FileText, X, Video, ChevronDown, Activity
+    Image as ImageIcon, FileText, X, Video, ChevronDown, Activity, Link2, Users
 } from 'lucide-react'
 import { fetchWithAuth } from '@/lib/api-client'
 import { getFirebaseDatabase } from '@/lib/firebase'
@@ -79,7 +79,11 @@ function MessagesContent() {
     const [showDeleteModal, setShowDeleteModal] = useState(false)
     const [zoomedImage, setZoomedImage] = useState<string | null>(null)
     const [partnerInfo, setPartnerInfo] = useState<PartnerInfo | null>(null)
+    const [isGroupContact, setIsGroupContact] = useState(false)
+    const [groupMembers, setGroupMembers] = useState<any[]>([])
     const [fetchingContact, setFetchingContact] = useState(false)
+    const [activeModalTab, setActiveModalTab] = useState<'members' | 'media'>('members')
+    const [mediaSubTab, setMediaSubTab] = useState<'media' | 'files'>('media')
     const [partnerIsTyping, setPartnerIsTyping] = useState(false)
     const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
     
@@ -100,7 +104,9 @@ function MessagesContent() {
     
     const selectedConv = conversations.find(c => c.id === selectedId)
     const displayName = selectedConv
-        ? (user?.id === selectedConv.participant1Id ? selectedConv.participant2Name : selectedConv.participant1Name)
+        ? ((selectedConv as any).isGroup
+            ? ((selectedConv as any).groupTitle || 'Trò chuyện nhóm')
+            : (user?.id === selectedConv.participant1Id ? selectedConv.participant2Name : selectedConv.participant1Name))
         : ''
 
     // Initial Auth & Conversations
@@ -131,6 +137,26 @@ function MessagesContent() {
 
         // Fetch initial messages from API first
         fetchMessages(selectedId)
+
+        // Reset unread count locally in frontend state immediately
+        setConversations(prev => prev.map(c => {
+            if (c.id === selectedId) {
+                const next = { ...c }
+                if (next.isGroup) {
+                    if (next.unreadByUser && typeof next.unreadByUser === 'object') {
+                        next.unreadByUser = { ...next.unreadByUser, [user?.id || '']: 0 }
+                    }
+                } else {
+                    const isP1 = next.participant1Id === user?.id
+                    const isP2 = next.participant2Id === user?.id
+                    if (isP1) next.unread1 = 0
+                    if (isP2) next.unread2 = 0
+                    next.unreadCount = 0
+                }
+                return next
+            }
+            return c
+        }))
 
         // Then listen for new ones
         onChildAdded(messagesRef, (snapshot: any) => {
@@ -438,24 +464,80 @@ function MessagesContent() {
         }, 4000)
     }
 
+    const handleStartDirectChat = async (userId: string, userName: string) => {
+        if (!user) return
+        if (userId === user.id) {
+            toast.error('Không thể nhắn tin cho chính mình')
+            return
+        }
+        
+        try {
+            const res = await fetchWithAuth('/api/chat/conversations', {
+                method: 'POST',
+                body: JSON.stringify({ recipientId: userId, recipientName: userName })
+            })
+            if (res.ok) {
+                const json = await res.json()
+                if (json.success && json.data) {
+                    const newConv = json.data
+                    setConversations(prev => {
+                        if (prev.some(c => c.id === newConv.id)) return prev
+                        return [newConv, ...prev]
+                    })
+                    setSelectedId(newConv.id)
+                    setShowContactModal(false)
+                }
+            } else {
+                toast.error('Không thể bắt đầu chat riêng')
+            }
+        } catch (err) {
+            console.error('Start direct chat error:', err)
+            toast.error('Lỗi khi bắt đầu chat riêng')
+        }
+    }
+
     const handleShowContactInfo = async () => {
         if (!selectedId) return
         setShowMenu(false)
         setShowContactModal(true)
         setFetchingContact(true)
+        setIsGroupContact(false)
+        setGroupMembers([])
+        setPartnerInfo(null)
         
         try {
             const conv = conversations.find(c => c.id === selectedId)
             if (!conv) return
             
-            const partnerUserId = user?.id === conv.participant1Id ? conv.participant2Id : conv.participant1Id
-            
-            const res = await fetchWithAuth(`/api/users/${partnerUserId}/contact`)
-            if (res.ok) {
-                const json = await res.json()
-                setPartnerInfo(json.data)
+            if (conv.isGroup) {
+                setIsGroupContact(true)
+                const ids = conv.participantIds || []
+                const details = await Promise.all(
+                    ids.map(async (id: string) => {
+                        try {
+                            const res = await fetchWithAuth(`/api/users/${id}/contact`)
+                            if (res.ok) {
+                                const json = await res.json()
+                                return json.data
+                            }
+                        } catch (e) {
+                            console.error(`Failed to fetch group member contact info for ${id}`, e)
+                        }
+                        const idx = ids.indexOf(id)
+                        const name = conv.participantNames?.[idx] || 'Thành viên'
+                        return { id, name, role: id.startsWith('guest_') ? 'GUEST' : 'USER' }
+                    })
+                )
+                setGroupMembers(details.filter(Boolean))
             } else {
-                toast.error('Không thể lấy thông tin liên hệ')
+                const partnerUserId = user?.id === conv.participant1Id ? conv.participant2Id : conv.participant1Id
+                const res = await fetchWithAuth(`/api/users/${partnerUserId}/contact`)
+                if (res.ok) {
+                    const json = await res.json()
+                    setPartnerInfo(json.data)
+                } else {
+                    toast.error('Không thể lấy thông tin liên hệ')
+                }
             }
         } catch (err) {
             console.error('Fetch contact error:', err)
@@ -559,8 +641,13 @@ function MessagesContent() {
                         </div>
                     ) : (
                         conversations.map(conv => {
-                            const unread = user?.id === conv.participant1Id ? conv.unread1 : conv.unread2
-                            const otherName = user?.id === conv.participant1Id ? conv.participant2Name : conv.participant1Name
+                            const isGroupConv = !!(conv as any).isGroup
+                            const otherName = isGroupConv
+                                ? ((conv as any).groupTitle || 'Trò chuyện nhóm')
+                                : (user?.id === conv.participant1Id ? conv.participant2Name : conv.participant1Name)
+                            const unread = isGroupConv
+                                ? (((conv as any).unreadByUser && typeof (conv as any).unreadByUser === 'object') ? ((conv as any).unreadByUser as any)[user?.id || ''] || 0 : 0)
+                                : (user?.id === conv.participant1Id ? conv.unread1 : conv.unread2)
                             const isActive = selectedId === conv.id
 
                             return (
@@ -570,16 +657,27 @@ function MessagesContent() {
                                     className={`w-full p-4 rounded-xl flex items-center gap-4 hover:bg-slate-50 transition-all group relative border ${isActive ? 'bg-blue-50/60 border-blue-100' : 'bg-transparent border-transparent'}`}
                                 >
                                     <div className="relative flex-shrink-0">
-                                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-sm transition-all duration-300 ${isActive ? 'bg-blue-600' : 'bg-slate-200 text-slate-600 group-hover:bg-slate-300'}`}>
-                                            {otherName.charAt(0).toUpperCase()}
-                                        </div>
-                                        <div className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-emerald-500 border-2 border-white rounded-full`}></div>
+                                        {isGroupConv ? (
+                                            <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-sm bg-gradient-to-br from-emerald-400 to-blue-600`}>
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                                            </div>
+                                        ) : (
+                                            <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-sm transition-all duration-300 ${isActive ? 'bg-blue-600' : 'bg-slate-200 text-slate-600 group-hover:bg-slate-300'}`}>
+                                                {otherName.charAt(0).toUpperCase()}
+                                            </div>
+                                        )}
+                                        {!isGroupConv && <div className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-emerald-500 border-2 border-white rounded-full`}></div>}
                                     </div>
                                     <div className="flex-1 text-left min-w-0">
                                         <div className="flex justify-between items-center mb-0.5">
-                                            <h4 className={`text-sm font-bold truncate ${isActive ? 'text-blue-700' : 'text-slate-900'}`}>
-                                                {otherName}
-                                            </h4>
+                                            <div className="flex items-center gap-1.5 min-w-0">
+                                                <h4 className={`text-sm font-bold truncate ${isActive ? 'text-blue-700' : 'text-slate-900'}`}>
+                                                    {otherName}
+                                                </h4>
+                                                {isGroupConv && (
+                                                    <span className="flex-shrink-0 text-[8px] font-black uppercase tracking-wider text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full border border-emerald-100">Nhóm</span>
+                                                )}
+                                            </div>
                                             <span className="text-[10px] font-semibold text-slate-400">
                                                 {conv.lastMessageAt ? new Date(conv.lastMessageAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : ''}
                                             </span>
@@ -646,7 +744,7 @@ function MessagesContent() {
                                                 onClick={handleShowContactInfo}
                                                 className="w-full text-left px-4 py-3 text-xs text-slate-600 hover:bg-slate-50 rounded-lg flex items-center gap-3 font-bold transition-all"
                                             >
-                                                <User size={16} /> Thông tin liên hệ
+                                                <User size={16} /> {conversations.find(c => c.id === selectedId)?.isGroup ? 'Thông tin nhóm' : 'Thông tin liên hệ'}
                                             </button>
                                             <div className="h-px bg-slate-100 my-1 mx-2" />
                                             <button 
@@ -685,7 +783,7 @@ function MessagesContent() {
                                     replyTo: msg.replyTo
                                 } as ChatMessage))}
                                 themeColor="blue"
-                                showSenderNames={false}
+                                showSenderNames={!!(selectedConv as any)?.isGroup}
                                 onImageClick={(url) => setZoomedImage(url)}
                                 onFileClick={handleFileDownload}
                                 onReply={(msg) => setReplyingTo(msg)}
@@ -827,60 +925,291 @@ function MessagesContent() {
             {/* Contact Info Modal */}
             {showContactModal && (
                 <div className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
-                    <div className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl animate-in zoom-in-95 duration-200 relative overflow-hidden">
+                    <div className="bg-white rounded-3xl p-8 max-w-lg w-full shadow-2xl animate-in zoom-in-95 duration-200 relative overflow-hidden flex flex-col max-h-[85vh]">
                         <button 
                             onClick={() => setShowContactModal(false)}
-                            className="absolute top-6 right-6 p-2 text-slate-400 hover:text-slate-900 transition-colors"
+                            className="absolute top-6 right-6 p-2 text-slate-400 hover:text-slate-900 transition-colors z-10"
                         >
                             <X size={20} />
                         </button>
                         
-                        <div className="flex flex-col items-center mb-8">
-                            <div className="w-20 h-20 bg-blue-600 text-white rounded-2xl flex items-center justify-center text-3xl font-bold mb-4 shadow-xl shadow-blue-100">
-                                {partnerInfo?.name?.charAt(0).toUpperCase() || '?'}
-                            </div>
-                            <h3 className="text-xl font-bold text-slate-900">{partnerInfo?.name || 'Đang tải...'}</h3>
-                            <p className="text-xs font-bold text-blue-600 uppercase tracking-widest mt-1">
-                                {partnerInfo?.role === 'CUSTOMER' ? 'Khách hàng' : 'Nhà thầu/Đối tác'}
-                            </p>
-                        </div>
+                        {isGroupContact ? (
+                            (() => {
+                                const sharedMedia = messages
+                                    .filter(m => m.fileUrl && (m.fileType?.startsWith('image/') || m.fileType?.startsWith('video/')))
+                                    .map(m => ({
+                                        id: m.id,
+                                        url: m.fileUrl!,
+                                        type: m.fileType || 'image/jpeg',
+                                        name: m.fileName || 'Ảnh/Video',
+                                        date: m.createdAt
+                                    }))
+                                    .reverse()
 
-                        {fetchingContact ? (
-                            <div className="py-12 flex flex-col items-center gap-4">
-                                <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
-                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Đang truy xuất thông tin...</span>
-                            </div>
+                                const sharedFiles = messages
+                                    .filter(m => m.fileUrl && !m.fileType?.startsWith('image/') && !m.fileType?.startsWith('video/'))
+                                    .map(m => ({
+                                        id: m.id,
+                                        url: m.fileUrl!,
+                                        name: m.fileName || 'Tài liệu',
+                                        isLink: false,
+                                        date: m.createdAt
+                                    }))
+
+                                const sharedLinks: any[] = []
+                                messages.forEach(m => {
+                                    if (m.content && !m.fileUrl && (m.content.includes('http://') || m.content.includes('https://'))) {
+                                        const urlRegex = /(https?:\/\/[^\s]+)/g
+                                        const urls = m.content.match(urlRegex)
+                                        if (urls) {
+                                            urls.forEach((url: string) => {
+                                                sharedLinks.push({
+                                                    id: m.id + '-' + url,
+                                                    url: url,
+                                                    name: url,
+                                                    isLink: true,
+                                                    date: m.createdAt
+                                                })
+                                            })
+                                        }
+                                    }
+                                })
+
+                                const allFilesAndLinks = [...sharedFiles, ...sharedLinks].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+
+                                return (
+                                    <>
+                                        <div className="flex flex-col items-center mb-4">
+                                            <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-indigo-600 text-white rounded-2xl flex items-center justify-center text-2xl font-bold mb-3 shadow-xl">
+                                                {conversations.find(c => c.id === selectedId)?.groupTitle?.charAt(0).toUpperCase() || 'G'}
+                                            </div>
+                                            <h3 className="text-lg font-bold text-slate-900 truncate max-w-full">
+                                                {conversations.find(c => c.id === selectedId)?.groupTitle || 'Trò chuyện nhóm'}
+                                            </h3>
+                                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mt-1">
+                                                {groupMembers.length} thành viên
+                                            </p>
+                                        </div>
+
+                                        {/* Modal Tabs */}
+                                        <div className="flex border-b border-gray-100 mb-4">
+                                            <button
+                                                onClick={() => setActiveModalTab('members')}
+                                                className={`flex-1 py-3 text-xs font-bold transition-all border-b-2 ${
+                                                    activeModalTab === 'members'
+                                                        ? 'border-blue-600 text-blue-600 bg-blue-50/10'
+                                                        : 'border-transparent text-gray-500 hover:text-gray-900'
+                                                }`}
+                                            >
+                                                Thành viên
+                                            </button>
+                                            <button
+                                                onClick={() => setActiveModalTab('media')}
+                                                className={`flex-1 py-3 text-xs font-bold transition-all border-b-2 ${
+                                                    activeModalTab === 'media'
+                                                        ? 'border-blue-600 text-blue-600 bg-blue-50/10'
+                                                        : 'border-transparent text-gray-500 hover:text-gray-900'
+                                                }`}
+                                            >
+                                                Kho lưu trữ
+                                            </button>
+                                        </div>
+
+                                        {/* Modal Tab Contents */}
+                                        <div className="flex-1 overflow-y-auto custom-scrollbar pr-1">
+                                            {activeModalTab === 'members' ? (
+                                                <div className="space-y-3">
+                                                    {fetchingContact ? (
+                                                        <div className="py-12 flex flex-col items-center gap-4">
+                                                            <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+                                                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Đang tải thành viên...</span>
+                                                        </div>
+                                                    ) : (
+                                                        groupMembers.map((member) => {
+                                                            const roleLabels: Record<string, string> = {
+                                                                'MANAGER': 'Quản trị viên',
+                                                                'ADMIN': 'Quản trị viên',
+                                                                'EMPLOYEE': 'Nhân viên',
+                                                                'CONTRACTOR': 'Nhà thầu',
+                                                                'CUSTOMER': 'Khách hàng',
+                                                                'SUPPLIER': 'Nhà cung cấp',
+                                                                'GUEST': 'Khách vãng lai',
+                                                            }
+                                                            const isMe = member.id === user?.id
+                                                            return (
+                                                                <div key={member.id} className="p-3 bg-slate-50 rounded-2xl border border-slate-100 flex items-center gap-3">
+                                                                    <div className="w-9 h-9 bg-blue-100 text-blue-700 rounded-xl flex items-center justify-center font-bold text-sm">
+                                                                        {member.name?.charAt(0).toUpperCase()}
+                                                                    </div>
+                                                                    <div className="flex-1 min-w-0">
+                                                                        <h4 className="font-bold text-slate-900 text-sm truncate flex items-center gap-1.5">
+                                                                            {member.name}
+                                                                            {isMe && <span className="text-[9px] text-gray-400 font-medium">(Bạn)</span>}
+                                                                        </h4>
+                                                                        <p className="text-[10px] font-semibold text-blue-600">{roleLabels[member.role || ''] || 'Thành viên'}</p>
+                                                                        {(member.phone && member.phone !== 'Chưa cập nhật') && (
+                                                                            <p className="text-[10px] text-slate-500 mt-0.5">SĐT: {member.phone}</p>
+                                                                        )}
+                                                                    </div>
+                                                                    {!isMe && (
+                                                                        <button
+                                                                            onClick={() => {
+                                                                                handleStartDirectChat(member.id, member.name)
+                                                                                setShowContactModal(false)
+                                                                            }}
+                                                                            className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-xl text-[10px] font-bold transition"
+                                                                        >
+                                                                            Chat riêng
+                                                                        </button>
+                                                                    )}
+                                                                </div>
+                                                            )
+                                                        })
+                                                    )}
+                                                </div>
+                                            ) : (
+                                                <div className="flex flex-col space-y-4">
+                                                    {/* Sub-tabs */}
+                                                    <div className="flex bg-slate-100 p-0.5 rounded-xl border border-slate-200 text-xs font-semibold">
+                                                        <button
+                                                            onClick={() => setMediaSubTab('media')}
+                                                            className={`flex-1 py-1.5 rounded-lg transition ${
+                                                                mediaSubTab === 'media'
+                                                                    ? 'bg-white text-slate-900 shadow-sm'
+                                                                    : 'text-slate-500 hover:text-slate-800'
+                                                            }`}
+                                                        >
+                                                            Ảnh & Video
+                                                        </button>
+                                                        <button
+                                                            onClick={() => setMediaSubTab('files')}
+                                                            className={`flex-1 py-1.5 rounded-lg transition ${
+                                                                mediaSubTab === 'files'
+                                                                    ? 'bg-white text-slate-900 shadow-sm'
+                                                                    : 'text-slate-500 hover:text-slate-800'
+                                                            }`}
+                                                        >
+                                                            Tệp & Link
+                                                        </button>
+                                                    </div>
+
+                                                    {/* Media / Files Content */}
+                                                    <div>
+                                                        {mediaSubTab === 'media' ? (
+                                                            sharedMedia.length === 0 ? (
+                                                                <div className="text-center py-12 text-slate-400 text-xs flex flex-col items-center gap-2">
+                                                                    <ImageIcon className="w-8 h-8 opacity-30" />
+                                                                    <span>Không có ảnh hoặc video</span>
+                                                                </div>
+                                                            ) : (
+                                                                <div className="grid grid-cols-4 gap-2">
+                                                                    {sharedMedia.map((media) => (
+                                                                        <a
+                                                                            key={media.id}
+                                                                            href={media.url}
+                                                                            target="_blank"
+                                                                            rel="noopener noreferrer"
+                                                                            className="aspect-square bg-slate-100 rounded-xl overflow-hidden relative border border-slate-100 hover:opacity-90 transition group"
+                                                                            title={media.name}
+                                                                        >
+                                                                            {media.type.startsWith('video/') ? (
+                                                                                <video src={media.url} className="w-full h-full object-cover pointer-events-none" />
+                                                                            ) : (
+                                                                                <img src={media.url} alt={media.name} className="w-full h-full object-cover" />
+                                                                            )}
+                                                                        </a>
+                                                                    ))}
+                                                                </div>
+                                                            )
+                                                        ) : (
+                                                            allFilesAndLinks.length === 0 ? (
+                                                                <div className="text-center py-12 text-slate-400 text-xs flex flex-col items-center gap-2">
+                                                                    <FileText className="w-8 h-8 opacity-30" />
+                                                                    <span>Không có tệp hoặc liên kết</span>
+                                                                </div>
+                                                            ) : (
+                                                                <div className="space-y-2">
+                                                                    {allFilesAndLinks.map((file) => (
+                                                                        <a
+                                                                            key={file.id}
+                                                                            href={file.url}
+                                                                            target="_blank"
+                                                                            rel="noopener noreferrer"
+                                                                            className="p-3 bg-slate-50 border border-slate-100 rounded-2xl flex items-center gap-3 hover:bg-slate-100 transition min-w-0"
+                                                                        >
+                                                                            {file.isLink ? (
+                                                                                <Link2 className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                                                                            ) : (
+                                                                                <FileText className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                                                                            )}
+                                                                            <div className="min-w-0 flex-1">
+                                                                                <p className="text-xs text-slate-800 font-bold truncate">{file.name}</p>
+                                                                                <p className="text-[9px] text-slate-400 font-semibold uppercase mt-0.5">
+                                                                                    {file.isLink ? 'Liên kết' : 'Tài liệu'} • {new Date(file.date).toLocaleDateString('vi-VN')}
+                                                                                </p>
+                                                                            </div>
+                                                                        </a>
+                                                                    ))}
+                                                                </div>
+                                                            )
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </>
+                                )
+                            })()
                         ) : (
-                            <div className="space-y-4">
-                                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2">
-                                        <Phone size={12} className="text-blue-500" /> Số điện thoại
+                            <>
+                                <div className="flex flex-col items-center mb-8">
+                                    <div className="w-20 h-20 bg-blue-600 text-white rounded-2xl flex items-center justify-center text-3xl font-bold mb-4 shadow-xl shadow-blue-100">
+                                        {partnerInfo?.name?.charAt(0).toUpperCase() || '?'}
                                     </div>
-                                    <p className="text-slate-900 font-bold">{partnerInfo?.phone || 'Chưa cập nhật'}</p>
-                                </div>
-                                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2">
-                                        <Info size={12} className="text-blue-500" /> Email liên hệ
-                                    </div>
-                                    <p className="text-slate-900 font-bold">{partnerInfo?.email || 'Chưa cập nhật'}</p>
-                                </div>
-                                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2">
-                                        <Activity size={12} className="text-blue-500" /> Ngày tham gia
-                                    </div>
-                                    <p className="text-slate-900 font-bold">
-                                        {partnerInfo?.createdAt ? new Date(partnerInfo.createdAt).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '---'}
+                                    <h3 className="text-xl font-bold text-slate-900">{partnerInfo?.name || 'Đang tải...'}</h3>
+                                    <p className="text-xs font-bold text-blue-600 uppercase tracking-widest mt-1">
+                                        {partnerInfo?.role === 'CUSTOMER' ? 'Khách hàng' : 'Nhà thầu/Đối tác'}
                                     </p>
                                 </div>
-                            </div>
+
+                                {fetchingContact ? (
+                                    <div className="py-12 flex flex-col items-center gap-4">
+                                        <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Đang truy xuất thông tin...</span>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-4">
+                                        <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                                            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2">
+                                                <Phone size={12} className="text-blue-500" /> Số điện thoại
+                                            </div>
+                                            <p className="text-slate-900 font-bold">{partnerInfo?.phone || 'Chưa cập nhật'}</p>
+                                        </div>
+                                        <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                                            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2">
+                                                <Info size={12} className="text-blue-500" /> Email liên hệ
+                                            </div>
+                                            <p className="text-slate-900 font-bold">{partnerInfo?.email || 'Chưa cập nhật'}</p>
+                                        </div>
+                                        <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                                            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2">
+                                                <Activity size={12} className="text-blue-500" /> Ngày tham gia
+                                            </div>
+                                            <p className="text-slate-900 font-bold">
+                                                {partnerInfo?.createdAt ? new Date(partnerInfo.createdAt).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '---'}
+                                            </p>
+                                        </div>
+                                    </div>
+                                )}
+                            </>
                         )}
 
-                        <div className="mt-8">
+                        <div className="mt-6 flex-shrink-0">
                             <button 
                                 onClick={() => setShowContactModal(false)}
-                                className="w-full py-4 bg-blue-500 text-white rounded-xl font-bold hover:bg-blue-600 transition-all active:scale-[0.98] shadow-lg shadow-blue-100"
+                                className="w-full py-4 bg-slate-100 text-slate-700 hover:bg-slate-200 rounded-xl font-bold transition-all active:scale-[0.98]"
                             >
-                                Đóng cửa sổ
+                                Đóng
                             </button>
                         </div>
                     </div>

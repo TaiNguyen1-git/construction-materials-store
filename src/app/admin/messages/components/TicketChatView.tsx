@@ -26,6 +26,9 @@ interface TicketChatViewProps {
     statusConfig: Record<string, StatusConfig>
     categoryLabels: Record<string, string>
     ticketFileInputRef: any
+    user: any
+    updateTicketAssignment: (id: string, assignedTo: string | null) => void
+    employees: any[]
 }
 
 export default function TicketChatView({
@@ -48,7 +51,10 @@ export default function TicketChatView({
     mapTicketsToChatMessages,
     statusConfig,
     categoryLabels,
-    ticketFileInputRef
+    ticketFileInputRef,
+    user,
+    updateTicketAssignment,
+    employees
 }: TicketChatViewProps) {
     const router = useRouter()
 
@@ -89,10 +95,26 @@ export default function TicketChatView({
                         )}
                         <select value={selectedTicket.status}
                             onChange={e => updateTicketStatus(selectedTicket.id, e.target.value)}
-                            className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold">
+                            className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold mr-2">
                             {Object.entries(statusConfig).map(([key, val]) => (
                                 <option key={key} value={key}>{val.label}</option>
                             ))}
+                        </select>
+                        <select 
+                            value={selectedTicket.assignedTo || ''}
+                            onChange={e => updateTicketAssignment(selectedTicket.id, e.target.value || null)}
+                            className="px-3 py-1.5 bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-lg text-xs font-bold focus:outline-none">
+                            <option value="">👤 Chưa phân công</option>
+                            <option value={user?.id || user?.userId}>👤 Giao cho tôi</option>
+                            {employees.map(emp => {
+                                const empUserId = emp.id
+                                if (!empUserId || empUserId === user?.id || empUserId === user?.userId) return null
+                                return (
+                                    <option key={emp.id} value={empUserId}>
+                                        👤 {emp.name || emp.email || 'Nhân viên'} ({emp.role === 'MANAGER' ? 'Quản trị' : 'Nhân viên'})
+                                    </option>
+                                )
+                            })}
                         </select>
                     </div>
                 </div>
@@ -100,6 +122,16 @@ export default function TicketChatView({
                     <div className="flex items-center gap-1">
                         <User className="w-3 h-3" />
                         {selectedTicket.guestName || 'Khách hàng đăng ký'}
+                    </div>
+                    <div className="flex items-center gap-1 bg-slate-100 px-2 py-0.5 rounded-md text-[10px] font-bold">
+                        <span className={`w-1.5 h-1.5 rounded-full ${selectedTicket.assignedTo === user?.id ? 'bg-green-500' : selectedTicket.assignedTo ? 'bg-amber-500' : 'bg-slate-400'}`}></span>
+                        <span>
+                            {selectedTicket.assignedTo === user?.id 
+                                ? 'CỦA BẠN' 
+                                : selectedTicket.assignedTo 
+                                    ? `PHÂN CHO: ${(employees.find(emp => emp.id === selectedTicket.assignedTo)?.name || 'QUẢN TRỊ').toUpperCase()}` 
+                                    : 'CHƯA PHÂN CÔNG'}
+                        </span>
                     </div>
                     {selectedTicket.guestPhone && (
                         <div className="flex items-center gap-1">
